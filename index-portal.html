@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Empire World — Dashboards</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #0f5a9e 0%, #8d015d 100%); color: #fff; min-height: 100vh; }
+        .wrap { max-width: 1200px; margin: 0 auto; padding: 40px 20px 60px; }
+        header { text-align: center; margin-bottom: 40px; }
+        header h1 { font-size: 36px; margin-bottom: 8px; }
+        header p { color: #d9c2d9; font-size: 15px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 22px; }
+        .tile { background: rgba(13,50,100,0.75); border: 2px solid #a0327d; border-radius: 16px; padding: 26px; box-shadow: 0 6px 20px rgba(0,0,0,0.3); transition: transform 0.18s, box-shadow 0.18s; display: flex; flex-direction: column; min-height: 190px; text-decoration: none; color: #fff; }
+        .tile.active { cursor: pointer; }
+        .tile.active:hover { transform: translateY(-5px); box-shadow: 0 12px 28px rgba(0,0,0,0.45); border-color: #d34da0; }
+        .tile.soon { opacity: 0.62; cursor: pointer; }
+        .tile.soon:hover { opacity: 0.78; }
+        .tile .icon { font-size: 40px; margin-bottom: 14px; }
+        .tile h2 { font-size: 20px; margin-bottom: 8px; }
+        .tile p { font-size: 13px; color: #cdd8e6; flex: 1; }
+        .badge { display: inline-block; margin-top: 14px; align-self: flex-start; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; padding: 5px 11px; border-radius: 20px; text-transform: uppercase; }
+        .badge.open { background: #27ae60; color: #fff; }
+        .badge.wait { background: #5b3b6e; color: #e6c8e6; border: 1px solid #a0327d; }
+        footer { text-align: center; margin-top: 45px; color: #cbb6cb; font-size: 13px; }
+        footer strong { color: #fff; }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <header>
+            <h1>🏢 Empire World</h1>
+            <p>Choose a department to open its dashboard</p>
+        </header>
+        <div class="grid" id="grid"></div>
+        <footer>Prepared by <strong>Marwan Dizayee</strong></footer>
+    </div>
+
+    <script>
+        // Edit this list to rename categories or activate a new one (set active:true and a link).
+        const categories = [
+            { icon:'🧹', name:'Cleaning Department', desc:'Daily reports, task checklists & monthly report.', link:'cleaning.html', active:true },
+            { icon:'🛠️', name:'Maintenance', desc:'Coming soon — tell us what this dashboard should track.', active:false },
+            { icon:'🛡️', name:'Security', desc:'Coming soon — tell us what this dashboard should track.', active:false },
+            { icon:'🌿', name:'Landscaping', desc:'Coming soon — tell us what this dashboard should track.', active:false },
+            { icon:'⚡', name:'Electrical', desc:'Coming soon — tell us what this dashboard should track.', active:false },
+            { icon:'🚰', name:'Plumbing', desc:'Coming soon — tell us what this dashboard should track.', active:false },
+            { icon:'📦', name:'Stores / Inventory', desc:'Coming soon — tell us what this dashboard should track.', active:false },
+            { icon:'👥', name:'HR / Staff', desc:'Coming soon — tell us what this dashboard should track.', active:false }
+        ];
+
+        function render(){
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+            categories.forEach(c => {
+                let el;
+                if (c.active && c.link) {
+                    el = document.createElement('a');
+                    el.href = c.link;
+                    el.className = 'tile active';
+                } else {
+                    el = document.createElement('div');
+                    el.className = 'tile soon';
+                    el.addEventListener('click', () => alert(c.name + ' is coming soon.'));
+                }
+                el.innerHTML = '<div class="icon">' + c.icon + '</div>' +
+                    '<h2>' + c.name + '</h2>' +
+                    '<p>' + c.desc + '</p>' +
+                    '<span class="badge ' + (c.active ? 'open' : 'wait') + '">' + (c.active ? 'Open' : 'Coming Soon') + '</span>';
+                grid.appendChild(el);
+            });
+        }
+        render();
+    </script>
+</body>
+</html>
