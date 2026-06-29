@@ -340,11 +340,13 @@ function saveJob(){
 
 // ---- Load & render jobs ----
 function loadJobs(){
+  document.getElementById('jobsTable').innerHTML='<p style="color:#aaa;">⏳ Loading…</p>';
   fetch(GS,{method:'POST',body:JSON.stringify({action:'getElectricalJobs',token:tok()})})
     .then(r=>r.json()).then(d=>{
       if(Array.isArray(d)){ allJobs=d; renderJobs(); renderAnalytics(); renderReportPreview(); }
       else if(d&&d.error==='unauthorized'){ logout(); }
-    }).catch(e=>{ document.getElementById('jobsTable').innerHTML='<p>Error: '+e.message+'</p>'; });
+      else { document.getElementById('jobsTable').innerHTML='<p style="color:#ffb3b3;">⚠️ Could not load jobs — make sure the Apps Script is updated and redeployed, then refresh.</p>'; }
+    }).catch(e=>{ document.getElementById('jobsTable').innerHTML='<p style="color:#ffb3b3;">❌ Error: '+e.message+'</p>'; });
 }
 
 function monthOf(r){ var d=String(r.date||''); if(/^\d{4}-\d{2}/.test(d)) return d.slice(0,7); return ''; }
@@ -533,7 +535,7 @@ function renderAnalytics(){
 }
 
 // ---- Tabs ----
-function switchTab(e,t){ document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); e.target.classList.add('active'); if(t==='analytics')renderAnalytics(); if(t==='report')renderReportPreview(); }
+function switchTab(e,t){ document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); e.target.classList.add('active'); if(t==='list')renderJobs(); if(t==='analytics')renderAnalytics(); if(t==='report')renderReportPreview(); }
 function switchTabTo(t){ document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); document.querySelectorAll('.tab-btn').forEach(b=>{ if(b.getAttribute('onclick')&&b.getAttribute('onclick').indexOf("'"+t+"'")!==-1)b.classList.add('active'); }); }
 
 function bigImg(src){ document.getElementById('imgBig').src=src; document.getElementById('imgModal').classList.add('show'); }
