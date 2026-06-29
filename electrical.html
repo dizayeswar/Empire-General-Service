@@ -174,13 +174,7 @@ footer { text-align:center; margin-top:30px; color:#cbb6cb; font-size:12px; }
           <div class="form-group"><label>Date</label><input type="date" id="cc-date"></div>
           <div class="form-group">
             <label>Shift Time</label>
-            <select id="cc-shift">
-              <option value="Call Center (00:00)-To-(08:00)">00:00 – 08:00</option>
-              <option value="Call Center (08:00)-To-(16:00)">08:00 – 16:00</option>
-              <option value="Call Center (16:00)-To-(00:00)">16:00 – 00:00</option>
-              <option value="Call Center (13:00)-To-(21:00)">13:00 – 21:00</option>
-              <option value="Call Center (21:00)-To-(08:00)">21:00 – 08:00</option>
-            </select>
+            <input type="text" id="cc-shift" placeholder="e.g. 08:00 – 16:00">
           </div>
           <div class="form-group"><label>Staff on Duty</label><input type="text" id="cc-staff" placeholder="e.g. Soran, Muhammad, Chya"></div>
         </div>
@@ -325,7 +319,7 @@ function saveJob(){
   if(currentFormType==='callcenter'){
     rec={ action: editId?'updateElectricalJob':'addElectricalJob', id:editId||undefined,
       date:document.getElementById('cc-date').value||new Date().toISOString().split('T')[0],
-      job:document.getElementById('cc-shift').value,
+      job:'Call Center ('+document.getElementById('cc-shift').value+')',
       location:'Empire project', materials:'0',
       staff:document.getElementById('cc-staff').value,
       type:'callcenter', photo:'', notes:'', token:tok() };
@@ -404,7 +398,7 @@ function editJob(id){
   if(r.type==='callcenter'){
     setFormType('callcenter');
     document.getElementById('cc-date').value=r.date;
-    document.getElementById('cc-shift').value=r.job;
+    document.getElementById('cc-shift').value=r.job.replace(/^Call Center \(/,'').replace(/\)$/,'');
     document.getElementById('cc-staff').value=r.staff;
   } else {
     setFormType('maintenance');
