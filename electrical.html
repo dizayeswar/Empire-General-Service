@@ -349,7 +349,14 @@ function loadJobs(){
     }).catch(e=>{ document.getElementById('jobsTable').innerHTML='<p style="color:#ffb3b3;">❌ Error: '+e.message+'</p>'; });
 }
 
-function monthOf(r){ var d=String(r.date||''); if(/^\d{4}-\d{2}/.test(d)) return d.slice(0,7); return ''; }
+function monthOf(r){
+  var d=String(r.date||'');
+  if(!/^\d{4}-\d{2}-\d{2}/.test(d)) return '';
+  var yr=parseInt(d.slice(0,4)), mo=parseInt(d.slice(5,7)), dy=parseInt(d.slice(8,10));
+  // Reporting cycle: 26th onwards belongs to the NEXT month's report
+  if(dy>=26){ mo+=1; if(mo>12){mo=1;yr+=1;} }
+  return yr+'-'+String(mo).padStart(2,'0');
+}
 
 function renderJobs(){
   var fm=document.getElementById('f-month').value||'';
