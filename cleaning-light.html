@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cleaning Department — Empire World</title>
+    <style>
+        :root{
+          --bg:#f4f6fb; --text:#232a3d; --text-soft:#5b6478; --text-faint:#8a90a0;
+          --card:#ffffff; --card-border:#e2e0f0; --header-accent:#185fa5; --accent2:#534ab7;
+          --tile-hover-border:#7f77dd; --wait-bg:#efeefb; --wait-text:#534ab7; --wait-border:#cfc9ea;
+          --btn-bg:#ffffff; --btn-text:#185fa5; --btn-border:#afa9ec; --shadow:rgba(80,70,150,0.12);
+          --panel:#ffffff; --back-bg:#ffffff;
+        }
+        html[data-theme="dark"]{
+          --bg:linear-gradient(135deg,#0f5a9e 0%,#8d015d 100%); --text:#ffffff; --text-soft:#d9c2d9; --text-faint:#cbb6cb;
+          --card:rgba(13,50,100,0.75); --card-border:#a0327d; --header-accent:#ffffff; --accent2:#a0327d;
+          --tile-hover-border:#d34da0; --wait-bg:#5b3b6e; --wait-text:#e6c8e6; --wait-border:#a0327d;
+          --btn-bg:#0d4a85; --btn-text:#ffffff; --btn-border:#a0327d; --shadow:rgba(0,0,0,0.3);
+          --panel:#0d3a6e; --back-bg:transparent;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+        .topbar { display:flex; justify-content:space-between; align-items:center; padding:16px 24px 0; }
+        .theme-btn { background:var(--btn-bg); color:var(--btn-text); border:2px solid var(--btn-border); padding:8px 12px; border-radius:6px; cursor:pointer; font-size:15px; line-height:1; }
+        .wrap { max-width: 1100px; margin: 0 auto; padding: 10px 20px 60px; }
+        .back { display: inline-block; margin-bottom: 24px; color: var(--header-accent); text-decoration: none; font-size: 14px; font-weight: 600; padding: 8px 14px; border: 1px solid var(--btn-border); border-radius: 20px; transition: all 0.18s; background:var(--back-bg); }
+        .back:hover { background: var(--accent2); color: #fff; border-color: var(--accent2); }
+        header { text-align: center; margin-bottom: 40px; }
+        header h1 { font-size: 34px; margin-bottom: 8px; color:var(--header-accent); }
+        header p { color: var(--text-soft); font-size: 15px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 22px; }
+        .tile { background: var(--card); border: 2px solid var(--card-border); border-radius: 16px; padding: 26px; box-shadow: 0 6px 20px var(--shadow); transition: transform 0.18s, box-shadow 0.18s; display: flex; flex-direction: column; min-height: 190px; text-decoration: none; color: var(--text); }
+        .tile.active { cursor: pointer; }
+        .tile.active:hover { transform: translateY(-5px); box-shadow: 0 12px 28px var(--shadow); border-color: var(--tile-hover-border); }
+        .tile.soon { opacity: 0.62; cursor: pointer; }
+        .tile.soon:hover { opacity: 0.85; }
+        .tile .icon { font-size: 40px; margin-bottom: 14px; }
+        .tile h2 { font-size: 20px; margin-bottom: 8px; color:var(--text); }
+        .tile p { font-size: 13px; color: var(--text-soft); flex: 1; }
+        .badge { display: inline-block; margin-top: 14px; align-self: flex-start; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; padding: 5px 11px; border-radius: 20px; text-transform: uppercase; }
+        .badge.open { background: #27ae60; color: #fff; }
+        .badge.wait { background: var(--wait-bg); color: var(--wait-text); border: 1px solid var(--wait-border); }
+        footer { text-align: center; margin-top: 45px; color: var(--text-faint); font-size: 13px; }
+        footer strong { color: var(--text); }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+      <img src="logo.png" alt="Empire World" style="height:48px;width:auto;">
+      <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode">&#127769;</button>
+    </div>
+    <div class="wrap">
+        <a class="back" href="index.html">&larr; Back to Empire World</a>
+        <header>
+            <h1>Cleaning Department</h1>
+            <p>Choose a section to open</p>
+        </header>
+        <div class="grid" id="grid"></div>
+        <footer>Prepared by <strong>Swar Dizayee</strong></footer>
+    </div>
+    <script>
+        function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); try{ localStorage.setItem('empire_theme', t); }catch(e){} document.querySelectorAll('.theme-btn').forEach(function(b){ b.textContent = (t==='dark'?'☀️':'🌙'); }); }
+        function toggleTheme(){ var cur=document.documentElement.getAttribute('data-theme')||'light'; applyTheme(cur==='dark'?'light':'dark'); }
+        (function(){ var saved='light'; try{ saved=localStorage.getItem('empire_theme')||'light'; }catch(e){} applyTheme(saved); })();
+        (function(){
+          function ov(){ var o=document.getElementById('uiDlg'); if(!o){ o=document.createElement('div'); o.id='uiDlg'; o.style.cssText='display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:4000;align-items:center;justify-content:center;'; o.innerHTML='<div style="background:var(--panel);border:2px solid var(--card-border);border-radius:14px;max-width:430px;width:92%;padding:24px;box-shadow:0 10px 40px var(--shadow);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;"><div id="uiDlgMsg" style="font-size:15px;line-height:1.5;margin-bottom:18px;white-space:pre-wrap;"></div><div id="uiDlgBtns" style="display:flex;gap:10px;justify-content:flex-end;"></div></div>'; document.body.appendChild(o); } return o; }
+          function mkbtn(t,bg){ var b=document.createElement('button'); b.textContent=t; b.style.cssText='background:'+bg+';color:#fff;border:2px solid '+bg+';padding:10px 18px;border-radius:6px;font-weight:600;font-size:14px;cursor:pointer;'; return b; }
+          window.uiAlert=function(msg){ return new Promise(function(res){ var o=ov(); document.getElementById('uiDlgMsg').textContent=String(msg); var bw=document.getElementById('uiDlgBtns'); bw.innerHTML=''; var ok=mkbtn('OK','#534ab7'); ok.onclick=function(){ o.style.display='none'; res(); }; bw.appendChild(ok); o.style.display='flex'; setTimeout(function(){ok.focus();},30); }); };
+          window.uiConfirm=function(msg){ return new Promise(function(res){ var o=ov(); document.getElementById('uiDlgMsg').textContent=String(msg); var bw=document.getElementById('uiDlgBtns'); bw.innerHTML=''; var c=mkbtn('Cancel','#888'); c.onclick=function(){ o.style.display='none'; res(false); }; var ok=mkbtn('OK','#C5504F'); ok.onclick=function(){ o.style.display='none'; res(true); }; bw.appendChild(c); bw.appendChild(ok); o.style.display='flex'; setTimeout(function(){ok.focus();},30); }); };
+          window.alert=function(m){ window.uiAlert(m); };
+        })();
+        const sections = [
+            { icon:'🧹', name:'Cleaning', desc:'Daily reports, task checklists & monthly report.', link:'cleaning-dashboard.html', active:true },
+            { icon:'🧱', name:'Civil Issue', desc:'Building issues found during cleaning rounds — log photos & track repairs.', link:'civil-issue.html', active:true },
+            { icon:'⚡', name:'Electric Issue', desc:'Electrical problems found in buildings — log photos & track repairs.', link:'electric-issue.html', active:true },
+            { icon:'🧯', name:'Fire Fighting & Mechanical', desc:'Fire safety systems & mechanical equipment — inspections and maintenance.', link:'fire-issue.html', active:true }
+        ];
+        function render(){
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+            sections.forEach(c => {
+                let el;
+                if (c.active && c.link) {
+                    el = document.createElement('a');
+                    el.href = c.link;
+                    el.className = 'tile active';
+                } else {
+                    el = document.createElement('div');
+                    el.className = 'tile soon';
+                    el.addEventListener('click', () => alert(c.name + ' is coming soon.'));
+                }
+                el.innerHTML = '<div class="icon">' + c.icon + '</div>' +
+                    '<h2>' + c.name + '</h2>' +
+                    '<p>' + c.desc + '</p>' +
+                    '<span class="badge ' + (c.active ? 'open' : 'wait') + '">' + (c.active ? 'Open' : 'Coming Soon') + '</span>';
+                grid.appendChild(el);
+            });
+        }
+        render();
+    </script>
+</body>
+</html>
