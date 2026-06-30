@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://script.google.com">
+<link rel="preconnect" href="https://api.imgbb.com">
 <title>Civil Department — Empire World</title>
 <style>
 :root{
@@ -261,7 +263,7 @@ function handleLogin(e){
 }
 function logout(){ uiConfirm('Log out?').then(function(ok){ if(!ok)return; localStorage.removeItem('civdept_loggedIn'); localStorage.removeItem('civdept_user'); localStorage.removeItem('civdept_token'); localStorage.removeItem('civdept_perms'); localStorage.removeItem('civdept_role'); location.reload(); }); }
 function enterApp(){ document.getElementById('loginPage').classList.remove('show'); document.getElementById('mainContainer').classList.add('show'); applyPerms(); document.getElementById('j-date').value=new Date().toISOString().split('T')[0]; loadJobs(); }
-window.addEventListener('load',()=>{ localStorage.removeItem('civdept_loggedIn'); document.getElementById('loginPage').classList.add('show'); });
+window.addEventListener('load',()=>{ if(localStorage.getItem('civdept_token')){ enterApp(); } else { localStorage.removeItem('civdept_loggedIn'); document.getElementById('loginPage').classList.add('show'); } });
 function uploadToImgbb(file,cb){ var r=new FileReader(); r.onload=e=>{ var b64=e.target.result.split(',')[1]; var fd=new FormData(); fd.append('image',b64); fd.append('key',IMGBB); fetch('https://api.imgbb.com/1/upload',{method:'POST',body:fd}).then(x=>x.json()).then(d=>{ cb(d.success&&d.data?d.data.url:null); }).catch(()=>cb(null)); }; r.readAsDataURL(file); }
 function compressImage(file,cb){ var r=new FileReader(); r.onload=e=>{ var img=new Image(); img.onload=()=>{ var c=document.createElement('canvas'); c.width=img.width*0.6; c.height=img.height*0.6; c.getContext('2d').drawImage(img,0,0,c.width,c.height); c.toBlob(b=>uploadToImgbb(b,cb),'image/jpeg',0.7); }; img.src=e.target.result; }; r.readAsDataURL(file); }
 function processPhoto(file){ if(!file)return; document.getElementById('j-imageArea').innerHTML='⏳ Uploading…'; uploading=true; compressImage(file,url=>{ uploading=false; if(url){ currentPhoto=url; document.getElementById('j-image').src=url; document.getElementById('j-image').style.display='block'; document.getElementById('j-imageArea').innerHTML='✅ Photo uploaded'; } else { document.getElementById('j-imageArea').innerHTML='❌ Upload failed, try again'; } }); }
@@ -313,7 +315,7 @@ function loadJobs(){
   fetch(GS,{method:'POST',body:JSON.stringify({action:'getCivilJobs',token:tok()})})
     .then(r=>r.json()).then(d=>{
       if(Array.isArray(d)){ allJobs=d; renderJobs(); renderAnalytics(); renderReportPreview(); }
-      else if(d&&d.error==='unauthorized'){ logout(); }
+      else if(d&&d.ok===false){ logout(); }
       else { document.getElementById('jobsTable').innerHTML='<p style="color:var(--c-error);">⚠️ Could not load jobs — make sure the Apps Script is updated and redeployed, then refresh.</p>'; }
     }).catch(e=>{ document.getElementById('jobsTable').innerHTML='<p style="color:var(--c-error);">❌ Error: '+e.message+'</p>'; });
 }
@@ -346,7 +348,7 @@ function renderJobs(){
   rows.forEach(r=>{
     num++;
     var typeBadge='<span class="badge '+(r.type==='refundable'?'refundable':'general')+'">'+(r.type==='refundable'?'Refundable':'General')+'</span>';
-    var photo=r.photo?'<img class="thumb" src="'+r.photo+'" onclick="bigImg(this.src)">':'—';
+    var photo=r.photo?'<img class="thumb" src="'+r.photo+'" onclick="bigImg(this.src)" loading="lazy">':'—';
     var amountCell=r.type==='refundable'&&r.amount?'<span style="color:var(--c-money);font-weight:600;">'+fmtMoney(parseFloat(r.amount))+' IQD</span>':'—';
     var acts='';
     if(P.edit!==false) acts+='<button class="act-btn" onclick="editJob(\''+r.id+'\')">✏️ Edit</button>';
