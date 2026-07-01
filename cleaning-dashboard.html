@@ -115,6 +115,9 @@
         .side-actions { display:flex; flex-direction:column; gap:8px; padding-top:14px; border-top:1px solid var(--card-border); }
         .side-actions button { display:flex; align-items:center; justify-content:flex-start; gap:9px; width:100%; text-align:left; box-sizing:border-box; padding:10px 12px; }
         .side-nav .lbl, .side-actions .lbl, .theme-icon { pointer-events:none; }
+        .nav-icon { display:inline-flex; align-items:center; justify-content:center; vertical-align:middle; pointer-events:none; transition: transform 0.15s ease; }
+        .nav-icon svg { display:block; width:16px; height:16px; }
+        button:hover .nav-icon { transform: translateY(-3px); }
         .side-footer-note { font-size:11px; color:var(--text-faint); text-align:center; margin-top:14px; line-height:1.5; }
         .main-area { flex:1 1 0%; min-width:0; }
         @media (max-width:840px) {
@@ -153,7 +156,7 @@
           </div>
           <p id="whoLabel"></p>
           <nav class="side-nav">
-            <button class="tab-btn active" onclick="switchTab(event, 'all')">📊 <span class="lbl">Dashboard</span></button>
+            <button class="tab-btn active" onclick="switchTab(event, 'all')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg></span> <span class="lbl">Dashboard</span></button>
             <button class="tab-btn" onclick="switchTab(event, 'analytics')">📈 <span class="lbl">Analytics</span></button>
             <button class="tab-btn" onclick="switchTab(event, 'monthly')">📄 <span class="lbl">Monthly Report</span></button>
             <div class="side-nav-label lbl">Projects</div>
