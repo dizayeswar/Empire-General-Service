@@ -42,7 +42,7 @@
         .login-message.error { background: #e74c3c; color: #fff; display: block; }
         .theme-btn { background:var(--btn-bg); color:var(--btn-text); border:2px solid var(--btn-border); padding:8px 12px; border-radius:6px; cursor:pointer; font-size:15px; line-height:1; }
         .login-theme { position:absolute; top:14px; right:14px; padding:6px 10px; }
-        .container { max-width: 1400px; margin: 0 auto; padding: 20px; display: none; }
+        .container { max-width: 100%; margin: 0; padding: 20px; display: none; }
         .container.show { display: block; }
         header { background: var(--header-bg); padding: 20px; border-radius: 0 0 15px 15px; margin-bottom: 30px; box-shadow: 0 2px 10px var(--shadow); border-bottom: 3px solid var(--accent-line); }
         .header-top { display: flex; justify-content: space-between; align-items: center; flex-wrap:wrap; gap:10px; }
@@ -105,10 +105,10 @@
         .sidebar.collapsed .side-nav-label,
         .sidebar.collapsed .side-footer-note { display:none; }
         .side-nav { display:flex; flex-direction:column; gap:5px; margin:14px 0; }
-        .side-nav .tab-btn { display:flex; align-items:center; gap:9px; width:100%; text-align:left; border-radius:8px; padding:10px 12px; }
+        .side-nav .tab-btn { display:flex; align-items:center; justify-content:flex-start; gap:9px; width:100%; text-align:left; border-radius:8px; padding:10px 12px; box-sizing:border-box; }
         .side-nav-label { font-size:10px; text-transform:uppercase; letter-spacing:.5px; color:var(--text-faint); margin:12px 4px 4px; }
         .side-actions { display:flex; flex-direction:column; gap:8px; padding-top:14px; border-top:1px solid var(--card-border); }
-        .side-actions button { display:flex; align-items:center; gap:9px; width:100%; text-align:left; }
+        .side-actions button { display:flex; align-items:center; justify-content:flex-start; gap:9px; width:100%; text-align:left; box-sizing:border-box; padding:10px 12px; }
         .side-nav .lbl, .side-actions .lbl, .theme-icon { pointer-events:none; }
         .side-footer-note { font-size:11px; color:var(--text-faint); text-align:center; margin-top:14px; line-height:1.5; }
         .main-area { flex:1 1 0%; min-width:0; }
