@@ -342,20 +342,23 @@
               if(pphotos.length){
                 const matchRep = preps[0];
                 h+='<h4 style="margin-top:14px;">✅ Task Checklist Photos</h4>';
-                pphotos.forEach(x=>{
-                  const isWeek = x.period && x.period.indexOf('#')!==-1;
-                  const grpLabel = groupLabelFor(x.project, x.freq);
-                  const rightLabel = isWeek ? ('Week '+x.period.split('#')[1]) : (grpLabel||x.freq||'');
-                  h+='<div class="form-section" style="position:relative;display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;">'
-                    +'<button type="button" onclick="removeTaskPhoto(\''+x.id+'\', this)" title="Delete photo" style="position:absolute;top:10px;right:10px;background:#C5504F;color:#fff;border:none;border-radius:50%;width:26px;height:26px;line-height:26px;text-align:center;cursor:pointer;font-size:15px;padding:0;">×</button>'
-                    +'<img src="'+x.image+'" class="report-image" onclick="openModal(this.src)" style="cursor:pointer;margin:0;flex-shrink:0;" loading="lazy">'
-                    +'<div style="flex:1;min-width:160px;">'
-                      +'<h3 style="margin-bottom:8px;">'+x.task+'</h3>'
-                      +'<p><strong>Supervisor:</strong> '+(supervisors[x.project]||'')+'</p>'
-                      +(rightLabel?('<p><strong>'+(isWeek?'Week':'Frequency')+':</strong> '+rightLabel+'</p>'):'')
-                      +'<p><strong>Date:</strong> '+x.date+'</p>'
-                      +(matchRep?('<p><strong>Building:</strong> '+matchRep.building+'</p><p><strong>Floors:</strong> '+normalizeFloors(matchRep.floors).join(', ')+'</p><p><strong>Employees:</strong> '+matchRep.employees+' | <strong>Level:</strong> '+matchRep.level+'</p>'):'')
-                    +'</div>'
+                const taskGroups = {};
+                const taskOrder = [];
+                pphotos.forEach(x=>{ if(!taskGroups[x.task]){ taskGroups[x.task]=[]; taskOrder.push(x.task); } taskGroups[x.task].push(x); });
+                taskOrder.forEach(function(taskName){
+                  const arr=taskGroups[taskName];
+                  const first=arr[0];
+                  const isWeek = first.period && first.period.indexOf('#')!==-1;
+                  const grpLabel = groupLabelFor(first.project, first.freq);
+                  const rightLabel = isWeek ? ('Week '+first.period.split('#')[1]) : (grpLabel||first.freq||'');
+                  const thumbs = arr.map(function(x){ return '<span style="position:relative;display:inline-block;margin:0 8px 8px 0;"><img src="'+x.image+'" onclick="openModal(this.src)" style="height:90px;border-radius:6px;border:1px solid var(--card-border);cursor:pointer;" loading="lazy"><button type="button" onclick="removeTaskPhoto(\''+x.id+'\', this)" title="Delete photo" style="position:absolute;top:-8px;right:-8px;background:#C5504F;color:#fff;border:none;border-radius:50%;width:20px;height:20px;line-height:20px;text-align:center;cursor:pointer;font-size:12px;padding:0;">×</button></span>'; }).join('');
+                  h+='<div class="form-section">'
+                    +'<h3 style="margin-bottom:8px;">'+taskName+' <span style="color:var(--text-faint);font-size:12px;font-weight:normal;">('+arr.length+' 📷)</span></h3>'
+                    +'<div style="display:flex;flex-wrap:wrap;margin-bottom:10px;">'+thumbs+'</div>'
+                    +'<p><strong>Supervisor:</strong> '+(supervisors[first.project]||'')+'</p>'
+                    +(rightLabel?('<p><strong>'+(isWeek?'Week':'Frequency')+':</strong> '+rightLabel+'</p>'):'')
+                    +'<p><strong>Date:</strong> '+first.date+'</p>'
+                    +(matchRep?('<p><strong>Building:</strong> '+matchRep.building+'</p><p><strong>Floors:</strong> '+normalizeFloors(matchRep.floors).join(', ')+'</p><p><strong>Employees:</strong> '+matchRep.employees+' | <strong>Level:</strong> '+matchRep.level+'</p>'):'')
                   +'</div>';
                 });
               }
@@ -490,7 +493,11 @@
           fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'deleteTaskPhoto', id:id, token:localStorage.getItem('authToken')||''})}).then(r=>r.json()).then((d)=>{
             if(d && d.ok===false){ uiAlert('❌ Could not delete: '+(d.message||d.error||'unknown error')); return; }
             const x=taskPhotos.find(z=>z.id===id); taskPhotos=taskPhotos.filter(z=>z.id!==id); if(x) renderTaskProject(x.project); else renderTaskChecklists();
-            if(btn){ const card=btn.closest('.form-section'); if(card) card.remove(); }
+            if(btn){
+              const wrap=btn.closest('span'); const card=btn.closest('.form-section');
+              if(wrap && wrap.tagName==='SPAN'){ wrap.remove(); if(card && card.querySelectorAll('img').length===0) card.remove(); }
+              else if(card){ card.remove(); }
+            }
             refreshDashboardView();
           }).catch(e=>alert('Error: '+e.message)); });
         }
