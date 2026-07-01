@@ -317,7 +317,21 @@
               preps.forEach(r=>{h+='<div class="form-section" style="position:relative;"><button type="button" onclick="removeReport(\''+r.id+'\')" title="Delete report" style="position:absolute;top:10px;right:10px;background:#C5504F;color:#fff;border:none;border-radius:50%;width:26px;height:26px;line-height:26px;text-align:center;cursor:pointer;font-size:15px;padding:0;">×</button><h3>'+r.building+' | Floors: '+normalizeFloors(r.floors).join(', ')+'</h3><p><strong>Supervisor:</strong> '+supervisors[r.project]+'</p><p><strong>Employees:</strong> '+r.employees+' | <strong>Level:</strong> '+r.level+'</p>'; if(r.image)h+='<img src="'+r.image+'" class="report-image" onclick="openModal(this.src)" style="cursor:pointer;" loading="lazy">'; h+='</div>';});
               if(pphotos.length){
                 h+='<h4 style="margin-top:14px;">✅ Task Checklist Photos</h4>';
-                pphotos.forEach(x=>{ h+='<div class="form-section"><h3>'+x.task+'</h3><img src="'+x.image+'" class="report-image" onclick="openModal(this.src)" style="cursor:pointer;" loading="lazy"></div>'; });
+                pphotos.forEach(x=>{
+                  const isWeek = x.period && x.period.indexOf('#')!==-1;
+                  const grpLabel = groupLabelFor(x.project, x.freq);
+                  const rightLabel = isWeek ? ('Week '+x.period.split('#')[1]) : (grpLabel||x.freq||'');
+                  h+='<div class="form-section" style="position:relative;display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;">'
+                    +'<button type="button" onclick="removeTaskPhoto(\''+x.id+'\')" title="Delete photo" style="position:absolute;top:10px;right:10px;background:#C5504F;color:#fff;border:none;border-radius:50%;width:26px;height:26px;line-height:26px;text-align:center;cursor:pointer;font-size:15px;padding:0;">×</button>'
+                    +'<img src="'+x.image+'" class="report-image" onclick="openModal(this.src)" style="cursor:pointer;margin:0;flex-shrink:0;" loading="lazy">'
+                    +'<div style="flex:1;min-width:160px;">'
+                      +'<h3 style="margin-bottom:8px;">'+x.task+'</h3>'
+                      +'<p><strong>Supervisor:</strong> '+(supervisors[x.project]||'')+'</p>'
+                      +(rightLabel?('<p><strong>'+(isWeek?'Week':'Frequency')+':</strong> '+rightLabel+'</p>'):'')
+                      +'<p><strong>Date:</strong> '+x.date+'</p>'
+                    +'</div>'
+                  +'</div>';
+                });
               }
               h+='</div>';
             });
@@ -500,6 +514,7 @@
         }
         function renderTaskChecklists(){ Object.keys(taskMap).forEach(p=>renderTaskProject(p)); }
         function projName(p){ return {ALL:'All Projects',ec:'Empire Complex',es:'Empire Square',wd:'West Diamond',ww:'West Wing',ww2:'(New) West Wing',ra:'Royal Apartment'}[p]||p; }
+        function groupLabelFor(p, freq){ const cfg=taskMap[p]; if(!cfg) return ''; const g=cfg.groups.find(function(gg){ return gg.freq===freq; }); return g?g.label:''; }
         function metricTitle(m){ return {reports:'All Reports',photos:'Photos',buildings:'Buildings',floors:'Floors Cleaned',employees:'Employees'}[m]||'Details'; }
         function attachStatHandlers(rootId){ const root=document.getElementById(rootId||'analyticsContent'); if(!root) return;
           const top=root.querySelector(':scope > .stats');
