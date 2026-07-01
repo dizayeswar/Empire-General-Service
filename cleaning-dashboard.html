@@ -354,14 +354,18 @@
                   const thumbs = arr.map(function(x){ return '<span style="position:relative;display:inline-block;margin:0 8px 8px 0;"><img src="'+x.image+'" onclick="openModal(this.src)" style="height:80px;width:80px;object-fit:cover;border-radius:6px;border:1px solid var(--card-border);cursor:pointer;" loading="lazy"><button type="button" class="tp-del" onclick="removeTaskPhoto(\''+x.id+'\', this)" title="Delete photo" style="display:none;position:absolute;top:-8px;right:-8px;background:#C5504F;color:#fff;border:none;border-radius:50%;width:20px;height:20px;line-height:20px;text-align:center;cursor:pointer;font-size:12px;padding:0;">×</button></span>'; }).join('');
                   h+='<div class="form-section tp-card" style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;">'
                     +'<div class="tp-gallery" style="flex:0 1 340px;max-height:260px;overflow-y:auto;display:flex;flex-wrap:wrap;align-content:flex-start;">'+thumbs+'</div>'
-                    +'<div style="flex:1;min-width:160px;">'
+                    +'<div style="flex:1;"></div>'
+                    +'<div style="flex-shrink:0;display:flex;gap:8px;">'
+                      +'<button type="button" onclick="toggleTaskPhotoDetails(this)">ℹ️ Details</button>'
+                      +'<button type="button" onclick="toggleTaskPhotoEdit(this)">✏️ Edit</button>'
+                    +'</div>'
+                    +'<div class="tp-details" style="display:none;flex-basis:100%;width:100%;margin-top:6px;padding-top:12px;border-top:1px solid var(--card-border);">'
                       +'<h3 style="margin-bottom:8px;">'+taskName+' <span style="color:var(--text-faint);font-size:12px;font-weight:normal;">('+arr.length+' 📷)</span></h3>'
                       +'<p><strong>Supervisor:</strong> '+(supervisors[first.project]||'')+'</p>'
                       +(rightLabel?('<p><strong>'+(isWeek?'Week':'Frequency')+':</strong> '+rightLabel+'</p>'):'')
                       +'<p><strong>Date:</strong> '+first.date+'</p>'
                       +(matchRep?('<p><strong>Building:</strong> '+matchRep.building+'</p><p><strong>Floors:</strong> '+normalizeFloors(matchRep.floors).join(', ')+'</p><p><strong>Employees:</strong> '+matchRep.employees+' | <strong>Level:</strong> '+matchRep.level+'</p>'):'')
                     +'</div>'
-                    +'<div style="flex-shrink:0;"><button type="button" onclick="toggleTaskPhotoEdit(this)">✏️ Edit</button></div>'
                   +'</div>';
                 });
               }
@@ -490,6 +494,13 @@
               refreshDashboardView();
             }).catch(e=>alert('Error: '+e.message));
           });
+        }
+        function toggleTaskPhotoDetails(btn){
+          const card = btn.closest('.tp-card'); if(!card) return;
+          const panel = card.querySelector('.tp-details'); if(!panel) return;
+          const show = panel.style.display==='none' || !panel.style.display;
+          panel.style.display = show ? 'block' : 'none';
+          btn.textContent = show ? 'ℹ️ Hide Details' : 'ℹ️ Details';
         }
         function toggleTaskPhotoEdit(btn){
           const card = btn.closest('.tp-card'); if(!card) return;
