@@ -84,6 +84,8 @@
         .report-image:hover { transform: scale(1.05); }
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; align-items: center; justify-content: center; }
         .modal.show { display: flex; }
+        @keyframes empireSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .spin-icon.spinning { display: inline-block; animation: empireSpin 0.8s linear infinite; }
         .modal img { max-width: 90%; max-height: 90%; border-radius: 10px; }
         .modal-close { position: absolute; top: 20px; right: 30px; font-size: 40px; color: #fff; cursor: pointer; }
         img[id*="-image"] { cursor: pointer; }
@@ -168,7 +170,7 @@
           <p class="side-footer-note">Prepared by<br><strong>Swar Dizayee</strong></p>
         </aside>
         <div class="main-area">
-        <div id="all" class="tab-content active"><div class="form-section" style="border-color:#e6b800;"><h2>🔍 Connection Check</h2><p id="debugStatus" style="font-size:14px;">Checking…</p><button onclick="debugTestReports()">Test Now</button> <button onclick="debugTestTaskPhotos()">Test Task Photos</button><pre id="debugOutput" style="white-space:pre-wrap;word-break:break-all;margin-top:10px;font-size:11px;color:var(--text-faint);max-height:220px;overflow:auto;background:var(--input-bg);padding:8px;border-radius:6px;"></pre></div><div class="form-section"><h2>📅 Filter by Date</h2><div class="form-row"><div class="form-group"><label>Select Date:</label><input type="date" id="filterDate"></div><div class="form-group" style="justify-content:flex-end;"><button onclick="filterByDate()">Show Reports for This Date</button></div></div><div style="margin-top:14px;"><label style="display:block;margin-bottom:8px;">Project:</label><div id="projectFilterBoxes" style="display:flex;gap:8px;flex-wrap:wrap;"></div></div></div><div id="dashboardContent"><p>Select a date to view reports or click a project tab to add new data.</p></div></div>
+        <div id="all" class="tab-content active"><div class="form-section" style="border-color:#e6b800;"><h2>🔍 Connection Check</h2><p id="debugStatus" style="font-size:14px;">Checking…</p><button onclick="debugTestReports()">Test Now</button> <button onclick="debugTestTaskPhotos()">Test Task Photos</button><pre id="debugOutput" style="white-space:pre-wrap;word-break:break-all;margin-top:10px;font-size:11px;color:var(--text-faint);max-height:220px;overflow:auto;background:var(--input-bg);padding:8px;border-radius:6px;"></pre></div><div class="form-section"><h2>📅 Filter by Date</h2><div class="form-row"><div class="form-group"><label>Select Date:</label><input type="date" id="filterDate"></div><div class="form-group" style="justify-content:flex-end;gap:8px;flex-direction:row;"><button onclick="filterByDate()">Show Reports for This Date</button><button type="button" id="dashRefreshBtn" onclick="manualRefreshDashboard()" title="Refresh"><span id="dashRefreshIcon" class="spin-icon">🔄</span></button></div></div><div style="margin-top:14px;"><label style="display:block;margin-bottom:8px;">Project:</label><div id="projectFilterBoxes" style="display:flex;gap:8px;flex-wrap:wrap;"></div></div></div><div id="dashboardContent"><p>Select a date to view reports or click a project tab to add new data.</p></div></div>
         <div id="analytics" class="tab-content"><div class="form-section"><h2>📊 Complete Project Analytics</h2><div class="form-row"><div class="form-group"><label>From Date:</label><input type="date" id="analyticsFromDate"></div><div class="form-group"><label>To Date:</label><input type="date" id="analyticsToDate"></div></div><div class="button-group"><button onclick="generateAnalytics()" style="flex:1;">🔄 Refresh Analytics (Date Range)</button><button onclick="generateAllTimeAnalytics()" style="flex:1;">📊 All-Time Analytics</button><button onclick="downloadAnalyticsReport()" style="flex:1;">📥 Download Report</button></div></div><div id="analyticsContent"><p>Select dates and click "Refresh Analytics" or view "All-Time Analytics".</p></div></div>
         <div id="monthly" class="tab-content"><div class="form-section"><h2>📄 Monthly Report</h2><div class="form-row"><div class="form-group"><label>Month:</label><input type="month" id="monthlyMonth"></div><div class="form-group" style="justify-content:flex-end;"><button onclick="generateMonthlyReport()">📄 Generate Monthly Report</button></div></div></div><div id="monthlyContent"><p>Pick a month and click Generate.</p></div></div>
         <div id="empire-complex" class="tab-content"><div class="form-section"><h2>Empire Complex</h2><div class="form-row"><div class="form-group"><label>Building:</label><select id="ec-building" onchange="updateFloors('ec')"><option>EC1</option><option>EC2</option><option>EC3</option><option>EC4</option><option>EC5</option><option>EC6</option></select></div><div class="form-group"><label>Supervisor:</label><input type="text" value="Ibrahim" readonly></div><div class="form-group"><label>Date:</label><input type="date" id="ec-date"></div><div class="form-group"><label>Daily Employees:</label><input type="number" id="ec-employees" min="1" value="1"></div></div><h3>Floors to Clean</h3><div class="form-row"><div class="form-group"><label><input type="checkbox" id="ec-selectall" onchange="toggleAllFloors('ec')"> Select All</label></div></div><div id="ec-floors" class="checkbox-group"></div><div class="form-row"><div class="form-group"><label>Cleaning Level:</label><select id="ec-level"><option>High</option><option>Mid</option><option>Low</option></select></div></div><h3>📸 Photo (Paste Image)</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px;"><button type="button" onclick="document.getElementById('ec-file').click()">📁 Upload / Camera</button><span style="color:var(--text-soft);font-size:13px;">— or paste below ⤵</span><input type="file" id="ec-file" accept="image/*" style="display:none" onchange="handleProjectFile(event,'ec')"></div><div class="image-upload" id="ec-imageArea" onpaste="handlePaste(event, 'ec')">Click here and paste (Ctrl+V)</div><img id="ec-image" style="display:none;"><div class="button-group"><button onclick="saveReport('ec')">💾 Save</button><button onclick="clearForm('ec')">🗑️ Clear</button></div></div></div>
@@ -267,11 +269,18 @@
         function openModal(src) { document.getElementById('modalImage').src=src; document.getElementById('imageModal').classList.add('show'); }
         function closeModal() { document.getElementById('imageModal').classList.remove('show'); }
         function refreshDashboardView(){ const fd=document.getElementById('filterDate'); if(fd && fd.value) filterByDate(); }
-        function removeReport(id){
+        async function manualRefreshDashboard(){
+          const icon=document.getElementById('dashRefreshIcon'); const fd=document.getElementById('filterDate');
+          if(!fd || !fd.value){ uiAlert('Pick a date first.'); return; }
+          if(icon) icon.classList.add('spinning');
+          try { await filterByDate(); } finally { if(icon) icon.classList.remove('spinning'); }
+        }
+        function removeReport(id, btn){
           uiConfirm('Delete this report? This cannot be undone.').then(function(ok){ if(!ok) return;
             fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'deleteReport', id:id, token:localStorage.getItem('authToken')||''})}).then(r=>r.json()).then(function(d){
               if(d && d.ok===false){ uiAlert('❌ Could not delete: '+(d.message||d.error||'unknown error')); return; }
               allReports=allReports.filter(function(r){ return r.id!==id; });
+              if(btn){ const card=btn.closest('.form-section'); if(card) card.remove(); }
               refreshDashboardView();
             }).catch(function(e){ uiAlert('❌ Error: '+e.message); });
           });
@@ -314,21 +323,23 @@
               const pphotos=tphotos.filter(x=>x.project===p);
               if(preps.length===0 && pphotos.length===0) return;
               h+='<div style="margin-top:18px;"><h3 style="color:var(--accent2);">'+projName(p)+'</h3>';
-              preps.forEach(r=>{h+='<div class="form-section" style="position:relative;"><button type="button" onclick="removeReport(\''+r.id+'\')" title="Delete report" style="position:absolute;top:10px;right:10px;background:#C5504F;color:#fff;border:none;border-radius:50%;width:26px;height:26px;line-height:26px;text-align:center;cursor:pointer;font-size:15px;padding:0;">×</button><h3>'+r.building+' | Floors: '+normalizeFloors(r.floors).join(', ')+'</h3><p><strong>Supervisor:</strong> '+supervisors[r.project]+'</p><p><strong>Employees:</strong> '+r.employees+' | <strong>Level:</strong> '+r.level+'</p>'; if(r.image)h+='<img src="'+r.image+'" class="report-image" onclick="openModal(this.src)" style="cursor:pointer;" loading="lazy">'; h+='</div>';});
+              preps.forEach(r=>{h+='<div class="form-section" style="position:relative;"><button type="button" onclick="removeReport(\''+r.id+'\', this)" title="Delete report" style="position:absolute;top:10px;right:10px;background:#C5504F;color:#fff;border:none;border-radius:50%;width:26px;height:26px;line-height:26px;text-align:center;cursor:pointer;font-size:15px;padding:0;">×</button><h3>'+r.building+' | Floors: '+normalizeFloors(r.floors).join(', ')+'</h3><p><strong>Supervisor:</strong> '+supervisors[r.project]+'</p><p><strong>Employees:</strong> '+r.employees+' | <strong>Level:</strong> '+r.level+'</p>'; if(r.image)h+='<img src="'+r.image+'" class="report-image" onclick="openModal(this.src)" style="cursor:pointer;" loading="lazy">'; h+='</div>';});
               if(pphotos.length){
+                const matchRep = preps[0];
                 h+='<h4 style="margin-top:14px;">✅ Task Checklist Photos</h4>';
                 pphotos.forEach(x=>{
                   const isWeek = x.period && x.period.indexOf('#')!==-1;
                   const grpLabel = groupLabelFor(x.project, x.freq);
                   const rightLabel = isWeek ? ('Week '+x.period.split('#')[1]) : (grpLabel||x.freq||'');
                   h+='<div class="form-section" style="position:relative;display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;">'
-                    +'<button type="button" onclick="removeTaskPhoto(\''+x.id+'\')" title="Delete photo" style="position:absolute;top:10px;right:10px;background:#C5504F;color:#fff;border:none;border-radius:50%;width:26px;height:26px;line-height:26px;text-align:center;cursor:pointer;font-size:15px;padding:0;">×</button>'
+                    +'<button type="button" onclick="removeTaskPhoto(\''+x.id+'\', this)" title="Delete photo" style="position:absolute;top:10px;right:10px;background:#C5504F;color:#fff;border:none;border-radius:50%;width:26px;height:26px;line-height:26px;text-align:center;cursor:pointer;font-size:15px;padding:0;">×</button>'
                     +'<img src="'+x.image+'" class="report-image" onclick="openModal(this.src)" style="cursor:pointer;margin:0;flex-shrink:0;" loading="lazy">'
                     +'<div style="flex:1;min-width:160px;">'
                       +'<h3 style="margin-bottom:8px;">'+x.task+'</h3>'
                       +'<p><strong>Supervisor:</strong> '+(supervisors[x.project]||'')+'</p>'
                       +(rightLabel?('<p><strong>'+(isWeek?'Week':'Frequency')+':</strong> '+rightLabel+'</p>'):'')
                       +'<p><strong>Date:</strong> '+x.date+'</p>'
+                      +(matchRep?('<p><strong>Building:</strong> '+matchRep.building+'</p><p><strong>Floors:</strong> '+normalizeFloors(matchRep.floors).join(', ')+'</p><p><strong>Employees:</strong> '+matchRep.employees+' | <strong>Level:</strong> '+matchRep.level+'</p>'):'')
                     +'</div>'
                   +'</div>';
                 });
@@ -459,9 +470,14 @@
             }).catch(e=>alert('Error: '+e.message));
           });
         }
-        function removeTaskPhoto(id){
+        function removeTaskPhoto(id, btn){
           uiConfirm('Remove this photo?').then(function(ok){ if(!ok) return;
-          fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'deleteTaskPhoto', id:id, token:localStorage.getItem('authToken')||''})}).then(()=>{ const x=taskPhotos.find(z=>z.id===id); taskPhotos=taskPhotos.filter(z=>z.id!==id); if(x) renderTaskProject(x.project); else renderTaskChecklists(); refreshDashboardView(); }).catch(e=>alert('Error: '+e.message)); });
+          fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'deleteTaskPhoto', id:id, token:localStorage.getItem('authToken')||''})}).then(r=>r.json()).then((d)=>{
+            if(d && d.ok===false){ uiAlert('❌ Could not delete: '+(d.message||d.error||'unknown error')); return; }
+            const x=taskPhotos.find(z=>z.id===id); taskPhotos=taskPhotos.filter(z=>z.id!==id); if(x) renderTaskProject(x.project); else renderTaskChecklists();
+            if(btn){ const card=btn.closest('.form-section'); if(card) card.remove(); }
+            refreshDashboardView();
+          }).catch(e=>alert('Error: '+e.message)); });
         }
         function taskCardHtml(p, gi, ti, g, t){
           const photos=photosFor(p, g, t); const done=photos.length>0;
