@@ -76,6 +76,10 @@ tr.job-row:hover { background:var(--row-hover); }
 .thumb { width:46px; height:46px; object-fit:cover; border-radius:6px; border:1px solid var(--card-border); cursor:pointer; }
 .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:1500; align-items:center; justify-content:center; }
 .modal.show { display:flex; }
+@keyframes empireSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.load-ring { width:42px;height:42px;border:4px solid rgba(128,128,128,0.3);border-top-color:#e8a0cf;border-radius:50%;animation:empireSpin 0.8s linear infinite;margin:0 auto 14px; }
+.load-wrap { text-align:center;padding:50px 0; }
+.load-wrap p { color:var(--text-soft); }
 .modal-box { background:var(--panel); border:2px solid var(--card-border); border-radius:12px; max-width:860px; width:92%; max-height:88vh; overflow:auto; padding:24px; }
 .close-x { float:right; cursor:pointer; font-size:28px; line-height:1; color:var(--text); }
 footer { text-align:center; margin-top:30px; color:var(--text-faint); font-size:12px; }
@@ -272,6 +276,7 @@ function toggleSidebar(){ var sb=document.getElementById('sidebar'); if(!sb)retu
   window.alert=function(m){ window.uiAlert(m); };
 })();
 const GS = 'https://script.google.com/macros/s/AKfycbz-qxaEXcGH_b8g-k7RmwIV3f16MDHZV-VMUxoYS5YFeGaWlKyURfLwfOoVXQ1ONyYO/exec';
+const LOADING_HTML = '<div class="load-wrap"><div class="load-ring"></div><p>Loading requests, please wait.</p></div>';
 const IMGBB = '273d26dbc835282f5909b5f3e1fb8685';
 let allJobs = [], currentPhoto = '', uploading = false;
 function tok(){ return localStorage.getItem('civdept_token')||''; }
@@ -347,7 +352,7 @@ function saveJob(){
   }).catch(e=>alert('❌ Error: '+e.message));
 }
 function loadJobs(){
-  document.getElementById('jobsTable').innerHTML='<p style="color:var(--text-faint);">⏳ Loading…</p>';
+  document.getElementById('jobsTable').innerHTML=LOADING_HTML;
   fetch(GS,{method:'POST',body:JSON.stringify({action:'getCivilJobs',token:tok()})})
     .then(r=>r.json()).then(d=>{
       if(Array.isArray(d)){ allJobs=d; renderJobs(); renderAnalytics(); renderReportPreview(); }
@@ -570,7 +575,7 @@ function doReset(){ var pw=document.getElementById('resetPwInput').value; var ms
   window.rbOpen=function(){ document.getElementById('rbModal').style.display='flex'; window.rbLoad(); };
   window.rbClose=function(){ document.getElementById('rbModal').style.display='none'; };
   window.rbLoad=function(){
-    var box=document.getElementById('rbList'); box.innerHTML='<p style="color:var(--text-faint);">⏳ Loading…</p>';
+    var box=document.getElementById('rbList'); box.innerHTML=LOADING_HTML;
     fetch(GS,{method:'POST',body:JSON.stringify({action:'getTrash',dept:RB_DEPT,sheets:RB_SHEETS,token:RBTOK()})})
       .then(function(r){return r.json();}).then(function(d){
         if(!Array.isArray(d)){ box.innerHTML='<p style="color:#C5504F;">'+((d&&d.message)||'Could not load — update &amp; redeploy the Apps Script.')+'</p>'; return; }

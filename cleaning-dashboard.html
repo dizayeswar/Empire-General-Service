@@ -86,7 +86,9 @@
         .modal.show { display: flex; }
         @keyframes empireSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .spin-icon.spinning { display: inline-block; animation: empireSpin 0.8s linear infinite; }
-        .load-ring { width:42px;height:42px;border:4px solid var(--card-border);border-top-color:var(--accent2);border-radius:50%;animation:empireSpin 0.8s linear infinite;margin:0 auto 14px; }
+        .load-ring { width:42px;height:42px;border:4px solid rgba(128,128,128,0.3);border-top-color:#e8a0cf;border-radius:50%;animation:empireSpin 0.8s linear infinite;margin:0 auto 14px; }
+        .load-wrap { text-align:center;padding:50px 0; }
+        .load-wrap p { color:var(--text-soft); }
         .modal img { max-width: 90%; max-height: 90%; border-radius: 10px; }
         .modal-close { position: absolute; top: 20px; right: 30px; font-size: 40px; color: #fff; cursor: pointer; }
         img[id*="-image"] { cursor: pointer; }
@@ -205,6 +207,7 @@
         const supervisors = {ec:'Ibrahim',es:'Ibrahim',wd:'Rawa',ww:'Emad',ww2:'Muhammad',ra:'Rawa'};
         const buildingInfo = {ec:{count:6,buildings:'EC1-EC6',avgFloors:'5-6'},es:{count:5,buildings:'ES1-ES6',avgFloors:'23-28'},wd:{count:3,buildings:'WD-A, WD-B, WD-C',avgFloors:'25-27'},ww:{count:11,buildings:'WW1-WW11',avgFloors:'10-26'},ww2:{count:4,buildings:'WW12-WW15',avgFloors:'32'},ra:{count:32,buildings:'RA-A1-A12, RA-B1-B12, RA-C1-C8',avgFloors:'11-14'}};
         const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz-qxaEXcGH_b8g-k7RmwIV3f16MDHZV-VMUxoYS5YFeGaWlKyURfLwfOoVXQ1ONyYO/exec';
+        const LOADING_HTML = '<div class="load-wrap"><div class="load-ring"></div><p>Loading requests, please wait.</p></div>';
         const IMGBB_API_KEY = '273d26dbc835282f5909b5f3e1fb8685';
         let allReports = [];
         let analyticsReports = [];
@@ -310,7 +313,7 @@
         async function filterByDate() {
           const d=document.getElementById('filterDate').value; if(!d) return;
           const mySeq = ++_filterCallSeq;
-          const dc=document.getElementById('dashboardContent'); if(dc) dc.innerHTML='<div style="text-align:center;padding:50px 0;"><div class="load-ring"></div><p style="color:var(--text-soft);">Loading requests, please wait.</p></div>';
+          const dc=document.getElementById('dashboardContent'); if(dc) dc.innerHTML=LOADING_HTML;
           let tphotosAll=[];
           try {
             const mv=d.slice(0,7);
@@ -604,7 +607,7 @@
           const monthName=new Date(y, m-1, 1).toLocaleString('en-US',{month:'long',year:'numeric'});
           const monthReports=allReports.filter(r=>{ const rd=normalizeDate(r.date); return rd>=from && rd<=to; });
           analyticsReports=monthReports;
-          document.getElementById('monthlyContent').innerHTML='<p>⏳ Loading '+monthName+'…</p>';
+          document.getElementById('monthlyContent').innerHTML=LOADING_HTML;
           let log=[];
           try {
             const resp=await fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'getTaskLog', from:from, to:to, token:localStorage.getItem('authToken')||''})});
