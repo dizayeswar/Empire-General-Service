@@ -298,22 +298,33 @@
             return '<button type="button" data-proj="'+p+'" onclick="selectFilterProject(\''+p+'\')" style="padding:8px 14px;border-radius:8px;border:2px solid var(--card-border);cursor:pointer;background:'+(sel?'var(--accent2)':'var(--task-bg)')+';color:'+(sel?'#fff':'var(--text)')+';font-weight:600;">'+label+'</button>';
           }).join('');
         }
-        function selectFilterProject(p){ filterProject=p; buildProjectFilterBoxes(); refreshDashboardView(); }
+        let _dashCache = { date:null, tphotosAll:[] };
+        function selectFilterProject(p){
+          filterProject=p; buildProjectFilterBoxes();
+          const fd=document.getElementById('filterDate');
+          if(fd && fd.value && _dashCache.date===fd.value){ renderDashboard(fd.value, _dashCache.tphotosAll); }
+          else { refreshDashboardView(); }
+        }
         let _filterCallSeq = 0;
         async function filterByDate() {
           const d=document.getElementById('filterDate').value; if(!d) return;
           const mySeq = ++_filterCallSeq;
-          let filt=allReports.filter(r=>normalizeDate(r.date)===d);
-          if(filterProject!=='ALL') filt=filt.filter(r=>r.project===filterProject);
-          let tphotos=[];
+          const dc=document.getElementById('dashboardContent'); if(dc) dc.innerHTML='<p>⏳ Loading…</p>';
+          let tphotosAll=[];
           try {
             const mv=d.slice(0,7);
             const r=await fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'getTaskPhotos', periodPrefix:mv, token:localStorage.getItem('authToken')||''})});
             const dd=await r.json();
-            if(Array.isArray(dd)) tphotos=dd.filter(x=>normalizeDate(x.date)===d);
+            if(Array.isArray(dd)) tphotosAll=dd.filter(x=>normalizeDate(x.date)===d);
           } catch(e){ console.error('Task photo fetch error:', e.message); }
-          if(filterProject!=='ALL') tphotos=tphotos.filter(x=>x.project===filterProject);
           if (mySeq !== _filterCallSeq) return;
+          _dashCache = { date:d, tphotosAll:tphotosAll };
+          renderDashboard(d, tphotosAll);
+        }
+        function renderDashboard(d, tphotosAll) {
+          let filt=allReports.filter(r=>normalizeDate(r.date)===d);
+          if(filterProject!=='ALL') filt=filt.filter(r=>r.project===filterProject);
+          let tphotos = filterProject!=='ALL' ? tphotosAll.filter(x=>x.project===filterProject) : tphotosAll;
           let h='<h2>📋 Reports for '+d+' — '+projName(filterProject)+'</h2>';
           if(filt.length===0 && tphotos.length===0){ h+='<p>No reports found for this date'+(filterProject!=='ALL'?(' in '+projName(filterProject)):'')+'.</p>'; }
           else {
