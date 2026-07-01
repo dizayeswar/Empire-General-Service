@@ -167,6 +167,7 @@
           <div class="side-actions">
             <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="theme-icon">🌙</span> <span class="lbl">Theme</span></button>
             <button onclick="location.href='cleaning.html'">🏠 <span class="lbl">Categories</span></button>
+            <button id="btnTrash" onclick="rbOpen()" style="color:#fff;background:#1d9e75;border-color:#1d9e75;">♻️ <span class="lbl">Recycle Bin</span></button>
             <button id="btnReset" onclick="resetAllData()" style="color:#fff;background:#C5504F;border-color:#C5504F;">🔄 <span class="lbl">Reset Data</span></button>
             <button id="logoutBtn" onclick="logout()">🚪 <span class="lbl">Logout</span></button>
           </div>
@@ -810,6 +811,76 @@
         </div>
       </div>
     </div>
+
+<div id="rbModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1700;align-items:center;justify-content:center;">
+  <div style="background:var(--panel);border:2px solid var(--card-border);border-radius:14px;max-width:780px;width:94%;max-height:86vh;overflow:auto;padding:24px;box-shadow:0 10px 40px var(--shadow);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--text);">
+    <span onclick="rbClose()" style="float:right;cursor:pointer;font-size:26px;line-height:1;color:var(--text);">&times;</span>
+    <h2 style="margin:0 0 6px;color:var(--text);">♻️ Recycle Bin</h2>
+    <p style="color:var(--text-soft);font-size:13px;margin-bottom:14px;">Anything deleted (reports, task photos) or cleared by a Reset is kept here. <strong>Restore</strong> puts it back; <strong>Delete forever</strong> removes it permanently.</p>
+    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+      <button onclick="rbLoad()">🔄 Refresh</button>
+      <button onclick="rbRestoreAll()" style="color:#fff;background:#1d9e75;border-color:#1d9e75;">↩️ Restore all</button>
+      <button onclick="rbEmpty()" style="color:#fff;background:#C5504F;border-color:#C5504F;">🗑️ Empty bin</button>
+    </div>
+    <div id="rbList"><p style="color:var(--text-faint);">Loading…</p></div>
+  </div>
+</div>
+<script>
+(function(){
+  var RB_DEPT='cleaning', RB_SHEETS=['Reports','TaskPhotos'], RB_TOKKEY='authToken';
+  function RBTOK(){ return localStorage.getItem(RB_TOKKEY)||''; }
+  function rbReload(){ try{ loadReports(); }catch(e){} try{ loadTaskPhotos(); }catch(e){} try{ refreshDashboardView(); }catch(e){} }
+  window.rbOpen=function(){ document.getElementById('rbModal').style.display='flex'; window.rbLoad(); };
+  window.rbClose=function(){ document.getElementById('rbModal').style.display='none'; };
+  window.rbLoad=function(){
+    var box=document.getElementById('rbList'); box.innerHTML=LOADING_HTML;
+    fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'getTrash',dept:RB_DEPT,sheets:RB_SHEETS,token:RBTOK()})})
+      .then(function(r){return r.json();}).then(function(d){
+        if(!Array.isArray(d)){ box.innerHTML='<p style="color:#C5504F;">'+((d&&d.message)||'Could not load — update &amp; redeploy the Apps Script.')+'</p>'; return; }
+        if(d.length===0){ box.innerHTML='<p style="color:var(--text-faint);">The bin is empty. 🎉</p>'; return; }
+        var h='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr>'+
+          '<th style="text-align:left;padding:6px;color:var(--text-soft);">When</th>'+
+          '<th style="text-align:left;padding:6px;color:var(--text-soft);">How</th>'+
+          '<th style="text-align:left;padding:6px;color:var(--text-soft);">Record</th>'+
+          '<th style="padding:6px;"></th></tr></thead><tbody>';
+        d.forEach(function(it){
+          var when=String(it.deletedAt||'').replace('T',' ').slice(0,16);
+          var how=it.reason==='reset'?'<span style="color:#C5734F;font-weight:600;">Reset</span>':'<span style="color:var(--text-soft);">Delete</span>';
+          var prev=String(it.preview||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+          h+='<tr style="border-top:1px solid var(--table-border);">'+
+            '<td style="padding:6px;white-space:nowrap;">'+when+'</td>'+
+            '<td style="padding:6px;">'+how+'</td>'+
+            '<td style="padding:6px;max-width:380px;word-break:break-word;">'+prev+'</td>'+
+            '<td style="padding:6px;white-space:nowrap;">'+
+              '<button onclick="rbRestore(\''+it.trashId+'\')" style="padding:5px 9px;font-size:12px;margin-right:4px;color:#fff;background:#1d9e75;border-color:#1d9e75;">↩️ Restore</button>'+
+              '<button onclick="rbPurge(\''+it.trashId+'\')" style="padding:5px 9px;font-size:12px;color:#fff;background:#C5504F;border-color:#C5504F;">✕</button>'+
+            '</td></tr>';
+        });
+        h+='</tbody></table></div>';
+        box.innerHTML=h;
+      }).catch(function(e){ box.innerHTML='<p style="color:#C5504F;">❌ '+e.message+'</p>'; });
+  };
+  window.rbRestore=function(id){
+    fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'restoreTrash',dept:RB_DEPT,trashIds:[id],token:RBTOK()})})
+      .then(function(r){return r.json();}).then(function(){ window.rbLoad(); rbReload(); }).catch(function(e){ alert('❌ '+e.message); });
+  };
+  window.rbPurge=function(id){
+    uiConfirm('Delete this record forever? This cannot be undone.').then(function(ok){ if(!ok)return;
+      fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'purgeTrash',dept:RB_DEPT,trashIds:[id],token:RBTOK()})})
+        .then(function(r){return r.json();}).then(function(){ window.rbLoad(); }).catch(function(e){ alert('❌ '+e.message); }); });
+  };
+  window.rbRestoreAll=function(){
+    uiConfirm('Restore everything in the bin?').then(function(ok){ if(!ok)return;
+      fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'restoreTrash',dept:RB_DEPT,sheets:RB_SHEETS,token:RBTOK()})})
+        .then(function(r){return r.json();}).then(function(){ window.rbLoad(); rbReload(); }).catch(function(e){ alert('❌ '+e.message); }); });
+  };
+  window.rbEmpty=function(){
+    uiConfirm('Empty the bin? Everything here will be deleted forever.').then(function(ok){ if(!ok)return;
+      fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'purgeTrash',dept:RB_DEPT,sheets:RB_SHEETS,token:RBTOK()})})
+        .then(function(r){return r.json();}).then(function(){ window.rbLoad(); }).catch(function(e){ alert('❌ '+e.message); }); });
+  };
+})();
+</script>
 </body>
 </html>
 
