@@ -168,7 +168,7 @@
           <p class="side-footer-note">Prepared by<br><strong>Swar Dizayee</strong></p>
         </aside>
         <div class="main-area">
-        <div id="all" class="tab-content active"><div class="form-section" style="border-color:#e6b800;"><h2>🔍 Connection Check</h2><p id="debugStatus" style="font-size:14px;">Checking…</p><button onclick="debugTestReports()">Test Now</button> <button onclick="debugTestTaskPhotos()">Test Task Photos</button><pre id="debugOutput" style="white-space:pre-wrap;word-break:break-all;margin-top:10px;font-size:11px;color:var(--text-faint);max-height:220px;overflow:auto;background:var(--input-bg);padding:8px;border-radius:6px;"></pre></div><div class="form-section"><h2>📅 Filter by Date</h2><div class="form-row"><div class="form-group"><label>Select Date:</label><input type="date" id="filterDate"></div><div class="form-group" style="justify-content:flex-end;"><button onclick="filterByDate()">Show Reports for This Date</button></div></div></div><div id="dashboardContent"><p>Select a date to view reports or click a project tab to add new data.</p></div></div>
+        <div id="all" class="tab-content active"><div class="form-section" style="border-color:#e6b800;"><h2>🔍 Connection Check</h2><p id="debugStatus" style="font-size:14px;">Checking…</p><button onclick="debugTestReports()">Test Now</button> <button onclick="debugTestTaskPhotos()">Test Task Photos</button><pre id="debugOutput" style="white-space:pre-wrap;word-break:break-all;margin-top:10px;font-size:11px;color:var(--text-faint);max-height:220px;overflow:auto;background:var(--input-bg);padding:8px;border-radius:6px;"></pre></div><div class="form-section"><h2>📅 Filter by Date</h2><div class="form-row"><div class="form-group"><label>Select Date:</label><input type="date" id="filterDate"></div><div class="form-group" style="justify-content:flex-end;"><button onclick="filterByDate()">Show Reports for This Date</button></div></div><div style="margin-top:14px;"><label style="display:block;margin-bottom:8px;">Project:</label><div id="projectFilterBoxes" style="display:flex;gap:8px;flex-wrap:wrap;"></div></div></div><div id="dashboardContent"><p>Select a date to view reports or click a project tab to add new data.</p></div></div>
         <div id="analytics" class="tab-content"><div class="form-section"><h2>📊 Complete Project Analytics</h2><div class="form-row"><div class="form-group"><label>From Date:</label><input type="date" id="analyticsFromDate"></div><div class="form-group"><label>To Date:</label><input type="date" id="analyticsToDate"></div></div><div class="button-group"><button onclick="generateAnalytics()" style="flex:1;">🔄 Refresh Analytics (Date Range)</button><button onclick="generateAllTimeAnalytics()" style="flex:1;">📊 All-Time Analytics</button><button onclick="downloadAnalyticsReport()" style="flex:1;">📥 Download Report</button></div></div><div id="analyticsContent"><p>Select dates and click "Refresh Analytics" or view "All-Time Analytics".</p></div></div>
         <div id="monthly" class="tab-content"><div class="form-section"><h2>📄 Monthly Report</h2><div class="form-row"><div class="form-group"><label>Month:</label><input type="month" id="monthlyMonth"></div><div class="form-group" style="justify-content:flex-end;"><button onclick="generateMonthlyReport()">📄 Generate Monthly Report</button></div></div></div><div id="monthlyContent"><p>Pick a month and click Generate.</p></div></div>
         <div id="empire-complex" class="tab-content"><div class="form-section"><h2>Empire Complex</h2><div class="form-row"><div class="form-group"><label>Building:</label><select id="ec-building" onchange="updateFloors('ec')"><option>EC1</option><option>EC2</option><option>EC3</option><option>EC4</option><option>EC5</option><option>EC6</option></select></div><div class="form-group"><label>Supervisor:</label><input type="text" value="Ibrahim" readonly></div><div class="form-group"><label>Date:</label><input type="date" id="ec-date"></div><div class="form-group"><label>Daily Employees:</label><input type="number" id="ec-employees" min="1" value="1"></div></div><h3>Floors to Clean</h3><div class="form-row"><div class="form-group"><label><input type="checkbox" id="ec-selectall" onchange="toggleAllFloors('ec')"> Select All</label></div></div><div id="ec-floors" class="checkbox-group"></div><div class="form-row"><div class="form-group"><label>Cleaning Level:</label><select id="ec-level"><option>High</option><option>Mid</option><option>Low</option></select></div></div><h3>📸 Photo (Paste Image)</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px;"><button type="button" onclick="document.getElementById('ec-file').click()">📁 Upload / Camera</button><span style="color:var(--text-soft);font-size:13px;">— or paste below ⤵</span><input type="file" id="ec-file" accept="image/*" style="display:none" onchange="handleProjectFile(event,'ec')"></div><div class="image-upload" id="ec-imageArea" onpaste="handlePaste(event, 'ec')">Click here and paste (Ctrl+V)</div><img id="ec-image" style="display:none;"><div class="button-group"><button onclick="saveReport('ec')">💾 Save</button><button onclick="clearForm('ec')">🗑️ Clear</button></div></div></div>
@@ -279,11 +279,23 @@
         function saveReport(p) { if(uploading[p]) { alert('⏳ Image still uploading! Please wait for "✅ Image uploaded!" message.'); return; } const b=document.getElementById(p+'-building').value; const d=document.getElementById(p+'-date').value||new Date().toISOString().split('T')[0]; const e=document.getElementById(p+'-employees').value; const l=document.getElementById(p+'-level').value; const img=currentImages[p]||''; const f=[]; document.querySelectorAll('#'+p+'-floors input[type="checkbox"]:checked').forEach(cb=>f.push(cb.value)); const id='rep-'+Date.now()+'-'+Math.random().toString(36).slice(2,8); const rep={action:'saveReport', report:{id:id,project:p,building:b,date:d,employees:e,level:l,floors:f,photo:img}, token:localStorage.getItem('authToken')||''}; fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify(rep)}).then(r=>r.json()).then(d2=>{ if(d2 && d2.ok===false){ alert('❌ Report NOT saved: '+(d2.message||d2.error||'unknown error')); return; } alert('✅ Report saved!'); loadReports().then(()=>{ refreshDashboardView(); }); clearForm(p); }).catch(err=>{alert('❌ Error: '+err.message); console.error(err);}); }
         function clearForm(p) { document.getElementById(p+'-date').value=''; document.getElementById(p+'-employees').value='1'; document.getElementById(p+'-level').value='High'; document.querySelectorAll('#'+p+'-floors input[type="checkbox"]').forEach(cb=>cb.checked=false); document.getElementById(p+'-selectall').checked=false; const img=document.getElementById(p+'-image'); img.src=''; img.style.display='none'; currentImages[p]=''; }
         function switchTab(e,t) { document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(el=>el.classList.remove('active')); document.getElementById(t).classList.add('active'); e.target.classList.add('active'); if(t==='analytics')generateAnalytics(); else if(t==='monthly'){ const mm=document.getElementById('monthlyMonth'); if(mm && !mm.value){ const dd=new Date(); mm.value=dd.getFullYear()+'-'+String(dd.getMonth()+1).padStart(2,'0'); } } else if(!['all','analytics','monthly'].includes(t)){updateFloors(t); loadTasks();} }
+        let filterProject = 'ALL';
+        function buildProjectFilterBoxes(){
+          const host=document.getElementById('projectFilterBoxes'); if(!host) return;
+          const list=[['ALL','All Projects']].concat(['ec','es','wd','ww','ww2','ra'].map(p=>[p, projName(p)]));
+          host.innerHTML = list.map(function(pair){
+            const p=pair[0], label=pair[1];
+            const sel = (filterProject===p);
+            return '<button type="button" data-proj="'+p+'" onclick="selectFilterProject(\''+p+'\')" style="padding:8px 14px;border-radius:8px;border:2px solid var(--card-border);cursor:pointer;background:'+(sel?'var(--accent2)':'var(--task-bg)')+';color:'+(sel?'#fff':'var(--text)')+';font-weight:600;">'+label+'</button>';
+          }).join('');
+        }
+        function selectFilterProject(p){ filterProject=p; buildProjectFilterBoxes(); refreshDashboardView(); }
         let _filterCallSeq = 0;
         async function filterByDate() {
           const d=document.getElementById('filterDate').value; if(!d) return;
           const mySeq = ++_filterCallSeq;
-          const filt=allReports.filter(r=>normalizeDate(r.date)===d);
+          let filt=allReports.filter(r=>normalizeDate(r.date)===d);
+          if(filterProject!=='ALL') filt=filt.filter(r=>r.project===filterProject);
           let tphotos=[];
           try {
             const mv=d.slice(0,7);
@@ -291,16 +303,24 @@
             const dd=await r.json();
             if(Array.isArray(dd)) tphotos=dd.filter(x=>normalizeDate(x.date)===d);
           } catch(e){ console.error('Task photo fetch error:', e.message); }
+          if(filterProject!=='ALL') tphotos=tphotos.filter(x=>x.project===filterProject);
           if (mySeq !== _filterCallSeq) return;
-          const pname={ec:'Empire Complex',es:'Empire Square',wd:'West Diamond',ww:'West Wing',ww2:'(New) West Wing',ra:'Royal Apartment'};
-          let h='<h2>📋 Reports for '+d+'</h2>';
-          if(filt.length===0 && tphotos.length===0){ h+='<p>No reports found for this date.</p>'; }
+          let h='<h2>📋 Reports for '+d+' — '+projName(filterProject)+'</h2>';
+          if(filt.length===0 && tphotos.length===0){ h+='<p>No reports found for this date'+(filterProject!=='ALL'?(' in '+projName(filterProject)):'')+'.</p>'; }
           else {
-            filt.forEach(r=>{h+='<div class="form-section" style="position:relative;"><button type="button" onclick="removeReport(\''+r.id+'\')" title="Delete report" style="position:absolute;top:10px;right:10px;background:#C5504F;color:#fff;border:none;border-radius:50%;width:26px;height:26px;line-height:26px;text-align:center;cursor:pointer;font-size:15px;padding:0;">×</button><h3>'+r.project.toUpperCase()+' - '+r.building+' | Floors: '+normalizeFloors(r.floors).join(', ')+'</h3><p><strong>Supervisor:</strong> '+supervisors[r.project]+'</p><p><strong>Employees:</strong> '+r.employees+' | <strong>Level:</strong> '+r.level+'</p>'; if(r.image)h+='<img src="'+r.image+'" class="report-image" onclick="openModal(this.src)" style="cursor:pointer;" loading="lazy">'; h+='</div>';});
-            if(tphotos.length){
-              h+='<h3 style="margin-top:20px;">✅ Task Checklist Photos</h3>';
-              tphotos.forEach(x=>{ h+='<div class="form-section"><h3>'+(pname[x.project]||x.project)+' — '+x.task+'</h3><img src="'+x.image+'" class="report-image" onclick="openModal(this.src)" style="cursor:pointer;" loading="lazy"></div>'; });
-            }
+            ['ec','es','wd','ww','ww2','ra'].forEach(p=>{
+              if(filterProject!=='ALL' && p!==filterProject) return;
+              const preps=filt.filter(r=>r.project===p);
+              const pphotos=tphotos.filter(x=>x.project===p);
+              if(preps.length===0 && pphotos.length===0) return;
+              h+='<div style="margin-top:18px;"><h3 style="color:var(--accent2);">'+projName(p)+'</h3>';
+              preps.forEach(r=>{h+='<div class="form-section" style="position:relative;"><button type="button" onclick="removeReport(\''+r.id+'\')" title="Delete report" style="position:absolute;top:10px;right:10px;background:#C5504F;color:#fff;border:none;border-radius:50%;width:26px;height:26px;line-height:26px;text-align:center;cursor:pointer;font-size:15px;padding:0;">×</button><h3>'+r.building+' | Floors: '+normalizeFloors(r.floors).join(', ')+'</h3><p><strong>Supervisor:</strong> '+supervisors[r.project]+'</p><p><strong>Employees:</strong> '+r.employees+' | <strong>Level:</strong> '+r.level+'</p>'; if(r.image)h+='<img src="'+r.image+'" class="report-image" onclick="openModal(this.src)" style="cursor:pointer;" loading="lazy">'; h+='</div>';});
+              if(pphotos.length){
+                h+='<h4 style="margin-top:14px;">✅ Task Checklist Photos</h4>';
+                pphotos.forEach(x=>{ h+='<div class="form-section"><h3>'+x.task+'</h3><img src="'+x.image+'" class="report-image" onclick="openModal(this.src)" style="cursor:pointer;" loading="lazy"></div>'; });
+              }
+              h+='</div>';
+            });
           }
           document.getElementById('dashboardContent').innerHTML=h;
         }
@@ -687,7 +707,7 @@
             document.getElementById('loginPage').classList.remove('show');
             document.getElementById('mainContainer').classList.add('show');
             applyPerms();
-            loadReports(); renderTaskChecklists(); loadTasks(); loadWeekCoverage(); loadTaskPhotos();
+            loadReports(); renderTaskChecklists(); loadTasks(); loadWeekCoverage(); loadTaskPhotos(); buildProjectFilterBoxes();
             if(!window._syncStarted){ window._syncStarted=true; setInterval(loadTasks, 60000); setTimeout(function(){ setInterval(loadWeekCoverage, 60000); }, 20000); setTimeout(function(){ setInterval(loadTaskPhotos, 60000); }, 40000); }
             ['ec','es','wd','ww','ww2','ra'].forEach(p=>updateFloors(p));
             const d = new Date(); const today = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
