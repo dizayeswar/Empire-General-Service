@@ -86,6 +86,7 @@
         .modal.show { display: flex; }
         @keyframes empireSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .spin-icon.spinning { display: inline-block; animation: empireSpin 0.8s linear infinite; }
+        .load-ring { width:42px;height:42px;border:4px solid var(--card-border);border-top-color:var(--accent2);border-radius:50%;animation:empireSpin 0.8s linear infinite;margin:0 auto 14px; }
         .modal img { max-width: 90%; max-height: 90%; border-radius: 10px; }
         .modal-close { position: absolute; top: 20px; right: 30px; font-size: 40px; color: #fff; cursor: pointer; }
         img[id*="-image"] { cursor: pointer; }
@@ -309,7 +310,7 @@
         async function filterByDate() {
           const d=document.getElementById('filterDate').value; if(!d) return;
           const mySeq = ++_filterCallSeq;
-          const dc=document.getElementById('dashboardContent'); if(dc) dc.innerHTML='<p>⏳ Loading…</p>';
+          const dc=document.getElementById('dashboardContent'); if(dc) dc.innerHTML='<div style="text-align:center;padding:50px 0;"><div class="load-ring"></div><p style="color:var(--text-soft);">Loading requests, please wait.</p></div>';
           let tphotosAll=[];
           try {
             const mv=d.slice(0,7);
