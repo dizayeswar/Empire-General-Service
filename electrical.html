@@ -276,7 +276,7 @@ function handleLogin(e){
   e.preventDefault();
   var u=document.getElementById('loginUsername').value, p=document.getElementById('loginPassword').value;
   var m=document.getElementById('loginMessage'); m.className='login-message'; m.style.display='block'; m.textContent='⏳ Signing in…';
-  fetch(GS,{method:'POST',body:JSON.stringify({action:'verifyLogin',username:u,password:p,dept:'electrical'})})
+  fetch(GS,{method:'POST',body:JSON.stringify({action:'verifyLogin',username:u,password:p,dept:'electrical department'})})
     .then(r=>r.json()).then(d=>{
       if(d.success){ localStorage.setItem('eldept_loggedIn','true'); localStorage.setItem('eldept_user',u); localStorage.setItem('eldept_token',d.token||''); localStorage.setItem('eldept_perms',JSON.stringify(d.perms||{})); localStorage.setItem('eldept_role',d.role||''); enterApp(); }
       else{ m.className='login-message error'; m.textContent='❌ '+d.message; }
@@ -594,7 +594,7 @@ function doReset(){ var pw=document.getElementById('resetPwInput').value; var ms
 </div>
 <script>
 (function(){
-  var RB_DEPT='electrical', RB_SHEETS=['ElectricalJobs'], RB_TOKKEY='eldept_token', RB_RELOAD='loadJobs';
+  var RB_DEPT='electrical department', RB_SHEETS=['ElectricalJobs'], RB_TOKKEY='eldept_token', RB_RELOAD='loadJobs';
   function RBTOK(){ return localStorage.getItem(RB_TOKKEY)||''; }
   function rbReload(){ try{ if(typeof window[RB_RELOAD]==='function') window[RB_RELOAD](); }catch(e){} }
   window.rbOpen=function(){ document.getElementById('rbModal').style.display='flex'; window.rbLoad(); };

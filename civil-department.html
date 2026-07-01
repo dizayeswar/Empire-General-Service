@@ -257,7 +257,7 @@ function handleLogin(e){
   e.preventDefault();
   var u=document.getElementById('loginUsername').value, p=document.getElementById('loginPassword').value;
   var m=document.getElementById('loginMessage'); m.className='login-message'; m.style.display='block'; m.textContent='⏳ Signing in…';
-  fetch(GS,{method:'POST',body:JSON.stringify({action:'verifyLogin',username:u,password:p,dept:'civil'})})
+  fetch(GS,{method:'POST',body:JSON.stringify({action:'verifyLogin',username:u,password:p,dept:'civil department'})})
     .then(r=>r.json()).then(d=>{
       if(d.success){ localStorage.setItem('civdept_loggedIn','true'); localStorage.setItem('civdept_user',u); localStorage.setItem('civdept_token',d.token||''); localStorage.setItem('civdept_perms',JSON.stringify(d.perms||{})); localStorage.setItem('civdept_role',d.role||''); enterApp(); }
       else{ m.className='login-message error'; m.textContent='❌ '+d.message; }
@@ -530,7 +530,7 @@ function doReset(){ var pw=document.getElementById('resetPwInput').value; var ms
 </div>
 <script>
 (function(){
-  var RB_DEPT='civil', RB_SHEETS=['CivilJobs'], RB_TOKKEY='civdept_token', RB_RELOAD='loadJobs';
+  var RB_DEPT='civil department', RB_SHEETS=['CivilJobs'], RB_TOKKEY='civdept_token', RB_RELOAD='loadJobs';
   function RBTOK(){ return localStorage.getItem(RB_TOKKEY)||''; }
   function rbReload(){ try{ if(typeof window[RB_RELOAD]==='function') window[RB_RELOAD](); }catch(e){} }
   window.rbOpen=function(){ document.getElementById('rbModal').style.display='flex'; window.rbLoad(); };
