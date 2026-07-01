@@ -134,7 +134,7 @@
 <body>
     <div class="login-page show" id="loginPage">
         <div class="login-box">
-            <button class="theme-btn login-theme" onclick="toggleTheme()" aria-label="Toggle dark or light mode">🌙</button>
+            <button class="theme-btn login-theme" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span></button>
             <img src="logo-light.png" alt="Empire World" style="height:44px;width:auto;display:block;margin:0 auto 16px;">
             <a href="cleaning.html" style="display:block;text-align:left;margin-bottom:18px;color:var(--header-accent);text-decoration:none;font-size:13px;font-weight:600;">← Back to categories</a><h1>Empire World</h1>
             <div class="login-message" id="loginMessage"></div>
@@ -170,7 +170,7 @@
             <button class="tab-btn" onclick="switchTab(event, 'royal-apartment')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 12h4"/><path d="M10 8h4"/><path d="M14 21v-3a2 2 0 0 0-4 0v3"/><path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2"/><path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/></svg></span> <span class="lbl">Royal Apartment</span></button>
           </nav>
           <div class="side-actions">
-            <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="theme-icon">🌙</span> <span class="lbl">Theme</span></button>
+            <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span> <span class="lbl">Theme</span></button>
             <button onclick="location.href='cleaning.html'">🏠 <span class="lbl">Categories</span></button>
             <button id="btnTrash" onclick="rbOpen()" style="color:#fff;background:#1d9e75;border-color:#1d9e75;">♻️ <span class="lbl">Recycle Bin</span></button>
             <button id="btnReset" onclick="resetAllData()" style="color:#fff;background:#C5504F;border-color:#C5504F;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> <span class="lbl">Reset Data</span></button>
@@ -197,7 +197,8 @@
     </div>
     <script>
         /* ===== Theme (light default + dark toggle, remembered) ===== */
-        function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); document.querySelectorAll('img[alt="Empire World"]').forEach(function(im){ im.onerror=function(){ this.onerror=null; this.src='logo.png'; }; im.src=(t==='dark'?'logo.png':'logo-light.png'); }); try{ localStorage.setItem('empire_theme', t); }catch(e){} document.querySelectorAll('.theme-btn').forEach(function(b){ var ic=b.querySelector('.theme-icon'); if(ic){ ic.textContent=(t==='dark'?'☀️':'🌙'); } else { b.textContent = (t==='dark'?'☀️':'🌙'); } }); }
+        const TOGGLE_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="15" cy="12" r="3"/><rect width="20" height="14" x="2" y="5" rx="7"/></svg>';
+        function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); document.querySelectorAll('img[alt="Empire World"]').forEach(function(im){ im.onerror=function(){ this.onerror=null; this.src='logo.png'; }; im.src=(t==='dark'?'logo.png':'logo-light.png'); }); try{ localStorage.setItem('empire_theme', t); }catch(e){} document.querySelectorAll('.theme-btn').forEach(function(b){ var ic=b.querySelector('.theme-icon'); if(ic){ ic.innerHTML=TOGGLE_ICON; ic.style.transform=(t==='dark'?'none':'scaleX(-1)'); } var lbl=b.querySelector('.lbl'); if(lbl){ lbl.textContent=(t==='dark'?'Dark Mode':'Light Mode'); } }); }
         function toggleTheme(){ var cur=document.documentElement.getAttribute('data-theme')||'light'; applyTheme(cur==='dark'?'light':'dark'); }
         (function(){ var saved='light'; try{ saved=localStorage.getItem('empire_theme')||'light'; }catch(e){} applyTheme(saved); })();
         function toggleSidebar(){ var sb=document.getElementById('sidebar'); if(!sb)return; var collapsed=sb.classList.toggle('collapsed'); try{ localStorage.setItem('empire_sidebar_collapsed', collapsed?'1':'0'); }catch(e){} }
