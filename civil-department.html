@@ -232,7 +232,7 @@ select option:checked { background:rgba(141,1,93,0.14); }
         <img id="j-image" style="display:none;max-width:200px;margin-top:10px;border-radius:8px;border:2px solid var(--card-border);">
       </div>
       <div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap;">
-        <button onclick="saveJob()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">💾 Save</button>
+        <button onclick="saveJob()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg></span> Save</button>
         <button onclick="clearForm()"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span> Clear</button>
         <button id="cancelEditBtn" onclick="cancelEdit()" style="display:none;color:#fff;background:#C5504F;border-color:#C5504F;">✕ Cancel Edit</button>
       </div>
@@ -255,7 +255,7 @@ select option:checked { background:rgba(141,1,93,0.14); }
         <textarea id="rep-summary" rows="7" placeholder="Write the monthly summary paragraph here — operations overview, work coordination, etc."></textarea>
       </div>
       <div style="margin-top:12px;display:flex;gap:10px;">
-        <button onclick="saveSummary()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">💾 Save Summary</button>
+        <button onclick="saveSummary()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg></span> Save Summary</button>
       </div>
       <div id="summaryMsg" style="margin-top:10px;font-size:13px;color:var(--c-ok);"></div>
     </div>
