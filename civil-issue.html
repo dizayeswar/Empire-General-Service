@@ -159,7 +159,7 @@ select option:checked { background:rgba(141,1,93,0.14); }
       <p id="whoLabel"></p>
       <nav class="side-nav">
         <button class="tab-btn active" onclick="switchTab(event,'list')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span> <span class="lbl">Issues</span></button>
-        <button class="tab-btn" onclick="switchTab(event,'add')">➕ <span class="lbl">Add Issue</span></button>
+        <button class="tab-btn" onclick="switchTab(event,'add')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span> <span class="lbl">Add Issue</span></button>
         <button class="tab-btn" onclick="switchTab(event,'analytics')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 11h8"/><path d="M7 16h12"/><path d="M7 6h3"/></svg></span> <span class="lbl">Analytics</span></button>
       </nav>
       <div class="side-actions">
@@ -173,7 +173,7 @@ select option:checked { background:rgba(141,1,93,0.14); }
     </aside>
     <div class="main-area">
   <div id="add" class="tab-content">
-    <div class="form-section"><h2>➕ Report a New Issue</h2>
+    <div class="form-section"><h2><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span> Report a New Issue</h2>
       <div class="form-row">
         <div class="form-group"><label>Project</label><select id="ci-project" onchange="updateCIBuildings()"></select></div>
         <div class="form-group"><label>Building</label><select id="ci-building" onchange="updateCIFloors()"></select></div>
