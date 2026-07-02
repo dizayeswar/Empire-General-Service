@@ -987,8 +987,14 @@
 </div>
 <script>
 (function(){
-  var DEF={font:'',h1:28,h2:20,h3:16,body:14,btn:14};
-  var CFG={h1:['Headings',20,40],h2:['Section titles',14,32],h3:['Small titles',12,26],body:['Body text',11,20],btn:['Buttons',11,20]};
+  var DEF={font:'',h1:28,h2:20,h3:16,body:14,btn:14,dim:0};
+  var CFG={h1:['Headings',20,40],h2:['Section titles',14,32],h3:['Small titles',12,26],body:['Body text',11,20],btn:['Buttons',11,20],dim:['Light mode dimming',0,30]};
+  function unit(k){ return k==='dim'?'%':'px'; }
+  var LT={'--bg':'#f4f6fb','--panel':'#ffffff','--card':'#ffffff','--task-bg':'#f6f4fc','--header-bg':'#ffffff','--input-bg':'#ffffff','--btn-bg':'#ffffff','--tab-bg':'#ffffff','--btn-hover':'#efeefb','--row-hover':'#f3eefb'};
+  function shade(hex,f){ var n=parseInt(hex.slice(1),16); return 'rgb('+Math.round(((n>>16)&255)*f)+','+Math.round(((n>>8)&255)*f)+','+Math.round((n&255)*f)+')'; }
+  function applyDim(){ var r=document.documentElement.style; var isLight=document.documentElement.getAttribute('data-theme')!=='dark'; var d=(window._tsState&&window._tsState.dim)||0;
+    Object.keys(LT).forEach(function(k){ if(isLight&&d>0) r.setProperty(k,shade(LT[k],1-d/100)); else r.removeProperty(k); }); }
+  new MutationObserver(applyDim).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
   function load(){ try{ return Object.assign({},DEF,JSON.parse(localStorage.getItem('ewTypography')||'{}')); }catch(e){ return Object.assign({},DEF); } }
   function save(st){ localStorage.setItem('ewTypography',JSON.stringify(st)); }
   function apply(st){
@@ -1003,6 +1009,7 @@
       }
       r.setProperty('--app-font',"'"+st.font+"',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif");
     } else { r.removeProperty('--app-font'); }
+    window._tsState=st; applyDim();
   }
   var st=load();
   function build(){
@@ -1017,7 +1024,7 @@
     wrap.querySelectorAll('input[type=range]').forEach(function(sl){
       sl.addEventListener('input',function(){
         var k=this.dataset.k; st[k]=parseInt(this.value);
-        document.getElementById('tsv_'+k).textContent=st[k]+'px';
+        document.getElementById('tsv_'+k).textContent=st[k]+unit(k);
         apply(st); save(st);
       });
     });
@@ -1042,7 +1049,5 @@
   if(localStorage.getItem('isLoggedIn')==='true') window.tsLoadGlobal();
 })();
 </script>
-
 </body>
 </html>
-
