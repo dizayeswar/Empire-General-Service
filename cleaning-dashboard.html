@@ -859,12 +859,15 @@
             var role = localStorage.getItem('userRole')||'';
             var u = localStorage.getItem('currentUser')||'';
             var rb = document.getElementById('btnReset'); if(rb) rb.style.display = (role==='admin') ? '' : 'none';
+            var tb = document.getElementById('txtSetBtn'); if(tb) tb.style.display = (role==='admin') ? 'flex' : 'none';
+            var tp = document.getElementById('txtSetPanel'); if(tp && role!=='admin') tp.style.display='none';
             var wl = document.getElementById('whoLabel'); if(wl) wl.textContent = u ? ('Logged in as: '+u+(role?(' ('+role+')'):'')) : '';
         }
         function enterDashboard(){
             document.getElementById('loginPage').classList.remove('show');
             document.getElementById('mainContainer').classList.add('show');
             applyPerms();
+            if(window.tsLoadGlobal) window.tsLoadGlobal();
             loadReports(); renderTaskChecklists(); loadTasks(); loadWeekCoverage(); loadTaskPhotos(); buildProjectFilterBoxes();
             if(!window._syncStarted){ window._syncStarted=true; setInterval(loadTasks, 60000); setTimeout(function(){ setInterval(loadWeekCoverage, 60000); }, 20000); setTimeout(function(){ setInterval(loadTaskPhotos, 60000); }, 40000); }
             ['ec','es','wd','ww','ww2','ra'].forEach(p=>updateFloors(p));
@@ -966,7 +969,7 @@
 })();
 </script>
 <!-- ===== Text Settings panel ===== -->
-<button id="txtSetBtn" title="Text settings" onclick="document.getElementById('txtSetPanel').style.display=(document.getElementById('txtSetPanel').style.display==='block'?'none':'block')" style="position:fixed;bottom:20px;right:20px;z-index:3000;width:52px;height:52px;border-radius:50%;padding:0;font-size:19px;font-weight:700;display:flex;align-items:center;justify-content:center;">Aa</button>
+<button id="txtSetBtn" title="Text settings" onclick="document.getElementById('txtSetPanel').style.display=(document.getElementById('txtSetPanel').style.display==='block'?'none':'block')" style="position:fixed;bottom:20px;right:20px;z-index:3000;width:52px;height:52px;border-radius:50%;padding:0;font-size:19px;font-weight:700;display:none;align-items:center;justify-content:center;">Aa</button>
 <div id="txtSetPanel" style="display:none;position:fixed;bottom:84px;right:20px;z-index:3000;width:290px;background:var(--panel);border:2px solid var(--card-border);border-radius:22px;padding:18px;box-shadow:0 10px 40px var(--shadow);color:var(--text);">
   <h3 style="margin:0 0 14px;">Text Settings</h3>
   <label style="display:block;margin-bottom:4px;">Font</label>
@@ -979,7 +982,8 @@
     <option value="Cairo">Cairo</option>
   </select>
   <div id="tsSliders"></div>
-  <button onclick="tsReset()" style="width:100%;margin-top:6px;">Reset to default</button>
+  <button id="tsSaveAllBtn" onclick="tsSaveGlobal()" style="width:100%;margin-top:6px;background:var(--accent2);color:#fff;border-color:var(--accent2);">Save for everyone</button>
+  <button onclick="tsReset()" style="width:100%;margin-top:8px;">Reset to default</button>
 </div>
 <script>
 (function(){
@@ -1021,7 +1025,21 @@
     f.onchange=function(){ st.font=this.value; apply(st); save(st); };
   }
   window.tsReset=function(){ st=Object.assign({},DEF); save(st); apply(st); build(); };
+  window.tsSaveGlobal=function(){
+    var btn=document.getElementById('tsSaveAllBtn'); btn.textContent='Saving\u2026';
+    fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'saveUiSettings',settings:st,token:localStorage.getItem('authToken')||''})})
+      .then(function(r){return r.json();})
+      .then(function(d){ btn.textContent=(d.ok||d.success)?'\u2705 Saved for everyone':'\u274c '+(d.error||d.message||'Failed'); setTimeout(function(){btn.textContent='Save for everyone';},2500); })
+      .catch(function(e){ btn.textContent='\u274c '+e.message; setTimeout(function(){btn.textContent='Save for everyone';},2500); });
+  };
+  window.tsLoadGlobal=function(){
+    fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'getUiSettings',token:localStorage.getItem('authToken')||''})})
+      .then(function(r){return r.json();})
+      .then(function(d){ if(d&&d.settings){ st=Object.assign({},DEF,d.settings); save(st); apply(st); build(); } })
+      .catch(function(e){});
+  };
   apply(st); build();
+  if(localStorage.getItem('isLoggedIn')==='true') window.tsLoadGlobal();
 })();
 </script>
 
