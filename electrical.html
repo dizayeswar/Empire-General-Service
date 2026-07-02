@@ -115,12 +115,16 @@ footer { text-align:center; margin-top:30px; color:var(--text-faint); font-size:
   .sidebar.collapsed .sidebar-logo, .sidebar.collapsed .side-title, .sidebar.collapsed #whoLabel, .sidebar.collapsed .lbl { display:block; }
   .sidebar.collapsed .side-nav, .sidebar.collapsed .side-actions { display:none; }
 }
+.nav-icon { display:inline-flex; align-items:center; justify-content:center; vertical-align:middle; pointer-events:none; transition: transform 0.15s ease; }
+.nav-icon svg { display:block; width:16px; height:16px; }
+button:hover .nav-icon { transform: translateY(-3px); }
+@keyframes empireSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
 <div class="login-page show" id="loginPage">
   <div class="login-box">
-    <button class="theme-btn login-theme" onclick="toggleTheme()" aria-label="Toggle dark or light mode">🌙</button>
+    <button class="theme-btn login-theme" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span></button>
     <img src="logo-light.png" alt="Empire World" style="height:44px;width:auto;display:block;margin:0 auto 16px;">
     <a class="back" href="index.html">← Back to Empire World</a>
     <h1>⚡ Electrical Department</h1>
@@ -145,24 +149,24 @@ footer { text-align:center; margin-top:30px; color:var(--text-faint); font-size:
       </div>
       <p id="whoLabel"></p>
       <nav class="side-nav">
-        <button class="tab-btn active" onclick="switchTab(event,'list')">📋 <span class="lbl">Jobs</span></button>
+        <button class="tab-btn active" onclick="switchTab(event,'list')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span> <span class="lbl">Jobs</span></button>
         <button class="tab-btn" id="tab-add" onclick="switchTab(event,'add')">➕ <span class="lbl">Add</span></button>
         <button class="tab-btn" id="tab-report" onclick="switchTab(event,'report')">📄 <span class="lbl">Report</span></button>
-        <button class="tab-btn" id="tab-analytics" onclick="switchTab(event,'analytics')">📈 <span class="lbl">Analytics</span></button>
+        <button class="tab-btn" id="tab-analytics" onclick="switchTab(event,'analytics')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 11h8"/><path d="M7 16h12"/><path d="M7 6h3"/></svg></span> <span class="lbl">Analytics</span></button>
       </nav>
       <div class="side-actions">
-        <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="theme-icon">🌙</span> <span class="lbl">Theme</span></button>
-        <button onclick="loadJobs()">🔄 <span class="lbl">Refresh</span></button>
-        <button onclick="location.href='index.html'">🏠 <span class="lbl">Portal</span></button>
-        <button id="btnReset" onclick="openResetModal()" style="color:#fff;background:#C5734F;border-color:#C5734F;">🔄 <span class="lbl">Reset Data</span></button>
-        <button id="btnTrash" onclick="rbOpen()" style="color:#fff;background:#1d9e75;border-color:#1d9e75;">♻️ <span class="lbl">Recycle Bin</span></button>
-        <button onclick="logout()" style="color:#fff;background:#C5504F;border-color:#C5504F;">🚪 <span class="lbl">Logout</span></button>
+        <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span> <span class="lbl">Theme</span></button>
+        <button onclick="loadJobs()"><span class="nav-icon spin-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> <span class="lbl">Refresh</span></button>
+        <button onclick="location.href='index.html'"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg></span> <span class="lbl">Portal</span></button>
+        <button id="btnReset" onclick="openResetModal()" style="color:#fff;background:#C5734F;border-color:#C5734F;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5H3"/><path d="M7 12H3"/><path d="M7 19H3"/><path d="M12 18a5 5 0 0 0 9-3 4.5 4.5 0 0 0-4.5-4.5c-1.33 0-2.54.54-3.41 1.41L11 14"/><path d="M11 10v4h4"/></svg></span> <span class="lbl">Reset Data</span></button>
+        <button id="btnTrash" onclick="rbOpen()" style="color:#fff;background:#1d9e75;border-color:#1d9e75;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 19H4.815a1.83 1.83 0 0 1-1.57-.881 1.785 1.785 0 0 1-.004-1.784L7.196 9.5"/><path d="M11 19h8.203a1.83 1.83 0 0 0 1.556-.89 1.784 1.784 0 0 0 0-1.775l-1.226-2.12"/><path d="m14 16-3 3 3 3"/><path d="M8.293 13.596 7.196 9.5 3.1 10.598"/><path d="m9.344 5.811 1.093-1.892A1.83 1.83 0 0 1 11.985 3a1.784 1.784 0 0 1 1.546.888l3.943 6.843"/><path d="m13.378 9.633 4.096 1.098 1.097-4.096"/></svg></span> <span class="lbl">Recycle Bin</span></button>
+        <button onclick="logout()" style="color:#fff;background:#C5504F;border-color:#C5504F;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg></span> <span class="lbl">Logout</span></button>
       </div>
     </aside>
     <div class="main-area">
   <div id="list" class="tab-content active">
     <div class="form-section">
-      <h2>📋 All Jobs & Shifts</h2>
+      <h2><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span> All Jobs & Shifts</h2>
       <div class="form-row">
         <div class="form-group">
           <label>Month</label>
@@ -182,7 +186,7 @@ footer { text-align:center; margin-top:30px; color:var(--text-faint); font-size:
           <label>Search</label>
           <input type="text" id="f-search" oninput="renderJobs()" placeholder="job, location, staff…">
         </div>
-        <div class="form-group" style="justify-content:flex-end;"><button onclick="loadJobs()">🔄 Refresh</button></div>
+        <div class="form-group" style="justify-content:flex-end;"><button onclick="loadJobs()"><span class="nav-icon spin-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> Refresh</button></div>
       </div>
       <div id="jobsTable"><p>Loading…</p></div>
     </div>
@@ -210,9 +214,9 @@ footer { text-align:center; margin-top:30px; color:var(--text-faint); font-size:
           <div class="form-group"><label>Staff</label><input type="text" id="j-staff" placeholder="e.g. Jasim, Ibrahim"></div>
         </div>
         <div class="form-group" style="margin-bottom:18px;"><label>Notes (optional)</label><input type="text" id="j-notes" placeholder="Any extra detail"></div>
-        <h3>📸 Photo (optional)</h3>
+        <h3><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/></svg></span> Photo (optional)</h3>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
-          <button type="button" onclick="document.getElementById('j-file').click()">📁 Upload / Camera</button>
+          <button type="button" onclick="document.getElementById('j-file').click()"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/><circle cx="14" cy="15" r="1"/></svg></span> Upload / Camera</button>
           <span style="color:var(--text-soft);font-size:13px;">— or paste below ⤵</span>
           <input type="file" id="j-file" accept="image/*" style="display:none" onchange="handleJobFile(event)">
         </div>
@@ -231,7 +235,7 @@ footer { text-align:center; margin-top:30px; color:var(--text-faint); font-size:
       </div>
       <div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap;">
         <button onclick="saveJob()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">💾 Save</button>
-        <button onclick="clearForm()">🗑️ Clear</button>
+        <button onclick="clearForm()"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span> Clear</button>
         <button id="cancelEditBtn" onclick="cancelEdit()" style="display:none;color:#fff;background:#C5504F;border-color:#C5504F;">✕ Cancel Edit</button>
       </div>
     </div>
@@ -245,7 +249,7 @@ footer { text-align:center; margin-top:30px; color:var(--text-faint); font-size:
           <input type="month" id="rep-month" onchange="onRepMonthChange()">
         </div>
         <div class="form-group" style="justify-content:flex-end;">
-          <button id="dlBtn" onclick="downloadReport()">⬇️ Download Report (offline HTML)</button>
+          <button id="dlBtn" onclick="downloadReport()"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg></span> Download Report (offline HTML)</button>
         </div>
       </div>
       <div class="form-group" style="margin-top:10px;">
@@ -258,13 +262,13 @@ footer { text-align:center; margin-top:30px; color:var(--text-faint); font-size:
       <div id="summaryMsg" style="margin-top:10px;font-size:13px;color:var(--c-ok);"></div>
     </div>
     <div class="form-section">
-      <h2>📊 Month Preview</h2>
+      <h2><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 11h8"/><path d="M7 16h12"/><path d="M7 6h3"/></svg></span> Month Preview</h2>
       <div id="reportPreview"><p style="color:var(--text-faint);">Select a month above to see the preview.</p></div>
     </div>
   </div>
   <div id="analytics" class="tab-content">
     <div class="form-section">
-      <h2>📈 Analytics</h2>
+      <h2><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 11h8"/><path d="M7 16h12"/><path d="M7 6h3"/></svg></span> Analytics</h2>
       <div class="form-row" style="align-items:flex-end;">
         <div class="form-group">
           <label>Month (optional)</label>
@@ -282,7 +286,9 @@ footer { text-align:center; margin-top:30px; color:var(--text-faint); font-size:
 <div class="modal" id="imgModal" onclick="closeImg()"><img id="imgBig" style="max-width:92%;max-height:92%;border-radius:10px;"></div>
 <script>
 /* ===== Theme (light default + dark toggle, remembered) ===== */
-function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); document.querySelectorAll('img[alt="Empire World"]').forEach(function(im){ im.onerror=function(){ this.onerror=null; this.src='logo.png'; }; im.src=(t==='dark'?'logo.png':'logo-light.png'); }); try{ localStorage.setItem('empire_theme', t); }catch(e){} document.querySelectorAll('.theme-btn').forEach(function(b){ var ic=b.querySelector('.theme-icon'); if(ic){ ic.textContent=(t==='dark'?'☀️':'🌙'); } else { b.textContent = (t==='dark'?'☀️':'🌙'); } }); }
+var TOGGLE_ICON='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="15" cy="12" r="3"/><rect width="20" height="14" x="2" y="5" rx="7"/></svg>';
+function fmtDT(s){ if(!s) return ''; var d=new Date(String(s).replace(' ','T')); if(isNaN(d.getTime())) return String(s); var z=function(n){return String(n).padStart(2,'0');}; var out=d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate())+' '+z(d.getHours())+':'+z(d.getMinutes()); return out.replace(/ 00:00$/,''); }
+function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); document.querySelectorAll('img[alt="Empire World"]').forEach(function(im){ im.onerror=function(){ this.onerror=null; this.src='logo.png'; }; im.src=(t==='dark'?'logo.png':'logo-light.png'); }); try{ localStorage.setItem('empire_theme', t); }catch(e){} document.querySelectorAll('.theme-btn').forEach(function(b){ var ic=b.querySelector('.theme-icon'); if(ic){ ic.innerHTML=TOGGLE_ICON; ic.style.transform=(t==='dark'?'none':'scaleX(-1)'); } var lbl=b.querySelector('.lbl'); if(lbl){ lbl.textContent=(t==='dark'?'Dark Mode':'Light Mode'); } }); }
 function toggleTheme(){ var cur=document.documentElement.getAttribute('data-theme')||'light'; applyTheme(cur==='dark'?'light':'dark'); }
 (function(){ var saved='light'; try{ saved=localStorage.getItem('empire_theme')||'light'; }catch(e){} applyTheme(saved); })();
 function toggleSidebar(){ var sb=document.getElementById('sidebar'); if(!sb)return; var collapsed=sb.classList.toggle('collapsed'); try{ localStorage.setItem('empire_sidebar_collapsed', collapsed?'1':'0'); }catch(e){} }
@@ -432,8 +438,8 @@ function renderJobs(){
     var photo=r.photo?'<img class="thumb" src="'+r.photo+'" onclick="bigImg(this.src)" loading="lazy">':'—';
     var amountCell=r.type==='refundable'&&r.amount?'<span style="color:var(--c-money);font-weight:600;">'+fmtMoney(parseFloat(r.amount))+' IQD</span>':'—';
     var acts='';
-    if(P.edit!==false) acts+='<button class="act-btn" onclick="editJob(\''+r.id+'\')">✏️ Edit</button>';
-    if(P.del!==false) acts+='<button class="act-btn" onclick="deleteJob(\''+r.id+'\')" style="color:#fff;background:#C5504F;border-color:#C5504F;">🗑️</button>';
+    if(P.edit!==false) acts+='<button class="act-btn" onclick="editJob(\''+r.id+'\')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/></svg></span> Edit</button>';
+    if(P.del!==false) acts+='<button class="act-btn" onclick="deleteJob(\''+r.id+'\')" style="color:#fff;background:#C5504F;border-color:#C5504F;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span></button>';
     h+='<tr class="job-row"><td>'+num+'</td><td>'+r.date+'</td><td>'+typeBadge+'</td><td>'+_esc(r.job)+'</td><td>'+_esc(r.location||'')+'</td><td style="max-width:160px;word-break:break-word;">'+_esc(r.materials||'—')+'</td><td>'+_esc(r.staff||'')+'</td><td>'+amountCell+'</td><td>'+photo+'</td>'+(showActions?('<td>'+(acts||'—')+'</td>'):'')+'</tr>';
   });
   h+='</tbody></table></div>';
@@ -444,7 +450,7 @@ function editJob(id){
   var r=allJobs.find(x=>x.id===id); if(!r)return;
   switchTabTo('add');
   document.getElementById('editId').value=id;
-  document.getElementById('addFormTitle').textContent='✏️ Edit Job';
+  document.getElementById('addFormTitle').textContent='<span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/></svg></span> Edit Job';
   document.getElementById('cancelEditBtn').style.display='inline-block';
   if(r.type==='callcenter'){
     setFormType('callcenter');
@@ -613,7 +619,7 @@ function doReset(){ var pw=document.getElementById('resetPwInput').value; var ms
     <div id="resetMsg2" style="min-height:18px;margin-top:10px;font-size:13px;font-weight:600;"></div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
       <button onclick="closeResetModal()">Cancel</button>
-      <button onclick="doReset()" style="color:#fff;background:#C5504F;border-color:#C5504F;">🗑️ Delete Everything</button>
+      <button onclick="doReset()" style="color:#fff;background:#C5504F;border-color:#C5504F;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span> Delete Everything</button>
     </div>
   </div>
 </div>
@@ -621,12 +627,12 @@ function doReset(){ var pw=document.getElementById('resetPwInput').value; var ms
 <div id="rbModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1700;align-items:center;justify-content:center;">
   <div style="background:var(--panel);border:2px solid var(--card-border);border-radius:14px;max-width:780px;width:94%;max-height:86vh;overflow:auto;padding:24px;box-shadow:0 10px 40px var(--shadow);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--text);">
     <span onclick="rbClose()" style="float:right;cursor:pointer;font-size:26px;line-height:1;color:var(--text);">&times;</span>
-    <h2 style="margin:0 0 6px;color:var(--text);">♻️ Recycle Bin</h2>
+    <h2 style="margin:0 0 6px;color:var(--text);"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 19H4.815a1.83 1.83 0 0 1-1.57-.881 1.785 1.785 0 0 1-.004-1.784L7.196 9.5"/><path d="M11 19h8.203a1.83 1.83 0 0 0 1.556-.89 1.784 1.784 0 0 0 0-1.775l-1.226-2.12"/><path d="m14 16-3 3 3 3"/><path d="M8.293 13.596 7.196 9.5 3.1 10.598"/><path d="m9.344 5.811 1.093-1.892A1.83 1.83 0 0 1 11.985 3a1.784 1.784 0 0 1 1.546.888l3.943 6.843"/><path d="m13.378 9.633 4.096 1.098 1.097-4.096"/></svg></span> Recycle Bin</h2>
     <p style="color:var(--text-soft);font-size:13px;margin-bottom:14px;">Anything deleted or cleared by a Reset is kept here. <strong>Restore</strong> puts it back; <strong>Delete forever</strong> removes it permanently.</p>
     <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
-      <button onclick="rbLoad()">🔄 Refresh</button>
+      <button onclick="rbLoad()"><span class="nav-icon spin-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> Refresh</button>
       <button onclick="rbRestoreAll()" style="color:#fff;background:#1d9e75;border-color:#1d9e75;">↩️ Restore all</button>
-      <button onclick="rbEmpty()" style="color:#fff;background:#C5504F;border-color:#C5504F;">🗑️ Empty bin</button>
+      <button onclick="rbEmpty()" style="color:#fff;background:#C5504F;border-color:#C5504F;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span> Empty bin</button>
     </div>
     <div id="rbList"><p style="color:var(--text-faint);">Loading…</p></div>
   </div>
