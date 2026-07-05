@@ -17,7 +17,7 @@ var TRASH_SHEET = 'Trash';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-05-nums';
+var SCRIPT_VERSION = '2026-07-05-supervisor';
 var _SS_CACHE = null;
 function getSS_() { if (!_SS_CACHE) _SS_CACHE = SpreadsheetApp.openById(SHEET_ID); return _SS_CACHE; }
 function issuesCacheKey_(sheetName) { return 'issues_v2_' + sheetName; }
@@ -504,7 +504,8 @@ function handleAddIssue(body, sheetName) {
   var key = issnumKey_(sheetName);
   var num = Math.max(Number(props.getProperty(key)||0), maxNum) + 1;
   try { props.setProperty(key, String(num)); } catch(e){}
-  sheet.appendRow([id, body.project||'', body.building||'', body.floor||'', body.spot||'', body.issueType||'', body.note||'', body.date||'', body.photo||'', '', 'open', body.username||'', new Date().toISOString(), '', '', num]);
+  var reporter = String(body.supervisor||'').trim() || String(body.username||'');
+  sheet.appendRow([id, body.project||'', body.building||'', body.floor||'', body.spot||'', body.issueType||'', body.note||'', body.date||'', body.photo||'', '', 'open', reporter, new Date().toISOString(), '', '', num]);
   invalidateIssuesCache_(sheetName);
   return {ok:true, success:true, id:id, num:num};
 }
