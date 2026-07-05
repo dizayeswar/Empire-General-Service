@@ -17,7 +17,7 @@ var TRASH_SHEET = 'Trash';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-05-supervisor';
+var SCRIPT_VERSION = '2026-07-05-edit';
 var _SS_CACHE = null;
 function getSS_() { if (!_SS_CACHE) _SS_CACHE = SpreadsheetApp.openById(SHEET_ID); return _SS_CACHE; }
 function issuesCacheKey_(sheetName) { return 'issues_v2_' + sheetName; }
@@ -68,9 +68,9 @@ function doPost(e) {
       'getWeekCoverage':'cleaning','markTaskWeek':'cleaning','getRangeCoverage':'cleaning',
       'getTaskPhotos':'cleaning','addTaskPhoto':'cleaning','deleteTaskPhoto':'cleaning',
       'logTask':'cleaning','getTaskLog':'cleaning',
-      'addCivilIssue':'civil issue','getCivilIssues':'civil issue','markCivilFixed':'civil issue','clearCivilIssues':'civil issue','deleteCivilIssue':'civil issue',
-      'addElectricIssue':'electric issue','getElectricIssues':'electric issue','markElectricFixed':'electric issue','clearElectricIssues':'electric issue','deleteElectricIssue':'electric issue',
-      'addFireIssue':'fire','getFireIssues':'fire','markFireFixed':'fire','clearFireIssues':'fire','deleteFireIssue':'fire',
+      'addCivilIssue':'civil issue','updateCivilIssue':'civil issue','getCivilIssues':'civil issue','markCivilFixed':'civil issue','clearCivilIssues':'civil issue','deleteCivilIssue':'civil issue',
+      'addElectricIssue':'electric issue','updateElectricIssue':'electric issue','getElectricIssues':'electric issue','markElectricFixed':'electric issue','clearElectricIssues':'electric issue','deleteElectricIssue':'electric issue',
+      'addFireIssue':'fire','updateFireIssue':'fire','getFireIssues':'fire','markFireFixed':'fire','clearFireIssues':'fire','deleteFireIssue':'fire',
       'addElectricalJob':'electrical department','getElectricalJobs':'electrical department','updateElectricalJob':'electrical department',
       'deleteElectricalJob':'electrical department','clearElectricalJobs':'electrical department',
       'getElectricalSummary':'electrical department','saveElectricalSummary':'electrical department',
@@ -105,16 +105,19 @@ function doPost(e) {
     if (action==='getUiSettings') return respond(handleGetUiSettings(body));
     if (action==='saveUiSettings') return respond(handleSaveUiSettings(body));
     if (action==='addCivilIssue') return respond(handleAddIssue(body, CIVIL_SHEET));
+    if (action==='updateCivilIssue') return respond(handleUpdateIssue(body, CIVIL_SHEET));
     if (action==='getCivilIssues') return respond(handleGetIssues(body, CIVIL_SHEET));
     if (action==='markCivilFixed') return respond(handleMarkFixed(body, CIVIL_SHEET));
     if (action==='clearCivilIssues') return respond(handleClearIssues(body, CIVIL_SHEET));
     if (action==='deleteCivilIssue') return respond(handleDeleteIssue(body, CIVIL_SHEET));
     if (action==='addElectricIssue') return respond(handleAddIssue(body, ELECTRIC_SHEET));
+    if (action==='updateElectricIssue') return respond(handleUpdateIssue(body, ELECTRIC_SHEET));
     if (action==='getElectricIssues') return respond(handleGetIssues(body, ELECTRIC_SHEET));
     if (action==='markElectricFixed') return respond(handleMarkFixed(body, ELECTRIC_SHEET));
     if (action==='clearElectricIssues') return respond(handleClearIssues(body, ELECTRIC_SHEET));
     if (action==='deleteElectricIssue') return respond(handleDeleteIssue(body, ELECTRIC_SHEET));
     if (action==='addFireIssue') return respond(handleAddIssue(body, FIRE_SHEET));
+    if (action==='updateFireIssue') return respond(handleUpdateIssue(body, FIRE_SHEET));
     if (action==='getFireIssues') return respond(handleGetIssues(body, FIRE_SHEET));
     if (action==='markFireFixed') return respond(handleMarkFixed(body, FIRE_SHEET));
     if (action==='clearFireIssues') return respond(handleClearIssues(body, FIRE_SHEET));
@@ -508,6 +511,26 @@ function handleAddIssue(body, sheetName) {
   sheet.appendRow([id, body.project||'', body.building||'', body.floor||'', body.spot||'', body.issueType||'', body.note||'', body.date||'', body.photo||'', '', 'open', reporter, new Date().toISOString(), '', '', num]);
   invalidateIssuesCache_(sheetName);
   return {ok:true, success:true, id:id, num:num};
+}
+
+// Updates an existing issue's editable fields, keeping id, num (reference),
+// status, fixed info, and createdAt unchanged.
+function handleUpdateIssue(body, sheetName) {
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) return {ok:false, error:'Sheet not found'};
+  var rows = sheet.getDataRange().getValues();
+  for (var i=1;i<rows.length;i++) {
+    if (String(rows[i][0])===String(body.id)) {
+      // columns 2..9 = project, building, floor, spot, issueType, note, date, photo
+      sheet.getRange(i+1, 2, 1, 8).setValues([[body.project||'', body.building||'', body.floor||'', body.spot||'', body.issueType||'', body.note||'', body.date||'', body.photo||'']]);
+      var reporter = String(body.supervisor||'').trim();
+      if (reporter) sheet.getRange(i+1, 12).setValue(reporter); // createdBy = reported by
+      invalidateIssuesCache_(sheetName);
+      return {ok:true, success:true, id:String(body.id)};
+    }
+  }
+  return {ok:false, error:'Issue not found'};
 }
 
 function handleGetIssues(body, sheetName) {
