@@ -346,7 +346,7 @@ select option:checked { background:rgba(141,1,93,0.14); }
         }
         function saveReport(p) { if(uploading[p]) { alert('⏳ Image still uploading! Please wait for "✅ Image uploaded!" message.'); return; } const b=document.getElementById(p+'-building').value; const d=document.getElementById(p+'-date').value||new Date().toISOString().split('T')[0]; const e=document.getElementById(p+'-employees').value; const l=document.getElementById(p+'-level').value; const img=currentImages[p]||''; const f=[]; document.querySelectorAll('#'+p+'-floors input[type="checkbox"]:checked').forEach(cb=>f.push(cb.value)); const id='rep-'+Date.now()+'-'+Math.random().toString(36).slice(2,8); const rep={action:'saveReport', report:{id:id,project:p,building:b,date:d,employees:e,level:l,floors:f,photo:img}, token:localStorage.getItem('authToken')||''}; fetchJSONRetry(rep).then(d2=>{ if(d2 && d2.ok===false){ alert('❌ Report NOT saved: '+(d2.message||d2.error||'unknown error')); return; } alert('✅ Report saved!'); loadReports().then(()=>{ refreshDashboardView(); }); clearForm(p); }).catch(err=>{alert('❌ Error: '+err.message); console.error(err);}); }
         function clearForm(p) { document.getElementById(p+'-date').value=''; document.getElementById(p+'-employees').value='1'; document.getElementById(p+'-level').value='High'; document.querySelectorAll('#'+p+'-floors input[type="checkbox"]').forEach(cb=>{cb.checked=false; updateCbIcon(cb);}); const sa=document.getElementById(p+'-selectall'); sa.checked=false; updateCbIcon(sa); const img=document.getElementById(p+'-image'); img.src=''; img.style.display='none'; currentImages[p]=''; }
-        function switchTab(e,t) { document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(el=>el.classList.remove('active')); document.getElementById(t).classList.add('active'); e.target.classList.add('active'); if(t==='analytics'){generateMonthCompletion(); generateAnalytics();} else if(t==='monthly'){ const mm=document.getElementById('monthlyMonth'); if(mm && !mm.value){ const dd=new Date(); mm.value=dd.getFullYear()+'-'+String(dd.getMonth()+1).padStart(2,'0'); } } else if(!['all','analytics','monthly'].includes(t)){updateFloors(t); loadTasks();} }
+        function switchTab(e,t) { document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(el=>el.classList.remove('active')); document.getElementById(t).classList.add('active'); e.target.classList.add('active'); if(t==='analytics'){generateMonthCompletion(); generateAnalytics();} else if(t==='monthly'){ const mm=document.getElementById('monthlyMonth'); if(mm && !mm.value){ mm.value=curMonth(); } } else if(!['all','analytics','monthly'].includes(t)){updateFloors(t); loadTasks();} }
         let filterProject = 'ALL';
         function buildProjectFilterBoxes(){
           const host=document.getElementById('projectFilterBoxes'); if(!host) return;
@@ -579,7 +579,9 @@ select option:checked { background:rgba(141,1,93,0.14); }
           renderTaskProject(p);
         }
         let pendingPhotos = [];
-        function curMonth(){ return taskTodayStr().slice(0,7); }
+        function reportMonthOfDate(d){ d=String(d||''); if(!/^\d{4}-\d{2}-\d{2}/.test(d)){ var t=new Date(); var z=function(n){return String(n).padStart(2,'0');}; d=t.getFullYear()+'-'+z(t.getMonth()+1)+'-'+z(t.getDate()); } var yr=parseInt(d.slice(0,4),10), mo=parseInt(d.slice(5,7),10), dy=parseInt(d.slice(8,10),10); if(dy>=26){ mo+=1; if(mo>12){mo=1;yr+=1;} } return yr+'-'+String(mo).padStart(2,'0'); }
+        function reportPeriodBounds(rm){ if(!rm) return null; var p=rm.split('-'); var y=parseInt(p[0],10), m=parseInt(p[1],10); var pm=m-1, py=y; if(pm<1){pm=12;py--;} var z=function(n){return String(n).padStart(2,'0');}; return {from:py+'-'+z(pm)+'-26', to:y+'-'+z(m)+'-25'}; }
+        function curMonth(){ return reportMonthOfDate(taskTodayStr()); }
         async function loadTaskPhotos(){
           try{
             const r=await fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'getTaskPhotos', periodPrefix:curMonth(), token:localStorage.getItem('authToken')||''})});
@@ -785,7 +787,8 @@ select option:checked { background:rgba(141,1,93,0.14); }
           const mv=document.getElementById('monthlyMonth').value;
           if(!mv){ alert('Please pick a month first.'); return; }
           const parts=mv.split('-'); const y=Number(parts[0]); const m=Number(parts[1]);
-          const from=mv+'-01'; const lastDay=new Date(y, m, 0).getDate(); const to=mv+'-'+String(lastDay).padStart(2,'0');
+          const bounds=reportPeriodBounds(mv);
+          const from=bounds.from; const to=bounds.to;
           const monthName=new Date(y, m-1, 1).toLocaleString('en-US',{month:'long',year:'numeric'});
           const monthReports=allReports.filter(r=>{ const rd=normalizeDate(r.date); return rd>=from && rd<=to; });
           analyticsReports=monthReports;
