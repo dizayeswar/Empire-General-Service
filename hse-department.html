@@ -5,29 +5,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="preconnect" href="https://script.google.com">
     <link rel="preconnect" href="https://api.imgbb.com">
-    <title>Empire World — Dashboards</title>
+    <title>HSE Department — Empire World</title>
     <style>
         :root{
           --bg:#f4f6fb; --text:#232a3d; --text-soft:#5b6478; --text-faint:#8a90a0;
           --card:#ffffff; --card-border:#e8d3e0; --header-accent:#185fa5; --accent2:#8d015d;
           --tile-hover-border:#8d015d; --wait-bg:#f7eaf2; --wait-text:#8d015d; --wait-border:#dcc0d2;
           --btn-bg:#ffffff; --btn-text:#185fa5; --btn-border:#d9a3c4; --shadow:rgba(80,70,150,0.12);
-          --panel:#ffffff;
+          --panel:#ffffff; --back-bg:#ffffff;
         }
         html[data-theme="dark"]{
           --bg:linear-gradient(135deg,#0f5a9e 0%,#8d015d 100%); --text:#ffffff; --text-soft:#d9c2d9; --text-faint:#cbb6cb;
           --card:rgba(13,50,100,0.75); --card-border:#a0327d; --header-accent:#ffffff; --accent2:#a0327d;
           --tile-hover-border:#d34da0; --wait-bg:#5b3b6e; --wait-text:#e6c8e6; --wait-border:#a0327d;
           --btn-bg:#0d4a85; --btn-text:#ffffff; --btn-border:#a0327d; --shadow:rgba(0,0,0,0.3);
-          --panel:#0d3a6e;
+          --panel:#0d3a6e; --back-bg:transparent;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
         .topbar { display:flex; justify-content:space-between; align-items:center; padding:16px 24px 0; }
         .theme-btn { background:var(--btn-bg); color:var(--btn-text); border:2px solid var(--btn-border); padding:8px 12px; border-radius:6px; cursor:pointer; font-size:15px; line-height:1; }
-        .wrap { max-width: 1200px; margin: 0 auto; padding: 20px 20px 60px; }
+        .wrap { max-width: 1100px; margin: 0 auto; padding: 10px 20px 60px; }
+        .back { display: inline-block; margin-bottom: 24px; color: var(--header-accent); text-decoration: none; font-size: 14px; font-weight: 600; padding: 8px 14px; border: 1px solid var(--btn-border); border-radius: 20px; transition: all 0.18s; background:var(--back-bg); }
+        .back:hover { background: var(--accent2); color: #fff; border-color: var(--accent2); }
         header { text-align: center; margin-bottom: 40px; }
-        header h1 { font-size: 36px; margin-bottom: 8px; color:var(--header-accent); }
+        header h1 { font-size: 34px; margin-bottom: 8px; color:var(--header-accent); }
         header p { color: var(--text-soft); font-size: 15px; }
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 22px; }
         .tile { background: var(--card); border: 2px solid var(--card-border); border-radius: 16px; padding: 26px; box-shadow: 0 6px 20px var(--shadow); transition: transform 0.18s, box-shadow 0.18s; display: flex; flex-direction: column; min-height: 190px; text-decoration: none; color: var(--text); }
@@ -56,12 +58,13 @@ input[type=text],input[type=date],input[type=month],input[type=number],select,te
 <body>
     <div class="topbar">
       <img src="logo-light.png" alt="Empire World" style="height:48px;width:auto;">
-      <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode">🌙</button>
+      <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode">&#127769;</button>
     </div>
     <div class="wrap">
+        <a class="back" href="index.html">&larr; Back to Empire World</a>
         <header>
-            <h1>Empire World</h1>
-            <p>Choose a department to open its dashboard</p>
+            <h1>HSE Department</h1>
+            <p>Health, Safety &amp; Environment — fire fighting equipment checks</p>
         </header>
         <div class="grid" id="grid"></div>
         <footer>Prepared by <strong>Swar Dizayee</strong></footer>
@@ -77,21 +80,13 @@ input[type=text],input[type=date],input[type=month],input[type=number],select,te
           window.uiConfirm=function(msg){ return new Promise(function(res){ var o=ov(); document.getElementById('uiDlgMsg').textContent=String(msg); var bw=document.getElementById('uiDlgBtns'); bw.innerHTML=''; var c=mkbtn('Cancel','#888'); c.onclick=function(){ o.style.display='none'; res(false); }; var ok=mkbtn('OK','#C5504F'); ok.onclick=function(){ o.style.display='none'; res(true); }; bw.appendChild(c); bw.appendChild(ok); o.style.display='flex'; setTimeout(function(){ok.focus();},30); }); };
           window.alert=function(m){ window.uiAlert(m); };
         })();
-        const categories = [
-            { icon:'🧹', name:'Cleaning Department', desc:'Daily reports, task checklists & monthly report.', link:'cleaning.html', active:true },
-            { icon:'🏗️', name:'Civil Department', desc:'Daily maintenance jobs & monthly reports.', link:'civil-department.html', active:true },
-            { icon:'⛑️', name:'HSE Department', desc:'Fire safety inspections — equipment checks (okay, needs fix, missing).', link:'hse-department.html', active:true },
-            { icon:'🛡️', name:'Security', desc:'Coming soon — tell us what this dashboard should track.', active:false },
-            { icon:'🌿', name:'Landscaping', desc:'Coming soon — tell us what this dashboard should track.', active:false },
-            { icon:'⚡', name:'Electrical Department', desc:'Daily maintenance jobs, call center shifts & monthly reports.', link:'electrical.html', active:true },
-            { icon:'🚰', name:'Plumbing', desc:'Coming soon — tell us what this dashboard should track.', active:false },
-            { icon:'📦', name:'Stores / Inventory', desc:'Coming soon — tell us what this dashboard should track.', active:false },
-            { icon:'👥', name:'HR / Staff', desc:'Coming soon — tell us what this dashboard should track.', active:false }
+        const sections = [
+            { icon:'🧯', name:'Fire Safety Inspections', desc:'Supervisor building walk — log fire equipment condition (okay, needs fix, missing).', link:'hse-inspection.html', active:true }
         ];
         function render(){
             const grid = document.getElementById('grid');
             grid.innerHTML = '';
-            categories.forEach(c => {
+            sections.forEach(c => {
                 let el;
                 if (c.active && c.link) {
                     el = document.createElement('a');

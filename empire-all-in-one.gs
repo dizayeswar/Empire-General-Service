@@ -9,6 +9,7 @@ var TASK_LOG_SHEET = 'TaskLog';
 var CIVIL_SHEET = 'CivilIssues';
 var ELECTRIC_SHEET = 'ElectricIssues';
 var FIRE_SHEET = 'FireIssues';
+var HSE_SHEET = 'HseInspections';
 var ELECTRICAL_JOBS_SHEET = 'ElectricalJobs';
 var ELECTRICAL_SUMMARY_SHEET = 'ElectricalSummary';
 var CIVIL_JOBS_SHEET = 'CivilJobs';
@@ -17,7 +18,7 @@ var TRASH_SHEET = 'Trash';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-05-cleaning';
+var SCRIPT_VERSION = '2026-07-06-hse';
 var _SS_CACHE = null;
 function getSS_() { if (!_SS_CACHE) _SS_CACHE = SpreadsheetApp.openById(SHEET_ID); return _SS_CACHE; }
 function issuesCacheKey_(sheetName) { return 'issues_v2_' + sheetName; }
@@ -71,6 +72,7 @@ function doPost(e) {
       'addCivilIssue':'civil issue','updateCivilIssue':'civil issue','getCivilIssues':'civil issue','markCivilFixed':'civil issue','clearCivilIssues':'civil issue','deleteCivilIssue':'civil issue',
       'addElectricIssue':'electric issue','updateElectricIssue':'electric issue','getElectricIssues':'electric issue','markElectricFixed':'electric issue','clearElectricIssues':'electric issue','deleteElectricIssue':'electric issue',
       'addFireIssue':'fire','updateFireIssue':'fire','getFireIssues':'fire','markFireFixed':'fire','clearFireIssues':'fire','deleteFireIssue':'fire',
+      'addHseInspection':'hse','updateHseInspection':'hse','getHseInspections':'hse','markHseResolved':'hse','clearHseInspections':'hse','deleteHseInspection':'hse',
       'addElectricalJob':'electrical department','getElectricalJobs':'electrical department','updateElectricalJob':'electrical department',
       'deleteElectricalJob':'electrical department','clearElectricalJobs':'electrical department',
       'getElectricalSummary':'electrical department','saveElectricalSummary':'electrical department',
@@ -84,7 +86,7 @@ function doPost(e) {
     var auth = verifyToken(body.token, requiredDept);
     if (!auth.ok) return respond(auth);
     body.username = auth.username;
-    var adminOnly = {saveUiSettings:1, clearElectricalJobs:1, clearCivilJobs:1, clearCivilIssues:1, clearElectricIssues:1, clearFireIssues:1, clearAll:1, getTrash:1, restoreTrash:1, purgeTrash:1};
+    var adminOnly = {saveUiSettings:1, clearElectricalJobs:1, clearCivilJobs:1, clearCivilIssues:1, clearElectricIssues:1, clearFireIssues:1, clearHseInspections:1, clearAll:1, getTrash:1, restoreTrash:1, purgeTrash:1};
     if (adminOnly[action] && String(auth.role||'').toLowerCase()!=='admin') return respond({ok:false,success:false,error:'not_allowed',message:'Only an admin can do that.'});
     if (action==='saveReport') return respond(handleSaveReport(body));
     if (action==='getReports') return respond(handleGetReports(body));
@@ -122,6 +124,12 @@ function doPost(e) {
     if (action==='markFireFixed') return respond(handleMarkFixed(body, FIRE_SHEET));
     if (action==='clearFireIssues') return respond(handleClearIssues(body, FIRE_SHEET));
     if (action==='deleteFireIssue') return respond(handleDeleteIssue(body, FIRE_SHEET));
+    if (action==='addHseInspection') return respond(handleAddIssue(body, HSE_SHEET));
+    if (action==='updateHseInspection') return respond(handleUpdateIssue(body, HSE_SHEET));
+    if (action==='getHseInspections') return respond(handleGetIssues(body, HSE_SHEET));
+    if (action==='markHseResolved') return respond(handleMarkFixed(body, HSE_SHEET));
+    if (action==='clearHseInspections') return respond(handleClearIssues(body, HSE_SHEET));
+    if (action==='deleteHseInspection') return respond(handleDeleteIssue(body, HSE_SHEET));
     if (action==='addElectricalJob') return respond(handleAddElectricalJob(body));
     if (action==='getElectricalJobs') return respond(handleGetElectricalJobs(body));
     if (action==='updateElectricalJob') return respond(handleUpdateElectricalJob(body));
@@ -492,6 +500,13 @@ function handleClearAll(body) {
 
 // Issue sheet columns: id,project,building,floor,spot,issueType,note,date,photo,fixedPhoto,status,createdBy,createdAt,fixedBy,fixedAt
 function dtIssue_(d){ if(d instanceof Date){ var z=function(n){return String(n).padStart(2,'0');}; return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate())+' '+z(d.getHours())+':'+z(d.getMinutes()); } return String(d||''); }
+function issueStatusFromCondition_(body) {
+  var cond = String(body.condition||'').trim().toLowerCase();
+  if (cond==='okay') return 'okay';
+  if (cond==='missing') return 'missing';
+  if (cond==='needs fix' || cond==='needs_fix' || cond==='needsfix') return 'open';
+  return String(body.status||'open');
+}
 function handleAddIssue(body, sheetName) {
   var ss = getSS_();
   var sheet = ss.getSheetByName(sheetName) || ss.insertSheet(sheetName);
@@ -508,7 +523,8 @@ function handleAddIssue(body, sheetName) {
   var num = Math.max(Number(props.getProperty(key)||0), maxNum) + 1;
   try { props.setProperty(key, String(num)); } catch(e){}
   var reporter = String(body.supervisor||'').trim() || String(body.username||'');
-  sheet.appendRow([id, body.project||'', body.building||'', body.floor||'', body.spot||'', body.issueType||'', body.note||'', body.date||'', body.photo||'', '', 'open', reporter, new Date().toISOString(), '', '', num]);
+  var status = issueStatusFromCondition_(body);
+  sheet.appendRow([id, body.project||'', body.building||'', body.floor||'', body.spot||'', body.issueType||'', body.note||'', body.date||'', body.photo||'', '', status, reporter, new Date().toISOString(), '', '', num]);
   invalidateIssuesCache_(sheetName);
   return {ok:true, success:true, id:id, num:num};
 }
@@ -526,6 +542,7 @@ function handleUpdateIssue(body, sheetName) {
       sheet.getRange(i+1, 2, 1, 8).setValues([[body.project||'', body.building||'', body.floor||'', body.spot||'', body.issueType||'', body.note||'', body.date||'', body.photo||'']]);
       var reporter = String(body.supervisor||'').trim();
       if (reporter) sheet.getRange(i+1, 12).setValue(reporter); // createdBy = reported by
+      if (body.condition) sheet.getRange(i+1, 11).setValue(issueStatusFromCondition_(body));
       invalidateIssuesCache_(sheetName);
       return {ok:true, success:true, id:String(body.id)};
     }
