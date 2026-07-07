@@ -24,7 +24,10 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
         .topbar { display:flex; justify-content:space-between; align-items:center; padding:16px 24px 0; }
-        .theme-btn { background:var(--btn-bg); color:var(--btn-text); border:2px solid var(--btn-border); padding:8px 12px; border-radius:6px; cursor:pointer; font-size:15px; line-height:1; }
+        .theme-btn { background:var(--btn-bg); color:var(--btn-text); border:2px solid var(--btn-border); padding:8px 14px; border-radius:6px; cursor:pointer; font-size:14px; line-height:1; display:inline-flex; align-items:center; gap:8px; font-weight:600; }
+        .nav-icon { display:inline-flex; align-items:center; justify-content:center; pointer-events:none; }
+        .nav-icon svg { display:block; width:16px; height:16px; }
+        .theme-icon { transition:transform 0.15s ease; }
         .wrap { max-width: 1100px; margin: 0 auto; padding: 10px 20px 60px; }
         .back { display: inline-block; margin-bottom: 24px; color: var(--header-accent); text-decoration: none; font-size: 14px; font-weight: 600; padding: 8px 14px; border: 1px solid var(--btn-border); border-radius: 20px; transition: all 0.18s; background:var(--back-bg); }
         .back:hover { background: var(--accent2); color: #fff; border-color: var(--accent2); }
@@ -58,7 +61,7 @@ input[type=text],input[type=date],input[type=month],input[type=number],select,te
 <body>
     <div class="topbar">
       <img src="logo-light.png" alt="Empire World" style="height:48px;width:auto;">
-      <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode">&#127769;</button>
+      <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span> <span class="lbl">Theme</span></button>
     </div>
     <div class="wrap">
         <a class="back" href="index.html">&larr; Back to Empire World</a>
@@ -70,7 +73,8 @@ input[type=text],input[type=date],input[type=month],input[type=number],select,te
         <footer>Prepared by <strong>Swar Dizayee</strong></footer>
     </div>
     <script>
-        function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); document.querySelectorAll('img[alt="Empire World"]').forEach(function(im){ im.onerror=function(){ this.onerror=null; this.src='logo.png'; }; im.src=(t==='dark'?'logo.png':'logo-light.png'); }); try{ localStorage.setItem('empire_theme', t); }catch(e){} document.querySelectorAll('.theme-btn').forEach(function(b){ b.textContent = (t==='dark'?'☀️':'🌙'); }); }
+        var TOGGLE_ICON='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="15" cy="12" r="3"/><rect width="20" height="14" x="2" y="5" rx="7"/></svg>';
+        function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); document.querySelectorAll('img[alt="Empire World"]').forEach(function(im){ im.onerror=function(){ this.onerror=null; this.src='logo.png'; }; im.src=(t==='dark'?'logo.png':'logo-light.png'); }); try{ localStorage.setItem('empire_theme', t); }catch(e){} document.querySelectorAll('.theme-btn').forEach(function(b){ var ic=b.querySelector('.theme-icon'); if(ic){ ic.innerHTML=TOGGLE_ICON; ic.style.transform=(t==='dark'?'none':'scaleX(-1)'); } var lbl=b.querySelector('.lbl'); if(lbl){ lbl.textContent=(t==='dark'?'Dark Mode':'Light Mode'); } }); }
         function toggleTheme(){ var cur=document.documentElement.getAttribute('data-theme')||'light'; applyTheme(cur==='dark'?'light':'dark'); }
         (function(){ var saved='light'; try{ saved=localStorage.getItem('empire_theme')||'light'; }catch(e){} applyTheme(saved); })();
         (function(){
