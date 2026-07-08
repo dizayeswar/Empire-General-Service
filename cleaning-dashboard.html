@@ -665,31 +665,56 @@ select option:checked { background:rgba(141,1,93,0.14); }
         function weekAccessible(p, wk){ return wk===1 || dailyWeekComplete(p, wk-1); }
         function firstIncompleteWeek(p){ for(let w=1;w<=4;w++){ if(!dailyWeekComplete(p,w)) return w; } return 4; }
         function selectWeek(p, wk){ if(!weekAccessible(p,wk)) return; selWeek[p]=wk; Object.keys(taskEditOpen).forEach(function(k){ if(k.indexOf(p+'|')===0) delete taskEditOpen[k]; }); Object.keys(pendingTaskUpload).forEach(function(k){ if(k.indexOf(p+'|')===0) delete pendingTaskUpload[k]; }); renderTaskProject(p); }
+        function ensurePendingUpload(key){
+          if(!pendingTaskUpload[key]) pendingTaskUpload[key]={urls:[]};
+          else if(pendingTaskUpload[key].url && !pendingTaskUpload[key].urls) pendingTaskUpload[key]={urls:[pendingTaskUpload[key].url]};
+          else if(!Array.isArray(pendingTaskUpload[key].urls)) pendingTaskUpload[key].urls=[];
+          return pendingTaskUpload[key];
+        }
+        function pendingUrls(pending){
+          if(!pending) return [];
+          if(Array.isArray(pending.urls) && pending.urls.length) return pending.urls;
+          if(pending.url) return [pending.url];
+          return [];
+        }
         function onAddPhoto(p, gi, ti, file){
           if(!file) return;
           const key=taskCardKey(p, gi, ti);
           compressImage(file,(url)=>{ if(!url){ alert('Upload failed, try again'); return; }
-            pendingTaskUpload[key]={url:url};
+            ensurePendingUpload(key).urls.push(url);
             renderTaskProject(p);
           });
         }
         function confirmTaskPhoto(p, gi, ti){
           const key=taskCardKey(p, gi, ti);
-          const pending=pendingTaskUpload[key];
-          if(!pending || !pending.url) return;
+          const urls=pendingUrls(pendingTaskUpload[key]);
+          if(!urls.length) return;
           const g=taskMap[p].groups[gi]; const t=g.tasks[ti]; const freq=g.daily?'daily':g.freq;
           const wk=selWeek[p]||1; const period=g.daily ? (curMonth()+'#'+wk) : curMonth();
-          fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'addTaskPhoto', project:p, freq:freq, task:t, date:taskTodayStr(), period:period, image:pending.url, token:localStorage.getItem('authToken')||''})}).then(r=>r.json()).then(d=>{
-            if(d && d.ok===false){ uiAlert('❌ Could not save photo: '+(d.message||d.error||'unknown error')); return; }
-            const entry={id:(d&&d.id)||('tmp'+Date.now()), project:p, freq:freq, task:t, date:taskTodayStr(), period:period, image:pending.url, _ts:Date.now()};
-            taskPhotos.push(entry); pendingPhotos.push(entry);
+          Promise.all(urls.map(function(url){
+            return fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'addTaskPhoto', project:p, freq:freq, task:t, date:taskTodayStr(), period:period, image:url, token:localStorage.getItem('authToken')||''})}).then(function(r){ return r.json(); }).then(function(d){
+              if(d && d.ok===false) throw new Error(d.message||d.error||'unknown error');
+              return {id:(d&&d.id)||('tmp'+Date.now()+Math.random()), project:p, freq:freq, task:t, date:taskTodayStr(), period:period, image:url, _ts:Date.now()};
+            });
+          })).then(function(entries){
+            entries.forEach(function(entry){ taskPhotos.push(entry); pendingPhotos.push(entry); });
             delete pendingTaskUpload[key]; delete taskEditOpen[key];
             renderTaskProject(p);
             refreshDashboardView();
-          }).catch(e=>alert('Error: '+e.message));
+          }).catch(function(e){ uiAlert('❌ Could not save photo(s): '+e.message); });
         }
         function cancelTaskPhoto(p, gi, ti){
           delete pendingTaskUpload[taskCardKey(p, gi, ti)];
+          renderTaskProject(p);
+        }
+        function removePendingTaskPhoto(p, gi, ti, pi){
+          const key=taskCardKey(p, gi, ti);
+          const pending=pendingTaskUpload[key];
+          if(!pending) return;
+          const urls=pendingUrls(pending);
+          urls.splice(pi, 1);
+          if(urls.length) pendingTaskUpload[key]={urls:urls};
+          else delete pendingTaskUpload[key];
           renderTaskProject(p);
         }
         function toggleTaskPhotoDetails(btn){
@@ -721,20 +746,27 @@ select option:checked { background:rgba(141,1,93,0.14); }
         function taskCardHtml(p, gi, ti, g, t){
           const photos=photosFor(p, g, t); const done=photos.length>0;
           const key=taskCardKey(p, gi, ti); const editing=!!taskEditOpen[key]; const pending=pendingTaskUpload[key];
+          const pendingList=pendingUrls(pending);
           let ph='';
           if(editing){
             photos.forEach(x=>{ ph+='<span style="position:relative;display:inline-block;margin:4px;"><img src="'+x.image+'" loading="lazy" decoding="async" style="height:90px;border-radius:12px;border:1px solid var(--card-border);cursor:pointer;" onclick="openModal(this.src)"><button type="button" class="tc-del" data-del="'+x.id+'" title="Remove" style="position:absolute;top:-7px;right:-7px;background:#C5504F;color:#fff;border:none;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;">'+trashIconHtml()+'</button></span>'; });
           }
           let pendingHtml='';
-          if(pending && pending.url){
-            pendingHtml='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;padding:8px;background:var(--input-bg);border-radius:12px;border:1px dashed var(--card-border);">'
-              +'<img src="'+pending.url+'" style="height:72px;width:72px;object-fit:cover;border-radius:10px;border:1px solid var(--card-border);cursor:pointer;" onclick="openModal(this.src)">'
-              +'<div style="display:flex;gap:6px;flex-wrap:wrap;">'
-              +'<button type="button" class="task-confirm-photo" data-pp="'+p+'" data-gi="'+gi+'" data-ti="'+ti+'" style="padding:6px 12px;font-size:12px;background:#27ae60;color:#fff;border:none;border-radius:50px;cursor:pointer;font-weight:600;">'+checkIconHtml('#fff')+' Confirm &amp; save</button>'
-              +'<button type="button" class="task-cancel-photo" data-pp="'+p+'" data-gi="'+gi+'" data-ti="'+ti+'" style="padding:6px 12px;font-size:12px;background:var(--task-bg);color:var(--text);border:1px solid var(--card-border);border-radius:50px;cursor:pointer;">Cancel</button>'
+          if(pendingList.length){
+            const confirmLabel='Confirm &amp; save'+(pendingList.length>1?' ('+pendingList.length+')':'');
+            pendingHtml='<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:8px;padding:8px;background:var(--input-bg);border-radius:12px;border:1px dashed var(--card-border);">'
+              +'<div style="display:flex;flex-wrap:wrap;gap:8px;">';
+            pendingList.forEach(function(url, pi){
+              pendingHtml+='<span style="position:relative;display:inline-block;"><img src="'+url+'" style="height:72px;width:72px;object-fit:cover;border-radius:10px;border:1px solid var(--card-border);cursor:pointer;" onclick="openModal(this.src)">'
+                +'<button type="button" class="task-remove-pending" data-pp="'+p+'" data-gi="'+gi+'" data-ti="'+ti+'" data-pi="'+pi+'" title="Remove" style="position:absolute;top:-7px;right:-7px;background:#C5504F;color:#fff;border:none;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;">'+trashIconHtml()+'</button></span>';
+            });
+            pendingHtml+='</div><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">'
+              +'<span style="font-size:12px;color:var(--text-soft);">Add more photos below, then save all.</span>'
+              +'<button type="button" class="task-confirm-photo" data-pp="'+p+'" data-gi="'+gi+'" data-ti="'+ti+'" style="padding:6px 12px;font-size:12px;background:#27ae60;color:#fff;border:none;border-radius:50px;cursor:pointer;font-weight:600;">'+checkIconHtml('#fff')+' '+confirmLabel+'</button>'
+              +'<button type="button" class="task-cancel-photo" data-pp="'+p+'" data-gi="'+gi+'" data-ti="'+ti+'" style="padding:6px 12px;font-size:12px;background:var(--task-bg);color:var(--text);border:1px solid var(--card-border);border-radius:50px;cursor:pointer;">Cancel all</button>'
               +'</div></div>';
           }
-          const showUpload=(!done || editing) && !(pending && pending.url);
+          const showUpload=(!done || editing);
           let uploadHtml='';
           if(showUpload){
             uploadHtml='<button type="button" class="addphoto-btn" data-pp="'+p+'" data-gi="'+gi+'" data-ti="'+ti+'" style="padding:6px 10px;font-size:12px;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/><circle cx="14" cy="15" r="1"/></svg></span> Upload / Camera</button>'
@@ -786,6 +818,7 @@ select option:checked { background:rgba(141,1,93,0.14); }
           host.querySelectorAll('.task-edit-btn').forEach(b=>b.addEventListener('click', function(){ toggleTaskCardEdit(this.dataset.pp, +this.dataset.gi, +this.dataset.ti); }));
           host.querySelectorAll('.task-confirm-photo').forEach(b=>b.addEventListener('click', function(){ confirmTaskPhoto(this.dataset.pp, +this.dataset.gi, +this.dataset.ti); }));
           host.querySelectorAll('.task-cancel-photo').forEach(b=>b.addEventListener('click', function(){ cancelTaskPhoto(this.dataset.pp, +this.dataset.gi, +this.dataset.ti); }));
+          host.querySelectorAll('.task-remove-pending').forEach(b=>b.addEventListener('click', function(e){ e.stopPropagation(); removePendingTaskPhoto(this.dataset.pp, +this.dataset.gi, +this.dataset.ti, +this.dataset.pi); }));
           host.querySelectorAll('.addphoto-btn').forEach(b=>b.addEventListener('click', function(){ const pp=this.dataset.pp, gi=+this.dataset.gi, ti=+this.dataset.ti; const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.onchange=ev=>{ const f=ev.target.files&&ev.target.files[0]; if(f) onAddPhoto(pp,gi,ti,f); }; inp.click(); }));
           host.querySelectorAll('.addpaste').forEach(area=>area.addEventListener('paste', function(e){ const pp=this.dataset.pp, gi=+this.dataset.gi, ti=+this.dataset.ti; const items=e.clipboardData.items; for(let i=0;i<items.length;i++){ if(items[i].type.indexOf('image')!==-1){ e.preventDefault(); onAddPhoto(pp,gi,ti, items[i].getAsFile()); return; } } }));
           host.querySelectorAll('.tc-del').forEach(x=>x.addEventListener('click', function(e){ e.stopPropagation(); removeTaskPhoto(this.dataset.del, this); }));
