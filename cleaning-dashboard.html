@@ -793,6 +793,15 @@ select option:checked { background:rgba(141,1,93,0.14); }
         function projName(p){ return {ALL:'All Projects',ec:'Empire Complex',es:'Empire Square',wd:'West Diamond',ww:'West Wing',ww2:'(New) West Wing',ra:'Royal Apartment'}[p]||p; }
         function groupLabelFor(p, freq){ const cfg=taskMap[p]; if(!cfg) return ''; const g=cfg.groups.find(function(gg){ return gg.freq===freq; }); return g?g.label:''; }
         function metricTitle(m){ return {reports:'All Reports',photos:'Photos',buildings:'Buildings',floors:'Floors Cleaned',employees:'Employees'}[m]||'Details'; }
+        function countReportPhotos(reports){ return reports.filter(function(r){ return r.image && String(r.image).length>0; }).length; }
+        function countTaskPhotos(mphotos, project){
+          if(!Array.isArray(mphotos)) return 0;
+          return mphotos.filter(function(x){ return x.image && (!project || x.project===project); }).length;
+        }
+        function countAllPhotos(reports, mphotos, project){
+          var pr=project ? reports.filter(function(r){ return r.project===project; }) : reports;
+          return countReportPhotos(pr)+countTaskPhotos(mphotos, project);
+        }
         function attachStatHandlers(rootId){ const root=document.getElementById(rootId||'analyticsContent'); if(!root) return;
           const top=root.querySelector(':scope > .stats');
           if(top){ const topMetrics=['reports','photos','buildings','employees']; top.querySelectorAll('.stat-box').forEach((b,i)=>{ if(i<topMetrics.length){ b.style.cursor='pointer'; b.title='Click to see details'; b.addEventListener('click', function(){ showProjectDetail('ALL', topMetrics[i]); }); } }); }
@@ -830,9 +839,20 @@ select option:checked { background:rgba(141,1,93,0.14); }
             }
             if(metric==='employees'){ h+='<p><strong>Total employees (sum of daily entries):</strong> '+reps.reduce((s,r)=>s+parseInt(r.employees||0),0)+'</p><hr style="border-color:var(--card-border);margin:15px 0;">'; const byDate={}; reps.forEach(r=>{ const dd=normalizeDate(r.date); byDate[dd]=(byDate[dd]||0)+parseInt(r.employees||0); }); const days=Object.keys(byDate).sort(); h+='<div style="display:flex;flex-direction:column;gap:6px;">'; days.forEach(dd=>{ h+='<div style="padding:8px 12px;background:var(--task-bg);border:1px solid var(--card-border);border-radius:16px;display:flex;justify-content:space-between;"><span>'+dd+'</span><span style="color:var(--accent2);font-weight:bold;">'+byDate[dd]+' employee'+(byDate[dd]===1?'':'s')+'</span></div>'; }); h+='</div>'; }
             if(metric==='floors'){ h+='<p><strong>Total floors cleaned:</strong> '+reps.reduce((s,r)=>s+normalizeFloors(r.floors).length,0)+'</p><hr style="border-color:var(--card-border);margin:15px 0;">'; }
+            var taskPhotoList=(window._lastReport && window._lastReport.mphotos) ? window._lastReport.mphotos.filter(function(x){ return x.image && (p==='ALL' || x.project===p); }) : [];
             const list = metric==='employees' ? [] : (metric==='photos' ? reps.filter(r=>r.image&&r.image.length>0) : reps);
-            if(metric!=='employees') h+='<p style="color:var(--text-soft);margin-bottom:10px;">'+list.length+(metric==='photos'?' report(s) with photos:':' report(s):')+'</p>';
-            list.forEach(r=>{
+            if(metric==='photos'){
+              var reportPhotoCount=list.length, taskPhotoCount=taskPhotoList.length;
+              h+='<p style="color:var(--text-soft);margin-bottom:10px;">'+(reportPhotoCount+taskPhotoCount)+' photo(s): '+reportPhotoCount+' daily report photo(s), '+taskPhotoCount+' task photo(s)</p>';
+              if(taskPhotoList.length){
+                h+='<p style="margin:12px 0 8px;"><strong>Task checklist photos</strong></p>';
+                taskPhotoList.forEach(function(x){
+                  h+='<div style="background:var(--task-bg);border:1px solid var(--card-border);border-radius:16px;padding:12px;margin-bottom:10px;"><strong>'+projName(x.project)+'</strong> &nbsp;—&nbsp; '+_esc(x.task||'')+' <span style="color:var(--text-soft);">('+_esc(x.period||'')+')</span><br><img src="'+x.image+'" style="max-width:180px;margin-top:8px;border-radius:12px;cursor:pointer;" onclick="openModal(this.src)" loading="lazy"></div>';
+                });
+                if(list.length) h+='<hr style="border-color:var(--card-border);margin:15px 0;"><p style="margin:12px 0 8px;"><strong>Daily report photos</strong></p>';
+              }
+            } else if(metric!=='employees') h+='<p style="color:var(--text-soft);margin-bottom:10px;">'+list.length+' report(s):</p>';
+            if(metric!=='employees') list.forEach(r=>{
               h+='<div style="background:var(--task-bg);border:1px solid var(--card-border);border-radius:16px;padding:12px;margin-bottom:10px;"><strong>'+normalizeDate(r.date)+'</strong> &nbsp;—&nbsp; '+(p==='ALL'?(projName(r.project)+' / '):'')+r.building+' &nbsp;|&nbsp; Level: '+r.level+' &nbsp;|&nbsp; Employees: '+r.employees+'<br><span style="color:var(--text-soft);">Floors:</span> '+(normalizeFloors(r.floors).join(', ')||'—');
               if(r.image&&r.image.length>0){ h+='<br><img src="'+r.image+'" style="max-width:180px;margin-top:8px;border-radius:12px;cursor:pointer;" onclick="openModal(this.src)" loading="lazy">'; }
               h+='</div>';
@@ -867,14 +887,14 @@ select option:checked { background:rgba(141,1,93,0.14); }
           let mphotos=[];
           try { const mr=await fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'getTaskPhotos', periodPrefix:mv, token:localStorage.getItem('authToken')||''})}); const md=await mr.json(); if(Array.isArray(md)) mphotos=md; } catch(e){ console.error('Report photos error:', e.message); }
           const pname={ec:'Empire Complex',es:'Empire Square',wd:'West Diamond',ww:'West Wing',ww2:'(New) West Wing',ra:'Royal Apartment'};
-          const imgs=monthReports.filter(r=>r.image&&r.image.length>0).length;
+          const imgs=countAllPhotos(monthReports, mphotos);
           let h='<h2>'+summaryIconHtml()+' Monthly Report — '+monthName+'</h2><p style="color:var(--text-soft);">'+from+' to '+to+' · Prepared by Swar Dizayee</p>';
           h+='<div style="margin:4px 0 16px;"><button id="dlReportBtn" onclick="downloadMonthlyReport()">'+downloadIconHtml()+' Download Report (offline HTML, with photos)</button></div>';
           h+='<div class="stats"><div class="stat-box"><div class="stat-value">'+monthReports.length+'</div><div class="stat-label">Total Reports</div></div><div class="stat-box"><div class="stat-value">'+imgs+'</div><div class="stat-label">Photos</div></div><div class="stat-box"><div class="stat-value">'+new Set(monthReports.map(r=>r.building)).size+'</div><div class="stat-label">Buildings</div></div><div class="stat-box"><div class="stat-value">'+monthReports.reduce((s,r)=>s+parseInt(r.employees||0),0)+'</div><div class="stat-label">Employees</div></div></div>';
           h+='<h3 style="margin-top:30px;">'+chartIconHtml()+' By Project (click any number for details)</h3>';
           ['ec','es','wd','ww','ww2','ra'].forEach(p=>{
             const pr=monthReports.filter(r=>r.project===p);
-            const pi=pr.filter(r=>r.image&&r.image.length>0).length;
+            const pi=countAllPhotos(monthReports, mphotos, p);
             const bi=new Set(pr.map(r=>r.building)).size;
             const te=pr.reduce((s,r)=>s+parseInt(r.employees||0),0);
             const tf=pr.reduce((s,r)=>s+normalizeFloors(r.floors).length,0);
@@ -933,15 +953,15 @@ select option:checked { background:rgba(141,1,93,0.14); }
         function _imgTag(url,map){ var src=map[url]||url; return '<a href="'+src+'" target="_blank"><img src="'+src+'" loading="lazy"></a>'; }
         function buildStandaloneReport(R,map){
           var logo=''; var le=document.querySelector('img[alt="Empire World"]'); if(le) logo=le.src;
-          var imgs=R.monthReports.filter(function(r){return r.image&&r.image.length>0;}).length;
+          var imgs=countAllPhotos(R.monthReports, R.mphotos);
           var gen=new Date().toLocaleString('en-US');
           var b='';
           b+='<div class="hd">'+(logo?'<img class="logo" src="'+logo+'">':'')+'<div><h1>Empire World — Monthly Report</h1><div class="sub">'+_esc(R.monthName)+'  ·  '+R.from+' to '+R.to+'</div><div class="sub">Prepared by Swar Dizayee  ·  Generated '+_esc(gen)+'</div></div></div>';
-          b+='<div class="stats">'+_box(R.monthReports.length,'Total Reports')+_box(imgs,'Report Photos')+_box(new Set(R.monthReports.map(function(r){return r.building;})).size,'Buildings')+_box(R.monthReports.reduce(function(s,r){return s+parseInt(r.employees||0);},0),'Employees')+'</div>';
+          b+='<div class="stats">'+_box(R.monthReports.length,'Total Reports')+_box(imgs,'Photos')+_box(new Set(R.monthReports.map(function(r){return r.building;})).size,'Buildings')+_box(R.monthReports.reduce(function(s,r){return s+parseInt(r.employees||0);},0),'Employees')+'</div>';
           b+='<h2>By Project</h2>';
           ['ec','es','wd','ww','ww2','ra'].forEach(function(p){
             var pr=R.monthReports.filter(function(r){return r.project===p;});
-            var pi=pr.filter(function(r){return r.image&&r.image.length>0;}).length;
+            var pi=countAllPhotos(R.monthReports, R.mphotos, p);
             var bi=new Set(pr.map(function(r){return r.building;})).size;
             var te=pr.reduce(function(s,r){return s+parseInt(r.employees||0);},0);
             var tf=pr.reduce(function(s,r){return s+normalizeFloors(r.floors).length;},0);
