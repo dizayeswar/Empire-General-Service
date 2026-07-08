@@ -371,44 +371,89 @@ select option:checked { background:rgba(141,1,93,0.14); }
           const dc=document.getElementById('dashboardContent'); if(dc) dc.innerHTML=LOADING_HTML;
           let tphotosAll=[];
           try {
-            const mv=d.slice(0,7);
+            const mv=reportMonthOfDate(d);
             const r=await fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'getTaskPhotos', periodPrefix:mv, token:localStorage.getItem('authToken')||''})});
             const dd=await r.json();
-            if(Array.isArray(dd)) tphotosAll=dd.filter(x=>normalizeDate(x.date)===d);
+            if(Array.isArray(dd)) tphotosAll=dd;
           } catch(e){ console.error('Task photo fetch error:', e.message); }
           if (mySeq !== _filterCallSeq) return;
           _dashCache = { date:d, tphotosAll:tphotosAll };
           renderDashboard(d, tphotosAll);
         }
+        function dashPhotosFor(p, g, task, mv, wk, tphotosAll){
+          var per=g.daily?(mv+'#'+wk):mv;
+          return tphotosAll.filter(function(x){ return x.project===p && x.task===task && x.period===per; });
+        }
+        function dashWeekComplete(p, wk, mv, tphotosAll){
+          var dg=dailyGroupOf(p);
+          return dg.tasks.every(function(t){ return dashPhotosFor(p, dg, t, mv, wk, tphotosAll).length>0; });
+        }
+        function dashActiveWeek(p, mv, tphotosAll){
+          for(var w=1; w<=4; w++){ if(!dashWeekComplete(p, w, mv, tphotosAll)) return w; }
+          return 4;
+        }
+        function renderDashTaskRow(taskName, photos){
+          var done=photos.length>0;
+          var thumbs=photos.map(function(x){ return '<img src="'+x.image+'" onclick="openModal(this.src)" style="height:64px;width:64px;object-fit:cover;border-radius:10px;border:1px solid var(--card-border);cursor:pointer;margin:0 6px 6px 0;" loading="lazy">'; }).join('');
+          return '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 10px;background:var(--task-bg);border-radius:12px;margin-bottom:6px;">'
+            +'<div style="flex-shrink:0;padding-top:2px;">'+(done?checkIconHtml():squareIconHtml())+'</div>'
+            +'<div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:13px;'+(done?'':'color:var(--text-soft);')+'">'+taskName+'</div>'
+            +(thumbs?('<div style="display:flex;flex-wrap:wrap;margin-top:6px;">'+thumbs+'</div>'):'')
+            +'</div></div>';
+        }
+        function renderProjectDashChecklist(p, mv, tphotosAll){
+          var cfg=taskMap[p]; if(!cfg) return '';
+          var wk=dashActiveWeek(p, mv, tphotosAll);
+          var h='';
+          cfg.groups.forEach(function(g){
+            if(g.daily){
+              var ccnt=g.tasks.filter(function(t){ return dashPhotosFor(p, g, t, mv, wk, tphotosAll).length>0; }).length;
+              h+='<h4 style="margin:12px 0 8px;font-size:14px;color:var(--text-soft);">'+g.label+' — Week '+wk+' <span style="color:'+(ccnt===g.tasks.length?'#27ae60':'var(--accent2)')+';font-weight:bold;">'+ccnt+'/'+g.tasks.length+'</span></h4>';
+              g.tasks.forEach(function(t){ h+=renderDashTaskRow(t, dashPhotosFor(p, g, t, mv, wk, tphotosAll)); });
+            } else {
+              var covered=g.tasks.filter(function(t){ return dashPhotosFor(p, g, t, mv, wk, tphotosAll).length>0; }).length;
+              h+='<h4 style="margin:12px 0 8px;font-size:14px;color:var(--text-soft);">'+g.label+' <span style="color:'+(covered===g.tasks.length?'#27ae60':'var(--accent2)')+';font-weight:bold;">'+covered+'/'+g.tasks.length+'</span></h4>';
+              g.tasks.forEach(function(t){ h+=renderDashTaskRow(t, dashPhotosFor(p, g, t, mv, wk, tphotosAll)); });
+            }
+          });
+          return h;
+        }
         function renderDashboard(d, tphotosAll) {
+          var mv=reportMonthOfDate(d);
           let filt=allReports.filter(r=>normalizeDate(r.date)===d);
           if(filterProject!=='ALL') filt=filt.filter(r=>r.project===filterProject);
-          let tphotos = filterProject!=='ALL' ? tphotosAll.filter(x=>x.project===filterProject) : tphotosAll;
-          let h='<h2><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span> Reports for '+d+' — '+projName(filterProject)+'</h2>';
-          if(filt.length===0 && tphotos.length===0){ h+='<p>No reports found for this date'+(filterProject!=='ALL'?(' in '+projName(filterProject)):'')+'.</p>'; }
-          else {
-            ['ec','es','wd','ww','ww2','ra'].forEach(p=>{
-              if(filterProject!=='ALL' && p!==filterProject) return;
-              const preps=filt.filter(r=>r.project===p);
-              const pphotos=tphotos.filter(x=>x.project===p);
-              if(pphotos.length===0 && !preps.some(function(r){ return r.image; })) return;
-              h+='<div style="margin-top:18px;"><h3 style="color:var(--accent2);">'+projName(p)+'</h3>';
-              preps.forEach(function(r){ if(r.image) h+='<div class="form-section" style="position:relative;padding:12px;"><button type="button" onclick="removeReport(\''+r.id+'\', this)" title="Delete report" style="position:absolute;top:10px;right:10px;background:#C5504F;color:#fff;border:none;border-radius:50px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;">'+trashIconHtml()+'</button><img src="'+r.image+'" class="report-image" onclick="openModal(this.src)" style="cursor:pointer;max-width:100%;" loading="lazy"></div>'; });
-              if(pphotos.length){
-                h+='<h4 style="margin-top:14px;">'+checkIconHtml()+' Task Checklist Photos</h4>';
-                const taskGroups = {};
-                const taskOrder = [];
-                pphotos.forEach(x=>{ if(!taskGroups[x.task]){ taskGroups[x.task]=[]; taskOrder.push(x.task); } taskGroups[x.task].push(x); });
-                taskOrder.forEach(function(taskName){
-                  const arr=taskGroups[taskName];
-                  const thumbs = arr.map(function(x){ return '<img src="'+x.image+'" onclick="openModal(this.src)" style="height:80px;width:80px;object-fit:cover;border-radius:12px;border:1px solid var(--card-border);cursor:pointer;margin:0 8px 8px 0;" loading="lazy">'; }).join('');
-                  h+='<div style="margin-bottom:14px;"><p style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text-soft);">'+taskName+'</p><div style="display:flex;flex-wrap:wrap;">'+thumbs+'</div></div>';
-                });
-              }
-              h+='</div>';
-            });
-          }
+          let h='<h2><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span> Task Checklist — '+d+' — '+projName(filterProject)+'</h2>';
+          h+='<p style="color:var(--text-soft);font-size:13px;margin:-8px 0 16px;">Report month: <strong>'+mv+'</strong> · '+checkIconHtml()+' = photo uploaded · '+squareIconHtml()+' = still needed</p>';
+          ['ec','es','wd','ww','ww2','ra'].forEach(function(p){
+            if(filterProject!=='ALL' && p!==filterProject) return;
+            const preps=filt.filter(r=>r.project===p);
+            var dg=dailyGroupOf(p);
+            var wk=dashActiveWeek(p, mv, tphotosAll);
+            var dailyDone=dg.tasks.filter(function(t){ return dashPhotosFor(p, dg, t, mv, wk, tphotosAll).length>0; }).length;
+            h+='<div class="form-section" style="margin-top:18px;"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:12px;">'
+              +'<div><h3 style="margin:0;color:var(--accent2);">'+projName(p)+'</h3>'
+              +'<p style="font-size:13px;color:var(--text-soft);margin-top:6px;"><strong>Supervisor:</strong> '+supervisors[p]+' · Daily week '+wk+': <strong style="color:'+(dailyDone===dg.tasks.length?'#27ae60':'var(--accent2)')+';">'+dailyDone+'/'+dg.tasks.length+'</strong></p></div>'
+              +'<button type="button" onclick="switchTabToProject(\''+taskMap[p].tab+'\')" style="padding:8px 14px;font-size:12px;">Upload photos →</button>'
+              +'</div>';
+            preps.forEach(function(r){ if(r.image) h+='<div style="position:relative;margin-bottom:12px;display:inline-block;"><button type="button" onclick="removeReport(\''+r.id+'\', this)" title="Delete report" style="position:absolute;top:6px;right:6px;background:#C5504F;color:#fff;border:none;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;z-index:1;">'+trashIconHtml()+'</button><img src="'+r.image+'" class="report-image" onclick="openModal(this.src)" style="cursor:pointer;max-height:120px;border-radius:12px;" loading="lazy"></div>'; });
+            h+=renderProjectDashChecklist(p, mv, tphotosAll);
+            h+='</div>';
+          });
           document.getElementById('dashboardContent').innerHTML=h;
+        }
+        function switchTabToProject(tabId){
+          document.querySelectorAll('.tab-content').forEach(function(el){ el.classList.remove('active'); });
+          document.querySelectorAll('.tab-btn').forEach(function(el){ el.classList.remove('active'); });
+          var tab=document.getElementById(tabId); if(tab) tab.classList.add('active');
+          document.querySelectorAll('.tab-btn').forEach(function(b){
+            var oc=b.getAttribute('onclick')||'';
+            if(oc.indexOf("'"+tabId+"'")!==-1) b.classList.add('active');
+          });
+          if(tabId && !['all','analytics','monthly'].includes(tabId)){
+            var proj=Object.keys(taskMap).find(function(k){ return taskMap[k].tab===tabId; });
+            if(proj) updateFloors(proj);
+            loadTasks();
+          }
         }
         function donutHtml(pct){
           var p = Math.max(0, Math.min(100, Math.round(pct)));
