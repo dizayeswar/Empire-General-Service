@@ -305,9 +305,11 @@ select option:checked { background:rgba(141,1,93,0.14); }
           for(var attempt=0; attempt<(attempts||3); attempt++){
             try {
               var response = await fetch(GOOGLE_SCRIPT_URL, {method:'POST', body:JSON.stringify(body)});
+              var text = await response.text();
               if(!response.ok) throw new Error('Request failed: '+response.status);
-              return await response.json();
-            } catch(e) { lastErr=e; await new Promise(function(res){ setTimeout(res, 400); }); }
+              if(!text || text.trim().charAt(0)==='<') throw new Error('Server busy or timed out. Please try again.');
+              return JSON.parse(text);
+            } catch(e) { lastErr=e; await new Promise(function(res){ setTimeout(res, 600*(attempt+1)); }); }
           }
           throw lastErr || new Error('Request failed');
         }
@@ -346,8 +348,24 @@ select option:checked { background:rgba(141,1,93,0.14); }
         function updateCbIcon(cb){ if(!cb) return; const ic=cb.parentElement && cb.parentElement.querySelector('.cb-icon'); if(!ic) return; ic.innerHTML = cb.checked?CHECK_ICON:SQUARE_ICON; ic.style.color = cb.checked?'#27ae60':'#C5504F'; }
         function updateFloors(p) { try { const bEl=document.getElementById(p+'-building'); if(!bEl) return; const b=bEl.value; const f=floors[p][b]; const c=document.getElementById(p+'-floors'); if(!c || !f) return; c.innerHTML=''; f.forEach(fl=>{const l=document.createElement('label'); l.className='checkbox-item'; const cb=document.createElement('input'); cb.type='checkbox'; cb.value=fl; const ic=document.createElement('span'); ic.className='nav-icon cb-icon'; ic.style.color='#C5504F'; ic.innerHTML=SQUARE_ICON; cb.addEventListener('change', ()=>updateCbIcon(cb)); l.appendChild(cb); l.appendChild(ic); l.appendChild(document.createTextNode(fl)); c.appendChild(l); }); } catch(e) { console.error('Floor error:', e); } }
         function toggleAllFloors(p) { const s=document.getElementById(p+'-selectall').checked; document.querySelectorAll('#'+p+'-floors input[type="checkbox"]').forEach(cb=>{cb.checked=s; updateCbIcon(cb);}); }
-        function uploadToImgbb(file, callback) { const reader = new FileReader(); reader.onload = (e) => { const base64 = e.target.result.split(',')[1]; const formData = new FormData(); formData.append('image', base64); formData.append('key', IMGBB_API_KEY); fetch('https://api.imgbb.com/1/upload', {method: 'POST', body: formData}).then(r=>r.json()).then(data=>{ if(data.success && data.data && data.data.url) {callback(data.data.url);} else {callback(null);}}).catch(e=>{callback(null);}); }; reader.readAsDataURL(file); }
+        function uploadToImgbb(file, callback) { const reader = new FileReader(); reader.onload = (e) => { const base64 = e.target.result.split(',')[1]; const formData = new FormData(); formData.append('image', base64); formData.append('key', IMGBB_API_KEY); fetch('https://api.imgbb.com/1/upload', {method: 'POST', body: formData}).then(function(r){ return r.text(); }).then(function(txt){ try { var data=JSON.parse(txt); if(data.success && data.data && data.data.url) callback(data.data.url); else callback(null); } catch(err){ callback(null); } }).catch(function(){ callback(null); }); }; reader.readAsDataURL(file); }
+        function uploadToImgbbAsync(blob){ return new Promise(function(resolve){ uploadToImgbb(blob, resolve); }); }
         function compressImage(file, callback) { const reader = new FileReader(); reader.onload = (e) => { const img = new Image(); img.onload = () => { const MAX=1600; let w=img.width, h=img.height; if (w>MAX || h>MAX) { const scale=Math.min(MAX/w, MAX/h); w=Math.round(w*scale); h=Math.round(h*scale); } const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h; const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, w, h); canvas.toBlob((blob) => { uploadToImgbb(blob, callback); }, 'image/jpeg', 0.85); }; img.src = e.target.result; }; reader.readAsDataURL(file); }
+        function compressForPreview(file, callback){
+          const reader=new FileReader();
+          reader.onload=function(e){
+            const img=new Image();
+            img.onload=function(){
+              const MAX=1200; let w=img.width, h=img.height;
+              if(w>MAX||h>MAX){ const scale=Math.min(MAX/w,MAX/h); w=Math.round(w*scale); h=Math.round(h*scale); }
+              const canvas=document.createElement('canvas'); canvas.width=w; canvas.height=h;
+              canvas.getContext('2d').drawImage(img,0,0,w,h);
+              canvas.toBlob(function(blob){ callback(blob ? { preview:URL.createObjectURL(blob), blob:blob } : null); }, 'image/jpeg', 0.78);
+            };
+            img.src=e.target.result;
+          };
+          reader.readAsDataURL(file);
+        }
         function handlePaste(e,p) { const i=e.clipboardData.items; for(let j=0;j<i.length;j++) if(i[j].type.indexOf('image')!==-1) { const b=i[j].getAsFile(); document.getElementById(p+'-imageArea').innerHTML='⏳ Uploading...'; uploading[p]=true; compressImage(b, (url)=>{ const img=document.getElementById(p+'-image'); const area=document.getElementById(p+'-imageArea'); uploading[p]=false; if(url) { img.src=url; img.style.display='block'; img.onclick=()=>openModal(url); currentImages[p]=url; area.innerHTML='✅ Image uploaded!'; setTimeout(()=>{area.innerHTML='Click here and paste (Ctrl+V)';}, 2000); } else { area.innerHTML='❌ Upload failed. Try again.'; currentImages[p]=''; setTimeout(()=>{area.innerHTML='Click here and paste (Ctrl+V)';}, 2000); } }); e.preventDefault(); } }
         function handleProjectFile(e,p) { const f=e.target.files&&e.target.files[0]; if(!f){ return; } document.getElementById(p+'-imageArea').innerHTML='⏳ Uploading...'; uploading[p]=true; compressImage(f, (url)=>{ const img=document.getElementById(p+'-image'); const area=document.getElementById(p+'-imageArea'); uploading[p]=false; if(url) { img.src=url; img.style.display='block'; img.onclick=()=>openModal(url); currentImages[p]=url; area.innerHTML='✅ Image uploaded!'; setTimeout(()=>{area.innerHTML='Click here and paste (Ctrl+V)';}, 2000); } else { area.innerHTML='❌ Upload failed. Try again.'; currentImages[p]=''; setTimeout(()=>{area.innerHTML='Click here and paste (Ctrl+V)';}, 2000); } }); e.target.value=''; }
         function openModal(src) { document.getElementById('modalImage').src=src; document.getElementById('imageModal').classList.add('show'); }
@@ -633,7 +651,7 @@ select option:checked { background:rgba(141,1,93,0.14); }
         function taskCardKey(p, gi, ti){ return p+'|'+gi+'|'+ti; }
         function toggleTaskCardEdit(p, gi, ti){
           const key=taskCardKey(p, gi, ti);
-          if(taskEditOpen[key]){ delete taskEditOpen[key]; delete pendingTaskUpload[key]; }
+          if(taskEditOpen[key]){ delete taskEditOpen[key]; revokePendingItems(pendingTaskUpload[key]); delete pendingTaskUpload[key]; }
           else { taskEditOpen[key]=true; }
           renderTaskProject(p);
         }
@@ -667,15 +685,26 @@ select option:checked { background:rgba(141,1,93,0.14); }
         function dailyWeekComplete(p, wk){ const dg=dailyGroupOf(p); return dailyCoveredCount(p,wk)===dg.tasks.length; }
         function weekAccessible(p, wk){ return wk===1 || dailyWeekComplete(p, wk-1); }
         function firstIncompleteWeek(p){ for(let w=1;w<=4;w++){ if(!dailyWeekComplete(p,w)) return w; } return 4; }
-        function selectWeek(p, wk){ if(!weekAccessible(p,wk)) return; selWeek[p]=wk; Object.keys(taskEditOpen).forEach(function(k){ if(k.indexOf(p+'|')===0) delete taskEditOpen[k]; }); Object.keys(pendingTaskUpload).forEach(function(k){ if(k.indexOf(p+'|')===0) delete pendingTaskUpload[k]; }); renderTaskProject(p); }
+        function selectWeek(p, wk){ if(!weekAccessible(p,wk)) return; selWeek[p]=wk; Object.keys(taskEditOpen).forEach(function(k){ if(k.indexOf(p+'|')===0) delete taskEditOpen[k]; }); Object.keys(pendingTaskUpload).forEach(function(k){ if(k.indexOf(p+'|')===0){ revokePendingItems(pendingTaskUpload[k]); delete pendingTaskUpload[k]; } }); renderTaskProject(p); }
+        function revokePendingItems(pending){
+          pendingItems(pending).forEach(function(it){ if(it.preview && String(it.preview).indexOf('blob:')===0) URL.revokeObjectURL(it.preview); });
+        }
         function ensurePendingUpload(key){
-          if(!pendingTaskUpload[key]) pendingTaskUpload[key]={urls:[]};
-          else if(pendingTaskUpload[key].url && !pendingTaskUpload[key].urls) pendingTaskUpload[key]={urls:[pendingTaskUpload[key].url]};
-          else if(!Array.isArray(pendingTaskUpload[key].urls)) pendingTaskUpload[key].urls=[];
+          if(!pendingTaskUpload[key]) pendingTaskUpload[key]={items:[]};
+          else if(pendingTaskUpload[key].url || pendingTaskUpload[key].urls){
+            var old=pendingUrls(pendingTaskUpload[key]);
+            pendingTaskUpload[key]={items:old.map(function(u){ return { preview:u, remote:u }; })};
+          } else if(!Array.isArray(pendingTaskUpload[key].items)) pendingTaskUpload[key].items=[];
           return pendingTaskUpload[key];
+        }
+        function pendingItems(pending){
+          if(!pending) return [];
+          if(Array.isArray(pending.items) && pending.items.length) return pending.items;
+          return pendingUrls(pending).map(function(u){ return { preview:u, remote:u }; });
         }
         function pendingUrls(pending){
           if(!pending) return [];
+          if(Array.isArray(pending.items) && pending.items.length) return pending.items.map(function(it){ return it.preview; });
           if(Array.isArray(pending.urls) && pending.urls.length) return pending.urls;
           if(pending.url) return [pending.url];
           return [];
@@ -688,10 +717,10 @@ select option:checked { background:rgba(141,1,93,0.14); }
           files.forEach(function(file){
             if(!file) return;
             remaining++;
-            compressImage(file, function(url){
+            compressForPreview(file, function(item){
               remaining--;
-              if(url) ensurePendingUpload(key).urls.push(url);
-              else alert('Upload failed, try again');
+              if(item) ensurePendingUpload(key).items.push(item);
+              else alert('Could not read that image. Try again.');
               if(remaining===0) renderTaskProject(p);
             });
           });
@@ -706,26 +735,57 @@ select option:checked { background:rgba(141,1,93,0.14); }
           e.preventDefault();
           onAddPhotos(p, gi, ti, files);
         }
-        function confirmTaskPhoto(p, gi, ti){
+        async function confirmTaskPhoto(p, gi, ti){
           const key=taskCardKey(p, gi, ti);
-          const urls=pendingUrls(pendingTaskUpload[key]);
-          if(!urls.length) return;
+          const items=pendingItems(pendingTaskUpload[key]);
+          if(!items.length) return;
           const g=taskMap[p].groups[gi]; const t=g.tasks[ti]; const freq=g.daily?'daily':g.freq;
           const wk=selWeek[p]||1; const period=g.daily ? (curMonth()+'#'+wk) : curMonth();
-          Promise.all(urls.map(function(url){
-            return fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'addTaskPhoto', project:p, freq:freq, task:t, date:taskTodayStr(), period:period, image:url, token:localStorage.getItem('authToken')||''})}).then(function(r){ return r.json(); }).then(function(d){
-              if(d && d.ok===false) throw new Error(d.message||d.error||'unknown error');
-              return {id:(d&&d.id)||('tmp'+Date.now()+Math.random()), project:p, freq:freq, task:t, date:taskTodayStr(), period:period, image:url, _ts:Date.now()};
+          const host=document.getElementById(p+'-taskSection');
+          const confirmBtn=host && host.querySelector('.task-confirm-photo[data-pp="'+p+'"][data-gi="'+gi+'"][data-ti="'+ti+'"]');
+          const origBtn=confirmBtn ? confirmBtn.innerHTML : '';
+          if(confirmBtn){ confirmBtn.disabled=true; confirmBtn.innerHTML=checkIconHtml('#fff')+' Saving…'; }
+          try {
+            const remoteUrls=[];
+            for(let i=0;i<items.length;i++){
+              if(confirmBtn) confirmBtn.innerHTML=checkIconHtml('#fff')+' Uploading '+(i+1)+'/'+items.length+'…';
+              let url=items[i].remote;
+              if(!url){
+                url=await uploadToImgbbAsync(items[i].blob);
+                if(!url) throw new Error('Photo '+(i+1)+' upload failed. Check your connection and try again.');
+              }
+              remoteUrls.push(url);
+            }
+            if(confirmBtn) confirmBtn.innerHTML=checkIconHtml('#fff')+' Saving to server…';
+            let saved=[];
+            const batch=await fetchJSONRetry({action:'addTaskPhotos', project:p, freq:freq, task:t, date:taskTodayStr(), period:period, images:remoteUrls, token:localStorage.getItem('authToken')||''}, 3);
+            if(batch && batch.ok===false && batch.error==='Unknown action'){
+              for(let i=0;i<remoteUrls.length;i++){
+                const row=await fetchJSONRetry({action:'addTaskPhoto', project:p, freq:freq, task:t, date:taskTodayStr(), period:period, image:remoteUrls[i], token:localStorage.getItem('authToken')||''}, 3);
+                if(row && row.ok===false) throw new Error(row.message||row.error||'unknown error');
+                saved.push({id:(row&&row.id)||('tmp'+Date.now()+i), image:remoteUrls[i]});
+              }
+            } else {
+              if(batch && batch.ok===false) throw new Error(batch.message||batch.error||'unknown error');
+              saved=(batch && Array.isArray(batch.items)) ? batch.items : remoteUrls.map(function(url, idx){ return { id:'tmp'+(Date.now()+idx), image:url }; });
+            }
+            saved.forEach(function(row, idx){
+              const entry={id:row.id||('tmp'+Date.now()+idx), project:p, freq:freq, task:t, date:taskTodayStr(), period:period, image:row.image||remoteUrls[idx], _ts:Date.now()};
+              taskPhotos.push(entry); pendingPhotos.push(entry);
             });
-          })).then(function(entries){
-            entries.forEach(function(entry){ taskPhotos.push(entry); pendingPhotos.push(entry); });
+            revokePendingItems(pendingTaskUpload[key]);
             delete pendingTaskUpload[key]; delete taskEditOpen[key]; taskPasteFocusKey=null;
             renderTaskProject(p);
             refreshDashboardView();
-          }).catch(function(e){ uiAlert('❌ Could not save photo(s): '+e.message); });
+          } catch(e){
+            uiAlert('❌ Could not save photo(s): '+e.message);
+            if(confirmBtn){ confirmBtn.disabled=false; confirmBtn.innerHTML=origBtn; }
+          }
         }
         function cancelTaskPhoto(p, gi, ti){
-          delete pendingTaskUpload[taskCardKey(p, gi, ti)];
+          const key=taskCardKey(p, gi, ti);
+          revokePendingItems(pendingTaskUpload[key]);
+          delete pendingTaskUpload[key];
           taskPasteFocusKey=null;
           renderTaskProject(p);
         }
@@ -733,9 +793,10 @@ select option:checked { background:rgba(141,1,93,0.14); }
           const key=taskCardKey(p, gi, ti);
           const pending=pendingTaskUpload[key];
           if(!pending) return;
-          const urls=pendingUrls(pending);
-          urls.splice(pi, 1);
-          if(urls.length) pendingTaskUpload[key]={urls:urls};
+          const items=pendingItems(pending);
+          const removed=items.splice(pi, 1)[0];
+          if(removed && removed.preview && String(removed.preview).indexOf('blob:')===0) URL.revokeObjectURL(removed.preview);
+          if(items.length) pendingTaskUpload[key]={items:items};
           else delete pendingTaskUpload[key];
           renderTaskProject(p);
         }
@@ -788,7 +849,7 @@ select option:checked { background:rgba(141,1,93,0.14); }
             }
             uploadHtml+='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
               +'<button type="button" class="addphoto-btn" data-pp="'+p+'" data-gi="'+gi+'" data-ti="'+ti+'" style="padding:6px 10px;font-size:12px;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/><circle cx="14" cy="15" r="1"/></svg></span> Upload / Camera</button>'
-              +'<span style="flex:1;min-width:160px;text-align:center;color:var(--text-soft);font-size:12px;">Click here, then paste (Ctrl+V). Paste again to add more photos.</span>'
+              +'<span style="flex:1;min-width:160px;text-align:center;color:var(--text-soft);font-size:12px;">Click here, then paste (Ctrl+V). Photos upload when you confirm &amp; save.</span>'
               +'</div>';
             if(pendingList.length){
               uploadHtml+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px;">'

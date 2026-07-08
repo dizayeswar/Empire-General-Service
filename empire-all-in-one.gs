@@ -125,7 +125,7 @@ function doPost(e) {
       'saveReport':'cleaning','getReports':'cleaning','deleteReport':'cleaning','saveTasks':'cleaning','getTasks':'cleaning','clearAll':'cleaning',
       'setTask':'cleaning','resetTasks':'cleaning',
       'getWeekCoverage':'cleaning','markTaskWeek':'cleaning','getRangeCoverage':'cleaning',
-      'getTaskPhotos':'cleaning','addTaskPhoto':'cleaning','deleteTaskPhoto':'cleaning',
+      'getTaskPhotos':'cleaning','addTaskPhoto':'cleaning','addTaskPhotos':'cleaning','deleteTaskPhoto':'cleaning',
       'logTask':'cleaning','getTaskLog':'cleaning',
       'addCivilIssue':'civil issue','updateCivilIssue':'civil issue','getCivilIssues':'civil issue','markCivilFixed':'civil issue','clearCivilIssues':'civil issue','deleteCivilIssue':'civil issue',
       'addElectricIssue':'electric issue','updateElectricIssue':'electric issue','getElectricIssues':'electric issue','markElectricFixed':'electric issue','clearElectricIssues':'electric issue','deleteElectricIssue':'electric issue',
@@ -159,6 +159,7 @@ function doPost(e) {
     if (action==='getRangeCoverage') return respond(handleGetRangeCoverage(body));
     if (action==='getTaskPhotos') return respond(handleGetTaskPhotos(body));
     if (action==='addTaskPhoto') return respond(handleAddTaskPhoto(body));
+    if (action==='addTaskPhotos') return respond(handleAddTaskPhotos(body));
     if (action==='deleteTaskPhoto') return respond(handleDeleteTaskPhoto(body));
     if (action==='logTask') return respond(handleLogTask(body));
     if (action==='getTaskLog') return respond(handleGetTaskLog(body));
@@ -461,6 +462,26 @@ function handleAddTaskPhoto(body) {
   sheet.appendRow([id, body.project||'', body.freq||'', body.task||'', body.date||'', body.period||'', body.image||'', body.username||'', new Date().toISOString()]);
   invalidateTaskPhotosCache_(String(body.period||'').split('#')[0]);
   return {ok:true, success:true, id:id};
+}
+
+function handleAddTaskPhotos(body) {
+  var images = body.images || [];
+  if (!images.length) return {ok:false, error:'No images'};
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(TASK_PHOTOS_SHEET) || ss.insertSheet(TASK_PHOTOS_SHEET);
+  if (sheet.getLastRow()===0) sheet.appendRow(['id','project','freq','task','date','period','image','createdBy','createdAt']);
+  var items = [];
+  var periodPrefix = '';
+  var now = new Date().toISOString();
+  for (var i=0; i<images.length; i++) {
+    var id = 'tp-' + Utilities.getUuid();
+    var period = body.period || '';
+    sheet.appendRow([id, body.project||'', body.freq||'', body.task||'', body.date||'', period, images[i]||'', body.username||'', now]);
+    items.push({id:id, image:images[i]||''});
+    periodPrefix = String(period).split('#')[0];
+  }
+  invalidateTaskPhotosCache_(periodPrefix);
+  return {ok:true, success:true, items:items};
 }
 
 function handleGetTaskPhotos(body) {
