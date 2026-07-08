@@ -26,7 +26,57 @@ var HSE_JOBDEPT_COL = 19;
 var _SS_CACHE = null;
 function getSS_() { if (!_SS_CACHE) _SS_CACHE = SpreadsheetApp.openById(SHEET_ID); return _SS_CACHE; }
 function issuesCacheKey_(sheetName) { return 'issues_v2_' + sheetName; }
-function invalidateIssuesCache_(sheetName) { try { CacheService.getScriptCache().remove(issuesCacheKey_(sheetName)); } catch(e){} }
+function invalidateIssuesCache_(sheetName) {
+  try {
+    var cache = CacheService.getScriptCache();
+    var ckey = issuesCacheKey_(sheetName);
+    try {
+      var meta = cache.get(ckey + '_meta');
+      if (meta) {
+        var m = JSON.parse(meta);
+        for (var p = 0; p < m.parts; p++) cache.remove(ckey + '_' + p);
+        cache.remove(ckey + '_meta');
+      }
+    } catch(e2){}
+    cache.remove(ckey);
+  } catch(e){}
+}
+function issuesCacheGet_(ckey) {
+  var cache = CacheService.getScriptCache();
+  try {
+    var meta = cache.get(ckey + '_meta');
+    if (meta) {
+      var m = JSON.parse(meta);
+      var parts = [];
+      for (var p = 0; p < m.parts; p++) {
+        var chunk = cache.get(ckey + '_' + p);
+        if (!chunk) return null;
+        parts.push(chunk);
+      }
+      return JSON.parse(parts.join(''));
+    }
+    var hit = cache.get(ckey);
+    if (hit) return JSON.parse(hit);
+  } catch(e){}
+  return null;
+}
+function issuesCachePut_(ckey, out) {
+  var cache = CacheService.getScriptCache();
+  try {
+    var js = JSON.stringify(out);
+    var ttl = 300;
+    if (js.length < 95000) {
+      cache.put(ckey, js, ttl);
+      return;
+    }
+    var partSize = 90000;
+    var parts = Math.ceil(js.length / partSize);
+    for (var p = 0; p < parts; p++) {
+      cache.put(ckey + '_' + p, js.slice(p * partSize, (p + 1) * partSize), ttl);
+    }
+    cache.put(ckey + '_meta', JSON.stringify({parts: parts}), ttl);
+  } catch(e){}
+}
 function reportsCacheKey_() { return 'reports_v1'; }
 function invalidateReportsCache_() { try { CacheService.getScriptCache().remove(reportsCacheKey_()); } catch(e){} }
 function taskPhotosCacheKey_(prefix) { return 'tphotos_v1_' + String(prefix||''); }
@@ -255,6 +305,17 @@ function handleGetPerms(body) {
 
 function verifyToken(token, requiredDept) {
   if (!token) return {ok:false,error:'No token'};
+  requiredDept = String(requiredDept||'').trim().toLowerCase();
+  var cache = CacheService.getScriptCache();
+  var tkey = 'tok_' + Utilities.base64EncodeWebSafe(String(token)).slice(0, 40);
+  try {
+    var hit = cache.get(tkey);
+    if (hit) {
+      var cached = JSON.parse(hit);
+      if (cached.dept === requiredDept) return cached;
+      return {ok:false,error:'This login is not allowed for this section'};
+    }
+  } catch(e){}
   var ss = getSS_();
   var tsheet = ss.getSheetByName(TOKENS_SHEET);
   if (!tsheet) return {ok:false,error:'Not authenticated'};
@@ -264,8 +325,10 @@ function verifyToken(token, requiredDept) {
     if (String(rows[i][0])===String(token)) {
       var tokenDept = String(rows[i][2]||'').trim().toLowerCase();
       if (now - Number(rows[i][3]) > TOKEN_TTL) return {ok:false,error:'Token expired'};
-      if (tokenDept !== requiredDept.toLowerCase()) return {ok:false,error:'This login is not allowed for this section'};
-      return {ok:true,username:rows[i][1],dept:tokenDept,role:String(rows[i][4]||'')};
+      if (tokenDept !== requiredDept) return {ok:false,error:'This login is not allowed for this section'};
+      var result = {ok:true,username:rows[i][1],dept:tokenDept,role:String(rows[i][4]||'')};
+      try { cache.put(tkey, JSON.stringify(result), 300); } catch(e){}
+      return result;
     }
   }
   return {ok:false,error:'Invalid token'};
@@ -699,9 +762,9 @@ function handleUpdateIssue(body, sheetName) {
 }
 
 function handleGetIssues(body, sheetName) {
-  var cache = CacheService.getScriptCache();
   var ckey = issuesCacheKey_(sheetName);
-  try { var hit = cache.get(ckey); if (hit) return JSON.parse(hit); } catch(e){}
+  var cached = issuesCacheGet_(ckey);
+  if (cached) return cached;
   var ss = getSS_();
   var sheet = ss.getSheetByName(sheetName);
   if (!sheet||sheet.getLastRow()<2) return [];
@@ -711,9 +774,11 @@ function handleGetIssues(body, sheetName) {
   var out = [];
   for (var i=1;i<rows.length;i++) {
     var dv=rows[i][7]; var ds=(dv instanceof Date)?Utilities.formatDate(dv,tz,'yyyy-MM-dd'):String(dv);
-    out.push({id:String(rows[i][0]),num:Number(rows[i][ISSUE_NUM_COL-1]||0),project:String(rows[i][1]),building:String(rows[i][2]),floor:String(rows[i][3]),spot:String(rows[i][4]),issueType:String(rows[i][5]),note:String(rows[i][6]||''),date:ds,photo:String(rows[i][8]||''),fixedPhoto:String(rows[i][9]||''),status:String(rows[i][10]||'open'),createdBy:String(rows[i][11]||''),createdAt:dtIssue_(rows[i][12]),fixedBy:String(rows[i][13]||''),fixedAt:dtIssue_(rows[i][14])});
+    var st=String(rows[i][10]||'open');
+    var fp=String(rows[i][9]||'');
+    out.push({id:String(rows[i][0]),num:Number(rows[i][ISSUE_NUM_COL-1]||0),project:String(rows[i][1]),building:String(rows[i][2]),floor:String(rows[i][3]),spot:String(rows[i][4]),issueType:String(rows[i][5]),note:String(rows[i][6]||''),date:ds,photo:String(rows[i][8]||''),fixedPhoto:(st==='fixed'?fp:''),status:st,createdBy:String(rows[i][11]||''),createdAt:dtIssue_(rows[i][12]),fixedBy:String(rows[i][13]||''),fixedAt:dtIssue_(rows[i][14])});
   }
-  try { var js = JSON.stringify(out); if (js.length < 95000) cache.put(ckey, js, 60); } catch(e){}
+  issuesCachePut_(ckey, out);
   return out;
 }
 
