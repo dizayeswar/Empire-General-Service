@@ -42,7 +42,8 @@
         .login-message { padding: 10px; border-radius: 12px; text-align: center; font-weight: 600; margin-bottom: 10px; display: none; }
         .login-message.success { background: #27ae60; color: #fff; display: block; }
         .login-message.error { background: #e74c3c; color: #fff; display: block; }
-        .theme-btn { background:var(--btn-bg); color:var(--btn-text); border:2px solid var(--btn-border); padding:8px 12px; border-radius:50px; cursor:pointer; font-size:15px; line-height:1; }
+        .theme-btn { background:var(--btn-bg); color:var(--btn-text); border:2px solid var(--btn-border); padding:8px 12px; border-radius:50px; cursor:pointer; font-size:var(--fs-btn); font-weight:600; font-family:var(--app-font); line-height:1; }
+        .side-actions .theme-btn { width:100%; padding:10px 12px; display:flex; align-items:center; justify-content:flex-start; gap:9px; text-align:left; box-sizing:border-box; }
         .login-theme { position:absolute; top:14px; right:14px; padding:6px 10px; }
         .container { max-width: 100%; margin: 0; padding: 20px; display: none; }
         .container.show { display: block; }
