@@ -391,37 +391,18 @@ select option:checked { background:rgba(141,1,93,0.14); }
               if(filterProject!=='ALL' && p!==filterProject) return;
               const preps=filt.filter(r=>r.project===p);
               const pphotos=tphotos.filter(x=>x.project===p);
-              if(preps.length===0 && pphotos.length===0) return;
+              if(pphotos.length===0 && !preps.some(function(r){ return r.image; })) return;
               h+='<div style="margin-top:18px;"><h3 style="color:var(--accent2);">'+projName(p)+'</h3>';
-              preps.forEach(r=>{h+='<div class="form-section" style="position:relative;"><button type="button" onclick="removeReport(\''+r.id+'\', this)" title="Delete report" style="position:absolute;top:10px;right:10px;background:#C5504F;color:#fff;border:none;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;">'+trashIconHtml()+'</button><h3>'+r.building+' | Floors: '+normalizeFloors(r.floors).join(', ')+'</h3><p><strong>Supervisor:</strong> '+supervisors[r.project]+'</p><p><strong>Employees:</strong> '+r.employees+' | <strong>Level:</strong> '+r.level+'</p>'; if(r.image)h+='<img src="'+r.image+'" class="report-image" onclick="openModal(this.src)" style="cursor:pointer;" loading="lazy">'; h+='</div>';});
+              preps.forEach(function(r){ if(r.image) h+='<div class="form-section" style="position:relative;padding:12px;"><button type="button" onclick="removeReport(\''+r.id+'\', this)" title="Delete report" style="position:absolute;top:10px;right:10px;background:#C5504F;color:#fff;border:none;border-radius:50px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;">'+trashIconHtml()+'</button><img src="'+r.image+'" class="report-image" onclick="openModal(this.src)" style="cursor:pointer;max-width:100%;" loading="lazy"></div>'; });
               if(pphotos.length){
-                const matchRep = preps[0];
                 h+='<h4 style="margin-top:14px;">'+checkIconHtml()+' Task Checklist Photos</h4>';
                 const taskGroups = {};
                 const taskOrder = [];
                 pphotos.forEach(x=>{ if(!taskGroups[x.task]){ taskGroups[x.task]=[]; taskOrder.push(x.task); } taskGroups[x.task].push(x); });
                 taskOrder.forEach(function(taskName){
                   const arr=taskGroups[taskName];
-                  const first=arr[0];
-                  const isWeek = first.period && first.period.indexOf('#')!==-1;
-                  const grpLabel = groupLabelFor(first.project, first.freq);
-                  const rightLabel = isWeek ? ('Week '+first.period.split('#')[1]) : (grpLabel||first.freq||'');
-                  const thumbs = arr.map(function(x){ return '<span style="position:relative;display:inline-block;margin:0 8px 8px 0;"><img src="'+x.image+'" onclick="openModal(this.src)" style="height:80px;width:80px;object-fit:cover;border-radius:12px;border:1px solid var(--card-border);cursor:pointer;" loading="lazy"><button type="button" class="tp-del" onclick="removeTaskPhoto(\''+x.id+'\', this)" title="Delete photo" style="display:none;position:absolute;top:-8px;right:-8px;background:#C5504F;color:#fff;border:none;border-radius:50%;width:20px;height:20px;align-items:center;justify-content:center;cursor:pointer;padding:0;">'+trashIconHtml()+'</button></span>'; }).join('');
-                  h+='<div class="form-section tp-card" style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;">'
-                    +'<div class="tp-gallery" style="flex:0 1 340px;max-height:260px;overflow-y:auto;display:flex;flex-wrap:wrap;align-content:flex-start;">'+thumbs+'</div>'
-                    +'<div style="flex:1;"></div>'
-                    +'<div style="flex-shrink:0;display:flex;gap:8px;">'
-                      +'<button type="button" onclick="toggleTaskPhotoDetails(this)">'+infoIconHtml()+' Details</button>'
-                      +'<button type="button" onclick="toggleTaskPhotoEdit(this)">'+editIconHtml()+' Edit</button>'
-                    +'</div>'
-                    +'<div class="tp-details" style="display:none;flex-basis:100%;width:100%;margin-top:6px;padding-top:12px;border-top:1px solid var(--card-border);">'
-                      +'<h3 style="margin-bottom:8px;">'+taskName+' <span style="color:var(--text-faint);font-size:12px;font-weight:normal;">('+arr.length+' '+cameraIconHtml()+')</span></h3>'
-                      +'<p><strong>Supervisor:</strong> '+(supervisors[first.project]||'')+'</p>'
-                      +(rightLabel?('<p><strong>'+(isWeek?'Week':'Frequency')+':</strong> '+rightLabel+'</p>'):'')
-                      +'<p><strong>Date:</strong> '+first.date+'</p>'
-                      +(matchRep?('<p><strong>Building:</strong> '+matchRep.building+'</p><p><strong>Floors:</strong> '+normalizeFloors(matchRep.floors).join(', ')+'</p><p><strong>Employees:</strong> '+matchRep.employees+' | <strong>Level:</strong> '+matchRep.level+'</p>'):'')
-                    +'</div>'
-                  +'</div>';
+                  const thumbs = arr.map(function(x){ return '<img src="'+x.image+'" onclick="openModal(this.src)" style="height:80px;width:80px;object-fit:cover;border-radius:12px;border:1px solid var(--card-border);cursor:pointer;margin:0 8px 8px 0;" loading="lazy">'; }).join('');
+                  h+='<div style="margin-bottom:14px;"><p style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text-soft);">'+taskName+'</p><div style="display:flex;flex-wrap:wrap;">'+thumbs+'</div></div>';
                 });
               }
               h+='</div>';
@@ -681,7 +662,7 @@ select option:checked { background:rgba(141,1,93,0.14); }
           const bodyBits=(ph||pendingHtml||uploadHtml)?(ph?('<div style="display:flex;flex-wrap:wrap;margin-bottom:6px;">'+ph+'</div>'):'')+pendingHtml+(uploadHtml?('<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'+uploadHtml+'</div>'):''):'';
           return '<div class="task-card" style="background:var(--task-bg);border:1px solid var(--card-border);border-radius:16px;padding:10px;">'
             +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;'+(bodyBits?'margin-bottom:6px;':'')+'">'
-            +'<div style="font-weight:600;flex:1;">'+(done?checkIconHtml():squareIconHtml())+' '+t+' <span style="color:var(--text-faint);font-size:12px;font-weight:normal;">('+photos.length+' '+cameraIconHtml()+')</span></div>'
+            +'<div style="font-weight:600;flex:1;">'+(done?checkIconHtml():squareIconHtml())+' '+t+'</div>'
             +editBtn
             +'</div>'
             +bodyBits
