@@ -125,6 +125,8 @@
         .nav-icon svg { display:block; width:16px; height:16px; }
         button:hover .nav-icon { transform: translateY(-3px); }
         .side-footer-note { font-size:11px; color:var(--text-faint); text-align:center; margin-top:14px; line-height:1.5; }
+        .task-upload-zone { outline:none; transition:border-color .15s ease, box-shadow .15s ease; }
+        .task-upload-zone:focus { border-color:var(--accent2) !important; box-shadow:0 0 0 3px rgba(141,1,93,0.22); }
         .main-area { flex:1 1 0%; min-width:0; }
         @media (max-width:840px) {
           .app-shell { flex-direction:column; }
@@ -627,6 +629,7 @@ select option:checked { background:rgba(141,1,93,0.14); }
         let selWeek = {};
         let taskEditOpen = {};
         let pendingTaskUpload = {};
+        let taskPasteFocusKey = null;
         function taskCardKey(p, gi, ti){ return p+'|'+gi+'|'+ti; }
         function toggleTaskCardEdit(p, gi, ti){
           const key=taskCardKey(p, gi, ti);
@@ -677,13 +680,31 @@ select option:checked { background:rgba(141,1,93,0.14); }
           if(pending.url) return [pending.url];
           return [];
         }
-        function onAddPhoto(p, gi, ti, file){
-          if(!file) return;
+        function onAddPhotos(p, gi, ti, files){
+          if(!files || !files.length) return;
           const key=taskCardKey(p, gi, ti);
-          compressImage(file,(url)=>{ if(!url){ alert('Upload failed, try again'); return; }
-            ensurePendingUpload(key).urls.push(url);
-            renderTaskProject(p);
+          taskPasteFocusKey=key;
+          let remaining=0;
+          files.forEach(function(file){
+            if(!file) return;
+            remaining++;
+            compressImage(file, function(url){
+              remaining--;
+              if(url) ensurePendingUpload(key).urls.push(url);
+              else alert('Upload failed, try again');
+              if(remaining===0) renderTaskProject(p);
+            });
           });
+        }
+        function onAddPhoto(p, gi, ti, file){ onAddPhotos(p, gi, ti, file ? [file] : []); }
+        function pasteIntoTask(e, p, gi, ti){
+          const items=e.clipboardData && e.clipboardData.items;
+          if(!items) return;
+          const files=[];
+          for(let i=0;i<items.length;i++){ if(items[i].type.indexOf('image')!==-1) files.push(items[i].getAsFile()); }
+          if(!files.length) return;
+          e.preventDefault();
+          onAddPhotos(p, gi, ti, files);
         }
         function confirmTaskPhoto(p, gi, ti){
           const key=taskCardKey(p, gi, ti);
@@ -698,13 +719,14 @@ select option:checked { background:rgba(141,1,93,0.14); }
             });
           })).then(function(entries){
             entries.forEach(function(entry){ taskPhotos.push(entry); pendingPhotos.push(entry); });
-            delete pendingTaskUpload[key]; delete taskEditOpen[key];
+            delete pendingTaskUpload[key]; delete taskEditOpen[key]; taskPasteFocusKey=null;
             renderTaskProject(p);
             refreshDashboardView();
           }).catch(function(e){ uiAlert('❌ Could not save photo(s): '+e.message); });
         }
         function cancelTaskPhoto(p, gi, ti){
           delete pendingTaskUpload[taskCardKey(p, gi, ti)];
+          taskPasteFocusKey=null;
           renderTaskProject(p);
         }
         function removePendingTaskPhoto(p, gi, ti, pi){
@@ -751,29 +773,33 @@ select option:checked { background:rgba(141,1,93,0.14); }
           if(editing){
             photos.forEach(x=>{ ph+='<span style="position:relative;display:inline-block;margin:4px;"><img src="'+x.image+'" loading="lazy" decoding="async" style="height:90px;border-radius:12px;border:1px solid var(--card-border);cursor:pointer;" onclick="openModal(this.src)"><button type="button" class="tc-del" data-del="'+x.id+'" title="Remove" style="position:absolute;top:-7px;right:-7px;background:#C5504F;color:#fff;border:none;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;">'+trashIconHtml()+'</button></span>'; });
           }
-          let pendingHtml='';
-          if(pendingList.length){
-            const confirmLabel='Confirm &amp; save'+(pendingList.length>1?' ('+pendingList.length+')':'');
-            pendingHtml='<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:8px;padding:8px;background:var(--input-bg);border-radius:12px;border:1px dashed var(--card-border);">'
-              +'<div style="display:flex;flex-wrap:wrap;gap:8px;">';
-            pendingList.forEach(function(url, pi){
-              pendingHtml+='<span style="position:relative;display:inline-block;"><img src="'+url+'" style="height:72px;width:72px;object-fit:cover;border-radius:10px;border:1px solid var(--card-border);cursor:pointer;" onclick="openModal(this.src)">'
-                +'<button type="button" class="task-remove-pending" data-pp="'+p+'" data-gi="'+gi+'" data-ti="'+ti+'" data-pi="'+pi+'" title="Remove" style="position:absolute;top:-7px;right:-7px;background:#C5504F;color:#fff;border:none;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;">'+trashIconHtml()+'</button></span>';
-            });
-            pendingHtml+='</div><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">'
-              +'<span style="font-size:12px;color:var(--text-soft);">Add more photos below, then save all.</span>'
-              +'<button type="button" class="task-confirm-photo" data-pp="'+p+'" data-gi="'+gi+'" data-ti="'+ti+'" style="padding:6px 12px;font-size:12px;background:#27ae60;color:#fff;border:none;border-radius:50px;cursor:pointer;font-weight:600;">'+checkIconHtml('#fff')+' '+confirmLabel+'</button>'
-              +'<button type="button" class="task-cancel-photo" data-pp="'+p+'" data-gi="'+gi+'" data-ti="'+ti+'" style="padding:6px 12px;font-size:12px;background:var(--task-bg);color:var(--text);border:1px solid var(--card-border);border-radius:50px;cursor:pointer;">Cancel all</button>'
-              +'</div></div>';
-          }
           const showUpload=(!done || editing);
           let uploadHtml='';
           if(showUpload){
-            uploadHtml='<button type="button" class="addphoto-btn" data-pp="'+p+'" data-gi="'+gi+'" data-ti="'+ti+'" style="padding:6px 10px;font-size:12px;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/><circle cx="14" cy="15" r="1"/></svg></span> Upload / Camera</button>'
-              +'<div class="addpaste" data-pp="'+p+'" data-gi="'+gi+'" data-ti="'+ti+'" style="flex:1;min-width:140px;border:2px dashed var(--card-border);border-radius:12px;padding:6px;text-align:center;color:var(--text-soft);font-size:12px;cursor:text;">…or click &amp; paste (Ctrl+V)</div>';
+            const confirmLabel='Confirm &amp; save'+(pendingList.length>1?' ('+pendingList.length+')':'');
+            uploadHtml='<div class="task-upload-zone" data-key="'+key+'" data-pp="'+p+'" data-gi="'+gi+'" data-ti="'+ti+'" tabindex="0" style="padding:10px;background:var(--input-bg);border-radius:12px;border:2px dashed var(--card-border);">';
+            if(pendingList.length){
+              uploadHtml+='<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;">';
+              pendingList.forEach(function(url, pi){
+                uploadHtml+='<span style="position:relative;display:inline-block;"><img src="'+url+'" style="height:72px;width:72px;object-fit:cover;border-radius:10px;border:1px solid var(--card-border);cursor:pointer;" onclick="openModal(this.src)">'
+                  +'<button type="button" class="task-remove-pending" data-pp="'+p+'" data-gi="'+gi+'" data-ti="'+ti+'" data-pi="'+pi+'" title="Remove" style="position:absolute;top:-7px;right:-7px;background:#C5504F;color:#fff;border:none;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;">'+trashIconHtml()+'</button></span>';
+              });
+              uploadHtml+='</div>';
+            }
+            uploadHtml+='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
+              +'<button type="button" class="addphoto-btn" data-pp="'+p+'" data-gi="'+gi+'" data-ti="'+ti+'" style="padding:6px 10px;font-size:12px;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/><circle cx="14" cy="15" r="1"/></svg></span> Upload / Camera</button>'
+              +'<span style="flex:1;min-width:160px;text-align:center;color:var(--text-soft);font-size:12px;">Click here, then paste (Ctrl+V). Paste again to add more photos.</span>'
+              +'</div>';
+            if(pendingList.length){
+              uploadHtml+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px;">'
+                +'<button type="button" class="task-confirm-photo" data-pp="'+p+'" data-gi="'+gi+'" data-ti="'+ti+'" style="padding:6px 12px;font-size:12px;background:#27ae60;color:#fff;border:none;border-radius:50px;cursor:pointer;font-weight:600;">'+checkIconHtml('#fff')+' '+confirmLabel+'</button>'
+                +'<button type="button" class="task-cancel-photo" data-pp="'+p+'" data-gi="'+gi+'" data-ti="'+ti+'" style="padding:6px 12px;font-size:12px;background:var(--task-bg);color:var(--text);border:1px solid var(--card-border);border-radius:50px;cursor:pointer;">Cancel all</button>'
+                +'</div>';
+            }
+            uploadHtml+='</div>';
           }
           const editBtn=done?('<button type="button" class="task-edit-btn" data-pp="'+p+'" data-gi="'+gi+'" data-ti="'+ti+'" style="padding:4px 10px;font-size:12px;white-space:nowrap;">'+(editing?(checkIconHtml()+' Done'):(editIconHtml()+' Edit'))+'</button>'):'';
-          const bodyBits=(ph||pendingHtml||uploadHtml)?(ph?('<div style="display:flex;flex-wrap:wrap;margin-bottom:6px;">'+ph+'</div>'):'')+pendingHtml+(uploadHtml?('<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'+uploadHtml+'</div>'):''):'';
+          const bodyBits=(ph||uploadHtml)?(ph?('<div style="display:flex;flex-wrap:wrap;margin-bottom:6px;">'+ph+'</div>'):'')+(uploadHtml||''):'';
           return '<div class="task-card" style="background:var(--task-bg);border:1px solid var(--card-border);border-radius:16px;padding:10px;">'
             +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;'+(bodyBits?'margin-bottom:6px;':'')+'">'
             +'<div style="font-weight:600;flex:1;">'+(done?checkIconHtml():squareIconHtml())+' '+t+'</div>'
@@ -819,8 +845,22 @@ select option:checked { background:rgba(141,1,93,0.14); }
           host.querySelectorAll('.task-confirm-photo').forEach(b=>b.addEventListener('click', function(){ confirmTaskPhoto(this.dataset.pp, +this.dataset.gi, +this.dataset.ti); }));
           host.querySelectorAll('.task-cancel-photo').forEach(b=>b.addEventListener('click', function(){ cancelTaskPhoto(this.dataset.pp, +this.dataset.gi, +this.dataset.ti); }));
           host.querySelectorAll('.task-remove-pending').forEach(b=>b.addEventListener('click', function(e){ e.stopPropagation(); removePendingTaskPhoto(this.dataset.pp, +this.dataset.gi, +this.dataset.ti, +this.dataset.pi); }));
-          host.querySelectorAll('.addphoto-btn').forEach(b=>b.addEventListener('click', function(){ const pp=this.dataset.pp, gi=+this.dataset.gi, ti=+this.dataset.ti; const inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.onchange=ev=>{ const f=ev.target.files&&ev.target.files[0]; if(f) onAddPhoto(pp,gi,ti,f); }; inp.click(); }));
-          host.querySelectorAll('.addpaste').forEach(area=>area.addEventListener('paste', function(e){ const pp=this.dataset.pp, gi=+this.dataset.gi, ti=+this.dataset.ti; const items=e.clipboardData.items; for(let i=0;i<items.length;i++){ if(items[i].type.indexOf('image')!==-1){ e.preventDefault(); onAddPhoto(pp,gi,ti, items[i].getAsFile()); return; } } }));
+          host.querySelectorAll('.task-upload-zone').forEach(function(zone){
+            zone.addEventListener('click', function(){ this.focus(); });
+            zone.addEventListener('paste', function(e){ pasteIntoTask(e, this.dataset.pp, +this.dataset.gi, +this.dataset.ti); });
+          });
+          host.querySelectorAll('.addphoto-btn').forEach(b=>b.addEventListener('click', function(e){
+            e.stopPropagation();
+            const pp=this.dataset.pp, gi=+this.dataset.gi, ti=+this.dataset.ti;
+            const inp=document.createElement('input');
+            inp.type='file'; inp.accept='image/*'; inp.multiple=true;
+            inp.onchange=function(ev){ onAddPhotos(pp, gi, ti, ev.target.files ? Array.from(ev.target.files) : []); };
+            inp.click();
+          }));
+          if(taskPasteFocusKey){
+            const zone=host.querySelector('.task-upload-zone[data-key="'+taskPasteFocusKey+'"]');
+            if(zone) zone.focus();
+          }
           host.querySelectorAll('.tc-del').forEach(x=>x.addEventListener('click', function(e){ e.stopPropagation(); removeTaskPhoto(this.dataset.del, this); }));
         }
         function renderTaskChecklists(){ Object.keys(taskMap).forEach(p=>renderTaskProject(p)); }
