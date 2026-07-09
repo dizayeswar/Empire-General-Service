@@ -164,3 +164,62 @@ function toggleSidebar() {
     window.uiAlert(m);
   };
 })();
+
+/** Saved typography + light-mode dimming (hub pages and others). */
+(function () {
+  try {
+    var st = JSON.parse(localStorage.getItem('ewTypography') || '{}');
+    var r = document.documentElement.style;
+    if (st.h1) r.setProperty('--fs-h1', st.h1 + 'px');
+    if (st.h2) r.setProperty('--fs-h2', st.h2 + 'px');
+    if (st.h3) r.setProperty('--fs-h3', st.h3 + 'px');
+    if (st.body) r.setProperty('--fs-body', st.body + 'px');
+    if (st.btn) r.setProperty('--fs-btn', st.btn + 'px');
+    if (st.font) {
+      var l = document.createElement('link');
+      l.rel = 'stylesheet';
+      l.href =
+        'https://fonts.googleapis.com/css2?family=' +
+        st.font +
+        ':wght@400;600;700&display=swap';
+      document.head.appendChild(l);
+      r.setProperty(
+        '--app-font',
+        "'" + st.font + "',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"
+      );
+    }
+    var LT = {
+      '--bg': '#f4f6fb',
+      '--panel': '#ffffff',
+      '--card': '#ffffff',
+      '--header-bg': '#ffffff',
+      '--btn-bg': '#ffffff',
+      '--tab-bg': '#ffffff'
+    };
+    function shade(hex, f) {
+      var n = parseInt(hex.slice(1), 16);
+      return (
+        'rgb(' +
+        Math.round(((n >> 16) & 255) * f) +
+        ',' +
+        Math.round(((n >> 8) & 255) * f) +
+        ',' +
+        Math.round((n & 255) * f) +
+        ')'
+      );
+    }
+    function dim() {
+      var isLight = document.documentElement.getAttribute('data-theme') !== 'dark';
+      var d = st.dim || 0;
+      Object.keys(LT).forEach(function (k) {
+        if (isLight && d > 0) document.documentElement.style.setProperty(k, shade(LT[k], 1 - d / 100));
+        else document.documentElement.style.removeProperty(k);
+      });
+    }
+    new MutationObserver(dim).observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme']
+    });
+    dim();
+  } catch (e) {}
+})();

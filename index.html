@@ -6,62 +6,14 @@
     <link rel="preconnect" href="https://script.google.com">
     <link rel="preconnect" href="https://api.imgbb.com">
     <title>Empire World — Dashboards</title>
-    <style>
-        :root{
-          --bg:#f4f6fb; --text:#232a3d; --text-soft:#5b6478; --text-faint:#8a90a0;
-          --card:#ffffff; --card-border:#e8d3e0; --header-accent:#185fa5; --accent2:#8d015d;
-          --tile-hover-border:#8d015d; --wait-bg:#f7eaf2; --wait-text:#8d015d; --wait-border:#dcc0d2;
-          --btn-bg:#ffffff; --btn-text:#185fa5; --btn-border:#d9a3c4; --shadow:rgba(80,70,150,0.12);
-          --panel:#ffffff;
-        }
-        html[data-theme="dark"]{
-          --bg:linear-gradient(135deg,#0f5a9e 0%,#8d015d 100%); --text:#ffffff; --text-soft:#d9c2d9; --text-faint:#cbb6cb;
-          --card:rgba(13,50,100,0.75); --card-border:#a0327d; --header-accent:#ffffff; --accent2:#a0327d;
-          --tile-hover-border:#d34da0; --wait-bg:#5b3b6e; --wait-text:#e6c8e6; --wait-border:#a0327d;
-          --btn-bg:#0d4a85; --btn-text:#ffffff; --btn-border:#a0327d; --shadow:rgba(0,0,0,0.3);
-          --panel:#0d3a6e;
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
-        .topbar { display:flex; justify-content:space-between; align-items:center; padding:16px 24px 0; }
-        .theme-btn { background:var(--btn-bg); color:var(--btn-text); border:2px solid var(--btn-border); padding:8px 14px; border-radius:6px; cursor:pointer; font-size:14px; line-height:1; display:inline-flex; align-items:center; gap:8px; font-weight:600; }
-        .nav-icon { display:inline-flex; align-items:center; justify-content:center; pointer-events:none; }
-        .nav-icon svg { display:block; width:16px; height:16px; }
-        .theme-icon { transition:transform 0.15s ease; }
-        .wrap { max-width: 1200px; margin: 0 auto; padding: 20px 20px 60px; }
-        header { text-align: center; margin-bottom: 40px; }
-        header h1 { font-size: 36px; margin-bottom: 8px; color:var(--header-accent); }
-        header p { color: var(--text-soft); font-size: 15px; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 22px; }
-        .tile { background: var(--card); border: 2px solid var(--card-border); border-radius: 16px; padding: 26px; box-shadow: 0 6px 20px var(--shadow); transition: transform 0.18s, box-shadow 0.18s; display: flex; flex-direction: column; min-height: 190px; text-decoration: none; color: var(--text); }
-        .tile.active { cursor: pointer; }
-        .tile.active:hover { transform: translateY(-5px); box-shadow: 0 12px 28px var(--shadow); border-color: var(--tile-hover-border); }
-        .tile.soon { opacity: 0.62; cursor: pointer; }
-        .tile.soon:hover { opacity: 0.85; }
-        .tile .icon { font-size: 40px; margin-bottom: 14px; }
-        .tile h2 { font-size: 20px; margin-bottom: 8px; color:var(--text); }
-        .tile p { font-size: 13px; color: var(--text-soft); flex: 1; }
-        .badge { display: inline-block; margin-top: 14px; align-self: flex-start; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; padding: 5px 11px; border-radius: 20px; text-transform: uppercase; }
-        .badge.open { background: #27ae60; color: #fff; }
-        .badge.wait { background: var(--wait-bg); color: var(--wait-text); border: 1px solid var(--wait-border); }
-        footer { text-align: center; margin-top: 45px; color: var(--text-faint); font-size: 13px; }
-        footer strong { color: var(--text); }
-    /* Empire pill buttons (match cleaning) */
-button, .tab-btn, .theme-btn, .act-btn { border-radius:50px !important; box-shadow:0 9px 17px var(--shadow, rgba(0,0,0,0.15)); transition:all .18s ease; }
-button:hover, .tab-btn:hover, .theme-btn:hover, .act-btn:hover { transform:translateY(-2px); }
-/* Empire text settings (match cleaning) */
-body{font-family:var(--app-font,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif)!important;font-size:var(--fs-body,14px);}
-h1{font-size:var(--fs-h1,28px)!important;} h2{font-size:var(--fs-h2,20px)!important;} h3{font-size:var(--fs-h3,16px)!important;}
-button,.tab-btn{font-size:var(--fs-btn,14px)!important;font-family:var(--app-font,inherit)!important;}
-input[type=text],input[type=date],input[type=month],input[type=number],select,textarea,label{font-size:var(--fs-body,14px);}
-</style>
+    <link rel="stylesheet" href="assets/empire-hub.css">
 </head>
 <body>
     <div class="topbar">
       <img src="logo-light.png" alt="Empire World" style="height:48px;width:auto;">
       <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span> <span class="lbl">Theme</span></button>
     </div>
-    <div class="wrap">
+    <div class="wrap wide">
         <header>
             <h1>Empire World</h1>
             <p>Choose a department to open its dashboard</p>
@@ -69,18 +21,8 @@ input[type=text],input[type=date],input[type=month],input[type=number],select,te
         <div class="grid" id="grid"></div>
         <footer>Prepared by <strong>Swar Dizayee</strong></footer>
     </div>
+    <script src="assets/empire-core.js"></script>
     <script>
-        var TOGGLE_ICON='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="15" cy="12" r="3"/><rect width="20" height="14" x="2" y="5" rx="7"/></svg>';
-        function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); document.querySelectorAll('img[alt="Empire World"]').forEach(function(im){ im.onerror=function(){ this.onerror=null; this.src='logo.png'; }; im.src=(t==='dark'?'logo.png':'logo-light.png'); }); try{ localStorage.setItem('empire_theme', t); }catch(e){} document.querySelectorAll('.theme-btn').forEach(function(b){ var ic=b.querySelector('.theme-icon'); if(ic){ ic.innerHTML=TOGGLE_ICON; ic.style.transform=(t==='dark'?'none':'scaleX(-1)'); } var lbl=b.querySelector('.lbl'); if(lbl){ lbl.textContent=(t==='dark'?'Dark Mode':'Light Mode'); } }); }
-        function toggleTheme(){ var cur=document.documentElement.getAttribute('data-theme')||'light'; applyTheme(cur==='dark'?'light':'dark'); }
-        (function(){ var saved='light'; try{ saved=localStorage.getItem('empire_theme')||'light'; }catch(e){} applyTheme(saved); })();
-        (function(){
-          function ov(){ var o=document.getElementById('uiDlg'); if(!o){ o=document.createElement('div'); o.id='uiDlg'; o.style.cssText='display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:4000;align-items:center;justify-content:center;'; o.innerHTML='<div style="background:var(--panel);border:2px solid var(--card-border);border-radius:14px;max-width:430px;width:92%;padding:24px;box-shadow:0 10px 40px var(--shadow);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;"><div id="uiDlgMsg" style="font-size:15px;line-height:1.5;margin-bottom:18px;white-space:pre-wrap;"></div><div id="uiDlgBtns" style="display:flex;gap:10px;justify-content:flex-end;"></div></div>'; document.body.appendChild(o); } return o; }
-          function mkbtn(t,bg){ var b=document.createElement('button'); b.textContent=t; b.style.cssText='background:'+bg+';color:#fff;border:2px solid '+bg+';padding:10px 18px;border-radius:6px;font-weight:600;font-size:14px;cursor:pointer;'; return b; }
-          window.uiAlert=function(msg){ return new Promise(function(res){ var o=ov(); document.getElementById('uiDlgMsg').textContent=String(msg); var bw=document.getElementById('uiDlgBtns'); bw.innerHTML=''; var ok=mkbtn('OK','#8d015d'); ok.onclick=function(){ o.style.display='none'; res(); }; bw.appendChild(ok); o.style.display='flex'; setTimeout(function(){ok.focus();},30); }); };
-          window.uiConfirm=function(msg){ return new Promise(function(res){ var o=ov(); document.getElementById('uiDlgMsg').textContent=String(msg); var bw=document.getElementById('uiDlgBtns'); bw.innerHTML=''; var c=mkbtn('Cancel','#888'); c.onclick=function(){ o.style.display='none'; res(false); }; var ok=mkbtn('OK','#C5504F'); ok.onclick=function(){ o.style.display='none'; res(true); }; bw.appendChild(c); bw.appendChild(ok); o.style.display='flex'; setTimeout(function(){ok.focus();},30); }); };
-          window.alert=function(m){ window.uiAlert(m); };
-        })();
         const categories = [
             { icon:'🧹', name:'Cleaning Department', desc:'Daily reports, task checklists & monthly report.', link:'cleaning.html', active:true },
             { icon:'🏗️', name:'Civil Department', desc:'Daily maintenance jobs & monthly reports.', link:'civil-department.html', active:true },
@@ -115,23 +57,5 @@ input[type=text],input[type=date],input[type=month],input[type=number],select,te
         }
         render();
     </script>
-
-<script>
-(function(){
-  try{
-    var st=JSON.parse(localStorage.getItem('ewTypography')||'{}');
-    var r=document.documentElement.style;
-    if(st.h1)r.setProperty('--fs-h1',st.h1+'px'); if(st.h2)r.setProperty('--fs-h2',st.h2+'px'); if(st.h3)r.setProperty('--fs-h3',st.h3+'px');
-    if(st.body)r.setProperty('--fs-body',st.body+'px'); if(st.btn)r.setProperty('--fs-btn',st.btn+'px');
-    if(st.font){ var l=document.createElement('link'); l.rel='stylesheet'; l.href='https://fonts.googleapis.com/css2?family='+st.font+':wght@400;600;700&display=swap'; document.head.appendChild(l); r.setProperty('--app-font',"'"+st.font+"',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"); }
-    var LT={'--bg':'#f4f6fb','--panel':'#ffffff','--card':'#ffffff','--header-bg':'#ffffff','--btn-bg':'#ffffff','--tab-bg':'#ffffff'};
-    function shade(hex,f){ var n=parseInt(hex.slice(1),16); return 'rgb('+Math.round(((n>>16)&255)*f)+','+Math.round(((n>>8)&255)*f)+','+Math.round((n&255)*f)+')'; }
-    function dim(){ var isLight=document.documentElement.getAttribute('data-theme')!=='dark'; var d=st.dim||0; Object.keys(LT).forEach(function(k){ if(isLight&&d>0) document.documentElement.style.setProperty(k,shade(LT[k],1-d/100)); else document.documentElement.style.removeProperty(k); }); }
-    new MutationObserver(dim).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
-    dim();
-  }catch(e){}
-})();
-</script>
-
 </body>
 </html>
