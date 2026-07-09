@@ -6,133 +6,8 @@
 <link rel="preconnect" href="https://script.google.com">
 <link rel="preconnect" href="https://api.imgbb.com">
 <title>Civil Department — Empire World</title>
-<style>
-:root{
-  --bg:#f4f6fb; --text:#232a3d; --text-soft:#5b6478; --text-faint:#8a90a0;
-  --panel:#ffffff; --card:#ffffff; --card-border:#e8d3e0; --input-bg:#ffffff; --input-border:#dcc0d2;
-  --header-bg:#ffffff; --header-accent:#185fa5; --accent-line:#8d015d; --accent2:#8d015d;
-  --tab-bg:#ffffff; --tab-border:#dcc0d2; --tab-active:#8d015d; --tab-active-text:#ffffff;
-  --btn-bg:#ffffff; --btn-text:#185fa5; --btn-border:#d9a3c4; --btn-hover:#f7eaf2;
-  --table-border:#e6e9f2; --th-color:#5b6478; --row-hover:#f7eaf2; --shadow:rgba(80,70,150,0.12);
-  --c-general:#185fa5; --c-refundable:#b15a17; --c-callcenter:#6f3aa0; --c-money:#9a7b10; --c-error:#C5504F; --c-ok:#1d9e75;
-}
-html[data-theme="dark"]{
-  --bg:linear-gradient(135deg,#0f5a9e 0%,#8d015d 100%); --text:#ffffff; --text-soft:#cccccc; --text-faint:#aaaaaa;
-  --panel:#0d3a6e; --card:rgba(13,50,100,0.6); --card-border:#a0327d; --input-bg:rgba(13,50,100,0.8); --input-border:#a0327d;
-  --header-bg:#0d4a85; --header-accent:#ffffff; --accent-line:#a0327d; --accent2:#a0327d;
-  --tab-bg:#0d4a85; --tab-border:#a0327d; --tab-active:#a0327d; --tab-active-text:#ffffff;
-  --btn-bg:#0d4a85; --btn-text:#ffffff; --btn-border:#a0327d; --btn-hover:#a0327d;
-  --table-border:#2a5a92; --th-color:#cdd8e6; --row-hover:rgba(160,50,125,0.15); --shadow:rgba(0,0,0,0.3);
-  --c-general:#7ec8f7; --c-refundable:#f0a060; --c-callcenter:#c8a0f0; --c-money:#f9ca5a; --c-error:#ffb3b3; --c-ok:#8fd6a8;
-}
-* { margin:0; padding:0; box-sizing:border-box; }
-body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; padding-bottom:40px; }
-.login-page { display:none; position:fixed; inset:0; background:var(--bg); align-items:center; justify-content:center; z-index:2000; }
-.login-page.show { display:flex; }
-.login-box { background:var(--panel); padding:40px; border-radius:15px; border:2px solid var(--card-border); box-shadow:0 8px 32px var(--shadow); width:100%; max-width:400px; position:relative; }
-.login-box h1 { font-size:24px; margin-bottom:24px; text-align:center; color:var(--header-accent); }
-.login-form { display:flex; flex-direction:column; gap:15px; }
-.login-form input { padding:12px; border:2px solid var(--input-border); border-radius:6px; background:var(--input-bg); color:var(--text); font-size:14px; }
-.login-form button { padding:12px; background:var(--accent2); color:#fff; border:2px solid var(--accent2); border-radius:6px; font-weight:600; cursor:pointer; }
-.login-message { padding:10px; border-radius:6px; text-align:center; font-weight:600; margin-bottom:10px; display:none; }
-.login-message.error { background:#e74c3c; color:#fff; display:block; }
-.back { display:block; text-align:left; margin-bottom:18px; color:var(--header-accent); text-decoration:none; font-size:13px; font-weight:600; }
-.theme-btn { background:var(--btn-bg); color:var(--btn-text); border:2px solid var(--btn-border); padding:8px 12px; border-radius:6px; cursor:pointer; font-size:15px; line-height:1; }
-.login-theme { position:absolute; top:14px; right:14px; padding:6px 10px; }
-.container { max-width:100%; margin:0; padding:20px; display:none; }
-.container.show { display:block; }
-header { background:var(--header-bg); padding:20px; border-radius:0 0 15px 15px; margin-bottom:25px; border-bottom:3px solid var(--accent-line); box-shadow:0 2px 10px var(--shadow); }
-.header-top { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
-.header-title h1 { font-size:24px; color:var(--header-accent); }
-.header-title p { font-size:13px; color:var(--text-soft); }
-.header-controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-button { background:var(--btn-bg); color:var(--btn-text); border:2px solid var(--btn-border); padding:9px 15px; border-radius:6px; cursor:pointer; font-weight:600; font-size:13px; transition:all .2s; }
-button:hover { background:var(--btn-hover); }
-.tabs { display:flex; gap:10px; margin-bottom:25px; flex-wrap:wrap; }
-.tab-btn { padding:11px 18px; background:var(--tab-bg); border:2px solid var(--tab-border); cursor:pointer; font-weight:600; color:var(--btn-text); border-radius:8px; }
-.tab-btn.active { background:var(--tab-active); color:var(--tab-active-text); border-color:var(--tab-active); }
-.tab-content { display:none; }
-.tab-content.active { display:block; }
-.form-section { background:var(--card); padding:25px; border-radius:10px; margin-bottom:25px; border:2px solid var(--card-border); }
-.form-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:18px; margin-bottom:18px; }
-.form-group { display:flex; flex-direction:column; }
-label { font-weight:600; margin-bottom:7px; font-size:14px; }
-input[type=text],input[type=date],input[type=month],input[type=number],select,textarea { padding:12px; border:2px solid var(--input-border); border-radius:50px; background:var(--input-bg); color:var(--text); font-size:14px; font-weight:600; }
-input[type=text]:focus,input[type=date]:focus,input[type=month]:focus,input[type=number]:focus,select:focus,textarea:focus { outline:none; box-shadow:0 0 0 3px rgba(141,1,93,0.25); }
-input[type=date],input[type=month],select { cursor:pointer; }
-input[type=date]::-webkit-calendar-picker-indicator,input[type=month]::-webkit-calendar-picker-indicator { cursor:pointer; opacity:0.8; }
-textarea { resize:vertical; font-family:inherit; }
-.image-upload { background:var(--input-bg); border:2px dashed var(--card-border); border-radius:8px; padding:16px; text-align:center; color:var(--text-soft); cursor:text; }
-h2 { margin-bottom:18px; font-size:19px; }
-h3 { margin:16px 0 10px; font-size:15px; color:var(--text-soft); }
-.stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:14px; margin:15px 0; }
-.stat-box { background:var(--card); padding:14px; border-radius:8px; text-align:center; border:2px solid var(--card-border); }
-.stat-value { font-size:24px; font-weight:bold; color:var(--accent2); }
-.stat-label { font-size:11px; color:var(--text-soft); margin-top:5px; }
-table { width:100%; border-collapse:collapse; }
-th,td { padding:9px 8px; border-bottom:1px solid var(--table-border); text-align:left; font-size:13px; vertical-align:top; }
-th { color:var(--th-color); font-size:11px; text-transform:uppercase; letter-spacing:.4px; }
-tr.job-row:hover { background:var(--row-hover); }
-.badge { font-size:11px; font-weight:700; padding:3px 9px; border-radius:12px; text-transform:uppercase; white-space:nowrap; display:inline-block; }
-.badge.general { background:#1a6eb5; color:#fff; }
-.badge.refundable { background:#e67e22; color:#fff; }
-.thumb { width:46px; height:46px; object-fit:cover; border-radius:6px; border:1px solid var(--card-border); cursor:pointer; }
-.modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:1500; align-items:center; justify-content:center; }
-.modal.show { display:flex; }
-@keyframes empireSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-.load-ring { width:42px;height:42px;border:4px solid rgba(128,128,128,0.3);border-top-color:#e8a0cf;border-radius:50%;animation:empireSpin 0.8s linear infinite;margin:0 auto 14px; }
-.load-wrap { text-align:center;padding:50px 0; }
-.load-wrap p { color:var(--text-soft); }
-.modal-box { background:var(--panel); border:2px solid var(--card-border); border-radius:12px; max-width:860px; width:92%; max-height:88vh; overflow:auto; padding:24px; }
-.close-x { float:right; cursor:pointer; font-size:28px; line-height:1; color:var(--text); }
-footer { text-align:center; margin-top:30px; color:var(--text-faint); font-size:12px; }
-.act-btn { padding:5px 10px; font-size:12px; margin-right:4px; }
-/* ===== Sidebar layout ===== */
-.app-shell { display:flex; align-items:flex-start; gap:0; }
-.sidebar { width:230px; flex-shrink:0; background:var(--header-bg); border-radius:15px; margin-right:20px; padding:18px 14px; box-shadow:0 2px 10px var(--shadow); border-bottom:3px solid var(--accent-line); position:sticky; top:20px; max-height:calc(100vh - 40px); overflow-y:auto; transition:width .2s ease,padding .2s ease; }
-.sidebar.collapsed { width:60px; padding:18px 8px; }
-.sidebar-top { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; }
-.sidebar-logo { height:32px; width:auto; }
-.side-toggle { background:none; border:none; color:var(--text); font-size:18px; cursor:pointer; padding:4px 6px; line-height:1; flex-shrink:0; }
-.side-title h1 { font-size:16px; color:var(--header-accent); line-height:1.3; }
-.side-title p { font-size:11px; color:var(--text-soft); margin-top:4px; line-height:1.4; }
-#whoLabel { font-size:11px; color:var(--text-faint); margin-top:6px; word-break:break-word; }
-.sidebar.collapsed .sidebar-logo,
-.sidebar.collapsed .side-title,
-.sidebar.collapsed #whoLabel,
-.sidebar.collapsed .lbl { display:none; }
-.side-nav { display:flex; flex-direction:column; gap:6px; margin:16px 0; }
-.side-nav .tab-btn { display:flex; align-items:center; justify-content:flex-start; gap:9px; width:100%; text-align:left; border-radius:8px; box-sizing:border-box; }
-.side-actions { display:flex; flex-direction:column; gap:8px; padding-top:14px; border-top:1px solid var(--card-border); }
-.side-actions button { display:flex; align-items:center; justify-content:flex-start; gap:9px; width:100%; text-align:left; box-sizing:border-box; padding:11px 12px; }
-.side-nav .lbl, .side-actions .lbl, .theme-icon { pointer-events:none; }
-.main-area { flex:1 1 0%; min-width:0; }
-@media (max-width:840px) {
-  .app-shell { flex-direction:column; }
-  .sidebar { width:100%; margin:0 0 16px; position:relative; top:0; max-height:none; }
-  .sidebar.collapsed { width:100%; padding:18px 14px; }
-  .sidebar.collapsed .sidebar-logo, .sidebar.collapsed .side-title, .sidebar.collapsed #whoLabel, .sidebar.collapsed .lbl { display:block; }
-  .sidebar.collapsed .side-nav, .sidebar.collapsed .side-actions { display:none; }
-}
-.nav-icon { display:inline-flex; align-items:center; justify-content:center; vertical-align:middle; pointer-events:none; transition: transform 0.15s ease; }
-.nav-icon svg { display:block; width:16px; height:16px; }
-button:hover .nav-icon { transform: translateY(-3px); }
-@keyframes empireSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-/* Empire pill buttons (match cleaning) */
-button, .tab-btn, .theme-btn, .act-btn { border-radius:50px !important; box-shadow:0 9px 17px var(--shadow, rgba(0,0,0,0.15)); transition:all .18s ease; }
-button:hover, .tab-btn:hover, .theme-btn:hover, .act-btn:hover { transform:translateY(-2px); }
-/* Empire text settings (match cleaning) */
-body{font-family:var(--app-font,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif)!important;font-size:var(--fs-body,14px);}
-h1{font-size:var(--fs-h1,28px)!important;} h2{font-size:var(--fs-h2,20px)!important;} h3{font-size:var(--fs-h3,16px)!important;}
-button,.tab-btn{font-size:var(--fs-btn,14px)!important;font-family:var(--app-font,inherit)!important;}
-input[type=text],input[type=date],input[type=month],input[type=number],select,textarea,label{font-size:var(--fs-body,14px);}
-/* Empire custom dropdowns (#8d015d hover) */
-select, ::picker(select) { appearance: base-select; }
-::picker(select) { background:var(--input-bg,#fff); color:var(--text,#232a3d); border:2px solid var(--input-border,#dcc0d2); border-radius:12px; box-shadow:0 10px 30px var(--shadow,rgba(0,0,0,0.2)); padding:6px; }
-select option { padding:10px 12px; border-radius:10px; font-weight:600; font-size:var(--fs-body,14px); background:var(--input-bg,#fff); color:var(--text,#232a3d); }
-select option:hover, select option:focus { background:#8d015d; color:#fff; }
-select option:checked { background:rgba(141,1,93,0.14); }
-</style>
+<link rel="stylesheet" href="assets/empire.css">
+<link rel="stylesheet" href="assets/empire-dept.css">
 </head>
 <body>
 <div class="login-page show" id="loginPage">
@@ -281,25 +156,11 @@ select option:checked { background:rgba(141,1,93,0.14); }
     </div>
   </div>
 </div>
+<script src="config.js"></script>
+<script src="assets/empire-api.js"></script>
+<script src="assets/empire-core.js"></script>
 <div class="modal" id="imgModal" onclick="closeImg()"><img id="imgBig" style="max-width:92%;max-height:92%;border-radius:10px;"></div>
 <script>
-/* ===== Theme (light default + dark toggle, remembered) ===== */
-var TOGGLE_ICON='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="15" cy="12" r="3"/><rect width="20" height="14" x="2" y="5" rx="7"/></svg>';
-function fmtDT(s){ if(!s) return ''; var d=new Date(String(s).replace(' ','T')); if(isNaN(d.getTime())) return String(s); var z=function(n){return String(n).padStart(2,'0');}; var out=d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate())+' '+z(d.getHours())+':'+z(d.getMinutes()); return out.replace(/ 00:00$/,''); }
-function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); document.querySelectorAll('img[alt="Empire World"]').forEach(function(im){ im.onerror=function(){ this.onerror=null; this.src='logo.png'; }; im.src=(t==='dark'?'logo.png':'logo-light.png'); }); try{ localStorage.setItem('empire_theme', t); }catch(e){} document.querySelectorAll('.theme-btn').forEach(function(b){ var ic=b.querySelector('.theme-icon'); if(ic){ ic.innerHTML=TOGGLE_ICON; ic.style.transform=(t==='dark'?'none':'scaleX(-1)'); } var lbl=b.querySelector('.lbl'); if(lbl){ lbl.textContent=(t==='dark'?'Dark Mode':'Light Mode'); } }); }
-function toggleTheme(){ var cur=document.documentElement.getAttribute('data-theme')||'light'; applyTheme(cur==='dark'?'light':'dark'); }
-(function(){ var saved='light'; try{ saved=localStorage.getItem('empire_theme')||'light'; }catch(e){} applyTheme(saved); })();
-function toggleSidebar(){ var sb=document.getElementById('sidebar'); if(!sb)return; var collapsed=sb.classList.toggle('collapsed'); try{ localStorage.setItem('empire_sidebar_collapsed', collapsed?'1':'0'); }catch(e){} }
-(function(){ try{ if(localStorage.getItem('empire_sidebar_collapsed')==='1'){ var sb=document.getElementById('sidebar'); if(sb) sb.classList.add('collapsed'); } }catch(e){} })();
-(function(){
-  function ov(){ var o=document.getElementById('uiDlg'); if(!o){ o=document.createElement('div'); o.id='uiDlg'; o.style.cssText='display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:4000;align-items:center;justify-content:center;'; o.innerHTML='<div style="background:var(--panel);border:2px solid var(--card-border);border-radius:14px;max-width:430px;width:92%;padding:24px;box-shadow:0 10px 40px var(--shadow);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;"><div id="uiDlgMsg" style="font-size:15px;line-height:1.5;margin-bottom:18px;white-space:pre-wrap;"></div><div id="uiDlgBtns" style="display:flex;gap:10px;justify-content:flex-end;"></div></div>'; document.body.appendChild(o); } return o; }
-  function mkbtn(t,bg){ var b=document.createElement('button'); b.textContent=t; b.style.cssText='background:'+bg+';color:#fff;border:2px solid '+bg+';padding:10px 18px;border-radius:6px;font-weight:600;font-size:14px;cursor:pointer;'; return b; }
-  window.uiAlert=function(msg){ return new Promise(function(res){ var o=ov(); document.getElementById('uiDlgMsg').textContent=String(msg); var bw=document.getElementById('uiDlgBtns'); bw.innerHTML=''; var ok=mkbtn('OK','#8d015d'); ok.onclick=function(){ o.style.display='none'; res(); }; bw.appendChild(ok); o.style.display='flex'; setTimeout(function(){ok.focus();},30); }); };
-  window.uiConfirm=function(msg){ return new Promise(function(res){ var o=ov(); document.getElementById('uiDlgMsg').textContent=String(msg); var bw=document.getElementById('uiDlgBtns'); bw.innerHTML=''; var c=mkbtn('Cancel','#888'); c.onclick=function(){ o.style.display='none'; res(false); }; var ok=mkbtn('OK','#C5504F'); ok.onclick=function(){ o.style.display='none'; res(true); }; bw.appendChild(c); bw.appendChild(ok); o.style.display='flex'; setTimeout(function(){ok.focus();},30); }); };
-  window.alert=function(m){ window.uiAlert(m); };
-})();
-const GS = 'https://script.google.com/macros/s/AKfycbz-qxaEXcGH_b8g-k7RmwIV3f16MDHZV-VMUxoYS5YFeGaWlKyURfLwfOoVXQ1ONyYO/exec';
-const LOADING_HTML = '<div class="load-wrap"><div class="load-ring"></div><p>Loading requests, please wait.</p></div>';
 const IMGBB = '273d26dbc835282f5909b5f3e1fb8685';
 let allJobs = [], currentPhoto = '', uploading = false;
 function tok(){ return localStorage.getItem('civdept_token')||''; }
@@ -317,13 +178,17 @@ function applyPerms(){ if(window.tsPerm) window.tsPerm(); if(window.tsLoadGlobal
 }
 function handleLogin(e){
   e.preventDefault();
-  var u=document.getElementById('loginUsername').value, p=document.getElementById('loginPassword').value;
-  var m=document.getElementById('loginMessage'); m.className='login-message'; m.style.display='block'; m.textContent='⏳ Signing in…';
-  fetch(GS,{method:'POST',body:JSON.stringify({action:'verifyLogin',username:u,password:p,dept:'civil department'})})
-    .then(r=>r.json()).then(d=>{
-      if(d.success){ localStorage.setItem('civdept_loggedIn','true'); localStorage.setItem('civdept_user',u); localStorage.setItem('civdept_token',d.token||''); localStorage.setItem('civdept_perms',JSON.stringify(d.perms||{})); localStorage.setItem('civdept_role',d.role||''); enterApp(); }
-      else{ m.className='login-message error'; m.textContent='❌ '+d.message; }
-    }).catch(err=>{ m.className='login-message error'; m.textContent='❌ '+err.message; });
+  var u=document.getElementById('loginUsername').value;
+  var p=document.getElementById('loginPassword').value;
+  var m=document.getElementById('loginMessage');
+  empireLogin({username:u,password:p,dept:'civil department',messageEl:m}).then(function(d){
+    localStorage.setItem('civdept_loggedIn','true');
+    localStorage.setItem('civdept_user',u);
+    localStorage.setItem('civdept_token',d.token||'');
+    localStorage.setItem('civdept_perms',JSON.stringify(d.perms||{}));
+    localStorage.setItem('civdept_role',d.role||'');
+    enterApp();
+  });
 }
 function logout(){ uiConfirm('Log out?').then(function(ok){ if(!ok)return; localStorage.removeItem('civdept_loggedIn'); localStorage.removeItem('civdept_user'); localStorage.removeItem('civdept_token'); localStorage.removeItem('civdept_perms'); localStorage.removeItem('civdept_role'); localStorage.removeItem('civdept_jobs_cache'); location.reload(); }); }
 function enterApp(){ document.getElementById('loginPage').classList.remove('show'); document.getElementById('mainContainer').classList.add('show'); applyPerms(); refreshPerms(); document.getElementById('j-date').value=new Date().toISOString().split('T')[0]; loadJobs(); }
@@ -370,7 +235,7 @@ function saveJob(){
     type:document.getElementById('j-type').value,
     photo:currentPhoto, notes:document.getElementById('j-notes').value,
     amount:document.getElementById('j-amount').value||'', token:tok() };
-  fetch(GS,{method:'POST',body:JSON.stringify(rec)}).then(r=>r.json()).then(()=>{
+  fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify(rec)}).then(r=>r.json()).then(()=>{
     alert(editId?'✅ Job updated!':'✅ Job saved!');
     clearForm(); loadJobs(); switchTabTo('list');
   }).catch(e=>alert('❌ Error: '+e.message));
@@ -378,7 +243,6 @@ function saveJob(){
 var JOBS_CACHE_KEY='civdept_jobs_cache';
 function readJobsCache(){ try{ var s=localStorage.getItem(JOBS_CACHE_KEY); if(!s) return null; var a=JSON.parse(s); return Array.isArray(a)?a:null; }catch(e){ return null; } }
 function writeJobsCache(a){ try{ localStorage.setItem(JOBS_CACHE_KEY, JSON.stringify(a)); }catch(e){} }
-function fetchJSONRetry(body, tries){ tries=tries||3; return fetch(GS,{method:'POST',body:JSON.stringify(body)}).then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }).catch(function(e){ if(tries>1){ return new Promise(function(res){ setTimeout(res,800); }).then(function(){ return fetchJSONRetry(body, tries-1); }); } throw e; }); }
 function loadJobs(){
   var cached=readJobsCache();
   if(cached){ allJobs=cached; renderJobs(); renderAnalytics(); renderReportPreview(); }
@@ -454,20 +318,20 @@ function deleteJob(id){
   if(PERMS().del===false){ alert('You do not have permission to delete.'); return; }
   uiConfirm('Delete this job? This cannot be undone.').then(function(ok){
     if(!ok)return;
-    fetch(GS,{method:'POST',body:JSON.stringify({action:'deleteCivilJob',id:id,token:tok()})})
+    fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'deleteCivilJob',id:id,token:tok()})})
       .then(r=>r.json()).then(()=>{ loadJobs(); }).catch(e=>alert('❌ '+e.message));
   });
 }
 function onRepMonthChange(){ loadSummary(); renderReportPreview(); }
 function loadSummary(){
   var m=document.getElementById('rep-month').value; if(!m)return;
-  fetch(GS,{method:'POST',body:JSON.stringify({action:'getCivilSummary',month:m,token:tok()})})
+  fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'getCivilSummary',month:m,token:tok()})})
     .then(r=>r.json()).then(d=>{ if(d&&d.text!==undefined) document.getElementById('rep-summary').value=d.text; });
 }
 function saveSummary(){
   var m=document.getElementById('rep-month').value; if(!m){ alert('Please select a month first.'); return; }
   var text=document.getElementById('rep-summary').value;
-  fetch(GS,{method:'POST',body:JSON.stringify({action:'saveCivilSummary',month:m,text:text,token:tok()})})
+  fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'saveCivilSummary',month:m,text:text,token:tok()})})
     .then(r=>r.json()).then(()=>{ document.getElementById('summaryMsg').textContent='✅ Summary saved!'; setTimeout(()=>{ document.getElementById('summaryMsg').textContent=''; },3000); })
     .catch(e=>alert('❌ '+e.message));
 }
@@ -569,7 +433,7 @@ function bigImg(src){ document.getElementById('imgBig').src=src; document.getEle
 function closeImg(){ document.getElementById('imgModal').classList.remove('show'); }
 function openResetModal(){ document.getElementById('resetPwInput').value=''; document.getElementById('resetMsg2').textContent=''; document.getElementById('resetModal').style.display='flex'; setTimeout(()=>document.getElementById('resetPwInput').focus(),30); }
 function closeResetModal(){ document.getElementById('resetModal').style.display='none'; }
-function doReset(){ var pw=document.getElementById('resetPwInput').value; var msg=document.getElementById('resetMsg2'); if(!pw){ msg.style.color='var(--c-error)'; msg.textContent='Please enter the password.'; return; } msg.style.color='var(--text-soft)'; msg.textContent='⏳ Deleting…'; fetch(GS,{method:'POST',body:JSON.stringify({action:'clearCivilJobs',resetPassword:pw,token:tok()})}).then(r=>r.json()).then(d=>{ if(d&&d.success){ closeResetModal(); allJobs=[]; renderJobs(); renderAnalytics(); uiAlert('✅ All civil data deleted.'); } else if(d&&d.error==='bad_password'){ msg.style.color='var(--c-error)'; msg.textContent='❌ Wrong password.'; } else if(d&&d.error==='not_allowed'){ msg.style.color='var(--c-error)'; msg.textContent='❌ Only an admin can reset data.'; } else{ msg.style.color='var(--c-error)'; msg.textContent='❌ Could not reset.'; } }).catch(e=>{ msg.style.color='var(--c-error)'; msg.textContent='❌ '+e.message; }); }
+function doReset(){ var pw=document.getElementById('resetPwInput').value; var msg=document.getElementById('resetMsg2'); if(!pw){ msg.style.color='var(--c-error)'; msg.textContent='Please enter the password.'; return; } msg.style.color='var(--text-soft)'; msg.textContent='⏳ Deleting…'; fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'clearCivilJobs',resetPassword:pw,token:tok()})}).then(r=>r.json()).then(d=>{ if(d&&d.success){ closeResetModal(); allJobs=[]; renderJobs(); renderAnalytics(); uiAlert('✅ All civil data deleted.'); } else if(d&&d.error==='bad_password'){ msg.style.color='var(--c-error)'; msg.textContent='❌ Wrong password.'; } else if(d&&d.error==='not_allowed'){ msg.style.color='var(--c-error)'; msg.textContent='❌ Only an admin can reset data.'; } else{ msg.style.color='var(--c-error)'; msg.textContent='❌ Could not reset.'; } }).catch(e=>{ msg.style.color='var(--c-error)'; msg.textContent='❌ '+e.message; }); }
 </script>
 <div id="resetModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1600;align-items:center;justify-content:center;">
   <div style="background:var(--panel);border:2px solid var(--card-border);border-radius:14px;max-width:440px;width:92%;padding:28px;box-shadow:0 10px 40px var(--shadow);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
@@ -607,7 +471,7 @@ function doReset(){ var pw=document.getElementById('resetPwInput').value; var ms
   window.rbClose=function(){ document.getElementById('rbModal').style.display='none'; };
   window.rbLoad=function(){
     var box=document.getElementById('rbList'); box.innerHTML=LOADING_HTML;
-    fetch(GS,{method:'POST',body:JSON.stringify({action:'getTrash',dept:RB_DEPT,sheets:RB_SHEETS,token:RBTOK()})})
+    fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'getTrash',dept:RB_DEPT,sheets:RB_SHEETS,token:RBTOK()})})
       .then(function(r){return r.json();}).then(function(d){
         if(!Array.isArray(d)){ box.innerHTML='<p style="color:#C5504F;">'+((d&&d.message)||'Could not load — update &amp; redeploy the Apps Script.')+'</p>'; return; }
         if(d.length===0){ box.innerHTML='<p style="color:var(--text-faint);">The bin is empty. 🎉</p>'; return; }
@@ -634,22 +498,22 @@ function doReset(){ var pw=document.getElementById('resetPwInput').value; var ms
       }).catch(function(e){ box.innerHTML='<p style="color:#C5504F;">❌ '+e.message+'</p>'; });
   };
   window.rbRestore=function(id){
-    fetch(GS,{method:'POST',body:JSON.stringify({action:'restoreTrash',dept:RB_DEPT,trashIds:[id],token:RBTOK()})})
+    fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'restoreTrash',dept:RB_DEPT,trashIds:[id],token:RBTOK()})})
       .then(function(r){return r.json();}).then(function(){ window.rbLoad(); rbReload(); }).catch(function(e){ alert('❌ '+e.message); });
   };
   window.rbPurge=function(id){
     uiConfirm('Delete this record forever? This cannot be undone.').then(function(ok){ if(!ok)return;
-      fetch(GS,{method:'POST',body:JSON.stringify({action:'purgeTrash',dept:RB_DEPT,trashIds:[id],token:RBTOK()})})
+      fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'purgeTrash',dept:RB_DEPT,trashIds:[id],token:RBTOK()})})
         .then(function(r){return r.json();}).then(function(){ window.rbLoad(); }).catch(function(e){ alert('❌ '+e.message); }); });
   };
   window.rbRestoreAll=function(){
     uiConfirm('Restore everything in the bin?').then(function(ok){ if(!ok)return;
-      fetch(GS,{method:'POST',body:JSON.stringify({action:'restoreTrash',dept:RB_DEPT,sheets:RB_SHEETS,token:RBTOK()})})
+      fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'restoreTrash',dept:RB_DEPT,sheets:RB_SHEETS,token:RBTOK()})})
         .then(function(r){return r.json();}).then(function(){ window.rbLoad(); rbReload(); }).catch(function(e){ alert('❌ '+e.message); }); });
   };
   window.rbEmpty=function(){
     uiConfirm('Empty the bin? Everything here will be deleted forever.').then(function(ok){ if(!ok)return;
-      fetch(GS,{method:'POST',body:JSON.stringify({action:'purgeTrash',dept:RB_DEPT,sheets:RB_SHEETS,token:RBTOK()})})
+      fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'purgeTrash',dept:RB_DEPT,sheets:RB_SHEETS,token:RBTOK()})})
         .then(function(r){return r.json();}).then(function(){ window.rbLoad(); }).catch(function(e){ alert('❌ '+e.message); }); });
   };
 })();

@@ -1,0 +1,128 @@
+/* Empire World EGS - department job tracker extras (Phase 2 Step 2.7)
+ * Use with assets/empire.css on civil-department.html and electrical.html. */
+
+:root {
+  --c-general: #185fa5;
+  --c-refundable: #b15a17;
+  --c-callcenter: #6f3aa0;
+  --c-money: #9a7b10;
+  --c-error: #c5504f;
+  --c-ok: #1d9e75;
+}
+
+html[data-theme='dark'] {
+  --c-general: #7ec8f7;
+  --c-refundable: #f0a060;
+  --c-callcenter: #c8a0f0;
+  --c-money: #f9ca5a;
+  --c-error: #ffb3b3;
+  --c-ok: #8fd6a8;
+}
+
+textarea {
+  resize: vertical;
+  font-family: inherit;
+}
+
+.header-title h1 {
+  font-size: 24px;
+}
+
+.header-controls {
+  flex-wrap: wrap;
+}
+
+button {
+  padding: 9px 15px;
+  font-size: 13px;
+}
+
+.form-row {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+h2 {
+  font-size: 19px;
+}
+
+h3 {
+  margin: 16px 0 10px;
+  font-size: 15px;
+}
+
+.stats {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 14px;
+}
+
+.stat-box {
+  padding: 14px;
+}
+
+.stat-value {
+  font-size: 24px;
+}
+
+.stat-label {
+  font-size: 11px;
+}
+
+th,
+td {
+  padding: 9px 8px;
+}
+
+th {
+  font-size: 11px;
+}
+
+tr.job-row:hover {
+  background: var(--row-hover);
+}
+
+.badge {
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 12px;
+  white-space: nowrap;
+  display: inline-block;
+  text-transform: uppercase;
+}
+
+.badge.general {
+  background: #1a6eb5;
+  color: #fff;
+}
+
+.badge.refundable {
+  background: #e67e22;
+  color: #fff;
+}
+
+.badge.callcenter {
+  background: #8e44ad;
+  color: #fff;
+}
+
+.thumb {
+  width: 46px;
+  height: 46px;
+}
+
+.act-btn {
+  padding: 5px 10px;
+  font-size: 12px;
+  margin-right: 4px;
+}
+
+.image-upload {
+  padding: 16px;
+}
+
+.modal-box {
+  max-width: 860px;
+}
+
+.close-x {
+  font-size: 28px;
+}
