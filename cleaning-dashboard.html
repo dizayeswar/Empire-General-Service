@@ -1014,7 +1014,7 @@
         function logout(){
             uiConfirm('Are you sure you want to logout?').then(function(ok){
                 if(!ok) return;
-                empireAuthLogout({ extraKeys: ['cleaning_reports_cache'] });
+                empireAuthLogout({ extraKeys: ['cleaning_reports_cache'], redirect: 'index.html', reload: false });
             });
         }
         function applyPerms(){

@@ -118,6 +118,43 @@ function empireClearSession() {
   empireClearLegacyKeys();
 }
 
+var EMPIRE_DEPT_HOME = {
+  cleaning: 'cleaning-dashboard.html',
+  'civil issue': 'civil-issue.html',
+  fire: 'fire-issue.html',
+  'electric issue': 'electric-issue.html',
+  hse: 'hse-inspection.html',
+  'civil department': 'civil-department.html',
+  'electrical department': 'electrical.html'
+};
+
+var EMPIRE_LOGIN_PAGE = 'index.html';
+
+function empireNormDept(dept) {
+  return String(dept || '').trim().toLowerCase();
+}
+
+function empireIsAdminSession() {
+  return empireGetToken() && empireNormDept(empireGetTokenDept()) === 'all';
+}
+
+function empireHomeForDept(dept) {
+  return EMPIRE_DEPT_HOME[empireNormDept(dept)] || EMPIRE_LOGIN_PAGE;
+}
+
+function empireRedirectToDeptHome(dept) {
+  var url = empireHomeForDept(dept);
+  if (url && location.pathname.indexOf(url) === -1) location.replace(url);
+}
+
+function empireOnLoginPage() {
+  var path = (location.pathname || '').toLowerCase();
+  if (path.endsWith('/index.html')) return true;
+  if (path.endsWith('/')) return true;
+  var file = path.split('/').pop();
+  return !file || file === 'index.html';
+}
+
 function empireAuthLogout(opts) {
   opts = opts || {};
   empireClearSession();
@@ -151,15 +188,26 @@ function empireAuthPageBoot(opts) {
   empireMigrateSession();
   var loginPage = document.getElementById(opts.loginPageId || 'loginPage');
   var main = document.getElementById(opts.mainId || 'mainContainer');
-  if (empireGetToken() && empireCanAccessDept(opts.dept)) {
-    if (loginPage) loginPage.classList.remove('show');
-    if (main) main.classList.add('show');
-    if (typeof opts.onEnter === 'function') opts.onEnter();
-    return true;
+
+  if (!empireGetToken()) {
+    if (opts.sendToHomeLogin !== false && !empireOnLoginPage()) {
+      location.replace(EMPIRE_LOGIN_PAGE);
+      return false;
+    }
+    if (loginPage) loginPage.classList.add('show');
+    if (main) main.classList.remove('show');
+    return false;
   }
-  if (loginPage) loginPage.classList.add('show');
-  if (main) main.classList.remove('show');
-  return false;
+
+  if (!empireCanAccessDept(opts.dept) && !empireIsAdminSession()) {
+    empireRedirectToDeptHome(empireGetTokenDept());
+    return false;
+  }
+
+  if (loginPage) loginPage.classList.remove('show');
+  if (main) main.classList.add('show');
+  if (typeof opts.onEnter === 'function') opts.onEnter();
+  return true;
 }
 
 function empireAuthRefreshPerms(onUpdate) {

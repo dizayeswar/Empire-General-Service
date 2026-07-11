@@ -263,14 +263,17 @@ function handleLogin(body) {
   var username = String(body.username||'').trim().toLowerCase();
   var password = String(body.password||'').trim();
   var requestedDept = String(body.dept||'').trim().toLowerCase();
-  if (!requestedDept) requestedDept = 'cleaning';
+  var autoLogin = (requestedDept === 'auto' || requestedDept === 'home');
+  if (!requestedDept && !autoLogin) requestedDept = 'cleaning';
   for (var i=1;i<rows.length;i++) {
     var uname = String(rows[i][0]||'').trim().toLowerCase();
     var upass = String(rows[i][1]||'').trim();
     var userDept = String(rows[i][2]||'').trim().toLowerCase();
     if (uname===username && upass===password) {
-      var allowed = (userDept===''||userDept==='all'||userDept===requestedDept);
-      if (!allowed) return {ok:false,success:false,message:'This login is not allowed for this section',error:'This login is not allowed for this section'};
+      if (!autoLogin) {
+        var allowed = (userDept===''||userDept==='all'||userDept===requestedDept);
+        if (!allowed) return {ok:false,success:false,message:'This login is not allowed for this section',error:'This login is not allowed for this section'};
+      }
       var rp = computePerms_(rows[i][3], rows[i][4]);
       var tokenDept = (userDept===''||userDept==='all') ? 'all' : userDept;
       var token = Utilities.getUuid();

@@ -185,7 +185,7 @@ function applyPerms(){ if(window.tsPerm) window.tsPerm(); if(window.tsLoadGlobal
   var wl=document.getElementById('whoLabel'); if(wl){ var u=currentUser(); var role=empireGetRole()||''; wl.textContent = u ? ('Logged in as: '+u+(role?(' ('+role+')'):'')) : ''; }
 }
 function handleLogin(e){ empireAuthLogin(e, 'civil department', { onSuccess: function(){ enterApp(); } }); }
-function logout(){ uiConfirm('Log out?').then(function(ok){ if(!ok)return; empireAuthLogout({ extraKeys: ['civdept_jobs_cache'] }); }); }
+function logout(){ uiConfirm('Log out?').then(function(ok){ if(!ok)return; empireAuthLogout({ extraKeys: ['civdept_jobs_cache'], redirect: 'index.html', reload: false }); }); }
 function enterApp(){ document.getElementById('loginPage').classList.remove('show'); document.getElementById('mainContainer').classList.add('show'); applyPerms(); refreshPerms(); document.getElementById('j-date').value=new Date().toISOString().split('T')[0]; loadJobs(); }
 function refreshPerms(){ var now=Date.now(); if(now-(_lastPermFetch||0)<300000) return; _lastPermFetch=Date.now(); empireAuthRefreshPerms(function(){ applyPerms(); }); }
 var _lastPermFetch=0;

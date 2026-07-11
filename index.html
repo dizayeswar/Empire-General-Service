@@ -6,121 +6,134 @@
     <link rel="icon" href="logo-light.png" type="image/png">
     <link rel="preconnect" href="https://script.google.com">
     <link rel="preconnect" href="https://api.imgbb.com">
-    <title>Empire World — Dashboards</title>
+    <title>Empire World — Login</title>
     <link rel="stylesheet" href="assets/empire-hub.css">
 </head>
-<body>
+<body class="login-landing">
     <div class="topbar">
       <img src="logo-light.png" alt="Empire World" style="height:48px;width:auto;">
       <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span> <span class="lbl">Theme</span></button>
     </div>
-    <div class="wrap wide">
+
+    <div id="loginView" class="wrap wide login-wrap">
         <header>
             <h1>Empire World</h1>
-            <p>Choose a department to open its dashboard</p>
+            <p>Sign in to open your dashboard</p>
         </header>
-        <div id="hubAuth" class="hub-auth">
-            <h2>Sign in</h2>
+        <div class="hub-auth hub-auth-landing">
+            <h2>Login</h2>
             <div class="hub-auth-msg" id="hubLoginMessage"></div>
             <form class="hub-auth-form" onsubmit="handleHubLogin(event)">
                 <input type="text" id="hubUsername" placeholder="Username" required autocomplete="username">
                 <input type="password" id="hubPassword" placeholder="Password" required autocomplete="current-password">
-                <button type="submit">Login</button>
+                <button type="submit">Sign in</button>
             </form>
         </div>
+        <footer>Prepared by <strong>Swar Dizayee</strong></footer>
+    </div>
+
+    <div id="adminView" class="wrap wide" style="display:none;">
+        <header>
+            <h1>Empire World</h1>
+            <p>Admin — choose a department</p>
+        </header>
+        <div id="hubAuth" class="hub-auth logged-in"></div>
         <div class="grid" id="grid"></div>
         <footer>Prepared by <strong>Swar Dizayee</strong></footer>
     </div>
+
     <script src="config.js"></script>
     <script src="assets/empire-api.js"></script>
     <script src="assets/empire-auth.js"></script>
     <script src="assets/empire-core.js"></script>
     <script>
         const categories = [
-            { icon:'🧹', name:'Cleaning Department', desc:'Daily reports, task checklists & monthly report.', link:'cleaning.html', active:true, accessDept:'cleaning' },
+            { icon:'🧹', name:'Cleaning Department', desc:'Daily reports, task checklists & monthly report.', link:'cleaning-dashboard.html', active:true, accessDept:'cleaning' },
             { icon:'🏗️', name:'Civil Department', desc:'Daily maintenance jobs & monthly reports.', link:'civil-department.html', active:true, accessDept:'civil department' },
-            { icon:'⛑️', name:'HSE Department', desc:'Fire safety inspections — equipment checks (okay, needs fix, missing).', link:'hse-department.html', active:true, accessDept:'hse' },
-            { icon:'🛡️', name:'Security', desc:'Coming soon — tell us what this dashboard should track.', active:false },
-            { icon:'🌿', name:'Landscaping', desc:'Coming soon — tell us what this dashboard should track.', active:false },
-            { icon:'⚡', name:'Electrical Department', desc:'Daily maintenance jobs, call center shifts & monthly reports.', link:'electrical.html', active:true, accessDept:'electrical department' },
-            { icon:'🚰', name:'Plumbing', desc:'Coming soon — tell us what this dashboard should track.', active:false },
-            { icon:'📦', name:'Stores / Inventory', desc:'Coming soon — tell us what this dashboard should track.', active:false },
-            { icon:'👥', name:'HR / Staff', desc:'Coming soon — tell us what this dashboard should track.', active:false }
+            { icon:'🔧', name:'Civil Issues', desc:'Track and fix civil maintenance issues.', link:'civil-issue.html', active:true, accessDept:'civil issue' },
+            { icon:'⛑️', name:'HSE Inspections', desc:'Fire safety equipment checks.', link:'hse-inspection.html', active:true, accessDept:'hse' },
+            { icon:'⚡', name:'Electrical Department', desc:'Daily jobs & monthly reports.', link:'electrical.html', active:true, accessDept:'electrical department' },
+            { icon:'🔌', name:'Electric Issues', desc:'Track electrical issues.', link:'electric-issue.html', active:true, accessDept:'electric issue' },
+            { icon:'🔥', name:'Fire / Mechanical Issues', desc:'Fire fighting & mechanical issues.', link:'fire-issue.html', active:true, accessDept:'fire' }
         ];
 
+        function afterLogin(d) {
+            var dept = (d && d.dept) || empireGetTokenDept();
+            if (dept && dept !== 'all') {
+                empireRedirectToDeptHome(dept);
+                return;
+            }
+            showAdminHub();
+        }
+
         function handleHubLogin(e) {
-            empireAuthLogin(e, 'all', {
+            empireAuthLogin(e, 'auto', {
                 usernameId: 'hubUsername',
                 passwordId: 'hubPassword',
                 messageEl: document.getElementById('hubLoginMessage'),
-                onSuccess: function () { renderAuthBar(); render(); }
+                onSuccess: afterLogin
             });
         }
 
         function hubLogout() {
-            uiConfirm('Log out from all departments?').then(function (ok) {
+            uiConfirm('Log out?').then(function (ok) {
                 if (!ok) return;
-                empireAuthLogout({ reload: true });
+                empireAuthLogout({ redirect: 'index.html', reload: false });
             });
+        }
+
+        function showAdminHub() {
+            document.getElementById('loginView').style.display = 'none';
+            document.getElementById('adminView').style.display = '';
+            document.body.classList.remove('login-landing');
+            renderAuthBar();
+            renderGrid();
+        }
+
+        function showLoginOnly() {
+            document.getElementById('loginView').style.display = '';
+            document.getElementById('adminView').style.display = 'none';
+            document.body.classList.add('login-landing');
         }
 
         function renderAuthBar() {
             var box = document.getElementById('hubAuth');
-            if (!empireGetToken()) {
-                box.className = 'hub-auth';
-                box.innerHTML = '<h2>Sign in</h2><div class="hub-auth-msg" id="hubLoginMessage"></div>' +
-                    '<form class="hub-auth-form" onsubmit="handleHubLogin(event)">' +
-                    '<input type="text" id="hubUsername" placeholder="Username" required autocomplete="username">' +
-                    '<input type="password" id="hubPassword" placeholder="Password" required autocomplete="current-password">' +
-                    '<button type="submit">Login</button></form>';
-                return;
-            }
             var u = empireGetUser();
             var role = empireGetRole();
-            box.className = 'hub-auth logged-in';
             box.innerHTML = '<div class="hub-session">Logged in as <strong>' + (u || 'user') + '</strong>' +
-                (role ? (' (' + role + ')') : '') + '</div>' +
+                (role ? (' (' + role + ')') : '') + ' — Admin access</div>' +
                 '<button type="button" onclick="hubLogout()">Logout</button>';
         }
 
-        function tileLocked(c) {
-            if (!c.active || !c.accessDept || !empireGetToken()) return false;
-            return !empireCanAccessDept(c.accessDept);
-        }
-
-        function render(){
-            renderAuthBar();
+        function renderGrid() {
             const grid = document.getElementById('grid');
             grid.innerHTML = '';
-            categories.forEach(c => {
-                var locked = tileLocked(c);
-                let el;
-                if (c.active && c.link && !locked) {
-                    el = document.createElement('a');
-                    el.href = c.link;
-                    el.className = 'tile active';
-                } else {
-                    el = document.createElement('div');
-                    el.className = 'tile' + (c.active ? (locked ? ' soon locked' : ' soon') : ' soon');
-                    el.addEventListener('click', function () {
-                        if (locked) {
-                            alert('Your account does not have access to ' + c.name + '.');
-                            return;
-                        }
-                        if (c.active && c.link) location.href = c.link;
-                        else alert(c.name + ' is coming soon.');
-                    });
-                }
-                var badge = c.active ? (locked ? 'No Access' : 'Open') : 'Coming Soon';
-                var badgeClass = locked ? 'wait' : (c.active ? 'open' : 'wait');
+            categories.forEach(function (c) {
+                var el = document.createElement('a');
+                el.href = c.link;
+                el.className = 'tile active';
                 el.innerHTML = '<div class="icon">' + c.icon + '</div>' +
                     '<h2>' + c.name + '</h2>' +
                     '<p>' + c.desc + '</p>' +
-                    '<span class="badge ' + badgeClass + '">' + badge + '</span>';
+                    '<span class="badge open">Open</span>';
                 grid.appendChild(el);
             });
         }
-        render();
+
+        function bootIndex() {
+            if (!empireGetToken()) {
+                showLoginOnly();
+                return;
+            }
+            var dept = empireGetTokenDept();
+            if (dept && dept !== 'all') {
+                empireRedirectToDeptHome(dept);
+                return;
+            }
+            showAdminHub();
+        }
+
+        bootIndex();
     </script>
 </body>
 </html>
