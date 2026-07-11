@@ -1019,6 +1019,17 @@
             +'@media print{body{background:#fff;color:#000;}.box,.proj,.task{background:#f4f4f4!important;}.bv{color:#a0327d;}.sub,.bl,.wk,figcaption{color:#444;}}';
           return '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Empire Monthly Report — '+_esc(R.monthName)+'</title><style>'+css+'</style></head><body>'+b+'</body></html>';
         }
+        function logout(){
+            uiConfirm('Are you sure you want to logout?').then(function(ok){
+                if(!ok) return;
+                localStorage.removeItem('isLoggedIn');
+                localStorage.removeItem('currentUser');
+                localStorage.removeItem('authToken');
+                localStorage.removeItem('userRole');
+                localStorage.removeItem('cleaning_reports_cache');
+                location.reload();
+            });
+        }
         function applyPerms(){
             var role = localStorage.getItem('userRole')||'';
             var u = localStorage.getItem('currentUser')||'';

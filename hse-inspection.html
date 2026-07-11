@@ -175,6 +175,7 @@ let allIssues = [];
 let currentIssueImage = '';
 let uploadingIssue = false;
 let PAGEPERMS = {};
+function logout(){ uiConfirm('Log out?').then(function(ok){ if(!ok) return; localStorage.removeItem('hse_isLoggedIn'); localStorage.removeItem('hse_user'); localStorage.removeItem('hse_token'); localStorage.removeItem('hse_role'); localStorage.removeItem('hse_perms'); localStorage.removeItem('hse_issues_cache'); location.reload(); }); }
 function applyPerms(){ if(window.tsPerm) window.tsPerm(); if(window.tsLoadGlobal&&localStorage.getItem('hse_token')) window.tsLoadGlobal();
   try { PAGEPERMS = JSON.parse(localStorage.getItem('hse_perms')||'{}'); } catch(e) { PAGEPERMS = {}; }
   var p = PAGEPERMS || {};
