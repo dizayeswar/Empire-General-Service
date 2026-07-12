@@ -1,5 +1,5 @@
 /* Empire General Service — offline shell cache (Phase 5C) */
-var CACHE_VERSION = '2026-07-12-pwa';
+var CACHE_VERSION = '2026-07-12-pwa-icons';
 var CACHE_NAME = 'empire-egs-' + CACHE_VERSION;
 
 var PRECACHE = [
@@ -16,8 +16,9 @@ var PRECACHE = [
   './hse-department.html',
   './config.js',
   './manifest.webmanifest',
-  './logo.png',
-  './logo-light.png',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/icon-maskable-512.png',
   './assets/empire.css',
   './assets/empire-cleaning.css',
   './assets/empire-dept.css',
