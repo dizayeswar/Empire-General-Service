@@ -6,19 +6,19 @@
     <link rel="icon" href="logo-light.png" type="image/png">
     <link rel="preconnect" href="https://script.google.com">
     <link rel="preconnect" href="https://api.imgbb.com">
-    <title>Cleaning Department — Empire World</title>
+    <title>Cleaning Department — Empire General Service</title>
     <link rel="stylesheet" href="assets/empire-hub.css">
 </head>
 <body>
     <div class="topbar">
-      <img src="logo-light.png" alt="Empire World" style="height:48px;width:auto;">
+      <img src="logo-light.png" alt="Empire General Service" class="empire-logo" style="height:48px;width:auto;">
       <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span> <span class="lbl">Theme</span></button>
     </div>
     <div class="wrap">
-        <a class="back" href="index.html">&larr; Back to Empire World</a>
+        <a class="back" href="index.html">&larr; Back to Empire General Service</a>
         <header>
             <h1>Cleaning Department</h1>
-            <p>Choose a section to open</p>
+            <p id="cleaningHubDesc">Choose a section to open</p>
         </header>
         <div class="grid" id="grid"></div>
         <footer>Prepared by <strong>Swar Dizayee</strong></footer>
@@ -27,6 +27,7 @@
     <script src="assets/empire-api.js"></script>
     <script src="assets/empire-auth.js"></script>
     <script src="assets/empire-core.js"></script>
+    <script src="assets/empire-hub-stats.js"></script>
     <script>
         const sections = [
             { icon:'🧹', name:'Cleaning', desc:'Daily reports, task checklists & monthly report.', link:'cleaning-dashboard.html', active:true, accessDept:'cleaning' },
@@ -42,7 +43,7 @@
             return false;
         }
 
-        function render(){
+        function render() {
             const grid = document.getElementById('grid');
             grid.innerHTML = '';
             var count = 0;
@@ -52,15 +53,38 @@
                 var el = document.createElement('a');
                 el.href = c.link;
                 el.className = 'tile active';
-                el.innerHTML = '<div class="icon">' + c.icon + '</div>' +
-                    '<h2>' + c.name + '</h2>' +
-                    '<p>' + c.desc + '</p>' +
-                    '<span class="badge open">Open</span>';
+                el.setAttribute('data-dept', c.accessDept);
+                el.innerHTML = hubTileHtml(c);
                 grid.appendChild(el);
             });
             if (!count) {
                 grid.innerHTML = '<div class="hub-empty" style="grid-column:1/-1;">No cleaning sections are available for this account.</div>';
             }
+        }
+
+        function updateCleaningHubHead(summary) {
+            var desc = document.getElementById('cleaningHubDesc');
+            if (!desc || !summary || !summary.cleaning) return;
+            var open = summary.cleaning.open || 0;
+            if (open > 0) {
+                desc.textContent = open + ' open issue' + (open === 1 ? '' : 's') + ' across sections below';
+            }
+        }
+
+        function loadCleaningSummary() {
+            loadHubSummary({
+                onData: function (summary) {
+                    var sectionsMap = (summary.cleaning && summary.cleaning.sections) || {};
+                    applyHubTileStats('#grid .tile[data-dept]', sectionsMap);
+                    updateCleaningHubHead(summary);
+                },
+                onError: function () {
+                    applyHubTileStats('#grid .tile[data-dept]', {});
+                    document.querySelectorAll('#grid .tile-footer').forEach(function (el) {
+                        el.innerHTML = '<div class="tile-stat muted">Stats unavailable</div>';
+                    });
+                }
+            });
         }
 
         function bootCleaningHub() {
@@ -74,6 +98,7 @@
                 return;
             }
             render();
+            loadCleaningSummary();
         }
 
         bootCleaningHub();

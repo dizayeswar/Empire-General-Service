@@ -404,7 +404,74 @@ header p {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  gap: 8px;
   margin-bottom: 16px;
+}
+
+.tile-top-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.tile-badge-slot {
+  min-height: 22px;
+}
+
+.tile-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  color: #fff;
+  background: #d68910;
+  white-space: nowrap;
+}
+
+.tile-badge.alert {
+  background: #c5504f;
+}
+
+.tile-badge.warn {
+  background: #d68910;
+}
+
+.tile-stat {
+  margin-top: 14px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tile-stat.alert {
+  color: #c5504f;
+}
+
+.tile-stat.warn {
+  color: #d68910;
+}
+
+.tile-stat.ok {
+  color: #27ae60;
+}
+
+.tile-stat.muted {
+  color: var(--text-faint);
+  font-weight: 600;
+}
+
+.tile-activity {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-faint);
+  font-weight: 500;
+}
+
+.tile-footer {
+  margin-top: auto;
+  padding-top: 4px;
 }
 
 .tile-icon-wrap {

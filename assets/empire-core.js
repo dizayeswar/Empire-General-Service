@@ -37,15 +37,22 @@ function dateOnly(s) {
   return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate());
 }
 
-function applyTheme(t) {
-  document.documentElement.setAttribute('data-theme', t);
-  document.querySelectorAll('img[alt="Empire World"]').forEach(function (im) {
+function setEmpireLogos(theme) {
+  var src = theme === 'dark' ? 'logo.png' : 'logo-light.png';
+  document.querySelectorAll(
+    'img.empire-logo, img.hub-toolbar-logo, img.sidebar-logo, img[alt="Empire World"], img[alt="Empire General Service"]'
+  ).forEach(function (im) {
     im.onerror = function () {
       this.onerror = null;
       this.src = 'logo.png';
     };
-    im.src = t === 'dark' ? 'logo.png' : 'logo-light.png';
+    im.src = src;
   });
+}
+
+function applyTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  setEmpireLogos(t);
   try {
     localStorage.setItem('empire_theme', t);
   } catch (e) {}

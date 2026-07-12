@@ -11,7 +11,7 @@
 </head>
 <body class="login-landing">
     <div class="topbar">
-      <img src="logo-light.png" alt="Empire World" style="height:48px;width:auto;">
+      <img src="logo-light.png" alt="Empire General Service" class="empire-logo" style="height:48px;width:auto;">
       <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span> <span class="lbl">Theme</span></button>
     </div>
 
@@ -35,7 +35,7 @@
     <div id="adminView" class="hub-dashboard" style="display:none;">
         <header class="hub-toolbar">
             <div class="hub-toolbar-side hub-toolbar-side-left">
-                <img src="logo-light.png" alt="Empire General Service" class="hub-toolbar-logo">
+                <img src="logo-light.png" alt="Empire General Service" class="hub-toolbar-logo empire-logo">
             </div>
             <div class="hub-toolbar-brand">
                 <div class="hub-toolbar-text">
@@ -62,6 +62,7 @@
     <script src="assets/empire-api.js"></script>
     <script src="assets/empire-auth.js"></script>
     <script src="assets/empire-core.js"></script>
+    <script src="assets/empire-hub-stats.js"></script>
     <script>
         const categories = [
             { icon:'🧹', name:'Cleaning Department', desc:'Daily reports, issues found on rounds & more.', link:'cleaning.html', active:true, accessDept:'cleaning' },
@@ -120,6 +121,7 @@
                 : 'Open one of your assigned sections below.';
             renderAuthBar();
             renderGrid();
+            loadHubSummaryForIndex();
         }
 
         function showLoginOnly() {
@@ -189,6 +191,22 @@
             return false;
         }
 
+        function applyHubSummary(summary) {
+            applyHubTileStats('#grid .tile[data-dept]', summary || {});
+        }
+
+        function loadHubSummaryForIndex() {
+            loadHubSummary({
+                onData: function (summary) { applyHubSummary(summary); },
+                onError: function () {
+                    applyHubSummary({});
+                    document.querySelectorAll('#grid .tile-footer').forEach(function (el) {
+                        el.innerHTML = '<div class="tile-stat muted">Stats unavailable</div>';
+                    });
+                }
+            });
+        }
+
         function renderGrid() {
             const grid = document.getElementById('grid');
             grid.innerHTML = '';
@@ -199,13 +217,8 @@
                 var el = document.createElement('a');
                 el.href = c.link;
                 el.className = 'tile active';
-                el.innerHTML =
-                    '<div class="tile-top">' +
-                        '<div class="tile-icon-wrap"><span class="tile-icon">' + c.icon + '</span></div>' +
-                        '<span class="tile-arrow" aria-hidden="true">→</span>' +
-                    '</div>' +
-                    '<h2>' + c.name + '</h2>' +
-                    '<p>' + c.desc + '</p>';
+                el.setAttribute('data-dept', c.accessDept);
+                el.innerHTML = hubTileHtml(c);
                 grid.appendChild(el);
             });
             if (!count) {

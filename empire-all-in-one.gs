@@ -18,7 +18,7 @@ var TRASH_SHEET = 'Trash';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-11-login-speed';
+var SCRIPT_VERSION = '2026-07-12-cleaning-section-stats';
 var HSE_INSPECTOR = 'Evan Mansour';
 var HSE_ASSETKEY_COL = 17;
 var HSE_PERIOD_COL = 18;
@@ -121,6 +121,7 @@ function doPost(e) {
     var action = body.action;
     if (action === 'login' || action === 'verifyLogin') return respond(handleLogin(body));
     if (action === 'getPerms') return respond(handleGetPerms(body));
+    if (action === 'getSummary') return respond(handleGetSummary(body));
     var deptByAction = {
       'saveReport':'cleaning','getReports':'cleaning','deleteReport':'cleaning','saveTasks':'cleaning','getTasks':'cleaning','clearAll':'cleaning',
       'setTask':'cleaning','resetTasks':'cleaning',
@@ -374,6 +375,166 @@ function verifyToken(token, requiredDept) {
     }
   }
   return {ok:false,error:'Invalid token'};
+}
+
+function verifyTokenSession_(token) {
+  if (!token) return {ok:false,error:'No token'};
+  var cache = CacheService.getScriptCache();
+  var tkey = 'tok_' + Utilities.base64EncodeWebSafe(String(token)).slice(0, 40);
+  try {
+    var hit = cache.get(tkey);
+    if (hit) return JSON.parse(hit);
+  } catch(e){}
+  var ss = getSS_();
+  var tsheet = ss.getSheetByName(TOKENS_SHEET);
+  if (!tsheet) return {ok:false,error:'Not authenticated'};
+  var rows = tsheet.getDataRange().getValues();
+  var now = new Date().getTime();
+  for (var i=0;i<rows.length;i++) {
+    if (String(rows[i][0])===String(token)) {
+      if (now - Number(rows[i][3]) > TOKEN_TTL) return {ok:false,error:'Token expired'};
+      var result = {ok:true,username:rows[i][1],dept:String(rows[i][2]||'').trim().toLowerCase(),role:String(rows[i][4]||'')};
+      try { cache.put(tkey, JSON.stringify(result), 300); } catch(e){}
+      return result;
+    }
+  }
+  return {ok:false,error:'Invalid token'};
+}
+
+function maxTs_(a, b) {
+  a = String(a || '');
+  b = String(b || '');
+  if (!a) return b;
+  if (!b) return a;
+  return a > b ? a : b;
+}
+
+function issueStatsFromSheet_(sheetName) {
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet || sheet.getLastRow() < 2) return {open:0, total:0, lastActivity:''};
+  var rows = sheet.getDataRange().getValues();
+  var open = 0, lastAt = '';
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][10] || 'open') !== 'fixed') open++;
+    lastAt = maxTs_(lastAt, dtIssue_(rows[i][12]));
+    lastAt = maxTs_(lastAt, dtIssue_(rows[i][14]));
+  }
+  return {open:open, total:rows.length - 1, lastActivity:lastAt};
+}
+
+function jobsStatsThisMonth_(sheetName) {
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet || sheet.getLastRow() < 2) return {jobsThisMonth:0, total:0, lastActivity:''};
+  var tz = ss.getSpreadsheetTimeZone();
+  var monthPrefix = Utilities.formatDate(new Date(), tz, 'yyyy-MM');
+  var rows = sheet.getDataRange().getValues();
+  var count = 0, lastAt = '';
+  for (var i = 1; i < rows.length; i++) {
+    var dv = rows[i][1];
+    var ds = (dv instanceof Date) ? Utilities.formatDate(dv, tz, 'yyyy-MM-dd') : String(dv || '');
+    if (ds.indexOf(monthPrefix) === 0) count++;
+    lastAt = maxTs_(lastAt, dtIssue_(rows[i][10]));
+  }
+  return {jobsThisMonth:count, total:rows.length - 1, lastActivity:lastAt};
+}
+
+function cleaningReportsToday_() {
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(CLEANING_SHEET);
+  if (!sheet || sheet.getLastRow() < 2) return {reportsToday:0, lastActivity:''};
+  var tz = ss.getSpreadsheetTimeZone();
+  var today = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  var rows = sheet.getDataRange().getValues();
+  var count = 0, lastAt = '';
+  for (var i = 1; i < rows.length; i++) {
+    if (fmtDate_(rows[i][1]) === today) count++;
+    lastAt = maxTs_(lastAt, dtIssue_(rows[i][9]));
+  }
+  return {reportsToday:count, lastActivity:lastAt};
+}
+
+function summaryLevelFromOpen_(open) {
+  if (open > 5) return 'alert';
+  if (open > 0) return 'warn';
+  return 'ok';
+}
+
+function buildCleaningReportsSummary_() {
+  var reports = cleaningReportsToday_();
+  var label = reports.reportsToday > 0
+    ? (reports.reportsToday + ' report' + (reports.reportsToday === 1 ? '' : 's') + ' today')
+    : 'No reports today';
+  return {open:0, reportsToday:reports.reportsToday, label:label, lastActivity:reports.lastActivity, level:reports.reportsToday > 0 ? 'ok' : 'muted'};
+}
+
+function buildCleaningHubSummary_() {
+  var civil = issueStatsFromSheet_(CIVIL_SHEET);
+  var electric = issueStatsFromSheet_(ELECTRIC_SHEET);
+  var fire = issueStatsFromSheet_(FIRE_SHEET);
+  var reports = cleaningReportsToday_();
+  var open = civil.open + electric.open + fire.open;
+  var lastAt = maxTs_(maxTs_(civil.lastActivity, electric.lastActivity), maxTs_(fire.lastActivity, reports.lastActivity));
+  var label = '';
+  if (open > 0) label = open + ' open issue' + (open === 1 ? '' : 's');
+  else if (reports.reportsToday > 0) label = reports.reportsToday + ' report' + (reports.reportsToday === 1 ? '' : 's') + ' today';
+  else label = 'All clear';
+  return {
+    open:open,
+    reportsToday:reports.reportsToday,
+    label:label,
+    lastActivity:lastAt,
+    level:summaryLevelFromOpen_(open),
+    sections:{
+      'cleaning':buildCleaningReportsSummary_(),
+      'civil issue':buildIssueHubSummary_(CIVIL_SHEET),
+      'electric issue':buildIssueHubSummary_(ELECTRIC_SHEET),
+      'fire':buildIssueHubSummary_(FIRE_SHEET)
+    }
+  };
+}
+
+function buildIssueHubSummary_(sheetName) {
+  var stats = issueStatsFromSheet_(sheetName);
+  var label = stats.open > 0 ? (stats.open + ' open') : 'All clear';
+  return {open:stats.open, label:label, lastActivity:stats.lastActivity, level:summaryLevelFromOpen_(stats.open)};
+}
+
+function buildJobsHubSummary_(sheetName) {
+  var stats = jobsStatsThisMonth_(sheetName);
+  var label = stats.jobsThisMonth > 0 ? (stats.jobsThisMonth + ' job' + (stats.jobsThisMonth === 1 ? '' : 's') + ' this month') : 'No jobs this month';
+  return {jobsThisMonth:stats.jobsThisMonth, label:label, lastActivity:stats.lastActivity, level:stats.jobsThisMonth > 0 ? 'ok' : 'muted'};
+}
+
+function summaryAllowedForToken_(tokenDept, summaryKey) {
+  if (tokenDept === 'all') return true;
+  if (deptListAllows_(tokenDept, summaryKey)) return true;
+  if (summaryKey === 'cleaning') {
+    return deptListAllows_(tokenDept, 'civil issue') ||
+      deptListAllows_(tokenDept, 'electric issue') ||
+      deptListAllows_(tokenDept, 'fire');
+  }
+  return false;
+}
+
+function handleGetSummary(body) {
+  var sess = verifyTokenSession_(body.token);
+  if (!sess.ok) return sess;
+  var cache = CacheService.getScriptCache();
+  var cacheKey = 'hub_summary_v2_' + Utilities.base64EncodeWebSafe(String(sess.dept || 'all')).slice(0, 24);
+  try {
+    var hit = cache.get(cacheKey);
+    if (hit) return JSON.parse(hit);
+  } catch(e){}
+  var summary = {};
+  if (summaryAllowedForToken_(sess.dept, 'cleaning')) summary.cleaning = buildCleaningHubSummary_();
+  if (summaryAllowedForToken_(sess.dept, 'civil department')) summary['civil department'] = buildJobsHubSummary_(CIVIL_JOBS_SHEET);
+  if (summaryAllowedForToken_(sess.dept, 'hse')) summary.hse = buildIssueHubSummary_(HSE_SHEET);
+  if (summaryAllowedForToken_(sess.dept, 'electrical department')) summary['electrical department'] = buildJobsHubSummary_(ELECTRICAL_JOBS_SHEET);
+  var out = {ok:true, summary:summary, generatedAt:new Date().toISOString()};
+  try { cache.put(cacheKey, JSON.stringify(out), 120); } catch(e){}
+  return out;
 }
 
 function handleSaveReport(body) {
