@@ -1,0 +1,31 @@
+{
+  "name": "Empire General Service",
+  "short_name": "Empire EGS",
+  "description": "Empire World dashboards — cleaning, HSE, civil and electrical departments.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f5f0f4",
+  "theme_color": "#8d015d",
+  "icons": [
+    {
+      "src": "logo-light.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "logo-light.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

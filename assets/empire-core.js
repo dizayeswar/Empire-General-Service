@@ -256,3 +256,11 @@ if (document.readyState === 'loading') {
   initMonthPickers();
 }
 window.addEventListener('load', initMonthPickers);
+
+(function loadEmpirePwa() {
+  if (!('serviceWorker' in navigator)) return;
+  var s = document.createElement('script');
+  s.src = 'assets/empire-pwa.js';
+  s.async = true;
+  document.head.appendChild(s);
+})();
