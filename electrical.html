@@ -208,7 +208,7 @@ function applyPerms(){ if(window.tsPerm) window.tsPerm(); if(window.tsLoadGlobal
 function handleLogin(e){ empireAuthLogin(e, 'electrical department', { onSuccess: function(){ enterApp(); } }); }
 function logout(){ empireAuthLogout({ extraKeys: ['eldept_jobs_cache'], redirect: 'index.html', reload: false }); }
 function forceSessionLogout(d){ empireAuthHandleInvalidSession_(d, { extraKeys: ['eldept_jobs_cache'], redirect: 'index.html', reload: false }); }
-function enterApp(){ document.getElementById('loginPage').classList.remove('show'); document.getElementById('mainContainer').classList.add('show'); applyPerms(); refreshPerms(); document.getElementById('j-date').value=new Date().toISOString().split('T')[0]; document.getElementById('cc-date').value=new Date().toISOString().split('T')[0]; loadJobs(); }
+function enterApp(){ document.getElementById('loginPage').classList.remove('show'); document.getElementById('mainContainer').classList.add('show'); applyPerms(); refreshPerms(); document.getElementById('j-date').value=new Date().toISOString().split('T')[0]; document.getElementById('cc-date').value=new Date().toISOString().split('T')[0]; empireBindFilterPersistence({ key:'eldept_list_filters', fields:['f-month','f-type','f-search'], onApply:renderJobs }); loadJobs(); }
 function refreshPerms(){ var now=Date.now(); if(now-(_lastPermFetch||0)<300000) return; _lastPermFetch=Date.now(); empireAuthRefreshPerms(function(){ applyPerms(); }); }
 var _lastPermFetch=0;
 window.addEventListener('load',()=>{ empireAuthPageBoot({ dept: 'electrical department', onEnter: enterApp }); });

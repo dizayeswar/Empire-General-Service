@@ -257,6 +257,89 @@ if (document.readyState === 'loading') {
 }
 window.addEventListener('load', initMonthPickers);
 
+function empireSaveSessionState(key, data) {
+  try { sessionStorage.setItem(key, JSON.stringify(data)); } catch (e) {}
+}
+
+function empireLoadSessionState(key) {
+  try {
+    var raw = sessionStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function empireReadFilterFields(fieldIds) {
+  var data = {};
+  fieldIds.forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) data[id] = el.value || '';
+  });
+  return data;
+}
+
+function empireApplyFilterFields(data, fieldIds) {
+  if (!data) return;
+  fieldIds.forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el && data[id] !== undefined) el.value = data[id];
+  });
+}
+
+function empireBindFilterPersistence(opts) {
+  opts = opts || {};
+  var key = opts.key;
+  var fields = opts.fields || [];
+  var onApply = opts.onApply || function () {};
+  var extraRead = opts.extraRead;
+  var extraApply = opts.extraApply;
+
+  function readAll() {
+    var data = empireReadFilterFields(fields);
+    if (extraRead) {
+      var extra = extraRead();
+      if (extra) Object.keys(extra).forEach(function (k) { data[k] = extra[k]; });
+    }
+    return data;
+  }
+
+  function save() {
+    empireSaveSessionState(key, readAll());
+  }
+
+  function restore() {
+    var data = empireLoadSessionState(key);
+    if (!data) return false;
+    empireApplyFilterFields(data, fields);
+    if (extraApply) extraApply(data);
+    return true;
+  }
+
+  if (restore()) onApply();
+  fields.forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el || el._empireFilterBound) return;
+    el._empireFilterBound = true;
+    var evt = (el.type === 'text' || el.tagName === 'TEXTAREA') ? 'input' : 'change';
+    el.addEventListener(evt, function () {
+      save();
+      onApply();
+    });
+  });
+
+  return { save: save, restore: restore };
+}
+
+function empireSaveActiveTab(key, tabId) {
+  empireSaveSessionState(key, { tab: tabId });
+}
+
+function empireRestoreActiveTab(key, defaultTab) {
+  var data = empireLoadSessionState(key);
+  return (data && data.tab) || defaultTab || '';
+}
+
 (function loadEmpirePwa() {
   if (!('serviceWorker' in navigator)) return;
   var s = document.createElement('script');

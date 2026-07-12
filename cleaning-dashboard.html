@@ -342,6 +342,7 @@
         let _dashCache = { date:null, tphotosAll:[] };
         function selectFilterProject(p){
           filterProject=p; buildProjectFilterBoxes();
+          if(window._cleaningDashFilterState) window._cleaningDashFilterState.save();
           const fd=document.getElementById('filterDate');
           if(fd && fd.value && _dashCache.date===fd.value){ renderDashboard(fd.value, _dashCache.tphotosAll); }
           else { refreshDashboardView(); }
@@ -1189,11 +1190,19 @@
             var tp=readTaskPhotosCache(curMonth()); if(tp && tp.length){ applyTaskPhotosList(tp, curMonth()); }
             userProjectList().forEach(function(p){ try{ updateFloors(p); }catch(e){ console.error('updateFloors', p, e); } });
             try{ renderTaskChecklists(); }catch(e){ console.error('renderTaskChecklists', e); }
+            buildProjectFilterBoxes();
+            window._cleaningDashFilterState=empireBindFilterPersistence({
+              key:'cleaning_dash_filters',
+              fields:['filterDate'],
+              extraRead:function(){ return { filterProject:filterProject }; },
+              extraApply:function(data){ if(data.filterProject) filterProject=data.filterProject; buildProjectFilterBoxes(); },
+              onApply:function(){ refreshDashboardView(); }
+            });
             setTimeout(function(){ loadReports(); loadTasks(); loadWeekCoverage(); loadTaskPhotos(true); }, 0);
             startSyncPolling();
             const d = new Date(); const today = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
             userProjectList().forEach(p=>{ const di=document.getElementById(p+'-date'); if(di)di.value=today; });
-            if(document.getElementById('filterDate')) document.getElementById('filterDate').value=today;
+            if(document.getElementById('filterDate') && !document.getElementById('filterDate').value) document.getElementById('filterDate').value=today;
         }
         function bootDashboard(){
             empireAuthPageBoot({ dept: 'cleaning', onEnter: enterDashboard });
