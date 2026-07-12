@@ -18,7 +18,7 @@ var TRASH_SHEET = 'Trash';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-12-cleaning-hide-redirect';
+var SCRIPT_VERSION = '2026-07-12-password-change-logout';
 var HSE_INSPECTOR = 'Evan Mansour';
 var HSE_ASSETKEY_COL = 17;
 var HSE_PERIOD_COL = 18;
@@ -275,6 +275,53 @@ function projectAllowedForUser_(username, project) {
   if (!projects.length) return true;
   return projects.indexOf(String(project || '').trim().toLowerCase()) !== -1;
 }
+function passwordDigest_(pw) {
+  var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(pw || ''));
+  return Utilities.base64EncodeWebSafe(bytes);
+}
+function currentPasswordDigestForUser_(username) {
+  var row = getUserRowByName_(username);
+  if (!row) return '';
+  return passwordDigest_(String(row[1] || '').trim());
+}
+function invalidateTokenCache_(token) {
+  try {
+    var tkey = 'tok_' + Utilities.base64EncodeWebSafe(String(token)).slice(0, 40);
+    CacheService.getScriptCache().remove(tkey);
+  } catch (e) {}
+}
+function revokeAllTokensForUser_(ss, username) {
+  var tsheet = ss.getSheetByName(TOKENS_SHEET);
+  if (!tsheet || tsheet.getLastRow() < 2) return;
+  var rows = tsheet.getDataRange().getValues();
+  username = String(username || '').trim().toLowerCase();
+  for (var i = rows.length - 1; i >= 1; i--) {
+    if (String(rows[i][1] || '').trim().toLowerCase() === username) {
+      invalidateTokenCache_(rows[i][0]);
+      tsheet.deleteRow(i + 1);
+    }
+  }
+}
+function passwordChangedResponse_() {
+  return {ok:false, error:'password_changed', message:'Your password was changed. Please sign in again.'};
+}
+function ensureTokenPasswordValid_(ss, tsheet, sheetRowNum, tokenRow, username, token) {
+  var current = currentPasswordDigestForUser_(username);
+  if (!current) {
+    revokeAllTokensForUser_(ss, username);
+    return passwordChangedResponse_();
+  }
+  var stored = String(tokenRow[5] || '').trim();
+  if (!stored) {
+    tsheet.getRange(sheetRowNum, 6).setValue(current);
+    return {ok:true};
+  }
+  if (stored !== current) {
+    revokeAllTokensForUser_(ss, username);
+    return passwordChangedResponse_();
+  }
+  return {ok:true};
+}
 function pruneExpiredTokens_(ss) {
   // Keeps the Tokens sheet small so verifyToken()'s scan stays fast on every API call.
   try {
@@ -289,7 +336,7 @@ function pruneExpiredTokens_(ss) {
     if (keep.length === rows.length - 1) return;
     var lastRow = tsheet.getLastRow();
     if (lastRow > 1) tsheet.deleteRows(2, lastRow - 1);
-    if (keep.length > 0) tsheet.getRange(2, 1, keep.length, 5).setValues(keep);
+    if (keep.length > 0) tsheet.getRange(2, 1, keep.length, 6).setValues(keep);
   } catch (e) { /* never let cleanup break login */ }
 }
 function maybePruneExpiredTokens_(ss) {
@@ -352,7 +399,7 @@ function handleLogin(body) {
       var tokenDept = userDept;
       var token = Utilities.getUuid();
       var tsheet = ss.getSheetByName(TOKENS_SHEET) || ss.insertSheet(TOKENS_SHEET);
-      tsheet.appendRow([token, username, tokenDept, new Date().getTime(), rp.role]);
+      tsheet.appendRow([token, username, tokenDept, new Date().getTime(), rp.role, passwordDigest_(upass)]);
       return {ok:true,success:true,token:token,username:username,dept:tokenDept,role:rp.role,perms:rp.perms,projects:projects,message:'Login successful'};
     }
   }
@@ -367,14 +414,20 @@ function handleGetPerms(body) {
   var trows = tsheet.getDataRange().getValues();
   var now = new Date().getTime();
   var username = '';
+  var tokenRow = null;
+  var tokenSheetRow = 0;
   for (var i=0;i<trows.length;i++) {
     if (String(trows[i][0])===String(body.token)) {
       if (now - Number(trows[i][3]) > TOKEN_TTL) return {ok:false, error:'Token expired'};
       username = String(trows[i][1]||'').trim().toLowerCase();
+      tokenRow = trows[i];
+      tokenSheetRow = i + 1;
       break;
     }
   }
-  if (!username) return {ok:false, error:'Invalid token'};
+  if (!username || !tokenRow) return {ok:false, error:'Invalid token'};
+  var pwCheck = ensureTokenPasswordValid_(ss, tsheet, tokenSheetRow, tokenRow, username, body.token);
+  if (!pwCheck.ok) return pwCheck;
   var usheet = ss.getSheetByName(USERS_SHEET);
   if (!usheet) return {ok:false, error:'Users sheet not found'};
   var urows = usheet.getDataRange().getValues();
@@ -387,6 +440,23 @@ function handleGetPerms(body) {
   return {ok:false, error:'User not found'};
 }
 
+function sessionCacheValid_(cached, requiredDept) {
+  if (!cached || !cached.username) return null;
+  if (requiredDept && !tokenDeptAllows_(cached.dept, requiredDept)) {
+    return {ok:false, error:'This login is not allowed for this section'};
+  }
+  var current = currentPasswordDigestForUser_(cached.username);
+  if (!current) {
+    revokeAllTokensForUser_(getSS_(), cached.username);
+    return passwordChangedResponse_();
+  }
+  if (!cached.pwDigest) return null;
+  if (cached.pwDigest !== current) {
+    revokeAllTokensForUser_(getSS_(), cached.username);
+    return passwordChangedResponse_();
+  }
+  return cached;
+}
 function verifyToken(token, requiredDept) {
   if (!token) return {ok:false,error:'No token'};
   requiredDept = String(requiredDept||'').trim().toLowerCase();
@@ -395,9 +465,12 @@ function verifyToken(token, requiredDept) {
   try {
     var hit = cache.get(tkey);
     if (hit) {
-      var cached = JSON.parse(hit);
-      if (tokenDeptAllows_(cached.dept, requiredDept)) return cached;
-      return {ok:false,error:'This login is not allowed for this section'};
+      var cached = sessionCacheValid_(JSON.parse(hit), requiredDept);
+      if (cached && cached.ok === false) {
+        try { cache.remove(tkey); } catch (e) {}
+        return cached;
+      }
+      if (cached) return cached;
     }
   } catch(e){}
   var ss = getSS_();
@@ -410,8 +483,11 @@ function verifyToken(token, requiredDept) {
     if (String(rows[i][0])===String(token)) {
       var tokenDept = String(rows[i][2]||'').trim().toLowerCase();
       if (now - Number(rows[i][3]) > TOKEN_TTL) return {ok:false,error:'Token expired'};
+      var username = String(rows[i][1]||'').trim().toLowerCase();
+      var pwCheck = ensureTokenPasswordValid_(ss, tsheet, i + 1, rows[i], username, token);
+      if (!pwCheck.ok) return pwCheck;
       if (!tokenDeptAllows_(tokenDept, requiredDept)) return {ok:false,error:'This login is not allowed for this section'};
-      var result = {ok:true,username:rows[i][1],dept:tokenDept,role:String(rows[i][4]||'')};
+      var result = {ok:true,username:rows[i][1],dept:tokenDept,role:String(rows[i][4]||''),pwDigest:currentPasswordDigestForUser_(username)};
       try { cache.put(tkey, JSON.stringify(result), 300); } catch(e){}
       return result;
     }
@@ -425,7 +501,14 @@ function verifyTokenSession_(token) {
   var tkey = 'tok_' + Utilities.base64EncodeWebSafe(String(token)).slice(0, 40);
   try {
     var hit = cache.get(tkey);
-    if (hit) return JSON.parse(hit);
+    if (hit) {
+      var cached = sessionCacheValid_(JSON.parse(hit), '');
+      if (cached && cached.ok === false) {
+        try { cache.remove(tkey); } catch (e) {}
+        return cached;
+      }
+      if (cached) return cached;
+    }
   } catch(e){}
   var ss = getSS_();
   var tsheet = ss.getSheetByName(TOKENS_SHEET);
@@ -435,7 +518,10 @@ function verifyTokenSession_(token) {
   for (var i=0;i<rows.length;i++) {
     if (String(rows[i][0])===String(token)) {
       if (now - Number(rows[i][3]) > TOKEN_TTL) return {ok:false,error:'Token expired'};
-      var result = {ok:true,username:rows[i][1],dept:String(rows[i][2]||'').trim().toLowerCase(),role:String(rows[i][4]||'')};
+      var username = String(rows[i][1]||'').trim().toLowerCase();
+      var pwCheck = ensureTokenPasswordValid_(ss, tsheet, i + 1, rows[i], username, token);
+      if (!pwCheck.ok) return pwCheck;
+      var result = {ok:true,username:rows[i][1],dept:String(rows[i][2]||'').trim().toLowerCase(),role:String(rows[i][4]||''),pwDigest:currentPasswordDigestForUser_(username)};
       try { cache.put(tkey, JSON.stringify(result), 300); } catch(e){}
       return result;
     }

@@ -76,7 +76,7 @@
     </div>
     <script src="config.js"></script>
     <script src="assets/empire-api.js"></script>
-    <script src="assets/empire-auth.js"></script>
+    <script src="assets/empire-auth.js?v=20260712"></script>
     <script src="assets/empire-core.js"></script>
     <script>
         /* ===== Themed dialogs (checkmark icons; shared theme/sidebar come from empire-core.js) ===== */
@@ -209,14 +209,14 @@
             try{
               const r=await fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'getTaskPhotos', periodPrefix:mv, token:empireGetToken()||''})});
               const d=await r.json();
-              if(d && d.ok===false){ logout(); return []; }
+              if(d && d.ok===false){ forceSessionLogout(d); return []; }
               if(Array.isArray(d)){ _photosByMonth[mv]=d; writeTaskPhotosCache(mv,d); return d; }
             }catch(e){ console.error('Task photo fetch error:', e.message); }
             return _photosByMonth[mv]||(cached&&cached.length?cached:[]);
           })();
           try { return await _photosFetchPromises[mv]; } finally { delete _photosFetchPromises[mv]; }
         }
-        async function loadReports() { const cached=readReportsCache(); if(cached){ allReports=reportsForUser(cached); refreshDashboardView(); } var lastErr=null; for(var attempt=0; attempt<3; attempt++){ try { const response = await fetch(GOOGLE_SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'getReports', token:empireGetToken()||''})}); if(!response.ok) throw new Error('Failed to fetch: ' + response.status); const data = await response.json(); if(Array.isArray(data)) { data.forEach(r=>{ r.image = r.photo; }); allReports = reportsForUser(data); writeReportsCache(allReports); refreshDashboardView(); updateDebugStatus('✅ Loaded '+allReports.length+' report(s) from the server just now.'); } else if(data && data.ok===false) { updateDebugStatus('⚠️ Server rejected the request: '+(data.message||data.error||'unknown reason')); logout(); } else { updateDebugStatus('⚠️ Server responded but not with a list. Click "Test Now" above to see the raw reply.'); } return; } catch(e) { lastErr=e; await new Promise(function(res){ setTimeout(res, 400); }); } } console.error('Load error:', lastErr && lastErr.message); updateDebugStatus('❌ Could not reach the server: '+(lastErr && lastErr.message)); }
+        async function loadReports() { const cached=readReportsCache(); if(cached){ allReports=reportsForUser(cached); refreshDashboardView(); } var lastErr=null; for(var attempt=0; attempt<3; attempt++){ try { const response = await fetch(GOOGLE_SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'getReports', token:empireGetToken()||''})}); if(!response.ok) throw new Error('Failed to fetch: ' + response.status); const data = await response.json(); if(Array.isArray(data)) { data.forEach(r=>{ r.image = r.photo; }); allReports = reportsForUser(data); writeReportsCache(allReports); refreshDashboardView(); updateDebugStatus('✅ Loaded '+allReports.length+' report(s) from the server just now.'); } else if(data && data.ok===false) { updateDebugStatus('⚠️ Server rejected the request: '+(data.message||data.error||'unknown reason')); forceSessionLogout(data); } else { updateDebugStatus('⚠️ Server responded but not with a list. Click "Test Now" above to see the raw reply.'); } return; } catch(e) { lastErr=e; await new Promise(function(res){ setTimeout(res, 400); }); } } console.error('Load error:', lastErr && lastErr.message); updateDebugStatus('❌ Could not reach the server: '+(lastErr && lastErr.message)); }
         function updateDebugStatus(msg){ var el=document.getElementById('debugStatus'); if(el) el.textContent=msg; }
         async function debugTestReports(){
           updateDebugStatus('⏳ Testing…');
@@ -536,7 +536,7 @@
           try {
             const r = await fetch(GOOGLE_SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'getTasks', token:empireGetToken()||''})});
             const d = await r.json();
-            if (d && d.ok===false) { logout(); return; }
+            if (d && d.ok===false) { forceSessionLogout(d); return; }
             var ts = null;
             if (d && typeof d === 'object' && !Array.isArray(d)) {
               if (d.tasks && typeof d.tasks === 'object' && !Array.isArray(d.tasks)) ts = d.tasks;
@@ -563,7 +563,7 @@
           try {
             const r=await fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'getWeekCoverage', weekStart:currentWeekStart(), token:empireGetToken()||''})});
             const d=await r.json();
-            if(d && d.ok===false){ logout(); return; }
+            if(d && d.ok===false){ forceSessionLogout(d); return; }
             if(d && typeof d==='object' && !Array.isArray(d)){ if(JSON.stringify(d)!==JSON.stringify(weekCov)){ weekCov=d; writeWeekCovCache(d); renderTaskChecklists(); } }
           } catch(e){ console.error('Week coverage load error:', e.message); }
         }
@@ -959,11 +959,11 @@
           try {
             const resp=await fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'getTaskLog', from:from, to:to, token:empireGetToken()||''})});
             const d=await resp.json();
-            if(Array.isArray(d)) log=d; else if(d && d.ok===false){ logout(); return; }
+            if(Array.isArray(d)) log=d; else if(d && d.ok===false){ forceSessionLogout(d); return; }
           } catch(e){ console.error('TaskLog fetch error:', e.message); }
           const weeks=[]; let wcur=weekStartOf(from); while(wcur<=to){ weeks.push(wcur); const wd=new Date(wcur+'T00:00:00'); wd.setDate(wd.getDate()+7); wcur=wd.getFullYear()+'-'+String(wd.getMonth()+1).padStart(2,'0')+'-'+String(wd.getDate()).padStart(2,'0'); }
           let covList=[];
-          try { const cr=await fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'getRangeCoverage', from:(weeks[0]||from), to:(weeks[weeks.length-1]||to), token:empireGetToken()||''})}); const cd=await cr.json(); if(Array.isArray(cd)) covList=cd; else if(cd && cd.ok===false){ logout(); return; } } catch(e){ console.error('Coverage fetch error:', e.message); }
+          try { const cr=await fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'getRangeCoverage', from:(weeks[0]||from), to:(weeks[weeks.length-1]||to), token:empireGetToken()||''})}); const cd=await cr.json(); if(Array.isArray(cd)) covList=cd; else if(cd && cd.ok===false){ forceSessionLogout(cd); return; } } catch(e){ console.error('Coverage fetch error:', e.message); }
           let mphotos=[];
           try { const mr=await fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'getTaskPhotos', periodPrefix:mv, token:empireGetToken()||''})}); const md=await mr.json(); if(Array.isArray(md)){ mphotos=md; applyTaskPhotosList(md, mv); } } catch(e){ console.error('Report photos error:', e.message); }
           const pname={ec:'Empire Complex',es:'Empire Square',wd:'West Diamond',ww:'West Wing',ww2:'(New) West Wing',ra:'Royal Apartment'};
@@ -1091,11 +1091,11 @@
             +'@media print{body{background:#fff;color:#000;}.box,.proj,.task{background:#f4f4f4!important;}.bv{color:#a0327d;}.sub,.bl,.wk,figcaption{color:#444;}}';
           return '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Empire Monthly Report — '+_esc(R.monthName)+'</title><style>'+css+'</style></head><body>'+b+'</body></html>';
         }
+        function forceSessionLogout(d) {
+          empireAuthHandleInvalidSession_(d, { extraKeys: ['cleaning_reports_cache'], redirect: 'index.html', reload: false });
+        }
         function logout(){
-            uiConfirm('Are you sure you want to logout?').then(function(ok){
-                if(!ok) return;
-                empireAuthLogout({ extraKeys: ['cleaning_reports_cache'], redirect: 'index.html', reload: false });
-            });
+            empireAuthLogout({ extraKeys: ['cleaning_reports_cache'], redirect: 'index.html', reload: false });
         }
         function hideCleaningTab(tabId) {
           document.querySelectorAll('.side-nav .tab-btn').forEach(function (b) {

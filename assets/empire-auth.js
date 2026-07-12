@@ -258,6 +258,32 @@ function empireAuthPageBoot(opts) {
   return true;
 }
 
+var _empireSessionLogoutActive = false;
+
+function empireAuthSessionLogout(opts) {
+  if (_empireSessionLogoutActive) return;
+  _empireSessionLogoutActive = true;
+  opts = opts || {};
+  empireAuthLogout({
+    extraKeys: opts.extraKeys,
+    redirect: opts.redirect || EMPIRE_LOGIN_PAGE,
+    reload: false
+  });
+}
+
+function empireSessionInvalid_(d) {
+  if (!d || d.ok !== false) return false;
+  var err = String(d.error || '').toLowerCase();
+  return err.indexOf('token') !== -1 || err === 'password_changed' || err.indexOf('authenticated') !== -1 || err.indexOf('invalid') !== -1;
+}
+
+function empireAuthHandleInvalidSession_(d, opts) {
+  opts = opts || {};
+  if (!empireSessionInvalid_(d)) return false;
+  empireAuthSessionLogout(opts);
+  return true;
+}
+
 function empireAuthRefreshPerms(onUpdate) {
   var tk = empireGetToken();
   if (!tk) return;
@@ -268,8 +294,8 @@ function empireAuthRefreshPerms(onUpdate) {
         if (d.role) empireAuthSet('role', d.role);
         if (d.projects) empireAuthSet('projects', JSON.stringify(d.projects));
         if (typeof onUpdate === 'function') onUpdate(d);
-      } else if (d && d.ok === false && String(d.error || '').toLowerCase().indexOf('token') !== -1) {
-        empireAuthLogout({ reload: true });
+      } else if (empireAuthHandleInvalidSession_(d)) {
+        return;
       }
     })
     .catch(function () {});
