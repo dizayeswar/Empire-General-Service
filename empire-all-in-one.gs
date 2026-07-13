@@ -18,7 +18,9 @@ var TRASH_SHEET = 'Trash';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-12-password-change-logout';
+var SCRIPT_VERSION = '2026-07-13-civil-worker-assign';
+var CIVIL_ASSIGNED_COL = 17;
+var CIVIL_TRADE_IDS = {pipes:1, painting:1, tiles:1, wood:1};
 var HSE_INSPECTOR = 'Evan Mansour';
 var HSE_ASSETKEY_COL = 17;
 var HSE_PERIOD_COL = 18;
@@ -39,6 +41,12 @@ function invalidateIssuesCache_(sheetName) {
       }
     } catch(e2){}
     cache.remove(ckey);
+    if (sheetName === CIVIL_SHEET) {
+      ['pipes', 'painting', 'tiles', 'wood'].forEach(function (t) {
+        var wk = ckey + '_w_' + t;
+        cache.remove(wk);
+      });
+    }
   } catch(e){}
 }
 function issuesCacheGet_(ckey) {
@@ -128,7 +136,7 @@ function doPost(e) {
       'getWeekCoverage':'cleaning','markTaskWeek':'cleaning','getRangeCoverage':'cleaning',
       'getTaskPhotos':'cleaning','addTaskPhoto':'cleaning','addTaskPhotos':'cleaning','deleteTaskPhoto':'cleaning',
       'logTask':'cleaning','getTaskLog':'cleaning',
-      'addCivilIssue':'civil issue','updateCivilIssue':'civil issue','getCivilIssues':'civil issue','markCivilFixed':'civil issue','clearCivilIssues':'civil issue','deleteCivilIssue':'civil issue',
+      'addCivilIssue':'civil issue','updateCivilIssue':'civil issue','getCivilIssues':'civil issue','markCivilFixed':'civil issue','clearCivilIssues':'civil issue','deleteCivilIssue':'civil issue','assignCivilIssue':'civil issue',
       'addElectricIssue':'electric issue','updateElectricIssue':'electric issue','getElectricIssues':'electric issue','markElectricFixed':'electric issue','clearElectricIssues':'electric issue','deleteElectricIssue':'electric issue',
       'addFireIssue':'fire','updateFireIssue':'fire','getFireIssues':'fire','markFireFixed':'fire','clearFireIssues':'fire','deleteFireIssue':'fire',
       'addHseInspection':'hse','updateHseInspection':'hse','getHseInspections':'hse','markHseResolved':'hse','clearHseInspections':'hse','deleteHseInspection':'hse',
@@ -145,6 +153,12 @@ function doPost(e) {
     var auth = verifyToken(body.token, requiredDept);
     if (!auth.ok) return respond(auth);
     body.username = auth.username;
+    body._authRole = String(auth.role || '').toLowerCase();
+    body._authTrade = String(auth.trade || '').toLowerCase();
+    if (body._authRole === 'worker') {
+      var workerBlocked = {addCivilIssue:1, updateCivilIssue:1, deleteCivilIssue:1, clearCivilIssues:1, assignCivilIssue:1, addElectricIssue:1, updateElectricIssue:1, deleteElectricIssue:1, clearElectricIssues:1, addFireIssue:1, updateFireIssue:1, deleteFireIssue:1, clearFireIssues:1};
+      if (workerBlocked[action]) return respond({ok:false,success:false,error:'not_allowed',message:'Not allowed for worker accounts.'});
+    }
     var adminOnly = {saveUiSettings:1, clearElectricalJobs:1, clearCivilJobs:1, clearCivilIssues:1, clearElectricIssues:1, clearFireIssues:1, clearHseInspections:1, clearAll:1, getTrash:1, restoreTrash:1, purgeTrash:1};
     if (adminOnly[action] && String(auth.role||'').toLowerCase()!=='admin') return respond({ok:false,success:false,error:'not_allowed',message:'Only an admin can do that.'});
     if (action==='saveReport') return respond(handleSaveReport(body));
@@ -168,8 +182,9 @@ function doPost(e) {
     if (action==='saveUiSettings') return respond(handleSaveUiSettings(body));
     if (action==='addCivilIssue') return respond(handleAddIssue(body, CIVIL_SHEET));
     if (action==='updateCivilIssue') return respond(handleUpdateIssue(body, CIVIL_SHEET));
-    if (action==='getCivilIssues') return respond(handleGetIssues(body, CIVIL_SHEET));
-    if (action==='markCivilFixed') return respond(handleMarkFixed(body, CIVIL_SHEET));
+    if (action==='getCivilIssues') return respond(handleGetIssues(body, CIVIL_SHEET, auth));
+    if (action==='assignCivilIssue') return respond(handleAssignCivilIssue(body, auth));
+    if (action==='markCivilFixed') return respond(handleMarkFixed(body, CIVIL_SHEET, auth));
     if (action==='clearCivilIssues') return respond(handleClearIssues(body, CIVIL_SHEET));
     if (action==='deleteCivilIssue') return respond(handleDeleteIssue(body, CIVIL_SHEET));
     if (action==='addElectricIssue') return respond(handleAddIssue(body, ELECTRIC_SHEET));
@@ -217,15 +232,16 @@ function respond(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
 
-// Roles: admin = everything incl reset; editor = add/edit/delete + analytics + report (no reset); viewer = read-only.
+// Roles: admin = everything incl reset; editor = add/edit/delete + analytics + report (no reset); viewer = read-only; worker = assigned civil jobs + fix only.
 // Optional "Hide" column (col E) removes extra abilities: list any of add, edit, delete, analytics, report.
 function computePerms_(role, hide) {
   role = String(role||'').trim().toLowerCase();
-  if (role!=='admin' && role!=='viewer' && role!=='editor') role = 'editor';
+  if (role!=='admin' && role!=='viewer' && role!=='editor' && role!=='worker') role = 'editor';
   var p;
-  if (role==='admin') p = {view:true,add:true,edit:true,del:true,analytics:true,report:true,dashboard:true,reset:true};
-  else if (role==='viewer') p = {view:true,add:false,edit:false,del:false,analytics:true,report:true,dashboard:true,reset:false};
-  else p = {view:true,add:true,edit:true,del:true,analytics:true,report:true,dashboard:true,reset:false};
+  if (role==='admin') p = {view:true,add:true,edit:true,del:true,analytics:true,report:true,dashboard:true,reset:true,assign:true,fix:true};
+  else if (role==='worker') p = {view:true,add:false,edit:false,del:false,analytics:false,report:false,dashboard:true,reset:false,assign:false,fix:true};
+  else if (role==='viewer') p = {view:true,add:false,edit:false,del:false,analytics:true,report:true,dashboard:true,reset:false,assign:false,fix:false};
+  else p = {view:true,add:true,edit:true,del:true,analytics:true,report:true,dashboard:true,reset:false,assign:true,fix:true};
   var raw = String(hide||'').toLowerCase();
   if (!raw) return {role:role, perms:p};
   var tokens = raw.indexOf(',') === -1 ? [raw] : raw.split(',');
@@ -258,6 +274,26 @@ function normalizeProjectsField_(raw, userDept) {
 function projectsForUserRow_(row) {
   if (!row) return [];
   return normalizeProjectsField_(row[5], row[2]);
+}
+function normalizeTrade_(raw) {
+  raw = String(raw || '').trim().toLowerCase();
+  if (raw === 'carpentry' || raw === 'carpenter' || raw === 'doors') return 'wood';
+  if (CIVIL_TRADE_IDS[raw]) return raw;
+  return '';
+}
+function tradeForUserRow_(row) {
+  if (!row) return '';
+  return normalizeTrade_(row[6]);
+}
+function ensureCivilIssueHeaders_(sheet) {
+  if (!sheet) return;
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['id','project','building','floor','spot','issueType','note','date','photo','fixedPhoto','status','createdBy','createdAt','fixedBy','fixedAt','num','assignedGroup']);
+    return;
+  }
+  if (String(sheet.getRange(1, CIVIL_ASSIGNED_COL).getValue() || '') !== 'assignedGroup') {
+    sheet.getRange(1, CIVIL_ASSIGNED_COL).setValue('assignedGroup');
+  }
 }
 function getUserRowByName_(username) {
   var ss = getSS_();
@@ -396,11 +432,15 @@ function handleLogin(body) {
       }
       var rp = computePerms_(rows[i][3], rows[i][4]);
       var projects = projectsForUserRow_(rows[i]);
+      var trade = tradeForUserRow_(rows[i]);
+      if (rp.role === 'worker' && !trade) {
+        return {ok:false,success:false,message:'Worker account needs a trade in column G (pipes, painting, tiles, or wood).',error:'trade_not_set'};
+      }
       var tokenDept = userDept;
       var token = Utilities.getUuid();
       var tsheet = ss.getSheetByName(TOKENS_SHEET) || ss.insertSheet(TOKENS_SHEET);
       tsheet.appendRow([token, username, tokenDept, new Date().getTime(), rp.role, passwordDigest_(upass)]);
-      return {ok:true,success:true,token:token,username:username,dept:tokenDept,role:rp.role,perms:rp.perms,projects:projects,message:'Login successful'};
+      return {ok:true,success:true,token:token,username:username,dept:tokenDept,role:rp.role,perms:rp.perms,projects:projects,trade:trade,message:'Login successful'};
     }
   }
   return {ok:false,success:false,message:'Invalid username or password',error:'Invalid username, password, or department'};
@@ -434,7 +474,7 @@ function handleGetPerms(body) {
   for (var j=1;j<urows.length;j++) {
     if (String(urows[j][0]||'').trim().toLowerCase()===username) {
       var rp = computePerms_(urows[j][3], urows[j][4]);
-      return {ok:true, role:rp.role, perms:rp.perms, projects:projectsForUserRow_(urows[j])};
+      return {ok:true, role:rp.role, perms:rp.perms, projects:projectsForUserRow_(urows[j]), trade:tradeForUserRow_(urows[j])};
     }
   }
   return {ok:false, error:'User not found'};
@@ -487,7 +527,8 @@ function verifyToken(token, requiredDept) {
       var pwCheck = ensureTokenPasswordValid_(ss, tsheet, i + 1, rows[i], username, token);
       if (!pwCheck.ok) return pwCheck;
       if (!tokenDeptAllows_(tokenDept, requiredDept)) return {ok:false,error:'This login is not allowed for this section'};
-      var result = {ok:true,username:rows[i][1],dept:tokenDept,role:String(rows[i][4]||''),pwDigest:currentPasswordDigestForUser_(username)};
+      var urow = getUserRowByName_(username);
+      var result = {ok:true,username:rows[i][1],dept:tokenDept,role:String(rows[i][4]||''),trade:tradeForUserRow_(urow),pwDigest:currentPasswordDigestForUser_(username)};
       try { cache.put(tkey, JSON.stringify(result), 300); } catch(e){}
       return result;
     }
@@ -521,7 +562,8 @@ function verifyTokenSession_(token) {
       var username = String(rows[i][1]||'').trim().toLowerCase();
       var pwCheck = ensureTokenPasswordValid_(ss, tsheet, i + 1, rows[i], username, token);
       if (!pwCheck.ok) return pwCheck;
-      var result = {ok:true,username:rows[i][1],dept:String(rows[i][2]||'').trim().toLowerCase(),role:String(rows[i][4]||''),pwDigest:currentPasswordDigestForUser_(username)};
+      var urow = getUserRowByName_(username);
+      var result = {ok:true,username:rows[i][1],dept:String(rows[i][2]||'').trim().toLowerCase(),role:String(rows[i][4]||''),trade:tradeForUserRow_(urow),pwDigest:currentPasswordDigestForUser_(username)};
       try { cache.put(tkey, JSON.stringify(result), 300); } catch(e){}
       return result;
     }
@@ -1083,7 +1125,13 @@ function handleGetHseInspections(body) {
 function handleAddIssue(body, sheetName) {
   var ss = getSS_();
   var sheet = ss.getSheetByName(sheetName) || ss.insertSheet(sheetName);
-  if (sheet.getLastRow()===0) sheet.appendRow(['id','project','building','floor','spot','issueType','note','date','photo','fixedPhoto','status','createdBy','createdAt','fixedBy','fixedAt','num']);
+  var isCivil = (sheetName === CIVIL_SHEET);
+  if (sheet.getLastRow()===0) {
+    if (isCivil) sheet.appendRow(['id','project','building','floor','spot','issueType','note','date','photo','fixedPhoto','status','createdBy','createdAt','fixedBy','fixedAt','num','assignedGroup']);
+    else sheet.appendRow(['id','project','building','floor','spot','issueType','note','date','photo','fixedPhoto','status','createdBy','createdAt','fixedBy','fixedAt','num']);
+  } else if (isCivil) {
+    ensureCivilIssueHeaders_(sheet);
+  }
   var id = String(body.id||'') || Utilities.getUuid();
   // Backfill numbers for any existing rows and reconcile the counter.
   var rows = sheet.getDataRange().getValues();
@@ -1097,7 +1145,11 @@ function handleAddIssue(body, sheetName) {
   try { props.setProperty(key, String(num)); } catch(e){}
   var reporter = String(body.supervisor||'').trim() || String(body.username||'');
   var status = issueStatusFromCondition_(body);
-  sheet.appendRow([id, body.project||'', body.building||'', body.floor||'', body.spot||'', body.issueType||'', body.note||'', body.date||'', body.photo||'', '', status, reporter, new Date().toISOString(), '', '', num]);
+  if (isCivil) {
+    sheet.appendRow([id, body.project||'', body.building||'', body.floor||'', body.spot||'', body.issueType||'', body.note||'', body.date||'', body.photo||'', '', status, reporter, new Date().toISOString(), '', '', num, '']);
+  } else {
+    sheet.appendRow([id, body.project||'', body.building||'', body.floor||'', body.spot||'', body.issueType||'', body.note||'', body.date||'', body.photo||'', '', status, reporter, new Date().toISOString(), '', '', num]);
+  }
   invalidateIssuesCache_(sheetName);
   return {ok:true, success:true, id:id, num:num};
 }
@@ -1123,13 +1175,21 @@ function handleUpdateIssue(body, sheetName) {
   return {ok:false, error:'Issue not found'};
 }
 
-function handleGetIssues(body, sheetName) {
+function handleGetIssues(body, sheetName, auth) {
   var ckey = issuesCacheKey_(sheetName);
+  var isWorker = auth && String(auth.role || '').toLowerCase() === 'worker' && sheetName === CIVIL_SHEET;
+  var workerTrade = '';
+  if (isWorker) {
+    workerTrade = normalizeTrade_(auth.trade || tradeForUserRow_(getUserRowByName_(auth.username)));
+    if (!workerTrade) return [];
+    ckey = ckey + '_w_' + workerTrade;
+  }
   var cached = issuesCacheGet_(ckey);
   if (cached) return cached;
   var ss = getSS_();
   var sheet = ss.getSheetByName(sheetName);
   if (!sheet||sheet.getLastRow()<2) return [];
+  if (sheetName === CIVIL_SHEET) ensureCivilIssueHeaders_(sheet);
   var tz = ss.getSpreadsheetTimeZone();
   var rows = sheet.getDataRange().getValues();
   ensureIssueNums_(sheet, sheetName, rows);
@@ -1138,23 +1198,64 @@ function handleGetIssues(body, sheetName) {
     var dv=rows[i][7]; var ds=(dv instanceof Date)?Utilities.formatDate(dv,tz,'yyyy-MM-dd'):String(dv);
     var st=String(rows[i][10]||'open');
     var fp=String(rows[i][9]||'');
-    out.push({id:String(rows[i][0]),num:Number(rows[i][ISSUE_NUM_COL-1]||0),project:String(rows[i][1]),building:String(rows[i][2]),floor:String(rows[i][3]),spot:String(rows[i][4]),issueType:String(rows[i][5]),note:String(rows[i][6]||''),date:ds,photo:String(rows[i][8]||''),fixedPhoto:(st==='fixed'?fp:''),status:st,createdBy:String(rows[i][11]||''),createdAt:dtIssue_(rows[i][12]),fixedBy:String(rows[i][13]||''),fixedAt:dtIssue_(rows[i][14])});
+    var assignedGroup = sheetName === CIVIL_SHEET ? normalizeTrade_(rows[i][CIVIL_ASSIGNED_COL - 1] || '') : '';
+    if (isWorker) {
+      if (st === 'fixed') continue;
+      if (assignedGroup !== workerTrade) continue;
+    }
+    out.push({id:String(rows[i][0]),num:Number(rows[i][ISSUE_NUM_COL-1]||0),project:String(rows[i][1]),building:String(rows[i][2]),floor:String(rows[i][3]),spot:String(rows[i][4]),issueType:String(rows[i][5]),note:String(rows[i][6]||''),date:ds,photo:String(rows[i][8]||''),fixedPhoto:(st==='fixed'?fp:''),status:st,createdBy:String(rows[i][11]||''),createdAt:dtIssue_(rows[i][12]),fixedBy:String(rows[i][13]||''),fixedAt:dtIssue_(rows[i][14]),assignedGroup:assignedGroup});
   }
   issuesCachePut_(ckey, out);
   return out;
 }
 
-function handleMarkFixed(body, sheetName) {
+function handleAssignCivilIssue(body, auth) {
+  var role = String((auth && auth.role) || '').toLowerCase();
+  if (role !== 'admin' && role !== 'editor') return {ok:false, error:'not_allowed', message:'Only engineer accounts can assign issues.'};
+  var group = normalizeTrade_(body.assignedGroup || body.group || '');
+  if (!group && body.assignedGroup !== '' && body.group !== '') return {ok:false, error:'invalid_group', message:'Invalid trade group. Use pipes, painting, tiles, or wood.'};
   var ss = getSS_();
-  var sheet = ss.getSheetByName(sheetName);
-  if (!sheet) return {ok:false,error:'Sheet not found'};
+  var sheet = ss.getSheetByName(CIVIL_SHEET);
+  if (!sheet) return {ok:false, error:'Sheet not found'};
+  ensureCivilIssueHeaders_(sheet);
   var rows = sheet.getDataRange().getValues();
   for (var i=1;i<rows.length;i++) {
     if (String(rows[i][0])===String(body.id)) {
+      sheet.getRange(i+1, CIVIL_ASSIGNED_COL).setValue(group);
+      invalidateIssuesCache_(CIVIL_SHEET);
+      return {ok:true, success:true, assignedGroup:group};
+    }
+  }
+  return {ok:false, error:'Issue not found'};
+}
+
+function handleMarkFixed(body, sheetName, auth) {
+  if (!String(body.fixedPhoto || '').trim()) return {ok:false, error:'photo_required', message:'A completion photo is required.'};
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) return {ok:false,error:'Sheet not found'};
+  if (sheetName === CIVIL_SHEET) ensureCivilIssueHeaders_(sheet);
+  var rows = sheet.getDataRange().getValues();
+  var role = String((auth && auth.role) || body._authRole || '').toLowerCase();
+  var workerTrade = '';
+  if (role === 'worker' && sheetName === CIVIL_SHEET) {
+    workerTrade = normalizeTrade_((auth && auth.trade) || body._authTrade || tradeForUserRow_(getUserRowByName_(body.username)));
+    if (!workerTrade) return {ok:false, error:'trade_not_set', message:'Worker trade not configured.'};
+  }
+  for (var i=1;i<rows.length;i++) {
+    if (String(rows[i][0])===String(body.id)) {
+      if (role === 'worker' && sheetName === CIVIL_SHEET) {
+        var ag = normalizeTrade_(rows[i][CIVIL_ASSIGNED_COL - 1] || '');
+        if (ag !== workerTrade) return {ok:false, error:'not_assigned', message:'This issue is not assigned to your team.'};
+        if (String(rows[i][10] || '') === 'fixed') return {ok:false, error:'already_fixed', message:'This issue is already fixed.'};
+      }
+      var fixedBy = String(body.username || '');
+      if (role !== 'worker' && body.fixedByName) fixedBy = String(body.fixedByName || fixedBy);
       sheet.getRange(i+1,10).setValue(body.fixedPhoto||'');
       sheet.getRange(i+1,11).setValue('fixed');
-      sheet.getRange(i+1,14).setValue(body.fixedByName||body.username||'');
+      sheet.getRange(i+1,14).setValue(fixedBy);
       sheet.getRange(i+1,15).setValue(new Date().toISOString());
+      if (body.fixNote) sheet.getRange(i+1,7).setValue(String(rows[i][6]||'') + (rows[i][6] ? ' | ' : '') + 'Fix: ' + String(body.fixNote));
       invalidateIssuesCache_(sheetName);
       return {ok:true,success:true};
     }

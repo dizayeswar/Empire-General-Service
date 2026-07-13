@@ -17,6 +17,184 @@ function initIssueCfg(){
 }
 initIssueCfg();
 
+var _workerFixUrl = null;
+var _workerFixId = null;
+function isCivilWorker() { return !!(ISSUE_CFG.workerMode && empireGetRole() === 'worker'); }
+function tradeGroups() { return ISSUE_CFG.tradeGroups || []; }
+function tradeGroupLabel(id) {
+  id = String(id || '').trim().toLowerCase();
+  if (!id) return 'Unassigned';
+  var g = tradeGroups().find(function (x) { return x.id === id; });
+  return g ? g.label : id;
+}
+function initTradeFilters() {
+  if (!tradeGroups().length) return;
+  var sel = document.getElementById('f-group');
+  if (!sel) return;
+  var cur = sel.value;
+  while (sel.options.length > 2) sel.remove(2);
+  tradeGroups().forEach(function (g) {
+    var o = document.createElement('option');
+    o.value = g.id;
+    o.textContent = g.label;
+    sel.appendChild(o);
+  });
+  if (cur) sel.value = cur;
+  buildTradeFilterBar();
+}
+function buildTradeFilterBar() {
+  var host = document.getElementById('tradeFilterBar');
+  if (!host || !tradeGroups().length) return;
+  var cur = (document.getElementById('f-group') || {}).value || '';
+  var open = allIssues.filter(function (r) { return r.status !== 'fixed'; });
+  var un = open.filter(function (r) { return !r.assignedGroup; }).length;
+  var list = [['', 'All (' + open.length + ')'], ['unassigned', 'Unassigned (' + un + ')']];
+  tradeGroups().forEach(function (g) {
+    var n = open.filter(function (r) { return r.assignedGroup === g.id; }).length;
+    list.push([g.id, g.label + ' (' + n + ')']);
+  });
+  host.innerHTML = list.map(function (pair) {
+    var p = pair[0], label = pair[1], sel = (cur === p);
+    return '<button type="button" onclick="selectTradeFilter(\'' + p + '\')" style="background:' + (sel ? 'var(--accent2)' : 'var(--btn-bg)') + ';color:' + (sel ? '#fff' : 'var(--btn-text)') + ';border-color:' + (sel ? 'var(--accent2)' : 'var(--btn-border)') + ';">' + label + '</button>';
+  }).join('');
+}
+function selectTradeFilter(g) {
+  var fg = document.getElementById('f-group');
+  if (fg) fg.value = g;
+  buildTradeFilterBar();
+  renderIssues();
+  if (window._issueFilterState) window._issueFilterState.save();
+}
+function tradeBadgeHtml(r) {
+  if (!tradeGroups().length) return '';
+  var lbl = tradeGroupLabel(r.assignedGroup);
+  var cls = r.assignedGroup ? 'trade-badge' : 'trade-badge unassigned';
+  return '<span class="' + cls + '">' + lbl + '</span>';
+}
+function assignIssue(id) {
+  var sel = document.getElementById('assign-group-' + id);
+  if (!sel || !ISSUE_CFG.actions.assign) return;
+  var group = sel.value;
+  fetchJSONRetry({ action: ISSUE_CFG.actions.assign, id: id, assignedGroup: group, token: issueToken() || '' })
+    .then(function (d) {
+      if (d && d.ok === false) {
+        if (empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts())) return;
+        throw new Error(d.message || d.error || 'Assign failed');
+      }
+      var it = allIssues.find(function (x) { return x.id === id; });
+      if (it) it.assignedGroup = group;
+      renderIssues();
+      buildTradeFilterBar();
+      openIssue(id);
+      uiAlert(group ? ('\u2705 Assigned to ' + tradeGroupLabel(group)) : '\u2705 Assignment cleared');
+    })
+    .catch(function (e) { uiAlert('\u274c ' + e.message); });
+}
+function enterWorkerApp() {
+  document.getElementById('loginPage').classList.remove('show');
+  document.getElementById('mainContainer').classList.remove('show');
+  var wa = document.getElementById('workerApp');
+  if (wa) wa.classList.add('show');
+  var trade = empireGetTrade() || '';
+  var title = document.getElementById('workerTeamTitle');
+  var who = document.getElementById('workerWho');
+  if (title) title.textContent = tradeGroupLabel(trade) + ' \u2014 open jobs';
+  if (who) who.textContent = (empireGetUser() || '') + ' (' + tradeGroupLabel(trade) + ' team)';
+  setTimeout(function () { loadIssues(false); }, 0);
+}
+function renderWorkerJobs() {
+  var host = document.getElementById('workerJobList');
+  var bar = document.getElementById('workerCountBar');
+  if (!host) return;
+  var rows = allIssues.filter(function (r) { return r.status !== 'fixed'; });
+  rows.sort(function (a, b) { return String(a.date || '').localeCompare(String(b.date || '')); });
+  if (bar) bar.textContent = rows.length + ' open job' + (rows.length === 1 ? '' : 's') + ' for your team';
+  if (!rows.length) {
+    host.innerHTML = '<p class="worker-empty">\u2705 No open jobs right now.<br><span style="font-size:13px;color:var(--text-soft);">Pull down or tap refresh when the engineer assigns new work.</span></p>';
+    return;
+  }
+  host.innerHTML = rows.map(function (r) {
+    var thumb = r.photo
+      ? '<img class="worker-job-thumb" src="' + r.photo + '" loading="lazy" alt="">'
+      : '<div class="worker-job-thumb worker-job-thumb-empty">No photo</div>';
+    return '<div class="worker-job-card" onclick="openWorkerJob(\'' + r.id + '\')">' + thumb
+      + '<div class="worker-job-body"><div class="worker-job-ref">#' + issueRef(r.num) + '</div>'
+      + '<div class="worker-job-type">' + r.issueType + '</div>'
+      + '<div class="worker-job-loc">' + locStr(r) + '</div>'
+      + '<div class="worker-job-proj">' + (projectNames[r.project] || r.project) + '</div></div></div>';
+  }).join('');
+}
+function openWorkerJob(id) {
+  var r = allIssues.find(function (x) { return x.id === id; });
+  if (!r) return;
+  _workerFixId = id;
+  _workerFixUrl = null;
+  var title = document.getElementById('workerModalTitle');
+  if (title) title.textContent = '#' + issueRef(r.num);
+  var body = document.getElementById('workerModalBody');
+  if (!body) return;
+  var h = '<h2>' + r.issueType + '</h2><p class="loc">' + (projectNames[r.project] || r.project) + ' &middot; ' + locStr(r) + '</p>';
+  if (r.note) h += '<p style="color:var(--text-soft);font-size:14px;margin-bottom:12px;"><strong>Note:</strong> ' + r.note + '</p>';
+  h += r.photo ? '<img class="worker-problem-img" src="' + r.photo + '" alt="Problem">' : '<p style="color:var(--text-faint);">No problem photo</p>';
+  h += '<div class="worker-fix-section"><h3>' + checkIconHtml() + ' Complete this job</h3><p style="font-size:13px;color:var(--text-soft);margin:0 0 10px;">Take a photo of the finished work. Photo is required.</p>';
+  h += '<div class="worker-fix-btns"><button type="button" class="primary" onclick="document.getElementById(\'worker-fix-file\').click()">Take photo</button></div>';
+  h += '<input type="file" id="worker-fix-file" accept="image/*" capture="environment" style="display:none" onchange="handleWorkerFixFile(event)">';
+  h += '<img id="worker-fix-preview" class="worker-fix-preview" alt="">';
+  h += '<input type="text" id="worker-fix-note" class="worker-fix-note" placeholder="Note (optional)">';
+  h += '<button type="button" id="worker-submit-btn" class="worker-submit-fix" disabled onclick="submitWorkerFix(\'' + id + '\')">Mark as fixed</button></div>';
+  body.innerHTML = h;
+  document.getElementById('workerJobModal').classList.add('show');
+}
+function closeWorkerJob() {
+  document.getElementById('workerJobModal').classList.remove('show');
+  _workerFixId = null;
+  _workerFixUrl = null;
+}
+function handleWorkerFixFile(e) {
+  var f = e.target.files && e.target.files[0];
+  if (f) processWorkerFixPhoto(f);
+  e.target.value = '';
+}
+function processWorkerFixPhoto(file) {
+  if (!file || !_workerFixId) return;
+  var btn = document.getElementById('worker-submit-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Uploading photo\u2026'; }
+  compressImage(file, function (url) {
+    if (url) {
+      _workerFixUrl = url;
+      var img = document.getElementById('worker-fix-preview');
+      if (img) { img.src = url; img.style.display = 'block'; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Mark as fixed'; }
+    } else {
+      uiAlert('\u274c Photo upload failed. Try again.');
+      if (btn) { btn.disabled = true; btn.textContent = 'Mark as fixed'; }
+    }
+  });
+}
+function submitWorkerFix(id) {
+  if (!_workerFixUrl) { uiAlert('Please take a completion photo first.'); return; }
+  var btn = document.getElementById('worker-submit-btn');
+  var noteEl = document.getElementById('worker-fix-note');
+  var note = noteEl ? noteEl.value.trim() : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving\u2026'; }
+  fetchJSONRetry({ action: ISSUE_CFG.actions.markFixed, id: id, fixedPhoto: _workerFixUrl, fixNote: note, token: issueToken() || '' })
+    .then(function (d) {
+      if (d && d.ok === false) {
+        if (empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts())) return;
+        throw new Error(d.message || d.error || 'Could not save');
+      }
+      allIssues = allIssues.filter(function (x) { return x.id !== id; });
+      writeIssuesCacheAsync(allIssues);
+      closeWorkerJob();
+      renderWorkerJobs();
+      uiAlert('\u2705 Job marked fixed!');
+    })
+    .catch(function (e) {
+      uiAlert('\u274c ' + e.message);
+      if (btn) { btn.disabled = false; btn.textContent = 'Mark as fixed'; }
+    });
+}
+
 var CHECK_ICON='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>';
 var SQUARE_ICON='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/></svg>';
 function checkIconHtml(color){ return '<span class="nav-icon" style="color:'+(color||'#27ae60')+';">'+CHECK_ICON+'</span>'; }
@@ -54,10 +232,18 @@ function applyPerms(){ if(window.tsPerm) window.tsPerm(); if(window.tsLoadGlobal
   function hideTab(act){ document.querySelectorAll('.tab-btn').forEach(function(b){ var o=b.getAttribute('onclick')||''; if(o.indexOf("'"+act+"'")!==-1) b.style.display='none'; }); }
   if(p.add===false) hideTab('add');
   if(p.analytics===false) hideTab('analytics');
+  if (isCivilWorker()) {
+    hideTab('add');
+    hideTab('analytics');
+    document.querySelectorAll('.side-actions button').forEach(function(b){
+      var o=b.getAttribute('onclick')||'';
+      if(o.indexOf('cleaning.html')!==-1 || o.indexOf('openResetModal')!==-1 || o.indexOf('rbOpen')!==-1) b.style.display='none';
+    });
+  }
   var rb=document.querySelector('button[onclick="openResetModal()"]'); if(rb && p.reset!==true) rb.style.display='none'; var tb=document.getElementById('btnTrash'); if(tb && p.reset!==true) tb.style.display='none';
   var wl=document.getElementById('whoLabel'); if(wl){ var u=empireGetUser()||''; var role=empireGetRole()||''; wl.textContent = u ? ('Logged in as: '+u+(role?(' ('+role+')'):'')) : ''; }
 }
-function handleLogin(e){ empireAuthLogin(e, ISSUE_CFG.dept, { onSuccess: function(d){ PAGEPERMS=d.perms||{}; enterApp(); applyPerms(); } }); }
+function handleLogin(e){ empireAuthLogin(e, ISSUE_CFG.dept, { onSuccess: function(d){ PAGEPERMS=d.perms||{}; if(typeof empireAuthSet==='function' && d.trade) empireAuthSet('trade', d.trade); if(isCivilWorker()) enterWorkerApp(); else enterApp(); applyPerms(); } }); }
 function logout(){ empireAuthLogout({ extraKeys: [ISSUES_CACHE_KEY, ISSUES_CACHE_TS_KEY], redirect: 'index.html', reload: false }); }
 function issueSessionLogoutOpts(){ return { extraKeys: [ISSUES_CACHE_KEY, ISSUES_CACHE_TS_KEY], redirect: 'index.html', reload: false }; }
 function forceSessionLogout(d){ empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts()); }
@@ -85,7 +271,7 @@ var _issuesListSig='';
 function issuesListSig(arr){ if(!arr||!arr.length) return '0'; return arr.length+'|'+String(arr[0].id)+'|'+String(arr[arr.length-1].id)+'|'+String(arr[0].status)+'|'+String(arr[arr.length-1].status); }
 function setIssuesFromData(arr){ var sig=issuesListSig(arr); var changed=(sig!==_issuesListSig); _issuesListSig=sig; allIssues=arr; return changed; }
 function deferHeavyRenders(){ var run=function(){ var ac=document.getElementById('analytics'); if(ac&&ac.classList.contains('active')) renderAnalytics(); }; if(window.requestIdleCallback) requestIdleCallback(run,{timeout:2500}); else setTimeout(run,80); }
-function loadIssues(force){ force=!!force; var cached=readIssuesCache(); if(cached){ setIssuesFromData(cached); requestAnimationFrame(function(){ renderIssues(); deferHeavyRenders(); }); } var spinEls=[document.getElementById('listRefreshIcon'),document.getElementById('navRefreshIcon')]; var cacheFresh=cached && !force && (Date.now()-readIssuesCacheTs()<ISSUES_CACHE_TTL); if(cacheFresh) return; var it=document.getElementById('issuesTable'); if(it && !cached) it.innerHTML=LOADING_HTML; spinEls.forEach(function(el){ if(el) el.classList.add('spinning'); }); if(_issuesFetchCtrl) try{ _issuesFetchCtrl.abort(); }catch(e){} _issuesFetchCtrl=new AbortController(); fetchIssuesFromServer(_issuesFetchCtrl.signal).then(function(d){ if(Array.isArray(d)){ var changed=setIssuesFromData(d); writeIssuesCacheAsync(d); if(changed){ requestAnimationFrame(function(){ renderIssues(); deferHeavyRenders(); }); } } else if(d&&d.ok===false){ forceSessionLogout(d); } }).catch(function(e){ if(e&&e.name==='AbortError') return; if(!cached && it) it.innerHTML='<p>Error loading: '+e.message+'</p>'; }).finally(function(){ spinEls.forEach(function(el){ if(el) el.classList.remove('spinning'); }); }); }
+function loadIssues(force){ force=!!force; if(isCivilWorker()){ var cached=readIssuesCache(); if(cached){ setIssuesFromData(cached); renderWorkerJobs(); } } var cached=readIssuesCache(); if(cached && !isCivilWorker()){ setIssuesFromData(cached); requestAnimationFrame(function(){ renderIssues(); deferHeavyRenders(); }); } var spinEls=[document.getElementById('listRefreshIcon'),document.getElementById('navRefreshIcon'),document.getElementById('workerRefreshIcon')]; var cacheFresh=cached && !force && (Date.now()-readIssuesCacheTs()<ISSUES_CACHE_TTL); if(cacheFresh) return; var it=document.getElementById('issuesTable'); if(it && !cached && !isCivilWorker()) it.innerHTML=LOADING_HTML; spinEls.forEach(function(el){ if(el) el.classList.add('spinning'); }); if(_issuesFetchCtrl) try{ _issuesFetchCtrl.abort(); }catch(e){} _issuesFetchCtrl=new AbortController(); fetchIssuesFromServer(_issuesFetchCtrl.signal).then(function(d){ if(Array.isArray(d)){ var changed=setIssuesFromData(d); writeIssuesCacheAsync(d); if(isCivilWorker()) renderWorkerJobs(); else if(changed){ requestAnimationFrame(function(){ renderIssues(); deferHeavyRenders(); }); buildTradeFilterBar(); } } else if(d&&d.ok===false){ forceSessionLogout(d); } }).catch(function(e){ if(e&&e.name==='AbortError') return; if(!cached && it && !isCivilWorker()) it.innerHTML='<p>Error loading: '+e.message+'</p>'; if(isCivilWorker()){ var wl=document.getElementById('workerJobList'); if(wl && !cached) wl.innerHTML='<p class="worker-empty">Error: '+e.message+'</p>'; } }).finally(function(){ spinEls.forEach(function(el){ if(el) el.classList.remove('spinning'); }); }); }
 function locStr(r){ return r.building+' \u00B7 '+r.floor+' \u00B7 '+r.spot; }
 function dayOf(r){ var d=String(r.date||r.createdAt||''); if(/^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0,10); var dt=new Date(d.replace(' ','T')); if(!isNaN(dt.getTime())){ var z=function(n){return String(n).padStart(2,'0');}; return dt.getFullYear()+'-'+z(dt.getMonth()+1)+'-'+z(dt.getDate()); } return ''; }
 function monthOf(r){ var d=String(r.date||r.createdAt||''); if(!/^\d{4}-\d{2}-\d{2}/.test(d)) return ''; var yr=parseInt(d.slice(0,4),10), mo=parseInt(d.slice(5,7),10), dy=parseInt(d.slice(8,10),10); if(dy>=26){ mo+=1; if(mo>12){mo=1;yr+=1;} } return yr+'-'+String(mo).padStart(2,'0'); }
@@ -112,9 +298,17 @@ function getIssueViewMode(){ try{ return localStorage.getItem(ISSUE_VIEW_KEY)===
 function setIssueViewMode(m){ try{ localStorage.setItem(ISSUE_VIEW_KEY,m); }catch(e){} renderIssues(); }
 function issueActionBtns(r){ return '<button type="button" onclick="event.stopPropagation();shareIssueWhatsApp(\''+r.id+'\')" title="Share on WhatsApp" style="background:#25D366;color:#fff;border:none;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:none;margin-right:6px;">'+whatsappIconHtml()+'</button>'+(PAGEPERMS.edit!==false?'<button type="button" onclick="event.stopPropagation();editIssue(\''+r.id+'\')" title="Edit issue" style="background:var(--accent2);color:#fff;border:none;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:none;margin-right:6px;">'+pencilIconHtml()+'</button>':'')+(PAGEPERMS.del!==false?'<button type="button" onclick="event.stopPropagation();removeIssue(\''+r.id+'\')" title="Delete issue" style="background:#C5504F;color:#fff;border:none;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:none;">'+trashIconHtml()+'</button>':''); }
 function viewToggleHtml(){ var v=getIssueViewMode(); return '<div class="view-toggle"><button type="button" class="view-toggle-btn'+(v==='table'?' active':'')+'" onclick="setIssueViewMode(\'table\')" title="Table view" aria-label="Table view"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h18"/></svg></button><button type="button" class="view-toggle-btn'+(v==='grid'?' active':'')+'" onclick="setIssueViewMode(\'grid\')" title="Grid view" aria-label="Grid view"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button></div>'; }
-function renderIssues(){ const fp=document.getElementById('f-project').value; const fs=document.getElementById('f-status').value; const fm=(document.getElementById('f-month')||{}).value||''; const q=(document.getElementById('f-search').value||'').toLowerCase(); let rows=allIssues.filter(r=>{ if(fp&&r.project!==fp)return false; if(fs&&r.status!==fs)return false; if(fm&&dayOf(r)!==fm)return false; if(q){ var qn=q.replace(/[#\s]/g,''); var ref=issueRef(r.num).toLowerCase(); if(/^[a-z]+\d+$/.test(qn)){ if(qn!==ref)return false; } else if(/^\d+$/.test(qn)){ if(String(r.num||'')!==qn)return false; } else { const hay=(r.building+' '+r.floor+' '+r.spot+' '+r.issueType).toLowerCase(); if(hay.indexOf(q)===-1)return false; } } return true; }); rows.sort((a,b)=>(b.date||'').localeCompare(a.date||'')); const oc=rows.filter(r=>r.status!=='fixed').length; const fc=rows.length-oc; const view=getIssueViewMode(); let h='<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;"><p style="color:var(--text-soft);margin:0;">'+rows.length+' issue(s)'+(fm?(' in '+fm):'')+' &nbsp;&mdash;&nbsp; <span style="color:var(--open-color);">'+squareIconHtml('var(--open-color)')+' '+oc+' open</span> &nbsp;&mdash;&nbsp; <span style="color:#1d9e75;">'+checkIconHtml('#1d9e75')+' '+fc+' fixed</span></p>'+viewToggleHtml()+'</div>'+issueSelectToolbarHtml(); if(rows.length===0){ h+='<p style="color:var(--text-faint);">No issues match.</p>'; } else if(view==='grid'){ h+='<div class="issue-grid">'; rows.forEach(function(r){ var sel=!!selectedIssueIds[r.id]; var cardClick=issueSelectMode?"toggleIssueSelected('"+r.id+"')":"openIssue('"+r.id+"')"; h+='<div class="issue-card'+(sel?' selected':'')+(issueSelectMode?' selecting':'')+'" onclick="'+cardClick+'">'+(issueSelectMode?('<div class="issue-card-check" onclick="event.stopPropagation()"><input type="checkbox"'+(sel?' checked':'')+' onclick="event.stopPropagation();toggleIssueSelected(\''+r.id+'\')" aria-label="Select issue"></div>'):'')+(r.photo?'<img class="issue-card-photo" src="'+r.photo+'" loading="lazy" alt="">':'<div class="issue-card-photo issue-card-nophoto">No photo</div>')+'<div class="issue-card-body"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;"><span style="color:var(--text-faint);font-weight:700;">#'+issueRef(r.num)+'</span><span class="badge '+(r.status==='fixed'?'fixed':'open')+'">'+(r.status==='fixed'?checkIconHtml('currentColor')+' Fixed':squareIconHtml('currentColor')+' Open')+'</span></div><div style="font-weight:600;line-height:1.35;margin-bottom:6px;">'+r.issueType+(r.note?' <span style="color:var(--text-faint);font-weight:400;">('+r.note+')</span>':'')+'</div><div style="color:var(--text-soft);font-size:13px;margin-bottom:4px;">'+locStr(r)+'</div><div style="color:var(--text-faint);font-size:12px;margin-bottom:10px;">'+dateOnly(r.date)+'</div>'+(issueSelectMode?'':('<div style="text-align:right;" onclick="event.stopPropagation()">'+issueActionBtns(r)+'</div>'))+'</div></div>'; }); h+='</div>'; } else { h+='<table><thead><tr>'+(issueSelectMode?'<th style="width:36px;"></th>':'')+'<th>#</th><th>Issue</th><th>Location</th><th>Date</th><th>Status</th><th>Photo</th>'+(issueSelectMode?'':'<th></th>')+'</tr></thead><tbody>'; rows.forEach(function(r){ var sel=!!selectedIssueIds[r.id]; var rowClick=issueSelectMode?"toggleIssueSelected('"+r.id+"')":"openIssue('"+r.id+"')"; h+='<tr class="issue-row'+(sel?' selected':'')+'" onclick="'+rowClick+'"'+(sel?' style="background:var(--row-hover);"':'')+'>'; if(issueSelectMode) h+='<td onclick="event.stopPropagation()"><input type="checkbox"'+(sel?' checked':'')+' onclick="event.stopPropagation();toggleIssueSelected(\''+r.id+'\')" aria-label="Select issue"></td>'; h+='<td style="color:var(--text-faint);font-weight:700;white-space:nowrap;">#'+issueRef(r.num)+'</td><td>'+r.issueType+(r.note?' <span style="color:var(--text-faint);">('+r.note+')</span>':'')+'</td><td>'+locStr(r)+'</td><td>'+dateOnly(r.date)+'</td><td><span class="badge '+(r.status==='fixed'?'fixed':'open')+'">'+(r.status==='fixed'?checkIconHtml('currentColor')+' Fixed':squareIconHtml('currentColor')+' Open')+'</span></td><td>'+(r.photo?'<img class="thumb" src="'+r.photo+'" loading="lazy">':'?')+'</td>'; if(!issueSelectMode) h+='<td>'+issueActionBtns(r)+'</td>'; h+='</tr>'; }); h+='</tbody></table>'; } document.getElementById('issuesTable').innerHTML=h; }
+function renderIssues(){ if(isCivilWorker()){ renderWorkerJobs(); return; } const fp=document.getElementById('f-project').value; const fs=document.getElementById('f-status').value; const fm=(document.getElementById('f-month')||{}).value||''; const fg=(document.getElementById('f-group')||{}).value||''; const q=(document.getElementById('f-search').value||'').toLowerCase(); let rows=allIssues.filter(r=>{ if(fp&&r.project!==fp)return false; if(fs&&r.status!==fs)return false; if(fm&&dayOf(r)!==fm)return false; if(fg){ if(fg==='unassigned'){ if(r.assignedGroup)return false; } else if(r.assignedGroup!==fg) return false; } if(q){ var qn=q.replace(/[#\s]/g,''); var ref=issueRef(r.num).toLowerCase(); if(/^[a-z]+\d+$/.test(qn)){ if(qn!==ref)return false; } else if(/^\d+$/.test(qn)){ if(String(r.num||'')!==qn)return false; } else { const hay=(r.building+' '+r.floor+' '+r.spot+' '+r.issueType).toLowerCase(); if(hay.indexOf(q)===-1)return false; } } return true; }); rows.sort((a,b)=>(b.date||'').localeCompare(a.date||'')); const oc=rows.filter(r=>r.status!=='fixed').length; const fc=rows.length-oc; const openAll=allIssues.filter(r=>r.status!=='fixed'); const unAssign=openAll.filter(r=>!r.assignedGroup).length; const view=getIssueViewMode(); let teamBits=''; if(tradeGroups().length){ teamBits=' &nbsp;&mdash;&nbsp; <span style="color:var(--c-warn,#b8860b);">'+unAssign+' unassigned</span>'; } let h='<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;"><p style="color:var(--text-soft);margin:0;">'+rows.length+' issue(s)'+(fm?(' in '+fm):'')+' &nbsp;&mdash;&nbsp; <span style="color:var(--open-color);">'+squareIconHtml('var(--open-color)')+' '+oc+' open</span> &nbsp;&mdash;&nbsp; <span style="color:#1d9e75;">'+checkIconHtml('#1d9e75')+' '+fc+' fixed</span>'+teamBits+'</p>'+viewToggleHtml()+'</div>'+issueSelectToolbarHtml(); if(rows.length===0){ h+='<p style="color:var(--text-faint);">No issues match.</p>'; } else if(view==='grid'){ h+='<div class="issue-grid">'; rows.forEach(function(r){ var sel=!!selectedIssueIds[r.id]; var cardClick=issueSelectMode?"toggleIssueSelected('"+r.id+"')":"openIssue('"+r.id+"')"; h+='<div class="issue-card'+(sel?' selected':'')+(issueSelectMode?' selecting':'')+'" onclick="'+cardClick+'">'+(issueSelectMode?('<div class="issue-card-check" onclick="event.stopPropagation()"><input type="checkbox"'+(sel?' checked':'')+' onclick="event.stopPropagation();toggleIssueSelected(\''+r.id+'\')" aria-label="Select issue"></div>'):'')+(r.photo?'<img class="issue-card-photo" src="'+r.photo+'" loading="lazy" alt="">':'<div class="issue-card-photo issue-card-nophoto">No photo</div>')+'<div class="issue-card-body"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;"><span style="color:var(--text-faint);font-weight:700;">#'+issueRef(r.num)+'</span><span class="badge '+(r.status==='fixed'?'fixed':'open')+'">'+(r.status==='fixed'?checkIconHtml('currentColor')+' Fixed':squareIconHtml('currentColor')+' Open')+'</span></div><div style="font-weight:600;line-height:1.35;margin-bottom:6px;">'+r.issueType+tradeBadgeHtml(r)+(r.note?' <span style="color:var(--text-faint);font-weight:400;">('+r.note+')</span>':'')+'</div><div style="color:var(--text-soft);font-size:13px;margin-bottom:4px;">'+locStr(r)+'</div><div style="color:var(--text-faint);font-size:12px;margin-bottom:10px;">'+dateOnly(r.date)+'</div>'+(issueSelectMode?'':('<div style="text-align:right;" onclick="event.stopPropagation()">'+issueActionBtns(r)+'</div>'))+'</div></div>'; }); h+='</div>'; } else { var teamTh=tradeGroups().length?'<th>Team</th>':''; h+='<table><thead><tr>'+(issueSelectMode?'<th style="width:36px;"></th>':'')+'<th>#</th><th>Issue</th><th>Location</th>'+teamTh+'<th>Date</th><th>Status</th><th>Photo</th>'+(issueSelectMode?'':'<th></th>')+'</tr></thead><tbody>'; rows.forEach(function(r){ var sel=!!selectedIssueIds[r.id]; var rowClick=issueSelectMode?"toggleIssueSelected('"+r.id+"')":"openIssue('"+r.id+"')"; h+='<tr class="issue-row'+(sel?' selected':'')+'" onclick="'+rowClick+'"'+(sel?' style="background:var(--row-hover);"':'')+'>'; if(issueSelectMode) h+='<td onclick="event.stopPropagation()"><input type="checkbox"'+(sel?' checked':'')+' onclick="event.stopPropagation();toggleIssueSelected(\''+r.id+'\')" aria-label="Select issue"></td>'; h+='<td style="color:var(--text-faint);font-weight:700;white-space:nowrap;">#'+issueRef(r.num)+'</td><td>'+r.issueType+tradeBadgeHtml(r)+(r.note?' <span style="color:var(--text-faint);">('+r.note+')</span>':'')+'</td><td>'+locStr(r)+'</td>'; if(tradeGroups().length) h+='<td>'+tradeGroupLabel(r.assignedGroup)+'</td>'; h+='<td>'+dateOnly(r.date)+'</td><td><span class="badge '+(r.status==='fixed'?'fixed':'open')+'">'+(r.status==='fixed'?checkIconHtml('currentColor')+' Fixed':squareIconHtml('currentColor')+' Open')+'</span></td><td>'+(r.photo?'<img class="thumb" src="'+r.photo+'" loading="lazy">':'?')+'</td>'; if(!issueSelectMode) h+='<td>'+issueActionBtns(r)+'</td>'; h+='</tr>'; }); h+='</tbody></table>'; } document.getElementById('issuesTable').innerHTML=h; }
 function durationStr(a,b){ if(!a||!b) return ''; const pr=s=>new Date(String(s).replace(' ','T')); const d1=pr(a), d2=pr(b); if(isNaN(d1.getTime())||isNaN(d2.getTime())) return ''; let ms=d2-d1; if(ms<0) return ''; const days=Math.floor(ms/86400000); const hrs=Math.floor((ms%86400000)/3600000); const mins=Math.floor((ms%3600000)/60000); let parts=[]; if(days)parts.push(days+'d'); if(hrs)parts.push(hrs+'h'); if(!days&&!hrs)parts.push(mins+'m'); return ' \u2014 took '+parts.join(' '); }
-function openIssue(id){ const r=allIssues.find(x=>x.id===id); if(!r)return; let h='<span class="close-x" onclick="closeIssueModal()">&times;</span>'; h+='<h2><span style="color:var(--text-faint);font-weight:700;">#'+issueRef(r.num)+'</span> '+r.issueType+'</h2><p style="color:var(--text-soft);">'+locStr(r)+' &middot; <span class="badge '+(r.status==='fixed'?'fixed':'open')+'">'+(r.status==='fixed'?checkIconHtml('currentColor')+' Fixed':squareIconHtml('currentColor')+' Open')+'</span></p>'; h+='<p style="margin-top:8px;"><strong>'+squareIconHtml()+' Reported:</strong> '+dateOnly(r.date||r.createdAt)+(r.createdBy?(' (by '+r.createdBy+')'):'')+'</p>'; if(r.status==='fixed'){ h+='<p style="margin-top:4px;"><strong>'+checkIconHtml()+' Fixed:</strong> '+(dateOnly(r.fixedAt)||'\u2014')+(r.fixedBy?(' (by '+r.fixedBy+')'):'')+'<span style="color:var(--text-faint);">'+durationStr(r.createdAt||r.date, r.fixedAt)+'</span></p>'; } if(r.note)h+='<p style="margin-top:8px;"><strong>Note:</strong> '+r.note+'</p>'; h+='<div style="margin:12px 0 4px;"><button type="button" onclick="shareIssueWhatsApp(\''+r.id+'\')" style="background:#25D366;color:#fff;border:none;padding:10px 16px;border-radius:50px;font-weight:600;display:inline-flex;align-items:center;gap:8px;cursor:pointer;box-shadow:none;">'+whatsappIconHtml()+' Share on WhatsApp</button></div>'; h+='<div class="beforeafter"><div><p style="color:var(--text-soft);margin-bottom:6px;">Problem</p>'+(r.photo?'<img src="'+r.photo+'" onclick="bigImg(this.src)">':'<p>No photo</p>')+'</div><div><p style="color:var(--text-soft);margin-bottom:6px;">Fixed</p>'+(r.fixedPhoto?'<img src="'+r.fixedPhoto+'" onclick="bigImg(this.src)">':'<p style="color:var(--text-faint);">Not fixed yet</p>')+'</div></div>'; if(r.status!=='fixed' && PAGEPERMS.edit!==false){ if(ISSUE_CFG.requireFixByName){ h+='<div style="margin:14px 0 4px;"><label style="font-weight:600;display:block;margin-bottom:6px;">Job was done by:</label><input type="text" id="fix-by" placeholder="Enter the name of who did the job" style="width:100%;max-width:340px;padding:10px;border:2px solid var(--input-border);border-radius:8px;background:var(--input-bg);color:var(--text);font-size:14px;box-sizing:border-box;"></div>'; } h+='<h3>'+checkIconHtml()+' Mark as fixed</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;"><button type="button" onclick="document.getElementById(\'fix-file\').click()"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/><circle cx="14" cy="15" r="1"/></svg></span> Upload / Camera</button><span style="color:var(--text-soft);font-size:13px;">? or paste below ?</span><input type="file" id="fix-file" accept="image/*" style="display:none" onchange="handleFixFile(event,\''+r.id+'\')"></div><div class="image-upload" id="fix-area" onpaste="pasteFix(event,\''+r.id+'\')">Click here and paste the photo of the completed fix (Ctrl+V)</div>'; } document.getElementById('issueBox').innerHTML=h; document.getElementById('issueModal').classList.add('show'); }
+function assignBoxHtml(r) {
+  if (!tradeGroups().length || PAGEPERMS.assign === false) return '';
+  var opts = '<option value="">Unassigned</option>';
+  tradeGroups().forEach(function (g) {
+    opts += '<option value="' + g.id + '"' + (r.assignedGroup === g.id ? ' selected' : '') + '>' + g.label + '</option>';
+  });
+  return '<div class="assign-box" onclick="event.stopPropagation()"><label>Assign to team</label><div class="assign-row"><select id="assign-group-' + r.id + '">' + opts + '</select><button type="button" onclick="assignIssue(\'' + r.id + '\')">Save</button></div></div>';
+}
+function openIssue(id){ const r=allIssues.find(x=>x.id===id); if(!r)return; let h='<span class="close-x" onclick="closeIssueModal()">&times;</span>'; h+='<h2><span style="color:var(--text-faint);font-weight:700;">#'+issueRef(r.num)+'</span> '+r.issueType+tradeBadgeHtml(r)+'</h2><p style="color:var(--text-soft);">'+locStr(r)+' &middot; <span class="badge '+(r.status==='fixed'?'fixed':'open')+'">'+(r.status==='fixed'?checkIconHtml('currentColor')+' Fixed':squareIconHtml('currentColor')+' Open')+'</span></p>'; h+='<p style="margin-top:8px;"><strong>'+squareIconHtml()+' Reported:</strong> '+dateOnly(r.date||r.createdAt)+(r.createdBy?(' (by '+r.createdBy+')'):'')+'</p>'; if(r.status==='fixed'){ h+='<p style="margin-top:4px;"><strong>'+checkIconHtml()+' Fixed:</strong> '+(dateOnly(r.fixedAt)||'\u2014')+(r.fixedBy?(' (by '+r.fixedBy+')'):'')+'<span style="color:var(--text-faint);">'+durationStr(r.createdAt||r.date, r.fixedAt)+'</span></p>'; } if(r.note)h+='<p style="margin-top:8px;"><strong>Note:</strong> '+r.note+'</p>'; if(r.status!=='fixed') h+=assignBoxHtml(r); h+='<div style="margin:12px 0 4px;"><button type="button" onclick="shareIssueWhatsApp(\''+r.id+'\')" style="background:#25D366;color:#fff;border:none;padding:10px 16px;border-radius:50px;font-weight:600;display:inline-flex;align-items:center;gap:8px;cursor:pointer;box-shadow:none;">'+whatsappIconHtml()+' Share on WhatsApp</button></div>'; h+='<div class="beforeafter"><div><p style="color:var(--text-soft);margin-bottom:6px;">Problem</p>'+(r.photo?'<img src="'+r.photo+'" onclick="bigImg(this.src)">':'<p>No photo</p>')+'</div><div><p style="color:var(--text-soft);margin-bottom:6px;">Fixed</p>'+(r.fixedPhoto?'<img src="'+r.fixedPhoto+'" onclick="bigImg(this.src)">':'<p style="color:var(--text-faint);">Not fixed yet</p>')+'</div></div>'; if(r.status!=='fixed' && PAGEPERMS.edit!==false){ if(ISSUE_CFG.requireFixByName){ h+='<div style="margin:14px 0 4px;"><label style="font-weight:600;display:block;margin-bottom:6px;">Job was done by:</label><input type="text" id="fix-by" placeholder="Enter the name of who did the job" style="width:100%;max-width:340px;padding:10px;border:2px solid var(--input-border);border-radius:8px;background:var(--input-bg);color:var(--text);font-size:14px;box-sizing:border-box;"></div>'; } h+='<h3>'+checkIconHtml()+' Mark as fixed</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;"><button type="button" onclick="document.getElementById(\'fix-file\').click()"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/><circle cx="14" cy="15" r="1"/></svg></span> Upload / Camera</button><span style="color:var(--text-soft);font-size:13px;">? or paste below ?</span><input type="file" id="fix-file" accept="image/*" style="display:none" onchange="handleFixFile(event,\''+r.id+'\')"></div><div class="image-upload" id="fix-area" onpaste="pasteFix(event,\''+r.id+'\')">Click here and paste the photo of the completed fix (Ctrl+V)</div>'; } document.getElementById('issueBox').innerHTML=h; document.getElementById('issueModal').classList.add('show'); }
 function closeIssueModal(){ document.getElementById('issueModal').classList.remove('show'); }
 function processFix(id, file){ if(!file) return; var by=''; if(ISSUE_CFG.requireFixByName){ const byEl=document.getElementById('fix-by'); by=byEl?byEl.value.trim():''; if(!by){ alert('Please enter who did the job first ("Job was done by")'); if(byEl)byEl.focus(); return; } } const area=document.getElementById('fix-area'); if(area) area.innerHTML='\u23F3 Uploading\u2026'; compressImage(file,url=>{ if(url){ var payload={action:ISSUE_CFG.actions.markFixed,id:id,fixedPhoto:url,token:issueToken()||''}; if(ISSUE_CFG.requireFixByName) payload.fixedByName=by; fetchJSONRetry(payload).then(()=>{ const it=allIssues.find(x=>x.id===id); if(it){ it.status='fixed'; it.fixedPhoto=url; const now=new Date(); const z=n=>String(n).padStart(2,'0'); it.fixedAt=now.getFullYear()+'-'+z(now.getMonth()+1)+'-'+z(now.getDate())+' '+z(now.getHours())+':'+z(now.getMinutes()); it.fixedBy=by||empireGetUser()||''; } renderIssues(); renderAnalytics(); openIssue(id); }).catch(er=>{ if(area) area.innerHTML='\u274C '+er.message; }); } else { if(area) area.innerHTML='\u274C Upload failed, try again'; } }); }
 function pasteFix(e,id){ const items=e.clipboardData.items; for(let i=0;i<items.length;i++){ if(items[i].type.indexOf('image')!==-1){ e.preventDefault(); processFix(id, items[i].getAsFile()); return; } } }
@@ -128,10 +322,10 @@ function syncRepMonth(){ var y=(document.getElementById('rep-month-y')||{}).valu
 function renderAnalytics(){ const total=allIssues.length; const open=allIssues.filter(r=>r.status!=='fixed').length; const fixed=total-open; let h='<div class="stats"><div class="stat-box"><div class="stat-value">'+total+'</div><div class="stat-label">Total Issues</div></div><div class="stat-box"><div class="stat-value" style="color:var(--open-color);">'+open+'</div><div class="stat-label">Open</div></div><div class="stat-box"><div class="stat-value" style="color:#27ae60;">'+fixed+'</div><div class="stat-label">Fixed</div></div></div>'; h+='<h3>Open vs Fixed</h3><div style="display:flex;flex-wrap:wrap;gap:26px;align-items:center;margin:10px 0 22px;">'+donutHtml(open,fixed,total)+'<div style="display:flex;flex-wrap:wrap;gap:12px;">'+['ec','es','wd','ww','ra'].map(function(p){ var pr=allIssues.filter(function(r){return r.project===p;}); var o=pr.filter(function(r){return r.status!=='fixed';}).length; return miniDonutHtml(projectNames[p],o,pr.length-o); }).join('')+'</div></div>'; var colg='<colgroup><col style="width:40%"><col style="width:20%"><col style="width:20%"><col style="width:20%"></colgroup>'; h+='<h3>By Project</h3><table style="table-layout:fixed;width:100%;">'+colg+'<thead><tr><th>Project</th><th>Open</th><th>Fixed</th><th>Total</th></tr></thead><tbody>'; ['ec','es','wd','ww','ra'].forEach(p=>{ const pr=allIssues.filter(r=>r.project===p); if(pr.length===0)return; const o=pr.filter(r=>r.status!=='fixed').length; h+='<tr><td>'+projectNames[p]+'</td><td style="color:var(--open-color);">'+o+'</td><td style="color:#1d9e75;">'+(pr.length-o)+'</td><td>'+pr.length+'</td></tr>'; }); h+='</tbody></table>'; const types={}; allIssues.forEach(r=>{ const t=r.issueType; if(!types[t]) types[t]={open:0,fixed:0}; if(r.status==='fixed') types[t].fixed++; else types[t].open++; }); h+='<h3>By Issue Type</h3><table style="table-layout:fixed;width:100%;">'+colg+'<thead><tr><th>Type</th><th>Open</th><th>Fixed</th><th>Total</th></tr></thead><tbody>'; Object.keys(types).sort((a,b)=>(types[b].open+types[b].fixed)-(types[a].open+types[a].fixed)).forEach(t=>{ const o=types[t].open,f=types[t].fixed; h+='<tr><td>'+t+'</td><td style="color:var(--open-color);">'+o+'</td><td style="color:#1d9e75;">'+f+'</td><td>'+(o+f)+'</td></tr>'; }); h+='</tbody></table>'; document.getElementById('analyticsContent').innerHTML=h; }
 function switchTab(e,t){ document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); e.target.classList.add('active'); empireSaveActiveTab(ISSUE_CFG.prefix+'_active_tab', t); if(t==='add'){ window._editingId=null; var eb=document.getElementById('editBanner'); if(eb) eb.style.display='none'; } if(t==='analytics') renderAnalytics(); }
 function switchTabTo(t){ document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); document.querySelectorAll('.tab-btn').forEach(b=>{ if(b.getAttribute('onclick').indexOf("'"+t+"'")!==-1) b.classList.add('active'); }); }
-function enterApp(){ document.getElementById('loginPage').classList.remove('show'); document.getElementById('mainContainer').classList.add('show'); applyPerms(); refreshPerms(); populateSelect('ci-project',['ec','es','wd','ww','ra'],true); updateCIBuildings(); populateSelect('ci-spot',spots,false); populateSelect('ci-issuetype',issueTypes,false); const fp=document.getElementById('f-project'); if(fp && fp.options.length<=1){ ['ec','es','wd','ww','ra'].forEach(p=>{ const o=document.createElement('option'); o.value=p;o.textContent=projectNames[p]; fp.appendChild(o); }); } window._issueFilterState=empireBindFilterPersistence({ key:ISSUE_CFG.prefix+'_list_filters', fields:['f-project','f-status','f-month','f-search'], onApply:function(){ buildProjectFilterBar(); renderIssues(); } }); buildProjectFilterBar(); initRepMonth(); document.getElementById('ci-date').value=new Date().toISOString().split('T')[0]; var tab=empireRestoreActiveTab(ISSUE_CFG.prefix+'_active_tab','list'); switchTabTo(tab); if(tab==='analytics') renderAnalytics(); setTimeout(function(){ loadIssues(false); },0); }
+function enterApp(){ document.getElementById('loginPage').classList.remove('show'); var wa=document.getElementById('workerApp'); if(wa) wa.classList.remove('show'); document.getElementById('mainContainer').classList.add('show'); applyPerms(); refreshPerms(); populateSelect('ci-project',['ec','es','wd','ww','ra'],true); updateCIBuildings(); populateSelect('ci-spot',spots,false); populateSelect('ci-issuetype',issueTypes,false); const fp=document.getElementById('f-project'); if(fp && fp.options.length<=1){ ['ec','es','wd','ww','ra'].forEach(p=>{ const o=document.createElement('option'); o.value=p;o.textContent=projectNames[p]; fp.appendChild(o); }); } initTradeFilters(); window._issueFilterState=empireBindFilterPersistence({ key:ISSUE_CFG.prefix+'_list_filters', fields:['f-project','f-group','f-status','f-month','f-search'], onApply:function(){ buildProjectFilterBar(); buildTradeFilterBar(); renderIssues(); } }); buildProjectFilterBar(); initRepMonth(); document.getElementById('ci-date').value=new Date().toISOString().split('T')[0]; var tab=empireRestoreActiveTab(ISSUE_CFG.prefix+'_active_tab','list'); switchTabTo(tab); if(tab==='analytics') renderAnalytics(); setTimeout(function(){ loadIssues(false); },0); }
 var _lastPermFetch=0;
 function refreshPerms(){ var tk=issueToken(); if(!tk) return; var now=Date.now(); if(now-_lastPermFetch<300000) return; _lastPermFetch=now; empireAuthRefreshPerms(function(d){ PAGEPERMS=d.perms||empireGetPerms(); applyPerms(); }); }
-function bootApp(){ empireAuthPageBoot({ dept: ISSUE_CFG.dept, onEnter: enterApp }); }
+function bootApp(){ empireAuthPageBoot({ dept: ISSUE_CFG.dept, onEnter: function(){ if(isCivilWorker()) enterWorkerApp(); else enterApp(); } }); }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', bootApp); else bootApp();
 // ===== Reset Data (password) =====
 function openResetModal(){ document.getElementById('resetPwInput').value=''; document.getElementById('resetMsg').textContent=''; document.getElementById('resetModal').style.display='flex'; setTimeout(function(){document.getElementById('resetPwInput').focus();},30); }

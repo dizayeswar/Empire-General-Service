@@ -91,6 +91,28 @@ Sheet tab: **Users**
 | D | Role | `admin`, `editor`, or `viewer` |
 | E | Hide (optional) | `Analytics` or `Dashboard,Monthly` |
 | F | Projects (cleaning only) | `ec,es` — blank = all projects |
+| G | Trade (civil workers only) | `pipes`, `painting`, `tiles`, or `wood` (Carpentry) |
+
+### Civil issue teams (assignment)
+
+Engineer assigns open issues to one of four teams. All workers with that trade see the job; whoever completes it is recorded as **Fixed by**.
+
+| Trade ID | Display name | Typical work |
+|----------|--------------|--------------|
+| `pipes` | Pipes | Leakage, plumbing |
+| `painting` | Painting | Repainting, mold |
+| `tiles` | Tiles | Broken tiles, cracked walls |
+| `wood` | Carpentry | Doors, locks, curtains, handles |
+
+### Example civil accounts
+
+| Username | Dept | Role | Trade |
+|----------|------|------|-------|
+| `civil_eng` | civil issue | editor | *(blank — engineer)* |
+| `pipes_1` | civil issue | worker | pipes |
+| `tiles_1` | civil issue | worker | tiles |
+| `paint_1` | civil issue | worker | painting |
+| `wood_1` | civil issue | worker | wood |
 
 ### Cleaning project codes
 

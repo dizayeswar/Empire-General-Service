@@ -1,5 +1,5 @@
 /* Empire General Service — offline shell cache (Phase 5C) */
-var CACHE_VERSION = '2026-07-12-offline-queue';
+var CACHE_VERSION = '2026-07-13-civil-workers';
 var CACHE_NAME = 'empire-egs-' + CACHE_VERSION;
 
 var PRECACHE = [
@@ -27,6 +27,7 @@ var PRECACHE = [
   './assets/empire-auth.js',
   './assets/empire-core.js',
   './assets/empire-offline-queue.js',
+  './assets/empire-civil-worker.css',
   './assets/empire-hub-stats.js',
   './assets/empire-pwa.js',
   './assets/issue-tracker.js',

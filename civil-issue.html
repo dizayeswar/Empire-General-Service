@@ -14,6 +14,7 @@
 <link rel="preconnect" href="https://api.imgbb.com">
 <title>Civil Issues — Empire World</title>
 <link rel="stylesheet" href="assets/empire.css">
+<link rel="stylesheet" href="assets/empire-civil-worker.css">
 </head>
 <body>
 <div class="login-page show" id="loginPage">
@@ -29,6 +30,28 @@
       <button type="submit">Login</button>
     </form>
   </div>
+</div>
+<div id="workerApp" class="worker-app">
+  <header class="worker-head">
+    <img src="logo-light.png" alt="Empire World" class="worker-logo">
+    <div class="worker-head-text">
+      <h1 id="workerTeamTitle">My jobs</h1>
+      <p id="workerWho"></p>
+    </div>
+    <button type="button" class="worker-refresh" onclick="loadIssues(true)" aria-label="Refresh"><span class="nav-icon spin-icon" id="workerRefreshIcon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span></button>
+  </header>
+  <div class="worker-count-bar" id="workerCountBar">Loading…</div>
+  <main id="workerJobList" class="worker-list"><p class="worker-empty">Loading…</p></main>
+  <footer class="worker-foot">
+    <button type="button" onclick="logout()" class="worker-logout">Logout</button>
+  </footer>
+</div>
+<div id="workerJobModal" class="worker-modal">
+  <header class="worker-modal-head">
+    <button type="button" class="worker-modal-back" onclick="closeWorkerJob()" aria-label="Back">&larr;</button>
+    <strong id="workerModalTitle">Job</strong>
+  </header>
+  <div class="worker-modal-scroll" id="workerModalBody"></div>
 </div>
 <div class="container" id="mainContainer">
   <div class="app-shell">
@@ -86,8 +109,10 @@
   <div id="list" class="tab-content active">
     <div class="form-section"><h2><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span> Reported Issues</h2>
       <div id="projectFilterBar" style="display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 6px;"></div>
+      <div id="tradeFilterBar"></div>
       <div class="form-row">
         <div class="form-group"><label>Project</label><select id="f-project" onchange="selectProjectFilter(this.value)"><option value="">All</option></select></div>
+        <div class="form-group"><label>Team</label><select id="f-group" onchange="renderIssues();if(window._issueFilterState)window._issueFilterState.save();"><option value="">All teams</option><option value="unassigned">Unassigned</option></select></div>
         <div class="form-group"><label>Status</label><select id="f-status" onchange="renderIssues()"><option value="">All</option><option value="open">Open</option><option value="fixed">Fixed</option></select></div>
         <div class="form-group"><label>Date</label><input type="date" id="f-month" onchange="renderIssues()"><span onclick="document.getElementById('f-month').value='';renderIssues();" style="font-size:11px;color:var(--text-faint);cursor:pointer;margin-top:4px;">clear date</span></div>
         <div class="form-group"><label>Search building/floor/spot</label><input type="text" id="f-search" oninput="renderIssues()" placeholder="e.g. A12, #A12, or stairs"></div>

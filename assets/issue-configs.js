@@ -3,6 +3,7 @@ var ISSUE_CONFIGS = {
   civil: {
     prefix: 'civ',
     dept: 'civil issue',
+    workerMode: true,
     shareDept: 'Civil Issue',
     sharePrefix: 'Empire World — Civil Issue',
     requireFixByName: true,
@@ -11,12 +12,19 @@ var ISSUE_CONFIGS = {
     reportPageTitle: 'Empire Civil Issues Report',
     reportFilePrefix: 'Empire-Civil-Issues-',
     resetSuccessMsg: 'All civil issue data has been deleted.',
+    tradeGroups: [
+      { id: 'pipes', label: 'Pipes' },
+      { id: 'painting', label: 'Painting' },
+      { id: 'tiles', label: 'Tiles' },
+      { id: 'wood', label: 'Carpentry' }
+    ],
     actions: {
       get: 'getCivilIssues',
       add: 'addCivilIssue',
       delete: 'deleteCivilIssue',
       markFixed: 'markCivilFixed',
-      clear: 'clearCivilIssues'
+      clear: 'clearCivilIssues',
+      assign: 'assignCivilIssue'
     },
     spots: ['Service stairs','Main stairs','Service door','Rooftop door','Exit door','Elevator','Wall','Ceiling','Corridor','Basement','Rooftop','Garden','Parking','Other'],
     issueTypes: ['Water leakage','Broken tiles','Door is broken','Door handle is broken','Wall needs repainting','No rooftop door','No service door','Mold / damp','Cracked wall','Other']

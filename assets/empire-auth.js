@@ -7,6 +7,7 @@ var EMPIRE_AUTH_KEYS = {
   perms: 'empire_perms',
   tokenDept: 'empire_token_dept',
   projects: 'empire_projects',
+  trade: 'empire_trade',
   loggedIn: 'empire_loggedIn'
 };
 
@@ -97,6 +98,11 @@ function empireGetProjects() {
   }
 }
 
+function empireGetTrade() {
+  empireMigrateSession();
+  return empireAuthLs('trade');
+}
+
 function empireCanAccessProject(project) {
   var scoped = empireGetProjects();
   if (!scoped) return true;
@@ -128,6 +134,7 @@ function empireSetSession(username, data) {
   empireAuthSet('perms', JSON.stringify(data.perms || {}));
   empireAuthSet('tokenDept', String(data.dept || data.tokenDept || '').trim().toLowerCase());
   empireAuthSet('projects', JSON.stringify(data.projects || []));
+  empireAuthSet('trade', String(data.trade || '').trim().toLowerCase());
 }
 
 function empireClearLegacyKeys() {
@@ -293,6 +300,7 @@ function empireAuthRefreshPerms(onUpdate) {
         empireAuthSet('perms', JSON.stringify(d.perms));
         if (d.role) empireAuthSet('role', d.role);
         if (d.projects) empireAuthSet('projects', JSON.stringify(d.projects));
+        if (d.trade) empireAuthSet('trade', String(d.trade).trim().toLowerCase());
         if (typeof onUpdate === 'function') onUpdate(d);
       } else if (empireAuthHandleInvalidSession_(d)) {
         return;
