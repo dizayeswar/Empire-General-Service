@@ -595,13 +595,20 @@ function applyPerms(){ if(window.tsPerm) window.tsPerm(); if(window.tsLoadGlobal
   function hideTab(act){ document.querySelectorAll('.tab-btn').forEach(function(b){ var o=b.getAttribute('onclick')||''; if(o.indexOf("'"+act+"'")!==-1) b.style.display='none'; }); }
   if(p.add===false) hideTab('add');
   if(p.analytics===false) hideTab('analytics');
+  var hideCategories = isCivilWorker() || p.categories === false;
+  document.querySelectorAll('.side-actions button').forEach(function(b){
+    var o=b.getAttribute('onclick')||'';
+    if(o.indexOf('cleaning.html')!==-1) b.style.display = hideCategories ? 'none' : '';
+    if(isCivilWorker() && (o.indexOf('openResetModal')!==-1 || o.indexOf('rbOpen')!==-1)) b.style.display='none';
+  });
+  var loginBack = document.querySelector('#loginPage .back');
+  if (loginBack) {
+    var href = loginBack.getAttribute('href') || '';
+    if (href.indexOf('cleaning.html') !== -1) loginBack.style.display = hideCategories ? 'none' : '';
+  }
   if (isCivilWorker()) {
     hideTab('add');
     hideTab('analytics');
-    document.querySelectorAll('.side-actions button').forEach(function(b){
-      var o=b.getAttribute('onclick')||'';
-      if(o.indexOf('cleaning.html')!==-1 || o.indexOf('openResetModal')!==-1 || o.indexOf('rbOpen')!==-1) b.style.display='none';
-    });
   }
   var rb=document.querySelector('button[onclick="openResetModal()"]'); if(rb && p.reset!==true) rb.style.display='none'; var tb=document.getElementById('btnTrash'); if(tb && p.reset!==true) tb.style.display='none';
   var wl=document.getElementById('whoLabel'); if(wl){ var u=empireGetUser()||''; var role=empireGetRole()||''; wl.textContent = u ? ('Logged in as: '+u+(role?(' ('+role+')'):'')) : ''; }

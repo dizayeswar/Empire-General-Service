@@ -1254,9 +1254,9 @@
             if (p.report === false) hideCleaningTab('monthly');
             var cleaningOnly = empireSingleDeptHome() === 'cleaning';
             var catBtn = document.getElementById('btnCategories');
-            if (catBtn) catBtn.style.display = cleaningOnly ? 'none' : '';
+            if (catBtn) catBtn.style.display = (cleaningOnly || p.categories === false) ? 'none' : '';
             var backLink = document.getElementById('loginBackLink');
-            if (backLink) backLink.style.display = cleaningOnly ? 'none' : '';
+            if (backLink) backLink.style.display = (cleaningOnly || p.categories === false) ? 'none' : '';
             ensureCleaningActiveTab();
             var wl = document.getElementById('whoLabel');
             if(wl) {

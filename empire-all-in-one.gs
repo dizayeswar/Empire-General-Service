@@ -18,7 +18,7 @@ var TRASH_SHEET = 'Trash';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-13-civil-worker-lock';
+var SCRIPT_VERSION = '2026-07-13-hide-categories';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -235,15 +235,15 @@ function respond(obj) {
 }
 
 // Roles: admin = everything incl reset; editor = add/edit/delete + analytics + report (no reset); viewer = read-only; worker = assigned civil jobs + fix only.
-// Optional "Hide" column (col E) removes extra abilities: list any of add, edit, delete, analytics, report.
+// Optional "Hide" column (col E) removes extra abilities: list any of add, edit, delete, analytics, report, dashboard, categories.
 function computePerms_(role, hide) {
   role = String(role||'').trim().toLowerCase();
   if (role!=='admin' && role!=='viewer' && role!=='editor' && role!=='worker') role = 'editor';
   var p;
-  if (role==='admin') p = {view:true,add:true,edit:true,del:true,analytics:true,report:true,dashboard:true,reset:true,assign:true,fix:true};
-  else if (role==='worker') p = {view:true,add:false,edit:false,del:false,analytics:false,report:false,dashboard:true,reset:false,assign:false,fix:true};
-  else if (role==='viewer') p = {view:true,add:false,edit:false,del:false,analytics:true,report:true,dashboard:true,reset:false,assign:false,fix:false};
-  else p = {view:true,add:true,edit:true,del:true,analytics:true,report:true,dashboard:true,reset:false,assign:true,fix:true};
+  if (role==='admin') p = {view:true,add:true,edit:true,del:true,analytics:true,report:true,dashboard:true,reset:true,assign:true,fix:true,categories:true};
+  else if (role==='worker') p = {view:true,add:false,edit:false,del:false,analytics:false,report:false,dashboard:true,reset:false,assign:false,fix:true,categories:true};
+  else if (role==='viewer') p = {view:true,add:false,edit:false,del:false,analytics:true,report:true,dashboard:true,reset:false,assign:false,fix:false,categories:true};
+  else p = {view:true,add:true,edit:true,del:true,analytics:true,report:true,dashboard:true,reset:false,assign:true,fix:true,categories:true};
   var raw = String(hide||'').toLowerCase();
   if (!raw) return {role:role, perms:p};
   var tokens = raw.indexOf(',') === -1 ? [raw] : raw.split(',');
@@ -256,6 +256,7 @@ function computePerms_(role, hide) {
     if (tok.indexOf('analytic') !== -1) p.analytics = false;
     if (tok.indexOf('report') !== -1 || tok.indexOf('monthly') !== -1) p.report = false;
     if (tok.indexOf('dashboard') !== -1 || tok === 'dash') p.dashboard = false;
+    if (tok.indexOf('categor') !== -1) p.categories = false;
   });
   return {role:role, perms:p};
 }
