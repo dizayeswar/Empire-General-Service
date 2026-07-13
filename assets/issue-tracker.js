@@ -142,6 +142,52 @@ function twoWorkersStatusHtml(r) {
   }
   return h;
 }
+function issueMetaRow(label, value) {
+  var v = (value === undefined || value === null || String(value).trim() === '') ? '\u2014' : String(value);
+  return '<div class="issue-meta-row"><span class="issue-meta-label">' + label + '</span><span class="issue-meta-value">' + v + '</span></div>';
+}
+function propertyStr(r) {
+  if (!r) return '';
+  var spot = String(r.spot || '').trim();
+  if (spot) spot = spot.charAt(0).toLowerCase() + spot.slice(1);
+  var b = String(r.building || '').trim();
+  var f = String(r.floor || '').trim();
+  return b + '-' + f + (spot ? '. ' + spot : '');
+}
+function issueFixedDisplay(r) {
+  if (r.status === 'fixed') {
+    var d = dateOnly(r.fixedAt);
+    var who = String(r.fixedBy || '').trim();
+    return d + (who ? ' (' + who + ')' : '');
+  }
+  if (issueWorkersRequired(r) >= 2 && r.workerCompletions && r.workerCompletions.length) {
+    return r.workerCompletions.map(function (c) {
+      return dateOnly(c.at) + (c.user ? ' (' + c.user + ')' : '');
+    }).join(', ');
+  }
+  return '';
+}
+function issueFixedTimeDisplay(r) {
+  if (r.status === 'fixed' && r.fixedAt) return fmtDT(r.fixedAt);
+  return '';
+}
+function issueDetailMetaSectionHtml(r) {
+  var reported = dateOnly(r.date || r.createdAt) + (r.createdBy ? ' (' + r.createdBy + ')' : '');
+  var team = tradeGroups().length ? (tradeGroupLabel(r.assignedGroup) || 'Unassigned') : '';
+  var h = '<div class="issue-meta-wrap">';
+  h += '<div class="issue-meta-status">' + issueStatusBadgeHtml(r) + workersBadgeHtml(r) + '</div>';
+  h += '<div class="issue-meta-list">';
+  h += issueMetaRow('Ref:', '#' + issueRef(r.num));
+  h += issueMetaRow('Issue task:', r.issueType);
+  h += issueMetaRow('Property:', propertyStr(r));
+  h += issueMetaRow('Reported:', reported);
+  h += issueMetaRow('Fixed:', issueFixedDisplay(r));
+  h += issueMetaRow('Note:', r.note || '');
+  h += issueMetaRow('Fixed time:', issueFixedTimeDisplay(r));
+  h += issueMetaRow('Team:', team);
+  h += '</div></div>';
+  return h;
+}
 function workersBadgeHtml(r) {
   if (!r || issueWorkersRequired(r) < 2 || r.status === 'fixed') return '';
   return '<span class="workers-badge">' + issueWorkerDone(r) + '/2 workers</span>';
@@ -156,7 +202,8 @@ function issueStatusBadgeHtml(r) {
 }
 function workerCompletionsBlockHtml(r) {
   if (!r || !r.workerCompletions || !r.workerCompletions.length) return '';
-  var title = issueWorkersRequired(r) >= 2 ? 'Workers who marked as fixed' : 'Worker progress';
+  if (issueWorkersRequired(r) >= 2) return '';
+  var title = 'Worker progress';
   var h = '<div class="worker-completions"><p style="color:var(--text-soft);margin:0 0 8px;font-weight:600;">' + title + '</p>';
   r.workerCompletions.forEach(function (c) {
     h += '<div class="worker-completion-item"><p style="margin:0 0 6px;font-size:13px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span class="worker-done-badge">' + checkIconHtml('#fff') + ' Marked as fixed</span><strong>' + (c.user || 'Worker') + '</strong>' + (c.at ? ('<span style="color:var(--text-faint);font-weight:400;">&middot; ' + dateOnly(c.at) + '</span>') : '') + '</p>';
@@ -169,6 +216,45 @@ function workerCompletionsBlockHtml(r) {
     }
     h += '</div>';
   });
+  h += '</div>';
+  return h;
+}
+function workerCompletionsAsideHtml(r) {
+  if (!r || issueWorkersRequired(r) < 2) return '';
+  var completions = r.workerCompletions || [];
+  var h = '<div class="beforeafter-workers"><p class="beforeafter-workers-title">Workers who marked as fixed</p>';
+  if (!completions.length) {
+    h += '<p class="beforeafter-workers-empty">Waiting for workers to submit photos.</p>';
+  } else {
+    completions.forEach(function (c) {
+      h += '<div class="worker-aside-item">';
+      h += '<div class="worker-aside-head"><span class="worker-done-badge">' + checkIconHtml('#fff') + ' Marked as fixed</span><strong>' + (c.user || 'Worker') + '</strong></div>';
+      h += '<div class="worker-aside-meta">' + issueMetaRow('Note:', c.note || '') + issueMetaRow('Fixed time:', fmtDT(c.at) || dateOnly(c.at) || '') + '</div>';
+      if (c.photos && c.photos.length) {
+        h += '<div class="fixed-photo-grid">';
+        c.photos.forEach(function (u, i) {
+          h += '<img src="' + u + '" onclick="bigImg(this.src)" alt="Worker photo ' + (i + 1) + '">';
+        });
+        h += '</div>';
+      }
+      h += '</div>';
+    });
+  }
+  h += '</div>';
+  return h;
+}
+function issuePhotosSectionHtml(r) {
+  var h = '<div class="beforeafter">';
+  h += '<div class="beforeafter-problem"><p style="color:var(--text-soft);margin-bottom:6px;">Problem</p>';
+  h += r.photo ? '<img src="' + r.photo + '" onclick="bigImg(this.src)">' : '<p>No photo</p>';
+  h += '</div>';
+  if (issueWorkersRequired(r) >= 2) {
+    h += workerCompletionsAsideHtml(r);
+  } else {
+    h += '<div class="beforeafter-fixed"><p style="color:var(--text-soft);margin-bottom:6px;">Fixed' + (issueFixedPhotos(r).length > 1 ? ' (' + issueFixedPhotos(r).length + ' photos)' : '') + '</p>';
+    h += fixedPhotosBlockHtml(r.fixedPhoto, r);
+    h += '</div>';
+  }
   h += '</div>';
   return h;
 }
@@ -204,10 +290,8 @@ function setAssignBtnState(id, state) {
 function patchIssueModalAssign(id) {
   var r = allIssues.find(function (x) { return x.id === id; });
   if (!r) return;
-  var h2 = document.querySelector('#issueBox h2');
-  if (h2) {
-    h2.innerHTML = '<span style="color:var(--text-faint);font-weight:700;">#' + issueRef(r.num) + '</span> ' + r.issueType + tradeBadgeHtml(r) + workersBadgeHtml(r);
-  }
+  var wrap = document.querySelector('#issueBox .issue-meta-wrap');
+  if (wrap) wrap.outerHTML = issueDetailMetaSectionHtml(r);
 }
 function assignIssue(id) {
   var sel = document.getElementById('assign-group-' + id);
@@ -596,7 +680,7 @@ function assignBoxHtml(r) {
   var twoChecked = issueWorkersRequired(r) >= 2 ? ' checked' : '';
   return '<div class="assign-box" onclick="event.stopPropagation()"><label>Assign to team</label><div class="assign-row"><select id="assign-group-' + r.id + '" onchange="setAssignBtnState(\'' + r.id + '\', \'idle\')">' + opts + '</select><button type="button" id="assign-btn-' + r.id + '" class="assign-save-btn" onclick="assignIssue(\'' + r.id + '\')">Save</button></div><label class="assign-two-workers"><input type="checkbox" id="assign-two-workers-' + r.id + '"' + twoChecked + '> Needs 2 workers (each must take photos)</label></div>';
 }
-function openIssue(id){ const r=allIssues.find(x=>x.id===id); if(!r)return; if(isCivilWorker() && r.status!=='fixed'){ closeIssueModal(); openWorkerJob(id); return; } let h='<span class="close-x" onclick="closeIssueModal()">&times;</span>'; h+='<h2><span style="color:var(--text-faint);font-weight:700;">#'+issueRef(r.num)+'</span> '+r.issueType+tradeBadgeHtml(r)+workersBadgeHtml(r)+'</h2><p style="color:var(--text-soft);">'+locStr(r)+' &middot; '+issueStatusBadgeHtml(r)+'</p>'; h+='<p style="margin-top:8px;"><strong>'+squareIconHtml()+' Reported:</strong> '+dateOnly(r.date||r.createdAt)+(r.createdBy?(' (by '+r.createdBy+')'):'')+'</p>'; if(r.status==='fixed'){ h+='<p style="margin-top:4px;"><strong>'+checkIconHtml()+' Fixed:</strong> '+(dateOnly(r.fixedAt)||'\u2014')+(r.fixedBy?(' (by '+r.fixedBy+')'):'')+'<span style="color:var(--text-faint);">'+durationStr(r.createdAt||r.date, r.fixedAt)+'</span></p>'; } else if(issueWorkersRequired(r)>=2){ h+=twoWorkersStatusHtml(r); } if(r.note)h+='<p style="margin-top:8px;"><strong>Note:</strong> '+r.note+'</p>'; if(r.status!=='fixed') h+=assignBoxHtml(r); h+=workerCompletionsBlockHtml(r); h+='<div style="margin:12px 0 4px;"><button type="button" onclick="shareIssueWhatsApp(\''+r.id+'\')" style="background:#25D366;color:#fff;border:none;padding:10px 16px;border-radius:50px;font-weight:600;display:inline-flex;align-items:center;gap:8px;cursor:pointer;box-shadow:none;">'+whatsappIconHtml()+' Share on WhatsApp</button></div>'; h+='<div class="beforeafter"><div><p style="color:var(--text-soft);margin-bottom:6px;">Problem</p>'+(r.photo?'<img src="'+r.photo+'" onclick="bigImg(this.src)">':'<p>No photo</p>')+'</div><div class="beforeafter-fixed"><p style="color:var(--text-soft);margin-bottom:6px;">Fixed'+(issueFixedPhotos(r).length>1?' ('+issueFixedPhotos(r).length+' photos)':'')+'</p>'+fixedPhotosBlockHtml(r.fixedPhoto,r)+'</div></div>'; if(r.status!=='fixed' && canMarkIssueFixed()){ if(ISSUE_CFG.requireFixByName){ h+='<div style="margin:14px 0 4px;"><label style="font-weight:600;display:block;margin-bottom:6px;">Job was done by:</label><input type="text" id="fix-by" placeholder="Enter the name of who did the job" style="width:100%;max-width:340px;padding:10px;border:2px solid var(--input-border);border-radius:8px;background:var(--input-bg);color:var(--text);font-size:14px;box-sizing:border-box;"></div>'; } h+='<h3>'+checkIconHtml()+' Mark as fixed</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;"><button type="button" onclick="document.getElementById(\'fix-file\').click()"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/><circle cx="14" cy="15" r="1"/></svg></span> Upload / Camera</button><span style="color:var(--text-soft);font-size:13px;">? or paste below ?</span><input type="file" id="fix-file" accept="image/*" style="display:none" onchange="handleFixFile(event,\''+r.id+'\')"></div><div class="image-upload" id="fix-area" onpaste="pasteFix(event,\''+r.id+'\')">Click here and paste the photo of the completed fix (Ctrl+V)</div>'; } document.getElementById('issueBox').innerHTML=h; document.getElementById('issueModal').classList.add('show'); }
+function openIssue(id){ const r=allIssues.find(x=>x.id===id); if(!r)return; if(isCivilWorker() && r.status!=='fixed'){ closeIssueModal(); openWorkerJob(id); return; } let h='<span class="close-x" onclick="closeIssueModal()">&times;</span>'; h+=issueDetailMetaSectionHtml(r); if(r.status!=='fixed') h+=assignBoxHtml(r); h+=workerCompletionsBlockHtml(r); h+='<div style="margin:12px 0 4px;"><button type="button" onclick="shareIssueWhatsApp(\''+r.id+'\')" style="background:#25D366;color:#fff;border:none;padding:10px 16px;border-radius:50px;font-weight:600;display:inline-flex;align-items:center;gap:8px;cursor:pointer;box-shadow:none;">'+whatsappIconHtml()+' Share on WhatsApp</button></div>'; h+=issuePhotosSectionHtml(r); if(r.status!=='fixed' && canMarkIssueFixed()){ if(ISSUE_CFG.requireFixByName){ h+='<div style="margin:14px 0 4px;"><label style="font-weight:600;display:block;margin-bottom:6px;">Job was done by:</label><input type="text" id="fix-by" placeholder="Enter the name of who did the job" style="width:100%;max-width:340px;padding:10px;border:2px solid var(--input-border);border-radius:8px;background:var(--input-bg);color:var(--text);font-size:14px;box-sizing:border-box;"></div>'; } h+='<h3>'+checkIconHtml()+' Mark as fixed</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;"><button type="button" onclick="document.getElementById(\'fix-file\').click()"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/><circle cx="14" cy="15" r="1"/></svg></span> Upload / Camera</button><span style="color:var(--text-soft);font-size:13px;">? or paste below ?</span><input type="file" id="fix-file" accept="image/*" style="display:none" onchange="handleFixFile(event,\''+r.id+'\')"></div><div class="image-upload" id="fix-area" onpaste="pasteFix(event,\''+r.id+'\')">Click here and paste the photo of the completed fix (Ctrl+V)</div>'; } document.getElementById('issueBox').innerHTML=h; document.getElementById('issueModal').classList.add('show'); }
 function closeIssueModal(){ document.getElementById('issueModal').classList.remove('show'); }
 function processFix(id, file){ if(!file) return; var by=''; if(ISSUE_CFG.requireFixByName){ const byEl=document.getElementById('fix-by'); by=byEl?byEl.value.trim():''; if(!by){ alert('Please enter who did the job first ("Job was done by")'); if(byEl)byEl.focus(); return; } } const area=document.getElementById('fix-area'); if(area) area.innerHTML='\u23F3 Uploading\u2026'; compressImage(file,url=>{ if(url){ var payload={action:ISSUE_CFG.actions.markFixed,id:id,fixedPhoto:url,token:issueToken()||''}; if(ISSUE_CFG.requireFixByName) payload.fixedByName=by; fetchJSONRetry(payload).then(()=>{ const it=allIssues.find(x=>x.id===id); if(it){ it.status='fixed'; it.fixedPhoto=url; const now=new Date(); const z=n=>String(n).padStart(2,'0'); it.fixedAt=now.getFullYear()+'-'+z(now.getMonth()+1)+'-'+z(now.getDate())+' '+z(now.getHours())+':'+z(now.getMinutes()); it.fixedBy=by||empireGetUser()||''; } renderIssues(); renderAnalytics(); openIssue(id); }).catch(er=>{ if(area) area.innerHTML='\u274C '+er.message; }); } else { if(area) area.innerHTML='\u274C Upload failed, try again'; } }); }
 function pasteFix(e,id){ const items=e.clipboardData.items; for(let i=0;i<items.length;i++){ if(items[i].type.indexOf('image')!==-1){ e.preventDefault(); processFix(id, items[i].getAsFile()); return; } } }
