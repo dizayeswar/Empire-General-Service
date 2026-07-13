@@ -60,6 +60,7 @@ function isCivilWorker() { return !!(ISSUE_CFG.workerMode && String(empireGetRol
 function canMarkIssueFixed() {
   var p = PAGEPERMS || {};
   if (isCivilWorker()) return true;
+  if (ISSUE_CFG.engineerCanMarkFixed === false) return false;
   return p.fix === true || p.edit !== false;
 }
 function tradeGroups() { return ISSUE_CFG.tradeGroups || []; }
