@@ -59,3 +59,27 @@ function hubTileHtml(c) {
     '<p>' + c.desc + '</p>' +
     '<div class="tile-footer"><div class="tile-stat muted">Loading stats…</div></div>';
 }
+
+function hubExpandableTileHeadHtml(c) {
+  return '<div class="tile-top">' +
+    '<div class="tile-icon-wrap"><span class="tile-icon">' + c.icon + '</span></div>' +
+    '<div class="tile-top-right">' +
+      '<span class="tile-badge-slot"></span>' +
+      '<span class="tile-expand-chevron" aria-hidden="true">▾</span>' +
+    '</div>' +
+    '</div>' +
+    '<h2>' + c.name + '</h2>' +
+    '<p>' + c.desc + '</p>' +
+    '<div class="tile-footer"><div class="tile-stat muted">Loading stats…</div></div>';
+}
+
+function hubChildTileHtml(c) {
+  return '<div class="tile-child-top">' +
+    '<span class="tile-child-icon">' + c.icon + '</span>' +
+    '<span class="tile-badge-slot"></span>' +
+    '<span class="tile-child-arrow" aria-hidden="true">→</span>' +
+    '</div>' +
+    '<strong class="tile-child-name">' + c.name + '</strong>' +
+    '<p class="tile-child-desc">' + c.desc + '</p>' +
+    '<div class="tile-footer"><div class="tile-stat muted">Loading stats…</div></div>';
+}

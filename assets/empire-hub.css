@@ -504,6 +504,137 @@ header p {
   color: var(--accent2);
 }
 
+.tile-expandable {
+  cursor: default;
+  padding: 0;
+  overflow: hidden;
+}
+
+.tile-expandable.active:hover {
+  transform: none;
+}
+
+.tile-expandable.expanded {
+  grid-column: 1 / -1;
+  border-color: var(--tile-hover-border);
+  box-shadow: 0 8px 24px var(--shadow);
+}
+
+.tile-expand-head {
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 22px;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  display: flex;
+  flex-direction: column;
+  min-height: 168px;
+}
+
+.tile-expand-head:hover {
+  background: var(--wait-bg);
+}
+
+.tile-expand-chevron {
+  font-size: 18px;
+  line-height: 1;
+  color: var(--text-faint);
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.tile-expandable.expanded .tile-expand-chevron {
+  transform: rotate(180deg);
+  color: var(--tile-hover-border);
+}
+
+.tile-children {
+  display: none;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+  padding: 0 22px 22px;
+  border-top: 1px solid var(--card-border);
+}
+
+.tile-expandable.expanded .tile-children {
+  display: grid;
+}
+
+.tile-child {
+  background: var(--wait-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  text-decoration: none;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  min-height: 140px;
+  transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s;
+}
+
+.tile-child:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px var(--shadow);
+  border-color: var(--tile-hover-border);
+}
+
+.tile-child-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.tile-child-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.tile-child-top .tile-badge-slot {
+  margin-left: auto;
+  min-height: 22px;
+}
+
+.tile-child-arrow {
+  font-size: 16px;
+  color: var(--text-faint);
+  transition: transform 0.18s ease, color 0.18s ease;
+}
+
+.tile-child:hover .tile-child-arrow {
+  transform: translateX(3px);
+  color: var(--tile-hover-border);
+}
+
+.tile-child-name {
+  display: block;
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+
+.tile-child-desc {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-soft);
+  flex: 1;
+}
+
+.tile-child .tile-footer {
+  margin-top: auto;
+}
+
+.tile-child .tile-stat {
+  margin-top: 10px;
+}
+
+.tile-child .tile-activity {
+  margin-top: 2px;
+}
+
 .tile .icon {
   font-size: 40px;
   margin-bottom: 14px;

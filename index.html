@@ -71,10 +71,17 @@
     <script src="assets/empire-hub-stats.js"></script>
     <script>
         const categories = [
-            { icon:'🧹', name:'Cleaning Department', desc:'Daily reports, issues found on rounds & more.', link:'cleaning.html', active:true, accessDept:'cleaning' },
+            { icon:'🧹', name:'Cleaning Department', desc:'Daily reports, issues found on rounds & more.', link:'cleaning.html', active:true, accessDept:'cleaning', expandable:true },
             { icon:'🏗️', name:'Civil Department', desc:'Daily maintenance jobs & monthly reports.', link:'civil-department.html', active:true, accessDept:'civil department' },
             { icon:'⛑️', name:'HSE Inspections', desc:'Fire safety equipment checks.', link:'hse-inspection.html', active:true, accessDept:'hse' },
             { icon:'⚡', name:'Electrical Department', desc:'Daily jobs & monthly reports.', link:'electrical.html', active:true, accessDept:'electrical department' }
+        ];
+
+        const CLEANING_SECTIONS = [
+            { icon:'🧹', name:'Cleaning', desc:'Daily reports, task checklists & monthly report.', link:'cleaning-dashboard.html', accessDept:'cleaning' },
+            { icon:'🧱', name:'Civil Issue', desc:'Building issues found during cleaning rounds — log photos & track repairs.', link:'civil-issue.html', accessDept:'civil issue' },
+            { icon:'⚡', name:'Electric Issue', desc:'Electrical problems found in buildings — log photos & track repairs.', link:'electric-issue.html', accessDept:'electric issue' },
+            { icon:'🧯', name:'Fire Fighting & Mechanical', desc:'Fire safety systems & mechanical equipment — inspections and maintenance.', link:'fire-issue.html', accessDept:'fire' }
         ];
 
         function afterLogin() {
@@ -123,8 +130,8 @@
             if (sub) sub.textContent = isAdmin ? 'Admin hub' : 'Your departments';
             if (title) title.textContent = isAdmin ? 'All departments' : 'Your departments';
             if (desc) desc.textContent = isAdmin
-                ? 'Open any section below to manage operations.'
-                : 'Open one of your assigned sections below.';
+                ? 'Open any section below to manage operations. Click Cleaning Department to see its sections.'
+                : 'Open one of your assigned sections below. Click Cleaning Department to see its sections.';
             renderAuthBar();
             renderGrid();
             loadHubSummaryForIndex();
@@ -197,8 +204,66 @@
             return false;
         }
 
+        function canSeeCleaningSection(accessDept) {
+            if (empireIsAdminSession()) return true;
+            return empireCanAccessDept(accessDept);
+        }
+
+        function visibleCleaningSections() {
+            return CLEANING_SECTIONS.filter(function (s) { return canSeeCleaningSection(s.accessDept); });
+        }
+
+        function setCleaningExpanded(tile, open) {
+            if (!tile) return;
+            tile.classList.toggle('expanded', !!open);
+            var head = tile.querySelector('.tile-expand-head');
+            if (head) head.setAttribute('aria-expanded', open ? 'true' : 'false');
+            if (open && history.replaceState) {
+                history.replaceState(null, '', '#cleaning');
+            } else if (!open && location.hash === '#cleaning' && history.replaceState) {
+                history.replaceState(null, '', location.pathname + location.search);
+            }
+        }
+
+        function toggleCleaningExpand(tile, e) {
+            if (e && e.target && e.target.closest('.tile-child')) return;
+            setCleaningExpanded(tile, !tile.classList.contains('expanded'));
+        }
+
+        function closeCleaningExpand() {
+            var tile = document.getElementById('hubCleaningTile');
+            if (tile && tile.classList.contains('expanded')) setCleaningExpanded(tile, false);
+        }
+
+        function buildCleaningExpandable(c) {
+            var sections = visibleCleaningSections();
+            if (!sections.length) return null;
+            var el = document.createElement('div');
+            el.className = 'tile tile-expandable active';
+            el.id = 'hubCleaningTile';
+            el.setAttribute('data-dept', c.accessDept);
+            var childrenHtml = sections.map(function (s) {
+                return '<a href="' + s.link + '" class="tile-child" data-dept="' + s.accessDept + '">' + hubChildTileHtml(s) + '</a>';
+            }).join('');
+            el.innerHTML =
+                '<button type="button" class="tile-expand-head" aria-expanded="false">' +
+                    hubExpandableTileHeadHtml(c) +
+                '</button>' +
+                '<div class="tile-children">' + childrenHtml + '</div>';
+            el.querySelector('.tile-expand-head').addEventListener('click', function (e) {
+                toggleCleaningExpand(el, e);
+            });
+            return el;
+        }
+
         function applyHubSummary(summary) {
-            applyHubTileStats('#grid .tile[data-dept]', summary || {});
+            applyHubTileStats('#grid .tile[data-dept]:not(.tile-expandable)', summary || {});
+            var cleaning = summary && summary.cleaning;
+            if (!cleaning) return;
+            applyHubTileStats('#hubCleaningTile', { cleaning: cleaning });
+            if (cleaning.sections) {
+                applyHubTileStats('#hubCleaningTile .tile-child[data-dept]', cleaning.sections);
+            }
         }
 
         function loadHubSummaryForIndex() {
@@ -220,6 +285,11 @@
             categories.forEach(function (c) {
                 if (!canSeeHubTile(c.accessDept)) return;
                 count++;
+                if (c.expandable) {
+                    var expandable = buildCleaningExpandable(c);
+                    if (expandable) grid.appendChild(expandable);
+                    return;
+                }
                 var el = document.createElement('a');
                 el.href = c.link;
                 el.className = 'tile active';
@@ -230,7 +300,21 @@
             if (!count) {
                 grid.innerHTML = '<div class="hub-empty">No departments are assigned to this account.</div>';
             }
+            if (location.hash === '#cleaning') {
+                var tile = document.getElementById('hubCleaningTile');
+                if (tile) setCleaningExpanded(tile, true);
+            }
         }
+
+        document.addEventListener('click', function (e) {
+            var tile = document.getElementById('hubCleaningTile');
+            if (!tile || !tile.classList.contains('expanded')) return;
+            if (!tile.contains(e.target)) closeCleaningExpand();
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeCleaningExpand();
+        });
 
         function bootIndex() {
             if (!empireGetToken()) {

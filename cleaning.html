@@ -97,12 +97,7 @@
                 location.replace('index.html');
                 return;
             }
-            if (!empireCanAccessDept('cleaning') && !empireIsAdminSession()) {
-                empireRedirectToUserHome();
-                return;
-            }
-            render();
-            loadCleaningSummary();
+            location.replace('index.html#cleaning');
         }
 
         bootCleaningHub();
