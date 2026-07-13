@@ -18,7 +18,7 @@ var TRASH_SHEET = 'Trash';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-13-civil-worker-multi-photo';
+var SCRIPT_VERSION = '2026-07-13-civil-assign-photos';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_TRADE_IDS = {pipes:1, painting:1, tiles:1, wood:1};
 var HSE_INSPECTOR = 'Evan Mansour';
@@ -1203,7 +1203,8 @@ function handleGetIssues(body, sheetName, auth) {
       if (st === 'fixed') continue;
       if (assignedGroup !== workerTrade) continue;
     }
-    out.push({id:String(rows[i][0]),num:Number(rows[i][ISSUE_NUM_COL-1]||0),project:String(rows[i][1]),building:String(rows[i][2]),floor:String(rows[i][3]),spot:String(rows[i][4]),issueType:String(rows[i][5]),note:String(rows[i][6]||''),date:ds,photo:String(rows[i][8]||''),fixedPhoto:(st==='fixed'?fp:''),status:st,createdBy:String(rows[i][11]||''),createdAt:dtIssue_(rows[i][12]),fixedBy:String(rows[i][13]||''),fixedAt:dtIssue_(rows[i][14]),assignedGroup:assignedGroup});
+    var fixedPhotos = st === 'fixed' ? parseFixedPhotosFromCell_(fp) : [];
+    out.push({id:String(rows[i][0]),num:Number(rows[i][ISSUE_NUM_COL-1]||0),project:String(rows[i][1]),building:String(rows[i][2]),floor:String(rows[i][3]),spot:String(rows[i][4]),issueType:String(rows[i][5]),note:String(rows[i][6]||''),date:ds,photo:String(rows[i][8]||''),fixedPhoto:(st==='fixed'?fp:''),fixedPhotos:fixedPhotos,status:st,createdBy:String(rows[i][11]||''),createdAt:dtIssue_(rows[i][12]),fixedBy:String(rows[i][13]||''),fixedAt:dtIssue_(rows[i][14]),assignedGroup:assignedGroup});
   }
   issuesCachePut_(ckey, out);
   return out;
@@ -1218,15 +1219,49 @@ function handleAssignCivilIssue(body, auth) {
   var sheet = ss.getSheetByName(CIVIL_SHEET);
   if (!sheet) return {ok:false, error:'Sheet not found'};
   ensureCivilIssueHeaders_(sheet);
-  var rows = sheet.getDataRange().getValues();
-  for (var i=1;i<rows.length;i++) {
-    if (String(rows[i][0])===String(body.id)) {
-      sheet.getRange(i+1, CIVIL_ASSIGNED_COL).setValue(group);
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return {ok:false, error:'Issue not found'};
+  var ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]) === String(body.id)) {
+      sheet.getRange(i + 2, CIVIL_ASSIGNED_COL).setValue(group);
       invalidateIssuesCache_(CIVIL_SHEET);
       return {ok:true, success:true, assignedGroup:group};
     }
   }
   return {ok:false, error:'Issue not found'};
+}
+
+function parseFixedPhotosFromCell_(raw) {
+  raw = String(raw || '').trim();
+  if (!raw) return [];
+  if (raw.charAt(0) === '[') {
+    try {
+      var arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        var out = [];
+        for (var i = 0; i < arr.length; i++) {
+          var u = String(arr[i] || '').trim();
+          if (u) out.push(u);
+        }
+        return out;
+      }
+    } catch (e) {}
+  }
+  if (raw.indexOf('|') !== -1) {
+    var parts = raw.split('|');
+    var list = [];
+    for (var j = 0; j < parts.length; j++) {
+      var p = String(parts[j] || '').trim();
+      if (p) list.push(p);
+    }
+    return list;
+  }
+  return [raw];
+}
+
+function formatFixedPhotosForStorage_(photos) {
+  return JSON.stringify(photos || []);
 }
 
 function normalizeFixedPhotos_(body) {
@@ -1238,14 +1273,7 @@ function normalizeFixedPhotos_(body) {
     }
   }
   if (!urls.length) {
-    var raw = String(body.fixedPhoto || '').trim();
-    if (raw) {
-      var parts = raw.split('|');
-      for (var j = 0; j < parts.length; j++) {
-        var p = String(parts[j] || '').trim();
-        if (p) urls.push(p);
-      }
-    }
+    urls = parseFixedPhotosFromCell_(String(body.fixedPhoto || '').trim());
   }
   return urls;
 }
@@ -1253,7 +1281,7 @@ function normalizeFixedPhotos_(body) {
 function handleMarkFixed(body, sheetName, auth) {
   var photos = normalizeFixedPhotos_(body);
   if (!photos.length) return {ok:false, error:'photo_required', message:'A completion photo is required.'};
-  var stored = photos.join('|');
+  var stored = formatFixedPhotosForStorage_(photos);
   var ss = getSS_();
   var sheet = ss.getSheetByName(sheetName);
   if (!sheet) return {ok:false,error:'Sheet not found'};

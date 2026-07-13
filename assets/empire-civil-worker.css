@@ -436,6 +436,18 @@
   font-weight: 600;
   cursor: pointer;
 }
+.assign-save-btn.saving {
+  opacity: 0.75;
+}
+.assign-save-btn.saved {
+  background: #1d9e75 !important;
+  border-color: #1d9e75 !important;
+  color: #fff !important;
+}
+.assign-save-btn.error {
+  background: #C5504F !important;
+  border-color: #C5504F !important;
+}
 .trade-badge {
   display: inline-block;
   font-size: 11px;
