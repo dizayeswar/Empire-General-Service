@@ -1,5 +1,5 @@
 /* Empire General Service — offline shell cache (Phase 5C) */
-var CACHE_VERSION = '2026-07-13-hub-expand-cleaning';
+var CACHE_VERSION = '2026-07-13-excel-photo-links';
 var CACHE_NAME = 'empire-egs-' + CACHE_VERSION;
 
 var PRECACHE = [
@@ -32,6 +32,7 @@ var PRECACHE = [
   './assets/empire-hub-stats.js',
   './assets/empire-pwa.js',
   './assets/issue-tracker.js',
+  './assets/issue-excel-export.js',
   './assets/issue-configs.js'
 ];
 
