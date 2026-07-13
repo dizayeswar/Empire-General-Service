@@ -18,7 +18,7 @@ var TRASH_SHEET = 'Trash';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-13-civil-assign-fix';
+var SCRIPT_VERSION = '2026-07-13-civil-worker-lock';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -1390,6 +1390,7 @@ function handleMarkFixed(body, sheetName, auth) {
   var photos = normalizeFixedPhotos_(body);
   if (!photos.length) return {ok:false, error:'photo_required', message:'A completion photo is required.'};
   var stored = formatFixedPhotosForStorage_(photos);
+  var fixedBy = String((auth && auth.username) || body.username || '').trim();
   var ss = getSS_();
   var sheet = ss.getSheetByName(sheetName);
   if (!sheet) return {ok:false,error:'Sheet not found'};
@@ -1433,7 +1434,6 @@ function handleMarkFixed(body, sheetName, auth) {
         invalidateIssuesCache_(sheetName);
         return {ok:true, success:true, partial:false, workerDone:completions.length, workersRequired:workersRequired};
       }
-      var fixedBy = String(body.username || '');
       if (role !== 'worker' && body.fixedByName) fixedBy = String(body.fixedByName || fixedBy);
       sheet.getRange(i+1,10).setValue(stored);
       sheet.getRange(i+1,11).setValue('fixed');

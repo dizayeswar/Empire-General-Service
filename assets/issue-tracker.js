@@ -98,6 +98,50 @@ function issueWorkerDone(r) {
   if (r.workerDone) return Number(r.workerDone) || 0;
   return (r.workerCompletions && r.workerCompletions.length) || 0;
 }
+function workerCompletedByMe(r) {
+  if (!r || !r.workerCompletions || !r.workerCompletions.length) return false;
+  var user = String(empireGetUser() || '').trim().toLowerCase();
+  if (!user) return false;
+  for (var i = 0; i < r.workerCompletions.length; i++) {
+    if (String((r.workerCompletions[i] && r.workerCompletions[i].user) || '').trim().toLowerCase() === user) return true;
+  }
+  return false;
+}
+function myWorkerCompletion(r) {
+  if (!r || !r.workerCompletions) return null;
+  var user = String(empireGetUser() || '').trim().toLowerCase();
+  for (var i = 0; i < r.workerCompletions.length; i++) {
+    var c = r.workerCompletions[i];
+    if (String((c && c.user) || '').trim().toLowerCase() === user) return c;
+  }
+  return null;
+}
+function workersCompletedNames(r) {
+  if (!r || !r.workerCompletions || !r.workerCompletions.length) return [];
+  return r.workerCompletions.map(function (c) {
+    return String((c && c.user) || '').trim();
+  }).filter(Boolean);
+}
+function workersCompletedSummaryHtml(r) {
+  if (!r || issueWorkersRequired(r) < 2) return '';
+  var names = workersCompletedNames(r);
+  if (!names.length) return '';
+  var need = issueWorkersRequired(r);
+  var done = names.length;
+  var label = names.map(function (n) { return checkIconHtml('#1d9e75') + ' ' + n; }).join(' &middot; ');
+  var wait = done < need ? ' <span class="workers-waiting">(waiting for ' + (need - done) + ' more)</span>' : '';
+  return '<div class="workers-done-summary">' + label + wait + '</div>';
+}
+function twoWorkersStatusHtml(r) {
+  if (!r || issueWorkersRequired(r) < 2) return '';
+  var done = issueWorkerDone(r);
+  var names = workersCompletedNames(r);
+  var h = '<p style="margin-top:4px;color:var(--c-warn,#b8860b);"><strong>2 workers required:</strong> ' + done + '/2 marked as fixed.</p>';
+  if (names.length) {
+    h += '<p style="margin-top:4px;font-size:13px;color:var(--text-soft);"><strong>Completed by:</strong> ' + names.join(', ') + '</p>';
+  }
+  return h;
+}
 function workersBadgeHtml(r) {
   if (!r || issueWorkersRequired(r) < 2 || r.status === 'fixed') return '';
   return '<span class="workers-badge">' + issueWorkerDone(r) + '/2 workers</span>';
@@ -112,9 +156,10 @@ function issueStatusBadgeHtml(r) {
 }
 function workerCompletionsBlockHtml(r) {
   if (!r || !r.workerCompletions || !r.workerCompletions.length) return '';
-  var h = '<div class="worker-completions"><p style="color:var(--text-soft);margin:0 0 8px;font-weight:600;">Worker progress</p>';
-  r.workerCompletions.forEach(function (c, idx) {
-    h += '<div class="worker-completion-item"><p style="margin:0 0 6px;font-size:13px;"><strong>' + (c.user || 'Worker') + '</strong>' + (c.at ? (' &middot; ' + dateOnly(c.at)) : '') + '</p>';
+  var title = issueWorkersRequired(r) >= 2 ? 'Workers who marked as fixed' : 'Worker progress';
+  var h = '<div class="worker-completions"><p style="color:var(--text-soft);margin:0 0 8px;font-weight:600;">' + title + '</p>';
+  r.workerCompletions.forEach(function (c) {
+    h += '<div class="worker-completion-item"><p style="margin:0 0 6px;font-size:13px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span class="worker-done-badge">' + checkIconHtml('#fff') + ' Marked as fixed</span><strong>' + (c.user || 'Worker') + '</strong>' + (c.at ? ('<span style="color:var(--text-faint);font-weight:400;">&middot; ' + dateOnly(c.at) + '</span>') : '') + '</p>';
     if (c.photos && c.photos.length) {
       h += '<div class="fixed-photo-grid">';
       c.photos.forEach(function (u, i) {
@@ -231,7 +276,7 @@ function renderWorkerJobs() {
   var host = document.getElementById('workerJobList');
   var bar = document.getElementById('workerCountBar');
   if (!host) return;
-  var rows = allIssues.filter(function (r) { return r.status !== 'fixed'; });
+  var rows = allIssues.filter(function (r) { return r.status !== 'fixed' && !workerCompletedByMe(r); });
   rows.sort(compareIssuesNewestFirst);
   if (bar) bar.textContent = rows.length + ' open job' + (rows.length === 1 ? '' : 's') + ' for your team';
   if (!rows.length) {
@@ -253,6 +298,10 @@ function renderWorkerJobs() {
 function openWorkerJob(id) {
   var r = allIssues.find(function (x) { return x.id === id; });
   if (!r) return;
+  if (workerCompletedByMe(r)) {
+    openWorkerJobDoneView(id);
+    return;
+  }
   _workerFixId = id;
   _workerFixPhotos = [];
   _workerUploading = 0;
@@ -278,6 +327,33 @@ function openWorkerJob(id) {
   h += '<button type="button" id="worker-submit-btn" class="worker-submit-fix" disabled onclick="submitWorkerFix(\'' + id + '\')">Mark as fixed</button></div>';
   body.innerHTML = h;
   renderWorkerPhotoGrid();
+  document.getElementById('workerJobModal').classList.add('show');
+}
+function openWorkerJobDoneView(id) {
+  var r = allIssues.find(function (x) { return x.id === id; });
+  if (!r) return;
+  _workerFixId = null;
+  _workerFixPhotos = [];
+  _workerUploading = 0;
+  var title = document.getElementById('workerModalTitle');
+  if (title) title.textContent = '#' + issueRef(r.num);
+  var body = document.getElementById('workerModalBody');
+  if (!body) return;
+  var mine = myWorkerCompletion(r);
+  var h = '<h2>' + r.issueType + '</h2><p class="loc">' + (projectNames[r.project] || r.project) + ' &middot; ' + locStr(r) + '</p>';
+  h += '<div class="worker-done-locked"><p class="worker-done-msg">' + checkIconHtml('#1d9e75') + ' You already marked this job as fixed.</p>';
+  h += '<p style="font-size:13px;color:var(--text-soft);margin:0;">You cannot add more photos for this issue.</p></div>';
+  if (mine && mine.photos && mine.photos.length) {
+    h += '<div class="worker-fix-section"><h3>Your submitted photos</h3><div class="worker-photo-grid">';
+    mine.photos.forEach(function (url, i) {
+      h += '<div class="worker-photo-item"><img src="' + url + '" onclick="bigImg(this.src)" alt="Photo ' + (i + 1) + '"><span class="worker-photo-label">Photo ' + (i + 1) + '</span></div>';
+    });
+    h += '</div></div>';
+  }
+  if (issueWorkersRequired(r) >= 2 && r.status !== 'fixed') {
+    h += '<p class="worker-two-note">Waiting for another worker to complete this job (' + issueWorkerDone(r) + '/2 done).</p>';
+  }
+  body.innerHTML = h;
   document.getElementById('workerJobModal').classList.add('show');
 }
 function triggerWorkerCamera() {
@@ -340,6 +416,12 @@ function processWorkerFixPhoto(file) {
 }
 function submitWorkerFix(id) {
   if (!_workerFixPhotos.length) { uiAlert('Please take at least one completion photo first.'); return; }
+  if (workerCompletedByMe(allIssues.find(function (x) { return x.id === id; }))) {
+    uiAlert('You already marked this job as fixed.');
+    closeWorkerJob();
+    renderWorkerJobs();
+    return;
+  }
   var btn = document.getElementById('worker-submit-btn');
   var noteEl = document.getElementById('worker-fix-note');
   var note = noteEl ? noteEl.value.trim() : '';
@@ -365,6 +447,14 @@ function submitWorkerFix(id) {
       uiAlert('\u2705 Job marked fixed!');
     })
     .catch(function (e) {
+      if (/already_submitted|already submitted/i.test(e.message || '')) {
+        allIssues = allIssues.filter(function (x) { return x.id !== id; });
+        writeIssuesCacheAsync(allIssues);
+        closeWorkerJob();
+        renderWorkerJobs();
+        uiAlert('\u2705 You already completed this job.');
+        return;
+      }
       uiAlert('\u274c ' + e.message);
       if (btn) { btn.disabled = false; btn.textContent = 'Mark as fixed'; }
     });
@@ -495,7 +585,7 @@ function getIssueViewMode(){ try{ return localStorage.getItem(ISSUE_VIEW_KEY)===
 function setIssueViewMode(m){ try{ localStorage.setItem(ISSUE_VIEW_KEY,m); }catch(e){} renderIssues(); }
 function issueActionBtns(r){ return '<button type="button" onclick="event.stopPropagation();shareIssueWhatsApp(\''+r.id+'\')" title="Share on WhatsApp" style="background:#25D366;color:#fff;border:none;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:none;margin-right:6px;">'+whatsappIconHtml()+'</button>'+(PAGEPERMS.edit!==false?'<button type="button" onclick="event.stopPropagation();editIssue(\''+r.id+'\')" title="Edit issue" style="background:var(--accent2);color:#fff;border:none;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:none;margin-right:6px;">'+pencilIconHtml()+'</button>':'')+(PAGEPERMS.del!==false?'<button type="button" onclick="event.stopPropagation();removeIssue(\''+r.id+'\')" title="Delete issue" style="background:#C5504F;color:#fff;border:none;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:none;">'+trashIconHtml()+'</button>':''); }
 function viewToggleHtml(){ var v=getIssueViewMode(); return '<div class="view-toggle"><button type="button" class="view-toggle-btn'+(v==='table'?' active':'')+'" onclick="setIssueViewMode(\'table\')" title="Table view" aria-label="Table view"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h18"/></svg></button><button type="button" class="view-toggle-btn'+(v==='grid'?' active':'')+'" onclick="setIssueViewMode(\'grid\')" title="Grid view" aria-label="Grid view"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button></div>'; }
-function renderIssues(){ if(isCivilWorker()){ renderWorkerJobs(); return; } const fp=document.getElementById('f-project').value; const fs=document.getElementById('f-status').value; const fm=(document.getElementById('f-month')||{}).value||''; const fg=(document.getElementById('f-group')||{}).value||''; const q=(document.getElementById('f-search').value||'').toLowerCase(); let rows=allIssues.filter(r=>{ if(fp&&r.project!==fp)return false; if(fs&&r.status!==fs)return false; if(fm&&dayOf(r)!==fm)return false; if(fg){ if(fg==='unassigned'){ if(r.assignedGroup)return false; } else if(r.assignedGroup!==fg) return false; } if(q){ var qn=q.replace(/[#\s]/g,''); var ref=issueRef(r.num).toLowerCase(); if(/^[a-z]+\d+$/.test(qn)){ if(qn!==ref)return false; } else if(/^\d+$/.test(qn)){ if(String(r.num||'')!==qn)return false; } else { const hay=(r.building+' '+r.floor+' '+r.spot+' '+r.issueType).toLowerCase(); if(hay.indexOf(q)===-1)return false; } } return true; }); rows.sort(compareIssuesNewestFirst); window._visibleIssueIds=rows.map(function(r){ return r.id; }); const oc=rows.filter(r=>r.status!=='fixed').length; const fc=rows.length-oc; const openAll=allIssues.filter(r=>r.status!=='fixed'); const unAssign=openAll.filter(r=>!r.assignedGroup).length; const view=getIssueViewMode(); let teamBits=''; if(tradeGroups().length){ teamBits=' &nbsp;&mdash;&nbsp; <span style="color:var(--c-warn,#b8860b);">'+unAssign+' unassigned</span>'; } let h='<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;"><p style="color:var(--text-soft);margin:0;">'+rows.length+' issue(s)'+(fm?(' in '+fm):'')+' &nbsp;&mdash;&nbsp; <span style="color:var(--open-color);">'+squareIconHtml('var(--open-color)')+' '+oc+' open</span> &nbsp;&mdash;&nbsp; <span style="color:#1d9e75;">'+checkIconHtml('#1d9e75')+' '+fc+' fixed</span>'+teamBits+'</p>'+viewToggleHtml()+'</div>'+issueSelectToolbarHtml(); if(rows.length===0){ h+='<p style="color:var(--text-faint);">No issues match.</p>'; } else if(view==='grid'){ h+='<div class="issue-grid">'; rows.forEach(function(r){ var sel=!!selectedIssueIds[r.id]; var cardClick=issueSelectMode?"toggleIssueSelected('"+r.id+"')":"openIssue('"+r.id+"')"; h+='<div class="issue-card'+(sel?' selected':'')+(issueSelectMode?' selecting':'')+'" onclick="'+cardClick+'">'+(issueSelectMode?('<div class="issue-card-check" onclick="event.stopPropagation()"><input type="checkbox"'+(sel?' checked':'')+' onclick="event.stopPropagation();toggleIssueSelected(\''+r.id+'\')" aria-label="Select issue"></div>'):'')+(r.photo?'<img class="issue-card-photo" src="'+r.photo+'" loading="lazy" alt="">':'<div class="issue-card-photo issue-card-nophoto">No photo</div>')+'<div class="issue-card-body"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;"><span style="color:var(--text-faint);font-weight:700;">#'+issueRef(r.num)+'</span>'+issueStatusBadgeHtml(r)+'</div><div style="font-weight:600;line-height:1.35;margin-bottom:6px;">'+r.issueType+tradeBadgeHtml(r)+workersBadgeHtml(r)+(r.note?' <span style="color:var(--text-faint);font-weight:400;">('+r.note+')</span>':'')+'</div><div style="color:var(--text-soft);font-size:13px;margin-bottom:4px;">'+locStr(r)+'</div><div style="color:var(--text-faint);font-size:12px;margin-bottom:10px;">'+dateOnly(r.date)+'</div>'+(issueSelectMode?'':('<div style="text-align:right;" onclick="event.stopPropagation()">'+issueActionBtns(r)+'</div>'))+'</div></div>'; }); h+='</div>'; } else { var teamTh=tradeGroups().length?'<th>Team</th>':''; h+='<table><thead><tr>'+(issueSelectMode?'<th style="width:36px;"></th>':'')+'<th>#</th><th>Issue</th><th>Location</th>'+teamTh+'<th>Date</th><th>Status</th><th>Photo</th>'+(issueSelectMode?'':'<th></th>')+'</tr></thead><tbody>'; rows.forEach(function(r){ var sel=!!selectedIssueIds[r.id]; var rowClick=issueSelectMode?"toggleIssueSelected('"+r.id+"')":"openIssue('"+r.id+"')"; h+='<tr class="issue-row'+(sel?' selected':'')+'" onclick="'+rowClick+'"'+(sel?' style="background:var(--row-hover);"':'')+'>'; if(issueSelectMode) h+='<td onclick="event.stopPropagation()"><input type="checkbox"'+(sel?' checked':'')+' onclick="event.stopPropagation();toggleIssueSelected(\''+r.id+'\')" aria-label="Select issue"></td>'; h+='<td style="color:var(--text-faint);font-weight:700;white-space:nowrap;">#'+issueRef(r.num)+'</td><td>'+r.issueType+tradeBadgeHtml(r)+workersBadgeHtml(r)+(r.note?' <span style="color:var(--text-faint);">('+r.note+')</span>':'')+'</td><td>'+locStr(r)+'</td>'; if(tradeGroups().length) h+='<td>'+tradeGroupLabel(r.assignedGroup)+'</td>'; h+='<td>'+dateOnly(r.date)+'</td><td>'+issueStatusBadgeHtml(r)+'</td><td>'+(r.photo?'<img class="thumb" src="'+r.photo+'" loading="lazy">':'?')+'</td>'; if(!issueSelectMode) h+='<td>'+issueActionBtns(r)+'</td>'; h+='</tr>'; }); h+='</tbody></table>'; } document.getElementById('issuesTable').innerHTML=h; }
+function renderIssues(){ if(isCivilWorker()){ renderWorkerJobs(); return; } const fp=document.getElementById('f-project').value; const fs=document.getElementById('f-status').value; const fm=(document.getElementById('f-month')||{}).value||''; const fg=(document.getElementById('f-group')||{}).value||''; const q=(document.getElementById('f-search').value||'').toLowerCase(); let rows=allIssues.filter(r=>{ if(fp&&r.project!==fp)return false; if(fs&&r.status!==fs)return false; if(fm&&dayOf(r)!==fm)return false; if(fg){ if(fg==='unassigned'){ if(r.assignedGroup)return false; } else if(r.assignedGroup!==fg) return false; } if(q){ var qn=q.replace(/[#\s]/g,''); var ref=issueRef(r.num).toLowerCase(); if(/^[a-z]+\d+$/.test(qn)){ if(qn!==ref)return false; } else if(/^\d+$/.test(qn)){ if(String(r.num||'')!==qn)return false; } else { const hay=(r.building+' '+r.floor+' '+r.spot+' '+r.issueType).toLowerCase(); if(hay.indexOf(q)===-1)return false; } } return true; }); rows.sort(compareIssuesNewestFirst); window._visibleIssueIds=rows.map(function(r){ return r.id; }); const oc=rows.filter(r=>r.status!=='fixed').length; const fc=rows.length-oc; const openAll=allIssues.filter(r=>r.status!=='fixed'); const unAssign=openAll.filter(r=>!r.assignedGroup).length; const view=getIssueViewMode(); let teamBits=''; if(tradeGroups().length){ teamBits=' &nbsp;&mdash;&nbsp; <span style="color:var(--c-warn,#b8860b);">'+unAssign+' unassigned</span>'; } let h='<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;"><p style="color:var(--text-soft);margin:0;">'+rows.length+' issue(s)'+(fm?(' in '+fm):'')+' &nbsp;&mdash;&nbsp; <span style="color:var(--open-color);">'+squareIconHtml('var(--open-color)')+' '+oc+' open</span> &nbsp;&mdash;&nbsp; <span style="color:#1d9e75;">'+checkIconHtml('#1d9e75')+' '+fc+' fixed</span>'+teamBits+'</p>'+viewToggleHtml()+'</div>'+issueSelectToolbarHtml(); if(rows.length===0){ h+='<p style="color:var(--text-faint);">No issues match.</p>'; } else if(view==='grid'){ h+='<div class="issue-grid">'; rows.forEach(function(r){ var sel=!!selectedIssueIds[r.id]; var cardClick=issueSelectMode?"toggleIssueSelected('"+r.id+"')":"openIssue('"+r.id+"')"; h+='<div class="issue-card'+(sel?' selected':'')+(issueSelectMode?' selecting':'')+'" onclick="'+cardClick+'">'+(issueSelectMode?('<div class="issue-card-check" onclick="event.stopPropagation()"><input type="checkbox"'+(sel?' checked':'')+' onclick="event.stopPropagation();toggleIssueSelected(\''+r.id+'\')" aria-label="Select issue"></div>'):'')+(r.photo?'<img class="issue-card-photo" src="'+r.photo+'" loading="lazy" alt="">':'<div class="issue-card-photo issue-card-nophoto">No photo</div>')+'<div class="issue-card-body"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;"><span style="color:var(--text-faint);font-weight:700;">#'+issueRef(r.num)+'</span>'+issueStatusBadgeHtml(r)+'</div><div style="font-weight:600;line-height:1.35;margin-bottom:6px;">'+r.issueType+tradeBadgeHtml(r)+workersBadgeHtml(r)+workersCompletedSummaryHtml(r)+(r.note?' <span style="color:var(--text-faint);font-weight:400;">('+r.note+')</span>':'')+'</div><div style="color:var(--text-soft);font-size:13px;margin-bottom:4px;">'+locStr(r)+'</div><div style="color:var(--text-faint);font-size:12px;margin-bottom:10px;">'+dateOnly(r.date)+workersCompletedSummaryHtml(r)+'</div>'+(issueSelectMode?'':('<div style="text-align:right;" onclick="event.stopPropagation()">'+issueActionBtns(r)+'</div>'))+'</div></div>'; }); h+='</div>'; } else { var teamTh=tradeGroups().length?'<th>Team</th>':''; h+='<table><thead><tr>'+(issueSelectMode?'<th style="width:36px;"></th>':'')+'<th>#</th><th>Issue</th><th>Location</th>'+teamTh+'<th>Date</th><th>Status</th><th>Photo</th>'+(issueSelectMode?'':'<th></th>')+'</tr></thead><tbody>'; rows.forEach(function(r){ var sel=!!selectedIssueIds[r.id]; var rowClick=issueSelectMode?"toggleIssueSelected('"+r.id+"')":"openIssue('"+r.id+"')"; h+='<tr class="issue-row'+(sel?' selected':'')+'" onclick="'+rowClick+'"'+(sel?' style="background:var(--row-hover);"':'')+'>'; if(issueSelectMode) h+='<td onclick="event.stopPropagation()"><input type="checkbox"'+(sel?' checked':'')+' onclick="event.stopPropagation();toggleIssueSelected(\''+r.id+'\')" aria-label="Select issue"></td>'; h+='<td style="color:var(--text-faint);font-weight:700;white-space:nowrap;">#'+issueRef(r.num)+'</td><td>'+r.issueType+tradeBadgeHtml(r)+workersBadgeHtml(r)+workersCompletedSummaryHtml(r)+(r.note?' <span style="color:var(--text-faint);">('+r.note+')</span>':'')+'</td><td>'+locStr(r)+'</td>'; if(tradeGroups().length) h+='<td>'+tradeGroupLabel(r.assignedGroup)+'</td>'; h+='<td>'+dateOnly(r.date)+'</td><td>'+issueStatusBadgeHtml(r)+'</td><td>'+(r.photo?'<img class="thumb" src="'+r.photo+'" loading="lazy">':'?')+'</td>'; if(!issueSelectMode) h+='<td>'+issueActionBtns(r)+'</td>'; h+='</tr>'; }); h+='</tbody></table>'; } document.getElementById('issuesTable').innerHTML=h; }
 function durationStr(a,b){ if(!a||!b) return ''; const pr=s=>new Date(String(s).replace(' ','T')); const d1=pr(a), d2=pr(b); if(isNaN(d1.getTime())||isNaN(d2.getTime())) return ''; let ms=d2-d1; if(ms<0) return ''; const days=Math.floor(ms/86400000); const hrs=Math.floor((ms%86400000)/3600000); const mins=Math.floor((ms%3600000)/60000); let parts=[]; if(days)parts.push(days+'d'); if(hrs)parts.push(hrs+'h'); if(!days&&!hrs)parts.push(mins+'m'); return ' \u2014 took '+parts.join(' '); }
 function assignBoxHtml(r) {
   if (!tradeGroups().length || PAGEPERMS.assign === false) return '';
@@ -506,7 +596,7 @@ function assignBoxHtml(r) {
   var twoChecked = issueWorkersRequired(r) >= 2 ? ' checked' : '';
   return '<div class="assign-box" onclick="event.stopPropagation()"><label>Assign to team</label><div class="assign-row"><select id="assign-group-' + r.id + '" onchange="setAssignBtnState(\'' + r.id + '\', \'idle\')">' + opts + '</select><button type="button" id="assign-btn-' + r.id + '" class="assign-save-btn" onclick="assignIssue(\'' + r.id + '\')">Save</button></div><label class="assign-two-workers"><input type="checkbox" id="assign-two-workers-' + r.id + '"' + twoChecked + '> Needs 2 workers (each must take photos)</label></div>';
 }
-function openIssue(id){ const r=allIssues.find(x=>x.id===id); if(!r)return; if(isCivilWorker() && r.status!=='fixed'){ closeIssueModal(); openWorkerJob(id); return; } let h='<span class="close-x" onclick="closeIssueModal()">&times;</span>'; h+='<h2><span style="color:var(--text-faint);font-weight:700;">#'+issueRef(r.num)+'</span> '+r.issueType+tradeBadgeHtml(r)+workersBadgeHtml(r)+'</h2><p style="color:var(--text-soft);">'+locStr(r)+' &middot; '+issueStatusBadgeHtml(r)+'</p>'; h+='<p style="margin-top:8px;"><strong>'+squareIconHtml()+' Reported:</strong> '+dateOnly(r.date||r.createdAt)+(r.createdBy?(' (by '+r.createdBy+')'):'')+'</p>'; if(r.status==='fixed'){ h+='<p style="margin-top:4px;"><strong>'+checkIconHtml()+' Fixed:</strong> '+(dateOnly(r.fixedAt)||'\u2014')+(r.fixedBy?(' (by '+r.fixedBy+')'):'')+'<span style="color:var(--text-faint);">'+durationStr(r.createdAt||r.date, r.fixedAt)+'</span></p>'; } else if(issueWorkersRequired(r)>=2){ h+='<p style="margin-top:4px;color:var(--c-warn,#b8860b);"><strong>2 workers required:</strong> '+issueWorkerDone(r)+'/2 have submitted photos.</p>'; } if(r.note)h+='<p style="margin-top:8px;"><strong>Note:</strong> '+r.note+'</p>'; if(r.status!=='fixed') h+=assignBoxHtml(r); h+=workerCompletionsBlockHtml(r); h+='<div style="margin:12px 0 4px;"><button type="button" onclick="shareIssueWhatsApp(\''+r.id+'\')" style="background:#25D366;color:#fff;border:none;padding:10px 16px;border-radius:50px;font-weight:600;display:inline-flex;align-items:center;gap:8px;cursor:pointer;box-shadow:none;">'+whatsappIconHtml()+' Share on WhatsApp</button></div>'; h+='<div class="beforeafter"><div><p style="color:var(--text-soft);margin-bottom:6px;">Problem</p>'+(r.photo?'<img src="'+r.photo+'" onclick="bigImg(this.src)">':'<p>No photo</p>')+'</div><div class="beforeafter-fixed"><p style="color:var(--text-soft);margin-bottom:6px;">Fixed'+(issueFixedPhotos(r).length>1?' ('+issueFixedPhotos(r).length+' photos)':'')+'</p>'+fixedPhotosBlockHtml(r.fixedPhoto,r)+'</div></div>'; if(r.status!=='fixed' && canMarkIssueFixed()){ if(ISSUE_CFG.requireFixByName){ h+='<div style="margin:14px 0 4px;"><label style="font-weight:600;display:block;margin-bottom:6px;">Job was done by:</label><input type="text" id="fix-by" placeholder="Enter the name of who did the job" style="width:100%;max-width:340px;padding:10px;border:2px solid var(--input-border);border-radius:8px;background:var(--input-bg);color:var(--text);font-size:14px;box-sizing:border-box;"></div>'; } h+='<h3>'+checkIconHtml()+' Mark as fixed</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;"><button type="button" onclick="document.getElementById(\'fix-file\').click()"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/><circle cx="14" cy="15" r="1"/></svg></span> Upload / Camera</button><span style="color:var(--text-soft);font-size:13px;">? or paste below ?</span><input type="file" id="fix-file" accept="image/*" style="display:none" onchange="handleFixFile(event,\''+r.id+'\')"></div><div class="image-upload" id="fix-area" onpaste="pasteFix(event,\''+r.id+'\')">Click here and paste the photo of the completed fix (Ctrl+V)</div>'; } document.getElementById('issueBox').innerHTML=h; document.getElementById('issueModal').classList.add('show'); }
+function openIssue(id){ const r=allIssues.find(x=>x.id===id); if(!r)return; if(isCivilWorker() && r.status!=='fixed'){ closeIssueModal(); openWorkerJob(id); return; } let h='<span class="close-x" onclick="closeIssueModal()">&times;</span>'; h+='<h2><span style="color:var(--text-faint);font-weight:700;">#'+issueRef(r.num)+'</span> '+r.issueType+tradeBadgeHtml(r)+workersBadgeHtml(r)+'</h2><p style="color:var(--text-soft);">'+locStr(r)+' &middot; '+issueStatusBadgeHtml(r)+'</p>'; h+='<p style="margin-top:8px;"><strong>'+squareIconHtml()+' Reported:</strong> '+dateOnly(r.date||r.createdAt)+(r.createdBy?(' (by '+r.createdBy+')'):'')+'</p>'; if(r.status==='fixed'){ h+='<p style="margin-top:4px;"><strong>'+checkIconHtml()+' Fixed:</strong> '+(dateOnly(r.fixedAt)||'\u2014')+(r.fixedBy?(' (by '+r.fixedBy+')'):'')+'<span style="color:var(--text-faint);">'+durationStr(r.createdAt||r.date, r.fixedAt)+'</span></p>'; } else if(issueWorkersRequired(r)>=2){ h+=twoWorkersStatusHtml(r); } if(r.note)h+='<p style="margin-top:8px;"><strong>Note:</strong> '+r.note+'</p>'; if(r.status!=='fixed') h+=assignBoxHtml(r); h+=workerCompletionsBlockHtml(r); h+='<div style="margin:12px 0 4px;"><button type="button" onclick="shareIssueWhatsApp(\''+r.id+'\')" style="background:#25D366;color:#fff;border:none;padding:10px 16px;border-radius:50px;font-weight:600;display:inline-flex;align-items:center;gap:8px;cursor:pointer;box-shadow:none;">'+whatsappIconHtml()+' Share on WhatsApp</button></div>'; h+='<div class="beforeafter"><div><p style="color:var(--text-soft);margin-bottom:6px;">Problem</p>'+(r.photo?'<img src="'+r.photo+'" onclick="bigImg(this.src)">':'<p>No photo</p>')+'</div><div class="beforeafter-fixed"><p style="color:var(--text-soft);margin-bottom:6px;">Fixed'+(issueFixedPhotos(r).length>1?' ('+issueFixedPhotos(r).length+' photos)':'')+'</p>'+fixedPhotosBlockHtml(r.fixedPhoto,r)+'</div></div>'; if(r.status!=='fixed' && canMarkIssueFixed()){ if(ISSUE_CFG.requireFixByName){ h+='<div style="margin:14px 0 4px;"><label style="font-weight:600;display:block;margin-bottom:6px;">Job was done by:</label><input type="text" id="fix-by" placeholder="Enter the name of who did the job" style="width:100%;max-width:340px;padding:10px;border:2px solid var(--input-border);border-radius:8px;background:var(--input-bg);color:var(--text);font-size:14px;box-sizing:border-box;"></div>'; } h+='<h3>'+checkIconHtml()+' Mark as fixed</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;"><button type="button" onclick="document.getElementById(\'fix-file\').click()"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/><circle cx="14" cy="15" r="1"/></svg></span> Upload / Camera</button><span style="color:var(--text-soft);font-size:13px;">? or paste below ?</span><input type="file" id="fix-file" accept="image/*" style="display:none" onchange="handleFixFile(event,\''+r.id+'\')"></div><div class="image-upload" id="fix-area" onpaste="pasteFix(event,\''+r.id+'\')">Click here and paste the photo of the completed fix (Ctrl+V)</div>'; } document.getElementById('issueBox').innerHTML=h; document.getElementById('issueModal').classList.add('show'); }
 function closeIssueModal(){ document.getElementById('issueModal').classList.remove('show'); }
 function processFix(id, file){ if(!file) return; var by=''; if(ISSUE_CFG.requireFixByName){ const byEl=document.getElementById('fix-by'); by=byEl?byEl.value.trim():''; if(!by){ alert('Please enter who did the job first ("Job was done by")'); if(byEl)byEl.focus(); return; } } const area=document.getElementById('fix-area'); if(area) area.innerHTML='\u23F3 Uploading\u2026'; compressImage(file,url=>{ if(url){ var payload={action:ISSUE_CFG.actions.markFixed,id:id,fixedPhoto:url,token:issueToken()||''}; if(ISSUE_CFG.requireFixByName) payload.fixedByName=by; fetchJSONRetry(payload).then(()=>{ const it=allIssues.find(x=>x.id===id); if(it){ it.status='fixed'; it.fixedPhoto=url; const now=new Date(); const z=n=>String(n).padStart(2,'0'); it.fixedAt=now.getFullYear()+'-'+z(now.getMonth()+1)+'-'+z(now.getDate())+' '+z(now.getHours())+':'+z(now.getMinutes()); it.fixedBy=by||empireGetUser()||''; } renderIssues(); renderAnalytics(); openIssue(id); }).catch(er=>{ if(area) area.innerHTML='\u274C '+er.message; }); } else { if(area) area.innerHTML='\u274C Upload failed, try again'; } }); }
 function pasteFix(e,id){ const items=e.clipboardData.items; for(let i=0;i<items.length;i++){ if(items[i].type.indexOf('image')!==-1){ e.preventDefault(); processFix(id, items[i].getAsFile()); return; } } }
