@@ -18,7 +18,7 @@ var TRASH_SHEET = 'Trash';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-13-civil-two-workers';
+var SCRIPT_VERSION = '2026-07-13-civil-assign-fix';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -368,6 +368,18 @@ function getUserRowByName_(username) {
   }
   return null;
 }
+function roleFromAuth_(auth) {
+  var role = String((auth && auth.role) || '').trim().toLowerCase();
+  if (role === 'admin' || role === 'editor' || role === 'viewer' || role === 'worker') return role;
+  var row = getUserRowByName_(auth && auth.username);
+  if (!row) return role;
+  return String(computePerms_(row[3], row[4]).role || '').trim().toLowerCase();
+}
+function enrichAuthRole_(auth) {
+  if (!auth || auth.ok === false) return auth;
+  auth.role = roleFromAuth_(auth);
+  return auth;
+}
 function projectAllowedForUser_(username, project) {
   var projects = projectsForUserRow_(getUserRowByName_(username));
   if (!projects.length) return true;
@@ -572,7 +584,7 @@ function verifyToken(token, requiredDept) {
         try { cache.remove(tkey); } catch (e) {}
         return cached;
       }
-      if (cached) return cached;
+      if (cached) return enrichAuthRole_(cached);
     }
   } catch(e){}
   var ss = getSS_();
@@ -590,7 +602,7 @@ function verifyToken(token, requiredDept) {
       if (!pwCheck.ok) return pwCheck;
       if (!tokenDeptAllows_(tokenDept, requiredDept)) return {ok:false,error:'This login is not allowed for this section'};
       var urow = getUserRowByName_(username);
-      var result = {ok:true,username:rows[i][1],dept:tokenDept,role:String(rows[i][4]||''),trade:tradeForUserRow_(urow),pwDigest:currentPasswordDigestForUser_(username)};
+      var result = enrichAuthRole_({ok:true,username:rows[i][1],dept:tokenDept,role:String(rows[i][4]||''),trade:tradeForUserRow_(urow),pwDigest:currentPasswordDigestForUser_(username)});
       try { cache.put(tkey, JSON.stringify(result), 300); } catch(e){}
       return result;
     }
@@ -610,7 +622,7 @@ function verifyTokenSession_(token) {
         try { cache.remove(tkey); } catch (e) {}
         return cached;
       }
-      if (cached) return cached;
+      if (cached) return enrichAuthRole_(cached);
     }
   } catch(e){}
   var ss = getSS_();
@@ -625,7 +637,7 @@ function verifyTokenSession_(token) {
       var pwCheck = ensureTokenPasswordValid_(ss, tsheet, i + 1, rows[i], username, token);
       if (!pwCheck.ok) return pwCheck;
       var urow = getUserRowByName_(username);
-      var result = {ok:true,username:rows[i][1],dept:String(rows[i][2]||'').trim().toLowerCase(),role:String(rows[i][4]||''),trade:tradeForUserRow_(urow),pwDigest:currentPasswordDigestForUser_(username)};
+      var result = enrichAuthRole_({ok:true,username:rows[i][1],dept:String(rows[i][2]||'').trim().toLowerCase(),role:String(rows[i][4]||''),trade:tradeForUserRow_(urow),pwDigest:currentPasswordDigestForUser_(username)});
       try { cache.put(tkey, JSON.stringify(result), 300); } catch(e){}
       return result;
     }
@@ -1285,8 +1297,9 @@ function handleGetIssues(body, sheetName, auth) {
 }
 
 function handleAssignCivilIssue(body, auth) {
-  var role = String((auth && auth.role) || '').toLowerCase();
-  if (role !== 'admin' && role !== 'editor') return {ok:false, error:'not_allowed', message:'Only engineer accounts can assign issues.'};
+  auth = enrichAuthRole_(auth || {});
+  var role = roleFromAuth_(auth);
+  if (role !== 'admin' && role !== 'editor') return {ok:false, error:'not_allowed', message:'Only engineer accounts can assign issues. Log out and log in again, or set role to editor/admin in the Users sheet.'};
   var group = normalizeTrade_(body.assignedGroup || body.group || '');
   if (!group && body.assignedGroup !== '' && body.group !== '') return {ok:false, error:'invalid_group', message:'Invalid trade group. Use pipes, painting, tiles, or wood.'};
   var idList = [];
@@ -1304,26 +1317,25 @@ function handleAssignCivilIssue(body, auth) {
   var sheet = ss.getSheetByName(CIVIL_SHEET);
   if (!sheet) return {ok:false, error:'Sheet not found'};
   ensureCivilIssueHeaders_(sheet);
-  var lastRow = sheet.getLastRow();
-  if (lastRow < 2) return {ok:false, error:'Issue not found'};
+  if (sheet.getLastRow() < 2) return {ok:false, error:'Issue not found'};
   var want = {};
   for (var w = 0; w < idList.length; w++) want[idList[w]] = true;
-  var sheetIds = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  var rows = sheet.getDataRange().getValues();
   var updated = 0;
-  for (var i = 0; i < sheetIds.length; i++) {
-    if (want[String(sheetIds[i][0])]) {
-      sheet.getRange(i + 2, CIVIL_ASSIGNED_COL).setValue(group);
+  for (var i = 1; i < rows.length; i++) {
+    if (want[String(rows[i][0])]) {
+      sheet.getRange(i + 1, CIVIL_ASSIGNED_COL).setValue(group);
       if (workersRequired !== null) {
-        sheet.getRange(i + 2, CIVIL_WORKERS_REQUIRED_COL).setValue(workersRequired);
-        sheet.getRange(i + 2, CIVIL_WORKER_COMPLETIONS_COL).setValue('');
-        sheet.getRange(i + 2, 10).setValue('');
-        sheet.getRange(i + 2, 14).setValue('');
-        sheet.getRange(i + 2, 15).setValue('');
+        sheet.getRange(i + 1, CIVIL_WORKERS_REQUIRED_COL).setValue(workersRequired);
+        sheet.getRange(i + 1, CIVIL_WORKER_COMPLETIONS_COL).setValue('');
+        sheet.getRange(i + 1, 10).setValue('');
+        sheet.getRange(i + 1, 14).setValue('');
+        sheet.getRange(i + 1, 15).setValue('');
       }
       updated++;
     }
   }
-  if (!updated) return {ok:false, error:'Issue not found'};
+  if (!updated) return {ok:false, error:'Issue not found', message:'Issue not found on server. Refresh the list and try again.'};
   invalidateIssuesCache_(CIVIL_SHEET);
   return {ok:true, success:true, assignedGroup:group, workersRequired:workersRequired || 1, updated:updated};
 }

@@ -1,5 +1,5 @@
 /* Empire General Service — offline shell cache (Phase 5C) */
-var CACHE_VERSION = '2026-07-13-civil-no-engineer-fix';
+var CACHE_VERSION = '2026-07-13-civil-assign-fix';
 var CACHE_NAME = 'empire-egs-' + CACHE_VERSION;
 
 var PRECACHE = [
