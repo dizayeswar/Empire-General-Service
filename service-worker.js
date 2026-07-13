@@ -1,5 +1,5 @@
 /* Empire General Service — offline shell cache (Phase 5C) */
-var CACHE_VERSION = '2026-07-13-civil-worker-header';
+var CACHE_VERSION = '2026-07-13-pwa-android-install';
 var CACHE_NAME = 'empire-egs-' + CACHE_VERSION;
 
 var PRECACHE = [
@@ -19,6 +19,7 @@ var PRECACHE = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon-maskable-512.png',
+  './icons/icon-180.png',
   './assets/empire.css',
   './assets/empire-cleaning.css',
   './assets/empire-dept.css',
