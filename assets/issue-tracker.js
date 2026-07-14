@@ -499,7 +499,8 @@ var _engineerLocPollTimer = null;
 var _workerLocations = [];
 var ENGINEER_LOC_POLL_MS = 30000;
 function engineerLocationPanelEnabled() {
-  return !!(ISSUE_CFG.workerMode && ISSUE_CFG.actions && ISSUE_CFG.actions.getLocations && !isCivilWorker());
+  var p = PAGEPERMS || {};
+  return !!(ISSUE_CFG.workerMode && ISSUE_CFG.actions && ISSUE_CFG.actions.getLocations && !isCivilWorker() && p.liveLocation !== false);
 }
 function workerLocAgeMs(updatedAt) {
   if (!updatedAt) return Infinity;

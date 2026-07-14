@@ -89,7 +89,7 @@ Sheet tab: **Users**
 | B | Password | `****` |
 | C | Department | `cleaning` or `civil department,hse` or `all` |
 | D | Role | `admin`, `editor`, or `viewer` |
-| E | Hide (optional) | `Analytics` or `Dashboard,Monthly` |
+| E | Hide (optional) | `Analytics` or `Dashboard,Monthly` or `live location` |
 | F | Projects (cleaning only) | `ec,es` — blank = all projects |
 | G | Trade (civil workers only) | `pipes`, `painting`, `tiles`, or `wood` (Carpentry) |
 
@@ -127,7 +127,7 @@ Engineer assigns open issues to one of four teams. All workers with that trade s
 
 ### Hide column keywords
 
-Comma-separated, case-insensitive: `add`, `edit`, `delete`, `analytics`, `report` / `monthly`, `dashboard` / `dash`.
+Comma-separated, case-insensitive: `add`, `edit`, `delete`, `analytics`, `report` / `monthly`, `dashboard` / `dash`, `categories`, `live location`.
 
 ---
 
