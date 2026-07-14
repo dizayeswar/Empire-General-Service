@@ -86,7 +86,7 @@
   }
 
   function postToScript(body, timeoutMs) {
-    timeoutMs = timeoutMs || 45000;
+    timeoutMs = timeoutMs || 30000;
     var url = GOOGLE_SCRIPT_URL;
     var payload = JSON.stringify(body);
     return new Promise(function (resolve, reject) {
@@ -145,7 +145,7 @@
       platform: 'web-fcm',
       token: session
     };
-    return postToScript(payload, 45000)
+    return postToScript(payload, 30000)
       .then(function (d) {
         if (d && (d.ok || d.success)) {
           setWorkerPushStatus('Alerts enabled. Tap Send test, then lock your phone.');

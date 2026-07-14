@@ -20,7 +20,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-14-push9';
+var SCRIPT_VERSION = '2026-07-14-push10';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -743,17 +743,24 @@ function verifyTokenSession_(token) {
   } catch(e){}
   var ss = getSS_();
   var tsheet = ss.getSheetByName(TOKENS_SHEET);
-  if (!tsheet) return {ok:false,error:'Not authenticated'};
-  var rows = tsheet.getDataRange().getValues();
+  if (!tsheet || tsheet.getLastRow() < 2) return {ok:false,error:'Not authenticated'};
+  var lastRow = tsheet.getLastRow();
   var now = new Date().getTime();
-  for (var i=0;i<rows.length;i++) {
-    if (String(rows[i][0])===String(token)) {
-      if (now - Number(rows[i][3]) > TOKEN_TTL) return {ok:false,error:'Token expired'};
-      var username = String(rows[i][1]||'').trim().toLowerCase();
-      var pwCheck = ensureTokenPasswordValid_(ss, tsheet, i + 1, rows[i], username, token);
+  var chunkSize = 200;
+  for (var endRow = lastRow; endRow >= 2; endRow -= chunkSize) {
+    var startRow = Math.max(2, endRow - chunkSize + 1);
+    var numRows = endRow - startRow + 1;
+    var rows = tsheet.getRange(startRow, 1, numRows, 6).getValues();
+    for (var j = rows.length - 1; j >= 0; j--) {
+      var row = rows[j];
+      if (String(row[0]) !== String(token)) continue;
+      if (now - Number(row[3]) > TOKEN_TTL) return {ok:false,error:'Token expired'};
+      var username = String(row[1] || '').trim().toLowerCase();
+      var sheetRowNum = startRow + j;
+      var pwCheck = ensureTokenPasswordValid_(ss, tsheet, sheetRowNum, row, username, token);
       if (!pwCheck.ok) return pwCheck;
       var urow = getUserRowByName_(username);
-      var result = enrichAuthRole_({ok:true,username:rows[i][1],dept:String(rows[i][2]||'').trim().toLowerCase(),role:String(rows[i][4]||''),trade:tradeForUserRow_(urow),pwDigest:currentPasswordDigestForUser_(username)});
+      var result = enrichAuthRole_({ok:true,username:row[1],dept:String(row[2]||'').trim().toLowerCase(),role:String(row[4]||''),trade:tradeForUserRow_(urow),pwDigest:currentPasswordDigestForUser_(username)});
       try { cache.put(tkey, JSON.stringify(result), 300); } catch(e){}
       return result;
     }
@@ -1461,6 +1468,25 @@ function ensureWorkerPushSheet_(sheet) {
     }
   }
 }
+function workerPushPropKey_(username) {
+  return 'worker_push_' + String(username || '').trim().toLowerCase();
+}
+function syncWorkerPushTokenToSheet_(rec) {
+  try {
+    var ss = getSS_();
+    var sheet = ss.getSheetByName(WORKER_PUSH_SHEET) || ss.insertSheet(WORKER_PUSH_SHEET);
+    ensureWorkerPushSheet_(sheet);
+    var username = rec.username;
+    var lastRow = sheet.getLastRow();
+    for (var i = lastRow; i >= 2; i--) {
+      if (String(sheet.getRange(i, 1).getValue() || '').trim().toLowerCase() === username) {
+        sheet.getRange(i, 1, 1, 4).setValues([[username, rec.fcmToken, rec.platform, rec.updatedAt]]);
+        return;
+      }
+    }
+    sheet.appendRow([username, rec.fcmToken, rec.platform, rec.updatedAt]);
+  } catch (e) { /* sheet mirror is optional */ }
+}
 function handleSaveWorkerPushToken(body, auth) {
   try {
     auth = enrichAuthRole_(auth || {});
@@ -1472,18 +1498,10 @@ function handleSaveWorkerPushToken(body, auth) {
     var fcmToken = String(body.fcmToken || body.pushToken || '').trim();
     if (!fcmToken) return {ok:false, error:'missing_token', message:'Missing push token.'};
     var platform = String(body.platform || 'web-fcm').trim();
-    var ss = getSS_();
-    var sheet = ss.getSheetByName(WORKER_PUSH_SHEET) || ss.insertSheet(WORKER_PUSH_SHEET);
-    ensureWorkerPushSheet_(sheet);
     var now = new Date().toISOString();
-    var lastRow = sheet.getLastRow();
-    for (var i = lastRow; i >= 2; i--) {
-      if (String(sheet.getRange(i, 1).getValue() || '').trim().toLowerCase() === username) {
-        sheet.getRange(i, 1, 1, 4).setValues([[username, fcmToken, platform, now]]);
-        return {ok:true, success:true, updatedAt:now};
-      }
-    }
-    sheet.appendRow([username, fcmToken, platform, now]);
+    var rec = {username:username, fcmToken:fcmToken, platform:platform, updatedAt:now};
+    PropertiesService.getScriptProperties().setProperty(workerPushPropKey_(username), JSON.stringify(rec));
+    syncWorkerPushTokenToSheet_(rec);
     return {ok:true, success:true, updatedAt:now};
   } catch (e) {
     return {ok:false, error:'save_failed', message:String(e && e.message ? e.message : e)};
@@ -1496,12 +1514,26 @@ function getWorkerPushTokens_(usernames) {
     if (name) want[name] = true;
   }
   if (!Object.keys(want).length) return [];
+  var props = PropertiesService.getScriptProperties();
+  var out = [];
+  Object.keys(want).forEach(function (name) {
+    var raw = props.getProperty(workerPushPropKey_(name));
+    if (!raw) return;
+    try {
+      var rec = JSON.parse(raw);
+      var token = String((rec && rec.fcmToken) || '').trim();
+      if (token) {
+        out.push({username:name, fcmToken:token});
+        delete want[name];
+      }
+    } catch (e) {}
+  });
+  if (!Object.keys(want).length) return out;
   var ss = getSS_();
   var sheet = ss.getSheetByName(WORKER_PUSH_SHEET);
-  if (!sheet || sheet.getLastRow() < 2) return [];
+  if (!sheet || sheet.getLastRow() < 2) return out;
   ensureWorkerPushSheet_(sheet);
   var rows = sheet.getDataRange().getValues();
-  var out = [];
   for (var i = 1; i < rows.length; i++) {
     var user = String(rows[i][0] || '').trim().toLowerCase();
     if (!want[user]) continue;
@@ -2327,13 +2359,13 @@ function authorizePushSetup() {
   var sa = PropertiesService.getScriptProperties().getProperty('FCM_SERVICE_ACCOUNT_JSON');
   if (!sa) {
     Logger.log('ERROR: FCM_SERVICE_ACCOUNT_JSON missing.');
-    Logger.log('Fix: Run saveFcmServiceAccountOnce() below with your Firebase JSON, then run this again.');
+    Logger.log('Fix: Set FCM_SERVICE_ACCOUNT_JSON in Script properties (Project settings → Script properties).');
     return;
   }
   Logger.log('Service account JSON length: ' + sa.length);
   if (sa.indexOf('client_email') === -1 || sa.indexOf('private_key') === -1) {
     Logger.log('ERROR: Property does not look like service account JSON.');
-    Logger.log('Fix: Run saveFcmServiceAccountOnce() again.');
+    Logger.log('Fix: Re-save FCM_SERVICE_ACCOUNT_JSON in Script properties.');
     return;
   }
   var auth = getFcmAccessTokenDetailed_();
@@ -2342,29 +2374,29 @@ function authorizePushSetup() {
     return;
   }
   Logger.log('SUCCESS: FCM auth OK (token length ' + auth.token.length + ').');
-  var sheet = getSS_().getSheetByName(WORKER_PUSH_SHEET);
-  if (!sheet || sheet.getLastRow() < 2) {
-    Logger.log('No WorkerPushTokens yet — worker taps Enable alerts on phone first.');
-    return;
-  }
-  var fcmToken = String(sheet.getRange(2, 2).getValue() || '').trim();
+  var fcmToken = '';
+  var props = PropertiesService.getScriptProperties();
+  var all = props.getProperties();
+  Object.keys(all).forEach(function (k) {
+    if (fcmToken || k.indexOf('worker_push_') !== 0) return;
+    try {
+      var rec = JSON.parse(all[k]);
+      if (rec && rec.fcmToken) fcmToken = String(rec.fcmToken).trim();
+    } catch (e) {}
+  });
   if (!fcmToken) {
-    Logger.log('No FCM token in WorkerPushTokens row 2.');
+    var sheet = getSS_().getSheetByName(WORKER_PUSH_SHEET);
+    if (sheet && sheet.getLastRow() >= 2) {
+      for (var r = 2; r <= sheet.getLastRow(); r++) {
+        fcmToken = String(sheet.getRange(r, 2).getValue() || '').trim();
+        if (fcmToken) break;
+      }
+    }
+  }
+  if (!fcmToken) {
+    Logger.log('No worker push token yet — worker taps Enable alerts on phone first.');
     return;
   }
   var result = sendFcmToWorkerDetailed_(fcmToken, 'Empire test', 'Lock-screen push test from server.', {type: 'auth_test'});
   Logger.log('Push send: ' + JSON.stringify(result));
-}
-
-/** Paste Firebase service account JSON into json below, Run once, then DELETE this function. */
-function saveFcmServiceAccountOnce() {
-  var json = null;
-  // ↑ Replace null above with your full JSON object from Firebase, e.g.:
-  // var json = { "type": "service_account", "project_id": "empire-egs", ... };
-  if (!json || !json.client_email || !json.private_key) {
-    Logger.log('ERROR: Set json = { your Firebase service account JSON } first.');
-    return;
-  }
-  PropertiesService.getScriptProperties().setProperty('FCM_SERVICE_ACCOUNT_JSON', JSON.stringify(json));
-  Logger.log('Saved OK (' + JSON.stringify(json).length + ' chars). Now Run authorizePushSetup.');
 }

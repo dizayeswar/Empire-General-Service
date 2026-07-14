@@ -1,5 +1,5 @@
 /* Empire EGS — service worker (cache + Firebase background push) */
-var CACHE_VERSION = '2026-07-14-push9';
+var CACHE_VERSION = '2026-07-14-push10';
 var CACHE_NAME = 'empire-egs-' + CACHE_VERSION;
 var NOTIFY_ICON = 'https://dizayeswar.github.io/Empire-General-Service/icons/icon-192.png';
 var NOTIFY_URL = 'https://dizayeswar.github.io/Empire-General-Service/civil-issue.html';
@@ -105,11 +105,32 @@ function isApiRequest(url) {
     url.hostname.indexOf('api.imgbb.com') !== -1;
 }
 
+function isLiveConfigAsset(pathname) {
+  return /config\.js$/i.test(pathname) ||
+    /empire-push\.js$/i.test(pathname) ||
+    /issue-configs\.js$/i.test(pathname);
+}
+
 self.addEventListener('fetch', function (event) {
   if (event.request.method !== 'GET') return;
   var url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
   if (isApiRequest(url)) return;
+
+  if (isLiveConfigAsset(url.pathname)) {
+    event.respondWith(
+      fetch(event.request).then(function (response) {
+        if (response && response.ok) {
+          var copy = response.clone();
+          caches.open(CACHE_NAME).then(function (cache) { cache.put(event.request, copy); });
+        }
+        return response;
+      }).catch(function () {
+        return caches.match(event.request);
+      })
+    );
+    return;
+  }
 
   if (event.request.mode === 'navigate') {
     event.respondWith(
