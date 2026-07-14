@@ -44,6 +44,7 @@
     </div>
   </header>
   <div class="worker-count-bar" id="workerCountBar">Loading…</div>
+  <div id="workerLocBanner" class="worker-loc-banner" style="display:none;"></div>
   <main id="workerJobList" class="worker-list"><p class="worker-empty">Loading…</p></main>
 </div>
 <div id="workerJobModal" class="worker-modal">
@@ -115,6 +116,14 @@
         <div class="form-group"><label>Date</label><input type="date" id="f-month" onchange="renderIssues()"><span onclick="document.getElementById('f-month').value='';renderIssues();" style="font-size:11px;color:var(--text-faint);cursor:pointer;margin-top:4px;">clear date</span></div>
         <div class="form-group"><label>Search building/floor/spot</label><input type="text" id="f-search" oninput="renderIssues()" placeholder="e.g. A12, #A12, or stairs"></div>
         <div class="form-group"><label>&nbsp;</label><button onclick="loadIssues(true)"><span class="nav-icon spin-icon" id="listRefreshIcon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> Refresh</button></div>
+      </div>
+      <div id="workerLocationsPanel" class="worker-locations-panel" style="display:none;">
+        <div class="worker-locations-head">
+          <h3><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg></span> Field workers — live location</h3>
+          <button type="button" class="worker-loc-refresh-btn" onclick="loadWorkerLocations(true)"><span class="nav-icon spin-icon" id="workerLocRefreshIcon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> Refresh</button>
+        </div>
+        <p class="worker-locations-hint">Shows where civil workers are while they have the app open on their phone. Updates every ~45 seconds.</p>
+        <div id="workerLocationsBody"><p class="worker-loc-empty">Loading…</p></div>
       </div>
       <div id="issuesTable"><p>Loading…</p></div>
     </div>

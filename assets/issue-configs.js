@@ -26,7 +26,9 @@ var ISSUE_CONFIGS = {
       delete: 'deleteCivilIssue',
       markFixed: 'markCivilFixed',
       clear: 'clearCivilIssues',
-      assign: 'assignCivilIssue'
+      assign: 'assignCivilIssue',
+      reportLocation: 'reportWorkerLocation',
+      getLocations: 'getWorkerLocations'
     },
     spots: ['Service stairs','Main stairs','Service door','Rooftop door','Exit door','Elevator','Wall','Ceiling','Corridor','Basement','Rooftop','Garden','Parking','Other'],
     issueTypes: ['Water leakage','Broken tiles','Door is broken','Door handle is broken','Wall needs repainting','No rooftop door','No service door','Mold / damp','Cracked wall','Other']

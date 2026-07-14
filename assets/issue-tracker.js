@@ -357,6 +357,7 @@ function assignIssue(id) {
 function enterWorkerApp() {
   document.getElementById('loginPage').classList.remove('show');
   document.getElementById('mainContainer').classList.remove('show');
+  stopEngineerLocationPoll();
   var wa = document.getElementById('workerApp');
   if (wa) wa.classList.add('show');
   var trade = empireGetTrade() || '';
@@ -365,7 +366,181 @@ function enterWorkerApp() {
   var teamLabel = tradeGroupLabel(trade);
   if (title) title.textContent = user + ' (' + teamLabel + ' team)';
   initWorkerOfflineSync();
+  startWorkerLocationPing();
   setTimeout(function () { loadIssues(false); }, 0);
+}
+var _workerLocWatchId = null;
+var _workerLastLocPing = 0;
+var _workerLocDenied = false;
+var WORKER_LOC_PING_MS = 45000;
+function workerLocationActionsEnabled() {
+  return !!(ISSUE_CFG.workerMode && ISSUE_CFG.actions && ISSUE_CFG.actions.reportLocation);
+}
+function pingWorkerLocation(lat, lng, accuracy) {
+  if (!workerLocationActionsEnabled()) return;
+  fetch(GOOGLE_SCRIPT_URL, {
+    method: 'POST',
+    body: JSON.stringify({
+      action: ISSUE_CFG.actions.reportLocation,
+      lat: lat,
+      lng: lng,
+      accuracy: accuracy,
+      token: issueToken() || ''
+    })
+  }).catch(function () {});
+}
+function setWorkerLocBanner(text, isError) {
+  var el = document.getElementById('workerLocBanner');
+  if (!el) return;
+  if (!text) { el.style.display = 'none'; el.textContent = ''; return; }
+  el.style.display = 'block';
+  el.classList.toggle('worker-loc-banner-error', !!isError);
+  el.textContent = text;
+}
+function onWorkerPosition(pos) {
+  if (!pos || !pos.coords) return;
+  var now = Date.now();
+  if (_workerLastLocPing && now - _workerLastLocPing < WORKER_LOC_PING_MS) return;
+  _workerLastLocPing = now;
+  setWorkerLocBanner('');
+  pingWorkerLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
+}
+function onWorkerPositionError(err) {
+  if (_workerLocDenied) return;
+  _workerLocDenied = true;
+  var msg = 'Location sharing is off. Allow location in your browser so the engineer can see where you are on site.';
+  if (err && err.code === 1) msg = 'Location permission denied. Enable location for this site in your phone settings.';
+  else if (err && err.code === 2) msg = 'GPS signal unavailable. Turn on location services and try again.';
+  else if (err && err.code === 3) msg = 'Location timed out. Move to an open area or try again.';
+  setWorkerLocBanner(msg, true);
+}
+function startWorkerLocationPing() {
+  if (!isCivilWorker() || !workerLocationActionsEnabled() || !navigator.geolocation) return;
+  stopWorkerLocationPing();
+  _workerLastLocPing = 0;
+  _workerLocDenied = false;
+  setWorkerLocBanner('Sharing your location while this app is open…');
+  _workerLocWatchId = navigator.geolocation.watchPosition(onWorkerPosition, onWorkerPositionError, {
+    enableHighAccuracy: true,
+    maximumAge: 30000,
+    timeout: 15000
+  });
+}
+function stopWorkerLocationPing() {
+  if (_workerLocWatchId != null && navigator.geolocation) {
+    try { navigator.geolocation.clearWatch(_workerLocWatchId); } catch (e) {}
+  }
+  _workerLocWatchId = null;
+  _workerLastLocPing = 0;
+  setWorkerLocBanner('');
+}
+var _engineerLocPollTimer = null;
+var _workerLocations = [];
+var ENGINEER_LOC_POLL_MS = 30000;
+function engineerLocationPanelEnabled() {
+  return !!(ISSUE_CFG.workerMode && ISSUE_CFG.actions && ISSUE_CFG.actions.getLocations && !isCivilWorker());
+}
+function workerLocAgeMs(updatedAt) {
+  if (!updatedAt) return Infinity;
+  var t = Date.parse(updatedAt);
+  if (!isFinite(t)) return Infinity;
+  return Math.max(0, Date.now() - t);
+}
+function workerLocStatusMeta(updatedAt) {
+  var age = workerLocAgeMs(updatedAt);
+  if (age < 3 * 60 * 1000) return { label: 'Online', cls: 'worker-loc-online' };
+  if (age < 15 * 60 * 1000) return { label: 'Recent', cls: 'worker-loc-recent' };
+  if (age < 60 * 60 * 1000) return { label: 'Stale', cls: 'worker-loc-stale' };
+  return { label: 'Offline', cls: 'worker-loc-offline' };
+}
+function workerLocLastSeenText(updatedAt) {
+  var age = workerLocAgeMs(updatedAt);
+  if (!isFinite(age) || age === Infinity) return 'Never';
+  if (age < 60000) return 'Just now';
+  if (age < 3600000) return Math.round(age / 60000) + ' min ago';
+  if (age < 86400000) return Math.round(age / 3600000) + ' hr ago';
+  return Math.round(age / 86400000) + ' d ago';
+}
+function workerLocMapUrl(lat, lng) {
+  return 'https://www.google.com/maps?q=' + encodeURIComponent(lat + ',' + lng);
+}
+function renderWorkerLocationsPanel() {
+  var host = document.getElementById('workerLocationsBody');
+  if (!host) return;
+  if (!_workerLocations.length) {
+    host.innerHTML = '<p class="worker-loc-empty">No worker locations yet. Workers appear here when they open the civil issue app and allow location.</p>';
+    return;
+  }
+  var h = '<div class="worker-loc-table-wrap"><table class="worker-loc-table"><thead><tr>'
+    + '<th>Worker</th><th>Team</th><th>Status</th><th>Last seen</th><th>Accuracy</th><th></th>'
+    + '</tr></thead><tbody>';
+  _workerLocations.forEach(function (w) {
+    var st = workerLocStatusMeta(w.updatedAt);
+    var acc = isFinite(Number(w.accuracy)) ? (Math.round(Number(w.accuracy)) + ' m') : '—';
+    h += '<tr><td><strong>' + String(w.username || '') + '</strong></td>'
+      + '<td>' + tradeGroupLabel(w.trade) + '</td>'
+      + '<td><span class="worker-loc-status ' + st.cls + '">' + st.label + '</span></td>'
+      + '<td>' + workerLocLastSeenText(w.updatedAt) + '</td>'
+      + '<td>' + acc + '</td>'
+      + '<td><a class="worker-loc-map-link" href="' + workerLocMapUrl(w.lat, w.lng) + '" target="_blank" rel="noopener">Open map</a></td></tr>';
+  });
+  h += '</tbody></table></div>';
+  host.innerHTML = h;
+}
+function loadWorkerLocations(force) {
+  if (!engineerLocationPanelEnabled()) return;
+  var spin = document.getElementById('workerLocRefreshIcon');
+  if (spin) spin.classList.add('spinning');
+  fetchJSONRetry({ action: ISSUE_CFG.actions.getLocations, token: issueToken() || '' }, 1, 30000)
+    .then(function (d) {
+      if (d && d.ok === false) {
+        if (empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts())) return;
+        throw new Error(d.message || d.error || 'Could not load locations');
+      }
+      _workerLocations = Array.isArray(d && d.workers) ? d.workers : (Array.isArray(d) ? d : []);
+      renderWorkerLocationsPanel();
+    })
+    .catch(function (e) {
+      var host = document.getElementById('workerLocationsBody');
+      if (host && (force || !_workerLocations.length)) {
+        host.innerHTML = '<p class="worker-loc-empty worker-loc-error">' + String(e.message || e) + '</p>';
+      }
+    })
+    .finally(function () {
+      if (spin) spin.classList.remove('spinning');
+    });
+}
+function startEngineerLocationPoll() {
+  if (!engineerLocationPanelEnabled()) return;
+  stopEngineerLocationPoll();
+  var panel = document.getElementById('workerLocationsPanel');
+  if (panel) panel.style.display = '';
+  var listTab = document.getElementById('list');
+  if (!listTab || !listTab.classList.contains('active')) return;
+  loadWorkerLocations(false);
+  _engineerLocPollTimer = setInterval(function () {
+    if (!engineerLocationPanelEnabled()) return;
+    var lt = document.getElementById('list');
+    if (!lt || !lt.classList.contains('active')) return;
+    loadWorkerLocations(false);
+  }, ENGINEER_LOC_POLL_MS);
+}
+function stopEngineerLocationPoll() {
+  if (_engineerLocPollTimer) clearInterval(_engineerLocPollTimer);
+  _engineerLocPollTimer = null;
+}
+function syncWorkerLocationsUi() {
+  var panel = document.getElementById('workerLocationsPanel');
+  if (!panel) return;
+  if (!engineerLocationPanelEnabled()) {
+    panel.style.display = 'none';
+    stopEngineerLocationPoll();
+    return;
+  }
+  panel.style.display = '';
+  var listTab = document.getElementById('list');
+  if (listTab && listTab.classList.contains('active')) startEngineerLocationPoll();
+  else stopEngineerLocationPoll();
 }
 var _workerOfflineQueuedIds = {};
 var _workerOfflineSyncRunning = false;
@@ -888,11 +1063,12 @@ function applyPerms(){ if(window.tsPerm) window.tsPerm(); if(window.tsLoadGlobal
     hideTab('add');
     hideTab('analytics');
   }
+  syncWorkerLocationsUi();
   var rb=document.querySelector('button[onclick="openResetModal()"]'); if(rb && p.reset!==true) rb.style.display='none'; var tb=document.getElementById('btnTrash'); if(tb && p.reset!==true) tb.style.display='none';
   var wl=document.getElementById('whoLabel'); if(wl){ var u=empireGetUser()||''; var role=empireGetRole()||''; wl.textContent = u ? ('Logged in as: '+u+(role?(' ('+role+')'):'')) : ''; }
 }
 function handleLogin(e){ empireAuthLogin(e, ISSUE_CFG.dept, { onSuccess: function(d){ PAGEPERMS=d.perms||{}; if(typeof empireAuthSet==='function' && d.trade) empireAuthSet('trade', d.trade); if(isCivilWorker()) enterWorkerApp(); else enterApp(); applyPerms(); } }); }
-function logout(){ empireAuthLogout({ extraKeys: [ISSUES_CACHE_KEY, ISSUES_CACHE_TS_KEY], redirect: 'index.html', reload: false }); }
+function logout(){ stopWorkerLocationPing(); stopEngineerLocationPoll(); empireAuthLogout({ extraKeys: [ISSUES_CACHE_KEY, ISSUES_CACHE_TS_KEY], redirect: 'index.html', reload: false }); }
 function issueSessionLogoutOpts(){ return { extraKeys: [ISSUES_CACHE_KEY, ISSUES_CACHE_TS_KEY], redirect: 'index.html', reload: false }; }
 function forceSessionLogout(d){ empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts()); }
 function uploadToImgbb(file,cb){ const r=new FileReader(); r.onload=e=>{ const b64=e.target.result.split(',')[1]; const fd=new FormData(); fd.append('image',b64); fd.append('key',IMGBB_API_KEY); fetch('https://api.imgbb.com/1/upload',{method:'POST',body:fd}).then(x=>x.json()).then(d=>{ cb(d.success&&d.data?d.data.url:null); }).catch(()=>cb(null)); }; r.readAsDataURL(file); }
@@ -977,9 +1153,9 @@ function miniDonutHtml(name,open,fixed){ var total=open+fixed; var fp=total?fixe
 function initRepMonth(){ var mm=document.getElementById('rep-month-m'); var ym=document.getElementById('rep-month-y'); if(mm && mm.options.length<=1){ var names=['January','February','March','April','May','June','July','August','September','October','November','December']; for(var i=0;i<12;i++){ var o=document.createElement('option'); o.value=String(i+1).padStart(2,'0'); o.textContent=names[i]; mm.appendChild(o); } } if(ym && ym.options.length<=1){ var cy=new Date().getFullYear(); for(var y=cy+1;y>=cy-3;y--){ var o2=document.createElement('option'); o2.value=String(y); o2.textContent=String(y); ym.appendChild(o2); } } }
 function syncRepMonth(){ var y=(document.getElementById('rep-month-y')||{}).value||''; var m=(document.getElementById('rep-month-m')||{}).value||''; var h=document.getElementById('rep-month'); if(h) h.value=(y&&m)?(y+'-'+m):''; }
 function renderAnalytics(){ const total=allIssues.length; const open=allIssues.filter(r=>r.status!=='fixed').length; const fixed=total-open; let h='<div class="stats"><div class="stat-box"><div class="stat-value">'+total+'</div><div class="stat-label">Total Issues</div></div><div class="stat-box"><div class="stat-value" style="color:var(--open-color);">'+open+'</div><div class="stat-label">Open</div></div><div class="stat-box"><div class="stat-value" style="color:#27ae60;">'+fixed+'</div><div class="stat-label">Fixed</div></div></div>'; h+='<h3>Open vs Fixed</h3><div style="display:flex;flex-wrap:wrap;gap:26px;align-items:center;margin:10px 0 22px;">'+donutHtml(open,fixed,total)+'<div style="display:flex;flex-wrap:wrap;gap:12px;">'+['ec','es','wd','ww','ra'].map(function(p){ var pr=allIssues.filter(function(r){return r.project===p;}); var o=pr.filter(function(r){return r.status!=='fixed';}).length; return miniDonutHtml(projectNames[p],o,pr.length-o); }).join('')+'</div></div>'; var colg='<colgroup><col style="width:40%"><col style="width:20%"><col style="width:20%"><col style="width:20%"></colgroup>'; h+='<h3>By Project</h3><table style="table-layout:fixed;width:100%;">'+colg+'<thead><tr><th>Project</th><th>Open</th><th>Fixed</th><th>Total</th></tr></thead><tbody>'; ['ec','es','wd','ww','ra'].forEach(p=>{ const pr=allIssues.filter(r=>r.project===p); if(pr.length===0)return; const o=pr.filter(r=>r.status!=='fixed').length; h+='<tr><td>'+projectNames[p]+'</td><td style="color:var(--open-color);">'+o+'</td><td style="color:#1d9e75;">'+(pr.length-o)+'</td><td>'+pr.length+'</td></tr>'; }); h+='</tbody></table>'; const types={}; allIssues.forEach(r=>{ const t=r.issueType; if(!types[t]) types[t]={open:0,fixed:0}; if(r.status==='fixed') types[t].fixed++; else types[t].open++; }); h+='<h3>By Issue Type</h3><table style="table-layout:fixed;width:100%;">'+colg+'<thead><tr><th>Type</th><th>Open</th><th>Fixed</th><th>Total</th></tr></thead><tbody>'; Object.keys(types).sort((a,b)=>(types[b].open+types[b].fixed)-(types[a].open+types[a].fixed)).forEach(t=>{ const o=types[t].open,f=types[t].fixed; h+='<tr><td>'+t+'</td><td style="color:var(--open-color);">'+o+'</td><td style="color:#1d9e75;">'+f+'</td><td>'+(o+f)+'</td></tr>'; }); h+='</tbody></table>'; document.getElementById('analyticsContent').innerHTML=h; }
-function switchTab(e,t){ document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); e.target.classList.add('active'); empireSaveActiveTab(ISSUE_CFG.prefix+'_active_tab', t); if(t==='add'){ window._editingId=null; var eb=document.getElementById('editBanner'); if(eb) eb.style.display='none'; } if(t==='analytics') renderAnalytics(); }
-function switchTabTo(t){ document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); document.querySelectorAll('.tab-btn').forEach(b=>{ if(b.getAttribute('onclick').indexOf("'"+t+"'")!==-1) b.classList.add('active'); }); }
-function enterApp(){ document.getElementById('loginPage').classList.remove('show'); var wa=document.getElementById('workerApp'); if(wa) wa.classList.remove('show'); document.getElementById('mainContainer').classList.add('show'); applyPerms(); refreshPerms(); populateSelect('ci-project',['ec','es','wd','ww','ra'],true); updateCIBuildings(); populateSelect('ci-spot',spots,false); populateSelect('ci-issuetype',issueTypes,false); const fp=document.getElementById('f-project'); if(fp && fp.options.length<=1){ ['ec','es','wd','ww','ra'].forEach(p=>{ const o=document.createElement('option'); o.value=p;o.textContent=projectNames[p]; fp.appendChild(o); }); } initTradeFilters(); window._issueFilterState=empireBindFilterPersistence({ key:ISSUE_CFG.prefix+'_list_filters', fields:['f-project','f-group','f-status','f-month','f-search'], onApply:function(){ renderIssues(); } }); initRepMonth(); document.getElementById('ci-date').value=new Date().toISOString().split('T')[0]; var tab=empireRestoreActiveTab(ISSUE_CFG.prefix+'_active_tab','list'); switchTabTo(tab); if(tab==='analytics') renderAnalytics(); setTimeout(function(){ loadIssues(false); },0); }
+function switchTab(e,t){ document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); e.target.classList.add('active'); empireSaveActiveTab(ISSUE_CFG.prefix+'_active_tab', t); if(t==='add'){ window._editingId=null; var eb=document.getElementById('editBanner'); if(eb) eb.style.display='none'; } if(t==='analytics') renderAnalytics(); if(t==='list') startEngineerLocationPoll(); else stopEngineerLocationPoll(); }
+function switchTabTo(t){ document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); document.querySelectorAll('.tab-btn').forEach(b=>{ if(b.getAttribute('onclick').indexOf("'"+t+"'")!==-1) b.classList.add('active'); }); if(t==='list') startEngineerLocationPoll(); else stopEngineerLocationPoll(); }
+function enterApp(){ document.getElementById('loginPage').classList.remove('show'); var wa=document.getElementById('workerApp'); if(wa) wa.classList.remove('show'); stopWorkerLocationPing(); document.getElementById('mainContainer').classList.add('show'); applyPerms(); refreshPerms(); populateSelect('ci-project',['ec','es','wd','ww','ra'],true); updateCIBuildings(); populateSelect('ci-spot',spots,false); populateSelect('ci-issuetype',issueTypes,false); const fp=document.getElementById('f-project'); if(fp && fp.options.length<=1){ ['ec','es','wd','ww','ra'].forEach(p=>{ const o=document.createElement('option'); o.value=p;o.textContent=projectNames[p]; fp.appendChild(o); }); } initTradeFilters(); window._issueFilterState=empireBindFilterPersistence({ key:ISSUE_CFG.prefix+'_list_filters', fields:['f-project','f-group','f-status','f-month','f-search'], onApply:function(){ renderIssues(); } }); initRepMonth(); document.getElementById('ci-date').value=new Date().toISOString().split('T')[0]; var tab=empireRestoreActiveTab(ISSUE_CFG.prefix+'_active_tab','list'); switchTabTo(tab); if(tab==='analytics') renderAnalytics(); setTimeout(function(){ loadIssues(false); },0); syncWorkerLocationsUi(); }
 var _lastPermFetch=0;
 function refreshPerms(){ var tk=issueToken(); if(!tk) return; var now=Date.now(); if(now-_lastPermFetch<300000) return; _lastPermFetch=now; empireAuthRefreshPerms(function(d){ PAGEPERMS=d.perms||empireGetPerms(); applyPerms(); }); }
 function bootApp(){ empireAuthPageBoot({ dept: ISSUE_CFG.dept, onEnter: function(){ if(isCivilWorker()) enterWorkerApp(); else enterApp(); } }); }

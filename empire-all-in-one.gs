@@ -15,10 +15,11 @@ var ELECTRICAL_SUMMARY_SHEET = 'ElectricalSummary';
 var CIVIL_JOBS_SHEET = 'CivilJobs';
 var CIVIL_SUMMARY_SHEET = 'CivilSummary';
 var TRASH_SHEET = 'Trash';
+var WORKER_LOCATIONS_SHEET = 'WorkerLocations';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-13-hide-categories';
+var SCRIPT_VERSION = '2026-07-14-worker-live-location';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -138,7 +139,7 @@ function doPost(e) {
       'getWeekCoverage':'cleaning','markTaskWeek':'cleaning','getRangeCoverage':'cleaning',
       'getTaskPhotos':'cleaning','addTaskPhoto':'cleaning','addTaskPhotos':'cleaning','deleteTaskPhoto':'cleaning',
       'logTask':'cleaning','getTaskLog':'cleaning',
-      'addCivilIssue':'civil issue','updateCivilIssue':'civil issue','getCivilIssues':'civil issue','markCivilFixed':'civil issue','clearCivilIssues':'civil issue','deleteCivilIssue':'civil issue','assignCivilIssue':'civil issue',
+      'addCivilIssue':'civil issue','updateCivilIssue':'civil issue','getCivilIssues':'civil issue','markCivilFixed':'civil issue','clearCivilIssues':'civil issue','deleteCivilIssue':'civil issue','assignCivilIssue':'civil issue','reportWorkerLocation':'civil issue','getWorkerLocations':'civil issue',
       'addElectricIssue':'electric issue','updateElectricIssue':'electric issue','getElectricIssues':'electric issue','markElectricFixed':'electric issue','clearElectricIssues':'electric issue','deleteElectricIssue':'electric issue',
       'addFireIssue':'fire','updateFireIssue':'fire','getFireIssues':'fire','markFireFixed':'fire','clearFireIssues':'fire','deleteFireIssue':'fire',
       'addHseInspection':'hse','updateHseInspection':'hse','getHseInspections':'hse','markHseResolved':'hse','clearHseInspections':'hse','deleteHseInspection':'hse',
@@ -158,8 +159,11 @@ function doPost(e) {
     body._authRole = String(auth.role || '').toLowerCase();
     body._authTrade = String(auth.trade || '').toLowerCase();
     if (body._authRole === 'worker') {
-      var workerBlocked = {addCivilIssue:1, updateCivilIssue:1, deleteCivilIssue:1, clearCivilIssues:1, assignCivilIssue:1, addElectricIssue:1, updateElectricIssue:1, deleteElectricIssue:1, clearElectricIssues:1, addFireIssue:1, updateFireIssue:1, deleteFireIssue:1, clearFireIssues:1};
+      var workerBlocked = {addCivilIssue:1, updateCivilIssue:1, deleteCivilIssue:1, clearCivilIssues:1, assignCivilIssue:1, getWorkerLocations:1, addElectricIssue:1, updateElectricIssue:1, deleteElectricIssue:1, clearElectricIssues:1, addFireIssue:1, updateFireIssue:1, deleteFireIssue:1, clearFireIssues:1};
       if (workerBlocked[action]) return respond({ok:false,success:false,error:'not_allowed',message:'Not allowed for worker accounts.'});
+    }
+    if (action === 'reportWorkerLocation' && body._authRole !== 'worker') {
+      return respond({ok:false,success:false,error:'not_allowed',message:'Only worker accounts can report location.'});
     }
     var adminOnly = {saveUiSettings:1, clearElectricalJobs:1, clearCivilJobs:1, clearCivilIssues:1, clearElectricIssues:1, clearFireIssues:1, clearHseInspections:1, clearAll:1, getTrash:1, restoreTrash:1, purgeTrash:1};
     if (adminOnly[action] && String(auth.role||'').toLowerCase()!=='admin') return respond({ok:false,success:false,error:'not_allowed',message:'Only an admin can do that.'});
@@ -186,6 +190,8 @@ function doPost(e) {
     if (action==='updateCivilIssue') return respond(handleUpdateIssue(body, CIVIL_SHEET));
     if (action==='getCivilIssues') return respond(handleGetIssues(body, CIVIL_SHEET, auth));
     if (action==='assignCivilIssue') return respond(handleAssignCivilIssue(body, auth));
+    if (action==='reportWorkerLocation') return respond(handleReportWorkerLocation(body, auth));
+    if (action==='getWorkerLocations') return respond(handleGetWorkerLocations(body, auth));
     if (action==='markCivilFixed') return respond(handleMarkFixed(body, CIVIL_SHEET, auth));
     if (action==='clearCivilIssues') return respond(handleClearIssues(body, CIVIL_SHEET));
     if (action==='deleteCivilIssue') return respond(handleDeleteIssue(body, CIVIL_SHEET));
@@ -1339,6 +1345,80 @@ function handleAssignCivilIssue(body, auth) {
   if (!updated) return {ok:false, error:'Issue not found', message:'Issue not found on server. Refresh the list and try again.'};
   invalidateIssuesCache_(CIVIL_SHEET);
   return {ok:true, success:true, assignedGroup:group, workersRequired:workersRequired || 1, updated:updated};
+}
+
+function ensureWorkerLocationsSheet_(sheet) {
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['username', 'trade', 'lat', 'lng', 'accuracy', 'updatedAt']);
+    return;
+  }
+  var headers = ['username', 'trade', 'lat', 'lng', 'accuracy', 'updatedAt'];
+  for (var c = 0; c < headers.length; c++) {
+    if (String(sheet.getRange(1, c + 1).getValue() || '') !== headers[c]) {
+      sheet.getRange(1, c + 1).setValue(headers[c]);
+    }
+  }
+}
+
+function parseWorkerLocationLatLng_(body) {
+  var lat = Number(body.lat);
+  var lng = Number(body.lng);
+  if (!isFinite(lat) || !isFinite(lng)) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return {lat: lat, lng: lng, accuracy: isFinite(Number(body.accuracy)) ? Number(body.accuracy) : ''};
+}
+
+function handleReportWorkerLocation(body, auth) {
+  var coords = parseWorkerLocationLatLng_(body);
+  if (!coords) return {ok:false, error:'invalid_coords', message:'Invalid GPS coordinates.'};
+  var username = String((auth && auth.username) || body.username || '').trim().toLowerCase();
+  if (!username) return {ok:false, error:'not_authenticated'};
+  var trade = normalizeTrade_((auth && auth.trade) || body._authTrade || tradeForUserRow_(getUserRowByName_(username)));
+  if (!trade) return {ok:false, error:'trade_not_set', message:'Worker trade not configured.'};
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(WORKER_LOCATIONS_SHEET) || ss.insertSheet(WORKER_LOCATIONS_SHEET);
+  ensureWorkerLocationsSheet_(sheet);
+  var now = new Date().toISOString();
+  var rows = sheet.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][0] || '').trim().toLowerCase() === username) {
+      sheet.getRange(i + 1, 1, 1, 6).setValues([[username, trade, coords.lat, coords.lng, coords.accuracy, now]]);
+      return {ok:true, success:true, updatedAt:now};
+    }
+  }
+  sheet.appendRow([username, trade, coords.lat, coords.lng, coords.accuracy, now]);
+  return {ok:true, success:true, updatedAt:now};
+}
+
+function handleGetWorkerLocations(body, auth) {
+  auth = enrichAuthRole_(auth || {});
+  var role = roleFromAuth_(auth);
+  if (role === 'worker') return {ok:false, error:'not_allowed', message:'Workers cannot view live locations.'};
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(WORKER_LOCATIONS_SHEET);
+  if (!sheet || sheet.getLastRow() < 2) return {ok:true, success:true, workers:[]};
+  ensureWorkerLocationsSheet_(sheet);
+  var rows = sheet.getDataRange().getValues();
+  var out = [];
+  for (var i = 1; i < rows.length; i++) {
+    var user = String(rows[i][0] || '').trim();
+    if (!user) continue;
+    var lat = Number(rows[i][2]);
+    var lng = Number(rows[i][3]);
+    if (!isFinite(lat) || !isFinite(lng)) continue;
+    out.push({
+      username: user,
+      trade: String(rows[i][1] || '').trim(),
+      lat: lat,
+      lng: lng,
+      accuracy: rows[i][4] === '' || rows[i][4] === null || rows[i][4] === undefined ? null : Number(rows[i][4]),
+      updatedAt: String(rows[i][5] || '').trim()
+    });
+  }
+  out.sort(function (a, b) {
+    return String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''));
+  });
+  return {ok:true, success:true, workers:out};
 }
 
 function parseFixedPhotosFromCell_(raw) {
