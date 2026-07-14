@@ -1504,13 +1504,17 @@ function base64UrlEncodeGs_(bytesOrString) {
     : bytesOrString;
   return Utilities.base64EncodeWebSafe(b).replace(/=+$/, '');
 }
-function getFcmAccessToken_() {
+function getFcmAccessTokenDetailed_() {
   var props = PropertiesService.getScriptProperties();
   var saJson = props.getProperty('FCM_SERVICE_ACCOUNT_JSON');
-  if (!saJson) return null;
+  if (!saJson) return {ok:false, step:'property', error:'FCM_SERVICE_ACCOUNT_JSON not in Script properties'};
   var sa;
-  try { sa = JSON.parse(saJson); } catch (e) { return null; }
-  if (!sa.client_email || !sa.private_key) return null;
+  try { sa = JSON.parse(saJson); } catch (e) {
+    return {ok:false, step:'parse', error:'Invalid JSON: ' + e};
+  }
+  if (!sa.client_email || !sa.private_key) {
+    return {ok:false, step:'fields', error:'JSON missing client_email or private_key'};
+  }
   var now = Math.floor(Date.now() / 1000);
   var header = base64UrlEncodeGs_(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
   var claim = base64UrlEncodeGs_(JSON.stringify({
@@ -1521,7 +1525,12 @@ function getFcmAccessToken_() {
     exp: now + 3600
   }));
   var unsigned = header + '.' + claim;
-  var sig = Utilities.computeRsaSha256Signature(unsigned, sa.private_key);
+  var sig;
+  try {
+    sig = Utilities.computeRsaSha256Signature(unsigned, sa.private_key);
+  } catch (e) {
+    return {ok:false, step:'sign', error:'Private key invalid: ' + e};
+  }
   var jwt = unsigned + '.' + base64UrlEncodeGs_(sig);
   try {
     var resp = UrlFetchApp.fetch('https://oauth2.googleapis.com/token', {
@@ -1530,12 +1539,21 @@ function getFcmAccessToken_() {
       payload: 'grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=' + jwt,
       muteHttpExceptions: true
     });
-    if (resp.getResponseCode() !== 200) return null;
-    var parsed = JSON.parse(resp.getContentText());
-    return parsed.access_token || null;
+    var code = resp.getResponseCode();
+    var text = resp.getContentText();
+    if (code !== 200) {
+      return {ok:false, step:'oauth', error:'HTTP ' + code + ': ' + text};
+    }
+    var parsed = JSON.parse(text);
+    if (!parsed.access_token) return {ok:false, step:'oauth', error:'No access_token in response'};
+    return {ok:true, token:parsed.access_token, projectId:String(sa.project_id || '')};
   } catch (e) {
-    return null;
+    return {ok:false, step:'fetch', error:String(e && e.message ? e.message : e)};
   }
+}
+function getFcmAccessToken_() {
+  var r = getFcmAccessTokenDetailed_();
+  return r.ok ? r.token : null;
 }
 function getFcmProjectId_() {
   var props = PropertiesService.getScriptProperties();
@@ -2296,15 +2314,22 @@ function handleDeleteIssue(body, sheetName) {
 function authorizePushSetup() {
   var sa = PropertiesService.getScriptProperties().getProperty('FCM_SERVICE_ACCOUNT_JSON');
   if (!sa) {
-    Logger.log('ERROR: FCM_SERVICE_ACCOUNT_JSON missing in Script properties.');
+    Logger.log('ERROR: FCM_SERVICE_ACCOUNT_JSON missing.');
+    Logger.log('Fix: Run saveFcmServiceAccountOnce() below with your Firebase JSON, then run this again.');
     return;
   }
-  var token = getFcmAccessToken_();
-  if (!token) {
-    Logger.log('ERROR: FCM auth failed — check service account JSON.');
+  Logger.log('Service account JSON length: ' + sa.length);
+  if (sa.indexOf('client_email') === -1 || sa.indexOf('private_key') === -1) {
+    Logger.log('ERROR: Property does not look like service account JSON.');
+    Logger.log('Fix: Run saveFcmServiceAccountOnce() again.');
     return;
   }
-  Logger.log('SUCCESS: FCM auth OK (token length ' + token.length + ').');
+  var auth = getFcmAccessTokenDetailed_();
+  if (!auth.ok) {
+    Logger.log('ERROR at step "' + auth.step + '": ' + auth.error);
+    return;
+  }
+  Logger.log('SUCCESS: FCM auth OK (token length ' + auth.token.length + ').');
   var sheet = getSS_().getSheetByName(WORKER_PUSH_SHEET);
   if (!sheet || sheet.getLastRow() < 2) {
     Logger.log('No WorkerPushTokens yet — worker taps Enable alerts on phone first.');
@@ -2317,4 +2342,17 @@ function authorizePushSetup() {
   }
   var result = sendFcmToWorkerDetailed_(fcmToken, 'Empire test', 'Lock-screen push test from server.', {type: 'auth_test'});
   Logger.log('Push send: ' + JSON.stringify(result));
+}
+
+/** Paste Firebase service account JSON into json below, Run once, then DELETE this function. */
+function saveFcmServiceAccountOnce() {
+  var json = null;
+  // ↑ Replace null above with your full JSON object from Firebase, e.g.:
+  // var json = { "type": "service_account", "project_id": "empire-egs", ... };
+  if (!json || !json.client_email || !json.private_key) {
+    Logger.log('ERROR: Set json = { your Firebase service account JSON } first.');
+    return;
+  }
+  PropertiesService.getScriptProperties().setProperty('FCM_SERVICE_ACCOUNT_JSON', JSON.stringify(json));
+  Logger.log('Saved OK (' + JSON.stringify(json).length + ' chars). Now Run authorizePushSetup.');
 }

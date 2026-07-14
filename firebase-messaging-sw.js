@@ -1,5 +1,5 @@
 /* Empire EGS — service worker (cache + Firebase background push) */
-var CACHE_VERSION = '2026-07-14-push5';
+var CACHE_VERSION = '2026-07-14-push7';
 var CACHE_NAME = 'empire-egs-' + CACHE_VERSION;
 var NOTIFY_ICON = 'https://dizayeswar.github.io/Empire-General-Service/icons/icon-192.png';
 var NOTIFY_URL = 'https://dizayeswar.github.io/Empire-General-Service/civil-issue.html';
@@ -58,7 +58,12 @@ self.addEventListener('notificationclick', function (event) {
 });
 
 self.addEventListener('message', function (event) {
-  if (!event.data || event.data.type !== 'EMPUSH_SHOW') return;
+  if (!event.data) return;
+  if (event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+    return;
+  }
+  if (event.data.type !== 'EMPUSH_SHOW') return;
   event.waitUntil(self.registration.showNotification(event.data.title || 'Empire EGS', {
     body: event.data.body || '',
     icon: NOTIFY_ICON,
@@ -72,7 +77,9 @@ self.addEventListener('message', function (event) {
 self.addEventListener('install', function (event) {
   event.waitUntil(
     caches.open(CACHE_NAME).then(function (cache) {
-      return cache.addAll(PRECACHE);
+      return Promise.all(PRECACHE.map(function (url) {
+        return cache.add(url).catch(function () {});
+      }));
     }).then(function () {
       return self.skipWaiting();
     })

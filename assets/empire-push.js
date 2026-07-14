@@ -118,20 +118,89 @@
       });
   }
 
+  function withTimeout(promise, ms, label) {
+    return Promise.race([
+      promise,
+      new Promise(function (_, reject) {
+        setTimeout(function () {
+          reject(new Error((label || 'Step') + ' timed out — close app, reopen from Home Screen'));
+        }, ms);
+      })
+    ]);
+  }
+
+  function waitForServiceWorkerActive(reg, ms) {
+    if (reg.active) return Promise.resolve(reg);
+    return withTimeout(
+      new Promise(function (resolve) {
+        function check(worker) {
+          if (!worker) return;
+          if (worker.state === 'activated' || reg.active) {
+            resolve(reg);
+            return;
+          }
+          worker.addEventListener('statechange', function () {
+            if (worker.state === 'activated' || reg.active) resolve(reg);
+          });
+        }
+        check(reg.installing);
+        check(reg.waiting);
+        navigator.serviceWorker.ready.then(function () { resolve(reg); }).catch(function () { resolve(reg); });
+      }),
+      ms || 20000,
+      'Service worker'
+    );
+  }
+
   function getServiceWorkerRegistration() {
     if (!('serviceWorker' in navigator)) return Promise.reject(new Error('no-sw'));
-    return navigator.serviceWorker.register(SW_URL, { scope: './', updateViaCache: 'none' })
+    setWorkerPushStatus('Registering background worker…');
+    return withTimeout(
+      navigator.serviceWorker.register(SW_URL, { scope: './', updateViaCache: 'none' }),
+      15000,
+      'Worker register'
+    )
       .then(function (reg) {
-        if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-        if (reg.update) return reg.update().then(function () { return reg; });
-        return reg;
-      })
-      .then(function (reg) {
-        return navigator.serviceWorker.ready.then(function () { return reg; });
+        var waiting = reg.waiting;
+        var installing = reg.installing;
+        if (waiting) {
+          try { waiting.postMessage({ type: 'SKIP_WAITING' }); } catch (e) {}
+        }
+        if (installing) {
+          try { installing.postMessage({ type: 'SKIP_WAITING' }); } catch (e) {}
+        }
+        setWorkerPushStatus('Activating background worker…');
+        return waitForServiceWorkerActive(reg, 20000);
       });
   }
 
-  function registerFirebaseMessaging() {
+  function obtainFcmToken(forceRefresh) {
+    if (!pushConfigured()) return Promise.reject(new Error('Firebase not configured'));
+    if (typeof firebase === 'undefined' || !firebase.messaging) {
+      return Promise.reject(new Error('Firebase did not load'));
+    }
+    return getServiceWorkerRegistration()
+      .then(function (reg) {
+        if (!firebase.apps || !firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+        var messaging = firebase.messaging();
+        setWorkerPushStatus('Requesting push token from Firebase…');
+        var tokenPromise = messaging.getToken({
+          vapidKey: FIREBASE_VAPID_KEY,
+          serviceWorkerRegistration: reg
+        });
+        if (forceRefresh) {
+          tokenPromise = messaging.deleteToken().catch(function () { return null; }).then(function () {
+            return messaging.getToken({
+              vapidKey: FIREBASE_VAPID_KEY,
+              serviceWorkerRegistration: reg
+            });
+          });
+        }
+        return withTimeout(tokenPromise, 25000, 'Firebase token');
+      });
+  }
+
+  function registerFirebaseMessaging(forceRefresh) {
     if (!pushConfigured()) {
       setWorkerPushStatus('Firebase not configured on server.');
       return Promise.resolve(false);
@@ -143,22 +212,14 @@
     if (!isStandaloneApp()) {
       setWorkerPushStatus('Warning: open from Home Screen icon for lock-screen alerts.');
     }
-    return getServiceWorkerRegistration()
-      .then(function (reg) {
-        if (!firebase.apps || !firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
-        var messaging = firebase.messaging();
-        return messaging.deleteToken().catch(function () { return null; }).then(function () {
-          return messaging.getToken({
-            vapidKey: FIREBASE_VAPID_KEY,
-            serviceWorkerRegistration: reg
-          });
-        });
-      })
+    setWorkerPushStatus('Getting push token…');
+    return obtainFcmToken(!!forceRefresh)
       .then(function (token) {
         if (!token) {
-          setWorkerPushStatus('No push token — reinstall app from Home Screen.');
+          setWorkerPushStatus('No push token — tap Enable alerts again or reinstall from Home Screen.');
           return false;
         }
+        setWorkerPushStatus('Saving token to server…');
         return saveFcmToken(token);
       })
       .catch(function (err) {
@@ -220,20 +281,24 @@
     }
     if (!isStandaloneApp()) {
       setWorkerPushStatus('Install to Home Screen first, then open from the icon.');
+      return;
     }
-    Notification.requestPermission().then(function (perm) {
-      if (perm === 'granted') {
-        setWorkerPushStatus('Setting up alerts…');
-        registerFirebaseMessaging().then(function () { startIssuePollFallback(); });
-        if (typeof loadIssues === 'function') loadIssues(true);
-        return;
-      }
-      if (perm === 'denied') {
-        setWorkerPushStatus('Blocked — allow notifications in phone Settings → Lock Screen.');
-        return;
-      }
-      setWorkerPushStatus('Tap Enable alerts and choose Allow.');
-    });
+    setWorkerPushStatus('Checking notification permission…');
+    withTimeout(Notification.requestPermission(), 10000, 'Permission')
+      .then(function (perm) {
+        if (perm === 'granted') {
+          return registerFirebaseMessaging(true).then(function () { startIssuePollFallback(); });
+        }
+        if (perm === 'denied') {
+          setWorkerPushStatus('Blocked — allow notifications in phone Settings → Lock Screen.');
+          return;
+        }
+        setWorkerPushStatus('Tap Enable alerts and choose Allow.');
+      })
+      .catch(function (err) {
+        setWorkerPushStatus('Push failed: ' + ((err && err.message) || 'permission error'));
+      });
+    if (typeof loadIssues === 'function') loadIssues(true);
   };
 
   window.empirePushInitWorker = function () {
@@ -288,26 +353,40 @@
       return;
     }
     setWorkerPushStatus('Running diagnose…');
-    fetch(GOOGLE_SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: ISSUE_CFG.actions.debugPush, token: authSessionToken() })
-    })
-      .then(function (r) { return r.json(); })
-      .then(function (d) {
-        if (!d || d.ok === false) {
-          setWorkerPushStatus('Diagnose failed: ' + ((d && (d.message || d.error)) || 'unknown'));
-          return;
-        }
-        var msg = 'App:' + (isStandaloneApp() ? 'installed' : 'BROWSER') +
-          ' · Perm:' + (Notification.permission || '?') +
-          ' · Token:' + (d.hasToken ? 'yes' : 'NO') +
-          ' · FCM:' + (d.fcmAuth ? 'OK' : 'FAIL') +
-          ' · Send:' + (d.fcmSend || '?');
-        setWorkerPushStatus(msg);
+    var localPart = 'Local:?';
+    var localChain = (Notification.permission === 'granted' && pushConfigured())
+      ? obtainFcmToken(false).then(function (t) {
+          localPart = 'Local:' + (t ? 'yes' : 'NO');
+          if (t) return saveFcmToken(t);
+          return false;
+        }).catch(function (e) {
+          localPart = 'Local:FAIL ' + ((e && e.message) || '');
+          return false;
+        })
+      : Promise.resolve(false);
+
+    localChain.then(function () {
+      return fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: ISSUE_CFG.actions.debugPush, token: authSessionToken() })
       })
-      .catch(function () {
-        setWorkerPushStatus('Diagnose failed: server unreachable.');
-      });
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (!d || d.ok === false) {
+            setWorkerPushStatus('Diagnose failed: ' + ((d && (d.message || d.error)) || 'unknown'));
+            return;
+          }
+          var msg = 'App:' + (isStandaloneApp() ? 'installed' : 'BROWSER') +
+            ' · Perm:' + (Notification.permission || '?') +
+            ' · ' + localPart +
+            ' · Server:' + (d.hasToken ? 'yes' : 'NO') +
+            ' · FCM:' + (d.fcmAuth ? 'OK' : 'FAIL') +
+            ' · Send:' + (d.fcmSend || '?');
+          setWorkerPushStatus(msg);
+        });
+    }).catch(function () {
+      setWorkerPushStatus('Diagnose failed: server unreachable.');
+    });
   };
 
   if (typeof firebase !== 'undefined' && firebase.messaging && pushConfigured()) {
