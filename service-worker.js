@@ -1,5 +1,5 @@
 /* Empire General Service — offline shell cache + worker push (Phase 5C) */
-var CACHE_VERSION = '2026-07-14-push1';
+var CACHE_VERSION = '2026-07-14-push2';
 var CACHE_NAME = 'empire-egs-' + CACHE_VERSION;
 
 var PRECACHE = [

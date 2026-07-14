@@ -76,10 +76,10 @@
   }
 
   function saveFcmToken(fcmToken) {
-    if (!fcmToken || !window.GOOGLE_SCRIPT_URL || !window.ISSUE_CFG || !ISSUE_CFG.actions) return;
+    if (!fcmToken || !window.GOOGLE_SCRIPT_URL || !window.ISSUE_CFG || !ISSUE_CFG.actions) return Promise.resolve(false);
     var act = ISSUE_CFG.actions.savePushToken;
-    if (!act) return;
-    fetch(GOOGLE_SCRIPT_URL, {
+    if (!act) return Promise.resolve(false);
+    return fetch(GOOGLE_SCRIPT_URL, {
       method: 'POST',
       body: JSON.stringify({
         action: act,
@@ -87,23 +87,63 @@
         platform: 'web-fcm',
         token: authSessionToken()
       })
-    }).catch(function () {});
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d && (d.ok || d.success)) {
+          setWorkerPushBanner('Job alerts enabled. <button type="button" class="worker-loc-enable-btn" onclick="empirePushTestAlert()">Send test alert</button>', false);
+          return true;
+        }
+        setWorkerPushBanner('Could not register alerts: ' + ((d && (d.message || d.error)) || 'server error'), false);
+        return false;
+      })
+      .catch(function () {
+        setWorkerPushBanner('Could not reach server to register alerts.', false);
+        return false;
+      });
+  }
+
+  function getServiceWorkerRegistration() {
+    if (!('serviceWorker' in navigator)) return Promise.reject(new Error('no-sw'));
+    return navigator.serviceWorker.register('./service-worker.js').then(function () {
+      return navigator.serviceWorker.ready;
+    });
   }
 
   function registerFirebaseMessaging() {
-    if (!pushConfigured() || typeof firebase === 'undefined' || !firebase.messaging) return Promise.resolve(false);
-    try {
-      if (!firebase.apps || !firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
-      var messaging = firebase.messaging();
-      return messaging.getToken({ vapidKey: FIREBASE_VAPID_KEY })
-        .then(function (token) {
-          if (token) saveFcmToken(token);
-          return !!token;
-        })
-        .catch(function () { return false; });
-    } catch (e) {
+    if (!pushConfigured()) {
+      setWorkerPushBanner('Firebase is not configured on this site yet.', false);
       return Promise.resolve(false);
     }
+    if (typeof firebase === 'undefined' || !firebase.messaging) {
+      setWorkerPushBanner('Firebase failed to load. Hard refresh and try again.', false);
+      return Promise.resolve(false);
+    }
+    return getServiceWorkerRegistration()
+      .then(function (reg) {
+        if (!firebase.apps || !firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+        var messaging = firebase.messaging();
+        return messaging.getToken({
+          vapidKey: FIREBASE_VAPID_KEY,
+          serviceWorkerRegistration: reg
+        });
+      })
+      .then(function (token) {
+        if (!token) {
+          setWorkerPushBanner('Could not get push token. Reinstall the app and try again.', false);
+          return false;
+        }
+        return saveFcmToken(token);
+      })
+      .catch(function (err) {
+        var msg = (err && err.message) ? err.message : 'unknown error';
+        if (/permission|denied/i.test(msg)) {
+          setWorkerPushBanner('Notification permission denied.', false);
+        } else {
+          setWorkerPushBanner('Push setup failed: ' + msg, false);
+        }
+        return false;
+      });
   }
 
   function startIssuePollFallback() {
@@ -184,6 +224,29 @@
   window.empirePushStopWorker = function () {
     stopIssuePollFallback();
     setWorkerPushBanner('');
+  };
+
+  window.empirePushTestAlert = function () {
+    if (!window.ISSUE_CFG || !ISSUE_CFG.actions || !ISSUE_CFG.actions.testPush) return;
+    setWorkerPushBanner('Sending test alert…', false);
+    fetch(GOOGLE_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: ISSUE_CFG.actions.testPush,
+        token: authSessionToken()
+      })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d && (d.ok || d.success)) {
+          setWorkerPushBanner('Test alert sent — check your lock screen.', false);
+          return;
+        }
+        setWorkerPushBanner('Test failed: ' + ((d && (d.message || d.error)) || 'unknown error'), false);
+      })
+      .catch(function () {
+        setWorkerPushBanner('Test failed: could not reach server.', false);
+      });
   };
 
   if (typeof firebase !== 'undefined' && firebase.messaging && pushConfigured()) {

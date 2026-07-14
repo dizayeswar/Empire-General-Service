@@ -20,7 +20,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-14-push1';
+var SCRIPT_VERSION = '2026-07-14-push2';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -160,7 +160,7 @@ function doPost(e) {
       'getWeekCoverage':'cleaning','markTaskWeek':'cleaning','getRangeCoverage':'cleaning',
       'getTaskPhotos':'cleaning','addTaskPhoto':'cleaning','addTaskPhotos':'cleaning','deleteTaskPhoto':'cleaning',
       'logTask':'cleaning','getTaskLog':'cleaning',
-      'addCivilIssue':'civil issue','updateCivilIssue':'civil issue','getCivilIssues':'civil issue','markCivilFixed':'civil issue','clearCivilIssues':'civil issue','deleteCivilIssue':'civil issue','assignCivilIssue':'civil issue','reportWorkerLocation':'civil issue','getWorkerLocations':'civil issue','saveWorkerPushToken':'civil issue',
+      'addCivilIssue':'civil issue','updateCivilIssue':'civil issue','getCivilIssues':'civil issue','markCivilFixed':'civil issue','clearCivilIssues':'civil issue','deleteCivilIssue':'civil issue','assignCivilIssue':'civil issue','reportWorkerLocation':'civil issue','getWorkerLocations':'civil issue','saveWorkerPushToken':'civil issue','testWorkerPush':'civil issue',
       'addElectricIssue':'electric issue','updateElectricIssue':'electric issue','getElectricIssues':'electric issue','markElectricFixed':'electric issue','clearElectricIssues':'electric issue','deleteElectricIssue':'electric issue',
       'addFireIssue':'fire','updateFireIssue':'fire','getFireIssues':'fire','markFireFixed':'fire','clearFireIssues':'fire','deleteFireIssue':'fire',
       'addHseInspection':'hse','updateHseInspection':'hse','getHseInspections':'hse','markHseResolved':'hse','clearHseInspections':'hse','deleteHseInspection':'hse',
@@ -212,6 +212,7 @@ function doPost(e) {
     if (action==='getCivilIssues') return respond(handleGetIssues(body, CIVIL_SHEET, auth));
     if (action==='assignCivilIssue') return respond(handleAssignCivilIssue(body, auth));
     if (action==='saveWorkerPushToken') return respond(handleSaveWorkerPushToken(body, auth));
+    if (action==='testWorkerPush') return respond(handleTestWorkerPush(body, auth));
     if (action==='reportWorkerLocation') return respond(handleReportWorkerLocation(body, auth));
     if (action==='getWorkerLocations') return respond(handleGetWorkerLocations(body, auth));
     if (action==='markCivilFixed') return respond(handleMarkFixed(body, CIVIL_SHEET, auth));
@@ -1524,7 +1525,7 @@ function getFcmAccessToken_() {
   var resp = UrlFetchApp.fetch('https://oauth2.googleapis.com/token', {
     method: 'post',
     contentType: 'application/x-www-form-urlencoded',
-    payload: 'grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=' + encodeURIComponent(jwt),
+    payload: 'grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=' + jwt,
     muteHttpExceptions: true
   });
   if (resp.getResponseCode() !== 200) return null;
@@ -1548,8 +1549,14 @@ function getFcmProjectId_() {
     return '';
   }
 }
-function sendFcmToWorker_(fcmToken, title, body, data) {
-  if (!fcmToken) return false;
+function fcmDataStrings_(data) {
+  var out = {};
+  if (!data) return out;
+  Object.keys(data).forEach(function (k) { out[k] = String(data[k]); });
+  return out;
+}
+function sendFcmToWorkerDetailed_(fcmToken, title, body, data) {
+  if (!fcmToken) return {ok:false, error:'missing_token'};
   var projectId = getFcmProjectId_();
   var accessToken = getFcmAccessToken_();
   if (projectId && accessToken) {
@@ -1566,7 +1573,7 @@ function sendFcmToWorker_(fcmToken, title, body, data) {
               link: 'https://dizayeswar.github.io/Empire-General-Service/civil-issue.html'
             }
           },
-          data: data || {}
+          data: fcmDataStrings_(data)
         }
       };
       var resp = UrlFetchApp.fetch('https://fcm.googleapis.com/v1/projects/' + projectId + '/messages:send', {
@@ -1576,13 +1583,17 @@ function sendFcmToWorker_(fcmToken, title, body, data) {
         payload: JSON.stringify(payload),
         muteHttpExceptions: true
       });
-      return resp.getResponseCode() === 200;
+      var code = resp.getResponseCode();
+      var text = resp.getContentText();
+      if (code === 200) return {ok:true, code:code};
+      return {ok:false, code:code, error:text || 'FCM send failed'};
     } catch (e) {
-      return false;
+      return {ok:false, error:String(e && e.message ? e.message : e)};
     }
   }
+  if (!accessToken) return {ok:false, error:'FCM service account missing or invalid'};
   var key = PropertiesService.getScriptProperties().getProperty('FCM_SERVER_KEY');
-  if (!key) return false;
+  if (!key) return {ok:false, error:'FCM not configured'};
   try {
     var legacyPayload = {
       to: fcmToken,
@@ -1593,7 +1604,7 @@ function sendFcmToWorker_(fcmToken, title, body, data) {
         icon: 'https://dizayeswar.github.io/Empire-General-Service/icons/icon-192.png',
         click_action: 'https://dizayeswar.github.io/Empire-General-Service/civil-issue.html'
       },
-      data: data || {}
+      data: fcmDataStrings_(data)
     };
     var legacyResp = UrlFetchApp.fetch('https://fcm.googleapis.com/fcm/send', {
       method: 'post',
@@ -1602,10 +1613,32 @@ function sendFcmToWorker_(fcmToken, title, body, data) {
       payload: JSON.stringify(legacyPayload),
       muteHttpExceptions: true
     });
-    return legacyResp.getResponseCode() === 200;
+    var lcode = legacyResp.getResponseCode();
+    if (lcode === 200) return {ok:true, code:lcode};
+    return {ok:false, code:lcode, error:legacyResp.getContentText()};
   } catch (e2) {
-    return false;
+    return {ok:false, error:String(e2 && e2.message ? e2.message : e2)};
   }
+}
+function sendFcmToWorker_(fcmToken, title, body, data) {
+  return sendFcmToWorkerDetailed_(fcmToken, title, body, data).ok;
+}
+function handleTestWorkerPush(body, auth) {
+  auth = enrichAuthRole_(auth || {});
+  if (String(auth.role || '').toLowerCase() !== 'worker') {
+    return {ok:false, error:'not_allowed', message:'Only worker accounts can test push alerts.'};
+  }
+  var username = String((auth && auth.username) || '').trim().toLowerCase();
+  var tokens = getWorkerPushTokens_([username]);
+  if (!tokens.length) {
+    return {ok:false, error:'no_token', message:'No push token saved. Tap Enable alerts first.'};
+  }
+  if (!getFcmAccessToken_()) {
+    return {ok:false, error:'fcm_auth', message:'FCM service account missing or invalid in Script properties.'};
+  }
+  var result = sendFcmToWorkerDetailed_(tokens[0].fcmToken, 'Test notification', 'Empire EGS alerts are working.', {type:'test'});
+  if (result.ok) return {ok:true, success:true, message:'Test notification sent.'};
+  return {ok:false, error:'send_failed', message: result.error || 'FCM send failed.'};
 }
 function notifyWorkersOnAssign_(assignedWorkers, issues) {
   if (!assignedWorkers || !assignedWorkers.length || !issues || !issues.length) return;

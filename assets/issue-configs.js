@@ -56,7 +56,8 @@ var ISSUE_CONFIGS = {
       assign: 'assignCivilIssue',
       reportLocation: 'reportWorkerLocation',
       getLocations: 'getWorkerLocations',
-      savePushToken: 'saveWorkerPushToken'
+      savePushToken: 'saveWorkerPushToken',
+      testPush: 'testWorkerPush'
     },
     spots: ['Service stairs','Main stairs','Service door','Rooftop door','Exit door','Elevator','Wall','Ceiling','Corridor','Basement','Rooftop','Garden','Parking','Other'],
     issueTypes: ['Water leakage','Broken tiles','Door is broken','Door handle is broken','Wall needs repainting','No rooftop door','No service door','Mold / damp','Cracked wall','Other']
