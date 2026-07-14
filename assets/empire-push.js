@@ -3,6 +3,7 @@
   var _knownJobIds = null;
   var _pollTimer = null;
   var WORKER_ISSUE_POLL_MS = 90000;
+  var SW_URL = './firebase-messaging-sw.js';
 
   function pushConfigured() {
     return typeof FIREBASE_CONFIG !== 'undefined' && FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey &&
@@ -17,6 +18,11 @@
 
   function isWorkerView() {
     return typeof isCivilWorker === 'function' && isCivilWorker();
+  }
+
+  function isStandaloneApp() {
+    return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+      window.navigator.standalone === true;
   }
 
   function setWorkerPushBanner(text, showBtn) {
@@ -58,18 +64,14 @@
     var title = count === 1 ? 'New job assigned' : count + ' new jobs assigned';
     if ('Notification' in window && Notification.permission === 'granted') {
       try {
-        var opts = {
+        var n = new Notification(title, {
           body: body || 'Open the app to view details.',
           icon: './icons/icon-192.png',
           badge: './icons/icon-192.png',
           tag: 'empire-assign',
           renotify: true
-        };
-        var n = new Notification(title, opts);
-        n.onclick = function () {
-          window.focus();
-          n.close();
-        };
+        });
+        n.onclick = function () { window.focus(); n.close(); };
       } catch (e) {}
       notifyViaServiceWorker(title, body);
     }
@@ -91,7 +93,10 @@
       .then(function (r) { return r.json(); })
       .then(function (d) {
         if (d && (d.ok || d.success)) {
-          setWorkerPushBanner('Job alerts enabled. <button type="button" class="worker-loc-enable-btn" onclick="empirePushTestAlert()">Send test alert</button>', false);
+          var msg = 'Job alerts enabled (installed app). ';
+          msg += '<button type="button" class="worker-loc-enable-btn" onclick="empirePushTestAlert()">Send test</button> ';
+          msg += '<button type="button" class="worker-loc-enable-btn" onclick="empirePushDebug()">Diagnose</button>';
+          setWorkerPushBanner(msg, false);
           return true;
         }
         setWorkerPushBanner('Could not register alerts: ' + ((d && (d.message || d.error)) || 'server error'), false);
@@ -105,9 +110,15 @@
 
   function getServiceWorkerRegistration() {
     if (!('serviceWorker' in navigator)) return Promise.reject(new Error('no-sw'));
-    return navigator.serviceWorker.register('./service-worker.js').then(function () {
-      return navigator.serviceWorker.ready;
-    });
+    return navigator.serviceWorker.register(SW_URL, { scope: './', updateViaCache: 'none' })
+      .then(function (reg) {
+        if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        if (reg.update) return reg.update().then(function () { return reg; });
+        return reg;
+      })
+      .then(function (reg) {
+        return navigator.serviceWorker.ready.then(function () { return reg; });
+      });
   }
 
   function registerFirebaseMessaging() {
@@ -119,18 +130,24 @@
       setWorkerPushBanner('Firebase failed to load. Hard refresh and try again.', false);
       return Promise.resolve(false);
     }
+    if (!isStandaloneApp()) {
+      setWorkerPushBanner('Lock-screen alerts require the installed app. Add to Home Screen first, then open from the icon.', true);
+      return Promise.resolve(false);
+    }
     return getServiceWorkerRegistration()
       .then(function (reg) {
         if (!firebase.apps || !firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
         var messaging = firebase.messaging();
-        return messaging.getToken({
-          vapidKey: FIREBASE_VAPID_KEY,
-          serviceWorkerRegistration: reg
+        return messaging.deleteToken().catch(function () { return null; }).then(function () {
+          return messaging.getToken({
+            vapidKey: FIREBASE_VAPID_KEY,
+            serviceWorkerRegistration: reg
+          });
         });
       })
       .then(function (token) {
         if (!token) {
-          setWorkerPushBanner('Could not get push token. Reinstall the app and try again.', false);
+          setWorkerPushBanner('Could not get push token. Delete the app shortcut, reinstall, and try again.', false);
           return false;
         }
         return saveFcmToken(token);
@@ -139,6 +156,8 @@
         var msg = (err && err.message) ? err.message : 'unknown error';
         if (/permission|denied/i.test(msg)) {
           setWorkerPushBanner('Notification permission denied.', false);
+        } else if (/not authorized|permission-blocked/i.test(msg)) {
+          setWorkerPushBanner('Domain not authorized in Firebase. Add dizayeswar.github.io to Firebase authorized domains.', false);
         } else {
           setWorkerPushBanner('Push setup failed: ' + msg, false);
         }
@@ -190,15 +209,19 @@
       setWorkerPushBanner('This browser does not support notifications.', false);
       return;
     }
+    if (!isStandaloneApp()) {
+      setWorkerPushBanner('Add the app to your Home Screen first, then open it from the icon — required for lock-screen alerts.', true);
+      return;
+    }
     Notification.requestPermission().then(function (perm) {
       if (perm === 'granted') {
-        setWorkerPushBanner('');
+        setWorkerPushBanner('Setting up alerts…', false);
         registerFirebaseMessaging().then(function () { startIssuePollFallback(); });
         if (typeof loadIssues === 'function') loadIssues(true);
         return;
       }
       if (perm === 'denied') {
-        setWorkerPushBanner('Notifications blocked. Allow them in your phone settings for lock-screen alerts.', false);
+        setWorkerPushBanner('Notifications blocked. In phone Settings, allow notifications for this app on Lock Screen.', false);
         return;
       }
       setWorkerPushBanner('Turn on alerts to get a popup when a job is assigned to you.', true);
@@ -209,16 +232,20 @@
     if (!isWorkerView()) return;
     stopIssuePollFallback();
     if (!('Notification' in window)) return;
+    if (!isStandaloneApp()) {
+      setWorkerPushBanner('Install this app to Home Screen for lock-screen job alerts.', true);
+      return;
+    }
     var perm = Notification.permission;
     if (perm === 'granted') {
       registerFirebaseMessaging().then(function () { startIssuePollFallback(); });
       return;
     }
     if (perm === 'denied') {
-      setWorkerPushBanner('Notifications are off. Enable them in phone settings to get job alerts on your lock screen.', false);
+      setWorkerPushBanner('Notifications are off. Enable Lock Screen alerts in phone Settings.', false);
       return;
     }
-    setWorkerPushBanner('Get a popup when a new job is assigned — even when your phone is locked.', true);
+    setWorkerPushBanner('Get a popup when assigned — even when your phone is locked.', true);
   };
 
   window.empirePushStopWorker = function () {
@@ -228,24 +255,47 @@
 
   window.empirePushTestAlert = function () {
     if (!window.ISSUE_CFG || !ISSUE_CFG.actions || !ISSUE_CFG.actions.testPush) return;
-    setWorkerPushBanner('Sending test alert…', false);
+    setWorkerPushBanner('Sending test alert… Lock your phone now.', false);
     fetch(GOOGLE_SCRIPT_URL, {
       method: 'POST',
-      body: JSON.stringify({
-        action: ISSUE_CFG.actions.testPush,
-        token: authSessionToken()
-      })
+      body: JSON.stringify({ action: ISSUE_CFG.actions.testPush, token: authSessionToken() })
     })
       .then(function (r) { return r.json(); })
       .then(function (d) {
         if (d && (d.ok || d.success)) {
-          setWorkerPushBanner('Test alert sent — check your lock screen.', false);
+          setWorkerPushBanner('Server sent test alert. Check lock screen within 10 seconds.', false);
           return;
         }
         setWorkerPushBanner('Test failed: ' + ((d && (d.message || d.error)) || 'unknown error'), false);
       })
       .catch(function () {
         setWorkerPushBanner('Test failed: could not reach server.', false);
+      });
+  };
+
+  window.empirePushDebug = function () {
+    if (!window.ISSUE_CFG || !ISSUE_CFG.actions || !ISSUE_CFG.actions.debugPush) return;
+    setWorkerPushBanner('Running diagnostics…', false);
+    fetch(GOOGLE_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: ISSUE_CFG.actions.debugPush, token: authSessionToken() })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d || d.ok === false) {
+          setWorkerPushBanner('Diagnose failed: ' + ((d && (d.message || d.error)) || 'unknown'), false);
+          return;
+        }
+        var lines = [];
+        lines.push('Installed app: ' + (isStandaloneApp() ? 'yes' : 'NO — install first'));
+        lines.push('Notification permission: ' + (Notification.permission || 'unknown'));
+        lines.push('Push token saved: ' + (d.hasToken ? 'yes' : 'NO'));
+        lines.push('FCM server auth: ' + (d.fcmAuth ? 'OK' : 'FAILED'));
+        if (d.fcmSend) lines.push('Last FCM send: ' + d.fcmSend);
+        setWorkerPushBanner(lines.join(' · '), false);
+      })
+      .catch(function () {
+        setWorkerPushBanner('Diagnose failed: could not reach server.', false);
       });
   };
 

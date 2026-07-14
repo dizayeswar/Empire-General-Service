@@ -20,7 +20,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-14-push3';
+var SCRIPT_VERSION = '2026-07-14-push4';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -160,7 +160,7 @@ function doPost(e) {
       'getWeekCoverage':'cleaning','markTaskWeek':'cleaning','getRangeCoverage':'cleaning',
       'getTaskPhotos':'cleaning','addTaskPhoto':'cleaning','addTaskPhotos':'cleaning','deleteTaskPhoto':'cleaning',
       'logTask':'cleaning','getTaskLog':'cleaning',
-      'addCivilIssue':'civil issue','updateCivilIssue':'civil issue','getCivilIssues':'civil issue','markCivilFixed':'civil issue','clearCivilIssues':'civil issue','deleteCivilIssue':'civil issue','assignCivilIssue':'civil issue','reportWorkerLocation':'civil issue','getWorkerLocations':'civil issue','saveWorkerPushToken':'civil issue','testWorkerPush':'civil issue',
+      'addCivilIssue':'civil issue','updateCivilIssue':'civil issue','getCivilIssues':'civil issue','markCivilFixed':'civil issue','clearCivilIssues':'civil issue','deleteCivilIssue':'civil issue','assignCivilIssue':'civil issue','reportWorkerLocation':'civil issue','getWorkerLocations':'civil issue','saveWorkerPushToken':'civil issue','testWorkerPush':'civil issue','debugWorkerPush':'civil issue',
       'addElectricIssue':'electric issue','updateElectricIssue':'electric issue','getElectricIssues':'electric issue','markElectricFixed':'electric issue','clearElectricIssues':'electric issue','deleteElectricIssue':'electric issue',
       'addFireIssue':'fire','updateFireIssue':'fire','getFireIssues':'fire','markFireFixed':'fire','clearFireIssues':'fire','deleteFireIssue':'fire',
       'addHseInspection':'hse','updateHseInspection':'hse','getHseInspections':'hse','markHseResolved':'hse','clearHseInspections':'hse','deleteHseInspection':'hse',
@@ -213,6 +213,7 @@ function doPost(e) {
     if (action==='assignCivilIssue') return respond(handleAssignCivilIssue(body, auth));
     if (action==='saveWorkerPushToken') return respond(handleSaveWorkerPushToken(body, auth));
     if (action==='testWorkerPush') return respond(handleTestWorkerPush(body, auth));
+    if (action==='debugWorkerPush') return respond(handleDebugWorkerPush(body, auth));
     if (action==='reportWorkerLocation') return respond(handleReportWorkerLocation(body, auth));
     if (action==='getWorkerLocations') return respond(handleGetWorkerLocations(body, auth));
     if (action==='markCivilFixed') return respond(handleMarkFixed(body, CIVIL_SHEET, auth));
@@ -1567,46 +1568,38 @@ function buildFcmMessagePayload_(fcmToken, title, body, data) {
       notification: { title: title, body: body },
       data: fcmData,
       webpush: {
-        headers: {
-          Urgency: 'high',
-          TTL: '86400'
-        },
-        notification: {
-          title: title,
-          body: body,
-          icon: icon,
-          badge: icon,
-          tag: 'empire-job',
-          renotify: true,
-          requireInteraction: true
-        },
+        headers: { Urgency: 'high', TTL: '86400' },
+        notification: { title: title, body: body, icon: icon, tag: 'empire-job' },
         fcm_options: { link: link }
-      },
-      android: {
-        priority: 'HIGH',
-        notification: {
-          icon: 'icon-192',
-          color: '#8d015d',
-          sound: 'default',
-          channel_id: 'empire_jobs',
-          notification_priority: 'PRIORITY_HIGH',
-          default_vibrate_timings: true
-        }
-      },
-      apns: {
-        headers: {
-          'apns-priority': '10',
-          'apns-push-type': 'alert'
-        },
-        payload: {
-          aps: {
-            alert: { title: title, body: body },
-            sound: 'default',
-            'mutable-content': 1
-          }
-        }
       }
     }
+  };
+}
+function handleDebugWorkerPush(body, auth) {
+  auth = enrichAuthRole_(auth || {});
+  if (String(auth.role || '').toLowerCase() !== 'worker') {
+    return {ok:false, error:'not_allowed', message:'Workers only.'};
+  }
+  var username = String((auth && auth.username) || '').trim().toLowerCase();
+  var tokens = getWorkerPushTokens_([username]);
+  var hasToken = tokens.length > 0;
+  var fcmAuth = !!getFcmAccessToken_();
+  var fcmSend = '';
+  if (hasToken && fcmAuth) {
+    var result = sendFcmToWorkerDetailed_(tokens[0].fcmToken, 'Diagnostic ping', 'Empire push diagnostic — lock your phone.', {type:'debug'});
+    fcmSend = result.ok ? 'OK' : ('FAILED: ' + (result.error || result.code || 'unknown'));
+  } else if (!hasToken) {
+    fcmSend = 'skipped — no token';
+  } else {
+    fcmSend = 'skipped — FCM auth failed';
+  }
+  return {
+    ok: true,
+    success: true,
+    hasToken: hasToken,
+    fcmAuth: fcmAuth,
+    fcmSend: fcmSend,
+    username: username
   };
 }
 function sendFcmToWorkerDetailed_(fcmToken, title, body, data) {

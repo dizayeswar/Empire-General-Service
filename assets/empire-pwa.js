@@ -4,7 +4,7 @@
   if (!('serviceWorker' in navigator)) return;
 
   window.addEventListener('load', function () {
-    navigator.serviceWorker.register('./service-worker.js').catch(function () {});
+    navigator.serviceWorker.register('./firebase-messaging-sw.js', { scope: './' }).catch(function () {});
   });
 
   var deferredPrompt = null;
