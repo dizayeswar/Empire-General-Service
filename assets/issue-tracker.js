@@ -465,6 +465,7 @@ function assignIssue(id) {
         if (d && d.workersRequired !== undefined) it.workersRequired = d.workersRequired;
       }
       writeIssuesCacheAsync(allIssues);
+      delete selectedIssueIds[id];
       setAssignBtnState(id, 'saved');
       patchIssueModalAssign(id);
       requestAnimationFrame(function () { renderIssues(); });
@@ -1288,7 +1289,12 @@ function setBulkAssignBtnState(state) {
     btn.textContent = 'Assign workers';
   }
 }
-function finishBulkAssignSuccess() {
+function finishBulkAssignSuccess(assignedIds) {
+  if (assignedIds && assignedIds.length) {
+    assignedIds.forEach(function (id) { delete selectedIssueIds[id]; });
+  } else {
+    selectedIssueIds = {};
+  }
   clearBulkAssignWorkerChecks();
   writeIssuesCacheAsync(allIssues);
   _bulkAssignBtnState = 'saved';
@@ -1367,7 +1373,7 @@ function assignSelectedIssues() {
         });
       }
       writeIssuesCacheAsync(allIssues);
-      finishBulkAssignSuccess();
+      finishBulkAssignSuccess(ids);
     }).catch(function (e) {
       ids.forEach(function (id) {
         var it = allIssues.find(function (x) { return x.id === id; });
