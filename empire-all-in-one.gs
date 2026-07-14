@@ -16,10 +16,11 @@ var CIVIL_JOBS_SHEET = 'CivilJobs';
 var CIVIL_SUMMARY_SHEET = 'CivilSummary';
 var TRASH_SHEET = 'Trash';
 var WORKER_LOCATIONS_SHEET = 'WorkerLocations';
+var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-14-assign-ui3';
+var SCRIPT_VERSION = '2026-07-14-push1';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -159,7 +160,7 @@ function doPost(e) {
       'getWeekCoverage':'cleaning','markTaskWeek':'cleaning','getRangeCoverage':'cleaning',
       'getTaskPhotos':'cleaning','addTaskPhoto':'cleaning','addTaskPhotos':'cleaning','deleteTaskPhoto':'cleaning',
       'logTask':'cleaning','getTaskLog':'cleaning',
-      'addCivilIssue':'civil issue','updateCivilIssue':'civil issue','getCivilIssues':'civil issue','markCivilFixed':'civil issue','clearCivilIssues':'civil issue','deleteCivilIssue':'civil issue','assignCivilIssue':'civil issue','reportWorkerLocation':'civil issue','getWorkerLocations':'civil issue',
+      'addCivilIssue':'civil issue','updateCivilIssue':'civil issue','getCivilIssues':'civil issue','markCivilFixed':'civil issue','clearCivilIssues':'civil issue','deleteCivilIssue':'civil issue','assignCivilIssue':'civil issue','reportWorkerLocation':'civil issue','getWorkerLocations':'civil issue','saveWorkerPushToken':'civil issue',
       'addElectricIssue':'electric issue','updateElectricIssue':'electric issue','getElectricIssues':'electric issue','markElectricFixed':'electric issue','clearElectricIssues':'electric issue','deleteElectricIssue':'electric issue',
       'addFireIssue':'fire','updateFireIssue':'fire','getFireIssues':'fire','markFireFixed':'fire','clearFireIssues':'fire','deleteFireIssue':'fire',
       'addHseInspection':'hse','updateHseInspection':'hse','getHseInspections':'hse','markHseResolved':'hse','clearHseInspections':'hse','deleteHseInspection':'hse',
@@ -210,6 +211,7 @@ function doPost(e) {
     if (action==='updateCivilIssue') return respond(handleUpdateIssue(body, CIVIL_SHEET));
     if (action==='getCivilIssues') return respond(handleGetIssues(body, CIVIL_SHEET, auth));
     if (action==='assignCivilIssue') return respond(handleAssignCivilIssue(body, auth));
+    if (action==='saveWorkerPushToken') return respond(handleSaveWorkerPushToken(body, auth));
     if (action==='reportWorkerLocation') return respond(handleReportWorkerLocation(body, auth));
     if (action==='getWorkerLocations') return respond(handleGetWorkerLocations(body, auth));
     if (action==='markCivilFixed') return respond(handleMarkFixed(body, CIVIL_SHEET, auth));
@@ -1408,6 +1410,215 @@ function handleGetIssues(body, sheetName, auth) {
   return out;
 }
 
+function numToLettersGs_(n) {
+  var s = '';
+  n = n + 1;
+  while (n > 0) {
+    var r = (n - 1) % 26;
+    s = String.fromCharCode(65 + r) + s;
+    n = Math.floor((n - 1) / 26);
+  }
+  return s;
+}
+function issueRefGs_(num) {
+  num = Number(num || 0);
+  if (!num) return '';
+  var idx = num - 1;
+  return numToLettersGs_(Math.floor(idx / 999)) + ((idx % 999) + 1);
+}
+function buildAssignNotifyBody_(issues) {
+  if (!issues || !issues.length) return 'Open the app to view details.';
+  if (issues.length === 1) {
+    var r = issues[0];
+    return '#' + issueRefGs_(r.num) + ' ' + r.issueType + ' — ' + r.building + ' · ' + r.floor;
+  }
+  var parts = [];
+  for (var i = 0; i < issues.length && i < 3; i++) {
+    parts.push('#' + issueRefGs_(issues[i].num) + ' ' + issues[i].issueType);
+  }
+  if (issues.length > 3) parts.push('+' + (issues.length - 3) + ' more');
+  return parts.join('\n');
+}
+function ensureWorkerPushSheet_(sheet) {
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['username', 'fcmToken', 'platform', 'updatedAt']);
+    return;
+  }
+  var headers = ['username', 'fcmToken', 'platform', 'updatedAt'];
+  for (var c = 0; c < headers.length; c++) {
+    if (String(sheet.getRange(1, c + 1).getValue() || '') !== headers[c]) {
+      sheet.getRange(1, c + 1).setValue(headers[c]);
+    }
+  }
+}
+function handleSaveWorkerPushToken(body, auth) {
+  auth = enrichAuthRole_(auth || {});
+  if (String(auth.role || '').toLowerCase() !== 'worker') {
+    return {ok:false, error:'not_allowed', message:'Only worker accounts can register for push alerts.'};
+  }
+  var username = String((auth && auth.username) || '').trim().toLowerCase();
+  if (!username) return {ok:false, error:'not_authenticated'};
+  var fcmToken = String(body.fcmToken || body.pushToken || '').trim();
+  if (!fcmToken) return {ok:false, error:'missing_token', message:'Missing push token.'};
+  var platform = String(body.platform || 'web-fcm').trim();
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(WORKER_PUSH_SHEET) || ss.insertSheet(WORKER_PUSH_SHEET);
+  ensureWorkerPushSheet_(sheet);
+  var now = new Date().toISOString();
+  var rows = sheet.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][0] || '').trim().toLowerCase() === username) {
+      sheet.getRange(i + 1, 1, 1, 4).setValues([[username, fcmToken, platform, now]]);
+      return {ok:true, success:true, updatedAt:now};
+    }
+  }
+  sheet.appendRow([username, fcmToken, platform, now]);
+  return {ok:true, success:true, updatedAt:now};
+}
+function getWorkerPushTokens_(usernames) {
+  var want = {};
+  for (var u = 0; u < usernames.length; u++) {
+    var name = String(usernames[u] || '').trim().toLowerCase();
+    if (name) want[name] = true;
+  }
+  if (!Object.keys(want).length) return [];
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(WORKER_PUSH_SHEET);
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  ensureWorkerPushSheet_(sheet);
+  var rows = sheet.getDataRange().getValues();
+  var out = [];
+  for (var i = 1; i < rows.length; i++) {
+    var user = String(rows[i][0] || '').trim().toLowerCase();
+    if (!want[user]) continue;
+    var token = String(rows[i][1] || '').trim();
+    if (token) out.push({username:user, fcmToken:token});
+  }
+  return out;
+}
+function base64UrlEncodeGs_(bytesOrString) {
+  var b = (typeof bytesOrString === 'string')
+    ? Utilities.newBlob(bytesOrString).getBytes()
+    : bytesOrString;
+  return Utilities.base64EncodeWebSafe(b).replace(/=+$/, '');
+}
+function getFcmAccessToken_() {
+  var props = PropertiesService.getScriptProperties();
+  var saJson = props.getProperty('FCM_SERVICE_ACCOUNT_JSON');
+  if (!saJson) return null;
+  var sa;
+  try { sa = JSON.parse(saJson); } catch (e) { return null; }
+  if (!sa.client_email || !sa.private_key) return null;
+  var now = Math.floor(Date.now() / 1000);
+  var header = base64UrlEncodeGs_(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+  var claim = base64UrlEncodeGs_(JSON.stringify({
+    iss: sa.client_email,
+    scope: 'https://www.googleapis.com/auth/firebase.messaging',
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: now,
+    exp: now + 3600
+  }));
+  var unsigned = header + '.' + claim;
+  var sig = Utilities.computeRsaSha256Signature(unsigned, sa.private_key);
+  var jwt = unsigned + '.' + base64UrlEncodeGs_(sig);
+  var resp = UrlFetchApp.fetch('https://oauth2.googleapis.com/token', {
+    method: 'post',
+    contentType: 'application/x-www-form-urlencoded',
+    payload: 'grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=' + encodeURIComponent(jwt),
+    muteHttpExceptions: true
+  });
+  if (resp.getResponseCode() !== 200) return null;
+  try {
+    var parsed = JSON.parse(resp.getContentText());
+    return parsed.access_token || null;
+  } catch (e2) {
+    return null;
+  }
+}
+function getFcmProjectId_() {
+  var props = PropertiesService.getScriptProperties();
+  var pid = String(props.getProperty('FCM_PROJECT_ID') || '').trim();
+  if (pid) return pid;
+  var saJson = props.getProperty('FCM_SERVICE_ACCOUNT_JSON');
+  if (!saJson) return '';
+  try {
+    var sa = JSON.parse(saJson);
+    return String(sa.project_id || '').trim();
+  } catch (e) {
+    return '';
+  }
+}
+function sendFcmToWorker_(fcmToken, title, body, data) {
+  if (!fcmToken) return false;
+  var projectId = getFcmProjectId_();
+  var accessToken = getFcmAccessToken_();
+  if (projectId && accessToken) {
+    try {
+      var payload = {
+        message: {
+          token: fcmToken,
+          notification: { title: title, body: body },
+          webpush: {
+            notification: {
+              icon: 'https://dizayeswar.github.io/Empire-General-Service/icons/icon-192.png'
+            },
+            fcm_options: {
+              link: 'https://dizayeswar.github.io/Empire-General-Service/civil-issue.html'
+            }
+          },
+          data: data || {}
+        }
+      };
+      var resp = UrlFetchApp.fetch('https://fcm.googleapis.com/v1/projects/' + projectId + '/messages:send', {
+        method: 'post',
+        contentType: 'application/json',
+        headers: { Authorization: 'Bearer ' + accessToken },
+        payload: JSON.stringify(payload),
+        muteHttpExceptions: true
+      });
+      return resp.getResponseCode() === 200;
+    } catch (e) {
+      return false;
+    }
+  }
+  var key = PropertiesService.getScriptProperties().getProperty('FCM_SERVER_KEY');
+  if (!key) return false;
+  try {
+    var legacyPayload = {
+      to: fcmToken,
+      priority: 'high',
+      notification: {
+        title: title,
+        body: body,
+        icon: 'https://dizayeswar.github.io/Empire-General-Service/icons/icon-192.png',
+        click_action: 'https://dizayeswar.github.io/Empire-General-Service/civil-issue.html'
+      },
+      data: data || {}
+    };
+    var legacyResp = UrlFetchApp.fetch('https://fcm.googleapis.com/fcm/send', {
+      method: 'post',
+      contentType: 'application/json',
+      headers: { Authorization: 'key=' + key },
+      payload: JSON.stringify(legacyPayload),
+      muteHttpExceptions: true
+    });
+    return legacyResp.getResponseCode() === 200;
+  } catch (e2) {
+    return false;
+  }
+}
+function notifyWorkersOnAssign_(assignedWorkers, issues) {
+  if (!assignedWorkers || !assignedWorkers.length || !issues || !issues.length) return;
+  var tokens = getWorkerPushTokens_(assignedWorkers);
+  if (!tokens.length) return;
+  var title = issues.length === 1 ? 'New job assigned' : issues.length + ' jobs assigned';
+  var body = buildAssignNotifyBody_(issues);
+  var data = { type: 'assign', count: String(issues.length) };
+  for (var t = 0; t < tokens.length; t++) {
+    sendFcmToWorker_(tokens[t].fcmToken, title, body, data);
+  }
+}
+
 function handleAssignCivilIssue(body, auth) {
   auth = enrichAuthRole_(auth || {});
   var urow = getUserRowByName_(auth && auth.username);
@@ -1450,6 +1661,7 @@ function handleAssignCivilIssue(body, auth) {
   for (var w = 0; w < idList.length; w++) want[idList[w]] = true;
   var rows = sheet.getDataRange().getValues();
   var updated = 0;
+  var notifyIssues = [];
   for (var i = 1; i < rows.length; i++) {
     if (want[String(rows[i][0])]) {
       sheet.getRange(i + 1, CIVIL_ASSIGNED_COL).setValue(group);
@@ -1461,11 +1673,19 @@ function handleAssignCivilIssue(body, auth) {
         sheet.getRange(i + 1, 14).setValue('');
         sheet.getRange(i + 1, 15).setValue('');
       }
+      notifyIssues.push({
+        id: String(rows[i][0]),
+        num: Number(rows[i][ISSUE_NUM_COL - 1] || 0),
+        issueType: String(rows[i][5] || ''),
+        building: String(rows[i][2] || ''),
+        floor: String(rows[i][3] || '')
+      });
       updated++;
     }
   }
   if (!updated) return {ok:false, error:'Issue not found', message:'Issue not found on server. Refresh the list and try again.'};
   invalidateIssuesCache_(CIVIL_SHEET);
+  try { notifyWorkersOnAssign_(assignedWorkers, notifyIssues); } catch (e) {}
   return {ok:true, success:true, assignedGroup:group, assignedWorkers:assignedWorkers, workersRequired:workersRequired || 1, updated:updated};
 }
 

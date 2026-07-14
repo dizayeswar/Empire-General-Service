@@ -143,6 +143,41 @@ Supervisors can install the app from Chrome (Android) or Safari (iPhone):
 
 Icons are in `icons/` (192, 512, maskable). After icon changes, bump `CACHE_VERSION` in `service-worker.js` and redeploy frontend.
 
+### Worker job alerts (lock-screen notifications)
+
+When an engineer assigns a job, assigned workers get a **popup notification** — including when the phone is locked.
+
+**One-time setup (Firebase Cloud Messaging):**
+
+1. Create a [Firebase project](https://console.firebase.google.com/) (free).
+2. Add a **Web app** with your live URL host: `dizayeswar.github.io`.
+3. In Firebase → **Project settings → Cloud Messaging → Web configuration**, generate a **Web Push certificate** (VAPID key pair). Copy the **public key** (Key pair).
+4. In Firebase → **Project settings → Service accounts**, click **Generate new private key**. Save the JSON file — Apps Script uses this to send notifications (FCM HTTP v1 API).
+5. Fill in `config.js`:
+   - `FIREBASE_CONFIG` — apiKey, authDomain, projectId, messagingSenderId, appId from Firebase web app settings
+   - `FIREBASE_VAPID_KEY` — the Web Push public key from step 3
+6. In Apps Script → **Project settings → Script properties**, add:
+   - Name: `FCM_SERVICE_ACCOUNT_JSON` — value: entire contents of the service account JSON file (paste as one line is fine)
+   - Optional: `FCM_PROJECT_ID` — only if not already inside the JSON (`project_id` field)
+7. Redeploy **frontend** (GitHub) and **backend** (Apps Script).
+
+**On each worker phone:**
+
+1. Install the PWA (**Add to Home screen** / **Install app**).
+2. Log in as the worker account on **Civil Issues**.
+3. Tap **Enable alerts** on the banner and allow notifications when prompted.
+4. Keep notifications allowed in phone settings for Chrome / the installed app.
+
+| Platform | Lock-screen alerts |
+|----------|-------------------|
+| Android Chrome (installed PWA) | Yes, after Firebase setup |
+| iPhone (iOS 16.4+, installed to Home Screen) | Yes, after Firebase setup |
+| Browser tab only (not installed) | Alerts when app is open; limited when backgrounded |
+
+If Firebase is not configured yet, workers still see an **Enable alerts** banner and get in-app popups when the app is open (polls every ~90 seconds).
+
+Backend stores device tokens in sheet tab **WorkerPushTokens** (created automatically).
+
 ---
 
 ## 5. Offline photo queue (cleaning)
@@ -186,6 +221,7 @@ assets/empire-auth.js   Login, session, logout
 assets/empire-api.js    fetchJSONRetry, login helper
 assets/empire-core.js   Theme, filters, PWA loader
 assets/empire-offline-queue.js  Offline photo queue
+assets/empire-push.js     Worker push notification registration
 assets/issue-tracker.js Shared issue page logic
 manifest.webmanifest    PWA manifest
 service-worker.js       Offline shell cache

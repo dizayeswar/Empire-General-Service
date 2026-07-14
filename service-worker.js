@@ -1,5 +1,5 @@
-/* Empire General Service — offline shell cache (Phase 5C) */
-var CACHE_VERSION = '2026-07-14-assign-ui5';
+/* Empire General Service — offline shell cache + worker push (Phase 5C) */
+var CACHE_VERSION = '2026-07-14-push1';
 var CACHE_NAME = 'empire-egs-' + CACHE_VERSION;
 
 var PRECACHE = [
@@ -15,6 +15,7 @@ var PRECACHE = [
   './hse-inspection.html',
   './hse-department.html',
   './config.js',
+  './assets/firebase-sw-config.js',
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',
@@ -31,11 +32,80 @@ var PRECACHE = [
   './assets/empire-civil-worker.css',
   './assets/empire-hub-stats.js',
   './assets/empire-pwa.js',
+  './assets/empire-push.js',
   './assets/issue-tracker.js',
   './assets/issue-excel-export.js',
   './assets/issue-configs.js',
   './assets/issue-recycle-bin.js'
 ];
+
+try {
+  importScripts('./config.js');
+  importScripts('./assets/firebase-sw-config.js');
+  importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
+  importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');
+  if (typeof FIREBASE_SW_CONFIG !== 'undefined' && FIREBASE_SW_CONFIG && FIREBASE_SW_CONFIG.apiKey) {
+    firebase.initializeApp(FIREBASE_SW_CONFIG);
+    firebase.messaging().onBackgroundMessage(function (payload) {
+      var note = payload && payload.notification;
+      var title = (note && note.title) || 'New job assigned';
+      var body = (note && note.body) || '';
+      return self.registration.showNotification(title, {
+        body: body,
+        icon: './icons/icon-192.png',
+        badge: './icons/icon-192.png',
+        data: { url: './civil-issue.html' },
+        tag: 'empire-job',
+        renotify: true
+      });
+    });
+  }
+} catch (e) {}
+
+self.addEventListener('push', function (event) {
+  if (!event.data) return;
+  try {
+    var data = event.data.json();
+    var title = data.title || (data.notification && data.notification.title) || 'New job assigned';
+    var body = data.body || (data.notification && data.notification.body) || '';
+    event.waitUntil(self.registration.showNotification(title, {
+      body: body,
+      icon: './icons/icon-192.png',
+      badge: './icons/icon-192.png',
+      data: { url: (data.url || './civil-issue.html') },
+      tag: 'empire-job',
+      renotify: true
+    }));
+  } catch (err) {}
+});
+
+self.addEventListener('notificationclick', function (event) {
+  event.notification.close();
+  var url = (event.notification.data && event.notification.data.url) || './civil-issue.html';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (list) {
+      for (var i = 0; i < list.length; i++) {
+        if ('focus' in list[i]) {
+          list[i].navigate(url);
+          return list[i].focus();
+        }
+      }
+      if (clients.openWindow) return clients.openWindow(url);
+    })
+  );
+});
+
+self.addEventListener('message', function (event) {
+  if (!event.data || event.data.type !== 'EMPUSH_SHOW') return;
+  event.waitUntil(self.registration.showNotification(event.data.title || 'Empire EGS', {
+    body: event.data.body || '',
+    icon: './icons/icon-192.png',
+    badge: './icons/icon-192.png',
+    data: { url: event.data.url || './civil-issue.html' },
+    tag: 'empire-job-local',
+    renotify: true
+  }));
+});
 
 self.addEventListener('install', function (event) {
   event.waitUntil(

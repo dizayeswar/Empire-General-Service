@@ -755,6 +755,11 @@
   border-color: #f0d2a6;
   color: #8a5a12;
 }
+.worker-push-banner {
+  background: #f9eef5;
+  border-color: #e8c5dc;
+  color: var(--text-soft);
+}
 
 .worker-locations-panel {
   margin: 0 0 18px;
