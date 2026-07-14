@@ -19,11 +19,27 @@ var WORKER_LOCATIONS_SHEET = 'WorkerLocations';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-14-assign-role-from-sheet';
+var SCRIPT_VERSION = '2026-07-14-civil-worker-assign';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
-var CIVIL_TRADE_IDS = {pipes:1, painting:1, tiles:1, wood:1};
+var CIVIL_ASSIGNED_WORKERS_COL = 20;
+var CIVIL_TRADE_IDS = {plumber:1, pipes:1, painting:1, tiles:1, wood:1};
+var CIVIL_WORKER_TEAM = {
+  mohammed_luqman: 'wood',
+  saeed_shahuth: 'wood',
+  shakhwan_dilshad: 'wood',
+  abdulsamad_sulaiaman: 'wood',
+  mohammed_qasim: 'tiles',
+  rayan_hazhar: 'tiles',
+  farman_ahmed: 'tiles',
+  sear_samad: 'plumber',
+  aram_majid: 'plumber',
+  dlawar_kamal: 'plumber',
+  shwan_ali: 'plumber',
+  halmat_abozaid: 'painting',
+  sardam_sardar: 'painting'
+};
 var HSE_INSPECTOR = 'Evan Mansour';
 var HSE_ASSETKEY_COL = 17;
 var HSE_PERIOD_COL = 18;
@@ -45,7 +61,11 @@ function invalidateIssuesCache_(sheetName) {
     } catch(e2){}
     cache.remove(ckey);
     if (sheetName === CIVIL_SHEET) {
-      ['pipes', 'painting', 'tiles', 'wood'].forEach(function (t) {
+      var workers = Object.keys(CIVIL_WORKER_TEAM);
+      for (var wi = 0; wi < workers.length; wi++) {
+        cache.remove(ckey + '_wu_' + workers[wi]);
+      }
+      ['plumber', 'pipes', 'painting', 'tiles', 'wood'].forEach(function (t) {
         var wk = ckey + '_w_' + t;
         cache.remove(wk);
       });
@@ -286,8 +306,9 @@ function projectsForUserRow_(row) {
 }
 function normalizeTrade_(raw) {
   raw = String(raw || '').trim().toLowerCase();
+  if (raw === 'pipes' || raw === 'pipe' || raw === 'plumbing') return 'plumber';
   if (raw === 'carpentry' || raw === 'carpenter' || raw === 'doors') return 'wood';
-  if (CIVIL_TRADE_IDS[raw]) return raw;
+  if (CIVIL_TRADE_IDS[raw]) return raw === 'pipes' ? 'plumber' : raw;
   return '';
 }
 function tradeForUserRow_(row) {
@@ -297,7 +318,7 @@ function tradeForUserRow_(row) {
 function ensureCivilIssueHeaders_(sheet) {
   if (!sheet) return;
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow(['id','project','building','floor','spot','issueType','note','date','photo','fixedPhoto','status','createdBy','createdAt','fixedBy','fixedAt','num','assignedGroup','workersRequired','workerCompletions']);
+    sheet.appendRow(['id','project','building','floor','spot','issueType','note','date','photo','fixedPhoto','status','createdBy','createdAt','fixedBy','fixedAt','num','assignedGroup','workersRequired','workerCompletions','assignedWorkers']);
     return;
   }
   if (String(sheet.getRange(1, CIVIL_ASSIGNED_COL).getValue() || '') !== 'assignedGroup') {
@@ -309,6 +330,74 @@ function ensureCivilIssueHeaders_(sheet) {
   if (String(sheet.getRange(1, CIVIL_WORKER_COMPLETIONS_COL).getValue() || '') !== 'workerCompletions') {
     sheet.getRange(1, CIVIL_WORKER_COMPLETIONS_COL).setValue('workerCompletions');
   }
+  if (String(sheet.getRange(1, CIVIL_ASSIGNED_WORKERS_COL).getValue() || '') !== 'assignedWorkers') {
+    sheet.getRange(1, CIVIL_ASSIGNED_WORKERS_COL).setValue('assignedWorkers');
+  }
+}
+function normalizeWorkerId_(raw) {
+  return String(raw || '').trim().toLowerCase();
+}
+function parseAssignedWorkers_(raw) {
+  raw = String(raw || '').trim();
+  if (!raw) return [];
+  if (raw.charAt(0) === '[') {
+    try {
+      var arr = JSON.parse(raw);
+      if (!Array.isArray(arr)) return [];
+      var out = [];
+      for (var i = 0; i < arr.length; i++) {
+        var id = normalizeWorkerId_(arr[i]);
+        if (id && out.indexOf(id) === -1) out.push(id);
+      }
+      return out;
+    } catch (e) {}
+  }
+  if (raw.indexOf(',') !== -1) {
+    var parts = raw.split(',');
+    var list = [];
+    for (var j = 0; j < parts.length; j++) {
+      var p = normalizeWorkerId_(parts[j]);
+      if (p && list.indexOf(p) === -1) list.push(p);
+    }
+    return list;
+  }
+  var one = normalizeWorkerId_(raw);
+  return one ? [one] : [];
+}
+function formatAssignedWorkers_(workers) {
+  return JSON.stringify(workers || []);
+}
+function isKnownCivilWorkerId_(id) {
+  id = normalizeWorkerId_(id);
+  return !!(id && CIVIL_WORKER_TEAM[id]);
+}
+function normalizeAssignedWorkersInput_(body) {
+  var out = [];
+  if (body && body.assignedWorkers && body.assignedWorkers.length) {
+    for (var i = 0; i < body.assignedWorkers.length; i++) {
+      var id = normalizeWorkerId_(body.assignedWorkers[i]);
+      if (!id || out.indexOf(id) !== -1) continue;
+      if (!isKnownCivilWorkerId_(id)) continue;
+      out.push(id);
+    }
+  }
+  return out;
+}
+function workerAssignedToIssue_(assignedWorkers, username) {
+  username = normalizeWorkerId_(username);
+  if (!username || !assignedWorkers || !assignedWorkers.length) return false;
+  for (var i = 0; i < assignedWorkers.length; i++) {
+    if (normalizeWorkerId_(assignedWorkers[i]) === username) return true;
+  }
+  return false;
+}
+function primaryTeamForWorkers_(workerIds) {
+  if (!workerIds || !workerIds.length) return '';
+  for (var i = 0; i < workerIds.length; i++) {
+    var team = CIVIL_WORKER_TEAM[normalizeWorkerId_(workerIds[i])];
+    if (team) return normalizeTrade_(team);
+  }
+  return '';
 }
 function parseWorkersRequired_(raw) {
   var n = Number(raw || 1);
@@ -519,7 +608,7 @@ function handleLogin(body) {
       var projects = projectsForUserRow_(rows[i]);
       var trade = tradeForUserRow_(rows[i]);
       if (rp.role === 'worker' && !trade) {
-        return {ok:false,success:false,message:'Worker account needs a trade in column G (pipes, painting, tiles, or wood).',error:'trade_not_set'};
+        return {ok:false,success:false,message:'Worker account needs a trade in column G (plumber, painting, tiles, or wood).',error:'trade_not_set'};
       }
       var tokenDept = userDept;
       var token = Utilities.getUuid();
@@ -1212,7 +1301,7 @@ function handleAddIssue(body, sheetName) {
   var sheet = ss.getSheetByName(sheetName) || ss.insertSheet(sheetName);
   var isCivil = (sheetName === CIVIL_SHEET);
   if (sheet.getLastRow()===0) {
-    if (isCivil) sheet.appendRow(['id','project','building','floor','spot','issueType','note','date','photo','fixedPhoto','status','createdBy','createdAt','fixedBy','fixedAt','num','assignedGroup','workersRequired','workerCompletions']);
+    if (isCivil) sheet.appendRow(['id','project','building','floor','spot','issueType','note','date','photo','fixedPhoto','status','createdBy','createdAt','fixedBy','fixedAt','num','assignedGroup','workersRequired','workerCompletions','assignedWorkers']);
     else sheet.appendRow(['id','project','building','floor','spot','issueType','note','date','photo','fixedPhoto','status','createdBy','createdAt','fixedBy','fixedAt','num']);
   } else if (isCivil) {
     ensureCivilIssueHeaders_(sheet);
@@ -1263,11 +1352,13 @@ function handleUpdateIssue(body, sheetName) {
 function handleGetIssues(body, sheetName, auth) {
   var ckey = issuesCacheKey_(sheetName);
   var isWorker = auth && String(auth.role || '').toLowerCase() === 'worker' && sheetName === CIVIL_SHEET;
+  var workerUser = '';
   var workerTrade = '';
   if (isWorker) {
+    workerUser = normalizeWorkerId_(auth.username);
+    if (!workerUser) return [];
     workerTrade = normalizeTrade_(auth.trade || tradeForUserRow_(getUserRowByName_(auth.username)));
-    if (!workerTrade) return [];
-    ckey = ckey + '_w_' + workerTrade;
+    ckey = ckey + '_wu_' + workerUser;
   }
   var cached = issuesCacheGet_(ckey);
   if (cached) return cached;
@@ -1284,11 +1375,16 @@ function handleGetIssues(body, sheetName, auth) {
     var st=String(rows[i][10]||'open');
     var fp=String(rows[i][9]||'');
     var assignedGroup = sheetName === CIVIL_SHEET ? normalizeTrade_(rows[i][CIVIL_ASSIGNED_COL - 1] || '') : '';
+    var assignedWorkers = sheetName === CIVIL_SHEET ? parseAssignedWorkers_(rows[i][CIVIL_ASSIGNED_WORKERS_COL - 1]) : [];
     var workersRequired = sheetName === CIVIL_SHEET ? parseWorkersRequired_(rows[i][CIVIL_WORKERS_REQUIRED_COL - 1]) : 1;
     var workerCompletions = sheetName === CIVIL_SHEET ? parseWorkerCompletions_(rows[i][CIVIL_WORKER_COMPLETIONS_COL - 1]) : [];
     if (isWorker) {
       if (st === 'fixed') continue;
-      if (assignedGroup !== workerTrade) continue;
+      if (assignedWorkers.length) {
+        if (!workerAssignedToIssue_(assignedWorkers, workerUser)) continue;
+      } else {
+        if (!workerTrade || assignedGroup !== workerTrade) continue;
+      }
       if (workerAlreadyCompleted_(workerCompletions, auth.username)) continue;
     }
     var fixedPhotos = st === 'fixed' ? parseFixedPhotosFromCell_(fp) : [];
@@ -1300,6 +1396,7 @@ function handleGetIssues(body, sheetName, auth) {
       item.workersRequired = workersRequired;
       item.workerCompletions = workerCompletions;
       item.workerDone = workerCompletions.length;
+      item.assignedWorkers = assignedWorkers;
     }
     out.push(item);
   }
@@ -1317,8 +1414,15 @@ function handleAssignCivilIssue(body, auth) {
   if (rp.perms.assign === false) {
     return {ok:false, error:'not_allowed', message:'Your account cannot assign issues.'};
   }
-  var group = normalizeTrade_(body.assignedGroup || body.group || '');
-  if (!group && body.assignedGroup !== '' && body.group !== '') return {ok:false, error:'invalid_group', message:'Invalid trade group. Use pipes, painting, tiles, or wood.'};
+  var assignedWorkers = normalizeAssignedWorkersInput_(body);
+  if (assignedWorkers.length > 4) {
+    return {ok:false, error:'too_many_workers', message:'Select at most 4 workers.'};
+  }
+  var group = normalizeTrade_(body.assignedGroup || body.group || primaryTeamForWorkers_(assignedWorkers) || '');
+  if (!assignedWorkers.length) group = '';
+  else if (!group && body.assignedGroup !== '' && body.group !== '') {
+    return {ok:false, error:'invalid_group', message:'Invalid trade group.'};
+  }
   var idList = [];
   if (body.ids && Object.prototype.toString.call(body.ids) === '[object Array]') {
     for (var k = 0; k < body.ids.length; k++) {
@@ -1329,7 +1433,12 @@ function handleAssignCivilIssue(body, auth) {
     idList.push(String(body.id));
   }
   if (!idList.length) return {ok:false, error:'missing_id', message:'Select at least one issue.'};
-  var workersRequired = body.workersRequired !== undefined ? parseWorkersRequired_(body.workersRequired) : null;
+  var workersRequired = body.workersRequired !== undefined && body.workersRequired !== null && body.workersRequired !== ''
+    ? parseWorkersRequired_(body.workersRequired)
+    : null;
+  if (workersRequired === null && body.eachMustComplete && assignedWorkers.length >= 2) {
+    workersRequired = assignedWorkers.length;
+  }
   var ss = getSS_();
   var sheet = ss.getSheetByName(CIVIL_SHEET);
   if (!sheet) return {ok:false, error:'Sheet not found'};
@@ -1342,7 +1451,9 @@ function handleAssignCivilIssue(body, auth) {
   for (var i = 1; i < rows.length; i++) {
     if (want[String(rows[i][0])]) {
       sheet.getRange(i + 1, CIVIL_ASSIGNED_COL).setValue(group);
-      if (workersRequired !== null) {
+      sheet.getRange(i + 1, CIVIL_ASSIGNED_WORKERS_COL).setValue(formatAssignedWorkers_(assignedWorkers));
+      if (workersRequired !== null || assignedWorkers.length) {
+        if (workersRequired === null) workersRequired = assignedWorkers.length >= 2 && body.eachMustComplete ? assignedWorkers.length : 1;
         sheet.getRange(i + 1, CIVIL_WORKERS_REQUIRED_COL).setValue(workersRequired);
         sheet.getRange(i + 1, CIVIL_WORKER_COMPLETIONS_COL).setValue('');
         sheet.getRange(i + 1, 10).setValue('');
@@ -1354,7 +1465,7 @@ function handleAssignCivilIssue(body, auth) {
   }
   if (!updated) return {ok:false, error:'Issue not found', message:'Issue not found on server. Refresh the list and try again.'};
   invalidateIssuesCache_(CIVIL_SHEET);
-  return {ok:true, success:true, assignedGroup:group, workersRequired:workersRequired || 1, updated:updated};
+  return {ok:true, success:true, assignedGroup:group, assignedWorkers:assignedWorkers, workersRequired:workersRequired || 1, updated:updated};
 }
 
 function ensureWorkerLocationsSheet_(sheet) {
@@ -1494,13 +1605,20 @@ function handleMarkFixed(body, sheetName, auth) {
   var workerTrade = '';
   if (role === 'worker' && sheetName === CIVIL_SHEET) {
     workerTrade = normalizeTrade_((auth && auth.trade) || body._authTrade || tradeForUserRow_(getUserRowByName_(body.username)));
-    if (!workerTrade) return {ok:false, error:'trade_not_set', message:'Worker trade not configured.'};
   }
   for (var i=1;i<rows.length;i++) {
     if (String(rows[i][0])===String(body.id)) {
       if (role === 'worker' && sheetName === CIVIL_SHEET) {
         var ag = normalizeTrade_(rows[i][CIVIL_ASSIGNED_COL - 1] || '');
-        if (ag !== workerTrade) return {ok:false, error:'not_assigned', message:'This issue is not assigned to your team.'};
+        var assignedWorkers = parseAssignedWorkers_(rows[i][CIVIL_ASSIGNED_WORKERS_COL - 1]);
+        if (assignedWorkers.length) {
+          if (!workerAssignedToIssue_(assignedWorkers, fixedBy)) {
+            return {ok:false, error:'not_assigned', message:'This issue is not assigned to you.'};
+          }
+        } else {
+          if (!workerTrade) return {ok:false, error:'trade_not_set', message:'Worker trade not configured for legacy team jobs.'};
+          if (ag !== workerTrade) return {ok:false, error:'not_assigned', message:'This issue is not assigned to your team.'};
+        }
         if (String(rows[i][10] || '') === 'fixed') return {ok:false, error:'already_fixed', message:'This issue is already fixed.'};
         var workersRequired = parseWorkersRequired_(rows[i][CIVIL_WORKERS_REQUIRED_COL - 1]);
         var completions = parseWorkerCompletions_(rows[i][CIVIL_WORKER_COMPLETIONS_COL - 1]);

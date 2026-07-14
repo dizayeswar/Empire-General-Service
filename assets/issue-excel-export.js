@@ -28,7 +28,7 @@ function workerCompletionsExcelText(r) {
 function issueExcelHeaders(issues) {
   var headers = ['Ref', 'Issue Type', 'Project', 'Building', 'Floor', 'Spot', 'Status', 'Reported Date', 'Reported By', 'Note'];
   if (tradeGroups().length) {
-    headers.push('Team', 'Workers Required', 'Workers Completed');
+    headers.push('Team', 'Assigned Workers', 'Workers Required', 'Workers Completed');
   }
   headers.push('Fixed By', 'Fixed At', 'Problem Photo URL');
   var maxFixed = maxFixedPhotosInIssues(issues || []);
@@ -64,6 +64,7 @@ function issueExcelRow(r, maxFixed) {
   ];
   if (tradeGroups().length) {
     row.push(tradeGroupLabel(r.assignedGroup) || 'Unassigned');
+    row.push(assignedWorkersDisplay(r));
     row.push(issueWorkersRequired(r));
     row.push(issueWorkerDone(r) + '/' + issueWorkersRequired(r));
   }

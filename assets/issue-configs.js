@@ -14,12 +14,39 @@ var ISSUE_CONFIGS = {
     reportPageTitle: 'Empire Civil Issues Report',
     reportFilePrefix: 'Empire-Civil-Issues-',
     resetSuccessMsg: 'All civil issue data has been deleted.',
+    maxAssignWorkers: 4,
     tradeGroups: [
-      { id: 'pipes', label: 'Pipes' },
-      { id: 'painting', label: 'Painting' },
+      { id: 'wood', label: 'Carpentry' },
       { id: 'tiles', label: 'Tiles' },
-      { id: 'wood', label: 'Carpentry' }
+      { id: 'plumber', label: 'Plumber' },
+      { id: 'painting', label: 'Painting' }
     ],
+    civilWorkers: {
+      wood: [
+        { id: 'mohammed_luqman', name: 'Mohammed Luqman' },
+        { id: 'saeed_shahuth', name: 'Saeed Shahuth' },
+        { id: 'shakhwan_dilshad', name: 'Shakhwan Dilshad' },
+        { id: 'abdulsamad_sulaiaman', name: 'Abdulsamad Sulaiaman' }
+      ],
+      tiles: [
+        { id: 'mohammed_qasim', name: 'Mohammed Qasim' },
+        { id: 'rayan_hazhar', name: 'Rayan Hazhar' },
+        { id: 'farman_ahmed', name: 'Farman Ahmed' }
+      ],
+      plumber: [
+        { id: 'sear_samad', name: 'Sear Samad' },
+        { id: 'aram_majid', name: 'Aram Majid' },
+        { id: 'dlawar_kamal', name: 'Dlawar Kamal' },
+        { id: 'shwan_ali', name: 'Shwan Ali' },
+        { id: 'abdulsamad_sulaiaman', name: 'Abdulsamad Sulaiaman' }
+      ],
+      painting: [
+        { id: 'halmat_abozaid', name: 'Halmat Abozaid' },
+        { id: 'sardam_sardar', name: 'Sardam Sardar' },
+        { id: 'farman_ahmed', name: 'Farman Ahmed' },
+        { id: 'rayan_hazhar', name: 'Rayan Hazhar' }
+      ]
+    },
     actions: {
       get: 'getCivilIssues',
       add: 'addCivilIssue',

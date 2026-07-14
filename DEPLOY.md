@@ -91,28 +91,30 @@ Sheet tab: **Users**
 | D | Role | `admin`, `editor`, or `viewer` |
 | E | Hide (optional) | `Analytics` or `Dashboard,Monthly` or `live location` |
 | F | Projects (cleaning only) | `ec,es` — blank = all projects |
-| G | Trade (civil workers only) | `pipes`, `painting`, `tiles`, or `wood` (Carpentry) |
+| G | Trade (civil workers only) | `plumber`, `painting`, `tiles`, or `wood` (Carpentry). Legacy `pipes` still works. |
 
-### Civil issue teams (assignment)
+### Civil issue assignment (individual workers)
 
-Engineer assigns open issues to one of four teams. All workers with that trade see the job; whoever completes it is recorded as **Fixed by**.
+Engineers assign each open issue to **one or more named workers** (up to 4). Only those workers see the job in their mobile app. You can optionally require **each selected worker** to submit completion photos (2–4 workers).
 
-| Trade ID | Display name | Typical work |
-|----------|--------------|--------------|
-| `pipes` | Pipes | Leakage, plumbing |
-| `painting` | Painting | Repainting, mold |
-| `tiles` | Tiles | Broken tiles, cracked walls |
-| `wood` | Carpentry | Doors, locks, curtains, handles |
+| Trade ID | Display name | Workers (Users sheet username = id slug) |
+|----------|--------------|------------------------------------------|
+| `wood` | Carpentry | `mohammed_luqman`, `saeed_shahuth`, `shakhwan_dilshad`, `abdulsamad_sulaiaman` |
+| `tiles` | Tiles | `mohammed_qasim`, `rayan_hazhar`, `farman_ahmed` |
+| `plumber` | Plumber | `sear_samad`, `aram_majid`, `dlawar_kamal`, `shwan_ali`, `abdulsamad_sulaiaman` |
+| `painting` | Painting | `halmat_abozaid`, `sardam_sardar`, `farman_ahmed`, `rayan_hazhar` |
+
+Some people work in more than one team — give them **one account** (one username). Assign them from any team picker; they only see jobs where their username is selected.
 
 ### Example civil accounts
 
 | Username | Dept | Role | Trade |
 |----------|------|------|-------|
 | `civil_eng` | civil issue | editor | *(blank — engineer)* |
-| `pipes_1` | civil issue | worker | pipes |
-| `tiles_1` | civil issue | worker | tiles |
-| `paint_1` | civil issue | worker | painting |
-| `wood_1` | civil issue | worker | wood |
+| `mohammed_luqman` | civil issue | worker | wood |
+| `farman_ahmed` | civil issue | worker | tiles *(or painting — pick primary trade)* |
+| `sear_samad` | civil issue | worker | plumber |
+| `halmat_abozaid` | civil issue | worker | painting |
 
 ### Cleaning project codes
 

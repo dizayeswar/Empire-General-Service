@@ -494,9 +494,62 @@
   margin-top: 8px;
   cursor: pointer;
 }
-.assign-two-workers input {
+.assign-two-workers input,
+.assign-each-worker input {
   width: 16px;
   height: 16px;
+}
+.assign-each-worker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-soft);
+  margin-top: 8px;
+  cursor: pointer;
+}
+.assign-team-group {
+  margin-bottom: 10px;
+}
+.assign-team-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+  margin-bottom: 6px;
+}
+.assign-worker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 6px 10px;
+}
+.assign-worker-pick {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 0;
+}
+.assign-worker-pick input {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.bulk-assign-workers {
+  margin: 8px 0 10px;
+  padding: 10px 12px;
+  background: var(--task-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+.assign-save-row {
+  margin-top: 10px;
 }
 .worker-two-note {
   background: #fff8e6;

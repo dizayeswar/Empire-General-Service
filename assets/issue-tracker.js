@@ -72,6 +72,87 @@ function canMarkIssueFixed() {
   return p.fix === true || p.edit !== false;
 }
 function tradeGroups() { return ISSUE_CFG.tradeGroups || []; }
+function civilWorkersRoster() { return ISSUE_CFG.civilWorkers || null; }
+function normalizeTradeId(id) {
+  id = String(id || '').trim().toLowerCase();
+  if (id === 'pipes' || id === 'pipe') return 'plumber';
+  return id;
+}
+function civilWorkersForTeam(teamId) {
+  var r = civilWorkersRoster();
+  if (!r) return [];
+  teamId = normalizeTradeId(teamId);
+  return r[teamId] || [];
+}
+function civilWorkerName(id) {
+  id = String(id || '').trim().toLowerCase();
+  if (!id) return '';
+  var teams = civilWorkersRoster();
+  if (!teams) return id;
+  var keys = Object.keys(teams);
+  for (var i = 0; i < keys.length; i++) {
+    var list = teams[keys[i]] || [];
+    for (var j = 0; j < list.length; j++) {
+      if (String(list[j].id || '').toLowerCase() === id) return list[j].name || id;
+    }
+  }
+  return id;
+}
+function civilWorkerTeamId(id) {
+  id = String(id || '').trim().toLowerCase();
+  var teams = civilWorkersRoster();
+  if (!teams) return '';
+  var keys = Object.keys(teams);
+  for (var i = 0; i < keys.length; i++) {
+    var list = teams[keys[i]] || [];
+    for (var j = 0; j < list.length; j++) {
+      if (String(list[j].id || '').toLowerCase() === id) return keys[i];
+    }
+  }
+  return '';
+}
+function assignedWorkersList(r) {
+  if (!r || !r.assignedWorkers || !r.assignedWorkers.length) return [];
+  return r.assignedWorkers.map(function (x) { return String(x || '').trim().toLowerCase(); }).filter(Boolean);
+}
+function assignedWorkersDisplay(r) {
+  var ids = assignedWorkersList(r);
+  if (!ids.length) return '';
+  return ids.map(function (id) { return civilWorkerName(id); }).join(', ');
+}
+function maxAssignWorkers() { return ISSUE_CFG.maxAssignWorkers || 4; }
+function isIssueUnassigned(r) {
+  return !assignedWorkersList(r).length && !String(r.assignedGroup || '').trim();
+}
+function readAssignWorkerChecks(className, id) {
+  className = className || 'assign-worker-cb';
+  var selector = id ? ('.' + className + '[data-issue="' + id + '"]') : ('.' + className);
+  var boxes = document.querySelectorAll(selector);
+  var out = [];
+  boxes.forEach(function (cb) {
+    if (cb.checked) {
+      var v = String(cb.value || '').trim().toLowerCase();
+      if (v && out.indexOf(v) === -1) out.push(v);
+    }
+  });
+  return out;
+}
+function enforceAssignWorkerLimit(boxes, limit) {
+  var checked = [];
+  boxes.forEach(function (cb) { if (cb.checked) checked.push(cb); });
+  if (checked.length <= limit) return;
+  for (var i = limit; i < checked.length; i++) checked[i].checked = false;
+  uiAlert('You can assign at most ' + limit + ' workers per job.');
+}
+function onAssignWorkerPick(id) {
+  var boxes = document.querySelectorAll('.assign-worker-cb[data-issue="' + id + '"]');
+  enforceAssignWorkerLimit(boxes, maxAssignWorkers());
+  setAssignBtnState(id, 'idle');
+}
+function onBulkAssignWorkerPick() {
+  var boxes = document.querySelectorAll('.bulk-assign-worker-cb');
+  enforceAssignWorkerLimit(boxes, maxAssignWorkers());
+}
 function tradeGroupLabel(id) {
   id = String(id || '').trim().toLowerCase();
   if (!id) return 'Unassigned';
@@ -94,12 +175,44 @@ function initTradeFilters() {
 }
 function tradeBadgeHtml(r) {
   if (!tradeGroups().length) return '';
+  var names = assignedWorkersDisplay(r);
+  if (names) return '<span class="trade-badge">' + names + '</span>';
   var lbl = tradeGroupLabel(r.assignedGroup);
   var cls = r.assignedGroup ? 'trade-badge' : 'trade-badge unassigned';
   return '<span class="' + cls + '">' + lbl + '</span>';
 }
+function assignWorkersPickerHtml(selectedIds, className, issueId) {
+  className = className || 'assign-worker-cb';
+  selectedIds = selectedIds || [];
+  var h = '';
+  tradeGroups().forEach(function (g) {
+    var members = civilWorkersForTeam(g.id);
+    if (!members.length) return;
+    h += '<div class="assign-team-group"><div class="assign-team-label">' + g.label + '</div><div class="assign-worker-grid">';
+    members.forEach(function (w) {
+      var checked = selectedIds.indexOf(String(w.id).toLowerCase()) !== -1 ? ' checked' : '';
+      h += '<label class="assign-worker-pick"><input type="checkbox" class="' + className + '" data-issue="' + issueId + '" value="' + w.id + '"' + checked;
+      h += ' onchange="' + (className.indexOf('bulk') === 0 ? 'onBulkAssignWorkerPick()' : ('onAssignWorkerPick(\'' + issueId + '\')')) + '"> ';
+      h += w.name + '</label>';
+    });
+    h += '</div></div>';
+  });
+  return h;
+}
 function issueWorkersRequired(r) {
-  return r && Number(r.workersRequired) >= 2 ? 2 : 1;
+  if (!r) return 1;
+  var n = Number(r.workersRequired);
+  return n >= 2 ? n : 1;
+}
+function issueMatchesTeamFilter(r, fg) {
+  if (!fg) return true;
+  if (fg === 'unassigned') return isIssueUnassigned(r);
+  if (String(r.assignedGroup || '').trim().toLowerCase() === fg) return true;
+  var ids = assignedWorkersList(r);
+  for (var i = 0; i < ids.length; i++) {
+    if (civilWorkerTeamId(ids[i]) === fg) return true;
+  }
+  return false;
 }
 function issueWorkerDone(r) {
   if (!r) return 0;
@@ -144,9 +257,10 @@ function workersCompletedSummaryHtml(r) {
 }
 function twoWorkersStatusHtml(r) {
   if (!r || issueWorkersRequired(r) < 2) return '';
+  var need = issueWorkersRequired(r);
   var done = issueWorkerDone(r);
   var names = workersCompletedNames(r);
-  var h = '<p style="margin-top:4px;color:var(--c-warn,#b8860b);"><strong>2 workers required:</strong> ' + done + '/2 marked as fixed.</p>';
+  var h = '<p style="margin-top:4px;color:var(--c-warn,#b8860b);"><strong>' + need + ' workers required:</strong> ' + done + '/' + need + ' marked as fixed.</p>';
   if (names.length) {
     h += '<p style="margin-top:4px;font-size:13px;color:var(--text-soft);"><strong>Completed by:</strong> ' + names.join(', ') + '</p>';
   }
@@ -184,6 +298,7 @@ function issueFixedTimeDisplay(r) {
 function issueDetailMetaSectionHtml(r) {
   var reported = dateOnly(r.date || r.createdAt) + (r.createdBy ? ' (' + r.createdBy + ')' : '');
   var team = tradeGroups().length ? (tradeGroupLabel(r.assignedGroup) || 'Unassigned') : '';
+  var assigned = assignedWorkersDisplay(r);
   var h = '<div class="issue-meta-wrap">';
   h += '<div class="issue-meta-status">' + issueStatusBadgeHtml(r) + workersBadgeHtml(r) + '</div>';
   h += '<div class="issue-meta-list">';
@@ -195,18 +310,21 @@ function issueDetailMetaSectionHtml(r) {
   h += issueMetaRow('Note:', r.note || '');
   h += issueMetaRow('Fixed time:', issueFixedTimeDisplay(r));
   h += issueMetaRow('Team:', team);
+  if (assigned) h += issueMetaRow('Assigned to:', assigned);
   h += '</div></div>';
   return h;
 }
 function workersBadgeHtml(r) {
-  if (!r || issueWorkersRequired(r) < 2 || r.status === 'fixed') return '';
-  return '<span class="workers-badge">' + issueWorkerDone(r) + '/2 workers</span>';
+  var need = issueWorkersRequired(r);
+  if (!r || need < 2 || r.status === 'fixed') return '';
+  return '<span class="workers-badge">' + issueWorkerDone(r) + '/' + need + ' workers</span>';
 }
 function issueStatusBadgeHtml(r) {
   if (r.status === 'fixed') return '<span class="badge fixed">' + checkIconHtml('currentColor') + ' Fixed</span>';
   var done = issueWorkerDone(r);
-  if (issueWorkersRequired(r) >= 2 && done > 0) {
-    return '<span class="badge partial">' + squareIconHtml('currentColor') + ' ' + done + '/2 done</span>';
+  var need = issueWorkersRequired(r);
+  if (need >= 2 && done > 0) {
+    return '<span class="badge partial">' + squareIconHtml('currentColor') + ' ' + done + '/' + need + ' done</span>';
   }
   return '<span class="badge open">' + squareIconHtml('currentColor') + ' Open</span>';
 }
@@ -269,12 +387,16 @@ function issuePhotosSectionHtml(r) {
   return h;
 }
 function workersRequiredFromAssignEl(id) {
-  var el = document.getElementById('assign-two-workers-' + id);
-  return el && el.checked ? 2 : 1;
+  var workers = readAssignWorkerChecks('assign-worker-cb', id);
+  var el = document.getElementById('assign-each-worker-' + id);
+  if (el && el.checked && workers.length >= 2) return workers.length;
+  return 1;
 }
 function bulkWorkersRequired() {
-  var el = document.getElementById('bulk-assign-two-workers');
-  return el && el.checked ? 2 : 1;
+  var workers = readAssignWorkerChecks('bulk-assign-worker-cb');
+  var el = document.getElementById('bulk-assign-each-worker');
+  if (el && el.checked && workers.length >= 2) return workers.length;
+  return 1;
 }
 function setAssignBtnState(id, state) {
   var btn = document.getElementById('assign-btn-' + id);
@@ -304,15 +426,25 @@ function patchIssueModalAssign(id) {
   if (wrap) wrap.outerHTML = issueDetailMetaSectionHtml(r);
 }
 function assignIssue(id) {
-  var sel = document.getElementById('assign-group-' + id);
-  if (!sel || !ISSUE_CFG.actions.assign) return;
-  var group = sel.value;
+  if (!ISSUE_CFG.actions.assign) return;
+  var workers = readAssignWorkerChecks('assign-worker-cb', id);
+  if (!workers.length) {
+    uiAlert('Select at least one worker.');
+    return;
+  }
+  if (workers.length > maxAssignWorkers()) {
+    uiAlert('Select at most ' + maxAssignWorkers() + ' workers.');
+    return;
+  }
   var workersRequired = workersRequiredFromAssignEl(id);
+  var group = workers.length ? civilWorkerTeamId(workers[0]) : '';
   var it = allIssues.find(function (x) { return x.id === id; });
   var prevGroup = it ? (it.assignedGroup || '') : '';
+  var prevWorkers = it ? assignedWorkersList(it).slice() : [];
   var prevWorkersRequired = it ? issueWorkersRequired(it) : 1;
   if (it) {
     it.assignedGroup = group;
+    it.assignedWorkers = workers.slice();
     it.workersRequired = workersRequired;
     it.workerCompletions = [];
     it.workerDone = 0;
@@ -322,7 +454,15 @@ function assignIssue(id) {
   writeIssuesCacheAsync(allIssues);
   setAssignBtnState(id, 'saving');
   patchIssueModalAssign(id);
-  fetchJSONRetry({ action: ISSUE_CFG.actions.assign, id: id, assignedGroup: group, workersRequired: workersRequired, token: issueToken() || '' }, 2, 90000)
+  fetchJSONRetry({
+    action: ISSUE_CFG.actions.assign,
+    id: id,
+    assignedGroup: group,
+    assignedWorkers: workers,
+    workersRequired: workersRequired,
+    eachMustComplete: workersRequired > 1,
+    token: issueToken() || ''
+  }, 2, 90000)
     .then(function (d) {
       if (d && d.ok === false) {
         if (empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts())) return;
@@ -330,6 +470,7 @@ function assignIssue(id) {
       }
       if (it) {
         if (d && d.assignedGroup !== undefined) it.assignedGroup = d.assignedGroup;
+        if (d && d.assignedWorkers) it.assignedWorkers = d.assignedWorkers;
         if (d && d.workersRequired !== undefined) it.workersRequired = d.workersRequired;
       }
       writeIssuesCacheAsync(allIssues);
@@ -340,6 +481,7 @@ function assignIssue(id) {
     .catch(function (e) {
       if (it) {
         it.assignedGroup = prevGroup;
+        it.assignedWorkers = prevWorkers;
         it.workersRequired = prevWorkersRequired;
       }
       writeIssuesCacheAsync(allIssues);
@@ -360,11 +502,10 @@ function enterWorkerApp() {
   stopEngineerLocationPoll();
   var wa = document.getElementById('workerApp');
   if (wa) wa.classList.add('show');
-  var trade = empireGetTrade() || '';
   var title = document.getElementById('workerTeamTitle');
   var user = empireGetUser() || '';
-  var teamLabel = tradeGroupLabel(trade);
-  if (title) title.textContent = user + ' (' + teamLabel + ' team)';
+  var displayName = civilWorkerName(user) || user;
+  if (title) title.textContent = displayName;
   initWorkerOfflineSync();
   startWorkerLocationPing();
   setTimeout(function () { loadIssues(false); }, 0);
@@ -758,7 +899,7 @@ function renderWorkerJobs() {
   if (!host) return;
   var rows = allIssues.filter(function (r) { return r.status !== 'fixed' && !workerCompletedByMe(r); });
   rows.sort(compareIssuesNewestFirst);
-  if (bar) bar.textContent = rows.length + ' open job' + (rows.length === 1 ? '' : 's') + ' for your team';
+  if (bar) bar.textContent = rows.length + ' open job' + (rows.length === 1 ? '' : 's') + ' assigned to you';
   if (!rows.length) {
     var pending = Object.keys(_workerOfflineQueuedIds || {}).length;
     var pendingNote = pending
@@ -771,7 +912,8 @@ function renderWorkerJobs() {
     var thumb = r.photo
       ? '<img class="worker-job-thumb" src="' + r.photo + '" loading="lazy" alt="">'
       : '<div class="worker-job-thumb worker-job-thumb-empty">No photo</div>';
-    var twoBadge = issueWorkersRequired(r) >= 2 ? '<span class="workers-badge">' + issueWorkerDone(r) + '/2 workers</span>' : '';
+    var need = issueWorkersRequired(r);
+    var twoBadge = need >= 2 ? '<span class="workers-badge">' + issueWorkerDone(r) + '/' + need + ' workers</span>' : '';
     return '<div class="worker-job-card" onclick="openWorkerJob(\'' + r.id + '\')">' + thumb
       + '<div class="worker-job-body"><div class="worker-job-ref">#' + issueRef(r.num) + twoBadge + '</div>'
       + '<div class="worker-job-type">' + r.issueType + '</div>'
@@ -796,8 +938,9 @@ function openWorkerJob(id) {
   if (!body) return;
   var h = '<h2>' + r.issueType + '</h2><p class="loc">' + (projectNames[r.project] || r.project) + ' &middot; ' + locStr(r) + '</p>';
   if (r.note) h += '<p style="color:var(--text-soft);font-size:14px;margin-bottom:12px;"><strong>Note:</strong> ' + r.note + '</p>';
-  if (issueWorkersRequired(r) >= 2) {
-    h += '<p class="worker-two-note">This job needs <strong>2 workers</strong> to each take photos.' + (issueWorkerDone(r) ? (' <span>(' + issueWorkerDone(r) + ' already done)</span>') : '') + '</p>';
+  var need = issueWorkersRequired(r);
+  if (need >= 2) {
+    h += '<p class="worker-two-note">This job needs <strong>' + need + ' workers</strong> to each take photos.' + (issueWorkerDone(r) ? (' <span>(' + issueWorkerDone(r) + ' already done)</span>') : '') + '</p>';
   }
   h += r.photo ? '<img class="worker-problem-img" src="' + r.photo + '" alt="Problem">' : '<p style="color:var(--text-faint);">No problem photo</p>';
   h += '<div class="worker-fix-section"><h3>' + checkIconHtml() + ' Complete this job</h3>';
@@ -873,8 +1016,9 @@ function openWorkerJobDoneView(id) {
     });
     h += '</div></div>';
   }
-  if (issueWorkersRequired(r) >= 2 && r.status !== 'fixed') {
-    h += '<p class="worker-two-note">Waiting for another worker to complete this job (' + issueWorkerDone(r) + '/2 done).</p>';
+  var needDone = issueWorkersRequired(r);
+  if (needDone >= 2 && r.status !== 'fixed') {
+    h += '<p class="worker-two-note">Waiting for other workers to complete this job (' + issueWorkerDone(r) + '/' + needDone + ' done).</p>';
   }
   body.innerHTML = h;
   document.getElementById('workerJobModal').classList.add('show');
@@ -1000,7 +1144,7 @@ function submitWorkerFixSuccess(id, d) {
     writeIssuesCacheAsync(allIssues);
     closeWorkerJob();
     renderWorkerJobs();
-    uiAlert('\u2705 Your fix was saved. Waiting for another worker to complete this job (' + (d.workerDone || 1) + '/2).');
+    uiAlert('\u2705 Your fix was saved. Waiting for other workers (' + (d.workerDone || 1) + '/' + (d.workersRequired || 2) + ').');
     return;
   }
   allIssues = allIssues.filter(function (x) { return x.id !== id; });
@@ -1087,9 +1231,11 @@ function buildIssuesShareText(ids){ var rows=ids.map(function(id){ return allIss
 function shareIssueWhatsApp(id){ var r=allIssues.find(function(x){ return x.id===id; }); if(!r) return; window.location.href='https://wa.me/?text='+encodeURIComponent(issueShareText(r)); }
 function shareSelectedWhatsApp(){ var ids=Object.keys(selectedIssueIds); if(!ids.length){ alert('Select at least one issue first.'); return; } window.location.href='https://wa.me/?text='+encodeURIComponent(buildIssuesShareText(ids)); }
 function canBulkAssignIssues(){ if(isCivilWorker()||!tradeGroups().length||!ISSUE_CFG.actions.assign) return false; var p=PAGEPERMS||{}; if(p.assign===true) return true; if(p.assign===false) return false; return p.edit!==false; }
-function bulkAssignBlockedHint(){ if(canBulkAssignIssues()||!tradeGroups().length||!ISSUE_CFG.actions.assign) return ''; return '<span class="issue-select-hint">Team assign needs an <strong>editor</strong> or <strong>admin</strong> account. Log out and ask your admin to set your role in the Users sheet.</span>'; }
-function bulkAssignTeamOptionsHtml(){ var opts='<option value="">Unassigned</option>'; tradeGroups().forEach(function(g){ opts+='<option value="'+g.id+'">'+g.label+'</option>'; }); return opts; }
-function setBulkAssignBtnState(state){ var btn=document.getElementById('bulk-assign-btn'); if(!btn) return; btn.classList.remove('saving','saved','error'); if(state==='saving'){ btn.disabled=true; btn.textContent='Assigning\u2026'; btn.classList.add('saving'); } else if(state==='saved'){ btn.disabled=false; btn.textContent='Assigned'; btn.classList.add('saved'); setTimeout(function(){ setBulkAssignBtnState('idle'); }, 1800); } else if(state==='error'){ btn.disabled=false; btn.textContent='Retry'; btn.classList.add('error'); setTimeout(function(){ setBulkAssignBtnState('idle'); }, 2200); } else { btn.disabled=false; btn.textContent='Assign to team'; } }
+function bulkAssignBlockedHint(){ if(canBulkAssignIssues()||!tradeGroups().length||!ISSUE_CFG.actions.assign) return ''; return '<span class="issue-select-hint">Worker assign needs an <strong>editor</strong> or <strong>admin</strong> account. Log out and ask your admin to set your role in the Users sheet.</span>'; }
+function bulkAssignWorkersPickerHtml() {
+  return '<div class="bulk-assign-workers" onclick="event.stopPropagation()">' + assignWorkersPickerHtml([], 'bulk-assign-worker-cb', 'bulk') + '</div>';
+}
+function setBulkAssignBtnState(state){ var btn=document.getElementById('bulk-assign-btn'); if(!btn) return; btn.classList.remove('saving','saved','error'); if(state==='saving'){ btn.disabled=true; btn.textContent='Assigning\u2026'; btn.classList.add('saving'); } else if(state==='saved'){ btn.disabled=false; btn.textContent='Assigned'; btn.classList.add('saved'); setTimeout(function(){ setBulkAssignBtnState('idle'); }, 1800); } else if(state==='error'){ btn.disabled=false; btn.textContent='Retry'; btn.classList.add('error'); setTimeout(function(){ setBulkAssignBtnState('idle'); }, 2200); } else { btn.disabled=false; btn.textContent='Assign workers'; } }
 function selectAllVisibleIssues(){ var ids=window._visibleIssueIds||[]; ids.forEach(function(id){ var it=allIssues.find(function(x){ return x.id===id; }); if(it&&it.status!=='fixed') selectedIssueIds[id]=true; }); renderIssues(); }
 function assignIssueErrorMsg(e) {
   var msg = (e && e.message) ? e.message : 'Assign failed';
@@ -1100,8 +1246,109 @@ function assignIssueErrorMsg(e) {
   }
   return msg;
 }
-function assignSelectedIssues(){ var ids=Object.keys(selectedIssueIds); if(!ids.length){ alert('Select at least one issue first.'); return; } if(!canBulkAssignIssues()) return; var sel=document.getElementById('bulk-assign-group'); if(!sel) return; var group=sel.value; var workersRequired=bulkWorkersRequired(); var label=tradeGroupLabel(group); var twoNote=workersRequired>=2?' <span style="color:var(--c-warn,#b8860b);">(needs 2 workers)</span>':''; uiConfirm('Assign <strong>'+ids.length+'</strong> issue(s) to <strong>'+label+'</strong>?'+twoNote).then(function(ok){ if(!ok) return; var prev={}; ids.forEach(function(id){ var it=allIssues.find(function(x){ return x.id===id; }); if(it){ prev[id]={assignedGroup:it.assignedGroup||'',workersRequired:issueWorkersRequired(it),workerCompletions:it.workerCompletions||[]}; it.assignedGroup=group; it.workersRequired=workersRequired; it.workerCompletions=[]; it.workerDone=0; it.fixedPhoto=''; it.fixedBy=''; } }); writeIssuesCacheAsync(allIssues); setBulkAssignBtnState('saving'); requestAnimationFrame(function(){ renderIssues(); }); fetchJSONRetry({ action:ISSUE_CFG.actions.assign, ids:ids, assignedGroup:group, workersRequired:workersRequired, token:issueToken()||'' }, 2, 90000).then(function(d){ if(d&&d.ok===false){ if(empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts())) return; throw new Error(d.message||d.error||'Assign failed'); } if(d&&d.assignedGroup!==undefined){ ids.forEach(function(id){ var it=allIssues.find(function(x){ return x.id===id; }); if(it){ it.assignedGroup=d.assignedGroup; if(d.workersRequired!==undefined) it.workersRequired=d.workersRequired; } }); } writeIssuesCacheAsync(allIssues); setBulkAssignBtnState('saved'); requestAnimationFrame(function(){ renderIssues(); }); }).catch(function(e){ ids.forEach(function(id){ var it=allIssues.find(function(x){ return x.id===id; }); if(it&&prev[id]){ it.assignedGroup=prev[id].assignedGroup; it.workersRequired=prev[id].workersRequired; it.workerCompletions=prev[id].workerCompletions; it.workerDone=(prev[id].workerCompletions||[]).length; } }); writeIssuesCacheAsync(allIssues); setBulkAssignBtnState('error'); alert('\u274C '+assignIssueErrorMsg(e)); requestAnimationFrame(function(){ renderIssues(); }); }); }); }
-function issueSelectToolbarHtml(){ var cnt=selectedIssueCount(); var bulk=canBulkAssignIssues(); var hint=bulk?'Tap cards to select several, then assign to a team or share on WhatsApp.':'Tap cards to pick several, then share on WhatsApp.'; if(!issueSelectMode) return '<div class="issue-select-bar"><span>'+hint+'</span><button type="button" onclick="toggleIssueSelectMode()" style="padding:8px 14px;font-size:12px;margin-left:auto;">Select issues</button></div>'; var h='<div class="issue-select-bar issue-select-bar-active"><div class="issue-select-row"><span><strong>'+cnt+'</strong> selected</span>'; if(bulk){ h+='<select id="bulk-assign-group" class="bulk-assign-select" onclick="event.stopPropagation()">'+bulkAssignTeamOptionsHtml()+'</select><label class="assign-two-workers"><input type="checkbox" id="bulk-assign-two-workers"> 2 workers</label><button type="button" id="bulk-assign-btn" class="bulk-assign-btn" onclick="assignSelectedIssues()" '+(cnt?'':'disabled style="opacity:0.55;"')+'>Assign to team</button>'; } else { h+=bulkAssignBlockedHint(); } h+='</div><div class="issue-select-row">'; h+='<button type="button" onclick="shareSelectedWhatsApp()" style="background:#25D366;color:#fff;border:none;padding:8px 14px;font-size:12px;display:inline-flex;align-items:center;gap:6px;'+(cnt?'':'opacity:0.55;')+'" '+(cnt?'':'disabled')+'>'+whatsappIconHtml()+' Share on WhatsApp</button><button type="button" onclick="selectAllVisibleIssues()" style="padding:8px 14px;font-size:12px;">Select all</button><button type="button" onclick="clearIssueSelection()" style="padding:8px 14px;font-size:12px;">Clear</button><button type="button" onclick="toggleIssueSelectMode()" style="padding:8px 14px;font-size:12px;margin-left:auto;">Done</button></div></div>'; return h; }
+function assignSelectedIssues() {
+  var ids = Object.keys(selectedIssueIds);
+  if (!ids.length) { alert('Select at least one issue first.'); return; }
+  if (!canBulkAssignIssues()) return;
+  var workers = readAssignWorkerChecks('bulk-assign-worker-cb');
+  if (!workers.length) { alert('Select at least one worker.'); return; }
+  if (workers.length > maxAssignWorkers()) { alert('Select at most ' + maxAssignWorkers() + ' workers.'); return; }
+  var workersRequired = bulkWorkersRequired();
+  var group = civilWorkerTeamId(workers[0]);
+  var label = workers.map(function (w) { return civilWorkerName(w); }).join(', ');
+  var note = workersRequired > 1 ? ' <span style="color:var(--c-warn,#b8860b);">(each must submit photos)</span>' : '';
+  uiConfirm('Assign <strong>' + ids.length + '</strong> issue(s) to <strong>' + label + '</strong>?' + note).then(function (ok) {
+    if (!ok) return;
+    var prev = {};
+    ids.forEach(function (id) {
+      var it = allIssues.find(function (x) { return x.id === id; });
+      if (it) {
+        prev[id] = {
+          assignedGroup: it.assignedGroup || '',
+          assignedWorkers: assignedWorkersList(it).slice(),
+          workersRequired: issueWorkersRequired(it),
+          workerCompletions: it.workerCompletions || []
+        };
+        it.assignedGroup = group;
+        it.assignedWorkers = workers.slice();
+        it.workersRequired = workersRequired;
+        it.workerCompletions = [];
+        it.workerDone = 0;
+        it.fixedPhoto = '';
+        it.fixedBy = '';
+      }
+    });
+    writeIssuesCacheAsync(allIssues);
+    setBulkAssignBtnState('saving');
+    requestAnimationFrame(function () { renderIssues(); });
+    fetchJSONRetry({
+      action: ISSUE_CFG.actions.assign,
+      ids: ids,
+      assignedGroup: group,
+      assignedWorkers: workers,
+      workersRequired: workersRequired,
+      eachMustComplete: workersRequired > 1,
+      token: issueToken() || ''
+    }, 2, 90000).then(function (d) {
+      if (d && d.ok === false) {
+        if (empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts())) return;
+        throw new Error(d.message || d.error || 'Assign failed');
+      }
+      if (d && d.assignedGroup !== undefined) {
+        ids.forEach(function (id) {
+          var it = allIssues.find(function (x) { return x.id === id; });
+          if (it) {
+            it.assignedGroup = d.assignedGroup;
+            if (d.assignedWorkers) it.assignedWorkers = d.assignedWorkers;
+            if (d.workersRequired !== undefined) it.workersRequired = d.workersRequired;
+          }
+        });
+      }
+      writeIssuesCacheAsync(allIssues);
+      setBulkAssignBtnState('saved');
+      requestAnimationFrame(function () { renderIssues(); });
+    }).catch(function (e) {
+      ids.forEach(function (id) {
+        var it = allIssues.find(function (x) { return x.id === id; });
+        if (it && prev[id]) {
+          it.assignedGroup = prev[id].assignedGroup;
+          it.assignedWorkers = prev[id].assignedWorkers;
+          it.workersRequired = prev[id].workersRequired;
+          it.workerCompletions = prev[id].workerCompletions;
+          it.workerDone = (prev[id].workerCompletions || []).length;
+        }
+      });
+      writeIssuesCacheAsync(allIssues);
+      setBulkAssignBtnState('error');
+      alert('\u274C ' + assignIssueErrorMsg(e));
+      requestAnimationFrame(function () { renderIssues(); });
+    });
+  });
+}
+function issueSelectToolbarHtml() {
+  var cnt = selectedIssueCount();
+  var bulk = canBulkAssignIssues();
+  var hint = bulk ? 'Select issues, pick workers below (up to 4), then assign or share.' : 'Tap cards to pick several, then share on WhatsApp.';
+  if (!issueSelectMode) {
+    return '<div class="issue-select-bar"><span>' + hint + '</span><button type="button" onclick="toggleIssueSelectMode()" style="padding:8px 14px;font-size:12px;margin-left:auto;">Select issues</button></div>';
+  }
+  var h = '<div class="issue-select-bar issue-select-bar-active"><div class="issue-select-row"><span><strong>' + cnt + '</strong> selected</span>';
+  if (bulk) {
+    h += '<button type="button" id="bulk-assign-btn" class="bulk-assign-btn" onclick="assignSelectedIssues()" ' + (cnt ? '' : 'disabled style="opacity:0.55;"') + '>Assign workers</button>';
+    h += '<label class="assign-each-worker"><input type="checkbox" id="bulk-assign-each-worker"> Each selected worker must submit photos</label>';
+  } else {
+    h += bulkAssignBlockedHint();
+  }
+  h += '</div>';
+  if (bulk) h += bulkAssignWorkersPickerHtml();
+  h += '<div class="issue-select-row">';
+  h += '<button type="button" onclick="shareSelectedWhatsApp()" style="background:#25D366;color:#fff;border:none;padding:8px 14px;font-size:12px;display:inline-flex;align-items:center;gap:6px;' + (cnt ? '' : 'opacity:0.55;') + '" ' + (cnt ? '' : 'disabled') + '>' + whatsappIconHtml() + ' Share on WhatsApp</button>';
+  h += '<button type="button" onclick="selectAllVisibleIssues()" style="padding:8px 14px;font-size:12px;">Select all</button>';
+  h += '<button type="button" onclick="clearIssueSelection()" style="padding:8px 14px;font-size:12px;">Clear</button>';
+  h += '<button type="button" onclick="toggleIssueSelectMode()" style="padding:8px 14px;font-size:12px;margin-left:auto;">Done</button>';
+  h += '</div></div>';
+  return h;
+}
 const IMGBB_API_KEY = '273d26dbc835282f5909b5f3e1fb8685';
 const projectNames = {ec:'Empire Complex',es:'Empire Square',wd:'West Diamond',ww:'West Wing',ra:'Royal Apartment'};
 function selectProjectFilter(p){ var fp=document.getElementById('f-project'); if(fp) fp.value=p; renderIssues(); if(window._issueFilterState) window._issueFilterState.save(); }
@@ -1198,16 +1445,19 @@ function getIssueViewMode(){ try{ return localStorage.getItem(ISSUE_VIEW_KEY)===
 function setIssueViewMode(m){ try{ localStorage.setItem(ISSUE_VIEW_KEY,m); }catch(e){} renderIssues(); }
 function issueActionBtns(r){ return '<button type="button" onclick="event.stopPropagation();shareIssueWhatsApp(\''+r.id+'\')" title="Share on WhatsApp" style="background:#25D366;color:#fff;border:none;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:none;margin-right:6px;">'+whatsappIconHtml()+'</button>'+(PAGEPERMS.edit!==false?'<button type="button" onclick="event.stopPropagation();editIssue(\''+r.id+'\')" title="Edit issue" style="background:var(--accent2);color:#fff;border:none;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:none;margin-right:6px;">'+pencilIconHtml()+'</button>':'')+(PAGEPERMS.del!==false?'<button type="button" onclick="event.stopPropagation();removeIssue(\''+r.id+'\')" title="Delete issue" style="background:#C5504F;color:#fff;border:none;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:none;">'+trashIconHtml()+'</button>':''); }
 function viewToggleHtml(){ var v=getIssueViewMode(); return '<div class="view-toggle"><button type="button" class="view-toggle-btn'+(v==='table'?' active':'')+'" onclick="setIssueViewMode(\'table\')" title="Table view" aria-label="Table view"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h18"/></svg></button><button type="button" class="view-toggle-btn'+(v==='grid'?' active':'')+'" onclick="setIssueViewMode(\'grid\')" title="Grid view" aria-label="Grid view"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button></div>'; }
-function renderIssues(){ if(isCivilWorker()){ renderWorkerJobs(); return; } const fp=document.getElementById('f-project').value; const fs=document.getElementById('f-status').value; const fm=(document.getElementById('f-month')||{}).value||''; const fg=(document.getElementById('f-group')||{}).value||''; const q=(document.getElementById('f-search').value||'').toLowerCase(); let rows=allIssues.filter(r=>{ if(fp&&r.project!==fp)return false; if(fs&&r.status!==fs)return false; if(fm&&dayOf(r)!==fm)return false; if(fg){ if(fg==='unassigned'){ if(r.assignedGroup)return false; } else if(r.assignedGroup!==fg) return false; } if(q){ var qn=q.replace(/[#\s]/g,''); var ref=issueRef(r.num).toLowerCase(); if(/^[a-z]+\d+$/.test(qn)){ if(qn!==ref)return false; } else if(/^\d+$/.test(qn)){ if(String(r.num||'')!==qn)return false; } else { const hay=(r.building+' '+r.floor+' '+r.spot+' '+r.issueType).toLowerCase(); if(hay.indexOf(q)===-1)return false; } } return true; }); rows.sort(compareIssuesNewestFirst); window._visibleIssueIds=rows.map(function(r){ return r.id; }); const oc=rows.filter(r=>r.status!=='fixed').length; const fc=rows.length-oc; const openAll=allIssues.filter(r=>r.status!=='fixed'); const unAssign=openAll.filter(r=>!r.assignedGroup).length; const view=getIssueViewMode(); let teamBits=''; if(tradeGroups().length){ teamBits=' &nbsp;&mdash;&nbsp; <span style="color:var(--c-warn,#b8860b);">'+unAssign+' unassigned</span>'; } let h='<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;"><p style="color:var(--text-soft);margin:0;">'+rows.length+' issue(s)'+(fm?(' in '+fm):'')+' &nbsp;&mdash;&nbsp; <span style="color:var(--open-color);">'+squareIconHtml('var(--open-color)')+' '+oc+' open</span> &nbsp;&mdash;&nbsp; <span style="color:#1d9e75;">'+checkIconHtml('#1d9e75')+' '+fc+' fixed</span>'+teamBits+'</p>'+viewToggleHtml()+'</div>'+issueSelectToolbarHtml(); if(rows.length===0){ h+='<p style="color:var(--text-faint);">No issues match.</p>'; } else if(view==='grid'){ h+='<div class="issue-grid">'; rows.forEach(function(r){ var sel=!!selectedIssueIds[r.id]; var cardClick=issueSelectMode?"toggleIssueSelected('"+r.id+"')":"openIssue('"+r.id+"')"; h+='<div class="issue-card'+(sel?' selected':'')+(issueSelectMode?' selecting':'')+'" onclick="'+cardClick+'">'+(issueSelectMode?('<div class="issue-card-check" onclick="event.stopPropagation()"><input type="checkbox"'+(sel?' checked':'')+' onclick="event.stopPropagation();toggleIssueSelected(\''+r.id+'\')" aria-label="Select issue"></div>'):'')+(r.photo?'<img class="issue-card-photo" src="'+r.photo+'" loading="lazy" alt="">':'<div class="issue-card-photo issue-card-nophoto">No photo</div>')+'<div class="issue-card-body"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;"><span style="color:var(--text-faint);font-weight:700;">#'+issueRef(r.num)+'</span>'+issueStatusBadgeHtml(r)+'</div><div style="font-weight:600;line-height:1.35;margin-bottom:6px;">'+r.issueType+tradeBadgeHtml(r)+workersBadgeHtml(r)+workersCompletedSummaryHtml(r)+(r.note?' <span style="color:var(--text-faint);font-weight:400;">('+r.note+')</span>':'')+'</div><div style="color:var(--text-soft);font-size:13px;margin-bottom:4px;">'+locStr(r)+'</div><div style="color:var(--text-faint);font-size:12px;margin-bottom:10px;">'+dateOnly(r.date)+workersCompletedSummaryHtml(r)+'</div>'+(issueSelectMode?'':('<div style="text-align:right;" onclick="event.stopPropagation()">'+issueActionBtns(r)+'</div>'))+'</div></div>'; }); h+='</div>'; } else { var teamTh=tradeGroups().length?'<th>Team</th>':''; h+='<table><thead><tr>'+(issueSelectMode?'<th style="width:36px;"></th>':'')+'<th>#</th><th>Issue</th><th>Location</th>'+teamTh+'<th>Date</th><th>Status</th><th>Photo</th>'+(issueSelectMode?'':'<th></th>')+'</tr></thead><tbody>'; rows.forEach(function(r){ var sel=!!selectedIssueIds[r.id]; var rowClick=issueSelectMode?"toggleIssueSelected('"+r.id+"')":"openIssue('"+r.id+"')"; h+='<tr class="issue-row'+(sel?' selected':'')+'" onclick="'+rowClick+'"'+(sel?' style="background:var(--row-hover);"':'')+'>'; if(issueSelectMode) h+='<td onclick="event.stopPropagation()"><input type="checkbox"'+(sel?' checked':'')+' onclick="event.stopPropagation();toggleIssueSelected(\''+r.id+'\')" aria-label="Select issue"></td>'; h+='<td style="color:var(--text-faint);font-weight:700;white-space:nowrap;">#'+issueRef(r.num)+'</td><td>'+r.issueType+tradeBadgeHtml(r)+workersBadgeHtml(r)+workersCompletedSummaryHtml(r)+(r.note?' <span style="color:var(--text-faint);">('+r.note+')</span>':'')+'</td><td>'+locStr(r)+'</td>'; if(tradeGroups().length) h+='<td>'+tradeGroupLabel(r.assignedGroup)+'</td>'; h+='<td>'+dateOnly(r.date)+'</td><td>'+issueStatusBadgeHtml(r)+'</td><td>'+(r.photo?'<img class="thumb" src="'+r.photo+'" loading="lazy">':'?')+'</td>'; if(!issueSelectMode) h+='<td>'+issueActionBtns(r)+'</td>'; h+='</tr>'; }); h+='</tbody></table>'; } document.getElementById('issuesTable').innerHTML=h; }
+function renderIssues(){ if(isCivilWorker()){ renderWorkerJobs(); return; } const fp=document.getElementById('f-project').value; const fs=document.getElementById('f-status').value; const fm=(document.getElementById('f-month')||{}).value||''; const fg=(document.getElementById('f-group')||{}).value||''; const q=(document.getElementById('f-search').value||'').toLowerCase(); let rows=allIssues.filter(r=>{ if(fp&&r.project!==fp)return false; if(fs&&r.status!==fs)return false; if(fm&&dayOf(r)!==fm)return false; if(fg&&!issueMatchesTeamFilter(r, fg)) return false; if(q){ var qn=q.replace(/[#\s]/g,''); var ref=issueRef(r.num).toLowerCase(); if(/^[a-z]+\d+$/.test(qn)){ if(qn!==ref)return false; } else if(/^\d+$/.test(qn)){ if(String(r.num||'')!==qn)return false; } else { const hay=(r.building+' '+r.floor+' '+r.spot+' '+r.issueType).toLowerCase(); if(hay.indexOf(q)===-1)return false; } } return true; }); rows.sort(compareIssuesNewestFirst); window._visibleIssueIds=rows.map(function(r){ return r.id; }); const oc=rows.filter(r=>r.status!=='fixed').length; const fc=rows.length-oc; const openAll=allIssues.filter(r=>r.status!=='fixed'); const unAssign=openAll.filter(r=>isIssueUnassigned(r)).length; const view=getIssueViewMode(); let teamBits=''; if(tradeGroups().length){ teamBits=' &nbsp;&mdash;&nbsp; <span style="color:var(--c-warn,#b8860b);">'+unAssign+' unassigned</span>'; } let h='<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;"><p style="color:var(--text-soft);margin:0;">'+rows.length+' issue(s)'+(fm?(' in '+fm):'')+' &nbsp;&mdash;&nbsp; <span style="color:var(--open-color);">'+squareIconHtml('var(--open-color)')+' '+oc+' open</span> &nbsp;&mdash;&nbsp; <span style="color:#1d9e75;">'+checkIconHtml('#1d9e75')+' '+fc+' fixed</span>'+teamBits+'</p>'+viewToggleHtml()+'</div>'+issueSelectToolbarHtml(); if(rows.length===0){ h+='<p style="color:var(--text-faint);">No issues match.</p>'; } else if(view==='grid'){ h+='<div class="issue-grid">'; rows.forEach(function(r){ var sel=!!selectedIssueIds[r.id]; var cardClick=issueSelectMode?"toggleIssueSelected('"+r.id+"')":"openIssue('"+r.id+"')"; h+='<div class="issue-card'+(sel?' selected':'')+(issueSelectMode?' selecting':'')+'" onclick="'+cardClick+'">'+(issueSelectMode?('<div class="issue-card-check" onclick="event.stopPropagation()"><input type="checkbox"'+(sel?' checked':'')+' onclick="event.stopPropagation();toggleIssueSelected(\''+r.id+'\')" aria-label="Select issue"></div>'):'')+(r.photo?'<img class="issue-card-photo" src="'+r.photo+'" loading="lazy" alt="">':'<div class="issue-card-photo issue-card-nophoto">No photo</div>')+'<div class="issue-card-body"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;"><span style="color:var(--text-faint);font-weight:700;">#'+issueRef(r.num)+'</span>'+issueStatusBadgeHtml(r)+'</div><div style="font-weight:600;line-height:1.35;margin-bottom:6px;">'+r.issueType+tradeBadgeHtml(r)+workersBadgeHtml(r)+workersCompletedSummaryHtml(r)+(r.note?' <span style="color:var(--text-faint);font-weight:400;">('+r.note+')</span>':'')+'</div><div style="color:var(--text-soft);font-size:13px;margin-bottom:4px;">'+locStr(r)+'</div><div style="color:var(--text-faint);font-size:12px;margin-bottom:10px;">'+dateOnly(r.date)+workersCompletedSummaryHtml(r)+'</div>'+(issueSelectMode?'':('<div style="text-align:right;" onclick="event.stopPropagation()">'+issueActionBtns(r)+'</div>'))+'</div></div>'; }); h+='</div>'; } else { var teamTh=tradeGroups().length?'<th>Team</th>':''; h+='<table><thead><tr>'+(issueSelectMode?'<th style="width:36px;"></th>':'')+'<th>#</th><th>Issue</th><th>Location</th>'+teamTh+'<th>Date</th><th>Status</th><th>Photo</th>'+(issueSelectMode?'':'<th></th>')+'</tr></thead><tbody>'; rows.forEach(function(r){ var sel=!!selectedIssueIds[r.id]; var rowClick=issueSelectMode?"toggleIssueSelected('"+r.id+"')":"openIssue('"+r.id+"')"; h+='<tr class="issue-row'+(sel?' selected':'')+'" onclick="'+rowClick+'"'+(sel?' style="background:var(--row-hover);"':'')+'>'; if(issueSelectMode) h+='<td onclick="event.stopPropagation()"><input type="checkbox"'+(sel?' checked':'')+' onclick="event.stopPropagation();toggleIssueSelected(\''+r.id+'\')" aria-label="Select issue"></td>'; h+='<td style="color:var(--text-faint);font-weight:700;white-space:nowrap;">#'+issueRef(r.num)+'</td><td>'+r.issueType+tradeBadgeHtml(r)+workersBadgeHtml(r)+workersCompletedSummaryHtml(r)+(r.note?' <span style="color:var(--text-faint);">('+r.note+')</span>':'')+'</td><td>'+locStr(r)+'</td>'; if(tradeGroups().length) h+='<td>'+(assignedWorkersDisplay(r)||tradeGroupLabel(r.assignedGroup)||'Unassigned')+'</td>'; h+='<td>'+dateOnly(r.date)+'</td><td>'+issueStatusBadgeHtml(r)+'</td><td>'+(r.photo?'<img class="thumb" src="'+r.photo+'" loading="lazy">':'?')+'</td>'; if(!issueSelectMode) h+='<td>'+issueActionBtns(r)+'</td>'; h+='</tr>'; }); h+='</tbody></table>'; } document.getElementById('issuesTable').innerHTML=h; }
 function durationStr(a,b){ if(!a||!b) return ''; const pr=s=>new Date(String(s).replace(' ','T')); const d1=pr(a), d2=pr(b); if(isNaN(d1.getTime())||isNaN(d2.getTime())) return ''; let ms=d2-d1; if(ms<0) return ''; const days=Math.floor(ms/86400000); const hrs=Math.floor((ms%86400000)/3600000); const mins=Math.floor((ms%3600000)/60000); let parts=[]; if(days)parts.push(days+'d'); if(hrs)parts.push(hrs+'h'); if(!days&&!hrs)parts.push(mins+'m'); return ' \u2014 took '+parts.join(' '); }
 function assignBoxHtml(r) {
-  if (!tradeGroups().length || PAGEPERMS.assign === false) return '';
-  var opts = '<option value="">Unassigned</option>';
-  tradeGroups().forEach(function (g) {
-    opts += '<option value="' + g.id + '"' + (r.assignedGroup === g.id ? ' selected' : '') + '>' + g.label + '</option>';
-  });
-  var twoChecked = issueWorkersRequired(r) >= 2 ? ' checked' : '';
-  return '<div class="assign-box" onclick="event.stopPropagation()"><label>Assign to team</label><div class="assign-row"><select id="assign-group-' + r.id + '" onchange="setAssignBtnState(\'' + r.id + '\', \'idle\')">' + opts + '</select><button type="button" id="assign-btn-' + r.id + '" class="assign-save-btn" onclick="assignIssue(\'' + r.id + '\')">Save</button></div><label class="assign-two-workers"><input type="checkbox" id="assign-two-workers-' + r.id + '"' + twoChecked + '> Needs 2 workers (each must take photos)</label></div>';
+  if (!tradeGroups().length || PAGEPERMS.assign === false || !civilWorkersRoster()) return '';
+  var selected = assignedWorkersList(r);
+  var eachChecked = issueWorkersRequired(r) >= 2 && selected.length >= 2 ? ' checked' : '';
+  var h = '<div class="assign-box" onclick="event.stopPropagation()">';
+  h += '<label>Assign to worker(s) — pick up to ' + maxAssignWorkers() + '</label>';
+  h += assignWorkersPickerHtml(selected, 'assign-worker-cb', r.id);
+  h += '<div class="assign-row assign-save-row"><button type="button" id="assign-btn-' + r.id + '" class="assign-save-btn" onclick="assignIssue(\'' + r.id + '\')">Save assignment</button></div>';
+  h += '<label class="assign-each-worker"><input type="checkbox" id="assign-each-worker-' + r.id + '"' + eachChecked + '> Each selected worker must submit photos (2–4 workers)</label>';
+  h += '</div>';
+  return h;
 }
 function openIssue(id){ const r=allIssues.find(x=>x.id===id); if(!r)return; if(isCivilWorker() && r.status!=='fixed'){ closeIssueModal(); openWorkerJob(id); return; } let h='<span class="close-x" onclick="closeIssueModal()">&times;</span>'; h+=issueDetailMetaSectionHtml(r); if(r.status!=='fixed') h+=assignBoxHtml(r); h+=workerCompletionsBlockHtml(r); h+='<div style="margin:12px 0 4px;"><button type="button" onclick="shareIssueWhatsApp(\''+r.id+'\')" style="background:#25D366;color:#fff;border:none;padding:10px 16px;border-radius:50px;font-weight:600;display:inline-flex;align-items:center;gap:8px;cursor:pointer;box-shadow:none;">'+whatsappIconHtml()+' Share on WhatsApp</button></div>'; h+=issuePhotosSectionHtml(r); if(r.status!=='fixed' && canMarkIssueFixed()){ if(ISSUE_CFG.requireFixByName){ h+='<div style="margin:14px 0 4px;"><label style="font-weight:600;display:block;margin-bottom:6px;">Job was done by:</label><input type="text" id="fix-by" placeholder="Enter the name of who did the job" style="width:100%;max-width:340px;padding:10px;border:2px solid var(--input-border);border-radius:8px;background:var(--input-bg);color:var(--text);font-size:14px;box-sizing:border-box;"></div>'; } h+='<h3>'+checkIconHtml()+' Mark as fixed</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;"><button type="button" onclick="document.getElementById(\'fix-file\').click()"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/><circle cx="14" cy="15" r="1"/></svg></span> Upload / Camera</button><span style="color:var(--text-soft);font-size:13px;">? or paste below ?</span><input type="file" id="fix-file" accept="image/*" style="display:none" onchange="handleFixFile(event,\''+r.id+'\')"></div><div class="image-upload" id="fix-area" onpaste="pasteFix(event,\''+r.id+'\')">Click here and paste the photo of the completed fix (Ctrl+V)</div>'; } document.getElementById('issueBox').innerHTML=h; document.getElementById('issueModal').classList.add('show'); }
 function closeIssueModal(){ document.getElementById('issueModal').classList.remove('show'); }
