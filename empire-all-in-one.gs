@@ -20,7 +20,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-14-push8';
+var SCRIPT_VERSION = '2026-07-14-push9';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -174,7 +174,15 @@ function doPost(e) {
     var trashActions = {getTrash:1, restoreTrash:1, purgeTrash:1, getUiSettings:1, saveUiSettings:1};
     var requiredDept = trashActions[action] ? body.dept : deptByAction[action];
     if (!requiredDept) return respond({ok:false,error:'Unknown action'});
-    var auth = verifyToken(body.token, requiredDept);
+    var auth;
+    if (action === 'saveWorkerPushToken' || action === 'debugWorkerPush' || action === 'testWorkerPush') {
+      auth = verifyTokenSession_(body.token);
+      if (auth.ok && requiredDept && !tokenDeptAllows_(String(auth.dept || ''), requiredDept)) {
+        auth = {ok:false, error:'This login is not allowed for this section'};
+      }
+    } else {
+      auth = verifyToken(body.token, requiredDept);
+    }
     if (!auth.ok) return respond(auth);
     body.username = auth.username;
     body._authRole = String(auth.role || '').toLowerCase();

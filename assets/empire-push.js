@@ -85,32 +85,67 @@
     }
   }
 
+  function postToScript(body, timeoutMs) {
+    timeoutMs = timeoutMs || 45000;
+    var url = GOOGLE_SCRIPT_URL;
+    var payload = JSON.stringify(body);
+    return new Promise(function (resolve, reject) {
+      var xhr = new XMLHttpRequest();
+      var done = false;
+      function finish(fn, val) {
+        if (done) return;
+        done = true;
+        fn(val);
+      }
+      var timer = setTimeout(function () {
+        try { xhr.abort(); } catch (e) {}
+        finish(reject, new Error('Server timed out after ' + Math.round(timeoutMs / 1000) + 's'));
+      }, timeoutMs);
+      xhr.open('POST', url, true);
+      xhr.setRequestHeader('Content-Type', 'text/plain;charset=utf-8');
+      xhr.onload = function () {
+        clearTimeout(timer);
+        try {
+          finish(resolve, JSON.parse(xhr.responseText || '{}'));
+        } catch (e) {
+          finish(reject, new Error('Invalid server response — redeploy Apps Script'));
+        }
+      };
+      xhr.onerror = function () {
+        clearTimeout(timer);
+        finish(reject, new Error('Network error reaching Google server'));
+      };
+      xhr.onabort = function () {
+        clearTimeout(timer);
+        finish(reject, new Error('Request cancelled'));
+      };
+      xhr.send(payload);
+    });
+  }
+
   function saveFcmToken(fcmToken) {
     if (!fcmToken || !window.GOOGLE_SCRIPT_URL || !window.ISSUE_CFG || !ISSUE_CFG.actions) {
       return Promise.resolve(false);
     }
     var act = ISSUE_CFG.actions.savePushToken;
     if (!act) return Promise.resolve(false);
+    var session = authSessionToken();
+    if (!session) {
+      setWorkerPushStatus('Not logged in — log out and sign in again.');
+      return Promise.resolve(false);
+    }
     var started = Date.now();
     var slowTimer = setInterval(function () {
-      if (Date.now() - started < 15000) return;
-      setWorkerPushStatus('Still saving… Google server can take up to 60 sec.');
-    }, 15000);
+      var sec = Math.round((Date.now() - started) / 1000);
+      if (sec >= 10) setWorkerPushStatus('Still saving… ' + sec + 's (Google server can be slow)');
+    }, 5000);
     var payload = {
       action: act,
       fcmToken: fcmToken,
       platform: 'web-fcm',
-      token: authSessionToken()
+      token: session
     };
-    var req = (typeof fetchJSONRetry === 'function')
-      ? fetchJSONRetry(payload, 2, 60000)
-      : withTimeout(
-          fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) })
-            .then(function (r) { return r.json(); }),
-          60000,
-          'Server save'
-        );
-    return req
+    return postToScript(payload, 45000)
       .then(function (d) {
         if (d && (d.ok || d.success)) {
           setWorkerPushStatus('Alerts enabled. Tap Send test, then lock your phone.');
@@ -308,7 +343,10 @@
     withTimeout(Notification.requestPermission(), 10000, 'Permission')
       .then(function (perm) {
         if (perm === 'granted') {
-          return registerFirebaseMessaging(true).then(function () { startIssuePollFallback(); });
+          return registerFirebaseMessaging(true).then(function (ok) {
+            startIssuePollFallback();
+            if (ok && typeof loadIssues === 'function') loadIssues(true);
+          });
         }
         if (perm === 'denied') {
           setWorkerPushStatus('Blocked — allow notifications in phone Settings → Lock Screen.');
@@ -319,7 +357,6 @@
       .catch(function (err) {
         setWorkerPushStatus('Push failed: ' + ((err && err.message) || 'permission error'));
       });
-    if (typeof loadIssues === 'function') loadIssues(true);
   };
 
   window.empirePushInitWorker = function () {
@@ -333,9 +370,7 @@
     }
     setWorkerPushStatus(mode + ' · v' + ver + ' · Tap Enable alerts');
     var perm = Notification.permission;
-    if (perm === 'granted') {
-      registerFirebaseMessaging().then(function () { startIssuePollFallback(); });
-    } else if (perm === 'denied') {
+    if (perm === 'denied') {
       setWorkerPushStatus('Notifications off — enable in phone Settings. v' + ver);
     }
   };
@@ -351,11 +386,7 @@
       return;
     }
     setWorkerPushStatus('Sending test… lock your phone now.');
-    fetch(GOOGLE_SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: ISSUE_CFG.actions.testPush, token: authSessionToken() })
-    })
-      .then(function (r) { return r.json(); })
+    postToScript({ action: ISSUE_CFG.actions.testPush, token: authSessionToken() }, 45000)
       .then(function (d) {
         if (d && (d.ok || d.success)) {
           setWorkerPushStatus('Server sent test — check lock screen in 10 sec.');
@@ -387,11 +418,7 @@
       : Promise.resolve(false);
 
     localChain.then(function () {
-      return fetch(GOOGLE_SCRIPT_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: ISSUE_CFG.actions.debugPush, token: authSessionToken() })
-      })
-        .then(function (r) { return r.json(); })
+      return postToScript({ action: ISSUE_CFG.actions.debugPush, token: authSessionToken() }, 45000)
         .then(function (d) {
           if (!d || d.ok === false) {
             setWorkerPushStatus('Diagnose failed: ' + ((d && (d.message || d.error)) || 'unknown'));
