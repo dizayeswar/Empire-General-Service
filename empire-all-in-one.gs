@@ -20,7 +20,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-14-push4';
+var SCRIPT_VERSION = '2026-07-14-push8';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -1454,28 +1454,32 @@ function ensureWorkerPushSheet_(sheet) {
   }
 }
 function handleSaveWorkerPushToken(body, auth) {
-  auth = enrichAuthRole_(auth || {});
-  if (String(auth.role || '').toLowerCase() !== 'worker') {
-    return {ok:false, error:'not_allowed', message:'Only worker accounts can register for push alerts.'};
-  }
-  var username = String((auth && auth.username) || '').trim().toLowerCase();
-  if (!username) return {ok:false, error:'not_authenticated'};
-  var fcmToken = String(body.fcmToken || body.pushToken || '').trim();
-  if (!fcmToken) return {ok:false, error:'missing_token', message:'Missing push token.'};
-  var platform = String(body.platform || 'web-fcm').trim();
-  var ss = getSS_();
-  var sheet = ss.getSheetByName(WORKER_PUSH_SHEET) || ss.insertSheet(WORKER_PUSH_SHEET);
-  ensureWorkerPushSheet_(sheet);
-  var now = new Date().toISOString();
-  var rows = sheet.getDataRange().getValues();
-  for (var i = 1; i < rows.length; i++) {
-    if (String(rows[i][0] || '').trim().toLowerCase() === username) {
-      sheet.getRange(i + 1, 1, 1, 4).setValues([[username, fcmToken, platform, now]]);
-      return {ok:true, success:true, updatedAt:now};
+  try {
+    auth = enrichAuthRole_(auth || {});
+    if (String(auth.role || '').toLowerCase() !== 'worker') {
+      return {ok:false, error:'not_allowed', message:'Only worker accounts can register for push alerts.'};
     }
+    var username = String((auth && auth.username) || '').trim().toLowerCase();
+    if (!username) return {ok:false, error:'not_authenticated'};
+    var fcmToken = String(body.fcmToken || body.pushToken || '').trim();
+    if (!fcmToken) return {ok:false, error:'missing_token', message:'Missing push token.'};
+    var platform = String(body.platform || 'web-fcm').trim();
+    var ss = getSS_();
+    var sheet = ss.getSheetByName(WORKER_PUSH_SHEET) || ss.insertSheet(WORKER_PUSH_SHEET);
+    ensureWorkerPushSheet_(sheet);
+    var now = new Date().toISOString();
+    var lastRow = sheet.getLastRow();
+    for (var i = lastRow; i >= 2; i--) {
+      if (String(sheet.getRange(i, 1).getValue() || '').trim().toLowerCase() === username) {
+        sheet.getRange(i, 1, 1, 4).setValues([[username, fcmToken, platform, now]]);
+        return {ok:true, success:true, updatedAt:now};
+      }
+    }
+    sheet.appendRow([username, fcmToken, platform, now]);
+    return {ok:true, success:true, updatedAt:now};
+  } catch (e) {
+    return {ok:false, error:'save_failed', message:String(e && e.message ? e.message : e)};
   }
-  sheet.appendRow([username, fcmToken, platform, now]);
-  return {ok:true, success:true, updatedAt:now};
 }
 function getWorkerPushTokens_(usernames) {
   var want = {};

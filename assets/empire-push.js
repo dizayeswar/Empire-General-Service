@@ -86,35 +86,56 @@
   }
 
   function saveFcmToken(fcmToken) {
-    if (!fcmToken || !window.GOOGLE_SCRIPT_URL || !window.ISSUE_CFG || !ISSUE_CFG.actions) return Promise.resolve(false);
+    if (!fcmToken || !window.GOOGLE_SCRIPT_URL || !window.ISSUE_CFG || !ISSUE_CFG.actions) {
+      return Promise.resolve(false);
+    }
     var act = ISSUE_CFG.actions.savePushToken;
     if (!act) return Promise.resolve(false);
-    return fetch(GOOGLE_SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify({
-        action: act,
-        fcmToken: fcmToken,
-        platform: 'web-fcm',
-        token: authSessionToken()
-      })
-    })
-      .then(function (r) { return r.json(); })
+    var started = Date.now();
+    var slowTimer = setInterval(function () {
+      if (Date.now() - started < 15000) return;
+      setWorkerPushStatus('Still saving… Google server can take up to 60 sec.');
+    }, 15000);
+    var payload = {
+      action: act,
+      fcmToken: fcmToken,
+      platform: 'web-fcm',
+      token: authSessionToken()
+    };
+    var req = (typeof fetchJSONRetry === 'function')
+      ? fetchJSONRetry(payload, 2, 60000)
+      : withTimeout(
+          fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) })
+            .then(function (r) { return r.json(); }),
+          60000,
+          'Server save'
+        );
+    return req
       .then(function (d) {
         if (d && (d.ok || d.success)) {
           setWorkerPushStatus('Alerts enabled. Tap Send test, then lock your phone.');
           setWorkerPushBanner('', false);
           return true;
         }
+        if (d && d.error === 'Unknown action') {
+          var redeploy = 'Could not register: redeploy Apps Script (New version) then try again.';
+          setWorkerPushStatus(redeploy);
+          setWorkerPushBanner(redeploy, false);
+          return false;
+        }
         var err = 'Could not register: ' + ((d && (d.message || d.error)) || 'server error');
         setWorkerPushStatus(err);
         setWorkerPushBanner(err, false);
         return false;
       })
-      .catch(function () {
-        var err = 'Could not reach server to register alerts.';
+      .catch(function (e) {
+        var err = 'Could not reach server: ' + ((e && e.message) || 'network error');
         setWorkerPushStatus(err);
         setWorkerPushBanner(err, false);
         return false;
+      })
+      .finally(function () {
+        clearInterval(slowTimer);
       });
   }
 
