@@ -19,7 +19,7 @@ var WORKER_LOCATIONS_SHEET = 'WorkerLocations';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-14-hide-live-location';
+var SCRIPT_VERSION = '2026-07-14-assign-role-from-sheet';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -243,8 +243,7 @@ function respond(obj) {
 // Roles: admin = everything incl reset; editor = add/edit/delete + analytics + report (no reset); viewer = read-only; worker = assigned civil jobs + fix only.
 // Optional "Hide" column (col E) removes extra abilities: list any of add, edit, delete, analytics, report, dashboard, categories, live location.
 function computePerms_(role, hide) {
-  role = String(role||'').trim().toLowerCase();
-  if (role!=='admin' && role!=='viewer' && role!=='editor' && role!=='worker') role = 'editor';
+  role = normalizeRole_(role);
   var p;
   if (role==='admin') p = {view:true,add:true,edit:true,del:true,analytics:true,report:true,dashboard:true,reset:true,assign:true,fix:true,categories:true,liveLocation:true};
   else if (role==='worker') p = {view:true,add:false,edit:false,del:false,analytics:false,report:false,dashboard:true,reset:false,assign:false,fix:true,categories:true,liveLocation:false};
@@ -376,12 +375,16 @@ function getUserRowByName_(username) {
   }
   return null;
 }
+function normalizeRole_(role) {
+  role = String(role || '').trim().toLowerCase();
+  if (role === 'engineer') return 'editor';
+  if (role === 'admin' || role === 'viewer' || role === 'editor' || role === 'worker') return role;
+  return 'editor';
+}
 function roleFromAuth_(auth) {
-  var role = String((auth && auth.role) || '').trim().toLowerCase();
-  if (role === 'admin' || role === 'editor' || role === 'viewer' || role === 'worker') return role;
   var row = getUserRowByName_(auth && auth.username);
-  if (!row) return role;
-  return String(computePerms_(row[3], row[4]).role || '').trim().toLowerCase();
+  if (row) return normalizeRole_(computePerms_(row[3], row[4]).role);
+  return normalizeRole_((auth && auth.role) || '');
 }
 function enrichAuthRole_(auth) {
   if (!auth || auth.ok === false) return auth;
@@ -1306,8 +1309,14 @@ function handleGetIssues(body, sheetName, auth) {
 
 function handleAssignCivilIssue(body, auth) {
   auth = enrichAuthRole_(auth || {});
-  var role = roleFromAuth_(auth);
-  if (role !== 'admin' && role !== 'editor') return {ok:false, error:'not_allowed', message:'Only engineer accounts can assign issues. Log out and log in again, or set role to editor/admin in the Users sheet.'};
+  var urow = getUserRowByName_(auth && auth.username);
+  var rp = computePerms_(urow ? urow[3] : auth.role, urow ? urow[4] : '');
+  if (rp.role !== 'admin' && rp.role !== 'editor') {
+    return {ok:false, error:'not_allowed', message:'Only editor or admin accounts can assign issues. Your Users sheet role is "' + rp.role + '". Log out and log in again after updating the sheet.'};
+  }
+  if (rp.perms.assign === false) {
+    return {ok:false, error:'not_allowed', message:'Your account cannot assign issues.'};
+  }
   var group = normalizeTrade_(body.assignedGroup || body.group || '');
   if (!group && body.assignedGroup !== '' && body.group !== '') return {ok:false, error:'invalid_group', message:'Invalid trade group. Use pipes, painting, tiles, or wood.'};
   var idList = [];
