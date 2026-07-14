@@ -1523,17 +1523,17 @@ function getFcmAccessToken_() {
   var unsigned = header + '.' + claim;
   var sig = Utilities.computeRsaSha256Signature(unsigned, sa.private_key);
   var jwt = unsigned + '.' + base64UrlEncodeGs_(sig);
-  var resp = UrlFetchApp.fetch('https://oauth2.googleapis.com/token', {
-    method: 'post',
-    contentType: 'application/x-www-form-urlencoded',
-    payload: 'grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=' + jwt,
-    muteHttpExceptions: true
-  });
-  if (resp.getResponseCode() !== 200) return null;
   try {
+    var resp = UrlFetchApp.fetch('https://oauth2.googleapis.com/token', {
+      method: 'post',
+      contentType: 'application/x-www-form-urlencoded',
+      payload: 'grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=' + jwt,
+      muteHttpExceptions: true
+    });
+    if (resp.getResponseCode() !== 200) return null;
     var parsed = JSON.parse(resp.getContentText());
     return parsed.access_token || null;
-  } catch (e2) {
+  } catch (e) {
     return null;
   }
 }
@@ -1586,8 +1586,15 @@ function handleDebugWorkerPush(body, auth) {
   var fcmAuth = !!getFcmAccessToken_();
   var fcmSend = '';
   if (hasToken && fcmAuth) {
-    var result = sendFcmToWorkerDetailed_(tokens[0].fcmToken, 'Diagnostic ping', 'Empire push diagnostic — lock your phone.', {type:'debug'});
-    fcmSend = result.ok ? 'OK' : ('FAILED: ' + (result.error || result.code || 'unknown'));
+    try {
+      var result = sendFcmToWorkerDetailed_(tokens[0].fcmToken, 'Diagnostic ping', 'Empire push diagnostic — lock your phone.', {type:'debug'});
+      fcmSend = result.ok ? 'OK' : ('FAILED: ' + (result.error || result.code || 'unknown'));
+    } catch (e) {
+      fcmSend = 'FAILED: ' + String(e && e.message ? e.message : e);
+      if (/external_request/i.test(fcmSend)) {
+        fcmSend = 'FAILED: Apps Script needs external URL permission — run authorizePushSetup in editor';
+      }
+    }
   } else if (!hasToken) {
     fcmSend = 'skipped — no token';
   } else {
@@ -2283,4 +2290,31 @@ function handleDeleteIssue(body, sheetName) {
   toDeleteRows.sort(function(a,b){return b-a;}).forEach(function(r){ sheet.deleteRow(r); });
   invalidateIssuesCache_(sheetName);
   return {ok:true,success:true,deleted:toTrash.length};
+}
+
+/** Run once in Apps Script editor (Run ▶ authorizePushSetup) to grant FCM send permission. */
+function authorizePushSetup() {
+  var sa = PropertiesService.getScriptProperties().getProperty('FCM_SERVICE_ACCOUNT_JSON');
+  if (!sa) {
+    Logger.log('ERROR: FCM_SERVICE_ACCOUNT_JSON missing in Script properties.');
+    return;
+  }
+  var token = getFcmAccessToken_();
+  if (!token) {
+    Logger.log('ERROR: FCM auth failed — check service account JSON.');
+    return;
+  }
+  Logger.log('SUCCESS: FCM auth OK (token length ' + token.length + ').');
+  var sheet = getSS_().getSheetByName(WORKER_PUSH_SHEET);
+  if (!sheet || sheet.getLastRow() < 2) {
+    Logger.log('No WorkerPushTokens yet — worker taps Enable alerts on phone first.');
+    return;
+  }
+  var fcmToken = String(sheet.getRange(2, 2).getValue() || '').trim();
+  if (!fcmToken) {
+    Logger.log('No FCM token in WorkerPushTokens row 2.');
+    return;
+  }
+  var result = sendFcmToWorkerDetailed_(fcmToken, 'Empire test', 'Lock-screen push test from server.', {type: 'auth_test'});
+  Logger.log('Push send: ' + JSON.stringify(result));
 }

@@ -161,6 +161,20 @@ When an engineer assigns a job, assigned workers get a **popup notification** �
    - Optional: `FCM_PROJECT_ID` — only if not already inside the JSON (`project_id` field)
 7. Redeploy **frontend** (GitHub) and **backend** (Apps Script).
 
+**Authorize push sending (required once):**
+
+Apps Script must be allowed to call Firebase (external URLs). Without this, assign notifications never leave the server.
+
+1. In Apps Script editor, paste latest `empire-all-in-one.gs`
+2. Enable manifest: **Project settings** → check **Show "appsscript.json" manifest file in editor**
+3. Open `appsscript.json` and ensure `oauthScopes` includes `https://www.googleapis.com/auth/script.external_request` (see repo `appsscript.json`)
+4. Select function **`authorizePushSetup`** from the dropdown → click **Run** ▶
+5. Click **Review permissions** → choose your Google account → **Allow**
+6. Open **Executions** — should log `SUCCESS: FCM auth OK`
+7. **Deploy → Manage deployments → Edit → New version → Deploy**
+
+If Diagnose on the worker phone shows `FCM:FAIL` or `external_request`, repeat steps 4–7.
+
 **On each worker phone:**
 
 1. Install the PWA (**Add to Home screen** / **Install app**).
