@@ -372,13 +372,14 @@ function enterWorkerApp() {
 var _workerLocWatchId = null;
 var _workerLastLocPing = 0;
 var _workerLocDenied = false;
+var _workerLocSharing = false;
 var WORKER_LOC_PING_MS = 45000;
 function workerLocationActionsEnabled() {
   return !!(ISSUE_CFG.workerMode && ISSUE_CFG.actions && ISSUE_CFG.actions.reportLocation);
 }
 function pingWorkerLocation(lat, lng, accuracy) {
-  if (!workerLocationActionsEnabled()) return;
-  fetch(GOOGLE_SCRIPT_URL, {
+  if (!workerLocationActionsEnabled()) return Promise.resolve(false);
+  return fetch(GOOGLE_SCRIPT_URL, {
     method: 'POST',
     body: JSON.stringify({
       action: ISSUE_CFG.actions.reportLocation,
@@ -387,44 +388,103 @@ function pingWorkerLocation(lat, lng, accuracy) {
       accuracy: accuracy,
       token: issueToken() || ''
     })
-  }).catch(function () {});
+  })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d && d.ok === false) {
+        var msg = d.message || d.error || 'Could not share location';
+        if (d.error === 'not_allowed') msg = 'This account cannot share location. Log in as a worker account.';
+        else if (d.error === 'trade_not_set') msg = 'Worker trade missing in Users sheet (column G).';
+        setWorkerLocBanner(msg, true);
+        return false;
+      }
+      _workerLocSharing = true;
+      setWorkerLocBanner('Location shared with engineer. Updates every ~45 sec while this app stays open.', false);
+      return true;
+    })
+    .catch(function () {
+      setWorkerLocBanner('Could not reach server to share location. Check your internet connection.', true);
+      return false;
+    });
 }
-function setWorkerLocBanner(text, isError) {
+function setWorkerLocBanner(text, isError, showEnableBtn) {
   var el = document.getElementById('workerLocBanner');
   if (!el) return;
-  if (!text) { el.style.display = 'none'; el.textContent = ''; return; }
+  if (!text && !showEnableBtn) { el.style.display = 'none'; el.innerHTML = ''; return; }
   el.style.display = 'block';
   el.classList.toggle('worker-loc-banner-error', !!isError);
-  el.textContent = text;
+  var h = '<span class="worker-loc-banner-text">' + text + '</span>';
+  if (showEnableBtn) {
+    h += ' <button type="button" class="worker-loc-enable-btn" onclick="requestWorkerLocationAccess()">Enable location</button>';
+  }
+  el.innerHTML = h;
+}
+function sendWorkerLocationNow(force) {
+  if (!isCivilWorker() || !workerLocationActionsEnabled() || !navigator.geolocation) return;
+  var now = Date.now();
+  if (!force && _workerLastLocPing && now - _workerLastLocPing < WORKER_LOC_PING_MS) return;
+  setWorkerLocBanner('Getting GPS position\u2026', false);
+  navigator.geolocation.getCurrentPosition(
+    function (pos) {
+      if (!pos || !pos.coords) return;
+      _workerLastLocPing = Date.now();
+      pingWorkerLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
+    },
+    onWorkerPositionError,
+    { enableHighAccuracy: true, timeout: 20000, maximumAge: force ? 0 : 30000 }
+  );
 }
 function onWorkerPosition(pos) {
   if (!pos || !pos.coords) return;
   var now = Date.now();
   if (_workerLastLocPing && now - _workerLastLocPing < WORKER_LOC_PING_MS) return;
   _workerLastLocPing = now;
-  setWorkerLocBanner('');
   pingWorkerLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
 }
 function onWorkerPositionError(err) {
-  if (_workerLocDenied) return;
-  _workerLocDenied = true;
-  var msg = 'Location sharing is off. Allow location in your browser so the engineer can see where you are on site.';
-  if (err && err.code === 1) msg = 'Location permission denied. Enable location for this site in your phone settings.';
-  else if (err && err.code === 2) msg = 'GPS signal unavailable. Turn on location services and try again.';
-  else if (err && err.code === 3) msg = 'Location timed out. Move to an open area or try again.';
-  setWorkerLocBanner(msg, true);
+  var code = err && err.code;
+  if (code === 1) {
+    _workerLocDenied = true;
+    setWorkerLocBanner('Location permission denied. Tap Enable location and allow access in your phone settings.', true, true);
+    return;
+  }
+  if (code === 2) {
+    setWorkerLocBanner('GPS unavailable. Turn on location services, then tap Enable location.', true, true);
+    return;
+  }
+  if (code === 3) {
+    setWorkerLocBanner('GPS timed out. Move to an open area and tap Enable location.', true, true);
+    return;
+  }
+  setWorkerLocBanner('Could not get location. Tap Enable location to try again.', true, true);
+}
+function requestWorkerLocationAccess() {
+  if (!isCivilWorker() || !navigator.geolocation) {
+    setWorkerLocBanner('Location is not available in this browser.', true);
+    return;
+  }
+  _workerLocDenied = false;
+  startWorkerLocationWatch();
+  sendWorkerLocationNow(true);
+}
+function startWorkerLocationWatch() {
+  if (!isCivilWorker() || !workerLocationActionsEnabled() || !navigator.geolocation) return;
+  if (_workerLocWatchId != null) return;
+  _workerLocWatchId = navigator.geolocation.watchPosition(onWorkerPosition, function (err) {
+    if (err && err.code === 1) onWorkerPositionError(err);
+  }, {
+    enableHighAccuracy: true,
+    maximumAge: 30000,
+    timeout: 20000
+  });
 }
 function startWorkerLocationPing() {
   if (!isCivilWorker() || !workerLocationActionsEnabled() || !navigator.geolocation) return;
   stopWorkerLocationPing();
   _workerLastLocPing = 0;
   _workerLocDenied = false;
-  setWorkerLocBanner('Sharing your location while this app is open…');
-  _workerLocWatchId = navigator.geolocation.watchPosition(onWorkerPosition, onWorkerPositionError, {
-    enableHighAccuracy: true,
-    maximumAge: 30000,
-    timeout: 15000
-  });
+  _workerLocSharing = false;
+  setWorkerLocBanner('Tap Enable location so the engineer can see where you are on site.', false, true);
 }
 function stopWorkerLocationPing() {
   if (_workerLocWatchId != null && navigator.geolocation) {
@@ -432,6 +492,7 @@ function stopWorkerLocationPing() {
   }
   _workerLocWatchId = null;
   _workerLastLocPing = 0;
+  _workerLocSharing = false;
   setWorkerLocBanner('');
 }
 var _engineerLocPollTimer = null;
@@ -468,7 +529,7 @@ function renderWorkerLocationsPanel() {
   var host = document.getElementById('workerLocationsBody');
   if (!host) return;
   if (!_workerLocations.length) {
-    host.innerHTML = '<p class="worker-loc-empty">No worker locations yet. Workers appear here when they open the civil issue app and allow location.</p>';
+    host.innerHTML = '<p class="worker-loc-empty">No worker locations yet. Ask workers to tap <strong>Enable location</strong> on their phone (or open a job / take a photo). Location is separate from job photos.</p>';
     return;
   }
   var h = '<div class="worker-loc-table-wrap"><table class="worker-loc-table"><thead><tr>'
@@ -493,6 +554,9 @@ function loadWorkerLocations(force) {
   if (spin) spin.classList.add('spinning');
   fetchJSONRetry({ action: ISSUE_CFG.actions.getLocations, token: issueToken() || '' }, 1, 30000)
     .then(function (d) {
+      if (d && d.error === 'Unknown action') {
+        throw new Error('Server not updated yet. Redeploy empire-all-in-one.gs in Google Apps Script, then try again.');
+      }
       if (d && d.ok === false) {
         if (empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts())) return;
         throw new Error(d.message || d.error || 'Could not load locations');
@@ -748,6 +812,7 @@ function openWorkerJob(id) {
   body.innerHTML = h;
   renderWorkerPhotoGrid();
   document.getElementById('workerJobModal').classList.add('show');
+  sendWorkerLocationNow(true);
 }
 function openWorkerJobPendingView(id) {
   var r = allIssues.find(function (x) { return x.id === id; });
@@ -872,6 +937,7 @@ function processWorkerFixPhoto(file) {
       _workerFixPhotos.push(dataUrl);
       _workerUploading = Math.max(0, _workerUploading - 1);
       renderWorkerPhotoGrid();
+      sendWorkerLocationNow(true);
       if (!navigator.onLine) {
         uiAlert('\u2705 Photo saved on this device. It will upload when you have signal.');
       }
@@ -880,6 +946,7 @@ function processWorkerFixPhoto(file) {
       _workerFixPhotos.push(url);
       _workerUploading = Math.max(0, _workerUploading - 1);
       renderWorkerPhotoGrid();
+      sendWorkerLocationNow(true);
     }
     if (!navigator.onLine) {
       empireOfflineBlobToDataUrl(blob).then(finishWithLocal).catch(function () {
@@ -1095,7 +1162,7 @@ var _issuesListSig='';
 function issuesListSig(arr){ if(!arr||!arr.length) return '0'; return arr.length+'|'+String(arr[0].id)+'|'+String(arr[arr.length-1].id)+'|'+String(arr[0].status)+'|'+String(arr[arr.length-1].status); }
 function setIssuesFromData(arr){ var sig=issuesListSig(arr); var changed=(sig!==_issuesListSig); _issuesListSig=sig; allIssues=arr; return changed; }
 function deferHeavyRenders(){ var run=function(){ var ac=document.getElementById('analytics'); if(ac&&ac.classList.contains('active')) renderAnalytics(); }; if(window.requestIdleCallback) requestIdleCallback(run,{timeout:2500}); else setTimeout(run,80); }
-function loadIssues(force){ force=!!force; if(isCivilWorker()){ var cached=readIssuesCache(); if(cached){ setIssuesFromData(cached); renderWorkerJobs(); } } var cached=readIssuesCache(); if(cached && !isCivilWorker()){ setIssuesFromData(cached); requestAnimationFrame(function(){ renderIssues(); deferHeavyRenders(); }); } var spinEls=[document.getElementById('listRefreshIcon'),document.getElementById('navRefreshIcon'),document.getElementById('workerRefreshIcon')]; var cacheFresh=cached && !force && (Date.now()-readIssuesCacheTs()<ISSUES_CACHE_TTL); if(cacheFresh) return; var it=document.getElementById('issuesTable'); if(it && !cached && !isCivilWorker()) it.innerHTML=LOADING_HTML; spinEls.forEach(function(el){ if(el) el.classList.add('spinning'); }); if(_issuesFetchCtrl) try{ _issuesFetchCtrl.abort(); }catch(e){} _issuesFetchCtrl=new AbortController(); fetchIssuesFromServer(_issuesFetchCtrl.signal).then(function(d){ if(Array.isArray(d)){ var changed=setIssuesFromData(d); writeIssuesCacheAsync(d); if(isCivilWorker()) renderWorkerJobs(); else if(changed){ requestAnimationFrame(function(){ renderIssues(); deferHeavyRenders(); }); } } else if(d&&d.ok===false){ forceSessionLogout(d); } }).catch(function(e){ if(e&&e.name==='AbortError') return; if(!cached && it && !isCivilWorker()) it.innerHTML='<p>Error loading: '+e.message+'</p>'; if(isCivilWorker()){ var wl=document.getElementById('workerJobList'); if(wl && !cached) wl.innerHTML='<p class="worker-empty">Error: '+e.message+'</p>'; } }).finally(function(){ spinEls.forEach(function(el){ if(el) el.classList.remove('spinning'); }); }); }
+function loadIssues(force){ force=!!force; if(isCivilWorker()&&force) sendWorkerLocationNow(true); if(isCivilWorker()){ var cached=readIssuesCache(); if(cached){ setIssuesFromData(cached); renderWorkerJobs(); } } var cached=readIssuesCache(); if(cached && !isCivilWorker()){ setIssuesFromData(cached); requestAnimationFrame(function(){ renderIssues(); deferHeavyRenders(); }); } var spinEls=[document.getElementById('listRefreshIcon'),document.getElementById('navRefreshIcon'),document.getElementById('workerRefreshIcon')]; var cacheFresh=cached && !force && (Date.now()-readIssuesCacheTs()<ISSUES_CACHE_TTL); if(cacheFresh) return; var it=document.getElementById('issuesTable'); if(it && !cached && !isCivilWorker()) it.innerHTML=LOADING_HTML; spinEls.forEach(function(el){ if(el) el.classList.add('spinning'); }); if(_issuesFetchCtrl) try{ _issuesFetchCtrl.abort(); }catch(e){} _issuesFetchCtrl=new AbortController(); fetchIssuesFromServer(_issuesFetchCtrl.signal).then(function(d){ if(Array.isArray(d)){ var changed=setIssuesFromData(d); writeIssuesCacheAsync(d); if(isCivilWorker()) renderWorkerJobs(); else if(changed){ requestAnimationFrame(function(){ renderIssues(); deferHeavyRenders(); }); } } else if(d&&d.ok===false){ forceSessionLogout(d); } }).catch(function(e){ if(e&&e.name==='AbortError') return; if(!cached && it && !isCivilWorker()) it.innerHTML='<p>Error loading: '+e.message+'</p>'; if(isCivilWorker()){ var wl=document.getElementById('workerJobList'); if(wl && !cached) wl.innerHTML='<p class="worker-empty">Error: '+e.message+'</p>'; } }).finally(function(){ spinEls.forEach(function(el){ if(el) el.classList.remove('spinning'); }); }); }
 function locStr(r){ return r.building+' \u00B7 '+r.floor+' \u00B7 '+r.spot; }
 function dayOf(r){ var d=String(r.date||r.createdAt||''); if(/^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0,10); var dt=new Date(d.replace(' ','T')); if(!isNaN(dt.getTime())){ var z=function(n){return String(n).padStart(2,'0');}; return dt.getFullYear()+'-'+z(dt.getMonth()+1)+'-'+z(dt.getDate()); } return ''; }
 function monthOf(r){ var d=String(r.date||r.createdAt||''); if(!/^\d{4}-\d{2}-\d{2}/.test(d)) return ''; var yr=parseInt(d.slice(0,4),10), mo=parseInt(d.slice(5,7),10), dy=parseInt(d.slice(8,10),10); if(dy>=26){ mo+=1; if(mo>12){mo=1;yr+=1;} } return yr+'-'+String(mo).padStart(2,'0'); }

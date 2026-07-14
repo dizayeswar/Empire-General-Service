@@ -564,6 +564,26 @@
   color: var(--text-soft);
   font-size: 12px;
   line-height: 1.4;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.worker-loc-banner-text {
+  flex: 1;
+  min-width: 0;
+}
+.worker-loc-enable-btn {
+  padding: 8px 14px;
+  border-radius: 50px;
+  border: none;
+  background: #185fa5;
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .worker-loc-banner-error {
   background: #fff4e8;
