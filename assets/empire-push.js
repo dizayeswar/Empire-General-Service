@@ -129,6 +129,19 @@
     return withTimeout(request, timeoutMs, 'Server save');
   }
 
+  function apiUsername() {
+    if (typeof empireGetUser === 'function') return String(empireGetUser() || '').trim().toLowerCase();
+    return '';
+  }
+
+  function callBackend(body, timeoutMs) {
+    timeoutMs = timeoutMs || 30000;
+    if (typeof fetchJSONRetry === 'function') {
+      return fetchJSONRetry(body, 1, timeoutMs);
+    }
+    return postToScript(body, timeoutMs);
+  }
+
   function saveFcmToken(fcmToken) {
     if (!fcmToken || !window.GOOGLE_SCRIPT_URL || !window.ISSUE_CFG || !ISSUE_CFG.actions) {
       return Promise.resolve(false);
@@ -136,35 +149,26 @@
     var act = ISSUE_CFG.actions.savePushToken;
     if (!act) return Promise.resolve(false);
     var session = authSessionToken();
+    var username = apiUsername();
     if (!session) {
       setWorkerPushStatus('Not logged in — log out and sign in again.');
       return Promise.resolve(false);
     }
-    var started = Date.now();
-    var slowTimer = setInterval(function () {
-      var sec = Math.round((Date.now() - started) / 1000);
-      setWorkerPushStatus('Still saving… ' + sec + 's');
-    }, 2000);
-    setWorkerPushStatus('Checking server version…');
-    return pingScriptVersion()
-      .then(function (info) {
-        var ver = info && info.version ? String(info.version) : '';
-        if (ver && ver.indexOf('push12') === -1 && ver.indexOf('push11') === -1) {
-          setWorkerPushStatus('Backend old (' + (ver || '?') + ') — paste Code.gs + Deploy New version');
-          return false;
-        }
-        setWorkerPushStatus(ver ? ('Saving… ' + ver) : 'Saving token to server…');
-        return postToScript({
-          action: act,
-          fcmToken: fcmToken,
-          platform: 'web-fcm',
-          token: session
-        }, 20000);
-      })
+    if (!username) {
+      setWorkerPushStatus('No username — log out and sign in again.');
+      return Promise.resolve(false);
+    }
+    setWorkerPushStatus('Saving token to server…');
+    return callBackend({
+      action: act,
+      fcmToken: fcmToken,
+      platform: 'web-fcm',
+      token: session,
+      username: username
+    }, 30000)
       .then(function (d) {
-        if (d === false) return false;
         if (d && (d.ok || d.success)) {
-          setWorkerPushStatus('Alerts enabled (' + (d.storedAs || 'ok') + '). Tap Send test.');
+          setWorkerPushStatus('Alerts enabled. Tap Send test, then lock your phone.');
           setWorkerPushBanner('', false);
           return true;
         }
@@ -173,22 +177,19 @@
           return false;
         }
         if (d && d.error === 'Unknown action') {
-          setWorkerPushStatus('Could not register: redeploy Apps Script (New version).');
+          setWorkerPushStatus('Backend old — paste Code.gs + Deploy New version (need push13).');
           return false;
         }
-        var err = 'Could not register: ' + ((d && (d.message || d.error)) || 'server error');
+        var err = 'Save failed: ' + ((d && (d.message || d.error)) || 'server error');
         setWorkerPushStatus(err);
         setWorkerPushBanner(err, false);
         return false;
       })
       .catch(function (e) {
-        var err = 'Could not reach server: ' + ((e && e.message) || 'network error');
+        var err = 'Save failed: ' + ((e && e.message) || 'network error');
         setWorkerPushStatus(err);
         setWorkerPushBanner(err, false);
         return false;
-      })
-      .finally(function () {
-        clearInterval(slowTimer);
       });
   }
 
@@ -404,7 +405,7 @@
       return;
     }
     setWorkerPushStatus('Sending test… lock your phone now.');
-    postToScript({ action: ISSUE_CFG.actions.testPush, token: authSessionToken() }, 45000)
+    callBackend({ action: ISSUE_CFG.actions.testPush, token: authSessionToken(), username: apiUsername() }, 30000)
       .then(function (d) {
         if (d && (d.ok || d.success)) {
           setWorkerPushStatus('Server sent test — check lock screen in 10 sec.');
@@ -424,19 +425,28 @@
     }
     setWorkerPushStatus('Running diagnose…');
     var localPart = 'Local:?';
+    var savePart = 'Save:?';
     var localChain = (Notification.permission === 'granted' && pushConfigured())
       ? obtainFcmToken(false).then(function (t) {
           localPart = 'Local:' + (t ? 'yes' : 'NO');
-          if (t) return saveFcmToken(t);
-          return false;
+          if (!t) return false;
+          return saveFcmToken(t).then(function (ok) {
+            savePart = 'Save:' + (ok ? 'OK' : 'FAIL');
+            return ok;
+          });
         }).catch(function (e) {
           localPart = 'Local:FAIL ' + ((e && e.message) || '');
+          savePart = 'Save:FAIL';
           return false;
         })
       : Promise.resolve(false);
 
     localChain.then(function () {
-      return postToScript({ action: ISSUE_CFG.actions.debugPush, token: authSessionToken() }, 45000)
+      return callBackend({
+        action: ISSUE_CFG.actions.debugPush,
+        token: authSessionToken(),
+        username: apiUsername()
+      }, 30000)
         .then(function (d) {
           if (!d || d.ok === false) {
             setWorkerPushStatus('Diagnose failed: ' + ((d && (d.message || d.error)) || 'unknown'));
@@ -445,6 +455,7 @@
           var msg = 'App:' + (isStandaloneApp() ? 'installed' : 'BROWSER') +
             ' · Perm:' + (Notification.permission || '?') +
             ' · ' + localPart +
+            ' · ' + savePart +
             ' · Server:' + (d.hasToken ? 'yes' : 'NO') +
             ' · FCM:' + (d.fcmAuth ? 'OK' : 'FAIL') +
             ' · Send:' + (d.fcmSend || '?');

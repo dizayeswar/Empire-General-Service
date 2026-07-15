@@ -20,7 +20,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-14-push12';
+var SCRIPT_VERSION = '2026-07-15-push13';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -598,8 +598,32 @@ function deptListAllows_(userDept, requestedDept) {
   }
   return false;
 }
-function tokenDeptAllows_(tokenDept, requiredDept) {
-  return deptListAllows_(tokenDept, requiredDept);
+function tokenCacheKey_(token) {
+  return 'tok_' + Utilities.base64EncodeWebSafe(String(token)).slice(0, 40);
+}
+function pushAuthPropKey_(token) {
+  return 'pushauth_' + tokenCacheKey_(token);
+}
+/** Remember session for fast push-token save (cache + Script properties). */
+function rememberPushAuth_(token, username, tokenDept, role) {
+  if (!token || !username) return;
+  var rec = {
+    ok: true,
+    username: String(username),
+    dept: String(tokenDept || '').trim().toLowerCase(),
+    role: String(role || '').trim().toLowerCase()
+  };
+  try {
+    CacheService.getScriptCache().put(tokenCacheKey_(token), JSON.stringify(rec), 21600);
+  } catch (e) {}
+  try {
+    PropertiesService.getScriptProperties().setProperty(pushAuthPropKey_(token), JSON.stringify({
+      username: rec.username,
+      dept: rec.dept,
+      role: rec.role,
+      savedAt: new Date().getTime()
+    }));
+  } catch (e) {}
 }
 function handleLogin(body) {
   var ss = getSS_();
@@ -632,6 +656,7 @@ function handleLogin(body) {
       var token = Utilities.getUuid();
       var tsheet = ss.getSheetByName(TOKENS_SHEET) || ss.insertSheet(TOKENS_SHEET);
       tsheet.appendRow([token, username, tokenDept, new Date().getTime(), rp.role, passwordDigest_(upass)]);
+      rememberPushAuth_(token, username, tokenDept, rp.role);
       return {ok:true,success:true,token:token,username:username,dept:tokenDept,role:rp.role,perms:rp.perms,projects:projects,trade:trade,message:'Login successful'};
     }
   }
@@ -693,7 +718,7 @@ function verifyToken(token, requiredDept) {
   if (!token) return {ok:false,error:'No token'};
   requiredDept = String(requiredDept||'').trim().toLowerCase();
   var cache = CacheService.getScriptCache();
-  var tkey = 'tok_' + Utilities.base64EncodeWebSafe(String(token)).slice(0, 40);
+  var tkey = tokenCacheKey_(token);
   try {
     var hit = cache.get(tkey);
     if (hit) {
@@ -721,7 +746,8 @@ function verifyToken(token, requiredDept) {
       if (!tokenDeptAllows_(tokenDept, requiredDept)) return {ok:false,error:'This login is not allowed for this section'};
       var urow = getUserRowByName_(username);
       var result = enrichAuthRole_({ok:true,username:rows[i][1],dept:tokenDept,role:String(rows[i][4]||''),trade:tradeForUserRow_(urow),pwDigest:currentPasswordDigestForUser_(username)});
-      try { cache.put(tkey, JSON.stringify(result), 300); } catch(e){}
+      try { cache.put(tkey, JSON.stringify(result), 21600); } catch(e){}
+      rememberPushAuth_(token, rows[i][1], tokenDept, String(rows[i][4]||''));
       return result;
     }
   }
@@ -731,7 +757,7 @@ function verifyToken(token, requiredDept) {
 function verifyTokenSession_(token) {
   if (!token) return {ok:false,error:'No token'};
   var cache = CacheService.getScriptCache();
-  var tkey = 'tok_' + Utilities.base64EncodeWebSafe(String(token)).slice(0, 40);
+  var tkey = tokenCacheKey_(token);
   try {
     var hit = cache.get(tkey);
     if (hit) {
@@ -762,7 +788,8 @@ function verifyTokenSession_(token) {
       if (!pwCheck.ok) return pwCheck;
       var urow = getUserRowByName_(username);
       var result = enrichAuthRole_({ok:true,username:row[1],dept:String(row[2]||'').trim().toLowerCase(),role:String(row[4]||''),trade:tradeForUserRow_(urow),pwDigest:currentPasswordDigestForUser_(username)});
-      try { cache.put(tkey, JSON.stringify(result), 300); } catch(e){}
+      try { cache.put(tkey, JSON.stringify(result), 21600); } catch(e){}
+      rememberPushAuth_(token, row[1], String(row[2]||''), String(row[4]||''));
       return result;
     }
   }
@@ -1472,16 +1499,28 @@ function ensureWorkerPushSheet_(sheet) {
 function workerPushPropKey_(username) {
   return 'worker_push_' + String(username || '').trim().toLowerCase();
 }
-/** Cache-only auth for push save — never opens SpreadsheetApp (avoids lock hangs). */
-function verifyTokenForPushSave_(token) {
+function isKnownCivilWorker_(username) {
+  username = String(username || '').trim().toLowerCase();
+  return !!(username && CIVIL_WORKER_TEAM[username]);
+}
+/** Auth for push save — Script properties first (no spreadsheet). */
+function verifyTokenForPushSave_(token, body) {
   if (!token) return {ok:false, error:'No token'};
-  var cache = CacheService.getScriptCache();
-  var tkey = 'tok_' + Utilities.base64EncodeWebSafe(String(token)).slice(0, 40);
+  var tkey = tokenCacheKey_(token);
   try {
-    var hit = cache.get(tkey);
+    var prop = PropertiesService.getScriptProperties().getProperty(pushAuthPropKey_(token));
+    if (prop) {
+      var p = JSON.parse(prop);
+      if (p && p.username) {
+        return {ok:true, username:p.username, role:String(p.role||''), dept:String(p.dept||'')};
+      }
+    }
+  } catch (e) {}
+  try {
+    var hit = CacheService.getScriptCache().get(tkey);
     if (hit) {
       var cached = JSON.parse(hit);
-      if (cached && cached.ok !== false && cached.username) {
+      if (cached && cached.username) {
         return {
           ok: true,
           username: cached.username,
@@ -1491,28 +1530,25 @@ function verifyTokenForPushSave_(token) {
       }
     }
   } catch (e) {}
+  var guessUser = String((body && body.username) || '').trim().toLowerCase();
+  if (guessUser && isKnownCivilWorker_(guessUser)) {
+    return {ok:true, username:guessUser, role:'worker', dept:'civil issue', via:'username'};
+  }
   return {
     ok: false,
     error: 'session_expired',
-    message: 'Session cache expired. Log out, sign in again, then tap Enable alerts within 1 minute.'
+    message: 'Log out, sign in again, then tap Enable alerts right away.'
   };
-}
-function isKnownCivilWorker_(username) {
-  username = String(username || '').trim().toLowerCase();
-  return !!(username && CIVIL_WORKER_TEAM[username]);
 }
 function handleSaveWorkerPushTokenFast_(body) {
   try {
-    var auth = verifyTokenForPushSave_(body && body.token);
+    var auth = verifyTokenForPushSave_(body && body.token, body);
     if (!auth.ok) return auth;
     var username = String(auth.username || '').trim().toLowerCase();
     if (!username) return {ok:false, error:'not_authenticated'};
     var role = String(auth.role || '').toLowerCase();
     if (role !== 'worker' && !isKnownCivilWorker_(username)) {
-      return {ok:false, error:'not_allowed', message:'Only worker accounts can register for push alerts. Role=' + (role || 'empty')};
-    }
-    if (!tokenDeptAllows_(String(auth.dept || ''), 'civil issue') && !isKnownCivilWorker_(username)) {
-      return {ok:false, error:'This login is not allowed for this section'};
+      return {ok:false, error:'not_allowed', message:'Only worker accounts can register. Role=' + (role || 'empty')};
     }
     var fcmToken = String((body && (body.fcmToken || body.pushToken)) || '').trim();
     if (!fcmToken) return {ok:false, error:'missing_token', message:'Missing push token.'};
@@ -1528,6 +1564,7 @@ function handleSaveWorkerPushTokenFast_(body) {
 function handleSaveWorkerPushToken(body, auth) {
   return handleSaveWorkerPushTokenFast_({
     token: body && body.token,
+    username: body && body.username,
     fcmToken: body && (body.fcmToken || body.pushToken),
     platform: body && body.platform
   });
