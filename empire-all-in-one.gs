@@ -20,7 +20,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-15-push13';
+var SCRIPT_VERSION = '2026-07-15-push14';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -1506,6 +1506,11 @@ function isKnownCivilWorker_(username) {
 /** Auth for push save — Script properties first (no spreadsheet). */
 function verifyTokenForPushSave_(token, body) {
   if (!token) return {ok:false, error:'No token'};
+  var session = verifyTokenSession_(token);
+  if (session.ok) {
+    rememberPushAuth_(token, session.username, session.dept, session.role);
+    return session;
+  }
   var tkey = tokenCacheKey_(token);
   try {
     var prop = PropertiesService.getScriptProperties().getProperty(pushAuthPropKey_(token));
@@ -1530,10 +1535,6 @@ function verifyTokenForPushSave_(token, body) {
       }
     }
   } catch (e) {}
-  var guessUser = String((body && body.username) || '').trim().toLowerCase();
-  if (guessUser && isKnownCivilWorker_(guessUser)) {
-    return {ok:true, username:guessUser, role:'worker', dept:'civil issue', via:'username'};
-  }
   return {
     ok: false,
     error: 'session_expired',

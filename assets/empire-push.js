@@ -177,7 +177,7 @@
           return false;
         }
         if (d && d.error === 'Unknown action') {
-          setWorkerPushStatus('Backend old — paste Code.gs + Deploy New version (need push13).');
+          setWorkerPushStatus('Backend old — paste Code.gs + Deploy New version (need push14).');
           return false;
         }
         var err = 'Save failed: ' + ((d && (d.message || d.error)) || 'server error');
@@ -363,8 +363,7 @@
       .then(function (perm) {
         if (perm === 'granted') {
           return registerFirebaseMessaging(true).then(function (ok) {
-            startIssuePollFallback();
-            if (ok && typeof loadIssues === 'function') loadIssues(true);
+            if (ok) startIssuePollFallback();
           });
         }
         if (perm === 'denied') {

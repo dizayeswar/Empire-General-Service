@@ -280,8 +280,12 @@ function empireAuthSessionLogout(opts) {
 
 function empireSessionInvalid_(d) {
   if (!d || d.ok !== false) return false;
-  var err = String(d.error || '').toLowerCase();
-  return err.indexOf('token') !== -1 || err === 'password_changed' || err.indexOf('authenticated') !== -1 || err.indexOf('invalid') !== -1;
+  var err = String(d.error || '').toLowerCase().trim();
+  if (!err) return false;
+  if (err === 'password_changed' || err === 'session_expired') return true;
+  if (err === 'invalid token' || err === 'token expired' || err === 'no token') return true;
+  if (err === 'not authenticated' || err === 'not_authenticated') return true;
+  return false;
 }
 
 function empireAuthHandleInvalidSession_(d, opts) {
