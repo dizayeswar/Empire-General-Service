@@ -1512,9 +1512,62 @@ function handleLogin(e){ empireAuthLogin(e, ISSUE_CFG.dept, { onSuccess: functio
 function logout(){ stopWorkerLocationPing(); if(typeof empirePushStopWorker==='function') empirePushStopWorker(); stopEngineerLocationPoll(); empireAuthLogout({ extraKeys: [ISSUES_CACHE_KEY, ISSUES_CACHE_TS_KEY], redirect: 'index.html', reload: false }); }
 function issueSessionLogoutOpts(){ return { extraKeys: [ISSUES_CACHE_KEY, ISSUES_CACHE_TS_KEY], redirect: 'index.html', reload: false }; }
 function forceSessionLogout(d){ return empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts()); }
-function uploadToImgbb(file,cb){ const r=new FileReader(); r.onload=e=>{ const b64=e.target.result.split(',')[1]; const fd=new FormData(); fd.append('image',b64); fd.append('key',IMGBB_API_KEY); fetch('https://api.imgbb.com/1/upload',{method:'POST',body:fd}).then(x=>x.json()).then(d=>{ cb(d.success&&d.data?d.data.url:null); }).catch(()=>cb(null)); }; r.readAsDataURL(file); }
-function compressImage(file,cb){ const r=new FileReader(); r.onload=e=>{ const img=new Image(); img.onload=()=>{ var mx=1400; var s=Math.min(1, mx/Math.max(img.width,img.height)); const c=document.createElement('canvas'); c.width=Math.round(img.width*s); c.height=Math.round(img.height*s); c.getContext('2d').drawImage(img,0,0,c.width,c.height); c.toBlob(b=>uploadToImgbb(b,cb),'image/jpeg',0.7); }; img.src=e.target.result; }; r.readAsDataURL(file); }
-function processIssuePhoto(file){ if(!file) return; const area=document.getElementById('ci-imageArea'); area.innerHTML='\u23F3 Uploading\u2026'; uploadingIssue=true; compressImage(file,url=>{ uploadingIssue=false; if(url){ currentIssueImage=url; const im=document.getElementById('ci-image'); im.src=url; im.style.display='block'; area.innerHTML='\u2705 Photo uploaded'; } else { area.innerHTML='\u274C Upload failed, try again'; } }); }
+var _lastImgbbError = '';
+function uploadToImgbb(file, cb) {
+  _lastImgbbError = '';
+  if (!file) { _lastImgbbError = 'No image data'; cb(null); return; }
+  var r = new FileReader();
+  r.onerror = function () { _lastImgbbError = 'Could not read image file'; cb(null); };
+  r.onload = function (e) {
+    var b64 = (e.target.result || '').split(',')[1];
+    if (!b64) { _lastImgbbError = 'Invalid image format'; cb(null); return; }
+    var fd = new FormData();
+    fd.append('image', b64);
+    fd.append('key', IMGBB_API_KEY);
+    fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: fd })
+      .then(function (x) { return x.text(); })
+      .then(function (txt) {
+        try {
+          var d = JSON.parse(txt);
+          if (d.success && d.data && d.data.url) { cb(d.data.url); return; }
+          _lastImgbbError = (d.error && d.error.message) || d.status_txt || 'ImgBB rejected the upload';
+          cb(null);
+        } catch (err) {
+          _lastImgbbError = 'ImgBB returned an invalid response';
+          cb(null);
+        }
+      })
+      .catch(function (err) {
+        _lastImgbbError = (err && err.message) || 'Network error reaching ImgBB';
+        cb(null);
+      });
+  };
+  r.readAsDataURL(file);
+}
+function compressImage(file, cb) {
+  if (!file) { _lastImgbbError = 'No image selected'; cb(null); return; }
+  var r = new FileReader();
+  r.onerror = function () { _lastImgbbError = 'Could not read image file'; cb(null); };
+  r.onload = function (e) {
+    var img = new Image();
+    img.onerror = function () { _lastImgbbError = 'Could not process image'; cb(null); };
+    img.onload = function () {
+      var mx = 1400;
+      var s = Math.min(1, mx / Math.max(img.width, img.height));
+      var c = document.createElement('canvas');
+      c.width = Math.round(img.width * s);
+      c.height = Math.round(img.height * s);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      c.toBlob(function (b) {
+        if (!b) { _lastImgbbError = 'Could not compress image'; cb(null); return; }
+        uploadToImgbb(b, cb);
+      }, 'image/jpeg', 0.7);
+    };
+    img.src = e.target.result;
+  };
+  r.readAsDataURL(file);
+}
+function processIssuePhoto(file){ if(!file) return; const area=document.getElementById('ci-imageArea'); area.innerHTML='\u23F3 Uploading\u2026'; uploadingIssue=true; compressImage(file,url=>{ uploadingIssue=false; if(url){ currentIssueImage=url; const im=document.getElementById('ci-image'); im.src=url; im.style.display='block'; area.innerHTML='\u2705 Photo uploaded'; } else { area.innerHTML='\u274C ' + (_lastImgbbError || 'Upload failed, try again'); } }); }
 function handlePaste(e,which){ const items=e.clipboardData.items; for(let i=0;i<items.length;i++){ if(items[i].type.indexOf('image')!==-1){ e.preventDefault(); processIssuePhoto(items[i].getAsFile()); return; } } }
 function handleIssueFile(e){ const f=e.target.files && e.target.files[0]; if(f) processIssuePhoto(f); e.target.value=''; }
 function populateSelect(id,arr,useKeys){ const el=document.getElementById(id); el.innerHTML=''; arr.forEach(v=>{ const o=document.createElement('option'); if(useKeys){ o.value=v; o.textContent=projectNames[v]; } else { o.value=v; o.textContent=v; } el.appendChild(o); }); }
