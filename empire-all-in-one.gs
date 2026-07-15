@@ -2495,3 +2495,214 @@ function checkWorkerPushStorage() {
   Logger.log('Open this URL in a browser to verify the LIVE deploy version:');
   Logger.log('(Deploy → Manage deployments → copy Web app URL)');
 }
+
+// ===== ImgBB → Supabase photo migration (run from Apps Script editor) =====
+// Script Properties (Project settings → Script properties):
+//   SUPABASE_URL          e.g. https://abcdefgh.supabase.co
+//   SUPABASE_SERVICE_KEY  service_role key (never put in config.js / frontend)
+//   SUPABASE_BUCKET       optional, default empire-photos
+var MIGRATION_LOG_SHEET = 'PhotoMigrationLog';
+
+function getSupabaseMigrationProps_() {
+  var p = PropertiesService.getScriptProperties();
+  return {
+    url: String(p.getProperty('SUPABASE_URL') || '').replace(/\/$/, ''),
+    serviceKey: String(p.getProperty('SUPABASE_SERVICE_KEY') || ''),
+    bucket: String(p.getProperty('SUPABASE_BUCKET') || 'empire-photos')
+  };
+}
+
+function isImgbbUrl_(u) {
+  u = String(u || '').toLowerCase();
+  return u.indexOf('i.ibb.co') !== -1 || u.indexOf('ibb.co') !== -1 || u.indexOf('imgbb.com') !== -1;
+}
+
+function supabasePublicUrl_(path) {
+  var cfg = getSupabaseMigrationProps_();
+  return cfg.url + '/storage/v1/object/public/' + cfg.bucket + '/' + String(path || '').replace(/^\/+/, '');
+}
+
+function migrationLogSheet_() {
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(MIGRATION_LOG_SHEET) || ss.insertSheet(MIGRATION_LOG_SHEET);
+  if (sheet.getLastRow() === 0) sheet.appendRow(['oldUrl', 'newUrl', 'source', 'row', 'col', 'migratedAt']);
+  return sheet;
+}
+
+function migrationMapFromLog_() {
+  var sheet = migrationLogSheet_();
+  var map = {};
+  if (sheet.getLastRow() < 2) return map;
+  var rows = sheet.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) {
+    var oldU = String(rows[i][0] || '');
+    var newU = String(rows[i][1] || '');
+    if (oldU && newU.indexOf('http') === 0) map[oldU] = newU;
+  }
+  return map;
+}
+
+function logMigration_(oldUrl, newUrl, source, row, col) {
+  migrationLogSheet_().appendRow([oldUrl, newUrl, source, row, col, new Date().toISOString()]);
+}
+
+function uploadBytesToSupabase_(bytes, path, contentType) {
+  var cfg = getSupabaseMigrationProps_();
+  if (!cfg.url || !cfg.serviceKey) throw new Error('Set SUPABASE_URL and SUPABASE_SERVICE_KEY in Script Properties');
+  var url = cfg.url + '/storage/v1/object/' + cfg.bucket + '/' + path;
+  var resp = UrlFetchApp.fetch(url, {
+    method: 'post',
+    muteHttpExceptions: true,
+    contentType: contentType || 'image/jpeg',
+    payload: bytes,
+    headers: {
+      Authorization: 'Bearer ' + cfg.serviceKey,
+      apikey: cfg.serviceKey,
+      'x-upsert': 'true'
+    }
+  });
+  if (resp.getResponseCode() >= 200 && resp.getResponseCode() < 300) return supabasePublicUrl_(path);
+  throw new Error('Supabase upload failed (' + resp.getResponseCode() + '): ' + resp.getContentText().slice(0, 240));
+}
+
+function migrateOneImgbbUrl_(oldUrl, folder, cache) {
+  oldUrl = String(oldUrl || '').trim();
+  if (!oldUrl || !isImgbbUrl_(oldUrl)) return oldUrl;
+  if (cache[oldUrl]) return cache[oldUrl];
+  var resp = UrlFetchApp.fetch(oldUrl, { muteHttpExceptions: true, followRedirects: true });
+  if (resp.getResponseCode() !== 200) throw new Error('Download failed (' + resp.getResponseCode() + ') for ' + oldUrl);
+  var blob = resp.getBlob();
+  var ct = blob.getContentType() || 'image/jpeg';
+  var ext = 'jpg';
+  if (String(ct).indexOf('png') !== -1) ext = 'png';
+  else if (String(ct).indexOf('webp') !== -1) ext = 'webp';
+  else if (String(ct).indexOf('gif') !== -1) ext = 'gif';
+  var safeFolder = String(folder || 'misc').replace(/[^a-zA-Z0-9/_-]+/g, '-');
+  var path = 'migrated/' + safeFolder + '/' + Utilities.getUuid() + '.' + ext;
+  var newUrl = uploadBytesToSupabase_(blob.getBytes(), path, ct);
+  cache[oldUrl] = newUrl;
+  return newUrl;
+}
+
+function migrateImgbbValue_(value, folder, cache) {
+  if (value === null || value === undefined || value === '') return value;
+  var s = String(value);
+  if (isImgbbUrl_(s)) return migrateOneImgbbUrl_(s, folder, cache);
+  if (s.charAt(0) === '[' || s.charAt(0) === '{') {
+    try {
+      var parsed = JSON.parse(s);
+      var changed = false;
+      function walk(v) {
+        if (typeof v === 'string' && isImgbbUrl_(v)) {
+          changed = true;
+          return migrateOneImgbbUrl_(v, folder, cache);
+        }
+        if (Object.prototype.toString.call(v) === '[object Array]') {
+          var arr = [];
+          for (var i = 0; i < v.length; i++) arr.push(walk(v[i]));
+          return arr;
+        }
+        if (v && typeof v === 'object') {
+          var out = {};
+          Object.keys(v).forEach(function (k) { out[k] = walk(v[k]); });
+          return out;
+        }
+        return v;
+      }
+      var next = walk(parsed);
+      if (changed) return JSON.stringify(next);
+    } catch (e) {}
+  }
+  return value;
+}
+
+function collectImgbbMigrationTasks_() {
+  var ss = getSS_();
+  var tasks = [];
+  function addSimple(sheetName, row, col, folder) {
+    tasks.push({ kind: 'cell', sheetName: sheetName, row: row, col: col, folder: folder });
+  }
+  function scanSheet(sheetName, cols, folder) {
+    var sheet = ss.getSheetByName(sheetName);
+    if (!sheet || sheet.getLastRow() < 2) return;
+    var rows = sheet.getDataRange().getValues();
+    for (var r = 1; r < rows.length; r++) {
+      for (var c = 0; c < cols.length; c++) {
+        var col = cols[c];
+        var val = rows[r][col - 1];
+        if (!val) continue;
+        if (isImgbbUrl_(val) || (String(val).charAt(0) === '[' && String(val).indexOf('ibb') !== -1) || (String(val).charAt(0) === '{' && String(val).indexOf('ibb') !== -1)) {
+          addSimple(sheetName, r + 1, col, folder);
+        }
+      }
+    }
+  }
+  scanSheet(CLEANING_SHEET, [8], 'cleaning/reports');
+  scanSheet(TASK_PHOTOS_SHEET, [7], 'cleaning/tasks');
+  scanSheet(WEEK_COVERAGE_SHEET, [5], 'cleaning/tasks');
+  scanSheet(CIVIL_JOBS_SHEET, [8], 'jobs/civil');
+  scanSheet(ELECTRICAL_JOBS_SHEET, [8], 'jobs/electrical');
+  scanSheet(HSE_SHEET, [9], 'hse/inspections');
+  [CIVIL_SHEET, ELECTRIC_SHEET, FIRE_SHEET].forEach(function (name) {
+    var folder = 'issues/' + name.toLowerCase().replace('issues', '');
+    scanSheet(name, [9, 10, 19], folder);
+  });
+  var trash = ss.getSheetByName(TRASH_SHEET);
+  if (trash && trash.getLastRow() >= 2) {
+    var trows = trash.getDataRange().getValues();
+    for (var ti = 1; ti < trows.length; ti++) {
+      var json = String(trows[ti][2] || '');
+      if (json.indexOf('ibb') !== -1) tasks.push({ kind: 'trash', row: ti + 1, folder: 'trash' });
+    }
+  }
+  return tasks;
+}
+
+function countImgbbPhotosRemaining() {
+  return { remaining: collectImgbbMigrationTasks_().length };
+}
+
+function migrateImgbbBatch(maxItems) {
+  maxItems = maxItems || 20;
+  var cache = migrationMapFromLog_();
+  var tasks = collectImgbbMigrationTasks_();
+  var ss = getSS_();
+  var migrated = 0;
+  var errors = [];
+  for (var i = 0; i < tasks.length && migrated < maxItems; i++) {
+    var task = tasks[i];
+    try {
+      if (task.kind === 'trash') {
+        var tsheet = ss.getSheetByName(TRASH_SHEET);
+        var trow = tsheet.getRange(task.row, 3).getValue();
+        var nextJson = migrateImgbbValue_(trow, task.folder, cache);
+        if (String(nextJson) !== String(trow)) {
+          tsheet.getRange(task.row, 3).setValue(nextJson);
+          migrated++;
+          logMigration_('trash-row-' + task.row, 'updated', TRASH_SHEET, task.row, 3);
+        }
+        continue;
+      }
+      var sheet = ss.getSheetByName(task.sheetName);
+      var cell = sheet.getRange(task.row, task.col);
+      var oldVal = cell.getValue();
+      var newVal = migrateImgbbValue_(oldVal, task.folder, cache);
+      if (String(newVal) !== String(oldVal)) {
+        cell.setValue(newVal);
+        migrated++;
+        if (isImgbbUrl_(oldVal)) logMigration_(oldVal, newVal, task.sheetName, task.row, task.col);
+      }
+    } catch (e) {
+      errors.push({ task: task, error: String(e.message || e) });
+    }
+  }
+  invalidateReportsCache_();
+  invalidateTaskPhotosCache_('');
+  [CIVIL_SHEET, ELECTRIC_SHEET, FIRE_SHEET, HSE_SHEET].forEach(function (n) { invalidateIssuesCache_(n); });
+  return {
+    ok: true,
+    migrated: migrated,
+    remaining: collectImgbbMigrationTasks_().length,
+    errors: errors
+  };
+}

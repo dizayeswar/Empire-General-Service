@@ -81,6 +81,7 @@
       </div>
     </div>
     <script src="config.js"></script>
+    <script src="assets/empire-storage.js"></script>
     <script src="assets/empire-api.js"></script>
     <script src="assets/empire-auth.js?v=20260712"></script>
     <script src="assets/empire-core.js"></script>
@@ -147,7 +148,8 @@
         function trashIconHtml(){ return '<span class="nav-icon" style="width:13px;height:13px;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>'; }
         function refreshIconHtml(id){ return '<span class="nav-icon spin-icon"'+(id?(' id="'+id+'"'):'')+'>'+REFRESH_ICON+'</span>'; }
         function spinRefreshBtn(btn, ms){ if(!btn) return; var icon=btn.querySelector('.spin-icon'); if(!icon) return; icon.classList.add('spinning'); setTimeout(function(){ icon.classList.remove('spinning'); }, ms||600); }
-        const IMGBB_API_KEY = '273d26dbc835282f5909b5f3e1fb8685';
+        const CLEANING_REPORT_FOLDER = 'cleaning/reports';
+        const CLEANING_TASK_FOLDER = 'cleaning/tasks';
         let allReports = [];
         let analyticsReports = [];
         let currentImages = {};
@@ -248,9 +250,9 @@
         function updateCbIcon(cb){ if(!cb) return; const ic=cb.parentElement && cb.parentElement.querySelector('.cb-icon'); if(!ic) return; ic.innerHTML = cb.checked?CHECK_ICON:SQUARE_ICON; ic.style.color = cb.checked?'#27ae60':'#C5504F'; }
         function updateFloors(p) { try { const bEl=document.getElementById(p+'-building'); if(!bEl) return; const b=bEl.value; const f=floors[p][b]; const c=document.getElementById(p+'-floors'); if(!c || !f) return; c.innerHTML=''; f.forEach(fl=>{const l=document.createElement('label'); l.className='checkbox-item'; const cb=document.createElement('input'); cb.type='checkbox'; cb.value=fl; const ic=document.createElement('span'); ic.className='nav-icon cb-icon'; ic.style.color='#C5504F'; ic.innerHTML=SQUARE_ICON; cb.addEventListener('change', ()=>updateCbIcon(cb)); l.appendChild(cb); l.appendChild(ic); l.appendChild(document.createTextNode(fl)); c.appendChild(l); }); } catch(e) { console.error('Floor error:', e); } }
         function toggleAllFloors(p) { const s=document.getElementById(p+'-selectall').checked; document.querySelectorAll('#'+p+'-floors input[type="checkbox"]').forEach(cb=>{cb.checked=s; updateCbIcon(cb);}); }
-        function uploadToImgbb(file, callback) { const reader = new FileReader(); reader.onload = (e) => { const base64 = e.target.result.split(',')[1]; const formData = new FormData(); formData.append('image', base64); formData.append('key', IMGBB_API_KEY); fetch('https://api.imgbb.com/1/upload', {method: 'POST', body: formData}).then(function(r){ return r.text(); }).then(function(txt){ try { var data=JSON.parse(txt); if(data.success && data.data && data.data.url) callback(data.data.url); else callback(null); } catch(err){ callback(null); } }).catch(function(){ callback(null); }); }; reader.readAsDataURL(file); }
-        function uploadToImgbbAsync(blob){ return new Promise(function(resolve){ uploadToImgbb(blob, resolve); }); }
-        function compressImage(file, callback) { const reader = new FileReader(); reader.onload = (e) => { const img = new Image(); img.onload = () => { const MAX=1600; let w=img.width, h=img.height; if (w>MAX || h>MAX) { const scale=Math.min(MAX/w, MAX/h); w=Math.round(w*scale); h=Math.round(h*scale); } const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h; const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, w, h); canvas.toBlob((blob) => { uploadToImgbb(blob, callback); }, 'image/jpeg', 0.85); }; img.src = e.target.result; }; reader.readAsDataURL(file); }
+        function uploadToImgbb(file, callback) { empireUploadPhoto(file, CLEANING_REPORT_FOLDER, callback); }
+        function uploadToImgbbAsync(blob){ return empireUploadPhotoAsync(blob, CLEANING_TASK_FOLDER); }
+        function compressImage(file, callback) { empireCompressImage(file, CLEANING_REPORT_FOLDER, callback, { maxSize: 1600, quality: 0.85 }); }
         function compressForPreview(file, callback){
           const reader=new FileReader();
           reader.onload=function(e){

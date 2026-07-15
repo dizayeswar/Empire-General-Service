@@ -38,7 +38,7 @@ Web dashboards for Empire World departments: cleaning, civil, electrical, HSE, a
 
 All reports, issues, task photos, and checklists are saved to a **Google Sheet** through Google Apps Script. The browser keeps short-term caches for speed; the sheet is the source of truth.
 
-Photos are uploaded to **ImgBB** from the browser, then the image URL is stored in the sheet.
+Photos are uploaded to **Supabase Storage** from the browser, then the image URL is stored in the sheet. See **[SUPABASE-MIGRATION.md](SUPABASE-MIGRATION.md)** to migrate existing ImgBB photos.
 
 ---
 

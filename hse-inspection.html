@@ -127,6 +127,7 @@
 <div class="modal" id="issueModal" onclick="if(event.target===this)closeIssueModal()"><div class="modal-box" id="issueBox"></div></div>
 <div class="modal" id="imgModal" onclick="closeImg()"><img id="imgBig" style="max-width:92%;max-height:92%;border-radius:10px;"></div>
 <script src="config.js"></script>
+<script src="assets/empire-storage.js"></script>
 <script src="assets/empire-api.js"></script>
 <script src="assets/empire-auth.js"></script>
 <script src="assets/empire-core.js"></script>
@@ -138,7 +139,7 @@ function squareIconHtml(color){ return '<span class="nav-icon" style="color:'+(c
 var TRASH_ICON13='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
 function trashIconHtml(){ return '<span class="nav-icon" style="width:13px;height:13px;">'+TRASH_ICON13+'</span>'; }
 function pencilIconHtml(){ return '<span class="nav-icon" style="width:13px;height:13px;"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg></span>'; }
-const IMGBB_API_KEY = '273d26dbc835282f5909b5f3e1fb8685';
+const HSE_PHOTO_FOLDER = 'hse/inspections';
 const projectNames = {ec:'Empire Complex',es:'Empire Square',wd:'West Diamond',ww:'West Wing',ra:'Royal Apartment'};
 function populateJobFilterSelect(id){ var el=document.getElementById(id); if(!el) return; el.innerHTML='<option value="">All</option>'; jobDepts.forEach(function(v){ var o=document.createElement('option'); o.value=v; o.textContent=v; el.appendChild(o); }); }
 const locations = ['Main entrance','Corridor','Staircase','Service stairs','Parking','Basement','Rooftop','Lobby','Electrical room','Generator room','Kitchen / pantry','Near elevator','Other'];
@@ -185,8 +186,7 @@ let uploadingIssue = false;
 let PAGEPERMS = {};
 function logout(){ empireAuthLogout({ extraKeys: ['hse_issues_cache', 'hse_issues_cache_ts'], redirect: 'index.html', reload: false }); }
 function forceSessionLogout(d){ empireAuthHandleInvalidSession_(d, { extraKeys: ['hse_issues_cache', 'hse_issues_cache_ts'], redirect: 'index.html', reload: false }); }
-function uploadToImgbb(file,cb){ const r=new FileReader(); r.onload=e=>{ const b64=e.target.result.split(',')[1]; const fd=new FormData(); fd.append('image',b64); fd.append('key',IMGBB_API_KEY); fetch('https://api.imgbb.com/1/upload',{method:'POST',body:fd}).then(x=>x.json()).then(d=>{ cb(d.success&&d.data?d.data.url:null); }).catch(()=>cb(null)); }; r.readAsDataURL(file); }
-function compressImage(file,cb){ const r=new FileReader(); r.onload=e=>{ const img=new Image(); img.onload=()=>{ var mx=1400; var s=Math.min(1, mx/Math.max(img.width,img.height)); const c=document.createElement('canvas'); c.width=Math.round(img.width*s); c.height=Math.round(img.height*s); c.getContext('2d').drawImage(img,0,0,c.width,c.height); c.toBlob(b=>uploadToImgbb(b,cb),'image/jpeg',0.7); }; img.src=e.target.result; }; r.readAsDataURL(file); }
+function compressImage(file,cb){ empireCompressImage(file, HSE_PHOTO_FOLDER, cb, { maxSize: 1400, quality: 0.7 }); }
 function processIssuePhoto(file){ if(!file) return; const area=document.getElementById('hi-imageArea'); area.innerHTML='\u23f3 Uploading\u2026'; uploadingIssue=true; compressImage(file,url=>{ uploadingIssue=false; if(url){ currentIssueImage=url; const im=document.getElementById('hi-image'); im.src=url; im.style.display='block'; area.innerHTML=checkIconHtml()+' Photo uploaded'; } else { area.innerHTML='\u274c Upload failed, try again'; } }); }
 function handlePaste(e,which){ const items=e.clipboardData.items; for(let i=0;i<items.length;i++){ if(items[i].type.indexOf('image')!==-1){ e.preventDefault(); processIssuePhoto(items[i].getAsFile()); return; } } }
 function handleIssueFile(e){ const f=e.target.files && e.target.files[0]; if(f) processIssuePhoto(f); e.target.value=''; }

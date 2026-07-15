@@ -777,7 +777,7 @@ function offlineWorkerFixId() {
   return 'wfix-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
 }
 function uploadToImgbbAsync(blob) {
-  return new Promise(function (resolve) { uploadToImgbb(blob, resolve); });
+  return empireUploadPhotoAsync(blob, issuePhotoFolder_());
 }
 async function workerOfflineQueueCount() {
   if (typeof empireOfflineQueueAll !== 'function') return 0;
@@ -1118,7 +1118,7 @@ function processWorkerFixPhoto(file) {
       });
       return;
     }
-    uploadToImgbb(blob, function (url) {
+    empireUploadPhoto(blob, issuePhotoFolder_(), function (url) {
       if (url) finishWithRemote(url);
       else {
         empireOfflineBlobToDataUrl(blob).then(function (dataUrl) {
@@ -1449,7 +1449,10 @@ function issueSelectToolbarHtml() {
   h += '</div></div>';
   return h;
 }
-const IMGBB_API_KEY = '273d26dbc835282f5909b5f3e1fb8685';
+function issuePhotoFolder_() {
+  var d = (typeof ISSUE_CFG !== 'undefined' && ISSUE_CFG.dept) ? ISSUE_CFG.dept : 'general';
+  return 'issues/' + String(d).replace(/\s+/g, '-').toLowerCase();
+}
 const projectNames = {ec:'Empire Complex',es:'Empire Square',wd:'West Diamond',ww:'West Wing',ra:'Royal Apartment'};
 function selectProjectFilter(p){ var fp=document.getElementById('f-project'); if(fp) fp.value=p; renderIssues(); if(window._issueFilterState) window._issueFilterState.save(); }
 const floors = {ec:{EC1:['Ground','F1','F2','F3','F4','F5'],EC2:['Ground','F1','F2','F3','F4','F5'],EC3:['Ground','F1','F2','F3','F4','F5'],EC4:['B1','Ground','F1','F2','F3','F4','F5'],EC5:['B1','Ground','F1','F2','F3','F4','F5'],EC6:['B1','Ground','F1','F2','F3','F4','F5']},es:{ES1:['B1','B2','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12','F13','F14','F15','F16','F17','F18','F19','F20'],ES2:['B1','B2','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12','F13','F14','F15','F16','F17','F18','F19','F20'],ES3:['B1','B2','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12','F13','F14','F15','F16','F17','F18','F19','F20'],ES4:['B1','B2','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12','F13','F14','F15','F16','F17','F18','F19','F20'],ES6:['B1','B2','B3','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12','F13','F14','F15','F16','F17','F18','F19','F20','F21','F22','F23','F24']},wd:{'WD-A':['B1','B2','R','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12','F13','F14','F15','F16','F17','F18','F19','F20','F21'],'WD-B':['B1','B2','R','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12','F13','F14','F15','F16','F17','F18','F19','F20','F21','F22','F23'],'WD-C':['B1','B2','R','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12','F13','F14','F15','F16','F17','F18','F19','F20','F21']},ww:{WW1:['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8'],WW2:['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10'],WW3:['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12'],WW4:['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12','F13','F14'],WW5:['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12','F13','F14','F15','F16'],WW6:['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12','F13','F14','F15','F16','F17','F18'],WW7:['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12','F13','F14','F15','F16','F17','F18','F19','F20'],WW8:['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12','F13','F14','F15','F16','F17','F18','F19','F20','F21','F22'],WW9:['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12','F13','F14','F15','F16','F17','F18','F19','F20','F21','F22','F23','F24'],WW10:['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12','F13','F14','F15','F16','F17','F18','F19','F20','F21','F22','F23','F24','F25','F26'],WW11:['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12','F13','F14','F15','F16','F17','F18','F19','F20','F21','F22','F23','F24','F25','F26'],WW12:['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12','F13','F14','F15','F16','F17','F18','F19','F20','F21','F22','F23','F24','F25','F26','F27','F28','F29','F30'],WW13:['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12','F13','F14','F15','F16','F17','F18','F19','F20','F21','F22','F23','F24','F25','F26','F27','F28','F29','F30'],WW14:['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12','F13','F14','F15','F16','F17','F18','F19','F20','F21','F22','F23','F24','F25','F26','F27','F28','F29','F30'],WW15:['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12','F13','F14','F15','F16','F17','F18','F19','F20','F21','F22','F23','F24','F25','F26','F27','F28','F29','F30']},ra:{'RA-A1':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9'],'RA-A2':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9'],'RA-A3':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9'],'RA-A4':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9'],'RA-A5':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9'],'RA-A6':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9'],'RA-A7':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9'],'RA-A8':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9'],'RA-A9':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9'],'RA-A10':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9'],'RA-A11':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9'],'RA-A12':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9'],'RA-B1':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9'],'RA-B2':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9'],'RA-B3':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9'],'RA-B4':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9'],'RA-B5':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9'],'RA-B6':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9'],'RA-B7':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9'],'RA-B8':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9'],'RA-B9':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9'],'RA-B10':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9'],'RA-B11':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9'],'RA-B12':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9'],'RA-C1':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11'],'RA-C2':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11'],'RA-C3':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11'],'RA-C4':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12'],'RA-C5':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12'],'RA-C6':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11'],'RA-C7':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11'],'RA-C8':['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11']}};
@@ -1512,62 +1515,10 @@ function handleLogin(e){ empireAuthLogin(e, ISSUE_CFG.dept, { onSuccess: functio
 function logout(){ stopWorkerLocationPing(); if(typeof empirePushStopWorker==='function') empirePushStopWorker(); stopEngineerLocationPoll(); empireAuthLogout({ extraKeys: [ISSUES_CACHE_KEY, ISSUES_CACHE_TS_KEY], redirect: 'index.html', reload: false }); }
 function issueSessionLogoutOpts(){ return { extraKeys: [ISSUES_CACHE_KEY, ISSUES_CACHE_TS_KEY], redirect: 'index.html', reload: false }; }
 function forceSessionLogout(d){ return empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts()); }
-var _lastImgbbError = '';
-function uploadToImgbb(file, cb) {
-  _lastImgbbError = '';
-  if (!file) { _lastImgbbError = 'No image data'; cb(null); return; }
-  var r = new FileReader();
-  r.onerror = function () { _lastImgbbError = 'Could not read image file'; cb(null); };
-  r.onload = function (e) {
-    var b64 = (e.target.result || '').split(',')[1];
-    if (!b64) { _lastImgbbError = 'Invalid image format'; cb(null); return; }
-    var fd = new FormData();
-    fd.append('image', b64);
-    fd.append('key', IMGBB_API_KEY);
-    fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: fd })
-      .then(function (x) { return x.text(); })
-      .then(function (txt) {
-        try {
-          var d = JSON.parse(txt);
-          if (d.success && d.data && d.data.url) { cb(d.data.url); return; }
-          _lastImgbbError = (d.error && d.error.message) || d.status_txt || 'ImgBB rejected the upload';
-          cb(null);
-        } catch (err) {
-          _lastImgbbError = 'ImgBB returned an invalid response';
-          cb(null);
-        }
-      })
-      .catch(function (err) {
-        _lastImgbbError = (err && err.message) || 'Network error reaching ImgBB';
-        cb(null);
-      });
-  };
-  r.readAsDataURL(file);
-}
 function compressImage(file, cb) {
-  if (!file) { _lastImgbbError = 'No image selected'; cb(null); return; }
-  var r = new FileReader();
-  r.onerror = function () { _lastImgbbError = 'Could not read image file'; cb(null); };
-  r.onload = function (e) {
-    var img = new Image();
-    img.onerror = function () { _lastImgbbError = 'Could not process image'; cb(null); };
-    img.onload = function () {
-      var mx = 1400;
-      var s = Math.min(1, mx / Math.max(img.width, img.height));
-      var c = document.createElement('canvas');
-      c.width = Math.round(img.width * s);
-      c.height = Math.round(img.height * s);
-      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-      c.toBlob(function (b) {
-        if (!b) { _lastImgbbError = 'Could not compress image'; cb(null); return; }
-        uploadToImgbb(b, cb);
-      }, 'image/jpeg', 0.7);
-    };
-    img.src = e.target.result;
-  };
-  r.readAsDataURL(file);
+  empireCompressImage(file, issuePhotoFolder_(), cb, { maxSize: 1400, quality: 0.7 });
 }
-function processIssuePhoto(file){ if(!file) return; const area=document.getElementById('ci-imageArea'); area.innerHTML='\u23F3 Uploading\u2026'; uploadingIssue=true; compressImage(file,url=>{ uploadingIssue=false; if(url){ currentIssueImage=url; const im=document.getElementById('ci-image'); im.src=url; im.style.display='block'; area.innerHTML='\u2705 Photo uploaded'; } else { area.innerHTML='\u274C ' + (_lastImgbbError || 'Upload failed, try again'); } }); }
+function processIssuePhoto(file){ if(!file) return; const area=document.getElementById('ci-imageArea'); area.innerHTML='\u23F3 Uploading\u2026'; uploadingIssue=true; compressImage(file,url=>{ uploadingIssue=false; if(url){ currentIssueImage=url; const im=document.getElementById('ci-image'); im.src=url; im.style.display='block'; area.innerHTML='\u2705 Photo uploaded'; } else { area.innerHTML='\u274C ' + (_lastEmpireUploadError || 'Upload failed, try again'); } }); }
 function handlePaste(e,which){ const items=e.clipboardData.items; for(let i=0;i<items.length;i++){ if(items[i].type.indexOf('image')!==-1){ e.preventDefault(); processIssuePhoto(items[i].getAsFile()); return; } } }
 function handleIssueFile(e){ const f=e.target.files && e.target.files[0]; if(f) processIssuePhoto(f); e.target.value=''; }
 function populateSelect(id,arr,useKeys){ const el=document.getElementById(id); el.innerHTML=''; arr.forEach(v=>{ const o=document.createElement('option'); if(useKeys){ o.value=v; o.textContent=projectNames[v]; } else { o.value=v; o.textContent=v; } el.appendChild(o); }); }

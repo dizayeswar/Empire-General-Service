@@ -170,12 +170,13 @@
   </div>
 </div>
 <script src="config.js"></script>
+<script src="assets/empire-storage.js"></script>
 <script src="assets/empire-api.js"></script>
 <script src="assets/empire-auth.js"></script>
 <script src="assets/empire-core.js"></script>
 <div class="modal" id="imgModal" onclick="closeImg()"><img id="imgBig" style="max-width:92%;max-height:92%;border-radius:10px;"></div>
 <script>
-const IMGBB = '273d26dbc835282f5909b5f3e1fb8685';
+const JOB_PHOTO_FOLDER = 'jobs/civil';
 let allJobs = [], currentPhoto = '', uploading = false;
 function tok(){ return empireGetToken(); }
 function currentUser(){ return empireGetUser(); }
@@ -197,8 +198,7 @@ function enterApp(){ document.getElementById('loginPage').classList.remove('show
 function refreshPerms(){ var now=Date.now(); if(now-(_lastPermFetch||0)<300000) return; _lastPermFetch=Date.now(); empireAuthRefreshPerms(function(){ applyPerms(); }); }
 var _lastPermFetch=0;
 window.addEventListener('load',()=>{ empireAuthPageBoot({ dept: 'civil department', onEnter: enterApp }); });
-function uploadToImgbb(file,cb){ var r=new FileReader(); r.onload=e=>{ var b64=e.target.result.split(',')[1]; var fd=new FormData(); fd.append('image',b64); fd.append('key',IMGBB); fetch('https://api.imgbb.com/1/upload',{method:'POST',body:fd}).then(x=>x.json()).then(d=>{ cb(d.success&&d.data?d.data.url:null); }).catch(()=>cb(null)); }; r.readAsDataURL(file); }
-function compressImage(file,cb){ var r=new FileReader(); r.onload=e=>{ var img=new Image(); img.onload=()=>{ var c=document.createElement('canvas'); c.width=img.width*0.6; c.height=img.height*0.6; c.getContext('2d').drawImage(img,0,0,c.width,c.height); c.toBlob(b=>uploadToImgbb(b,cb),'image/jpeg',0.7); }; img.src=e.target.result; }; r.readAsDataURL(file); }
+function compressImage(file,cb){ empireCompressImage(file, JOB_PHOTO_FOLDER, cb, { maxSize: 1400, quality: 0.7 }); }
 function processPhoto(file){ if(!file)return; document.getElementById('j-imageArea').innerHTML='⏳ Uploading…'; uploading=true; compressImage(file,url=>{ uploading=false; if(url){ currentPhoto=url; document.getElementById('j-image').src=url; document.getElementById('j-image').style.display='block'; document.getElementById('j-imageArea').innerHTML='✅ Photo uploaded'; } else { document.getElementById('j-imageArea').innerHTML='❌ Upload failed, try again'; } }); }
 function handleJobFile(e){ var f=e.target.files&&e.target.files[0]; if(f)processPhoto(f); e.target.value=''; }
 function handleJobPaste(e){ var items=e.clipboardData.items; for(var i=0;i<items.length;i++){ if(items[i].type.indexOf('image')!==-1){ e.preventDefault(); processPhoto(items[i].getAsFile()); return; } } }

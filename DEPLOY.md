@@ -13,7 +13,7 @@ Use this guide when you update the frontend (GitHub Pages) or backend (Google Ap
 | **Frontend** | HTML, CSS, JS dashboards | GitHub → GitHub Pages |
 | **Backend API** | Login, save reports, issues, task photos | Google Apps Script (`empire-all-in-one.gs`) |
 | **Database** | All operational data | Google Sheet (linked in the script) |
-| **Photos** | Image hosting | ImgBB (uploaded from the browser) |
+| **Photos** | Image hosting | Supabase Storage (see [SUPABASE-MIGRATION.md](SUPABASE-MIGRATION.md)) |
 
 The frontend calls the Apps Script URL in `config.js`. Data is **not** stored only in the browser — it is saved to Google Sheets via the API.
 
