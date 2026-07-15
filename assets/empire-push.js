@@ -170,6 +170,9 @@
       .catch(function () {});
   }
 
+  var _lastNotifyKey = '';
+  var _lastNotifyTime = 0;
+
   function notifyViaServiceWorker(title, body) {
     if (!('serviceWorker' in navigator)) return;
     var send = function (reg) {
@@ -191,19 +194,27 @@
 
   function showAssignNotification(count, body) {
     var title = count === 1 ? 'New job assigned' : count + ' new jobs assigned';
-    if ('Notification' in window && Notification.permission === 'granted') {
-      try {
-        var n = new Notification(title, {
-          body: body || 'Open the app to view details.',
-          icon: './icons/icon-192.png',
-          badge: './icons/icon-192.png',
-          tag: 'empire-assign',
-          renotify: true
-        });
-        n.onclick = function () { window.focus(); n.close(); };
-      } catch (e) {}
-      notifyViaServiceWorker(title, body);
+    var text = body || 'Open the app to view details.';
+    var key = title + '|' + text;
+    var now = Date.now();
+    if (key === _lastNotifyKey && now - _lastNotifyTime < 10000) return;
+    _lastNotifyKey = key;
+    _lastNotifyTime = now;
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    if ('serviceWorker' in navigator) {
+      notifyViaServiceWorker(title, text);
+      return;
     }
+    try {
+      var n = new Notification(title, {
+        body: text,
+        icon: './icons/icon-192.png',
+        badge: './icons/icon-192.png',
+        tag: 'empire-job',
+        renotify: true
+      });
+      n.onclick = function () { window.focus(); n.close(); };
+    } catch (e) {}
   }
 
   function startIssuePollFallback() {
@@ -311,8 +322,10 @@
     try {
       if (!firebase.apps || !firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
       firebase.messaging().onMessage(function (payload) {
-        var n = payload && payload.notification;
-        if (n) showAssignNotification(1, n.body || '');
+        var data = payload && payload.data;
+        var title = (data && data.title) || (payload.notification && payload.notification.title) || 'New job assigned';
+        var body = (data && data.body) || (payload.notification && payload.notification.body) || '';
+        showAssignNotification(1, body || title);
       });
     } catch (e) {}
   }

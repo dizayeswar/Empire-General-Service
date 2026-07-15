@@ -1704,19 +1704,17 @@ function fcmDataStrings_(data) {
   return out;
 }
 function buildFcmMessagePayload_(fcmToken, title, body, data) {
-  var icon = 'https://dizayeswar.github.io/Empire-General-Service/icons/icon-192.png';
   var link = 'https://dizayeswar.github.io/Empire-General-Service/civil-issue.html';
   var fcmData = fcmDataStrings_(data || {});
   fcmData.title = String(title || 'New job assigned');
   fcmData.body = String(body || '');
+  // Data-only: avoids duplicate notifications (FCM auto-display + onBackgroundMessage).
   return {
     message: {
       token: fcmToken,
-      notification: { title: title, body: body },
       data: fcmData,
       webpush: {
         headers: { Urgency: 'high', TTL: '86400' },
-        notification: { title: title, body: body, icon: icon, tag: 'empire-job' },
         fcm_options: { link: link }
       }
     }
@@ -1786,13 +1784,10 @@ function sendFcmToWorkerDetailed_(fcmToken, title, body, data) {
     var legacyPayload = {
       to: fcmToken,
       priority: 'high',
-      notification: {
-        title: title,
-        body: body,
-        icon: 'https://dizayeswar.github.io/Empire-General-Service/icons/icon-192.png',
-        click_action: 'https://dizayeswar.github.io/Empire-General-Service/civil-issue.html'
-      },
-      data: fcmDataStrings_(data)
+      data: fcmDataStrings_(Object.assign({}, data || {}, {
+        title: String(title || 'New job assigned'),
+        body: String(body || '')
+      }))
     };
     var legacyResp = UrlFetchApp.fetch('https://fcm.googleapis.com/fcm/send', {
       method: 'post',

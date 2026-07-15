@@ -1,5 +1,5 @@
 /* Empire EGS — service worker (cache + Firebase background push) */
-var CACHE_VERSION = '2026-07-15-push-v2.1';
+var CACHE_VERSION = '2026-07-15-push-v2.2';
 var CACHE_NAME = 'empire-egs-' + CACHE_VERSION;
 var NOTIFY_ICON = 'https://dizayeswar.github.io/Empire-General-Service/icons/icon-192.png';
 var NOTIFY_URL = 'https://dizayeswar.github.io/Empire-General-Service/civil-issue.html';
@@ -11,10 +11,9 @@ importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-com
 if (typeof FIREBASE_SW_CONFIG !== 'undefined' && FIREBASE_SW_CONFIG && FIREBASE_SW_CONFIG.apiKey) {
   firebase.initializeApp(FIREBASE_SW_CONFIG);
   firebase.messaging().onBackgroundMessage(function (payload) {
-    var note = payload && payload.notification;
     var data = payload && payload.data;
-    var title = (note && note.title) || (data && data.title) || 'New job assigned';
-    var body = (note && note.body) || (data && data.body) || '';
+    var title = (data && data.title) || 'New job assigned';
+    var body = (data && data.body) || '';
     return self.registration.showNotification(title, {
       body: body,
       icon: NOTIFY_ICON,
@@ -70,7 +69,7 @@ self.addEventListener('message', function (event) {
     icon: NOTIFY_ICON,
     badge: NOTIFY_ICON,
     data: { url: event.data.url || NOTIFY_URL },
-    tag: 'empire-job-local',
+    tag: 'empire-job',
     renotify: true
   }));
 });
