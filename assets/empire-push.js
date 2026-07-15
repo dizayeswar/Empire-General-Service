@@ -1,4 +1,4 @@
-/* Empire EGS — worker push notifications (clean rewrite, push-v2) */
+/* Empire EGS — worker job-assignment push (one-time setup, hidden from daily UI) */
 (function () {
   var API_TIMEOUT_MS = 90000;
   var _knownJobIds = null;
@@ -34,9 +34,25 @@
       window.matchMedia('(display-mode: minimal-ui)').matches;
   }
 
-  function setStatus(text) {
-    var el = document.getElementById('workerPushStatus');
-    if (el && text) el.textContent = text;
+  function pushSetupKey() {
+    return 'empire_push_ok_' + username();
+  }
+
+  function isPushSetupDone() {
+    try { return localStorage.getItem(pushSetupKey()) === '1'; } catch (e) { return false; }
+  }
+
+  function markPushSetupDone() {
+    try { localStorage.setItem(pushSetupKey(), '1'); } catch (e) {}
+  }
+
+  function hidePushUi() {
+    var bar = document.getElementById('workerPushBar');
+    if (bar) {
+      bar.style.display = 'none';
+      bar.setAttribute('aria-hidden', 'true');
+    }
+    setBanner('', false);
   }
 
   function setBanner(text, showBtn) {
@@ -50,9 +66,14 @@
     el.style.display = 'block';
     var html = '<span class="worker-loc-banner-text">' + text + '</span>';
     if (showBtn) {
-      html += ' <button type="button" class="worker-loc-enable-btn" onclick="empirePushEnableAlerts()">Enable alerts</button>';
+      html += ' <button type="button" class="worker-loc-enable-btn" onclick="empirePushEnableAlerts()">Allow notifications</button>';
     }
     el.innerHTML = html;
+  }
+
+  function showPushSetupPrompt() {
+    if (isPushSetupDone()) return;
+    setBanner('Get notified when a new job is assigned to you.', true);
   }
 
   function api(body) {
@@ -108,22 +129,14 @@
     });
   }
 
-  function saveTokenToServer(fcmToken) {
+  function saveTokenToServer(fcmToken, silent) {
     if (!fcmToken || !window.ISSUE_CFG || !ISSUE_CFG.actions || !ISSUE_CFG.actions.savePushToken) {
       return Promise.resolve(false);
     }
     var token = sessionToken();
-    if (!token) {
-      setStatus('Not logged in — log out and sign in again.');
-      return Promise.resolve(false);
-    }
+    if (!token) return Promise.resolve(false);
     pauseBackground();
-    var elapsed = 0;
-    var ticker = setInterval(function () {
-      elapsed += 3;
-      setStatus('Saving to server… (' + elapsed + 's, can take up to 90s)');
-    }, 3000);
-    setStatus('Saving to server…');
+    if (!silent) setBanner('Setting up notifications…', false);
     return api({
       action: ISSUE_CFG.actions.savePushToken,
       token: token,
@@ -133,26 +146,28 @@
     }).then(function (d) {
       if (d && (d.ok || d.success)) {
         _lastSaveError = '';
-        setStatus('Alerts enabled — tap Send test, then lock your phone.');
-        setBanner('', false);
+        markPushSetupDone();
+        hidePushUi();
+        startIssuePollFallback();
         return true;
       }
       _lastSaveError = String((d && (d.message || d.error)) || 'server error');
-      if (d && d.error === 'Invalid token') {
-        setStatus('Session expired — log out, log in, then Enable alerts.');
-      } else if (d && d.error === 'Unknown action') {
-        setStatus('Backend old — redeploy Apps Script (version push-v2).');
-      } else {
-        setStatus('Save failed: ' + _lastSaveError);
+      if (!silent) {
+        setBanner('Could not enable alerts. Tap to try again.', true);
       }
       return false;
     }).catch(function (e) {
       _lastSaveError = String((e && e.message) || 'network error');
-      setStatus('Save failed: ' + _lastSaveError);
+      if (!silent) setBanner('Could not enable alerts. Tap to try again.', true);
       return false;
-    }).finally(function () {
-      clearInterval(ticker);
     });
+  }
+
+  function finishSetupSilently() {
+    if (!pushConfigured() || Notification.permission !== 'granted') return;
+    getFcmToken()
+      .then(function (t) { return t ? saveTokenToServer(t, true) : false; })
+      .catch(function () {});
   }
 
   function notifyViaServiceWorker(title, body) {
@@ -230,126 +245,66 @@
   };
 
   window.empirePushEnableAlerts = function () {
-    if (!('Notification' in window)) {
-      setStatus('Notifications not supported in this browser.');
-      return;
-    }
-    if (!isStandaloneApp()) {
-      setStatus('Install to Home Screen first, then open from the icon.');
-      return;
-    }
+    if (!('Notification' in window)) return;
+    if (!isStandaloneApp()) return;
     pauseBackground();
-    setStatus('Requesting permission…');
+    setBanner('Setting up notifications…', false);
     withTimeout(Notification.requestPermission(), 15000, 'Permission')
       .then(function (perm) {
         if (perm !== 'granted') {
-          setStatus(perm === 'denied' ? 'Blocked — allow notifications in phone Settings.' : 'Tap Allow when prompted.');
+          hidePushUi();
           return;
         }
-        setStatus('Getting push token…');
         return getFcmToken().then(function (token) {
           if (!token) {
-            setStatus('No push token — try again or reinstall from Home Screen.');
+            setBanner('Could not enable alerts. Tap to try again.', true);
             return;
           }
-          return saveTokenToServer(token).then(function (ok) {
-            if (ok) startIssuePollFallback();
-          });
+          return saveTokenToServer(token, false);
         });
       })
-      .catch(function (e) {
-        setStatus('Failed: ' + ((e && e.message) || 'unknown error'));
+      .catch(function () {
+        setBanner('Could not enable alerts. Tap to try again.', true);
       });
   };
 
   window.empirePushInitWorker = function () {
     if (!isWorkerView()) return;
     stopIssuePollFallback();
-    var ver = (typeof APP_VERSION !== 'undefined') ? APP_VERSION : '?';
-    var mode = isStandaloneApp() ? 'Installed app' : 'Browser — install to Home Screen';
-    setStatus(mode + ' · v' + ver + ' · Tap Enable alerts');
-    if (Notification.permission === 'granted') startIssuePollFallback();
+    hidePushUi();
+    if (!pushConfigured() || !('Notification' in window)) return;
+
+    if (isPushSetupDone()) {
+      if (Notification.permission === 'granted') {
+        startIssuePollFallback();
+        finishSetupSilently();
+      }
+      return;
+    }
+
+    if (Notification.permission === 'granted') {
+      finishSetupSilently();
+      return;
+    }
+
+    if (!isStandaloneApp() || Notification.permission !== 'default') return;
+    showPushSetupPrompt();
   };
 
   window.empirePushStopWorker = function () {
     stopIssuePollFallback();
-    setBanner('');
+    hidePushUi();
   };
 
-  window.empirePushTestAlert = function () {
-    if (!ISSUE_CFG || !ISSUE_CFG.actions || !ISSUE_CFG.actions.testPush) {
-      setStatus('Update app — test not available.');
-      return;
-    }
-    pauseBackground();
-    setStatus('Sending test… lock your phone now.');
-    api({ action: ISSUE_CFG.actions.testPush, token: sessionToken(), username: username() })
-      .then(function (d) {
-        if (d && (d.ok || d.success)) {
-          setStatus('Test sent — check lock screen in ~10 sec.');
-          return;
-        }
-        setStatus('Test failed: ' + ((d && (d.message || d.error)) || 'unknown'));
-      })
-      .catch(function (e) {
-        setStatus('Test failed: ' + ((e && e.message) || 'network'));
-      });
-  };
-
-  window.empirePushDebug = function () {
-    if (!ISSUE_CFG || !ISSUE_CFG.actions || !ISSUE_CFG.actions.debugPush) {
-      setStatus('Update app + redeploy backend (push-v2).');
-      return;
-    }
-    pauseBackground();
-    setStatus('Diagnose running…');
-    var localPart = 'Local:?';
-    var savePart = 'Save:?';
-    var chain = Promise.resolve();
-    if (Notification.permission === 'granted' && pushConfigured()) {
-      chain = getFcmToken()
-        .then(function (t) {
-          localPart = 'Local:' + (t ? 'yes' : 'NO');
-          if (!t) return false;
-          return saveTokenToServer(t).then(function (ok) {
-            savePart = 'Save:' + (ok ? 'OK' : ('FAIL ' + (_lastSaveError || '?')));
-            return ok;
-          });
-        })
-        .catch(function (e) {
-          localPart = 'Local:FAIL';
-          savePart = 'Save:FAIL ' + ((e && e.message) || '');
-          return false;
-        });
-    }
-    chain.then(function () {
-      return api({ action: ISSUE_CFG.actions.debugPush, token: sessionToken(), username: username() });
-    }).then(function (d) {
-      if (!d || d.ok === false) {
-        setStatus('Diagnose failed: ' + ((d && (d.message || d.error)) || 'unknown'));
-        return;
-      }
-      setStatus(
-        'App:' + (isStandaloneApp() ? 'installed' : 'BROWSER') +
-        ' · Perm:' + (Notification.permission || '?') +
-        ' · ' + localPart +
-        ' · ' + savePart +
-        ' · Server:' + (d.hasToken ? 'yes' : 'NO') +
-        ' · FCM:' + (d.fcmAuth ? 'OK' : 'FAIL') +
-        ' · Send:' + (d.fcmSend || '?') +
-        ' · Backend:' + (d.version || '?')
-      );
-    }).catch(function (e) {
-      setStatus('Diagnose failed: ' + ((e && e.message) || 'server unreachable'));
-    });
-  };
-
-  /** Call after login if permission already granted — saves token without extra UI step. */
   window.empirePushTrySaveAfterLogin = function () {
-    if (!isWorkerView() || Notification.permission !== 'granted' || !pushConfigured()) return;
-    getFcmToken().then(function (t) {
-      if (t) saveTokenToServer(t);
-    }).catch(function () {});
+    if (!isWorkerView() || !pushConfigured()) return;
+    if (isPushSetupDone() && Notification.permission === 'granted') {
+      finishSetupSilently();
+      return;
+    }
+    if (Notification.permission === 'granted') {
+      finishSetupSilently();
+    }
   };
 
   if (typeof firebase !== 'undefined' && firebase.messaging && pushConfigured()) {
