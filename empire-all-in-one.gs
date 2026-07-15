@@ -20,7 +20,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-15-push20';
+var SCRIPT_VERSION = '2026-07-15-push-v2';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -152,18 +152,9 @@ function doPost(e) {
     var body = JSON.parse(e.postData.contents);
     var action = body.action;
     // Fast path: push actions must not wait on spreadsheet locks / password rechecks.
-    if (action === 'saveWorkerPushToken') return respond(handleSaveWorkerPushTokenFast_(body));
-    if (action === 'warmPushAuth') return respond(handleWarmPushAuth_(body));
-    if (action === 'debugWorkerPush') {
-      var dbgAuth = verifyTokenForPushSave_(body && body.token, body);
-      if (!dbgAuth.ok) return respond(dbgAuth);
-      return respond(handleDebugWorkerPush(body, dbgAuth));
-    }
-    if (action === 'testWorkerPush') {
-      var tstAuth = verifyTokenForPushSave_(body && body.token, body);
-      if (!tstAuth.ok) return respond(tstAuth);
-      return respond(handleTestWorkerPush(body, tstAuth));
-    }
+    if (action === 'saveWorkerPushToken') return respond(handleSaveWorkerPushToken_(body));
+    if (action === 'testWorkerPush') return respond(handleTestWorkerPush_(body));
+    if (action === 'debugWorkerPush') return respond(handleDebugWorkerPush_(body));
     if (action === 'login' || action === 'verifyLogin') return respond(handleLogin(body));
     if (action === 'getPerms') return respond(handleGetPerms(body));
     if (action === 'getSummary') return respond(handleGetSummary(body));
@@ -187,15 +178,7 @@ function doPost(e) {
     var trashActions = {getTrash:1, restoreTrash:1, purgeTrash:1, getUiSettings:1, saveUiSettings:1};
     var requiredDept = trashActions[action] ? body.dept : deptByAction[action];
     if (!requiredDept) return respond({ok:false,error:'Unknown action'});
-    var auth;
-    if (action === 'saveWorkerPushToken' || action === 'debugWorkerPush' || action === 'testWorkerPush') {
-      auth = verifyTokenSession_(body.token);
-      if (auth.ok && requiredDept && !tokenDeptAllows_(String(auth.dept || ''), requiredDept)) {
-        auth = {ok:false, error:'This login is not allowed for this section'};
-      }
-    } else {
-      auth = verifyToken(body.token, requiredDept);
-    }
+    var auth = verifyToken(body.token, requiredDept);
     if (!auth.ok) return respond(auth);
     body.username = auth.username;
     body._authRole = String(auth.role || '').toLowerCase();
@@ -232,9 +215,6 @@ function doPost(e) {
     if (action==='updateCivilIssue') return respond(handleUpdateIssue(body, CIVIL_SHEET));
     if (action==='getCivilIssues') return respond(handleGetIssues(body, CIVIL_SHEET, auth));
     if (action==='assignCivilIssue') return respond(handleAssignCivilIssue(body, auth));
-    if (action==='saveWorkerPushToken') return respond(handleSaveWorkerPushToken(body, auth));
-    if (action==='testWorkerPush') return respond(handleTestWorkerPush(body, auth));
-    if (action==='debugWorkerPush') return respond(handleDebugWorkerPush(body, auth));
     if (action==='reportWorkerLocation') return respond(handleReportWorkerLocation(body, auth));
     if (action==='getWorkerLocations') return respond(handleGetWorkerLocations(body, auth));
     if (action==='markCivilFixed') return respond(handleMarkFixed(body, CIVIL_SHEET, auth));
@@ -677,7 +657,12 @@ function handleLogin(body) {
       var tsheet = ss.getSheetByName(TOKENS_SHEET) || ss.insertSheet(TOKENS_SHEET);
       tsheet.appendRow([token, username, tokenDept, new Date().getTime(), rp.role, passwordDigest_(upass)]);
       rememberPushAuth_(token, username, tokenDept, rp.role);
-      return {ok:true,success:true,token:token,username:username,dept:tokenDept,role:rp.role,perms:rp.perms,projects:projects,trade:trade,message:'Login successful'};
+      var loginResult = {ok:true,success:true,token:token,username:username,dept:tokenDept,role:rp.role,perms:rp.perms,projects:projects,trade:trade,message:'Login successful'};
+      var loginFcm = String(body.fcmToken || body.pushToken || '').trim();
+      if (loginFcm && rp.role === 'worker') {
+        try { persistWorkerPushToken_(username, loginFcm, String(body.platform || 'web-fcm')); } catch (e) {}
+      }
+      return loginResult;
     }
   }
   return {ok:false,success:false,message:'Invalid username or password',error:'Invalid username, password, or department'};
@@ -1523,86 +1508,89 @@ function isKnownCivilWorker_(username) {
   username = String(username || '').trim().toLowerCase();
   return !!(username && CIVIL_WORKER_TEAM[username]);
 }
-function handleWarmPushAuth_(body) {
-  var token = String((body && body.token) || '');
-  var username = String((body && body.username) || '').trim().toLowerCase();
-  if (!token || token.length < 20) return {ok:false, error:'No token'};
-  if (!username || !isKnownCivilWorker_(username)) {
-    return {ok:false, error:'not_allowed', message:'Not a civil worker account.'};
-  }
-  rememberPushAuth_(token, username, 'civil issue', 'worker');
-  return {ok:true, success:true, version:SCRIPT_VERSION, warmed:true};
-}
-/** Auth for push save — Script properties + cache only (never open spreadsheet). */
-function verifyTokenForPushSave_(token, body) {
+/** Fast session lookup for push (cache/properties first, spreadsheet only if needed). */
+function pushSessionAuth_(token) {
   if (!token) return {ok:false, error:'No token'};
-  var tkey = tokenCacheKey_(token);
   try {
     var prop = PropertiesService.getScriptProperties().getProperty(pushAuthPropKey_(token));
     if (prop) {
       var p = JSON.parse(prop);
       if (p && p.username) {
-        return {ok:true, username:p.username, role:String(p.role||''), dept:String(p.dept||'')};
+        return enrichAuthRole_({
+          ok: true,
+          username: p.username,
+          dept: String(p.dept || '').trim().toLowerCase(),
+          role: String(p.role || '').trim().toLowerCase()
+        });
       }
     }
   } catch (e) {}
   try {
-    var hit = CacheService.getScriptCache().get(tkey);
+    var hit = CacheService.getScriptCache().get(tokenCacheKey_(token));
     if (hit) {
-      var cached = JSON.parse(hit);
-      if (cached && cached.username) {
-        return {
-          ok: true,
-          username: cached.username,
-          role: String(cached.role || ''),
-          dept: String(cached.dept || '')
-        };
-      }
+      var cached = sessionCacheValid_(JSON.parse(hit), '');
+      if (cached && cached.ok !== false && cached.username) return enrichAuthRole_(cached);
     }
   } catch (e) {}
-  var guessUser = String((body && body.username) || '').trim().toLowerCase();
-  if (guessUser && isKnownCivilWorker_(guessUser)) {
-    try {
-      var storedTok = PropertiesService.getScriptProperties().getProperty('worker_sess_' + guessUser);
-      if (storedTok && String(storedTok) === String(token)) {
-        return {ok:true, username:guessUser, role:'worker', dept:'civil issue'};
+  return verifyTokenSession_(token);
+}
+function persistWorkerPushToken_(username, fcmToken, platform) {
+  username = String(username || '').trim().toLowerCase();
+  fcmToken = String(fcmToken || '').trim();
+  platform = String(platform || 'web-fcm').trim();
+  var now = new Date().toISOString();
+  var rec = {username: username, fcmToken: fcmToken, platform: platform, updatedAt: now};
+  PropertiesService.getScriptProperties().setProperty(workerPushPropKey_(username), JSON.stringify(rec));
+  var sheetSaved = false;
+  try {
+    var ss = getSS_();
+    var sheet = ss.getSheetByName(WORKER_PUSH_SHEET) || ss.insertSheet(WORKER_PUSH_SHEET);
+    ensureWorkerPushSheet_(sheet);
+    var rows = sheet.getDataRange().getValues();
+    var found = false;
+    for (var i = 1; i < rows.length; i++) {
+      if (String(rows[i][0] || '').trim().toLowerCase() === username) {
+        sheet.getRange(i + 1, 2, 1, 3).setValues([[fcmToken, platform, now]]);
+        found = true;
+        break;
       }
-    } catch (e) {}
-  }
+    }
+    if (!found) sheet.appendRow([username, fcmToken, platform, now]);
+    sheetSaved = true;
+  } catch (e) {}
   return {
-    ok: false,
-    error: 'session_expired',
-    message: 'Log out, sign in again, wait 5 sec, then tap Enable alerts.'
+    ok: true,
+    success: true,
+    updatedAt: now,
+    version: SCRIPT_VERSION,
+    username: username,
+    sheetSaved: sheetSaved
   };
 }
-function handleSaveWorkerPushTokenFast_(body) {
-  try {
-    var auth = verifyTokenForPushSave_(body && body.token, body);
-    if (!auth.ok) return auth;
-    var username = String(auth.username || '').trim().toLowerCase();
-    if (!username) return {ok:false, error:'not_authenticated'};
-    var role = String(auth.role || '').toLowerCase();
-    if (role !== 'worker' && !isKnownCivilWorker_(username)) {
-      return {ok:false, error:'not_allowed', message:'Only worker accounts can register. Role=' + (role || 'empty')};
-    }
-    var fcmToken = String((body && (body.fcmToken || body.pushToken)) || '').trim();
-    if (!fcmToken) return {ok:false, error:'missing_token', message:'Missing push token.'};
-    var platform = String((body && body.platform) || 'web-fcm').trim();
-    var now = new Date().toISOString();
-    var rec = {username:username, fcmToken:fcmToken, platform:platform, updatedAt:now};
-    PropertiesService.getScriptProperties().setProperty(workerPushPropKey_(username), JSON.stringify(rec));
-    return {ok:true, success:true, updatedAt:now, version:SCRIPT_VERSION, storedAs:workerPushPropKey_(username)};
-  } catch (e) {
-    return {ok:false, error:'save_failed', message:String(e && e.message ? e.message : e), version:SCRIPT_VERSION};
+function handleSaveWorkerPushToken_(body) {
+  var auth = pushSessionAuth_(body && body.token);
+  if (!auth.ok) return auth;
+  var username = String(auth.username || '').trim().toLowerCase();
+  var role = String(auth.role || '').toLowerCase();
+  if (role !== 'worker' && !isKnownCivilWorker_(username)) {
+    return {ok:false, error:'not_allowed', message:'Only worker accounts can register push alerts.'};
   }
+  if (!tokenDeptAllows_(String(auth.dept || ''), 'civil issue')) {
+    return {ok:false, error:'This login is not allowed for this section'};
+  }
+  var fcmToken = String((body && (body.fcmToken || body.pushToken)) || '').trim();
+  if (!fcmToken) return {ok:false, error:'missing_token', message:'Missing push token.'};
+  return persistWorkerPushToken_(username, fcmToken, String((body && body.platform) || 'web-fcm'));
 }
-function handleSaveWorkerPushToken(body, auth) {
-  return handleSaveWorkerPushTokenFast_({
-    token: body && body.token,
-    username: body && body.username,
-    fcmToken: body && (body.fcmToken || body.pushToken),
-    platform: body && body.platform
-  });
+function handleTestWorkerPush_(body) {
+  var auth = pushSessionAuth_(body && body.token);
+  if (!auth.ok) return auth;
+  return handleTestWorkerPush(body, auth);
+}
+function handleDebugWorkerPush_(body) {
+  var auth = pushSessionAuth_(body && body.token);
+  if (!auth.ok) return auth;
+  return handleDebugWorkerPush(body, auth);
 }
 function getWorkerPushTokens_(usernames) {
   var want = {};
@@ -1765,7 +1753,8 @@ function handleDebugWorkerPush(body, auth) {
     hasToken: hasToken,
     fcmAuth: fcmAuth,
     fcmSend: fcmSend,
-    username: username
+    username: username,
+    version: SCRIPT_VERSION
   };
 }
 function sendFcmToWorkerDetailed_(fcmToken, title, body, data) {
