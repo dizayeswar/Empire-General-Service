@@ -107,44 +107,26 @@
   }
 
   function postToScript(body, timeoutMs) {
-    timeoutMs = timeoutMs || 25000;
-    if (typeof fetchJSONRetry === 'function') {
-      return fetchJSONRetry(body, 1, timeoutMs);
-    }
+    timeoutMs = timeoutMs || 20000;
     var url = GOOGLE_SCRIPT_URL;
     var payload = JSON.stringify(body);
-    return new Promise(function (resolve, reject) {
+    var request = new Promise(function (resolve, reject) {
       var xhr = new XMLHttpRequest();
-      var done = false;
-      function finish(fn, val) {
-        if (done) return;
-        done = true;
-        fn(val);
-      }
-      var timer = setTimeout(function () {
-        try { xhr.abort(); } catch (e) {}
-        finish(reject, new Error('Server timed out after ' + Math.round(timeoutMs / 1000) + 's'));
-      }, timeoutMs);
       xhr.open('POST', url, true);
       xhr.setRequestHeader('Content-Type', 'text/plain;charset=utf-8');
       xhr.onload = function () {
-        clearTimeout(timer);
         try {
-          finish(resolve, JSON.parse(xhr.responseText || '{}'));
+          resolve(JSON.parse(xhr.responseText || '{}'));
         } catch (e) {
-          finish(reject, new Error('Invalid server response — redeploy Apps Script'));
+          reject(new Error('Invalid server response — redeploy Apps Script'));
         }
       };
       xhr.onerror = function () {
-        clearTimeout(timer);
-        finish(reject, new Error('Network error reaching Google server'));
-      };
-      xhr.onabort = function () {
-        clearTimeout(timer);
-        finish(reject, new Error('Request cancelled'));
+        reject(new Error('Network error reaching Google server'));
       };
       xhr.send(payload);
     });
+    return withTimeout(request, timeoutMs, 'Server save');
   }
 
   function saveFcmToken(fcmToken) {
@@ -162,29 +144,33 @@
     var slowTimer = setInterval(function () {
       var sec = Math.round((Date.now() - started) / 1000);
       setWorkerPushStatus('Still saving… ' + sec + 's');
-    }, 3000);
+    }, 2000);
     setWorkerPushStatus('Checking server version…');
     return pingScriptVersion()
       .then(function (info) {
         var ver = info && info.version ? String(info.version) : '';
-        if (ver && ver.indexOf('push11') === -1 && ver.indexOf('push10') === -1) {
-          setWorkerPushStatus('Backend old (' + ver + ') — redeploy Apps Script New version');
+        if (ver && ver.indexOf('push12') === -1 && ver.indexOf('push11') === -1) {
+          setWorkerPushStatus('Backend old (' + (ver || '?') + ') — paste Code.gs + Deploy New version');
           return false;
         }
-        setWorkerPushStatus(ver ? ('Saving… backend ' + ver) : 'Saving token to server…');
+        setWorkerPushStatus(ver ? ('Saving… ' + ver) : 'Saving token to server…');
         return postToScript({
           action: act,
           fcmToken: fcmToken,
           platform: 'web-fcm',
           token: session
-        }, 25000);
+        }, 20000);
       })
       .then(function (d) {
         if (d === false) return false;
         if (d && (d.ok || d.success)) {
-          setWorkerPushStatus('Alerts enabled. Tap Send test, then lock your phone.');
+          setWorkerPushStatus('Alerts enabled (' + (d.storedAs || 'ok') + '). Tap Send test.');
           setWorkerPushBanner('', false);
           return true;
+        }
+        if (d && d.error === 'session_expired') {
+          setWorkerPushStatus('Session expired — log out, log in, Enable alerts again.');
+          return false;
         }
         if (d && d.error === 'Unknown action') {
           setWorkerPushStatus('Could not register: redeploy Apps Script (New version).');

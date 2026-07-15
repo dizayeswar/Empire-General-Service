@@ -20,7 +20,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-14-push11';
+var SCRIPT_VERSION = '2026-07-14-push12';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -1472,7 +1472,7 @@ function ensureWorkerPushSheet_(sheet) {
 function workerPushPropKey_(username) {
   return 'worker_push_' + String(username || '').trim().toLowerCase();
 }
-/** Cache-first auth for push save — never rewrites Tokens/Users sheets. */
+/** Cache-only auth for push save — never opens SpreadsheetApp (avoids lock hangs). */
 function verifyTokenForPushSave_(token) {
   if (!token) return {ok:false, error:'No token'};
   var cache = CacheService.getScriptCache();
@@ -1491,44 +1491,29 @@ function verifyTokenForPushSave_(token) {
       }
     }
   } catch (e) {}
-  try {
-    var ss = getSS_();
-    var tsheet = ss.getSheetByName(TOKENS_SHEET);
-    if (!tsheet || tsheet.getLastRow() < 2) return {ok:false, error:'Not authenticated'};
-    var lastRow = tsheet.getLastRow();
-    var now = new Date().getTime();
-    var startRow = Math.max(2, lastRow - 199);
-    var rows = tsheet.getRange(startRow, 1, lastRow, 5).getValues();
-    for (var j = rows.length - 1; j >= 0; j--) {
-      if (String(rows[j][0]) !== String(token)) continue;
-      if (now - Number(rows[j][3]) > TOKEN_TTL) return {ok:false, error:'Token expired'};
-      var result = {
-        ok: true,
-        username: rows[j][1],
-        dept: String(rows[j][2] || '').trim().toLowerCase(),
-        role: String(rows[j][4] || '')
-      };
-      try { cache.put(tkey, JSON.stringify(result), 300); } catch (e2) {}
-      return result;
-    }
-    return {ok:false, error:'Invalid token'};
-  } catch (e) {
-    return {ok:false, error:'auth_failed', message:String(e && e.message ? e.message : e)};
-  }
+  return {
+    ok: false,
+    error: 'session_expired',
+    message: 'Session cache expired. Log out, sign in again, then tap Enable alerts within 1 minute.'
+  };
+}
+function isKnownCivilWorker_(username) {
+  username = String(username || '').trim().toLowerCase();
+  return !!(username && CIVIL_WORKER_TEAM[username]);
 }
 function handleSaveWorkerPushTokenFast_(body) {
   try {
     var auth = verifyTokenForPushSave_(body && body.token);
     if (!auth.ok) return auth;
-    var role = String(auth.role || '').toLowerCase();
-    if (role !== 'worker') {
-      return {ok:false, error:'not_allowed', message:'Only worker accounts can register for push alerts. Role=' + (role || 'empty')};
-    }
-    if (!tokenDeptAllows_(String(auth.dept || ''), 'civil issue')) {
-      return {ok:false, error:'This login is not allowed for this section'};
-    }
     var username = String(auth.username || '').trim().toLowerCase();
     if (!username) return {ok:false, error:'not_authenticated'};
+    var role = String(auth.role || '').toLowerCase();
+    if (role !== 'worker' && !isKnownCivilWorker_(username)) {
+      return {ok:false, error:'not_allowed', message:'Only worker accounts can register for push alerts. Role=' + (role || 'empty')};
+    }
+    if (!tokenDeptAllows_(String(auth.dept || ''), 'civil issue') && !isKnownCivilWorker_(username)) {
+      return {ok:false, error:'This login is not allowed for this section'};
+    }
     var fcmToken = String((body && (body.fcmToken || body.pushToken)) || '').trim();
     if (!fcmToken) return {ok:false, error:'missing_token', message:'Missing push token.'};
     var platform = String((body && body.platform) || 'web-fcm').trim();
