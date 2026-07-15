@@ -520,6 +520,9 @@ function enterWorkerApp() {
   initWorkerOfflineSync();
   startWorkerLocationPing();
   if (typeof empirePushInitWorker === 'function') empirePushInitWorker();
+  if (typeof empireWarmPushAuth === 'function') {
+    setTimeout(function () { empireWarmPushAuth(); }, 500);
+  }
   setTimeout(function () { if (!workerBackgroundPaused_()) loadIssues(false); }, 30000);
 }
 var _workerLocWatchId = null;
@@ -1505,7 +1508,7 @@ function syncWorkerRoleThenRoute_() {
   empireAuthRefreshPerms(function () { done(); });
   setTimeout(done, 1200);
 }
-function handleLogin(e){ empireAuthLogin(e, ISSUE_CFG.dept, { onSuccess: function(d){ PAGEPERMS=d.perms||{}; if(typeof empireAuthSet==='function' && d.trade) empireAuthSet('trade', d.trade); routeCivilIssueView_(); } }); }
+function handleLogin(e){ empireAuthLogin(e, ISSUE_CFG.dept, { onSuccess: function(d){ PAGEPERMS=d.perms||{}; if(typeof empireAuthSet==='function' && d.trade) empireAuthSet('trade', d.trade); function go(){ routeCivilIssueView_(); } if(typeof empireWarmPushAuth==='function'){ setTimeout(function(){ empireWarmPushAuth().finally(go); }, 300); } else { go(); } } }); }
 function logout(){ stopWorkerLocationPing(); if(typeof empirePushStopWorker==='function') empirePushStopWorker(); stopEngineerLocationPoll(); empireAuthLogout({ extraKeys: [ISSUES_CACHE_KEY, ISSUES_CACHE_TS_KEY], redirect: 'index.html', reload: false }); }
 function issueSessionLogoutOpts(){ return { extraKeys: [ISSUES_CACHE_KEY, ISSUES_CACHE_TS_KEY], redirect: 'index.html', reload: false }; }
 function forceSessionLogout(d){ return empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts()); }

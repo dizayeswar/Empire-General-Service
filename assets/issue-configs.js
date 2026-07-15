@@ -57,6 +57,7 @@ var ISSUE_CONFIGS = {
       reportLocation: 'reportWorkerLocation',
       getLocations: 'getWorkerLocations',
       savePushToken: 'saveWorkerPushToken',
+      warmPushAuth: 'warmPushAuth',
       testPush: 'testWorkerPush',
       debugPush: 'debugWorkerPush'
     },

@@ -20,7 +20,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-15-push19';
+var SCRIPT_VERSION = '2026-07-15-push20';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -153,6 +153,7 @@ function doPost(e) {
     var action = body.action;
     // Fast path: push actions must not wait on spreadsheet locks / password rechecks.
     if (action === 'saveWorkerPushToken') return respond(handleSaveWorkerPushTokenFast_(body));
+    if (action === 'warmPushAuth') return respond(handleWarmPushAuth_(body));
     if (action === 'debugWorkerPush') {
       var dbgAuth = verifyTokenForPushSave_(body && body.token, body);
       if (!dbgAuth.ok) return respond(dbgAuth);
@@ -1522,6 +1523,16 @@ function isKnownCivilWorker_(username) {
   username = String(username || '').trim().toLowerCase();
   return !!(username && CIVIL_WORKER_TEAM[username]);
 }
+function handleWarmPushAuth_(body) {
+  var token = String((body && body.token) || '');
+  var username = String((body && body.username) || '').trim().toLowerCase();
+  if (!token || token.length < 20) return {ok:false, error:'No token'};
+  if (!username || !isKnownCivilWorker_(username)) {
+    return {ok:false, error:'not_allowed', message:'Not a civil worker account.'};
+  }
+  rememberPushAuth_(token, username, 'civil issue', 'worker');
+  return {ok:true, success:true, version:SCRIPT_VERSION, warmed:true};
+}
 /** Auth for push save — Script properties + cache only (never open spreadsheet). */
 function verifyTokenForPushSave_(token, body) {
   if (!token) return {ok:false, error:'No token'};
@@ -1558,19 +1569,10 @@ function verifyTokenForPushSave_(token, body) {
       }
     } catch (e) {}
   }
-  var session = verifyTokenSession_(token);
-  if (session.ok) {
-    var sessUser = String(session.username || '').trim().toLowerCase();
-    if (guessUser && sessUser && guessUser !== sessUser) {
-      return {ok:false, error:'session_expired', message:'Login mismatch — log out and sign in again.'};
-    }
-    rememberPushAuth_(token, session.username, session.dept, session.role);
-    return session;
-  }
   return {
     ok: false,
     error: 'session_expired',
-    message: 'Log out, sign in again, then tap Enable alerts within 1 minute.'
+    message: 'Log out, sign in again, wait 5 sec, then tap Enable alerts.'
   };
 }
 function handleSaveWorkerPushTokenFast_(body) {

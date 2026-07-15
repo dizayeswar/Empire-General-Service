@@ -108,36 +108,85 @@
   }
 
   function postToScript(body, timeoutMs) {
-    timeoutMs = timeoutMs || 20000;
-    var url = GOOGLE_SCRIPT_URL;
+    timeoutMs = timeoutMs || 35000;
     var payload = JSON.stringify(body);
-    var request = new Promise(function (resolve, reject) {
+    if (typeof fetch === 'function') {
+      var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      var timer;
+      var req = fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        body: payload,
+        signal: ctrl ? ctrl.signal : undefined
+      }).then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.text();
+      }).then(function (text) {
+        try { return JSON.parse(text || '{}'); }
+        catch (e) { throw new Error('Invalid server response — redeploy Apps Script'); }
+      });
+      if (ctrl) {
+        timer = setTimeout(function () {
+          try { ctrl.abort(); } catch (e) {}
+        }, timeoutMs);
+      }
+      return req.finally(function () { if (timer) clearTimeout(timer); });
+    }
+    return new Promise(function (resolve, reject) {
       var xhr = new XMLHttpRequest();
-      xhr.open('POST', url, true);
+      var timer = setTimeout(function () {
+        try { xhr.abort(); } catch (e) {}
+        reject(new Error('Server save timed out'));
+      }, timeoutMs);
+      xhr.open('POST', GOOGLE_SCRIPT_URL, true);
       xhr.setRequestHeader('Content-Type', 'text/plain;charset=utf-8');
       xhr.onload = function () {
-        try {
-          resolve(JSON.parse(xhr.responseText || '{}'));
-        } catch (e) {
-          reject(new Error('Invalid server response — redeploy Apps Script'));
-        }
+        clearTimeout(timer);
+        try { resolve(JSON.parse(xhr.responseText || '{}')); }
+        catch (e) { reject(new Error('Invalid server response — redeploy Apps Script')); }
       };
       xhr.onerror = function () {
+        clearTimeout(timer);
         reject(new Error('Network error reaching Google server'));
+      };
+      xhr.onabort = function () {
+        clearTimeout(timer);
+        reject(new Error('Server save timed out'));
       };
       xhr.send(payload);
     });
-    return withTimeout(request, timeoutMs, 'Server save');
   }
+
+  function callBackend(body, timeoutMs) {
+    timeoutMs = timeoutMs || 35000;
+    if (typeof fetchJSONRetry === 'function') {
+      return fetchJSONRetry(body, 1, timeoutMs);
+    }
+    return postToScript(body, timeoutMs);
+  }
+
+  function warmPushAuth() {
+    if (!window.ISSUE_CFG || !ISSUE_CFG.actions || !ISSUE_CFG.actions.warmPushAuth) {
+      return Promise.resolve(false);
+    }
+    var session = authSessionToken();
+    var username = apiUsername();
+    if (!session || !username) return Promise.resolve(false);
+    return callBackend({
+      action: ISSUE_CFG.actions.warmPushAuth,
+      token: session,
+      username: username
+    }, 20000).then(function (d) {
+      return !!(d && (d.ok || d.success));
+    }).catch(function () {
+      return false;
+    });
+  }
+
+  window.empireWarmPushAuth = warmPushAuth;
 
   function apiUsername() {
     if (typeof empireGetUser === 'function') return String(empireGetUser() || '').trim().toLowerCase();
     return '';
-  }
-
-  function callBackend(body, timeoutMs) {
-    timeoutMs = timeoutMs || 30000;
-    return postToScript(body, timeoutMs);
   }
 
   function setPushButtonsDisabled(disabled) {
@@ -172,18 +221,24 @@
       setWorkerPushStatus('No username — log out and sign in again.');
       return Promise.resolve(false);
     }
-    setWorkerPushStatus('Saving token to server…');
+    setWorkerPushStatus('Preparing server…');
     setPushButtonsDisabled(true);
     pauseWorkerRequestsForPush_();
     _lastPushSaveError = '';
-    return withTimeout(callBackend({
-      action: act,
-      fcmToken: fcmToken,
-      platform: 'web-fcm',
-      token: session,
-      username: username
-    }, 35000), 38000, 'Server save')
-      .then(function (d) {
+    var saveElapsed = 0;
+    var saveTicker = setInterval(function () {
+      saveElapsed += 2;
+      setWorkerPushStatus('Saving token to server… (' + saveElapsed + 's)');
+    }, 2000);
+    return warmPushAuth().then(function () {
+      return callBackend({
+        action: act,
+        fcmToken: fcmToken,
+        platform: 'web-fcm',
+        token: session,
+        username: username
+      }, 40000);
+    }).then(function (d) {
         if (d && (d.ok || d.success)) {
           _lastPushSaveError = '';
           setWorkerPushStatus('Alerts enabled. Tap Send test, then lock your phone.');
@@ -192,12 +247,12 @@
         }
         if (d && d.error === 'session_expired') {
           _lastPushSaveError = 'session_expired';
-          setWorkerPushStatus('Session expired — log out, log in, Enable alerts again.');
+          setWorkerPushStatus('Session expired — log out, log in, wait 5 sec, Enable alerts.');
           return false;
         }
         if (d && d.error === 'Unknown action') {
           _lastPushSaveError = 'old_backend';
-          setWorkerPushStatus('Backend old — paste Code.gs + Deploy New version (need push19).');
+          setWorkerPushStatus('Backend old — deploy push20 in Apps Script (warmPushAuth missing).');
           return false;
         }
         _lastPushSaveError = String((d && (d.error || d.message)) || 'server error');
@@ -214,6 +269,7 @@
         return false;
       })
       .finally(function () {
+        clearInterval(saveTicker);
         setPushButtonsDisabled(false);
       });
   }
