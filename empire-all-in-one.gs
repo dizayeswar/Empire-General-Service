@@ -165,7 +165,7 @@ function doPost(e) {
       'getWeekCoverage':'cleaning','markTaskWeek':'cleaning','getRangeCoverage':'cleaning',
       'getTaskPhotos':'cleaning','addTaskPhoto':'cleaning','addTaskPhotos':'cleaning','deleteTaskPhoto':'cleaning',
       'logTask':'cleaning','getTaskLog':'cleaning',
-      'addCivilIssue':'civil issue','updateCivilIssue':'civil issue','getCivilIssues':'civil issue','markCivilFixed':'civil issue','clearCivilIssues':'civil issue','deleteCivilIssue':'civil issue','assignCivilIssue':'civil issue','reportWorkerLocation':'civil issue','getWorkerLocations':'civil issue','saveWorkerPushToken':'civil issue','testWorkerPush':'civil issue','debugWorkerPush':'civil issue',
+      'addCivilIssue':'civil issue','updateCivilIssue':'civil issue','getCivilIssues':'civil issue','markCivilFixed':'civil issue','clearCivilIssues':'civil issue','deleteCivilIssue':'civil issue','assignCivilIssue':'civil issue','markCivilNotDept':'civil issue','restoreCivilIssue':'civil issue','reportWorkerLocation':'civil issue','getWorkerLocations':'civil issue','saveWorkerPushToken':'civil issue','testWorkerPush':'civil issue','debugWorkerPush':'civil issue',
       'addElectricIssue':'electric issue','updateElectricIssue':'electric issue','getElectricIssues':'electric issue','markElectricFixed':'electric issue','clearElectricIssues':'electric issue','deleteElectricIssue':'electric issue',
       'addFireIssue':'fire','updateFireIssue':'fire','getFireIssues':'fire','markFireFixed':'fire','clearFireIssues':'fire','deleteFireIssue':'fire',
       'addHseInspection':'hse','updateHseInspection':'hse','getHseInspections':'hse','markHseResolved':'hse','clearHseInspections':'hse','deleteHseInspection':'hse',
@@ -185,7 +185,7 @@ function doPost(e) {
     body._authRole = String(auth.role || '').toLowerCase();
     body._authTrade = String(auth.trade || '').toLowerCase();
     if (body._authRole === 'worker') {
-      var workerBlocked = {addCivilIssue:1, updateCivilIssue:1, deleteCivilIssue:1, clearCivilIssues:1, assignCivilIssue:1, getWorkerLocations:1, addElectricIssue:1, updateElectricIssue:1, deleteElectricIssue:1, clearElectricIssues:1, addFireIssue:1, updateFireIssue:1, deleteFireIssue:1, clearFireIssues:1};
+      var workerBlocked = {addCivilIssue:1, updateCivilIssue:1, deleteCivilIssue:1, clearCivilIssues:1, assignCivilIssue:1, markCivilNotDept:1, restoreCivilIssue:1, getWorkerLocations:1, addElectricIssue:1, updateElectricIssue:1, deleteElectricIssue:1, clearElectricIssues:1, addFireIssue:1, updateFireIssue:1, deleteFireIssue:1, clearFireIssues:1};
       if (workerBlocked[action]) return respond({ok:false,success:false,error:'not_allowed',message:'Not allowed for worker accounts.'});
     }
     if (action === 'reportWorkerLocation' && body._authRole !== 'worker') {

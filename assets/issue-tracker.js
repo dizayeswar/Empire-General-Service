@@ -1686,6 +1686,9 @@ function routeIssueNotCivil(id) {
   uiConfirm('Move this issue out of Civil?\n\nIt will go to the "Not Civil Department" section. You can re-create it in Electric, Fire, or the correct department.').then(function (ok) {
     if (!ok) return;
     fetchJSONRetry({ action: ISSUE_CFG.actions.routeNotCivil, id: id, token: issueToken() || '' }).then(function (d) {
+      if (d && d.error === 'Unknown action') {
+        throw new Error('Server not updated yet. Paste the latest empire-all-in-one.gs into Apps Script and deploy a new web app version.');
+      }
       if (d && d.ok === false) {
         if (empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts())) return;
         throw new Error(d.message || d.error || 'Could not route issue');
@@ -1702,6 +1705,9 @@ function restoreCivilIssue(id) {
   uiConfirm('Restore this issue to the Civil queue?').then(function (ok) {
     if (!ok) return;
     fetchJSONRetry({ action: ISSUE_CFG.actions.restoreCivil, id: id, token: issueToken() || '' }).then(function (d) {
+      if (d && d.error === 'Unknown action') {
+        throw new Error('Server not updated yet. Paste the latest empire-all-in-one.gs into Apps Script and deploy a new web app version.');
+      }
       if (d && d.ok === false) {
         if (empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts())) return;
         throw new Error(d.message || d.error || 'Could not restore issue');
