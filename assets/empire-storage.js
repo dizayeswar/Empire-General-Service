@@ -52,30 +52,44 @@ function empireStorageFilePath(folder, blob) {
   return empireStorageSafeFolder(folder) + '/' + ym + '/' + id + '.' + ext;
 }
 
-function empireUploadPhoto(blob, folder, cb) {
+function empireStorageAudioPath(folder, blob) {
+  var ext = 'webm';
+  var mime = blob && blob.type ? blob.type.toLowerCase() : '';
+  if (mime.indexOf('ogg') !== -1) ext = 'ogg';
+  else if (mime.indexOf('mp4') !== -1 || mime.indexOf('m4a') !== -1) ext = 'm4a';
+  else if (mime.indexOf('mpeg') !== -1 || mime.indexOf('mp3') !== -1) ext = 'mp3';
+  var id = (window.crypto && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : (Date.now() + '-' + Math.random().toString(36).slice(2, 10));
+  var d = new Date();
+  var ym = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  return empireStorageSafeFolder(folder) + '/' + ym + '/' + id + '.' + ext;
+}
+
+function empireUploadBlob(blob, folder, path, cb) {
   _lastEmpireUploadError = '';
-  if (!blob) { _lastEmpireUploadError = 'No image data'; cb(null); return; }
+  if (!blob) { _lastEmpireUploadError = 'No file data'; cb(null); return; }
   if (!empireStorageConfigured()) {
     _lastEmpireUploadError = 'Supabase is not configured in config.js';
     cb(null);
     return;
   }
-  var path = empireStorageFilePath(folder, blob);
+  var uploadPath = path || empireStorageFilePath(folder, blob);
   var url = String(SUPABASE_CONFIG.url || '').replace(/\/$/, '') +
-    '/storage/v1/object/' + SUPABASE_CONFIG.bucket + '/' + path;
+    '/storage/v1/object/' + SUPABASE_CONFIG.bucket + '/' + uploadPath;
   fetch(url, {
     method: 'POST',
     headers: {
       apikey: SUPABASE_CONFIG.anonKey,
       Authorization: 'Bearer ' + SUPABASE_CONFIG.anonKey,
-      'Content-Type': blob.type || 'image/jpeg',
+      'Content-Type': blob.type || 'application/octet-stream',
       'x-upsert': 'true'
     },
     body: blob
   }).then(function (res) {
     return res.text().then(function (txt) {
       if (res.ok) {
-        cb(empireStoragePublicUrl(path));
+        cb(empireStoragePublicUrl(uploadPath));
         return;
       }
       try {
@@ -90,6 +104,20 @@ function empireUploadPhoto(blob, folder, cb) {
     _lastEmpireUploadError = (err && err.message) || 'Network error reaching Supabase';
     cb(null);
   });
+}
+
+function empireUploadPhoto(blob, folder, cb) {
+  if (!blob) { _lastEmpireUploadError = 'No image data'; cb(null); return; }
+  empireUploadBlob(blob, folder, empireStorageFilePath(folder, blob), cb);
+}
+
+function empireUploadAudio(blob, folder, cb) {
+  if (!blob) { _lastEmpireUploadError = 'No audio data'; cb(null); return; }
+  empireUploadBlob(blob, folder, empireStorageAudioPath(folder, blob), cb);
+}
+
+function empireUploadAudioAsync(blob, folder) {
+  return new Promise(function (resolve) { empireUploadAudio(blob, folder, resolve); });
 }
 
 function empireUploadPhotoAsync(blob, folder) {

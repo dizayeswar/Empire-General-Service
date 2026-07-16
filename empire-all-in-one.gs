@@ -27,6 +27,7 @@ var CIVIL_WORKER_COMPLETIONS_COL = 19;
 var CIVIL_ASSIGNED_WORKERS_COL = 20;
 var CIVIL_DISPOSITION_COL = 21;
 var CIVIL_FIX_DELAY_COL = 22;
+var CIVIL_ASSIGN_VOICE_COL = 23;
 var CIVIL_TRADE_IDS = {plumber:1, pipes:1, painting:1, tiles:1, wood:1};
 var CIVIL_WORKER_TEAM = {
   mohammed_luqman: 'wood',
@@ -328,7 +329,7 @@ function tradeForUserRow_(row) {
 function ensureCivilIssueHeaders_(sheet) {
   if (!sheet) return;
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow(['id','project','building','floor','spot','issueType','note','date','photo','fixedPhoto','status','createdBy','createdAt','fixedBy','fixedAt','num','assignedGroup','workersRequired','workerCompletions','assignedWorkers','disposition','fixDelay']);
+    sheet.appendRow(['id','project','building','floor','spot','issueType','note','date','photo','fixedPhoto','status','createdBy','createdAt','fixedBy','fixedAt','num','assignedGroup','workersRequired','workerCompletions','assignedWorkers','disposition','fixDelay','assignVoiceNote']);
     return;
   }
   if (String(sheet.getRange(1, CIVIL_ASSIGNED_COL).getValue() || '') !== 'assignedGroup') {
@@ -349,6 +350,37 @@ function ensureCivilIssueHeaders_(sheet) {
   if (String(sheet.getRange(1, CIVIL_FIX_DELAY_COL).getValue() || '') !== 'fixDelay') {
     sheet.getRange(1, CIVIL_FIX_DELAY_COL).setValue('fixDelay');
   }
+  if (String(sheet.getRange(1, CIVIL_ASSIGN_VOICE_COL).getValue() || '') !== 'assignVoiceNote') {
+    sheet.getRange(1, CIVIL_ASSIGN_VOICE_COL).setValue('assignVoiceNote');
+  }
+}
+function parseAssignVoiceNote_(raw) {
+  raw = String(raw || '').trim();
+  if (!raw) return null;
+  if (raw.charAt(0) === '{') {
+    try {
+      var o = JSON.parse(raw);
+      if (o && o.url) {
+        return {
+          url: String(o.url || ''),
+          by: String(o.by || ''),
+          at: String(o.at || ''),
+          durationSec: Number(o.durationSec) || 0
+        };
+      }
+    } catch (e) {}
+  }
+  if (raw.indexOf('http') === 0) return { url: raw, by: '', at: '', durationSec: 0 };
+  return null;
+}
+function formatAssignVoiceNote_(note) {
+  if (!note || !note.url) return '';
+  return JSON.stringify({
+    url: String(note.url),
+    by: String(note.by || ''),
+    at: String(note.at || ''),
+    durationSec: Number(note.durationSec) || 0
+  });
 }
 function normalizeWorkerId_(raw) {
   return String(raw || '').trim().toLowerCase();
@@ -1390,7 +1422,7 @@ function handleAddIssue(body, sheetName) {
   var sheet = ss.getSheetByName(sheetName) || ss.insertSheet(sheetName);
   var isCivil = (sheetName === CIVIL_SHEET);
   if (sheet.getLastRow()===0) {
-    if (isCivil) sheet.appendRow(['id','project','building','floor','spot','issueType','note','date','photo','fixedPhoto','status','createdBy','createdAt','fixedBy','fixedAt','num','assignedGroup','workersRequired','workerCompletions','assignedWorkers','disposition','fixDelay']);
+    if (isCivil) sheet.appendRow(['id','project','building','floor','spot','issueType','note','date','photo','fixedPhoto','status','createdBy','createdAt','fixedBy','fixedAt','num','assignedGroup','workersRequired','workerCompletions','assignedWorkers','disposition','fixDelay','assignVoiceNote']);
     else sheet.appendRow(['id','project','building','floor','spot','issueType','note','date','photo','fixedPhoto','status','createdBy','createdAt','fixedBy','fixedAt','num']);
   } else if (isCivil) {
     ensureCivilIssueHeaders_(sheet);
@@ -1486,6 +1518,7 @@ function handleGetIssues(body, sheetName, auth) {
     if (sheetName === CIVIL_SHEET) {
       item.disposition = String(rows[i][CIVIL_DISPOSITION_COL - 1] || '').trim();
       item.fixDelay = String(rows[i][CIVIL_FIX_DELAY_COL - 1] || '').trim();
+      item.assignVoiceNote = parseAssignVoiceNote_(rows[i][CIVIL_ASSIGN_VOICE_COL - 1]);
       item.workersRequired = workersRequired;
       item.workerCompletions = workerCompletions;
       item.workerDone = workerCompletions.length;
@@ -1866,6 +1899,7 @@ function notifyWorkersOnAssign_(assignedWorkers, issues) {
   if (!tokens.length) return;
   var title = issues.length === 1 ? 'New job assigned' : issues.length + ' jobs assigned';
   var body = buildAssignNotifyBody_(issues);
+  if (issues.length === 1) body += ' Open the job to hear the voice note if one was left.';
   var data = { type: 'assign', count: String(issues.length) };
   for (var t = 0; t < tokens.length; t++) {
     sendFcmToWorker_(tokens[t].fcmToken, title, body, data);
@@ -1905,6 +1939,15 @@ function handleAssignCivilIssue(body, auth) {
   if (body.workersRequired !== undefined && body.workersRequired !== null && body.workersRequired !== '') {
     workersRequired = parseWorkersRequired_(body.workersRequired);
   }
+  var voiceNote = null;
+  if (body.assignVoiceNote && body.assignVoiceNote.url) {
+    voiceNote = {
+      url: String(body.assignVoiceNote.url || ''),
+      by: String((auth && auth.username) || body.assignVoiceNote.by || ''),
+      at: String(body.assignVoiceNote.at || ''),
+      durationSec: Number(body.assignVoiceNote.durationSec) || 0
+    };
+  }
   var ss = getSS_();
   var sheet = ss.getSheetByName(CIVIL_SHEET);
   if (!sheet) return {ok:false, error:'Sheet not found'};
@@ -1926,6 +1969,9 @@ function handleAssignCivilIssue(body, auth) {
         sheet.getRange(i + 1, 10).setValue('');
         sheet.getRange(i + 1, 14).setValue('');
         sheet.getRange(i + 1, 15).setValue('');
+      }
+      if (voiceNote) {
+        sheet.getRange(i + 1, CIVIL_ASSIGN_VOICE_COL).setValue(formatAssignVoiceNote_(voiceNote));
       }
       notifyIssues.push({
         id: String(rows[i][0]),
@@ -1972,6 +2018,7 @@ function handleRouteCivilNotDept(body, auth) {
     sheet.getRange(i + 1, CIVIL_ASSIGNED_WORKERS_COL).setValue('');
     sheet.getRange(i + 1, CIVIL_WORKERS_REQUIRED_COL).setValue(1);
     sheet.getRange(i + 1, CIVIL_WORKER_COMPLETIONS_COL).setValue('');
+    sheet.getRange(i + 1, CIVIL_ASSIGN_VOICE_COL).setValue('');
     sheet.getRange(i + 1, 10).setValue('');
     var note = String(rows[i][6] || '');
     var stamp = 'Not civil dept — routed by ' + user + ' on ' + Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy-MM-dd');

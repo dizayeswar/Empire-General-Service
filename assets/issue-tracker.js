@@ -443,7 +443,11 @@ function setAssignBtnState(id, state) {
   var btn = document.getElementById('assign-btn-' + id);
   if (!btn) return;
   btn.classList.remove('saving', 'saved', 'error');
-  if (state === 'saving') {
+  if (state === 'uploading') {
+    btn.disabled = true;
+    btn.textContent = 'Uploading voice\u2026';
+    btn.classList.add('saving');
+  } else if (state === 'saving') {
     btn.disabled = true;
     btn.textContent = 'Saving\u2026';
     btn.classList.add('saving');
@@ -483,6 +487,7 @@ function assignIssue(id) {
   var prevGroup = it ? (it.assignedGroup || '') : '';
   var prevWorkers = it ? assignedWorkersList(it).slice() : [];
   var prevWorkersRequired = it ? issueWorkersRequired(it) : 1;
+  var prevVoiceNote = it && it.assignVoiceNote ? Object.assign({}, it.assignVoiceNote) : null;
   if (it) {
     it.assignedGroup = group;
     it.assignedWorkers = workers.slice();
@@ -493,49 +498,66 @@ function assignIssue(id) {
     it.fixedBy = '';
   }
   writeIssuesCacheAsync(allIssues);
-  setAssignBtnState(id, 'saving');
+  var draft = typeof assignVoiceDraft_ === 'function' ? assignVoiceDraft_(id) : null;
+  var hasVoice = !!(draft && draft.blob);
+  setAssignBtnState(id, hasVoice ? 'uploading' : 'saving');
   patchIssueModalAssign(id);
-  fetchJSONRetry({
-    action: ISSUE_CFG.actions.assign,
-    id: id,
-    assignedGroup: group,
-    assignedWorkers: workers,
-    workersRequired: workersRequired,
-    token: issueToken() || ''
-  }, 2, 90000)
-    .then(function (d) {
-      if (d && d.ok === false) {
-        if (empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts())) return;
-        throw new Error(d.message || d.error || 'Assign failed');
-      }
-      if (it) {
-        if (d && d.assignedGroup !== undefined) it.assignedGroup = d.assignedGroup;
-        if (d && d.assignedWorkers) it.assignedWorkers = d.assignedWorkers;
-        if (d && d.workersRequired !== undefined) it.workersRequired = d.workersRequired;
-      }
-      writeIssuesCacheAsync(allIssues);
-      delete selectedIssueIds[id];
-      setAssignBtnState(id, 'saved');
-      patchIssueModalAssign(id);
-      requestAnimationFrame(function () { renderIssues(); });
-    })
-    .catch(function (e) {
-      if (it) {
-        it.assignedGroup = prevGroup;
-        it.assignedWorkers = prevWorkers;
-        it.workersRequired = prevWorkersRequired;
-      }
-      writeIssuesCacheAsync(allIssues);
-      setAssignBtnState(id, 'error');
-      patchIssueModalAssign(id);
-      var msg = assignIssueErrorMsg(e);
-      alert('\u274C ' + msg);
-      var btn = document.getElementById('assign-btn-' + id);
-      if (btn) {
-        btn.textContent = 'Retry';
-        setTimeout(function () { setAssignBtnState(id, 'idle'); }, 2200);
-      }
+  var voicePromise = (hasVoice && typeof uploadAssignVoiceForIssue === 'function')
+    ? uploadAssignVoiceForIssue(id)
+    : Promise.resolve(null);
+  voicePromise.then(function (voiceNote) {
+    if (hasVoice) setAssignBtnState(id, 'saving');
+    var payload = {
+      action: ISSUE_CFG.actions.assign,
+      id: id,
+      assignedGroup: group,
+      assignedWorkers: workers,
+      workersRequired: workersRequired,
+      token: issueToken() || ''
+    };
+    if (voiceNote && voiceNote.url) payload.assignVoiceNote = voiceNote;
+    return fetchJSONRetry(payload, 2, 90000).then(function (d) {
+      return { d: d, voiceNote: voiceNote };
     });
+  }).then(function (result) {
+    var d = result.d;
+    var voiceNote = result.voiceNote;
+    if (d && d.ok === false) {
+      if (empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts())) return;
+      throw new Error(d.message || d.error || 'Assign failed');
+    }
+    if (it) {
+      if (d && d.assignedGroup !== undefined) it.assignedGroup = d.assignedGroup;
+      if (d && d.assignedWorkers) it.assignedWorkers = d.assignedWorkers;
+      if (d && d.workersRequired !== undefined) it.workersRequired = d.workersRequired;
+      if (voiceNote && voiceNote.url) it.assignVoiceNote = voiceNote;
+    }
+    if (typeof assignVoiceClearDraft === 'function') assignVoiceClearDraft(id);
+    writeIssuesCacheAsync(allIssues);
+    delete selectedIssueIds[id];
+    setAssignBtnState(id, 'saved');
+    patchIssueModalAssign(id);
+    var assignBox = document.querySelector('#issueBox .assign-box');
+    if (assignBox && it) assignBox.outerHTML = assignBoxHtml(it);
+    requestAnimationFrame(function () { renderIssues(); });
+  }).catch(function (e) {
+    if (it) {
+      it.assignedGroup = prevGroup;
+      it.assignedWorkers = prevWorkers;
+      it.workersRequired = prevWorkersRequired;
+      it.assignVoiceNote = prevVoiceNote;
+    }
+    writeIssuesCacheAsync(allIssues);
+    setAssignBtnState(id, 'error');
+    patchIssueModalAssign(id);
+    var msg = assignIssueErrorMsg(e);
+    alert('\u274C ' + msg);
+    var btn = document.getElementById('assign-btn-' + id);
+    if (btn) {
+      btn.textContent = 'Retry';
+      setTimeout(function () { setAssignBtnState(id, 'idle'); }, 2200);
+    }
+  });
 }
 function enterWorkerApp() {
   document.getElementById('loginPage').classList.remove('show');
@@ -1014,6 +1036,9 @@ function openWorkerJob(id) {
   if (!body) return;
   var h = '<h2>' + r.issueType + '</h2><p class="loc">' + (projectNames[r.project] || r.project) + ' &middot; ' + locStr(r) + '</p>';
   if (r.note) h += '<p style="color:var(--text-soft);font-size:14px;margin-bottom:12px;"><strong>Note:</strong> ' + r.note + '</p>';
+  if (r.assignVoiceNote && r.assignVoiceNote.url && typeof assignVoiceNoteDisplayHtml === 'function') {
+    h += assignVoiceNoteDisplayHtml(r.assignVoiceNote, { worker: true });
+  }
   var need = issueWorkersRequired(r);
   if (need > 1) {
     h += '<p class="worker-two-note">This job needs <strong>' + need + ' workers</strong> to each take photos.' + (issueWorkerDone(r) ? (' <span>(' + issueWorkerDone(r) + '/' + need + ' already done)</span>') : '') + '</p>';
@@ -1653,6 +1678,7 @@ function mergeIssueMetaFromServer(next, prev) {
     var out = Object.assign({}, n);
     if (!out.fixDelay && p.fixDelay) out.fixDelay = p.fixDelay;
     if (!out.disposition && p.disposition) out.disposition = p.disposition;
+    if (!out.assignVoiceNote && p.assignVoiceNote) out.assignVoiceNote = p.assignVoiceNote;
     return out;
   });
 }
@@ -2019,6 +2045,7 @@ function assignBoxHtml(r) {
   var h = '<div class="assign-box" onclick="event.stopPropagation()">';
   h += '<label>Assign worker(s) — up to ' + maxAssignWorkers() + '. If you pick more than one, <strong>each</strong> must submit photos before the job is complete.</label>';
   h += assignWorkersPickerHtml(selected, 'assign-worker-cb', r.id);
+  if (typeof assignVoiceBoxHtml === 'function') h += assignVoiceBoxHtml(r.id, r.assignVoiceNote);
   h += '<div class="assign-row assign-save-row"><button type="button" id="assign-btn-' + r.id + '" class="assign-save-btn" onclick="assignIssue(\'' + r.id + '\')">Save assignment</button></div>';
   h += '</div>';
   return h;
@@ -2059,7 +2086,10 @@ function openIssue(id) {
   document.getElementById('issueBox').innerHTML = h;
   document.getElementById('issueModal').classList.add('show');
 }
-function closeIssueModal(){ document.getElementById('issueModal').classList.remove('show'); }
+function closeIssueModal(){
+  if (typeof assignVoiceOnModalClose_ === 'function') assignVoiceOnModalClose_();
+  document.getElementById('issueModal').classList.remove('show');
+}
 function processFix(id, file){ if(!file) return; var by=''; if(ISSUE_CFG.requireFixByName){ const byEl=document.getElementById('fix-by'); by=byEl?byEl.value.trim():''; if(!by){ alert('Please enter who did the job first ("Job was done by")'); if(byEl)byEl.focus(); return; } } const area=document.getElementById('fix-area'); if(area) area.innerHTML='\u23F3 Uploading\u2026'; compressImage(file,url=>{ if(url){ var payload={action:ISSUE_CFG.actions.markFixed,id:id,fixedPhoto:url,token:issueToken()||''}; if(ISSUE_CFG.requireFixByName) payload.fixedByName=by; fetchJSONRetry(payload).then(()=>{ const it=allIssues.find(x=>x.id===id); if(it){ it.status='fixed'; it.fixedPhoto=url; const now=new Date(); const z=n=>String(n).padStart(2,'0'); it.fixedAt=now.getFullYear()+'-'+z(now.getMonth()+1)+'-'+z(now.getDate())+' '+z(now.getHours())+':'+z(now.getMinutes()); it.fixedBy=by||empireGetUser()||''; } renderIssues(); renderAnalytics(); openIssue(id); }).catch(er=>{ if(area) area.innerHTML='\u274C '+er.message; }); } else { if(area) area.innerHTML='\u274C Upload failed, try again'; } }); }
 function pasteFix(e,id){ const items=e.clipboardData.items; for(let i=0;i<items.length;i++){ if(items[i].type.indexOf('image')!==-1){ e.preventDefault(); processFix(id, items[i].getAsFile()); return; } } }
 function handleFixFile(e,id){ const f=e.target.files && e.target.files[0]; if(f) processFix(id, f); e.target.value=''; }
