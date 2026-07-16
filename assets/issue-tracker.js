@@ -1785,7 +1785,6 @@ function toggleIssueFixDelay(id) {
       writeIssuesCacheAsync(allIssues);
       closeIssueModal();
       refreshAllIssueTabs();
-      if (marking) switchTabTo('fixdelay');
       uiAlert(marking ? '\u2705 Marked as needing 1+ month to fix.' : '\u2705 Delay mark removed.');
     }).catch(function (e) { uiAlert('\u274c ' + (e.message || 'Could not update fix delay')); });
   });
