@@ -467,10 +467,21 @@ function assignVoiceNoteDisplayHtml(note, opts) {
   return h;
 }
 
-function assignVoiceBoxHtml(issueId, existingNote) {
+function assignVoiceBoxHtml(issueId, existingNote, opts) {
+  opts = opts || {};
+  var locked = !!opts.locked;
   issueId = String(issueId || '');
-  var h = '<div class="assign-voice-note" id="assign-voice-' + issueId + '" onclick="event.stopPropagation()">';
+  var h = '<div class="assign-voice-note' + (locked ? ' assign-voice-note-locked' : '') + '" id="assign-voice-' + issueId + '" onclick="event.stopPropagation()">';
   h += '<label>Voice note for worker <span class="assign-voice-optional">(optional)</span></label>';
+  if (locked) {
+    if (existingNote && existingNote.url) {
+      h += assignVoiceNoteDisplayHtml(existingNote, { existing: true });
+    } else {
+      h += '<p class="assign-voice-status">No voice note recorded.</p>';
+    }
+    h += '</div>';
+    return h;
+  }
   if (existingNote && existingNote.url) {
     h += assignVoiceNoteDisplayHtml(existingNote, { existing: true });
     h += '<p class="assign-voice-replace-hint">Record below to replace the current voice note when you save.</p>';

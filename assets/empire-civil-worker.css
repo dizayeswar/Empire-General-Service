@@ -517,6 +517,79 @@ body:not(.civil-worker-mode) #workerApp {
   border-radius: 12px;
   border: 1px solid var(--card-border);
 }
+.assign-box-locked {
+  border-color: rgba(29, 158, 117, 0.4);
+  background: rgba(29, 158, 117, 0.07);
+}
+.assign-locked-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.assign-assigned-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 50px;
+  background: #1d9e75;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+}
+.assign-edit-btn {
+  padding: 8px 16px;
+  border-radius: 50px;
+  border: 2px solid var(--accent2);
+  background: #fff;
+  color: var(--accent2);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+.assign-locked-summary {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--text-soft);
+  line-height: 1.45;
+}
+.assign-box-body-locked {
+  opacity: 0.72;
+  pointer-events: none;
+  user-select: none;
+}
+.assign-box-body-locked .assign-voice-playback,
+.assign-box-body-locked .assign-voice-inline-player,
+.assign-box-body-locked .assign-voice-play-btn {
+  pointer-events: auto;
+  opacity: 1;
+}
+.assign-worker-pick-locked {
+  cursor: default;
+  opacity: 0.9;
+}
+.assign-worker-pick-locked input:disabled {
+  cursor: not-allowed;
+}
+.assign-cancel-btn {
+  padding: 10px 16px;
+  border-radius: 50px;
+  border: 2px solid var(--card-border);
+  background: var(--input-bg);
+  color: var(--text-soft);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+.assign-save-btn.saved {
+  background: #1d9e75 !important;
+  border-color: #1d9e75 !important;
+  color: #fff !important;
+  cursor: default;
+}
 .assign-box label {
   display: block;
   font-weight: 600;
@@ -549,11 +622,6 @@ body:not(.civil-worker-mode) #workerApp {
 }
 .assign-save-btn.saving {
   opacity: 0.75;
-}
-.assign-save-btn.saved {
-  background: #1d9e75 !important;
-  border-color: #1d9e75 !important;
-  color: #fff !important;
 }
 .assign-save-btn.error {
   background: #C5504F !important;

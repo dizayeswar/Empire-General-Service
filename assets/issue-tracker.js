@@ -172,6 +172,33 @@ function maxAssignWorkers() { return ISSUE_CFG.maxAssignWorkers || 4; }
 function isIssueUnassigned(r) {
   return !assignedWorkersList(r).length && !String(r.assignedGroup || '').trim();
 }
+function isIssueAssigned(r) {
+  return !isIssueUnassigned(r);
+}
+var _assignEditMode = {};
+function isAssignEditMode(id) {
+  return !!_assignEditMode[String(id || '')];
+}
+function enterAssignEditMode(id) {
+  id = String(id || '');
+  if (!id) return;
+  _assignEditMode[id] = true;
+  refreshAssignBox(id);
+}
+function exitAssignEditMode(id) {
+  id = String(id || '');
+  if (!id) return;
+  delete _assignEditMode[id];
+  if (typeof assignVoiceClearDraft === 'function') assignVoiceClearDraft(id);
+  refreshAssignBox(id);
+}
+function refreshAssignBox(id) {
+  var it = allIssues.find(function (x) { return x.id === id; });
+  var assignBox = document.querySelector('#issueBox .assign-box');
+  if (!assignBox || !it) return;
+  assignBox.outerHTML = assignBoxHtml(it);
+  if (typeof assignVoiceBindPlayers === 'function') assignVoiceBindPlayers(document.getElementById('issueBox'));
+}
 function readAssignWorkerChecks(className, id) {
   className = className || 'assign-worker-cb';
   var selector = id ? ('.' + className + '[data-issue="' + id + '"]') : ('.' + className);
@@ -229,9 +256,10 @@ function tradeBadgeHtml(r) {
   var cls = r.assignedGroup ? 'trade-badge' : 'trade-badge unassigned';
   return '<span class="' + cls + '">' + lbl + '</span>';
 }
-function assignWorkersPickerHtml(selectedIds, className, issueId) {
+function assignWorkersPickerHtml(selectedIds, className, issueId, locked) {
   className = className || 'assign-worker-cb';
   selectedIds = selectedIds || [];
+  locked = !!locked;
   var h = '';
   tradeGroups().forEach(function (g) {
     var members = civilWorkersForTeam(g.id);
@@ -239,8 +267,12 @@ function assignWorkersPickerHtml(selectedIds, className, issueId) {
     h += '<div class="assign-team-group"><div class="assign-team-label">' + g.label + '</div><div class="assign-worker-grid">';
     members.forEach(function (w) {
       var checked = selectedIds.indexOf(String(w.id).toLowerCase()) !== -1 ? ' checked' : '';
-      h += '<label class="assign-worker-pick"><input type="checkbox" class="' + className + '" data-issue="' + issueId + '" value="' + w.id + '"' + checked;
-      h += ' onchange="' + (className.indexOf('bulk') === 0 ? 'onBulkAssignWorkerPick()' : ('onAssignWorkerPick(\'' + issueId + '\')')) + '"> ';
+      var dis = locked ? ' disabled' : '';
+      h += '<label class="assign-worker-pick' + (locked ? ' assign-worker-pick-locked' : '') + '"><input type="checkbox" class="' + className + '" data-issue="' + issueId + '" value="' + w.id + '"' + checked + dis;
+      if (!locked) {
+        h += ' onchange="' + (className.indexOf('bulk') === 0 ? 'onBulkAssignWorkerPick()' : ('onAssignWorkerPick(\'' + issueId + '\')')) + '"';
+      }
+      h += '> ';
       h += w.name + '</label>';
     });
     h += '</div></div>';
@@ -452,16 +484,17 @@ function setAssignBtnState(id, state) {
     btn.textContent = 'Saving\u2026';
     btn.classList.add('saving');
   } else if (state === 'saved') {
-    btn.disabled = false;
-    btn.textContent = 'Saved';
+    btn.disabled = true;
+    btn.textContent = 'Assigned';
     btn.classList.add('saved');
   } else if (state === 'error') {
     btn.disabled = false;
-    btn.textContent = 'Save';
+    btn.textContent = 'Save assignment';
     btn.classList.add('error');
   } else {
     btn.disabled = false;
-    btn.textContent = 'Save';
+    var it = allIssues.find(function (x) { return x.id === id; });
+    btn.textContent = (it && isIssueAssigned(it) && isAssignEditMode(id)) ? 'Update assignment' : 'Save assignment';
   }
 }
 function patchIssueModalAssign(id) {
@@ -535,10 +568,11 @@ function assignIssue(id) {
     if (typeof assignVoiceClearDraft === 'function') assignVoiceClearDraft(id);
     writeIssuesCacheAsync(allIssues);
     delete selectedIssueIds[id];
-    setAssignBtnState(id, 'saved');
+    delete _assignEditMode[id];
     patchIssueModalAssign(id);
     var assignBox = document.querySelector('#issueBox .assign-box');
     if (assignBox && it) assignBox.outerHTML = assignBoxHtml(it);
+    if (typeof assignVoiceBindPlayers === 'function') assignVoiceBindPlayers(document.getElementById('issueBox'));
     requestAnimationFrame(function () { renderIssues(); });
   }).catch(function (e) {
     if (it) {
@@ -2043,17 +2077,41 @@ function durationStr(a,b){ if(!a||!b) return ''; const pr=s=>new Date(String(s).
 function assignBoxHtml(r) {
   if (!tradeGroups().length || PAGEPERMS.assign === false || !civilWorkersRoster()) return '';
   var selected = assignedWorkersList(r);
-  var h = '<div class="assign-box" onclick="event.stopPropagation()">';
-  h += '<label>Assign worker(s) — up to ' + maxAssignWorkers() + '. If you pick more than one, <strong>each</strong> must submit photos before the job is complete.</label>';
-  h += assignWorkersPickerHtml(selected, 'assign-worker-cb', r.id);
-  if (typeof assignVoiceBoxHtml === 'function') h += assignVoiceBoxHtml(r.id, r.assignVoiceNote);
-  h += '<div class="assign-row assign-save-row"><button type="button" id="assign-btn-' + r.id + '" class="assign-save-btn" onclick="assignIssue(\'' + r.id + '\')">Save assignment</button></div>';
+  var assigned = isIssueAssigned(r);
+  var editing = isAssignEditMode(r.id);
+  var locked = assigned && !editing;
+  var h = '<div class="assign-box' + (locked ? ' assign-box-locked' : '') + '" onclick="event.stopPropagation()">';
+  if (locked) {
+    h += '<div class="assign-locked-header">';
+    h += '<span class="assign-assigned-badge">' + checkIconHtml('#fff') + ' Assigned</span>';
+    h += '<button type="button" class="assign-edit-btn" onclick="enterAssignEditMode(\'' + r.id + '\')">Edit</button>';
+    h += '</div>';
+    h += '<p class="assign-locked-summary"><strong>Worker(s):</strong> ' + (assignedWorkersDisplay(r) || tradeGroupLabel(r.assignedGroup)) + '</p>';
+    if (issueWorkersRequired(r) > 1) {
+      h += '<p class="assign-locked-summary">Each worker must submit photos before this job is complete.</p>';
+    }
+  } else {
+    h += '<label>Assign worker(s) — up to ' + maxAssignWorkers() + '. If you pick more than one, <strong>each</strong> must submit photos before the job is complete.</label>';
+  }
+  h += '<div class="assign-box-body' + (locked ? ' assign-box-body-locked' : '') + '">';
+  h += assignWorkersPickerHtml(selected, 'assign-worker-cb', r.id, locked);
+  if (typeof assignVoiceBoxHtml === 'function') h += assignVoiceBoxHtml(r.id, r.assignVoiceNote, { locked: locked });
+  h += '</div>';
+  if (!locked) {
+    h += '<div class="assign-row assign-save-row">';
+    if (assigned && editing) {
+      h += '<button type="button" class="assign-cancel-btn" onclick="exitAssignEditMode(\'' + r.id + '\')">Cancel</button>';
+    }
+    h += '<button type="button" id="assign-btn-' + r.id + '" class="assign-save-btn" onclick="assignIssue(\'' + r.id + '\')">' + (assigned && editing ? 'Update assignment' : 'Save assignment') + '</button>';
+    h += '</div>';
+  }
   h += '</div>';
   return h;
 }
 function openIssue(id) {
   const r = allIssues.find(x => x.id === id);
   if (!r) return;
+  delete _assignEditMode[id];
   if (isCivilWorker() && r.status !== 'fixed') { closeIssueModal(); openWorkerJob(id); return; }
   let h = '<span class="close-x" onclick="closeIssueModal()">&times;</span>';
   h += issueDetailMetaSectionHtml(r);
