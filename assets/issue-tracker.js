@@ -1552,7 +1552,10 @@ function applyPerms(){ if(window.tsPerm) window.tsPerm(); if(window.tsLoadGlobal
   if (isCivilWorker()) {
     hideTab('add');
     hideTab('analytics');
+    hideTab('notcivil');
   }
+  if (!civilNotCivilTabEnabled()) hideTab('notcivil');
+  updateNotCivilNavBadge();
   syncWorkerLocationsUi();
   var rb=document.querySelector('button[onclick="openResetModal()"]'); if(rb && p.reset!==true) rb.style.display='none'; var tb=document.getElementById('btnTrash'); if(tb && p.reset!==true) tb.style.display='none';
   var wl=document.getElementById('whoLabel'); if(wl){ var u=empireGetUser()||''; var role=empireGetRole()||''; wl.textContent = u ? ('Logged in as: '+u+(role?(' ('+role+')'):'')) : ''; }
@@ -1617,7 +1620,7 @@ function fetchIssuesFromServer(signal){ return fetch(GOOGLE_SCRIPT_URL,{method:'
 var _issuesListSig='';
 function issuesListSig(arr){ if(!arr||!arr.length) return '0'; return arr.length+'|'+String(arr[0].id)+'|'+String(arr[arr.length-1].id)+'|'+String(arr[0].status)+'|'+String(arr[arr.length-1].status); }
 function setIssuesFromData(arr){ var sig=issuesListSig(arr); var changed=(sig!==_issuesListSig); _issuesListSig=sig; allIssues=arr; return changed; }
-function deferHeavyRenders(){ var run=function(){ var ac=document.getElementById('analytics'); if(ac&&ac.classList.contains('active')) renderAnalytics(); }; if(window.requestIdleCallback) requestIdleCallback(run,{timeout:2500}); else setTimeout(run,80); }
+function deferHeavyRenders(){ var run=function(){ var ac=document.getElementById('analytics'); if(ac&&ac.classList.contains('active')) renderAnalytics(); var nc=document.getElementById('notcivil'); if(nc&&nc.classList.contains('active')) renderRoutedIssues(); else updateNotCivilNavBadge(); }; if(window.requestIdleCallback) requestIdleCallback(run,{timeout:2500}); else setTimeout(run,80); }
 function loadIssues(force){ force=!!force; if(isCivilWorker()&&!force&&workerBackgroundPaused_()) return; if(isCivilWorker()&&force) sendWorkerLocationNow(true); if(isCivilWorker()){ var cached=readIssuesCache(); if(cached){ setIssuesFromData(cached); renderWorkerJobs(); if(typeof empirePushOnIssuesLoaded==='function') empirePushOnIssuesLoaded(cached); } } var cached=readIssuesCache(); if(cached && !isCivilWorker()){ setIssuesFromData(cached); requestAnimationFrame(function(){ renderIssues(); deferHeavyRenders(); }); } var spinEls=[document.getElementById('listRefreshIcon'),document.getElementById('navRefreshIcon'),document.getElementById('workerRefreshIcon')]; var cacheFresh=cached && !force && (Date.now()-readIssuesCacheTs()<ISSUES_CACHE_TTL); if(cacheFresh) return; var it=document.getElementById('issuesTable'); if(it && !cached && !isCivilWorker()) it.innerHTML=LOADING_HTML; if(isCivilWorker() && !cached){ var wbar=document.getElementById('workerCountBar'); if(wbar) wbar.textContent='Loading jobs\u2026'; } spinEls.forEach(function(el){ if(el) el.classList.add('spinning'); }); if(_issuesFetchCtrl) try{ _issuesFetchCtrl.abort(); }catch(e){} _issuesFetchCtrl=new AbortController(); var fetchTimeout=setTimeout(function(){ try{ _issuesFetchCtrl.abort(); }catch(e){} }, 45000); fetchIssuesFromServer(_issuesFetchCtrl.signal).then(function(d){ if(Array.isArray(d)){ var changed=setIssuesFromData(d); writeIssuesCacheAsync(d); if(isCivilWorker()){ renderWorkerJobs(); if(typeof empirePushOnIssuesLoaded==='function') empirePushOnIssuesLoaded(d); } else if(changed){ requestAnimationFrame(function(){ renderIssues(); deferHeavyRenders(); }); } } else if(d&&d.ok===false){ if(!forceSessionLogout(d) && isCivilWorker()){ var wl=document.getElementById('workerJobList'); if(wl && !cached) wl.innerHTML='<p class="worker-empty">Could not load jobs: '+String(d.message||d.error||'server error')+'</p>'; var wcb=document.getElementById('workerCountBar'); if(wcb) wcb.textContent='Jobs unavailable'; } } }).catch(function(e){ if(e&&e.name==='AbortError'){ if(isCivilWorker()){ var wl2=document.getElementById('workerJobList'); if(wl2 && !cached) wl2.innerHTML='<p class="worker-empty">Jobs timed out — pull down to refresh or tap the refresh icon.</p>'; } return; } if(!cached && it && !isCivilWorker()) it.innerHTML='<p>Error loading: '+e.message+'</p>'; if(isCivilWorker()){ var wl=document.getElementById('workerJobList'); if(wl && !cached) wl.innerHTML='<p class="worker-empty">Error: '+e.message+'</p>'; } }).finally(function(){ clearTimeout(fetchTimeout); spinEls.forEach(function(el){ if(el) el.classList.remove('spinning'); }); }); }
 function locStr(r){ return r.building+' \u00B7 '+r.floor+' \u00B7 '+r.spot; }
 function dayOf(r){ var d=String(r.date||r.createdAt||''); if(/^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0,10); var dt=new Date(d.replace(' ','T')); if(!isNaN(dt.getTime())){ var z=function(n){return String(n).padStart(2,'0');}; return dt.getFullYear()+'-'+z(dt.getMonth()+1)+'-'+z(dt.getDate()); } return ''; }
@@ -1653,6 +1656,28 @@ function deleteSelectedIssues() {
 function removeIssue(id){ uiConfirm('Delete this issue? It will go to the Recycle Bin.').then(function(ok){ if(!ok)return; fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:ISSUE_CFG.actions.delete,ids:[id],token:issueToken()||''})}).then(function(r){return r.json();}).then(function(d){ if(d&&(d.ok||d.success)){ allIssues=allIssues.filter(function(x){return x.id!==id;}); renderIssues(); renderAnalytics(); } else { alert('\u274C '+((d&&(d.error||d.message))||'Delete failed')); } }).catch(function(e){ alert('\u274C '+e.message); }); }); }
 function issueIsRoutedAway(r) {
   return String((r && r.disposition) || '').toLowerCase() === 'not_civil';
+}
+function civilNotCivilTabEnabled() {
+  return !!(ISSUE_CFG.actions && ISSUE_CFG.actions.routeNotCivil);
+}
+function countRoutedAwayIssues() {
+  return allIssues.filter(function (r) { return issueIsRoutedAway(r); }).length;
+}
+function updateNotCivilNavBadge() {
+  if (!civilNotCivilTabEnabled()) return;
+  var badge = document.getElementById('notCivilNavBadge');
+  if (!badge) return;
+  var n = countRoutedAwayIssues();
+  badge.textContent = n > 0 ? String(n) : '';
+  badge.style.display = n > 0 ? 'inline-flex' : 'none';
+}
+function refreshAllIssueTabs() {
+  updateNotCivilNavBadge();
+  var list = document.getElementById('list');
+  if (list && list.classList.contains('active')) renderIssues();
+  var nc = document.getElementById('notcivil');
+  if (nc && nc.classList.contains('active')) renderRoutedIssues();
+  deferHeavyRenders();
 }
 function issueMatchesIssueFilters(r, fp, fs, fm, fg, q) {
   if (fp && r.project !== fp) return false;
@@ -1696,8 +1721,9 @@ function routeIssueNotCivil(id) {
       var it = allIssues.find(function (x) { return x.id === id; });
       if (it) it.disposition = 'not_civil';
       closeIssueModal();
-      loadIssues(true);
-      uiAlert('\u2705 Issue moved to "Not Civil Department" section.');
+      refreshAllIssueTabs();
+      switchTabTo('notcivil');
+      uiAlert('\u2705 Issue moved to Not Civil Department.');
     }).catch(function (e) { uiAlert('\u274c ' + (e.message || 'Could not route issue')); });
   });
 }
@@ -1715,8 +1741,7 @@ function restoreCivilIssue(id) {
       var it = allIssues.find(function (x) { return x.id === id; });
       if (it) it.disposition = '';
       closeIssueModal();
-      renderIssues();
-      renderAnalytics();
+      refreshAllIssueTabs();
       uiAlert('\u2705 Issue restored to Civil queue.');
     }).catch(function (e) { uiAlert('\u274c ' + (e.message || 'Could not restore issue')); });
   });
@@ -1748,7 +1773,7 @@ function compareIssuesNewestFirst(a, b) {
 }
 
 function getIssueViewMode(){ try{ return localStorage.getItem(ISSUE_VIEW_KEY)==='grid'?'grid':'table'; }catch(e){ return 'table'; } }
-function setIssueViewMode(m){ try{ localStorage.setItem(ISSUE_VIEW_KEY,m); }catch(e){} renderIssues(); }
+function setIssueViewMode(m){ try{ localStorage.setItem(ISSUE_VIEW_KEY,m); }catch(e){} refreshAllIssueTabs(); }
 function issueActionBtns(r, listMode) {
   listMode = listMode || 'civil';
   var h = '<button type="button" onclick="event.stopPropagation();shareIssueWhatsApp(\'' + r.id + '\')" title="Share on WhatsApp" style="background:#25D366;color:#fff;border:none;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:none;margin-right:6px;">' + whatsappIconHtml() + '</button>';
@@ -1822,9 +1847,7 @@ function renderIssues() {
   var q = (document.getElementById('f-search').value || '').toLowerCase();
   var matched = allIssues.filter(function (r) { return issueMatchesIssueFilters(r, fp, fs, fm, fg, q); });
   var rows = matched.filter(function (r) { return !issueIsRoutedAway(r); });
-  var routedRows = matched.filter(function (r) { return issueIsRoutedAway(r); });
   rows.sort(compareIssuesNewestFirst);
-  routedRows.sort(compareIssuesNewestFirst);
   window._visibleIssueIds = rows.map(function (r) { return r.id; });
   var oc = rows.filter(function (r) { return r.status !== 'fixed'; }).length;
   var fc = rows.length - oc;
@@ -1832,19 +1855,36 @@ function renderIssues() {
   var unAssign = openAll.filter(function (r) { return isIssueUnassigned(r); }).length;
   var teamBits = '';
   if (tradeGroups().length) teamBits = ' &nbsp;&mdash;&nbsp; <span style="color:var(--c-warn,#b8860b);">' + unAssign + ' unassigned</span>';
-  if (routedRows.length && ISSUE_CFG.actions && ISSUE_CFG.actions.routeNotCivil) {
-    teamBits += ' &nbsp;&mdash;&nbsp; <span style="color:#d68910;">' + routedRows.length + ' not civil dept</span>';
+  var routedTotal = countRoutedAwayIssues();
+  if (routedTotal && civilNotCivilTabEnabled()) {
+    teamBits += ' &nbsp;&mdash;&nbsp; <span style="color:#d68910;">' + routedTotal + ' in Not Civil Dept</span>';
   }
   var h = '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;"><p style="color:var(--text-soft);margin:0;">' + rows.length + ' issue(s)' + (fm ? (' in ' + fm) : '') + ' &nbsp;&mdash;&nbsp; <span style="color:var(--open-color);">' + squareIconHtml('var(--open-color)') + ' ' + oc + ' open</span> &nbsp;&mdash;&nbsp; <span style="color:#1d9e75;">' + checkIconHtml('#1d9e75') + ' ' + fc + ' fixed</span>' + teamBits + '</p>' + viewToggleHtml() + '</div>' + issueSelectToolbarHtml();
   if (rows.length === 0) h += '<p style="color:var(--text-faint);">No civil issues match.</p>';
   else h += renderIssueListHtml(rows, 'civil');
-  if (routedRows.length && ISSUE_CFG.actions && ISSUE_CFG.actions.routeNotCivil) {
-    h += '<div class="routed-away-section"><h3 class="routed-away-title">Not Civil Department — needs another department</h3>';
-    h += '<p class="routed-away-hint">These issues do not belong in Civil. Re-create them in Electric, Fire, or the correct department, then delete or keep for reference.</p>';
-    h += renderIssueListHtml(routedRows, 'routed');
-    h += '</div>';
-  }
   document.getElementById('issuesTable').innerHTML = h;
+  updateNotCivilNavBadge();
+}
+function renderRoutedIssues() {
+  if (isCivilWorker() || !civilNotCivilTabEnabled()) return;
+  var host = document.getElementById('issuesNotCivilTable');
+  if (!host) return;
+  var fp = (document.getElementById('f-nc-project') || {}).value || '';
+  var q = ((document.getElementById('f-nc-search') || {}).value || '').toLowerCase();
+  var rows = allIssues.filter(function (r) {
+    if (!issueIsRoutedAway(r)) return false;
+    if (fp && r.project !== fp) return false;
+    return issueMatchesIssueFilters(r, '', '', '', '', q);
+  });
+  rows.sort(compareIssuesNewestFirst);
+  var h = '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;"><p style="color:var(--text-soft);margin:0;">' + rows.length + ' issue(s) routed away from Civil</p>' + viewToggleHtml() + '</div>';
+  if (!rows.length) {
+    h += '<p style="color:var(--text-faint);">No issues here yet. Use the orange button on a civil issue card to move misfiled reports here.</p>';
+  } else {
+    h += renderIssueListHtml(rows, 'routed');
+  }
+  host.innerHTML = h;
+  updateNotCivilNavBadge();
 }
 function durationStr(a,b){ if(!a||!b) return ''; const pr=s=>new Date(String(s).replace(' ','T')); const d1=pr(a), d2=pr(b); if(isNaN(d1.getTime())||isNaN(d2.getTime())) return ''; let ms=d2-d1; if(ms<0) return ''; const days=Math.floor(ms/86400000); const hrs=Math.floor((ms%86400000)/3600000); const mins=Math.floor((ms%3600000)/60000); let parts=[]; if(days)parts.push(days+'d'); if(hrs)parts.push(hrs+'h'); if(!days&&!hrs)parts.push(mins+'m'); return ' \u2014 took '+parts.join(' '); }
 function assignBoxHtml(r) {
@@ -1898,9 +1938,9 @@ function miniDonutHtml(name,open,fixed){ var total=open+fixed; var fp=total?fixe
 function initRepMonth(){ var mm=document.getElementById('rep-month-m'); var ym=document.getElementById('rep-month-y'); if(mm && mm.options.length<=1){ var names=['January','February','March','April','May','June','July','August','September','October','November','December']; for(var i=0;i<12;i++){ var o=document.createElement('option'); o.value=String(i+1).padStart(2,'0'); o.textContent=names[i]; mm.appendChild(o); } } if(ym && ym.options.length<=1){ var cy=new Date().getFullYear(); for(var y=cy+1;y>=cy-3;y--){ var o2=document.createElement('option'); o2.value=String(y); o2.textContent=String(y); ym.appendChild(o2); } } }
 function syncRepMonth(){ var y=(document.getElementById('rep-month-y')||{}).value||''; var m=(document.getElementById('rep-month-m')||{}).value||''; var h=document.getElementById('rep-month'); if(h) h.value=(y&&m)?(y+'-'+m):''; }
 function renderAnalytics(){ const queue=allIssues.filter(function(r){ return !issueIsRoutedAway(r); }); const total=queue.length; const open=queue.filter(r=>r.status!=='fixed').length; const fixed=total-open; let h='<div class="stats"><div class="stat-box"><div class="stat-value">'+total+'</div><div class="stat-label">Total Issues</div></div><div class="stat-box"><div class="stat-value" style="color:var(--open-color);">'+open+'</div><div class="stat-label">Open</div></div><div class="stat-box"><div class="stat-value" style="color:#27ae60;">'+fixed+'</div><div class="stat-label">Fixed</div></div></div>'; h+='<h3>Open vs Fixed</h3><div style="display:flex;flex-wrap:wrap;gap:26px;align-items:center;margin:10px 0 22px;">'+donutHtml(open,fixed,total)+'<div style="display:flex;flex-wrap:wrap;gap:12px;">'+['ec','es','wd','ww','ra'].map(function(p){ var pr=queue.filter(function(r){return r.project===p;}); var o=pr.filter(function(r){return r.status!=='fixed';}).length; return miniDonutHtml(projectNames[p],o,pr.length-o); }).join('')+'</div></div>'; var colg='<colgroup><col style="width:40%"><col style="width:20%"><col style="width:20%"><col style="width:20%"></colgroup>'; h+='<h3>By Project</h3><table style="table-layout:fixed;width:100%;">'+colg+'<thead><tr><th>Project</th><th>Open</th><th>Fixed</th><th>Total</th></tr></thead><tbody>'; ['ec','es','wd','ww','ra'].forEach(p=>{ const pr=queue.filter(r=>r.project===p); if(pr.length===0)return; const o=pr.filter(r=>r.status!=='fixed').length; h+='<tr><td>'+projectNames[p]+'</td><td style="color:var(--open-color);">'+o+'</td><td style="color:#1d9e75;">'+(pr.length-o)+'</td><td>'+pr.length+'</td></tr>'; }); h+='</tbody></table>'; const types={}; queue.forEach(r=>{ const t=r.issueType; if(!types[t]) types[t]={open:0,fixed:0}; if(r.status==='fixed') types[t].fixed++; else types[t].open++; }); h+='<h3>By Issue Type</h3><table style="table-layout:fixed;width:100%;">'+colg+'<thead><tr><th>Type</th><th>Open</th><th>Fixed</th><th>Total</th></tr></thead><tbody>'; Object.keys(types).sort((a,b)=>(types[b].open+types[b].fixed)-(types[a].open+types[a].fixed)).forEach(t=>{ const o=types[t].open,f=types[t].fixed; h+='<tr><td>'+t+'</td><td style="color:var(--open-color);">'+o+'</td><td style="color:#1d9e75;">'+f+'</td><td>'+(o+f)+'</td></tr>'; }); h+='</tbody></table>'; document.getElementById('analyticsContent').innerHTML=h; }
-function switchTab(e,t){ document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); e.target.classList.add('active'); empireSaveActiveTab(ISSUE_CFG.prefix+'_active_tab', t); if(t==='add'){ window._editingId=null; var eb=document.getElementById('editBanner'); if(eb) eb.style.display='none'; } if(t==='analytics') renderAnalytics(); if(t==='list') startEngineerLocationPoll(); else stopEngineerLocationPoll(); }
-function switchTabTo(t){ document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); document.querySelectorAll('.tab-btn').forEach(b=>{ if(b.getAttribute('onclick').indexOf("'"+t+"'")!==-1) b.classList.add('active'); }); if(t==='list') startEngineerLocationPoll(); else stopEngineerLocationPoll(); }
-function enterApp(){ document.body.classList.remove('civil-worker-mode'); document.getElementById('loginPage').classList.remove('show'); var wa=document.getElementById('workerApp'); if(wa) wa.classList.remove('show'); stopWorkerLocationPing(); document.getElementById('mainContainer').classList.add('show'); applyPerms(); refreshPerms(); populateSelect('ci-project',['ec','es','wd','ww','ra'],true); updateCIBuildings(); populateSelect('ci-spot',spots,false); populateSelect('ci-issuetype',issueTypes,false); const fp=document.getElementById('f-project'); if(fp && fp.options.length<=1){ ['ec','es','wd','ww','ra'].forEach(p=>{ const o=document.createElement('option'); o.value=p;o.textContent=projectNames[p]; fp.appendChild(o); }); } initTradeFilters(); window._issueFilterState=empireBindFilterPersistence({ key:ISSUE_CFG.prefix+'_list_filters', fields:['f-project','f-group','f-status','f-month','f-search'], onApply:function(){ renderIssues(); } }); initRepMonth(); document.getElementById('ci-date').value=new Date().toISOString().split('T')[0]; var tab=empireRestoreActiveTab(ISSUE_CFG.prefix+'_active_tab','list'); switchTabTo(tab); if(tab==='analytics') renderAnalytics(); setTimeout(function(){ loadIssues(false); },0); syncWorkerLocationsUi(); }
+function switchTab(e,t){ document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); e.target.classList.add('active'); empireSaveActiveTab(ISSUE_CFG.prefix+'_active_tab', t); if(t==='add'){ window._editingId=null; var eb=document.getElementById('editBanner'); if(eb) eb.style.display='none'; } if(t==='analytics') renderAnalytics(); if(t==='notcivil') renderRoutedIssues(); if(t==='list') startEngineerLocationPoll(); else stopEngineerLocationPoll(); }
+function switchTabTo(t){ document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); document.querySelectorAll('.tab-btn').forEach(b=>{ if(b.getAttribute('onclick').indexOf("'"+t+"'")!==-1) b.classList.add('active'); }); if(t==='analytics') renderAnalytics(); if(t==='notcivil') renderRoutedIssues(); if(t==='list') startEngineerLocationPoll(); else stopEngineerLocationPoll(); }
+function enterApp(){ document.body.classList.remove('civil-worker-mode'); document.getElementById('loginPage').classList.remove('show'); var wa=document.getElementById('workerApp'); if(wa) wa.classList.remove('show'); stopWorkerLocationPing(); document.getElementById('mainContainer').classList.add('show'); applyPerms(); refreshPerms(); populateSelect('ci-project',['ec','es','wd','ww','ra'],true); updateCIBuildings(); populateSelect('ci-spot',spots,false); populateSelect('ci-issuetype',issueTypes,false); const fp=document.getElementById('f-project'); if(fp && fp.options.length<=1){ ['ec','es','wd','ww','ra'].forEach(p=>{ const o=document.createElement('option'); o.value=p;o.textContent=projectNames[p]; fp.appendChild(o); }); } const fnc=document.getElementById('f-nc-project'); if(fnc && fnc.options.length<=1){ ['ec','es','wd','ww','ra'].forEach(p=>{ const o=document.createElement('option'); o.value=p;o.textContent=projectNames[p]; fnc.appendChild(o); }); } initTradeFilters(); window._issueFilterState=empireBindFilterPersistence({ key:ISSUE_CFG.prefix+'_list_filters', fields:['f-project','f-group','f-status','f-month','f-search'], onApply:function(){ renderIssues(); } }); initRepMonth(); document.getElementById('ci-date').value=new Date().toISOString().split('T')[0]; var tab=empireRestoreActiveTab(ISSUE_CFG.prefix+'_active_tab','list'); switchTabTo(tab); if(tab==='analytics') renderAnalytics(); setTimeout(function(){ loadIssues(false); },0); syncWorkerLocationsUi(); }
 var _lastPermFetch=0;
 function refreshPerms(){ var tk=issueToken(); if(!tk) return; var now=Date.now(); if(now-_lastPermFetch<300000) return; _lastPermFetch=now; empireAuthRefreshPerms(function(d){ PAGEPERMS=d.perms||empireGetPerms(); applyPerms(); }); }
 function bootApp(){ empireAuthPageBoot({ dept: ISSUE_CFG.dept, onEnter: function(){ syncWorkerRoleThenRoute_(); } }); }
