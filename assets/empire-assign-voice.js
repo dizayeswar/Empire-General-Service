@@ -4,7 +4,7 @@ var _assignVoiceDraft = {};
 var _assignVoiceActiveId = '';
 var _assignVoicePlayerCache = {};
 var ASSIGN_VOICE_MAX_SEC = 120;
-var ASSIGN_VOICE_WAV_RATE = 16000;
+var ASSIGN_VOICE_PREFERRED_RATE = 48000;
 
 function assignVoiceMicIconHtml() {
   return '<span class="nav-icon" style="width:15px;height:15px;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19v3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><rect x="9" y="2" width="6" height="13" rx="3"/></svg></span>';
@@ -45,7 +45,8 @@ function assignVoiceDraft_(issueId) {
       audioContext: null,
       audioProcessor: null,
       audioSource: null,
-      wavSamples: null
+      wavSamples: null,
+      captureSampleRate: 0
     };
   }
   return _assignVoiceDraft[issueId];
@@ -82,10 +83,22 @@ function assignVoiceStopWavCapture_(draft) {
 }
 
 function assignVoiceEncodeWavBlob_(sampleChunks, sampleRate) {
-  sampleRate = sampleRate || ASSIGN_VOICE_WAV_RATE;
+  sampleRate = sampleRate || ASSIGN_VOICE_PREFERRED_RATE;
   var total = 0;
-  for (var i = 0; i < sampleChunks.length; i++) total += sampleChunks[i].length;
+  var i;
+  for (i = 0; i < sampleChunks.length; i++) total += sampleChunks[i].length;
   if (!total) return null;
+
+  var peak = 0;
+  for (i = 0; i < sampleChunks.length; i++) {
+    var chunk = sampleChunks[i];
+    for (var j = 0; j < chunk.length; j++) {
+      var abs = Math.abs(chunk[j]);
+      if (abs > peak) peak = abs;
+    }
+  }
+  var gain = peak > 0.02 ? Math.min(0.92 / peak, 6) : 1;
+
   var buffer = new ArrayBuffer(44 + total * 2);
   var view = new DataView(buffer);
   function writeStr(off, str) {
@@ -105,10 +118,10 @@ function assignVoiceEncodeWavBlob_(sampleChunks, sampleRate) {
   writeStr(36, 'data');
   view.setUint32(40, total * 2, true);
   var offset = 44;
-  for (var s = 0; s < sampleChunks.length; s++) {
-    var chunk = sampleChunks[s];
-    for (var j = 0; j < chunk.length; j++) {
-      var v = Math.max(-1, Math.min(1, chunk[j]));
+  for (i = 0; i < sampleChunks.length; i++) {
+    chunk = sampleChunks[i];
+    for (j = 0; j < chunk.length; j++) {
+      var v = Math.max(-1, Math.min(1, chunk[j] * gain));
       view.setInt16(offset, v < 0 ? v * 0x8000 : v * 0x7fff, true);
       offset += 2;
     }
@@ -127,7 +140,7 @@ function assignVoiceStopRecording_(issueId, silent) {
     assignVoiceStopWavCapture_(draft);
     assignVoiceStopTracks_(draft);
     if (draft.wavSamples && draft.wavSamples.length) {
-      draft.blob = assignVoiceEncodeWavBlob_(draft.wavSamples, ASSIGN_VOICE_WAV_RATE);
+      draft.blob = assignVoiceEncodeWavBlob_(draft.wavSamples, draft.captureSampleRate || ASSIGN_VOICE_PREFERRED_RATE);
       if (draft.blob) {
         draft.durationSec = Math.max(1, Math.round((Date.now() - draft.startedAt) / 1000));
         if (draft.previewUrl) {
@@ -370,15 +383,17 @@ function assignVoiceStartWavCapture_(issueId, stream, draft) {
   draft.startedAt = Date.now();
   draft.durationSec = 0;
   draft.wavSamples = [];
+  draft.captureSampleRate = 0;
   _assignVoiceActiveId = issueId;
   try {
-    draft.audioContext = new AudioCtx({ sampleRate: ASSIGN_VOICE_WAV_RATE });
+    draft.audioContext = new AudioCtx({ sampleRate: ASSIGN_VOICE_PREFERRED_RATE });
   } catch (e) {
     draft.audioContext = new AudioCtx();
   }
+  draft.captureSampleRate = draft.audioContext.sampleRate || ASSIGN_VOICE_PREFERRED_RATE;
   var wire = function () {
     draft.audioSource = draft.audioContext.createMediaStreamSource(stream);
-    draft.audioProcessor = draft.audioContext.createScriptProcessor(4096, 1, 1);
+    draft.audioProcessor = draft.audioContext.createScriptProcessor(2048, 1, 1);
     draft.audioProcessor.onaudioprocess = function (ev) {
       if (!draft.recording) return;
       draft.wavSamples.push(new Float32Array(ev.inputBuffer.getChannelData(0)));
@@ -418,7 +433,14 @@ function assignVoiceStartRecord(issueId) {
   var draft = assignVoiceDraft_(issueId);
   assignVoiceReleaseDraft_(draft);
   assignVoiceStopWavCapture_(draft);
-  navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }).then(function (stream) {
+  navigator.mediaDevices.getUserMedia({
+    audio: {
+      echoCancellation: true,
+      noiseSuppression: false,
+      autoGainControl: true,
+      channelCount: 1
+    }
+  }).then(function (stream) {
     draft.stream = stream;
     assignVoiceStartWavCapture_(issueId, stream, draft);
   }).catch(function () {
