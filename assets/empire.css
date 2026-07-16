@@ -198,6 +198,13 @@ html[data-theme="dark"] .issue-card-check { background:rgba(13,50,100,0.92); }
 .fixed-photo-count { margin:0 0 8px; font-size:12px; color:var(--text-soft); font-weight:600; }
 .fixed-photo-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(88px,1fr)); gap:8px; }
 .fixed-photo-grid img { width:100%; aspect-ratio:1; object-fit:cover; border-radius:var(--radius-sm); border:1px solid var(--card-border); cursor:pointer; }
+.completion-photo-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(88px,1fr)); gap:8px; }
+.completion-photo-wrap { position:relative; }
+.completion-photo-wrap img { width:100%; aspect-ratio:1; object-fit:cover; border-radius:var(--radius-sm); border:1px solid var(--card-border); cursor:pointer; display:block; }
+.photo-source-badge { display:inline-block; font-size:10px; font-weight:700; padding:2px 6px; border-radius:6px; margin-right:4px; vertical-align:middle; }
+.photo-source-camera { background:#1d9e75; color:#fff; }
+.photo-source-gallery { background:#5b7cfa; color:#fff; }
+.completion-photo-wrap .photo-source-badge { position:absolute; bottom:4px; left:4px; margin:0; z-index:1; }
 footer { text-align:center; margin-top:30px; color:var(--text-faint); font-size:12px; }
 /* ===== Sidebar layout ===== */
 .app-shell { display:flex; align-items:flex-start; gap:0; }

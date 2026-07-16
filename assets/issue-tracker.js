@@ -47,6 +47,36 @@ function normalizePhotoUrls(urls) {
     return typeof u === 'string' ? u : (u && u.url) || '';
   }).filter(Boolean);
 }
+function workerPhotoUrl(item) {
+  if (!item) return '';
+  return typeof item === 'string' ? item : (item.url || '');
+}
+function workerPhotoSource(item) {
+  if (!item || typeof item === 'string') return 'camera';
+  var s = String(item.source || 'camera').toLowerCase();
+  return s === 'gallery' ? 'gallery' : 'camera';
+}
+function completionPhotoSource(c, index) {
+  if (!c || !c.photoSources || !c.photoSources.length) return 'camera';
+  var s = String(c.photoSources[index] || 'camera').toLowerCase();
+  return s === 'gallery' ? 'gallery' : 'camera';
+}
+function photoSourceBadgeHtml(source) {
+  if (source === 'gallery') {
+    return '<span class="photo-source-badge photo-source-gallery" title="Uploaded from gallery">Uploaded</span>';
+  }
+  return '<span class="photo-source-badge photo-source-camera" title="Taken with camera">Taken</span>';
+}
+function completionPhotoGridHtml(photos, completion) {
+  if (!photos || !photos.length) return '';
+  var h = '<div class="fixed-photo-grid completion-photo-grid">';
+  photos.forEach(function (u, i) {
+    h += '<div class="completion-photo-wrap"><img src="' + u + '" onclick="bigImg(this.src)" alt="Worker photo ' + (i + 1) + '">'
+      + photoSourceBadgeHtml(completionPhotoSource(completion, i)) + '</div>';
+  });
+  h += '</div>';
+  return h;
+}
 function isOfflinePhotoUrl(url) {
   return String(url || '').indexOf('data:') === 0;
 }
@@ -358,11 +388,7 @@ function workerCompletionsBlockHtml(r) {
   r.workerCompletions.forEach(function (c) {
     h += '<div class="worker-completion-item"><p style="margin:0 0 6px;font-size:13px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span class="worker-done-badge">' + checkIconHtml('#fff') + ' Marked as fixed</span><strong>' + (c.user || 'Worker') + '</strong>' + (c.at ? ('<span style="color:var(--text-faint);font-weight:400;">&middot; ' + dateOnly(c.at) + '</span>') : '') + '</p>';
     if (c.photos && c.photos.length) {
-      h += '<div class="fixed-photo-grid">';
-      c.photos.forEach(function (u, i) {
-        h += '<img src="' + u + '" onclick="bigImg(this.src)" alt="Worker photo ' + (i + 1) + '">';
-      });
-      h += '</div>';
+      h += completionPhotoGridHtml(c.photos, c);
     }
     h += '</div>';
   });
@@ -381,11 +407,7 @@ function workerCompletionsAsideHtml(r) {
       h += '<div class="worker-aside-head"><span class="worker-done-badge">' + checkIconHtml('#fff') + ' Marked as fixed</span><strong>' + (c.user || 'Worker') + '</strong></div>';
       h += '<div class="worker-aside-meta">' + issueMetaRow('Note:', c.note || '') + issueMetaRow('Fixed time:', fmtDT(c.at) || dateOnly(c.at) || '') + '</div>';
       if (c.photos && c.photos.length) {
-        h += '<div class="fixed-photo-grid">';
-        c.photos.forEach(function (u, i) {
-          h += '<img src="' + u + '" onclick="bigImg(this.src)" alt="Worker photo ' + (i + 1) + '">';
-        });
-        h += '</div>';
+        h += completionPhotoGridHtml(c.photos, c);
       }
       h += '</div>';
     });
@@ -811,9 +833,12 @@ async function enqueueWorkerFixOffline(issueId, note, photos) {
   if (typeof empireOfflineQueuePut !== 'function') throw new Error('Offline queue not available');
   var remoteUrls = [];
   var imageDataUrls = [];
-  normalizePhotoUrls(photos).forEach(function (url) {
-    if (isOfflinePhotoUrl(url)) imageDataUrls.push(url);
+  var orderedPhotos = (photos || []).map(function (p) {
+    var url = workerPhotoUrl(p);
+    var entry = { url: url, source: workerPhotoSource(p), offline: isOfflinePhotoUrl(url) };
+    if (entry.offline) imageDataUrls.push(url);
     else if (url.indexOf('http') === 0) remoteUrls.push(url);
+    return entry;
   });
   if (!remoteUrls.length && !imageDataUrls.length) throw new Error('No photos to save');
   var id = offlineWorkerFixId();
@@ -825,6 +850,8 @@ async function enqueueWorkerFixOffline(issueId, note, photos) {
     fixNote: note || '',
     imageDataUrls: imageDataUrls,
     remoteUrls: remoteUrls,
+    orderedPhotos: orderedPhotos,
+    photoSources: orderedPhotos.map(function (p) { return p.source; }),
     user: empireGetUser() || '',
     createdAt: Date.now()
   });
@@ -853,14 +880,36 @@ async function syncWorkerOfflineFixes(silent) {
     for (var qi = 0; qi < items.length; qi++) {
       var item = items[qi];
       try {
-        var remoteUrls = (item.remoteUrls || []).slice();
-        var dataUrls = item.imageDataUrls || [];
-        for (var bi = 0; bi < dataUrls.length; bi++) {
-          var blob = empireOfflineDataUrlToBlob(dataUrls[bi]);
-          if (!blob) throw new Error('Invalid saved image');
-          var url = await uploadToImgbbAsync(blob);
-          if (!url) throw new Error('Photo upload failed');
-          remoteUrls.push(url);
+        var remoteUrls = [];
+        var photoSources = [];
+        var ordered = item.orderedPhotos || [];
+        if (ordered.length) {
+          for (var oi = 0; oi < ordered.length; oi++) {
+            var op = ordered[oi] || {};
+            var url = String(op.url || '');
+            if (!url) continue;
+            if (isOfflinePhotoUrl(url) || op.offline) {
+              var blob = empireOfflineDataUrlToBlob(url);
+              if (!blob) throw new Error('Invalid saved image');
+              url = await uploadToImgbbAsync(blob);
+              if (!url) throw new Error('Photo upload failed');
+            }
+            remoteUrls.push(url);
+            photoSources.push(op.source === 'gallery' ? 'gallery' : 'camera');
+          }
+        } else {
+          remoteUrls = (item.remoteUrls || []).slice();
+          var dataUrls = item.imageDataUrls || [];
+          for (var bi = 0; bi < dataUrls.length; bi++) {
+            var blobLegacy = empireOfflineDataUrlToBlob(dataUrls[bi]);
+            if (!blobLegacy) throw new Error('Invalid saved image');
+            var urlLegacy = await uploadToImgbbAsync(blobLegacy);
+            if (!urlLegacy) throw new Error('Photo upload failed');
+            remoteUrls.push(urlLegacy);
+          }
+          photoSources = item.photoSources || [];
+          while (photoSources.length < remoteUrls.length) photoSources.push('camera');
+          if (photoSources.length > remoteUrls.length) photoSources = photoSources.slice(0, remoteUrls.length);
         }
         if (!remoteUrls.length) throw new Error('No photos to upload');
         var d = await fetchJSONRetry({
@@ -868,6 +917,7 @@ async function syncWorkerOfflineFixes(silent) {
           id: item.issueId,
           fixedPhoto: joinFixedPhotos(remoteUrls),
           fixedPhotos: remoteUrls,
+          photoSources: photoSources,
           fixNote: item.fixNote || '',
           token: issueToken() || ''
         }, 3);
@@ -961,13 +1011,17 @@ function openWorkerJob(id) {
   }
   h += r.photo ? '<img class="worker-problem-img" src="' + r.photo + '" alt="Problem">' : '<p style="color:var(--text-faint);">No problem photo</p>';
   h += '<div class="worker-fix-section"><h3>' + checkIconHtml() + ' Complete this job</h3>';
-  h += '<p style="font-size:13px;color:var(--text-soft);margin:0 0 10px;">Take photos on site with your camera. At least one photo is required. You can take several.</p>';
+  h += '<p style="font-size:13px;color:var(--text-soft);margin:0 0 10px;">Add at least one completion photo. Take on site with your camera or upload from your gallery.</p>';
   h += '<div id="worker-photo-grid" class="worker-photo-grid"></div>';
-  h += '<div class="worker-camera-zone" onclick="triggerWorkerCamera()" role="button" tabindex="0" aria-label="Take completion photo">';
+  h += '<div class="worker-photo-actions">';
+  h += '<div class="worker-camera-zone compact" onclick="triggerWorkerCamera()" role="button" tabindex="0" aria-label="Take completion photo with camera">';
   h += '<span class="worker-camera-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/></svg></span>';
-  h += '<strong>Tap to open camera</strong><span>Camera only — take photos on site now</span></div>';
-  h += '<button type="button" class="worker-add-photo" onclick="triggerWorkerCamera()">+ Take another photo</button>';
-  h += '<input type="file" id="worker-fix-file" accept="image/*" capture="environment" style="display:none" onchange="handleWorkerFixFile(event)">';
+  h += '<strong>Take photo</strong><span>Opens camera on site</span></div>';
+  h += '<div class="worker-gallery-zone compact" onclick="triggerWorkerGallery()" role="button" tabindex="0" aria-label="Upload completion photo from gallery">';
+  h += '<span class="worker-gallery-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></span>';
+  h += '<strong>Upload photo</strong><span>Choose from gallery</span></div></div>';
+  h += '<input type="file" id="worker-fix-camera" accept="image/*" capture="environment" style="display:none" onchange="handleWorkerFixFile(event,\'camera\')">';
+  h += '<input type="file" id="worker-fix-gallery" accept="image/*" style="display:none" onchange="handleWorkerFixFile(event,\'gallery\')">';
   h += '<input type="text" id="worker-fix-note" class="worker-fix-note" placeholder="Note (optional)">';
   h += '<button type="button" id="worker-submit-btn" class="worker-submit-fix" disabled onclick="submitWorkerFix(\'' + id + '\')">Mark as fixed</button></div>';
   body.innerHTML = h;
@@ -996,13 +1050,20 @@ function openWorkerJobPendingView(id) {
       return x.type === 'worker_issue_fix' && x.dept === ISSUE_CFG.dept && x.issueId === id;
     });
     var photos = item ? [].concat(item.remoteUrls || [], item.imageDataUrls || []) : [];
+    var itemSources = item ? (item.photoSources || []) : [];
+    if (item && item.orderedPhotos && item.orderedPhotos.length) {
+      photos = item.orderedPhotos.map(function (p) { return p.url; });
+      itemSources = item.orderedPhotos.map(function (p) { return p.source; });
+    }
     var h = '<h2>' + r.issueType + '</h2><p class="loc">' + (projectNames[r.project] || r.project) + ' &middot; ' + locStr(r) + '</p>';
     h += '<div class="worker-done-locked worker-pending-sync"><p class="worker-done-msg">' + checkIconHtml('#d68910') + ' Saved on this device</p>';
     h += '<p style="font-size:13px;color:var(--text-soft);margin:0;">Waiting for internet to upload your photos and mark this job fixed. Keep this page open or come back later.</p></div>';
     if (photos.length) {
       h += '<div class="worker-fix-section"><h3>Your photos (not uploaded yet)</h3><div class="worker-photo-grid">';
       photos.forEach(function (url, i) {
-        h += '<div class="worker-photo-item"><img src="' + url + '" onclick="bigImg(this.src)" alt="Photo ' + (i + 1) + '"><span class="worker-photo-label">Photo ' + (i + 1) + (isOfflinePhotoUrl(url) ? ' &middot; on device' : '') + '</span></div>';
+        var src = itemSources[i] || 'camera';
+        h += '<div class="worker-photo-item"><img src="' + url + '" onclick="bigImg(this.src)" alt="Photo ' + (i + 1) + '"><span class="worker-photo-label">'
+          + photoSourceBadgeHtml(src) + ' Photo ' + (i + 1) + (isOfflinePhotoUrl(url) ? ' &middot; on device' : '') + '</span></div>';
       });
       h += '</div></div>';
     }
@@ -1029,7 +1090,8 @@ function openWorkerJobDoneView(id) {
   if (mine && mine.photos && mine.photos.length) {
     h += '<div class="worker-fix-section"><h3>Your submitted photos</h3><div class="worker-photo-grid">';
     mine.photos.forEach(function (url, i) {
-      h += '<div class="worker-photo-item"><img src="' + url + '" onclick="bigImg(this.src)" alt="Photo ' + (i + 1) + '"><span class="worker-photo-label">Photo ' + (i + 1) + '</span></div>';
+      h += '<div class="worker-photo-item"><img src="' + url + '" onclick="bigImg(this.src)" alt="Photo ' + (i + 1) + '"><span class="worker-photo-label">'
+        + photoSourceBadgeHtml(completionPhotoSource(mine, i)) + ' Photo ' + (i + 1) + '</span></div>';
     });
     h += '</div></div>';
   }
@@ -1041,20 +1103,27 @@ function openWorkerJobDoneView(id) {
   document.getElementById('workerJobModal').classList.add('show');
 }
 function triggerWorkerCamera() {
-  var inp = document.getElementById('worker-fix-file');
+  var inp = document.getElementById('worker-fix-camera');
+  if (inp) inp.click();
+}
+function triggerWorkerGallery() {
+  var inp = document.getElementById('worker-fix-gallery');
   if (inp) inp.click();
 }
 function renderWorkerPhotoGrid() {
   var grid = document.getElementById('worker-photo-grid');
   if (!grid) return;
   if (!_workerFixPhotos.length) {
-    grid.innerHTML = '<p class="worker-photo-empty">No photos yet — tap the camera below</p>';
+    grid.innerHTML = '<p class="worker-photo-empty">No photos yet — use camera or gallery below</p>';
   } else {
-    grid.innerHTML = _workerFixPhotos.map(function (url, i) {
+    grid.innerHTML = _workerFixPhotos.map(function (item, i) {
+      var url = workerPhotoUrl(item);
       var offline = isOfflinePhotoUrl(url);
+      var source = workerPhotoSource(item);
       return '<div class="worker-photo-item"><img src="' + url + '" onclick="bigImg(this.src)" alt="Photo ' + (i + 1) + '">'
         + '<button type="button" class="worker-photo-remove" onclick="removeWorkerFixPhoto(' + i + ')" aria-label="Remove photo">&times;</button>'
-        + '<span class="worker-photo-label">Photo ' + (i + 1) + (offline ? ' <span class="worker-photo-offline">on device</span>' : '') + '</span></div>';
+        + '<span class="worker-photo-label">' + photoSourceBadgeHtml(source) + ' Photo ' + (i + 1)
+        + (offline ? ' <span class="worker-photo-offline">on device</span>' : '') + '</span></div>';
     }).join('');
   }
   updateWorkerSubmitBtn();
@@ -1079,13 +1148,14 @@ function closeWorkerJob() {
   _workerFixPhotos = [];
   _workerUploading = 0;
 }
-function handleWorkerFixFile(e) {
+function handleWorkerFixFile(e, source) {
   var f = e.target.files && e.target.files[0];
-  if (f) processWorkerFixPhoto(f);
+  if (f) processWorkerFixPhoto(f, source || 'camera');
   e.target.value = '';
 }
-function processWorkerFixPhoto(file) {
+function processWorkerFixPhoto(file, source) {
   if (!file || !_workerFixId) return;
+  source = source === 'gallery' ? 'gallery' : 'camera';
   _workerUploading++;
   updateWorkerSubmitBtn();
   compressImageToBlob(file, function (blob) {
@@ -1096,7 +1166,7 @@ function processWorkerFixPhoto(file) {
       return;
     }
     function finishWithLocal(dataUrl) {
-      _workerFixPhotos.push(dataUrl);
+      _workerFixPhotos.push({ url: dataUrl, source: source });
       _workerUploading = Math.max(0, _workerUploading - 1);
       renderWorkerPhotoGrid();
       sendWorkerLocationNow(true);
@@ -1105,7 +1175,7 @@ function processWorkerFixPhoto(file) {
       }
     }
     function finishWithRemote(url) {
-      _workerFixPhotos.push(url);
+      _workerFixPhotos.push({ url: url, source: source });
       _workerUploading = Math.max(0, _workerUploading - 1);
       renderWorkerPhotoGrid();
       sendWorkerLocationNow(true);
@@ -1153,7 +1223,7 @@ function compressImageToBlob(file, cb) {
   r.readAsDataURL(file);
 }
 function workerFixNeedsOfflineQueue() {
-  return !navigator.onLine || _workerFixPhotos.some(isOfflinePhotoUrl);
+  return !navigator.onLine || _workerFixPhotos.some(function (item) { return isOfflinePhotoUrl(workerPhotoUrl(item)); });
 }
 function submitWorkerFixSuccess(id, d) {
   if (d && d.partial) {
@@ -1184,7 +1254,7 @@ function submitWorkerFixOffline(id, note, btn) {
   });
 }
 function submitWorkerFix(id) {
-  if (!_workerFixPhotos.length) { uiAlert('Please take at least one completion photo first.'); return; }
+  if (!_workerFixPhotos.length) { uiAlert('Please add at least one completion photo first.'); return; }
   if (workerCompletedByMe(allIssues.find(function (x) { return x.id === id; }))) {
     uiAlert('You already marked this job as fixed.');
     closeWorkerJob();
@@ -1200,7 +1270,8 @@ function submitWorkerFix(id) {
     return;
   }
   var urls = normalizePhotoUrls(_workerFixPhotos);
-  fetchJSONRetry({ action: ISSUE_CFG.actions.markFixed, id: id, fixedPhoto: joinFixedPhotos(urls), fixedPhotos: urls, fixNote: note, token: issueToken() || '' })
+  var photoSources = _workerFixPhotos.map(workerPhotoSource);
+  fetchJSONRetry({ action: ISSUE_CFG.actions.markFixed, id: id, fixedPhoto: joinFixedPhotos(urls), fixedPhotos: urls, photoSources: photoSources, fixNote: note, token: issueToken() || '' })
     .then(function (d) {
       if (d && d.ok === false) {
         if (empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts())) return;

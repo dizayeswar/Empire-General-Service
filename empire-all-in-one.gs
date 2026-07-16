@@ -412,6 +412,18 @@ function parseWorkersRequired_(raw) {
   if (!n || n < 1) return 1;
   return n > 4 ? 4 : n;
 }
+function normalizePhotoSources_(body, photoCount) {
+  var sources = [];
+  if (body && body.photoSources && body.photoSources.length) {
+    for (var i = 0; i < body.photoSources.length; i++) {
+      var s = String(body.photoSources[i] || 'camera').toLowerCase();
+      sources.push(s === 'gallery' ? 'gallery' : 'camera');
+    }
+  }
+  while (sources.length < photoCount) sources.push('camera');
+  if (sources.length > photoCount) sources = sources.slice(0, photoCount);
+  return sources;
+}
 function parseWorkerCompletions_(raw) {
   raw = String(raw || '').trim();
   if (!raw || raw.charAt(0) !== '[') return [];
@@ -429,9 +441,19 @@ function parseWorkerCompletions_(raw) {
         }
       }
       if (!photos.length) continue;
+      var photoSources = [];
+      if (item.photoSources && item.photoSources.length) {
+        for (var k = 0; k < item.photoSources.length; k++) {
+          var src = String(item.photoSources[k] || 'camera').toLowerCase();
+          photoSources.push(src === 'gallery' ? 'gallery' : 'camera');
+        }
+      }
+      while (photoSources.length < photos.length) photoSources.push('camera');
+      if (photoSources.length > photos.length) photoSources = photoSources.slice(0, photos.length);
       out.push({
         user: String(item.user || '').trim(),
         photos: photos,
+        photoSources: photoSources,
         at: String(item.at || '').trim(),
         note: String(item.note || '').trim()
       });
@@ -2062,7 +2084,13 @@ function handleMarkFixed(body, sheetName, auth) {
         if (workerAlreadyCompleted_(completions, fixedBy)) {
           return {ok:false, error:'already_submitted', message:'You already submitted your fix for this job.'};
         }
-        completions.push({user: fixedBy, photos: photos, at: new Date().toISOString(), note: String(body.fixNote || '').trim()});
+        completions.push({
+          user: fixedBy,
+          photos: photos,
+          photoSources: normalizePhotoSources_(body, photos.length),
+          at: new Date().toISOString(),
+          note: String(body.fixNote || '').trim()
+        });
         sheet.getRange(i+1, CIVIL_WORKER_COMPLETIONS_COL).setValue(formatWorkerCompletions_(completions));
         var allPhotos = mergeWorkerCompletionPhotos_(completions);
         sheet.getRange(i+1,10).setValue(formatFixedPhotosForStorage_(allPhotos));
@@ -2513,8 +2541,28 @@ function getSupabaseMigrationProps_() {
 }
 
 function isImgbbUrl_(u) {
-  u = String(u || '').toLowerCase();
-  return u.indexOf('i.ibb.co') !== -1 || u.indexOf('ibb.co') !== -1 || u.indexOf('imgbb.com') !== -1;
+  u = String(u || '').trim().toLowerCase();
+  if (u.indexOf('http') !== 0) return false;
+  if (u.indexOf('|') !== -1) return false;
+  return u.indexOf('i.ibb.co') !== -1 || u.indexOf('ibb.co/') !== -1 || u.indexOf('imgbb.com') !== -1;
+}
+
+function migratePipeSeparatedPhotos_(s, folder, cache) {
+  if (String(s || '').indexOf('|') === -1) return null;
+  var parts = String(s).split('|');
+  var out = [];
+  var changed = false;
+  for (var i = 0; i < parts.length; i++) {
+    var part = parts[i].trim();
+    if (isImgbbUrl_(part)) {
+      var nu = migrateOneImgbbUrl_(part, folder, cache);
+      out.push(nu);
+      if (nu !== part) changed = true;
+    } else {
+      out.push(part);
+    }
+  }
+  return changed ? out.join('|') : null;
 }
 
 function supabasePublicUrl_(path) {
@@ -2586,32 +2634,94 @@ function migrateOneImgbbUrl_(oldUrl, folder, cache) {
 
 function migrateImgbbValue_(value, folder, cache) {
   if (value === null || value === undefined || value === '') return value;
-  var s = String(value);
+  if (Object.prototype.toString.call(value) === '[object Array]') {
+    var changedArr = false;
+    var arr = [];
+    for (var ai = 0; ai < value.length; ai++) {
+      var nextItem = migrateImgbbValue_(value[ai], folder, cache);
+      if (nextItem !== value[ai]) changedArr = true;
+      arr.push(nextItem);
+    }
+    return changedArr ? arr : value;
+  }
+  if (value && typeof value === 'object') {
+    var changedObj = false;
+    var outObj = {};
+    Object.keys(value).forEach(function (k) {
+      var nextKey = migrateImgbbValue_(value[k], folder, cache);
+      if (nextKey !== value[k]) changedObj = true;
+      outObj[k] = nextKey;
+    });
+    return changedObj ? outObj : value;
+  }
+  var s = String(value).trim();
+  var piped = migratePipeSeparatedPhotos_(s, folder, cache);
+  if (piped !== null) return piped;
   if (isImgbbUrl_(s)) return migrateOneImgbbUrl_(s, folder, cache);
   if (s.charAt(0) === '[' || s.charAt(0) === '{') {
     try {
       var parsed = JSON.parse(s);
-      var changed = false;
-      function walk(v) {
-        if (typeof v === 'string' && isImgbbUrl_(v)) {
-          changed = true;
-          return migrateOneImgbbUrl_(v, folder, cache);
-        }
-        if (Object.prototype.toString.call(v) === '[object Array]') {
-          var arr = [];
-          for (var i = 0; i < v.length; i++) arr.push(walk(v[i]));
-          return arr;
-        }
-        if (v && typeof v === 'object') {
-          var out = {};
-          Object.keys(v).forEach(function (k) { out[k] = walk(v[k]); });
-          return out;
-        }
-        return v;
+      var nextParsed = migrateImgbbValue_(parsed, folder, cache);
+      if (nextParsed !== parsed) {
+        return typeof value === 'string' ? JSON.stringify(nextParsed) : nextParsed;
       }
-      var next = walk(parsed);
-      if (changed) return JSON.stringify(next);
     } catch (e) {}
+  }
+  return value;
+}
+
+function valueContainsImgbbUrl_(value) {
+  if (value === null || value === undefined || value === '') return false;
+  if (typeof value === 'string') {
+    var s = value.trim();
+    if (s.indexOf('|') !== -1) {
+      var parts = s.split('|');
+      for (var pi = 0; pi < parts.length; pi++) {
+        if (isImgbbUrl_(parts[pi].trim())) return true;
+      }
+    }
+    if (isImgbbUrl_(s)) return true;
+    if (s.charAt(0) === '[' || s.charAt(0) === '{') {
+      try { return valueContainsImgbbUrl_(JSON.parse(s)); } catch (e) {}
+    }
+    return false;
+  }
+  if (Object.prototype.toString.call(value) === '[object Array]') {
+    for (var i = 0; i < value.length; i++) {
+      if (valueContainsImgbbUrl_(value[i])) return true;
+    }
+    return false;
+  }
+  if (typeof value === 'object') {
+    var keys = Object.keys(value);
+    for (var j = 0; j < keys.length; j++) {
+      if (valueContainsImgbbUrl_(value[keys[j]])) return true;
+    }
+  }
+  return false;
+}
+
+function fixImgbbDeep_(value, folder, cache) {
+  if (value === null || value === undefined || value === '') return value;
+  if (typeof value === 'string') {
+    var s = value.trim();
+    var piped = migratePipeSeparatedPhotos_(s, folder, cache);
+    if (piped !== null) return piped;
+    if (isImgbbUrl_(s)) return migrateOneImgbbUrl_(s, folder, cache);
+    if (s.charAt(0) === '[' || s.charAt(0) === '{') {
+      try { return JSON.stringify(fixImgbbDeep_(JSON.parse(s), folder, cache)); } catch (e) {}
+    }
+    return value;
+  }
+  if (Object.prototype.toString.call(value) === '[object Array]') {
+    var arr = [];
+    for (var i = 0; i < value.length; i++) arr.push(fixImgbbDeep_(value[i], folder, cache));
+    return arr;
+  }
+  if (typeof value === 'object') {
+    var out = {};
+    Object.keys(value).forEach(function (k) { out[k] = fixImgbbDeep_(value[k], folder, cache); });
+    return out;
   }
   return value;
 }
@@ -2631,7 +2741,7 @@ function collectImgbbMigrationTasks_() {
         var col = cols[c];
         var val = rows[r][col - 1];
         if (!val) continue;
-        if (isImgbbUrl_(val) || (String(val).charAt(0) === '[' && String(val).indexOf('ibb') !== -1) || (String(val).charAt(0) === '{' && String(val).indexOf('ibb') !== -1)) {
+        if (valueContainsImgbbUrl_(val)) {
           addSimple(sheetName, r + 1, col, folder);
         }
       }
@@ -2651,15 +2761,16 @@ function collectImgbbMigrationTasks_() {
   if (trash && trash.getLastRow() >= 2) {
     var trows = trash.getDataRange().getValues();
     for (var ti = 1; ti < trows.length; ti++) {
-      var json = String(trows[ti][2] || '');
-      if (json.indexOf('ibb') !== -1) tasks.push({ kind: 'trash', row: ti + 1, folder: 'trash' });
+      if (valueContainsImgbbUrl_(trows[ti][2])) tasks.push({ kind: 'trash', row: ti + 1, folder: 'trash' });
     }
   }
   return tasks;
 }
 
 function countImgbbPhotosRemaining() {
-  return { remaining: collectImgbbMigrationTasks_().length };
+  var out = { remaining: collectImgbbMigrationTasks_().length };
+  Logger.log(JSON.stringify(out));
+  return out;
 }
 
 function migrateImgbbBatch(maxItems) {
@@ -2669,15 +2780,20 @@ function migrateImgbbBatch(maxItems) {
   var ss = getSS_();
   var migrated = 0;
   var errors = [];
-  for (var i = 0; i < tasks.length && migrated < maxItems; i++) {
+  var attempts = 0;
+  for (var i = 0; i < tasks.length && attempts < maxItems; i++) {
     var task = tasks[i];
+    attempts++;
     try {
       if (task.kind === 'trash') {
         var tsheet = ss.getSheetByName(TRASH_SHEET);
         var trow = tsheet.getRange(task.row, 3).getValue();
-        var nextJson = migrateImgbbValue_(trow, task.folder, cache);
-        if (String(nextJson) !== String(trow)) {
-          tsheet.getRange(task.row, 3).setValue(nextJson);
+        var parsedTrash = typeof trow === 'string' ? JSON.parse(trow) : trow;
+        var nextJson = fixImgbbDeep_(parsedTrash, task.folder, cache);
+        var oldStr = typeof trow === 'string' ? trow : JSON.stringify(trow);
+        var newStr = JSON.stringify(nextJson);
+        if (newStr !== oldStr) {
+          tsheet.getRange(task.row, 3).setValue(newStr);
           migrated++;
           logMigration_('trash-row-' + task.row, 'updated', TRASH_SHEET, task.row, 3);
         }
@@ -2699,10 +2815,50 @@ function migrateImgbbBatch(maxItems) {
   invalidateReportsCache_();
   invalidateTaskPhotosCache_('');
   [CIVIL_SHEET, ELECTRIC_SHEET, FIRE_SHEET, HSE_SHEET].forEach(function (n) { invalidateIssuesCache_(n); });
-  return {
+  var out = {
     ok: true,
     migrated: migrated,
     remaining: collectImgbbMigrationTasks_().length,
     errors: errors
   };
+  Logger.log('MIGRATED: ' + out.migrated + '  REMAINING: ' + out.remaining + '  ERRORS: ' + out.errors.length);
+  for (var ei = 0; ei < out.errors.length && ei < 5; ei++) {
+    Logger.log('ERROR ' + (ei + 1) + ': ' + out.errors[ei].error);
+    if (out.errors[ei].task) Logger.log('  at ' + JSON.stringify(out.errors[ei].task));
+  }
+  return out;
+}
+
+/** Run once from the editor to see why migrations fail. */
+function migrateImgbbDiagnoseOne() {
+  var cfg = getSupabaseMigrationProps_();
+  Logger.log('SUPABASE_URL: ' + (cfg.url || '(missing)'));
+  Logger.log('SUPABASE_SERVICE_KEY set: ' + (cfg.serviceKey ? 'yes' : 'NO — fix Script properties'));
+  Logger.log('SUPABASE_BUCKET: ' + cfg.bucket);
+  var tasks = collectImgbbMigrationTasks_();
+  Logger.log('Tasks waiting: ' + tasks.length);
+  if (!tasks.length) return;
+  var task = tasks[0];
+  Logger.log('Testing task: ' + JSON.stringify(task));
+  var ss = getSS_();
+  var cache = migrationMapFromLog_();
+  try {
+    if (task.kind === 'trash') {
+      var trow = ss.getSheetByName(TRASH_SHEET).getRange(task.row, 3).getValue();
+      Logger.log('Trash JSON preview: ' + String(trow).slice(0, 300));
+      var parsedTrash = typeof trow === 'string' ? JSON.parse(trow) : trow;
+      var nextJson = fixImgbbDeep_(parsedTrash, task.folder, cache);
+      var oldStr = typeof trow === 'string' ? trow : JSON.stringify(trow);
+      var newStr = JSON.stringify(nextJson);
+      Logger.log('OK — changed: ' + (newStr !== oldStr));
+      return;
+    }
+    var oldVal = ss.getSheetByName(task.sheetName).getRange(task.row, task.col).getValue();
+    Logger.log('Cell preview: ' + String(oldVal).slice(0, 300));
+    var newVal = migrateImgbbValue_(oldVal, task.folder, cache);
+    Logger.log('OK — changed: ' + (String(newVal) !== String(oldVal)));
+    if (String(newVal) !== String(oldVal)) Logger.log('New URL preview: ' + String(newVal).slice(0, 200));
+  } catch (e) {
+    Logger.log('FAILED: ' + String(e.message || e));
+  }
 }
