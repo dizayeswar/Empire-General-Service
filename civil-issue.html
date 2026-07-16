@@ -72,6 +72,7 @@
         <button class="tab-btn" onclick="switchTab(event,'add')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span> <span class="lbl">Add Issue</span></button>
         <button class="tab-btn" onclick="switchTab(event,'analytics')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 11h8"/><path d="M7 16h12"/><path d="M7 6h3"/></svg></span> <span class="lbl">Analytics</span></button>
         <button class="tab-btn tab-btn-not-civil" id="tabBtnNotCivil" onclick="switchTab(event,'notcivil')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></span> <span class="lbl">Not Civil Dept</span> <span class="side-nav-badge" id="notCivilNavBadge" style="display:none;"></span></button>
+        <button class="tab-btn tab-btn-fix-delay" id="tabBtnFixDelay" onclick="switchTab(event,'fixdelay')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span> <span class="lbl">Needs 1+ Month</span> <span class="side-nav-badge side-nav-badge-silver" id="fixDelayNavBadge" style="display:none;"></span></button>
       </nav>
       <div class="side-actions">
         <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span> <span class="lbl">Theme</span></button>
@@ -142,6 +143,18 @@
       <div id="issuesNotCivilTable"><p>Loading…</p></div>
     </div>
   </div>
+  <div id="fixdelay" class="tab-content">
+    <div class="form-section fix-delay-page">
+      <h2><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span> Needs 1+ Month</h2>
+      <p class="fix-delay-page-hint">Issues that cannot be fixed soon and need at least one month. Cards appear silver in the main list too.</p>
+      <div class="form-row">
+        <div class="form-group"><label>Project</label><select id="f-fd-project" onchange="renderFixDelayIssues()"><option value="">All</option></select></div>
+        <div class="form-group"><label>Search building/floor/spot</label><input type="text" id="f-fd-search" oninput="renderFixDelayIssues()" placeholder="e.g. A12, #A12, or stairs"></div>
+        <div class="form-group"><label>&nbsp;</label><button onclick="loadIssues(true)"><span class="nav-icon spin-icon" id="fixDelayRefreshIcon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> Refresh</button></div>
+      </div>
+      <div id="issuesFixDelayTable"><p>Loading…</p></div>
+    </div>
+  </div>
   <div id="analytics" class="tab-content">
     <div class="form-section"><h2><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 11h8"/><path d="M7 16h12"/><path d="M7 6h3"/></svg></span> Analytics</h2>
       <div class="form-row" style="align-items:flex-end;">
@@ -162,7 +175,7 @@
 <div class="modal" id="issueModal" onclick="if(event.target===this)closeIssueModal()"><div class="modal-box" id="issueBox"></div></div>
 <div class="modal" id="imgModal" onclick="closeImg()"><img id="imgBig" style="max-width:92%;max-height:92%;border-radius:10px;"></div>
 <script src="assets/empire-sw-update.js?v=2026-07-15-push-v2.2"></script>
-<script src="config.js?v=2026-07-15-push-v2.2"></script>
+<script src="config.js?v=2026-07-16-fix-delay-v2"></script>
 <script src="assets/empire-storage.js?v=2026-07-15-push-v2.2"></script>
 <script src="assets/empire-api.js?v=2026-07-15-push-v2.2"></script>
 <script src="assets/empire-auth.js?v=2026-07-15-push-v2.2"></script>
@@ -173,7 +186,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js"></script>
 <script src="assets/empire-push.js?v=2026-07-15-push-v2.2"></script>
-<script src="assets/issue-tracker.js?v=2026-07-15-push-v2.2"></script>
+<script src="assets/issue-tracker.js?v=2026-07-16-fix-delay-v2"></script>
 <script src="assets/issue-excel-export.js?v=2026-07-15-push-v2.2"></script>
 <script src="assets/issue-recycle-bin.js?v=2026-07-15-push-v2.2"></script>
 <div id="resetModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1600;align-items:center;justify-content:center;">
