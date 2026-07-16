@@ -372,6 +372,7 @@ function workersBadgeHtml(r) {
   return '<span class="workers-badge">' + issueWorkerDone(r) + '/' + need + ' workers</span>';
 }
 function issueStatusBadgeHtml(r) {
+  if (issueIsRoutedAway(r)) return '<span class="badge routed-away">Not Civil Dept</span>';
   if (r.status === 'fixed') return '<span class="badge fixed">' + checkIconHtml('currentColor') + ' Fixed</span>';
   var done = issueWorkerDone(r);
   var need = issueWorkersRequired(r);
@@ -1650,6 +1651,70 @@ function deleteSelectedIssues() {
   });
 }
 function removeIssue(id){ uiConfirm('Delete this issue? It will go to the Recycle Bin.').then(function(ok){ if(!ok)return; fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:ISSUE_CFG.actions.delete,ids:[id],token:issueToken()||''})}).then(function(r){return r.json();}).then(function(d){ if(d&&(d.ok||d.success)){ allIssues=allIssues.filter(function(x){return x.id!==id;}); renderIssues(); renderAnalytics(); } else { alert('\u274C '+((d&&(d.error||d.message))||'Delete failed')); } }).catch(function(e){ alert('\u274C '+e.message); }); }); }
+function issueIsRoutedAway(r) {
+  return String((r && r.disposition) || '').toLowerCase() === 'not_civil';
+}
+function issueMatchesIssueFilters(r, fp, fs, fm, fg, q) {
+  if (fp && r.project !== fp) return false;
+  if (fs && r.status !== fs) return false;
+  if (fm && dayOf(r) !== fm) return false;
+  if (fg && !issueMatchesTeamFilter(r, fg)) return false;
+  if (q) {
+    var qn = q.replace(/[#\s]/g, '');
+    var ref = issueRef(r.num).toLowerCase();
+    if (/^[a-z]+\d+$/.test(qn)) {
+      if (qn !== ref) return false;
+    } else if (/^\d+$/.test(qn)) {
+      if (String(r.num || '') !== qn) return false;
+    } else {
+      var hay = (r.building + ' ' + r.floor + ' ' + r.spot + ' ' + r.issueType).toLowerCase();
+      if (hay.indexOf(q) === -1) return false;
+    }
+  }
+  return true;
+}
+function canRouteIssueAway(r) {
+  return !!(ISSUE_CFG.actions && ISSUE_CFG.actions.routeNotCivil && PAGEPERMS.edit !== false && r && !issueIsRoutedAway(r) && r.status !== 'fixed');
+}
+function routeAwayIconHtml() {
+  return '<span class="nav-icon" style="width:13px;height:13px;"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></span>';
+}
+function restoreCivilIconHtml() {
+  return '<span class="nav-icon" style="width:13px;height:13px;"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg></span>';
+}
+function routeIssueNotCivil(id) {
+  uiConfirm('Move this issue out of Civil?\n\nIt will go to the "Not Civil Department" section. You can re-create it in Electric, Fire, or the correct department.').then(function (ok) {
+    if (!ok) return;
+    fetchJSONRetry({ action: ISSUE_CFG.actions.routeNotCivil, id: id, token: issueToken() || '' }).then(function (d) {
+      if (d && d.ok === false) {
+        if (empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts())) return;
+        throw new Error(d.message || d.error || 'Could not route issue');
+      }
+      var it = allIssues.find(function (x) { return x.id === id; });
+      if (it) it.disposition = 'not_civil';
+      closeIssueModal();
+      loadIssues(true);
+      uiAlert('\u2705 Issue moved to "Not Civil Department" section.');
+    }).catch(function (e) { uiAlert('\u274c ' + (e.message || 'Could not route issue')); });
+  });
+}
+function restoreCivilIssue(id) {
+  uiConfirm('Restore this issue to the Civil queue?').then(function (ok) {
+    if (!ok) return;
+    fetchJSONRetry({ action: ISSUE_CFG.actions.restoreCivil, id: id, token: issueToken() || '' }).then(function (d) {
+      if (d && d.ok === false) {
+        if (empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts())) return;
+        throw new Error(d.message || d.error || 'Could not restore issue');
+      }
+      var it = allIssues.find(function (x) { return x.id === id; });
+      if (it) it.disposition = '';
+      closeIssueModal();
+      renderIssues();
+      renderAnalytics();
+      uiAlert('\u2705 Issue restored to Civil queue.');
+    }).catch(function (e) { uiAlert('\u274c ' + (e.message || 'Could not restore issue')); });
+  });
+}
 function editIssue(id){ var r=allIssues.find(function(x){return x.id===id;}); if(!r) return; switchTabTo('add'); window._editingId=id;
   var pj=document.getElementById('ci-project'); if(pj) pj.value=r.project||''; updateCIBuildings();
   var bd=document.getElementById('ci-building'); if(bd) bd.value=r.building||''; updateCIFloors();
@@ -1678,9 +1743,103 @@ function compareIssuesNewestFirst(a, b) {
 
 function getIssueViewMode(){ try{ return localStorage.getItem(ISSUE_VIEW_KEY)==='grid'?'grid':'table'; }catch(e){ return 'table'; } }
 function setIssueViewMode(m){ try{ localStorage.setItem(ISSUE_VIEW_KEY,m); }catch(e){} renderIssues(); }
-function issueActionBtns(r){ return '<button type="button" onclick="event.stopPropagation();shareIssueWhatsApp(\''+r.id+'\')" title="Share on WhatsApp" style="background:#25D366;color:#fff;border:none;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:none;margin-right:6px;">'+whatsappIconHtml()+'</button>'+(PAGEPERMS.edit!==false?'<button type="button" onclick="event.stopPropagation();editIssue(\''+r.id+'\')" title="Edit issue" style="background:var(--accent2);color:#fff;border:none;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:none;margin-right:6px;">'+pencilIconHtml()+'</button>':'')+(PAGEPERMS.del!==false?'<button type="button" onclick="event.stopPropagation();removeIssue(\''+r.id+'\')" title="Delete issue" style="background:#C5504F;color:#fff;border:none;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:none;">'+trashIconHtml()+'</button>':''); }
+function issueActionBtns(r, listMode) {
+  listMode = listMode || 'civil';
+  var h = '<button type="button" onclick="event.stopPropagation();shareIssueWhatsApp(\'' + r.id + '\')" title="Share on WhatsApp" style="background:#25D366;color:#fff;border:none;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:none;margin-right:6px;">' + whatsappIconHtml() + '</button>';
+  if (listMode === 'routed') {
+    if (PAGEPERMS.edit !== false && ISSUE_CFG.actions && ISSUE_CFG.actions.restoreCivil) {
+      h += '<button type="button" onclick="event.stopPropagation();restoreCivilIssue(\'' + r.id + '\')" title="Restore to Civil queue" style="background:#1d9e75;color:#fff;border:none;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:none;margin-right:6px;">' + restoreCivilIconHtml() + '</button>';
+    }
+    if (PAGEPERMS.del !== false) {
+      h += '<button type="button" onclick="event.stopPropagation();removeIssue(\'' + r.id + '\')" title="Delete issue" style="background:#C5504F;color:#fff;border:none;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:none;">' + trashIconHtml() + '</button>';
+    }
+    return h;
+  }
+  if (PAGEPERMS.edit !== false) {
+    h += '<button type="button" onclick="event.stopPropagation();editIssue(\'' + r.id + '\')" title="Edit issue" style="background:var(--accent2);color:#fff;border:none;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:none;margin-right:6px;">' + pencilIconHtml() + '</button>';
+  }
+  if (canRouteIssueAway(r)) {
+    h += '<button type="button" onclick="event.stopPropagation();routeIssueNotCivil(\'' + r.id + '\')" title="Not Civil Department — route elsewhere" style="background:#d68910;color:#fff;border:none;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:none;margin-right:6px;">' + routeAwayIconHtml() + '</button>';
+  }
+  if (PAGEPERMS.del !== false) {
+    h += '<button type="button" onclick="event.stopPropagation();removeIssue(\'' + r.id + '\')" title="Delete issue" style="background:#C5504F;color:#fff;border:none;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:none;">' + trashIconHtml() + '</button>';
+  }
+  return h;
+}
 function viewToggleHtml(){ var v=getIssueViewMode(); return '<div class="view-toggle"><button type="button" class="view-toggle-btn'+(v==='table'?' active':'')+'" onclick="setIssueViewMode(\'table\')" title="Table view" aria-label="Table view"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h18"/></svg></button><button type="button" class="view-toggle-btn'+(v==='grid'?' active':'')+'" onclick="setIssueViewMode(\'grid\')" title="Grid view" aria-label="Grid view"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></button></div>'; }
-function renderIssues(){ if(isCivilWorker()){ renderWorkerJobs(); return; } const fp=document.getElementById('f-project').value; const fs=document.getElementById('f-status').value; const fm=(document.getElementById('f-month')||{}).value||''; const fg=(document.getElementById('f-group')||{}).value||''; const q=(document.getElementById('f-search').value||'').toLowerCase(); let rows=allIssues.filter(r=>{ if(fp&&r.project!==fp)return false; if(fs&&r.status!==fs)return false; if(fm&&dayOf(r)!==fm)return false; if(fg&&!issueMatchesTeamFilter(r, fg)) return false; if(q){ var qn=q.replace(/[#\s]/g,''); var ref=issueRef(r.num).toLowerCase(); if(/^[a-z]+\d+$/.test(qn)){ if(qn!==ref)return false; } else if(/^\d+$/.test(qn)){ if(String(r.num||'')!==qn)return false; } else { const hay=(r.building+' '+r.floor+' '+r.spot+' '+r.issueType).toLowerCase(); if(hay.indexOf(q)===-1)return false; } } return true; }); rows.sort(compareIssuesNewestFirst); window._visibleIssueIds=rows.map(function(r){ return r.id; }); const oc=rows.filter(r=>r.status!=='fixed').length; const fc=rows.length-oc; const openAll=allIssues.filter(r=>r.status!=='fixed'); const unAssign=openAll.filter(r=>isIssueUnassigned(r)).length; const view=getIssueViewMode(); let teamBits=''; if(tradeGroups().length){ teamBits=' &nbsp;&mdash;&nbsp; <span style="color:var(--c-warn,#b8860b);">'+unAssign+' unassigned</span>'; } let h='<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;"><p style="color:var(--text-soft);margin:0;">'+rows.length+' issue(s)'+(fm?(' in '+fm):'')+' &nbsp;&mdash;&nbsp; <span style="color:var(--open-color);">'+squareIconHtml('var(--open-color)')+' '+oc+' open</span> &nbsp;&mdash;&nbsp; <span style="color:#1d9e75;">'+checkIconHtml('#1d9e75')+' '+fc+' fixed</span>'+teamBits+'</p>'+viewToggleHtml()+'</div>'+issueSelectToolbarHtml(); if(rows.length===0){ h+='<p style="color:var(--text-faint);">No issues match.</p>'; } else if(view==='grid'){ h+='<div class="issue-grid">'; rows.forEach(function(r){ var sel=!!selectedIssueIds[r.id]; var cardClick=issueSelectMode?"toggleIssueSelected('"+r.id+"')":"openIssue('"+r.id+"')"; h+='<div class="issue-card'+(sel?' selected':'')+(issueSelectMode?' selecting':'')+'" onclick="'+cardClick+'">'+(issueSelectMode?('<div class="issue-card-check" onclick="event.stopPropagation()"><input type="checkbox"'+(sel?' checked':'')+' onclick="event.stopPropagation();toggleIssueSelected(\''+r.id+'\')" aria-label="Select issue"></div>'):'')+(r.photo?'<img class="issue-card-photo" src="'+r.photo+'" loading="lazy" alt="">':'<div class="issue-card-photo issue-card-nophoto">No photo</div>')+'<div class="issue-card-body"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;"><span style="color:var(--text-faint);font-weight:700;">#'+issueRef(r.num)+'</span>'+issueStatusBadgeHtml(r)+'</div><div style="font-weight:600;line-height:1.35;margin-bottom:6px;">'+r.issueType+tradeBadgeHtml(r)+workersBadgeHtml(r)+workersCompletedSummaryHtml(r)+(r.note?' <span style="color:var(--text-faint);font-weight:400;">('+r.note+')</span>':'')+'</div><div style="color:var(--text-soft);font-size:13px;margin-bottom:4px;">'+locStr(r)+'</div><div style="color:var(--text-faint);font-size:12px;margin-bottom:10px;">'+dateOnly(r.date)+workersCompletedSummaryHtml(r)+'</div>'+(issueSelectMode?'':('<div style="text-align:right;" onclick="event.stopPropagation()">'+issueActionBtns(r)+'</div>'))+'</div></div>'; }); h+='</div>'; } else { var teamTh=tradeGroups().length?'<th>Team</th>':''; h+='<table><thead><tr>'+(issueSelectMode?'<th style="width:36px;"></th>':'')+'<th>#</th><th>Issue</th><th>Location</th>'+teamTh+'<th>Date</th><th>Status</th><th>Photo</th>'+(issueSelectMode?'':'<th></th>')+'</tr></thead><tbody>'; rows.forEach(function(r){ var sel=!!selectedIssueIds[r.id]; var rowClick=issueSelectMode?"toggleIssueSelected('"+r.id+"')":"openIssue('"+r.id+"')"; h+='<tr class="issue-row'+(sel?' selected':'')+'" onclick="'+rowClick+'"'+(sel?' style="background:var(--row-hover);"':'')+'>'; if(issueSelectMode) h+='<td onclick="event.stopPropagation()"><input type="checkbox"'+(sel?' checked':'')+' onclick="event.stopPropagation();toggleIssueSelected(\''+r.id+'\')" aria-label="Select issue"></td>'; h+='<td style="color:var(--text-faint);font-weight:700;white-space:nowrap;">#'+issueRef(r.num)+'</td><td>'+r.issueType+tradeBadgeHtml(r)+workersBadgeHtml(r)+workersCompletedSummaryHtml(r)+(r.note?' <span style="color:var(--text-faint);">('+r.note+')</span>':'')+'</td><td>'+locStr(r)+'</td>'; if(tradeGroups().length) h+='<td>'+(assignedWorkersDisplay(r)||tradeGroupLabel(r.assignedGroup)||'Unassigned')+'</td>'; h+='<td>'+dateOnly(r.date)+'</td><td>'+issueStatusBadgeHtml(r)+'</td><td>'+(r.photo?'<img class="thumb" src="'+r.photo+'" loading="lazy">':'?')+'</td>'; if(!issueSelectMode) h+='<td>'+issueActionBtns(r)+'</td>'; h+='</tr>'; }); h+='</tbody></table>'; } document.getElementById('issuesTable').innerHTML=h; }
+function renderIssueListHtml(rows, listMode) {
+  if (!rows.length) return '';
+  var view = getIssueViewMode();
+  var h = '';
+  if (view === 'grid') {
+    h += '<div class="issue-grid' + (listMode === 'routed' ? ' issue-grid-routed' : '') + '">';
+    rows.forEach(function (r) {
+      var sel = !!selectedIssueIds[r.id];
+      var cardClick = issueSelectMode ? "toggleIssueSelected('" + r.id + "')" : "openIssue('" + r.id + "')";
+      h += '<div class="issue-card' + (sel ? ' selected' : '') + (issueSelectMode ? ' selecting' : '') + (listMode === 'routed' ? ' issue-card-routed' : '') + '" onclick="' + cardClick + '">';
+      if (issueSelectMode) {
+        h += '<div class="issue-card-check" onclick="event.stopPropagation()"><input type="checkbox"' + (sel ? ' checked' : '') + ' onclick="event.stopPropagation();toggleIssueSelected(\'' + r.id + '\')" aria-label="Select issue"></div>';
+      }
+      h += (r.photo ? '<img class="issue-card-photo" src="' + r.photo + '" loading="lazy" alt="">' : '<div class="issue-card-photo issue-card-nophoto">No photo</div>');
+      h += '<div class="issue-card-body"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;"><span style="color:var(--text-faint);font-weight:700;">#' + issueRef(r.num) + '</span>' + issueStatusBadgeHtml(r) + '</div>';
+      h += '<div style="font-weight:600;line-height:1.35;margin-bottom:6px;">' + r.issueType + tradeBadgeHtml(r) + workersBadgeHtml(r) + workersCompletedSummaryHtml(r) + (r.note ? ' <span style="color:var(--text-faint);font-weight:400;">(' + r.note + ')</span>' : '') + '</div>';
+      h += '<div style="color:var(--text-soft);font-size:13px;margin-bottom:4px;">' + locStr(r) + '</div>';
+      h += '<div style="color:var(--text-faint);font-size:12px;margin-bottom:10px;">' + dateOnly(r.date) + workersCompletedSummaryHtml(r) + '</div>';
+      if (!issueSelectMode) h += '<div style="text-align:right;" onclick="event.stopPropagation()">' + issueActionBtns(r, listMode) + '</div>';
+      h += '</div></div>';
+    });
+    h += '</div>';
+    return h;
+  }
+  var teamTh = tradeGroups().length ? '<th>Team</th>' : '';
+  h += '<table><thead><tr>' + (issueSelectMode ? '<th style="width:36px;"></th>' : '') + '<th>#</th><th>Issue</th><th>Location</th>' + teamTh + '<th>Date</th><th>Status</th><th>Photo</th>' + (issueSelectMode ? '' : '<th></th>') + '</tr></thead><tbody>';
+  rows.forEach(function (r) {
+    var sel = !!selectedIssueIds[r.id];
+    var rowClick = issueSelectMode ? "toggleIssueSelected('" + r.id + "')" : "openIssue('" + r.id + "')";
+    h += '<tr class="issue-row' + (sel ? ' selected' : '') + (listMode === 'routed' ? ' issue-row-routed' : '') + '" onclick="' + rowClick + '"' + (sel ? ' style="background:var(--row-hover);"' : '') + '>';
+    if (issueSelectMode) h += '<td onclick="event.stopPropagation()"><input type="checkbox"' + (sel ? ' checked' : '') + ' onclick="event.stopPropagation();toggleIssueSelected(\'' + r.id + '\')" aria-label="Select issue"></td>';
+    h += '<td style="color:var(--text-faint);font-weight:700;white-space:nowrap;">#' + issueRef(r.num) + '</td><td>' + r.issueType + tradeBadgeHtml(r) + workersBadgeHtml(r) + workersCompletedSummaryHtml(r) + (r.note ? ' <span style="color:var(--text-faint);">(' + r.note + ')</span>' : '') + '</td><td>' + locStr(r) + '</td>';
+    if (tradeGroups().length) h += '<td>' + (assignedWorkersDisplay(r) || tradeGroupLabel(r.assignedGroup) || 'Unassigned') + '</td>';
+    h += '<td>' + dateOnly(r.date) + '</td><td>' + issueStatusBadgeHtml(r) + '</td><td>' + (r.photo ? '<img class="thumb" src="' + r.photo + '" loading="lazy">' : '?') + '</td>';
+    if (!issueSelectMode) h += '<td>' + issueActionBtns(r, listMode) + '</td>';
+    h += '</tr>';
+  });
+  h += '</tbody></table>';
+  return h;
+}
+function renderIssues() {
+  if (isCivilWorker()) { renderWorkerJobs(); return; }
+  var fp = document.getElementById('f-project').value;
+  var fs = document.getElementById('f-status').value;
+  var fm = (document.getElementById('f-month') || {}).value || '';
+  var fg = (document.getElementById('f-group') || {}).value || '';
+  var q = (document.getElementById('f-search').value || '').toLowerCase();
+  var matched = allIssues.filter(function (r) { return issueMatchesIssueFilters(r, fp, fs, fm, fg, q); });
+  var rows = matched.filter(function (r) { return !issueIsRoutedAway(r); });
+  var routedRows = matched.filter(function (r) { return issueIsRoutedAway(r); });
+  rows.sort(compareIssuesNewestFirst);
+  routedRows.sort(compareIssuesNewestFirst);
+  window._visibleIssueIds = rows.map(function (r) { return r.id; });
+  var oc = rows.filter(function (r) { return r.status !== 'fixed'; }).length;
+  var fc = rows.length - oc;
+  var openAll = allIssues.filter(function (r) { return r.status !== 'fixed' && !issueIsRoutedAway(r); });
+  var unAssign = openAll.filter(function (r) { return isIssueUnassigned(r); }).length;
+  var teamBits = '';
+  if (tradeGroups().length) teamBits = ' &nbsp;&mdash;&nbsp; <span style="color:var(--c-warn,#b8860b);">' + unAssign + ' unassigned</span>';
+  if (routedRows.length && ISSUE_CFG.actions && ISSUE_CFG.actions.routeNotCivil) {
+    teamBits += ' &nbsp;&mdash;&nbsp; <span style="color:#d68910;">' + routedRows.length + ' not civil dept</span>';
+  }
+  var h = '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;"><p style="color:var(--text-soft);margin:0;">' + rows.length + ' issue(s)' + (fm ? (' in ' + fm) : '') + ' &nbsp;&mdash;&nbsp; <span style="color:var(--open-color);">' + squareIconHtml('var(--open-color)') + ' ' + oc + ' open</span> &nbsp;&mdash;&nbsp; <span style="color:#1d9e75;">' + checkIconHtml('#1d9e75') + ' ' + fc + ' fixed</span>' + teamBits + '</p>' + viewToggleHtml() + '</div>' + issueSelectToolbarHtml();
+  if (rows.length === 0) h += '<p style="color:var(--text-faint);">No civil issues match.</p>';
+  else h += renderIssueListHtml(rows, 'civil');
+  if (routedRows.length && ISSUE_CFG.actions && ISSUE_CFG.actions.routeNotCivil) {
+    h += '<div class="routed-away-section"><h3 class="routed-away-title">Not Civil Department — needs another department</h3>';
+    h += '<p class="routed-away-hint">These issues do not belong in Civil. Re-create them in Electric, Fire, or the correct department, then delete or keep for reference.</p>';
+    h += renderIssueListHtml(routedRows, 'routed');
+    h += '</div>';
+  }
+  document.getElementById('issuesTable').innerHTML = h;
+}
 function durationStr(a,b){ if(!a||!b) return ''; const pr=s=>new Date(String(s).replace(' ','T')); const d1=pr(a), d2=pr(b); if(isNaN(d1.getTime())||isNaN(d2.getTime())) return ''; let ms=d2-d1; if(ms<0) return ''; const days=Math.floor(ms/86400000); const hrs=Math.floor((ms%86400000)/3600000); const mins=Math.floor((ms%3600000)/60000); let parts=[]; if(days)parts.push(days+'d'); if(hrs)parts.push(hrs+'h'); if(!days&&!hrs)parts.push(mins+'m'); return ' \u2014 took '+parts.join(' '); }
 function assignBoxHtml(r) {
   if (!tradeGroups().length || PAGEPERMS.assign === false || !civilWorkersRoster()) return '';
@@ -1692,7 +1851,36 @@ function assignBoxHtml(r) {
   h += '</div>';
   return h;
 }
-function openIssue(id){ const r=allIssues.find(x=>x.id===id); if(!r)return; if(isCivilWorker() && r.status!=='fixed'){ closeIssueModal(); openWorkerJob(id); return; } let h='<span class="close-x" onclick="closeIssueModal()">&times;</span>'; h+=issueDetailMetaSectionHtml(r); if(r.status!=='fixed') h+=assignBoxHtml(r); h+=workerCompletionsBlockHtml(r); h+='<div style="margin:12px 0 4px;"><button type="button" onclick="shareIssueWhatsApp(\''+r.id+'\')" style="background:#25D366;color:#fff;border:none;padding:10px 16px;border-radius:50px;font-weight:600;display:inline-flex;align-items:center;gap:8px;cursor:pointer;box-shadow:none;">'+whatsappIconHtml()+' Share on WhatsApp</button></div>'; h+=issuePhotosSectionHtml(r); if(r.status!=='fixed' && canMarkIssueFixed()){ if(ISSUE_CFG.requireFixByName){ h+='<div style="margin:14px 0 4px;"><label style="font-weight:600;display:block;margin-bottom:6px;">Job was done by:</label><input type="text" id="fix-by" placeholder="Enter the name of who did the job" style="width:100%;max-width:340px;padding:10px;border:2px solid var(--input-border);border-radius:8px;background:var(--input-bg);color:var(--text);font-size:14px;box-sizing:border-box;"></div>'; } h+='<h3>'+checkIconHtml()+' Mark as fixed</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;"><button type="button" onclick="document.getElementById(\'fix-file\').click()"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/><circle cx="14" cy="15" r="1"/></svg></span> Upload / Camera</button><span style="color:var(--text-soft);font-size:13px;">? or paste below ?</span><input type="file" id="fix-file" accept="image/*" style="display:none" onchange="handleFixFile(event,\''+r.id+'\')"></div><div class="image-upload" id="fix-area" onpaste="pasteFix(event,\''+r.id+'\')">Click here and paste the photo of the completed fix (Ctrl+V)</div>'; } document.getElementById('issueBox').innerHTML=h; document.getElementById('issueModal').classList.add('show'); }
+function openIssue(id) {
+  const r = allIssues.find(x => x.id === id);
+  if (!r) return;
+  if (isCivilWorker() && r.status !== 'fixed') { closeIssueModal(); openWorkerJob(id); return; }
+  let h = '<span class="close-x" onclick="closeIssueModal()">&times;</span>';
+  h += issueDetailMetaSectionHtml(r);
+  if (issueIsRoutedAway(r)) {
+    h += '<div class="routed-away-banner"><strong>Not Civil Department</strong> — this issue was routed out of the Civil queue. Re-create it in the correct department (Electric, Fire, etc.).</div>';
+  }
+  if (r.status !== 'fixed' && !issueIsRoutedAway(r)) h += assignBoxHtml(r);
+  h += workerCompletionsBlockHtml(r);
+  h += '<div style="margin:12px 0 4px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;">';
+  h += '<button type="button" onclick="shareIssueWhatsApp(\'' + r.id + '\')" style="background:#25D366;color:#fff;border:none;padding:10px 16px;border-radius:50px;font-weight:600;display:inline-flex;align-items:center;gap:8px;cursor:pointer;box-shadow:none;">' + whatsappIconHtml() + ' Share on WhatsApp</button>';
+  if (canRouteIssueAway(r)) {
+    h += '<button type="button" onclick="routeIssueNotCivil(\'' + r.id + '\')" class="route-not-civil-btn">' + routeAwayIconHtml() + ' Not Civil Department</button>';
+  }
+  if (issueIsRoutedAway(r) && PAGEPERMS.edit !== false && ISSUE_CFG.actions && ISSUE_CFG.actions.restoreCivil) {
+    h += '<button type="button" onclick="restoreCivilIssue(\'' + r.id + '\')" class="restore-civil-btn">' + restoreCivilIconHtml() + ' Restore to Civil queue</button>';
+  }
+  h += '</div>';
+  h += issuePhotosSectionHtml(r);
+  if (r.status !== 'fixed' && canMarkIssueFixed() && !issueIsRoutedAway(r)) {
+    if (ISSUE_CFG.requireFixByName) {
+      h += '<div style="margin:14px 0 4px;"><label style="font-weight:600;display:block;margin-bottom:6px;">Job was done by:</label><input type="text" id="fix-by" placeholder="Enter the name of who did the job" style="width:100%;max-width:340px;padding:10px;border:2px solid var(--input-border);border-radius:8px;background:var(--input-bg);color:var(--text);font-size:14px;box-sizing:border-box;"></div>';
+    }
+    h += '<h3>' + checkIconHtml() + ' Mark as fixed</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;"><button type="button" onclick="document.getElementById(\'fix-file\').click()"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/><circle cx="14" cy="15" r="1"/></svg></span> Upload / Camera</button><span style="color:var(--text-soft);font-size:13px;">? or paste below ?</span><input type="file" id="fix-file" accept="image/*" style="display:none" onchange="handleFixFile(event,\'' + r.id + '\')"></div><div class="image-upload" id="fix-area" onpaste="pasteFix(event,\'' + r.id + '\')">Click here and paste the photo of the completed fix (Ctrl+V)</div>';
+  }
+  document.getElementById('issueBox').innerHTML = h;
+  document.getElementById('issueModal').classList.add('show');
+}
 function closeIssueModal(){ document.getElementById('issueModal').classList.remove('show'); }
 function processFix(id, file){ if(!file) return; var by=''; if(ISSUE_CFG.requireFixByName){ const byEl=document.getElementById('fix-by'); by=byEl?byEl.value.trim():''; if(!by){ alert('Please enter who did the job first ("Job was done by")'); if(byEl)byEl.focus(); return; } } const area=document.getElementById('fix-area'); if(area) area.innerHTML='\u23F3 Uploading\u2026'; compressImage(file,url=>{ if(url){ var payload={action:ISSUE_CFG.actions.markFixed,id:id,fixedPhoto:url,token:issueToken()||''}; if(ISSUE_CFG.requireFixByName) payload.fixedByName=by; fetchJSONRetry(payload).then(()=>{ const it=allIssues.find(x=>x.id===id); if(it){ it.status='fixed'; it.fixedPhoto=url; const now=new Date(); const z=n=>String(n).padStart(2,'0'); it.fixedAt=now.getFullYear()+'-'+z(now.getMonth()+1)+'-'+z(now.getDate())+' '+z(now.getHours())+':'+z(now.getMinutes()); it.fixedBy=by||empireGetUser()||''; } renderIssues(); renderAnalytics(); openIssue(id); }).catch(er=>{ if(area) area.innerHTML='\u274C '+er.message; }); } else { if(area) area.innerHTML='\u274C Upload failed, try again'; } }); }
 function pasteFix(e,id){ const items=e.clipboardData.items; for(let i=0;i<items.length;i++){ if(items[i].type.indexOf('image')!==-1){ e.preventDefault(); processFix(id, items[i].getAsFile()); return; } } }
@@ -1703,7 +1891,7 @@ function donutHtml(open,fixed,total){ if(total===0) return '<p style="color:var(
 function miniDonutHtml(name,open,fixed){ var total=open+fixed; var fp=total?fixed/total*100:0, op=total?open/total*100:0; var ring = total ? '<circle cx="21" cy="21" r="15.915" fill="transparent" stroke="var(--donut-track)" stroke-width="6"></circle><circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#27ae60" stroke-width="6" stroke-dasharray="'+fp+' '+(100-fp)+'" stroke-dashoffset="25"></circle><circle cx="21" cy="21" r="15.915" fill="transparent" style="stroke:var(--open-color)" stroke-width="6" stroke-dasharray="'+op+' '+(100-op)+'" stroke-dashoffset="'+(25-fp)+'"></circle>' : '<circle cx="21" cy="21" r="15.915" fill="transparent" stroke="var(--donut-track)" stroke-width="6"></circle>'; return '<div style="text-align:center;width:118px;"><svg width="96" height="96" viewBox="0 0 42 42">'+ring+'<text x="21" y="24" text-anchor="middle" style="font-size:10px;fill:var(--text);font-weight:700;">'+total+'</text></svg><div style="font-size:12px;font-weight:600;color:var(--text);margin-top:4px;line-height:1.25;">'+name+'</div><div style="font-size:11px;color:var(--text-soft);margin-top:2px;"><span style="color:var(--open-color);">'+open+' open</span> &middot; <span style="color:#1d9e75;">'+fixed+' fixed</span></div></div>'; }
 function initRepMonth(){ var mm=document.getElementById('rep-month-m'); var ym=document.getElementById('rep-month-y'); if(mm && mm.options.length<=1){ var names=['January','February','March','April','May','June','July','August','September','October','November','December']; for(var i=0;i<12;i++){ var o=document.createElement('option'); o.value=String(i+1).padStart(2,'0'); o.textContent=names[i]; mm.appendChild(o); } } if(ym && ym.options.length<=1){ var cy=new Date().getFullYear(); for(var y=cy+1;y>=cy-3;y--){ var o2=document.createElement('option'); o2.value=String(y); o2.textContent=String(y); ym.appendChild(o2); } } }
 function syncRepMonth(){ var y=(document.getElementById('rep-month-y')||{}).value||''; var m=(document.getElementById('rep-month-m')||{}).value||''; var h=document.getElementById('rep-month'); if(h) h.value=(y&&m)?(y+'-'+m):''; }
-function renderAnalytics(){ const total=allIssues.length; const open=allIssues.filter(r=>r.status!=='fixed').length; const fixed=total-open; let h='<div class="stats"><div class="stat-box"><div class="stat-value">'+total+'</div><div class="stat-label">Total Issues</div></div><div class="stat-box"><div class="stat-value" style="color:var(--open-color);">'+open+'</div><div class="stat-label">Open</div></div><div class="stat-box"><div class="stat-value" style="color:#27ae60;">'+fixed+'</div><div class="stat-label">Fixed</div></div></div>'; h+='<h3>Open vs Fixed</h3><div style="display:flex;flex-wrap:wrap;gap:26px;align-items:center;margin:10px 0 22px;">'+donutHtml(open,fixed,total)+'<div style="display:flex;flex-wrap:wrap;gap:12px;">'+['ec','es','wd','ww','ra'].map(function(p){ var pr=allIssues.filter(function(r){return r.project===p;}); var o=pr.filter(function(r){return r.status!=='fixed';}).length; return miniDonutHtml(projectNames[p],o,pr.length-o); }).join('')+'</div></div>'; var colg='<colgroup><col style="width:40%"><col style="width:20%"><col style="width:20%"><col style="width:20%"></colgroup>'; h+='<h3>By Project</h3><table style="table-layout:fixed;width:100%;">'+colg+'<thead><tr><th>Project</th><th>Open</th><th>Fixed</th><th>Total</th></tr></thead><tbody>'; ['ec','es','wd','ww','ra'].forEach(p=>{ const pr=allIssues.filter(r=>r.project===p); if(pr.length===0)return; const o=pr.filter(r=>r.status!=='fixed').length; h+='<tr><td>'+projectNames[p]+'</td><td style="color:var(--open-color);">'+o+'</td><td style="color:#1d9e75;">'+(pr.length-o)+'</td><td>'+pr.length+'</td></tr>'; }); h+='</tbody></table>'; const types={}; allIssues.forEach(r=>{ const t=r.issueType; if(!types[t]) types[t]={open:0,fixed:0}; if(r.status==='fixed') types[t].fixed++; else types[t].open++; }); h+='<h3>By Issue Type</h3><table style="table-layout:fixed;width:100%;">'+colg+'<thead><tr><th>Type</th><th>Open</th><th>Fixed</th><th>Total</th></tr></thead><tbody>'; Object.keys(types).sort((a,b)=>(types[b].open+types[b].fixed)-(types[a].open+types[a].fixed)).forEach(t=>{ const o=types[t].open,f=types[t].fixed; h+='<tr><td>'+t+'</td><td style="color:var(--open-color);">'+o+'</td><td style="color:#1d9e75;">'+f+'</td><td>'+(o+f)+'</td></tr>'; }); h+='</tbody></table>'; document.getElementById('analyticsContent').innerHTML=h; }
+function renderAnalytics(){ const queue=allIssues.filter(function(r){ return !issueIsRoutedAway(r); }); const total=queue.length; const open=queue.filter(r=>r.status!=='fixed').length; const fixed=total-open; let h='<div class="stats"><div class="stat-box"><div class="stat-value">'+total+'</div><div class="stat-label">Total Issues</div></div><div class="stat-box"><div class="stat-value" style="color:var(--open-color);">'+open+'</div><div class="stat-label">Open</div></div><div class="stat-box"><div class="stat-value" style="color:#27ae60;">'+fixed+'</div><div class="stat-label">Fixed</div></div></div>'; h+='<h3>Open vs Fixed</h3><div style="display:flex;flex-wrap:wrap;gap:26px;align-items:center;margin:10px 0 22px;">'+donutHtml(open,fixed,total)+'<div style="display:flex;flex-wrap:wrap;gap:12px;">'+['ec','es','wd','ww','ra'].map(function(p){ var pr=queue.filter(function(r){return r.project===p;}); var o=pr.filter(function(r){return r.status!=='fixed';}).length; return miniDonutHtml(projectNames[p],o,pr.length-o); }).join('')+'</div></div>'; var colg='<colgroup><col style="width:40%"><col style="width:20%"><col style="width:20%"><col style="width:20%"></colgroup>'; h+='<h3>By Project</h3><table style="table-layout:fixed;width:100%;">'+colg+'<thead><tr><th>Project</th><th>Open</th><th>Fixed</th><th>Total</th></tr></thead><tbody>'; ['ec','es','wd','ww','ra'].forEach(p=>{ const pr=queue.filter(r=>r.project===p); if(pr.length===0)return; const o=pr.filter(r=>r.status!=='fixed').length; h+='<tr><td>'+projectNames[p]+'</td><td style="color:var(--open-color);">'+o+'</td><td style="color:#1d9e75;">'+(pr.length-o)+'</td><td>'+pr.length+'</td></tr>'; }); h+='</tbody></table>'; const types={}; queue.forEach(r=>{ const t=r.issueType; if(!types[t]) types[t]={open:0,fixed:0}; if(r.status==='fixed') types[t].fixed++; else types[t].open++; }); h+='<h3>By Issue Type</h3><table style="table-layout:fixed;width:100%;">'+colg+'<thead><tr><th>Type</th><th>Open</th><th>Fixed</th><th>Total</th></tr></thead><tbody>'; Object.keys(types).sort((a,b)=>(types[b].open+types[b].fixed)-(types[a].open+types[a].fixed)).forEach(t=>{ const o=types[t].open,f=types[t].fixed; h+='<tr><td>'+t+'</td><td style="color:var(--open-color);">'+o+'</td><td style="color:#1d9e75;">'+f+'</td><td>'+(o+f)+'</td></tr>'; }); h+='</tbody></table>'; document.getElementById('analyticsContent').innerHTML=h; }
 function switchTab(e,t){ document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); e.target.classList.add('active'); empireSaveActiveTab(ISSUE_CFG.prefix+'_active_tab', t); if(t==='add'){ window._editingId=null; var eb=document.getElementById('editBanner'); if(eb) eb.style.display='none'; } if(t==='analytics') renderAnalytics(); if(t==='list') startEngineerLocationPoll(); else stopEngineerLocationPoll(); }
 function switchTabTo(t){ document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); document.querySelectorAll('.tab-btn').forEach(b=>{ if(b.getAttribute('onclick').indexOf("'"+t+"'")!==-1) b.classList.add('active'); }); if(t==='list') startEngineerLocationPoll(); else stopEngineerLocationPoll(); }
 function enterApp(){ document.body.classList.remove('civil-worker-mode'); document.getElementById('loginPage').classList.remove('show'); var wa=document.getElementById('workerApp'); if(wa) wa.classList.remove('show'); stopWorkerLocationPing(); document.getElementById('mainContainer').classList.add('show'); applyPerms(); refreshPerms(); populateSelect('ci-project',['ec','es','wd','ww','ra'],true); updateCIBuildings(); populateSelect('ci-spot',spots,false); populateSelect('ci-issuetype',issueTypes,false); const fp=document.getElementById('f-project'); if(fp && fp.options.length<=1){ ['ec','es','wd','ww','ra'].forEach(p=>{ const o=document.createElement('option'); o.value=p;o.textContent=projectNames[p]; fp.appendChild(o); }); } initTradeFilters(); window._issueFilterState=empireBindFilterPersistence({ key:ISSUE_CFG.prefix+'_list_filters', fields:['f-project','f-group','f-status','f-month','f-search'], onApply:function(){ renderIssues(); } }); initRepMonth(); document.getElementById('ci-date').value=new Date().toISOString().split('T')[0]; var tab=empireRestoreActiveTab(ISSUE_CFG.prefix+'_active_tab','list'); switchTabTo(tab); if(tab==='analytics') renderAnalytics(); setTimeout(function(){ loadIssues(false); },0); syncWorkerLocationsUi(); }

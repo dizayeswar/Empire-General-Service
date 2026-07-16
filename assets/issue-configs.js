@@ -54,6 +54,8 @@ var ISSUE_CONFIGS = {
       markFixed: 'markCivilFixed',
       clear: 'clearCivilIssues',
       assign: 'assignCivilIssue',
+      routeNotCivil: 'markCivilNotDept',
+      restoreCivil: 'restoreCivilIssue',
       reportLocation: 'reportWorkerLocation',
       getLocations: 'getWorkerLocations',
       savePushToken: 'saveWorkerPushToken',
