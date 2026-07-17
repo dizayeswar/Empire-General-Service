@@ -1,8 +1,14 @@
 /* Empire EGS — service worker (cache + Firebase background push) */
-var CACHE_VERSION = '2026-07-15-push-v2.2';
+var CACHE_VERSION = '2026-07-17-push-job-v1';
 var CACHE_NAME = 'empire-egs-' + CACHE_VERSION;
 var NOTIFY_ICON = 'https://dizayeswar.github.io/Empire-General-Service/icons/icon-192.png';
-var NOTIFY_URL = 'https://dizayeswar.github.io/Empire-General-Service/civil-issue.html';
+var NOTIFY_BASE = 'https://dizayeswar.github.io/Empire-General-Service/civil-issue.html';
+
+function notifyUrlForData_(data) {
+  var issueId = data && (data.issueId || data.jobId);
+  if (issueId) return NOTIFY_BASE + '?job=' + encodeURIComponent(String(issueId));
+  return NOTIFY_BASE;
+}
 
 importScripts('./assets/firebase-sw-config.js');
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
@@ -14,11 +20,13 @@ if (typeof FIREBASE_SW_CONFIG !== 'undefined' && FIREBASE_SW_CONFIG && FIREBASE_
     var data = payload && payload.data;
     var title = (data && data.title) || 'New job assigned';
     var body = (data && data.body) || '';
+    var issueId = (data && (data.issueId || data.jobId)) || '';
+    var url = notifyUrlForData_(data || {});
     return self.registration.showNotification(title, {
       body: body,
       icon: NOTIFY_ICON,
       badge: NOTIFY_ICON,
-      data: { url: NOTIFY_URL },
+      data: { url: url, issueId: issueId },
       tag: 'empire-job',
       renotify: true
     });
@@ -43,12 +51,19 @@ var PRECACHE = [
 
 self.addEventListener('notificationclick', function (event) {
   event.notification.close();
-  var url = (event.notification.data && event.notification.data.url) || NOTIFY_URL;
+  var nd = event.notification.data || {};
+  var url = nd.url || NOTIFY_BASE;
+  var issueId = nd.issueId || '';
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (list) {
       for (var i = 0; i < list.length; i++) {
         if ('focus' in list[i]) {
-          if ('navigate' in list[i]) list[i].navigate(url);
+          try {
+            list[i].postMessage({ type: 'EMPUSH_OPEN_JOB', issueId: issueId, url: url });
+          } catch (e) {}
+          if ('navigate' in list[i]) {
+            return list[i].navigate(url).then(function () { return list[i].focus(); });
+          }
           return list[i].focus();
         }
       }
@@ -68,7 +83,10 @@ self.addEventListener('message', function (event) {
     body: event.data.body || '',
     icon: NOTIFY_ICON,
     badge: NOTIFY_ICON,
-    data: { url: event.data.url || NOTIFY_URL },
+    data: {
+      url: event.data.url || NOTIFY_BASE,
+      issueId: event.data.issueId || ''
+    },
     tag: 'empire-job',
     renotify: true
   }));

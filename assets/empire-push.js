@@ -172,8 +172,92 @@
 
   var _lastNotifyKey = '';
   var _lastNotifyTime = 0;
+  var _pendingOpenJobId = '';
+  var _pendingJobRetry = false;
 
-  function notifyViaServiceWorker(title, body) {
+  function jobUrl_(issueId) {
+    var url = './civil-issue.html';
+    if (issueId) url += '?job=' + encodeURIComponent(String(issueId));
+    return url;
+  }
+
+  function jobIdFromUrl_() {
+    try {
+      var p = new URLSearchParams(window.location.search);
+      return String(p.get('job') || p.get('issue') || '').trim();
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function clearJobUrlParam_() {
+    try {
+      var u = new URL(window.location.href);
+      if (!u.searchParams.has('job') && !u.searchParams.has('issue')) return;
+      u.searchParams.delete('job');
+      u.searchParams.delete('issue');
+      window.history.replaceState({}, '', u.pathname + u.search + u.hash);
+    } catch (e) {}
+  }
+
+  function setPendingJobId_(issueId) {
+    issueId = String(issueId || '').trim();
+    if (!issueId) return;
+    _pendingOpenJobId = issueId;
+    try { sessionStorage.setItem('empire_pending_job', issueId); } catch (e) {}
+  }
+
+  function readPendingJobId_() {
+    if (_pendingOpenJobId) return _pendingOpenJobId;
+    try {
+      var s = sessionStorage.getItem('empire_pending_job');
+      if (s) return String(s).trim();
+    } catch (e) {}
+    return jobIdFromUrl_();
+  }
+
+  function clearPendingJobId_() {
+    _pendingOpenJobId = '';
+    _pendingJobRetry = false;
+    try { sessionStorage.removeItem('empire_pending_job'); } catch (e) {}
+    clearJobUrlParam_();
+  }
+
+  window.empirePushCaptureJobFromUrl = function () {
+    var id = jobIdFromUrl_();
+    if (id) setPendingJobId_(id);
+  };
+
+  window.empirePushOpenJob = function (issueId) {
+    issueId = String(issueId || '').trim();
+    if (!issueId) return;
+    setPendingJobId_(issueId);
+    if (typeof loadIssues === 'function') loadIssues(true);
+    window.empirePushTryOpenPendingJob();
+  };
+
+  window.empirePushTryOpenPendingJob = function () {
+    if (!isWorkerView()) return;
+    var id = readPendingJobId_();
+    if (!id) return;
+    if (typeof allIssues === 'undefined' || !Array.isArray(allIssues)) return;
+    var r = allIssues.find(function (x) { return x && x.id === id; });
+    if (!r) {
+      if (!_pendingJobRetry && typeof loadIssues === 'function') {
+        _pendingJobRetry = true;
+        loadIssues(true);
+      }
+      return;
+    }
+    if (r.status === 'fixed') {
+      clearPendingJobId_();
+      return;
+    }
+    clearPendingJobId_();
+    if (typeof openWorkerJob === 'function') openWorkerJob(id);
+  };
+
+  function notifyViaServiceWorker(title, body, url, issueId) {
     if (!('serviceWorker' in navigator)) return;
     var send = function (reg) {
       var target = reg.active || reg.waiting || reg.installing;
@@ -182,7 +266,8 @@
         type: 'EMPUSH_SHOW',
         title: title,
         body: body,
-        url: './civil-issue.html'
+        url: url || jobUrl_(issueId),
+        issueId: issueId || ''
       });
     };
     if (navigator.serviceWorker.controller) {
@@ -192,17 +277,17 @@
     navigator.serviceWorker.ready.then(send).catch(function () {});
   }
 
-  function showAssignNotification(count, body) {
+  function showAssignNotification(count, body, issueId) {
     var title = count === 1 ? 'New job assigned' : count + ' new jobs assigned';
     var text = body || 'Open the app to view details.';
-    var key = title + '|' + text;
+    var key = title + '|' + text + '|' + (issueId || '');
     var now = Date.now();
     if (key === _lastNotifyKey && now - _lastNotifyTime < 10000) return;
     _lastNotifyKey = key;
     _lastNotifyTime = now;
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
     if ('serviceWorker' in navigator) {
-      notifyViaServiceWorker(title, text);
+      notifyViaServiceWorker(title, text, jobUrl_(issueId), issueId);
       return;
     }
     try {
@@ -213,7 +298,11 @@
         tag: 'empire-job',
         renotify: true
       });
-      n.onclick = function () { window.focus(); n.close(); };
+      n.onclick = function () {
+        window.focus();
+        if (issueId) window.empirePushOpenJob(issueId);
+        n.close();
+      };
     } catch (e) {}
   }
 
@@ -249,9 +338,10 @@
       var r0 = fresh[0];
       var ref = typeof issueRef === 'function' ? '#' + issueRef(r0.num) + ' ' : '';
       body = ref + (r0.issueType || 'Job') + (r0.building ? ' — ' + r0.building : '');
-    } else {
-      body = fresh.length + ' new jobs — open the app';
+      showAssignNotification(fresh.length, body, r0.id);
+      return;
     }
+    body = fresh.length + ' new jobs — open the app';
     showAssignNotification(fresh.length, body);
   };
 
@@ -325,8 +415,26 @@
         var data = payload && payload.data;
         var title = (data && data.title) || (payload.notification && payload.notification.title) || 'New job assigned';
         var body = (data && data.body) || (payload.notification && payload.notification.body) || '';
-        showAssignNotification(1, body || title);
+        var issueId = data && (data.issueId || data.jobId);
+        showAssignNotification(1, body || title, issueId);
+        if (issueId) window.empirePushOpenJob(issueId);
       });
     } catch (e) {}
+  }
+
+  window.empirePushCaptureJobFromUrl();
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', function (event) {
+      if (!event.data || event.data.type !== 'EMPUSH_OPEN_JOB') return;
+      var issueId = event.data.issueId || '';
+      if (issueId) window.empirePushOpenJob(issueId);
+      else if (event.data.url) {
+        try {
+          var u = new URL(event.data.url, window.location.href);
+          var id = u.searchParams.get('job') || u.searchParams.get('issue');
+          if (id) window.empirePushOpenJob(id);
+        } catch (e) {}
+      }
+    });
   }
 })();

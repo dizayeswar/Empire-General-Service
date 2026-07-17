@@ -607,10 +607,17 @@ function enterWorkerApp() {
   initWorkerOfflineSync();
   startWorkerLocationPing();
   if (typeof empirePushInitWorker === 'function') empirePushInitWorker();
+  if (typeof empirePushCaptureJobFromUrl === 'function') empirePushCaptureJobFromUrl();
   if (typeof empirePushTrySaveAfterLogin === 'function') {
     setTimeout(function () { empirePushTrySaveAfterLogin(); }, 2000);
   }
-  setTimeout(function () { if (!workerBackgroundPaused_()) loadIssues(false); }, 45000);
+  var pendingJob = false;
+  try { pendingJob = !!sessionStorage.getItem('empire_pending_job'); } catch (e) {}
+  if (pendingJob) {
+    loadIssues(true);
+  } else {
+    setTimeout(function () { if (!workerBackgroundPaused_()) loadIssues(false); }, 45000);
+  }
 }
 var _workerLocWatchId = null;
 var _workerLastLocPing = 0;
@@ -1038,6 +1045,7 @@ function renderWorkerJobs() {
       ? ('<br><span style="font-size:13px;color:#d68910;">' + pending + ' fix' + (pending === 1 ? '' : 'es') + ' waiting to upload when you have signal.</span>')
       : '';
     host.innerHTML = '<p class="worker-empty">\u2705 No open jobs right now.' + pendingNote + '<br><span style="font-size:13px;color:var(--text-soft);">Pull down or tap refresh when the engineer assigns new work.</span></p>';
+    workerPushTryOpenPendingJob_();
     return;
   }
   host.innerHTML = rows.map(function (r) {
@@ -1052,6 +1060,12 @@ function renderWorkerJobs() {
       + '<div class="worker-job-loc">' + locStr(r) + '</div>'
       + '<div class="worker-job-proj">' + (projectNames[r.project] || r.project) + '</div></div></div>';
   }).join('');
+  workerPushTryOpenPendingJob_();
+}
+function workerPushTryOpenPendingJob_() {
+  if (typeof empirePushTryOpenPendingJob === 'function') {
+    setTimeout(function () { empirePushTryOpenPendingJob(); }, 80);
+  }
 }
 function openWorkerJob(id) {
   var r = allIssues.find(function (x) { return x.id === id; });

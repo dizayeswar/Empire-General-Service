@@ -1,6 +1,6 @@
 /* Empire EGS — register service worker; purge caches only when build id changes */
 (function () {
-  var BUILD = '2026-07-15-push-v2.2';
+  var BUILD = '2026-07-17-push-job-v1';
   var STORAGE_KEY = 'empire_build_id';
 
   function purgeEmpireCaches() {

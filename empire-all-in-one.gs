@@ -1775,8 +1775,14 @@ function fcmDataStrings_(data) {
   Object.keys(data).forEach(function (k) { out[k] = String(data[k]); });
   return out;
 }
+function buildFcmDeepLink_(data) {
+  var base = 'https://dizayeswar.github.io/Empire-General-Service/civil-issue.html';
+  var id = data && (data.issueId || data.jobId);
+  if (id) return base + '?job=' + encodeURIComponent(String(id));
+  return base;
+}
 function buildFcmMessagePayload_(fcmToken, title, body, data) {
-  var link = 'https://dizayeswar.github.io/Empire-General-Service/civil-issue.html';
+  var link = buildFcmDeepLink_(data || {});
   var fcmData = fcmDataStrings_(data || {});
   fcmData.title = String(title || 'New job assigned');
   fcmData.body = String(body || '');
@@ -1903,6 +1909,7 @@ function notifyWorkersOnAssign_(assignedWorkers, issues) {
   var body = buildAssignNotifyBody_(issues);
   if (issues.length === 1) body += ' Open the job to hear the voice note if one was left.';
   var data = { type: 'assign', count: String(issues.length) };
+  if (issues.length === 1 && issues[0].id) data.issueId = String(issues[0].id);
   for (var t = 0; t < tokens.length; t++) {
     sendFcmToWorker_(tokens[t].fcmToken, title, body, data);
   }
