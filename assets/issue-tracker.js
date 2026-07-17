@@ -428,6 +428,7 @@ function workerCompletionsBlockHtml(r) {
   var h = '<div class="worker-completions"><p style="color:var(--text-soft);margin:0 0 8px;font-weight:600;">' + title + '</p>';
   r.workerCompletions.forEach(function (c) {
     h += '<div class="worker-completion-item"><p style="margin:0 0 6px;font-size:13px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span class="worker-done-badge">' + checkIconHtml('#fff') + ' Marked as fixed</span><strong>' + (c.user || 'Worker') + '</strong>' + (c.at ? ('<span style="color:var(--text-faint);font-weight:400;">&middot; ' + dateOnly(c.at) + '</span>') : '') + '</p>';
+    h += fixGpsCompletionHtml(c, false);
     if (c.photos && c.photos.length) {
       h += completionPhotoGridHtml(c.photos, c);
     }
@@ -447,6 +448,7 @@ function workerCompletionsAsideHtml(r) {
       h += '<div class="worker-aside-item">';
       h += '<div class="worker-aside-head"><span class="worker-done-badge">' + checkIconHtml('#fff') + ' Marked as fixed</span><strong>' + (c.user || 'Worker') + '</strong></div>';
       h += '<div class="worker-aside-meta">' + issueMetaRow('Note:', c.note || '') + issueMetaRow('Fixed time:', fmtDT(c.at) || dateOnly(c.at) || '') + '</div>';
+      h += fixGpsCompletionHtml(c, false);
       if (c.photos && c.photos.length) {
         h += completionPhotoGridHtml(c.photos, c);
       }
@@ -816,11 +818,40 @@ function workerLocLastSeenText(updatedAt) {
 function workerLocMapUrl(lat, lng) {
   return 'https://www.google.com/maps?q=' + encodeURIComponent(lat + ',' + lng);
 }
+function completionHasFixGps_(c) {
+  return !!(c && isFinite(Number(c.lat)) && isFinite(Number(c.lng)));
+}
+function issueFixGpsCompletions_(r) {
+  if (!r || !r.workerCompletions || !r.workerCompletions.length) return [];
+  return r.workerCompletions.filter(completionHasFixGps_);
+}
+function fixGpsMapLinkHtml(lat, lng, label, stopProp) {
+  if (!isFinite(Number(lat)) || !isFinite(Number(lng))) return '';
+  var click = stopProp ? ' onclick="event.stopPropagation()"' : '';
+  return '<a class="issue-fix-gps-link" href="' + workerLocMapUrl(lat, lng) + '" target="_blank" rel="noopener"' + click + '>' + (label || 'Open GPS on map') + '</a>';
+}
+function fixGpsCompletionHtml(c, compact) {
+  if (!completionHasFixGps_(c)) return '';
+  var who = typeof civilWorkerName === 'function' ? (civilWorkerName(c.user) || c.user) : (c.user || 'Worker');
+  var lat = Number(c.lat).toFixed(5);
+  var lng = Number(c.lng).toFixed(5);
+  if (compact) {
+    return '<span class="issue-fix-gps-badge">' + fixGpsMapLinkHtml(c.lat, c.lng, 'Fix GPS', true) + '</span>';
+  }
+  var acc = isFinite(Number(c.accuracy)) ? (' · ±' + Math.round(Number(c.accuracy)) + 'm') : '';
+  return '<p class="issue-fix-gps-row"><strong>Fix GPS (' + who + '):</strong> ' + fixGpsMapLinkHtml(c.lat, c.lng, lat + ', ' + lng, false) + acc + '</p>';
+}
+function issueFixGpsCardHtml(r) {
+  var list = issueFixGpsCompletions_(r);
+  if (!list.length) return '';
+  if (list.length === 1) return fixGpsCompletionHtml(list[0], true);
+  return '<span class="issue-fix-gps-badge">' + list.length + ' fix GPS · <a href="#" onclick="event.stopPropagation();openIssue(\'' + r.id + '\');return false;">view</a></span>';
+}
 function renderWorkerLocationsPanel() {
   var host = document.getElementById('workerLocationsBody');
   if (!host) return;
   if (!_workerLocations.length) {
-    host.innerHTML = '<p class="worker-loc-empty">No worker locations yet. Ask workers to tap <strong>Enable location</strong> on their phone (or open a job / take a photo). Location is separate from job photos.</p>';
+    host.innerHTML = '<p class="worker-loc-empty">No worker GPS yet. Workers share location from their phone app after enabling GPS once.</p>';
     return;
   }
   var h = '<div class="worker-loc-table-wrap"><table class="worker-loc-table"><thead><tr>'
@@ -829,7 +860,8 @@ function renderWorkerLocationsPanel() {
   _workerLocations.forEach(function (w) {
     var st = workerLocStatusMeta(w.updatedAt);
     var acc = isFinite(Number(w.accuracy)) ? (Math.round(Number(w.accuracy)) + ' m') : '—';
-    h += '<tr><td><strong>' + String(w.username || '') + '</strong></td>'
+    var name = typeof civilWorkerName === 'function' ? (civilWorkerName(w.username) || w.username) : w.username;
+    h += '<tr><td><strong>' + String(name || '') + '</strong><br><span style="font-size:11px;color:var(--text-faint);">' + String(w.username || '') + '</span></td>'
       + '<td>' + tradeGroupLabel(w.trade) + '</td>'
       + '<td><span class="worker-loc-status ' + st.cls + '">' + st.label + '</span></td>'
       + '<td>' + workerLocLastSeenText(w.updatedAt) + '</td>'
@@ -868,15 +900,13 @@ function loadWorkerLocations(force) {
 function startEngineerLocationPoll() {
   if (!engineerLocationPanelEnabled()) return;
   stopEngineerLocationPoll();
-  var panel = document.getElementById('workerLocationsPanel');
-  if (panel) panel.style.display = '';
-  var listTab = document.getElementById('list');
-  if (!listTab || !listTab.classList.contains('active')) return;
+  var gpsTab = document.getElementById('gps');
+  if (!gpsTab || !gpsTab.classList.contains('active')) return;
   loadWorkerLocations(false);
   _engineerLocPollTimer = setInterval(function () {
     if (!engineerLocationPanelEnabled()) return;
-    var lt = document.getElementById('list');
-    if (!lt || !lt.classList.contains('active')) return;
+    var gt = document.getElementById('gps');
+    if (!gt || !gt.classList.contains('active')) return;
     loadWorkerLocations(false);
   }, ENGINEER_LOC_POLL_MS);
 }
@@ -885,16 +915,14 @@ function stopEngineerLocationPoll() {
   _engineerLocPollTimer = null;
 }
 function syncWorkerLocationsUi() {
-  var panel = document.getElementById('workerLocationsPanel');
-  if (!panel) return;
+  var tabBtn = document.getElementById('tabBtnGps');
+  if (tabBtn) tabBtn.style.display = engineerLocationPanelEnabled() ? '' : 'none';
   if (!engineerLocationPanelEnabled()) {
-    panel.style.display = 'none';
     stopEngineerLocationPoll();
     return;
   }
-  panel.style.display = '';
-  var listTab = document.getElementById('list');
-  if (listTab && listTab.classList.contains('active')) startEngineerLocationPoll();
+  var gpsTab = document.getElementById('gps');
+  if (gpsTab && gpsTab.classList.contains('active')) startEngineerLocationPoll();
   else stopEngineerLocationPoll();
 }
 var _workerOfflineQueuedIds = {};
@@ -940,7 +968,7 @@ async function restoreWorkerOfflineQueueState() {
   });
   saveWorkerOfflinePendingMap();
 }
-async function enqueueWorkerFixOffline(issueId, note, photos) {
+async function enqueueWorkerFixOffline(issueId, note, photos, coords) {
   if (typeof empireOfflineQueuePut !== 'function') throw new Error('Offline queue not available');
   var remoteUrls = [];
   var imageDataUrls = [];
@@ -953,7 +981,7 @@ async function enqueueWorkerFixOffline(issueId, note, photos) {
   });
   if (!remoteUrls.length && !imageDataUrls.length) throw new Error('No photos to save');
   var id = offlineWorkerFixId();
-  await empireOfflineQueuePut({
+  var queueItem = {
     id: id,
     type: 'worker_issue_fix',
     dept: ISSUE_CFG.dept,
@@ -965,7 +993,13 @@ async function enqueueWorkerFixOffline(issueId, note, photos) {
     photoSources: orderedPhotos.map(function (p) { return p.source; }),
     user: empireGetUser() || '',
     createdAt: Date.now()
-  });
+  };
+  if (coords && isFinite(Number(coords.lat)) && isFinite(Number(coords.lng))) {
+    queueItem.fixLat = Number(coords.lat);
+    queueItem.fixLng = Number(coords.lng);
+    queueItem.fixAccuracy = coords.accuracy;
+  }
+  await empireOfflineQueuePut(queueItem);
   _workerOfflineQueuedIds[issueId] = { queueId: id, at: Date.now() };
   saveWorkerOfflinePendingMap();
   await refreshWorkerOfflineBanner();
@@ -1023,7 +1057,7 @@ async function syncWorkerOfflineFixes(silent) {
           if (photoSources.length > remoteUrls.length) photoSources = photoSources.slice(0, remoteUrls.length);
         }
         if (!remoteUrls.length) throw new Error('No photos to upload');
-        var d = await fetchJSONRetry({
+        var payload = {
           action: ISSUE_CFG.actions.markFixed,
           id: item.issueId,
           fixedPhoto: joinFixedPhotos(remoteUrls),
@@ -1031,7 +1065,13 @@ async function syncWorkerOfflineFixes(silent) {
           photoSources: photoSources,
           fixNote: item.fixNote || '',
           token: issueToken() || ''
-        }, 3);
+        };
+        if (isFinite(Number(item.fixLat)) && isFinite(Number(item.fixLng))) {
+          payload.lat = Number(item.fixLat);
+          payload.lng = Number(item.fixLng);
+          payload.accuracy = item.fixAccuracy;
+        }
+        var d = await fetchJSONRetry(payload, 3);
         if (d && d.ok === false) {
           if (empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts())) return;
           throw new Error(d.message || d.error || 'Could not save fix');
@@ -1362,8 +1402,8 @@ function submitWorkerFixSuccess(id, d) {
   renderWorkerJobs();
   uiAlert('\u2705 Job marked fixed!');
 }
-function submitWorkerFixOffline(id, note, btn) {
-  enqueueWorkerFixOffline(id, note, _workerFixPhotos.slice()).then(function () {
+function submitWorkerFixOffline(id, note, btn, coords) {
+  enqueueWorkerFixOffline(id, note, _workerFixPhotos.slice(), coords).then(function () {
     markWorkerFixQueuedLocally(id);
     allIssues = allIssues.filter(function (x) { return x.id !== id; });
     writeIssuesCacheAsync(allIssues);
@@ -1374,6 +1414,21 @@ function submitWorkerFixOffline(id, note, btn) {
     uiAlert('\u274c ' + (e.message || 'Could not save offline'));
     if (btn) { btn.disabled = false; updateWorkerSubmitBtn(); }
   });
+}
+function getWorkerFixLocationAsync(cb) {
+  if (!navigator.geolocation) { cb(null); return; }
+  navigator.geolocation.getCurrentPosition(
+    function (pos) {
+      if (!pos || !pos.coords) { cb(null); return; }
+      cb({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy });
+    },
+    function () { cb(null); },
+    { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+  );
+}
+function workerFixPayloadExtras_(coords) {
+  if (!coords || !isFinite(Number(coords.lat)) || !isFinite(Number(coords.lng))) return {};
+  return { lat: coords.lat, lng: coords.lng, accuracy: coords.accuracy };
 }
 function submitWorkerFix(id) {
   if (!_workerFixPhotos.length) { uiAlert('Please add at least one completion photo first.'); return; }
@@ -1387,13 +1442,23 @@ function submitWorkerFix(id) {
   var noteEl = document.getElementById('worker-fix-note');
   var note = noteEl ? noteEl.value.trim() : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Saving\u2026'; }
-  if (workerFixNeedsOfflineQueue()) {
-    submitWorkerFixOffline(id, note, btn);
-    return;
-  }
-  var urls = normalizePhotoUrls(_workerFixPhotos);
-  var photoSources = _workerFixPhotos.map(workerPhotoSource);
-  fetchJSONRetry({ action: ISSUE_CFG.actions.markFixed, id: id, fixedPhoto: joinFixedPhotos(urls), fixedPhotos: urls, photoSources: photoSources, fixNote: note, token: issueToken() || '' })
+  getWorkerFixLocationAsync(function (coords) {
+    if (workerFixNeedsOfflineQueue()) {
+      submitWorkerFixOffline(id, note, btn, coords);
+      return;
+    }
+    var urls = normalizePhotoUrls(_workerFixPhotos);
+    var photoSources = _workerFixPhotos.map(workerPhotoSource);
+    var payload = Object.assign({
+      action: ISSUE_CFG.actions.markFixed,
+      id: id,
+      fixedPhoto: joinFixedPhotos(urls),
+      fixedPhotos: urls,
+      photoSources: photoSources,
+      fixNote: note,
+      token: issueToken() || ''
+    }, workerFixPayloadExtras_(coords));
+    fetchJSONRetry(payload)
     .then(function (d) {
       if (d && d.ok === false) {
         if (empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts())) return;
@@ -1411,12 +1476,13 @@ function submitWorkerFix(id) {
         return;
       }
       if (!navigator.onLine || /fetch|network|failed|timeout|upload/i.test(e.message || '')) {
-        submitWorkerFixOffline(id, note, btn);
+        submitWorkerFixOffline(id, note, btn, coords);
         return;
       }
       uiAlert('\u274c ' + e.message);
       if (btn) { btn.disabled = false; btn.textContent = 'Mark as fixed'; }
     });
+  });
 }
 
 var CHECK_ICON='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>';
@@ -1675,9 +1741,11 @@ function applyPerms(){ if(window.tsPerm) window.tsPerm(); if(window.tsLoadGlobal
     hideTab('analytics');
     hideTab('notcivil');
     hideTab('fixdelay');
+    hideTab('gps');
   }
   if (!civilNotCivilTabEnabled()) hideTab('notcivil');
   if (!civilFixDelayTabEnabled()) hideTab('fixdelay');
+  if (!engineerLocationPanelEnabled()) hideTab('gps');
   updateNotCivilNavBadge();
   updateFixDelayNavBadge();
   syncWorkerLocationsUi();
@@ -2029,7 +2097,7 @@ function renderIssueListHtml(rows, listMode) {
       h += '<div class="issue-card-body"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;"><span style="color:var(--text-faint);font-weight:700;">#' + issueRef(r.num) + '</span>' + issueStatusBadgeHtml(r) + '</div>';
       h += '<div style="font-weight:600;line-height:1.35;margin-bottom:6px;">' + r.issueType + tradeBadgeHtml(r) + workersBadgeHtml(r) + workersCompletedSummaryHtml(r) + (r.note ? ' <span style="color:var(--text-faint);font-weight:400;">(' + r.note + ')</span>' : '') + '</div>';
       h += '<div style="color:var(--text-soft);font-size:13px;margin-bottom:4px;">' + locStr(r) + '</div>';
-      h += '<div style="color:var(--text-faint);font-size:12px;margin-bottom:10px;">' + issueDisplayDate(r) + workersCompletedSummaryHtml(r) + '</div>';
+      h += '<div style="color:var(--text-faint);font-size:12px;margin-bottom:10px;">' + issueDisplayDate(r) + workersCompletedSummaryHtml(r) + issueFixGpsCardHtml(r) + '</div>';
       if (!issueSelectMode) h += '<div style="text-align:right;" onclick="event.stopPropagation()">' + issueActionBtns(r, listMode) + '</div>';
       h += '</div></div>';
     });
@@ -2045,7 +2113,7 @@ function renderIssueListHtml(rows, listMode) {
     if (issueSelectMode) h += '<td onclick="event.stopPropagation()"><input type="checkbox"' + (sel ? ' checked' : '') + ' onclick="event.stopPropagation();toggleIssueSelected(\'' + r.id + '\')" aria-label="Select issue"></td>';
     h += '<td style="color:var(--text-faint);font-weight:700;white-space:nowrap;">#' + issueRef(r.num) + '</td><td>' + r.issueType + tradeBadgeHtml(r) + workersBadgeHtml(r) + workersCompletedSummaryHtml(r) + (r.note ? ' <span style="color:var(--text-faint);">(' + r.note + ')</span>' : '') + '</td><td>' + locStr(r) + '</td>';
     if (tradeGroups().length) h += '<td>' + (assignedWorkersDisplay(r) || tradeGroupLabel(r.assignedGroup) || 'Unassigned') + '</td>';
-    h += '<td>' + issueDisplayDate(r) + '</td><td>' + issueStatusBadgeHtml(r) + '</td><td>' + (r.photo ? '<img class="thumb" src="' + r.photo + '" loading="lazy">' : '?') + '</td>';
+    h += '<td>' + issueDisplayDate(r) + issueFixGpsCardHtml(r) + '</td><td>' + issueStatusBadgeHtml(r) + '</td><td>' + (r.photo ? '<img class="thumb" src="' + r.photo + '" loading="lazy">' : '?') + '</td>';
     if (!issueSelectMode) h += '<td>' + issueActionBtns(r, listMode) + '</td>';
     h += '</tr>';
   });
@@ -2213,8 +2281,8 @@ function miniDonutHtml(name,open,fixed){ var total=open+fixed; var fp=total?fixe
 function initRepMonth(){ var mm=document.getElementById('rep-month-m'); var ym=document.getElementById('rep-month-y'); if(mm && mm.options.length<=1){ var names=['January','February','March','April','May','June','July','August','September','October','November','December']; for(var i=0;i<12;i++){ var o=document.createElement('option'); o.value=String(i+1).padStart(2,'0'); o.textContent=names[i]; mm.appendChild(o); } } if(ym && ym.options.length<=1){ var cy=new Date().getFullYear(); for(var y=cy+1;y>=cy-3;y--){ var o2=document.createElement('option'); o2.value=String(y); o2.textContent=String(y); ym.appendChild(o2); } } }
 function syncRepMonth(){ var y=(document.getElementById('rep-month-y')||{}).value||''; var m=(document.getElementById('rep-month-m')||{}).value||''; var h=document.getElementById('rep-month'); if(h) h.value=(y&&m)?(y+'-'+m):''; }
 function renderAnalytics(){ const queue=allIssues.filter(function(r){ return !issueIsRoutedAway(r); }); const total=queue.length; const open=queue.filter(r=>r.status!=='fixed').length; const fixed=total-open; let h='<div class="stats"><div class="stat-box"><div class="stat-value">'+total+'</div><div class="stat-label">Total Issues</div></div><div class="stat-box"><div class="stat-value" style="color:var(--open-color);">'+open+'</div><div class="stat-label">Open</div></div><div class="stat-box"><div class="stat-value" style="color:#27ae60;">'+fixed+'</div><div class="stat-label">Fixed</div></div></div>'; h+='<h3>Open vs Fixed</h3><div style="display:flex;flex-wrap:wrap;gap:26px;align-items:center;margin:10px 0 22px;">'+donutHtml(open,fixed,total)+'<div style="display:flex;flex-wrap:wrap;gap:12px;">'+['ec','es','wd','ww','ra'].map(function(p){ var pr=queue.filter(function(r){return r.project===p;}); var o=pr.filter(function(r){return r.status!=='fixed';}).length; return miniDonutHtml(projectNames[p],o,pr.length-o); }).join('')+'</div></div>'; var colg='<colgroup><col style="width:40%"><col style="width:20%"><col style="width:20%"><col style="width:20%"></colgroup>'; h+='<h3>By Project</h3><table style="table-layout:fixed;width:100%;">'+colg+'<thead><tr><th>Project</th><th>Open</th><th>Fixed</th><th>Total</th></tr></thead><tbody>'; ['ec','es','wd','ww','ra'].forEach(p=>{ const pr=queue.filter(r=>r.project===p); if(pr.length===0)return; const o=pr.filter(r=>r.status!=='fixed').length; h+='<tr><td>'+projectNames[p]+'</td><td style="color:var(--open-color);">'+o+'</td><td style="color:#1d9e75;">'+(pr.length-o)+'</td><td>'+pr.length+'</td></tr>'; }); h+='</tbody></table>'; const types={}; queue.forEach(r=>{ const t=r.issueType; if(!types[t]) types[t]={open:0,fixed:0}; if(r.status==='fixed') types[t].fixed++; else types[t].open++; }); h+='<h3>By Issue Type</h3><table style="table-layout:fixed;width:100%;">'+colg+'<thead><tr><th>Type</th><th>Open</th><th>Fixed</th><th>Total</th></tr></thead><tbody>'; Object.keys(types).sort((a,b)=>(types[b].open+types[b].fixed)-(types[a].open+types[a].fixed)).forEach(t=>{ const o=types[t].open,f=types[t].fixed; h+='<tr><td>'+t+'</td><td style="color:var(--open-color);">'+o+'</td><td style="color:#1d9e75;">'+f+'</td><td>'+(o+f)+'</td></tr>'; }); h+='</tbody></table>'; document.getElementById('analyticsContent').innerHTML=h; }
-function switchTab(e,t){ document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); e.target.classList.add('active'); empireSaveActiveTab(ISSUE_CFG.prefix+'_active_tab', t); if(t==='add'){ window._editingId=null; var eb=document.getElementById('editBanner'); if(eb) eb.style.display='none'; } if(t==='analytics') renderAnalytics(); if(t==='notcivil') renderRoutedIssues(); if(t==='fixdelay') renderFixDelayIssues(); if(t==='list') startEngineerLocationPoll(); else stopEngineerLocationPoll(); }
-function switchTabTo(t){ document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); document.querySelectorAll('.tab-btn').forEach(b=>{ if(b.getAttribute('onclick').indexOf("'"+t+"'")!==-1) b.classList.add('active'); }); if(t==='analytics') renderAnalytics(); if(t==='notcivil') renderRoutedIssues(); if(t==='fixdelay') renderFixDelayIssues(); if(t==='list') startEngineerLocationPoll(); else stopEngineerLocationPoll(); }
+function switchTab(e,t){ document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); e.target.classList.add('active'); empireSaveActiveTab(ISSUE_CFG.prefix+'_active_tab', t); if(t==='add'){ window._editingId=null; var eb=document.getElementById('editBanner'); if(eb) eb.style.display='none'; } if(t==='analytics') renderAnalytics(); if(t==='notcivil') renderRoutedIssues(); if(t==='fixdelay') renderFixDelayIssues(); if(t==='gps'){ loadWorkerLocations(false); startEngineerLocationPoll(); } else stopEngineerLocationPoll(); }
+function switchTabTo(t){ document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); document.querySelectorAll('.tab-btn').forEach(b=>{ if(b.getAttribute('onclick').indexOf("'"+t+"'")!==-1) b.classList.add('active'); }); if(t==='analytics') renderAnalytics(); if(t==='notcivil') renderRoutedIssues(); if(t==='fixdelay') renderFixDelayIssues(); if(t==='gps'){ loadWorkerLocations(false); startEngineerLocationPoll(); } else stopEngineerLocationPoll(); }
 function enterApp(){ document.body.classList.remove('civil-worker-mode'); document.getElementById('loginPage').classList.remove('show'); var wa=document.getElementById('workerApp'); if(wa) wa.classList.remove('show'); stopWorkerLocationPing(); document.getElementById('mainContainer').classList.add('show'); applyPerms(); refreshPerms(); populateSelect('ci-project',['ec','es','wd','ww','ra'],true); updateCIBuildings(); populateSelect('ci-spot',spots,false); populateSelect('ci-issuetype',issueTypes,false); const fp=document.getElementById('f-project'); if(fp && fp.options.length<=1){ ['ec','es','wd','ww','ra'].forEach(p=>{ const o=document.createElement('option'); o.value=p;o.textContent=projectNames[p]; fp.appendChild(o); }); } const fnc=document.getElementById('f-nc-project'); if(fnc && fnc.options.length<=1){ ['ec','es','wd','ww','ra'].forEach(p=>{ const o=document.createElement('option'); o.value=p;o.textContent=projectNames[p]; fnc.appendChild(o); }); } const ffd=document.getElementById('f-fd-project'); if(ffd && ffd.options.length<=1){ ['ec','es','wd','ww','ra'].forEach(p=>{ const o=document.createElement('option'); o.value=p;o.textContent=projectNames[p]; ffd.appendChild(o); }); } initTradeFilters(); window._issueFilterState=empireBindFilterPersistence({ key:ISSUE_CFG.prefix+'_list_filters', fields:['f-project','f-group','f-status','f-month','f-search'], onApply:function(){ renderIssues(); } }); initRepMonth(); document.getElementById('ci-date').value=empireLocalDateIso(); var tab=empireRestoreActiveTab(ISSUE_CFG.prefix+'_active_tab','list'); switchTabTo(tab); if(tab==='analytics') renderAnalytics(); setTimeout(function(){ loadIssues(false); },0); syncWorkerLocationsUi(); }
 var _lastPermFetch=0;
 function refreshPerms(){ var tk=issueToken(); if(!tk) return; var now=Date.now(); if(now-_lastPermFetch<300000) return; _lastPermFetch=now; empireAuthRefreshPerms(function(d){ PAGEPERMS=d.perms||empireGetPerms(); applyPerms(); }); }

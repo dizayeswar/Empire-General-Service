@@ -500,7 +500,10 @@ function parseWorkerCompletions_(raw) {
         photos: photos,
         photoSources: photoSources,
         at: String(item.at || '').trim(),
-        note: String(item.note || '').trim()
+        note: String(item.note || '').trim(),
+        lat: isFinite(Number(item.lat)) ? Number(item.lat) : null,
+        lng: isFinite(Number(item.lng)) ? Number(item.lng) : null,
+        accuracy: item.accuracy === '' || item.accuracy === null || item.accuracy === undefined ? null : Number(item.accuracy)
       });
     }
     return out;
@@ -2274,13 +2277,20 @@ function handleMarkFixed(body, sheetName, auth) {
         if (workerAlreadyCompleted_(completions, fixedBy)) {
           return {ok:false, error:'already_submitted', message:'You already submitted your fix for this job.'};
         }
-        completions.push({
+        var fixLoc = parseWorkerLocationLatLng_(body);
+        var completion = {
           user: fixedBy,
           photos: photos,
           photoSources: normalizePhotoSources_(body, photos.length),
           at: new Date().toISOString(),
           note: String(body.fixNote || '').trim()
-        });
+        };
+        if (fixLoc) {
+          completion.lat = fixLoc.lat;
+          completion.lng = fixLoc.lng;
+          completion.accuracy = fixLoc.accuracy;
+        }
+        completions.push(completion);
         sheet.getRange(i+1, CIVIL_WORKER_COMPLETIONS_COL).setValue(formatWorkerCompletions_(completions));
         var allPhotos = mergeWorkerCompletionPhotos_(completions);
         sheet.getRange(i+1,10).setValue(formatFixedPhotosForStorage_(allPhotos));

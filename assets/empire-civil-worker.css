@@ -1221,4 +1221,38 @@ body:not(.civil-worker-mode) #workerApp {
 .worker-loc-map-link {
   font-weight: 600;
   white-space: nowrap;
+  color: var(--accent2);
+}
+.gps-page .worker-locations-panel {
+  margin: 0;
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+.gps-page .worker-locations-head h2 {
+  margin: 0;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.issue-fix-gps-badge {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.issue-fix-gps-link {
+  color: var(--accent2);
+  font-weight: 600;
+  text-decoration: none;
+}
+.issue-fix-gps-link:hover {
+  text-decoration: underline;
+}
+.issue-fix-gps-row {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--text-soft);
+  line-height: 1.45;
 }
