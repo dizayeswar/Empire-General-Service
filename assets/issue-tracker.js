@@ -613,19 +613,17 @@ function enterWorkerApp() {
   if (typeof empirePushTrySaveAfterLogin === 'function') {
     setTimeout(function () { empirePushTrySaveAfterLogin(); }, 2000);
   }
-  var pendingJob = false;
-  try { pendingJob = !!sessionStorage.getItem('empire_pending_job'); } catch (e) {}
-  if (pendingJob) {
-    loadIssues(true);
-  } else {
-    setTimeout(function () { if (!workerBackgroundPaused_()) loadIssues(false); }, 45000);
-  }
+  bindWorkerAppLifecycle_();
+  loadIssues(true);
 }
 var _workerLocWatchId = null;
+var _workerLocIntervalId = null;
 var _workerLastLocPing = 0;
+var _workerLastCoords = null;
 var _workerLocDenied = false;
 var _workerLocSharing = false;
-var WORKER_LOC_PING_MS = 45000;
+var _workerLifecycleBound = false;
+var WORKER_LOC_PING_MS = 30000;
 function workerLocUserKey_() {
   var u = typeof empireGetUser === 'function' ? empireGetUser() : '';
   return String(u || '').trim().toLowerCase();
@@ -667,7 +665,7 @@ function pingWorkerLocation(lat, lng, accuracy, silent) {
         return false;
       }
       _workerLocSharing = true;
-      if (!silent) setWorkerLocBanner('Location shared with engineer. Updates every ~45 sec while this app stays open.', false);
+      if (!silent) setWorkerLocBanner('Location shared with engineer. Updates every ~30 sec while logged in.', false);
       return true;
     })
     .catch(function () {
@@ -687,16 +685,84 @@ function setWorkerLocBanner(text, isError, showEnableBtn) {
   }
   el.innerHTML = h;
 }
+function storeWorkerCoords_(coords) {
+  if (!coords) return;
+  _workerLastCoords = {
+    lat: coords.latitude,
+    lng: coords.longitude,
+    accuracy: coords.accuracy,
+    ts: Date.now()
+  };
+}
+function beaconWorkerLocationNow_() {
+  if (!workerLocationActionsEnabled() || !_workerLastCoords) return;
+  var c = _workerLastCoords;
+  var payload = JSON.stringify({
+    action: ISSUE_CFG.actions.reportLocation,
+    lat: c.lat,
+    lng: c.lng,
+    accuracy: c.accuracy,
+    token: issueToken() || ''
+  });
+  try {
+    if (navigator.sendBeacon && GOOGLE_SCRIPT_URL) {
+      if (navigator.sendBeacon(GOOGLE_SCRIPT_URL, new Blob([payload], { type: 'text/plain' }))) return;
+    }
+  } catch (e) {}
+  try {
+    fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: payload, keepalive: true }).catch(function () {});
+  } catch (e2) {}
+}
+function bindWorkerAppLifecycle_() {
+  if (_workerLifecycleBound) return;
+  _workerLifecycleBound = true;
+  document.addEventListener('visibilitychange', function () {
+    if (!isCivilWorker()) return;
+    var wa = document.getElementById('workerApp');
+    if (!wa || !wa.classList.contains('show')) return;
+    if (document.visibilityState === 'visible') {
+      startWorkerLocationWatch();
+      sendWorkerLocationNow(true, true);
+      loadIssues(true);
+    } else {
+      sendWorkerLocationNow(true, true);
+      beaconWorkerLocationNow_();
+    }
+  });
+  window.addEventListener('pagehide', function () {
+    if (!isCivilWorker()) return;
+    beaconWorkerLocationNow_();
+  });
+  window.addEventListener('pageshow', function (ev) {
+    if (!isCivilWorker()) return;
+    var wa = document.getElementById('workerApp');
+    if (!wa || !wa.classList.contains('show')) return;
+    if (ev && ev.persisted) {
+      startWorkerLocationWatch();
+      sendWorkerLocationNow(true, true);
+      loadIssues(true);
+    }
+  });
+}
+function startWorkerLocationInterval_() {
+  if (_workerLocIntervalId != null) return;
+  _workerLocIntervalId = setInterval(function () {
+    if (!isCivilWorker()) return;
+    var wa = document.getElementById('workerApp');
+    if (!wa || !wa.classList.contains('show')) return;
+    sendWorkerLocationNow(false, true);
+  }, WORKER_LOC_PING_MS);
+}
 function sendWorkerLocationNow(force, silent) {
   silent = !!silent;
   if (!isCivilWorker() || !workerLocationActionsEnabled() || !navigator.geolocation) return;
-  if (workerBackgroundPaused_()) return;
   var now = Date.now();
   if (!force && _workerLastLocPing && now - _workerLastLocPing < WORKER_LOC_PING_MS) return;
   if (!silent) setWorkerLocBanner('Getting GPS position\u2026', false);
   navigator.geolocation.getCurrentPosition(
     function (pos) {
       if (!pos || !pos.coords) return;
+      storeWorkerCoords_(pos.coords);
       _workerLastLocPing = Date.now();
       pingWorkerLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, silent);
     },
@@ -706,6 +772,7 @@ function sendWorkerLocationNow(force, silent) {
 }
 function onWorkerPosition(pos) {
   if (!pos || !pos.coords) return;
+  storeWorkerCoords_(pos.coords);
   var now = Date.now();
   if (_workerLastLocPing && now - _workerLastLocPing < WORKER_LOC_PING_MS) return;
   _workerLastLocPing = now;
@@ -749,6 +816,7 @@ function startWorkerLocationWatch() {
     maximumAge: 30000,
     timeout: 20000
   });
+  startWorkerLocationInterval_();
 }
 function maybeResumeWorkerLocationSilently_() {
   if (!navigator.geolocation) return;
@@ -782,8 +850,13 @@ function stopWorkerLocationPing() {
   if (_workerLocWatchId != null && navigator.geolocation) {
     try { navigator.geolocation.clearWatch(_workerLocWatchId); } catch (e) {}
   }
+  if (_workerLocIntervalId != null) {
+    clearInterval(_workerLocIntervalId);
+    _workerLocIntervalId = null;
+  }
   _workerLocWatchId = null;
   _workerLastLocPing = 0;
+  _workerLastCoords = null;
   _workerLocSharing = false;
   setWorkerLocBanner('');
 }
@@ -1801,7 +1874,6 @@ var _issuesFetchCtrl=null;
 var _workerBgPausedUntil=0;
 window.empirePauseWorkerBackgroundRequests=function(ms){
   _workerBgPausedUntil=Date.now()+(ms||35000);
-  if(_issuesFetchCtrl) try{ _issuesFetchCtrl.abort(); }catch(e){}
 };
 function workerBackgroundPaused_(){ return isCivilWorker() && Date.now()<_workerBgPausedUntil; }
 function readIssuesCache(){ try{ var s=localStorage.getItem(ISSUES_CACHE_KEY); if(!s) return null; var a=JSON.parse(s); return Array.isArray(a)?a:null; }catch(e){ return null; } }

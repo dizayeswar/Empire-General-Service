@@ -135,8 +135,10 @@
     }
     var token = sessionToken();
     if (!token) return Promise.resolve(false);
-    pauseBackground();
-    if (!silent) setBanner('Setting up notifications…', false);
+    if (!silent) {
+      pauseBackground();
+      setBanner('Setting up notifications…', false);
+    }
     return api({
       action: ISSUE_CFG.actions.savePushToken,
       token: token,
