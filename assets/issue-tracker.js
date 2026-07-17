@@ -628,6 +628,68 @@ function workerLocUserKey_() {
   var u = typeof empireGetUser === 'function' ? empireGetUser() : '';
   return String(u || '').trim().toLowerCase();
 }
+function isIosDevice_() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+function isWorkerStandaloneApp_() {
+  if (window.navigator.standalone === true) return true;
+  if (!window.matchMedia) return false;
+  return window.matchMedia('(display-mode: standalone)').matches ||
+    window.matchMedia('(display-mode: fullscreen)').matches;
+}
+function workerLocDeniedSettingsText_() {
+  if (isIosDevice_()) {
+    if (isWorkerStandaloneApp_()) {
+      return 'Location is blocked on this iPhone. Open Settings, scroll to this Empire app, tap Location, choose While Using the App, then return here and tap Try again.';
+    }
+    return 'Location is blocked on this iPhone. Open Settings → Privacy & Security → Location Services → Safari Websites → Allow, then return here and tap Try again.';
+  }
+  if (/Android/i.test(navigator.userAgent)) {
+    return 'Location is blocked. Open phone Settings → Apps → Chrome (or your browser) → Permissions → Location → Allow, then tap Try again.';
+  }
+  return 'Location is blocked in your browser settings. Allow location for this site, then tap Try again.';
+}
+function queryWorkerGeolocationPermission_(cb) {
+  if (!navigator.permissions || !navigator.permissions.query) {
+    cb('unknown');
+    return;
+  }
+  navigator.permissions.query({ name: 'geolocation' }).then(function (result) {
+    cb(result.state || 'unknown', result);
+  }).catch(function () { cb('unknown'); });
+}
+function showWorkerLocPermissionBanner_(permanentlyDenied) {
+  var text = permanentlyDenied
+    ? workerLocDeniedSettingsText_()
+    : 'Allow location when your phone asks, so the engineer can see where you are on site.';
+  setWorkerLocBanner(text, !!permanentlyDenied, true);
+}
+function resetWorkerLocationWatch_() {
+  if (_workerLocWatchId != null && navigator.geolocation) {
+    try { navigator.geolocation.clearWatch(_workerLocWatchId); } catch (e) {}
+  }
+  if (_workerLocIntervalId != null) {
+    clearInterval(_workerLocIntervalId);
+    _workerLocIntervalId = null;
+  }
+  _workerLocWatchId = null;
+}
+function bindWorkerGeolocationPermissionChange_(result) {
+  if (!result) return;
+  result.onchange = function () {
+    if (!isCivilWorker()) return;
+    if (result.state === 'granted') {
+      _workerLocDenied = false;
+      resetWorkerLocationWatch_();
+      startWorkerLocationWatch();
+      sendWorkerLocationNow(true, false);
+    } else if (result.state === 'denied') {
+      _workerLocDenied = true;
+      showWorkerLocPermissionBanner_(true);
+    }
+  };
+}
 function workerLocPromptStorageKey_() {
   return 'empire_worker_loc_asked_' + workerLocUserKey_();
 }
@@ -681,7 +743,7 @@ function setWorkerLocBanner(text, isError, showEnableBtn) {
   el.classList.toggle('worker-loc-banner-error', !!isError);
   var h = '<span class="worker-loc-banner-text">' + text + '</span>';
   if (showEnableBtn) {
-    h += ' <button type="button" class="worker-loc-enable-btn" onclick="requestWorkerLocationAccess()">Enable location</button>';
+    h += ' <button type="button" class="worker-loc-enable-btn" onclick="requestWorkerLocationAccess()">' + (isError ? 'Try again' : 'Enable location') + '</button>';
   }
   el.innerHTML = h;
 }
@@ -721,8 +783,15 @@ function bindWorkerAppLifecycle_() {
     var wa = document.getElementById('workerApp');
     if (!wa || !wa.classList.contains('show')) return;
     if (document.visibilityState === 'visible') {
-      startWorkerLocationWatch();
-      sendWorkerLocationNow(true, true);
+      queryWorkerGeolocationPermission_(function (state) {
+        if (state === 'granted') {
+          resetWorkerLocationWatch_();
+          startWorkerLocationWatch();
+          sendWorkerLocationNow(true, true);
+        } else if (state === 'denied') {
+          showWorkerLocPermissionBanner_(true);
+        }
+      });
       loadIssues(true);
     } else {
       sendWorkerLocationNow(true, true);
@@ -779,13 +848,13 @@ function onWorkerPosition(pos) {
   pingWorkerLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, isWorkerLocPromptDone_());
 }
 function onWorkerPositionError(err, silent) {
-  if (silent) return;
   var code = err && err.code;
   if (code === 1) {
     _workerLocDenied = true;
-    setWorkerLocBanner('Location permission denied. Tap Enable location and allow access in your phone settings.', true, true);
+    if (!silent) showWorkerLocPermissionBanner_(true);
     return;
   }
+  if (silent) return;
   if (code === 2) {
     setWorkerLocBanner('GPS unavailable. Turn on location services, then tap Enable location.', true, true);
     return;
@@ -803,14 +872,22 @@ function requestWorkerLocationAccess() {
   }
   markWorkerLocPromptDone_();
   _workerLocDenied = false;
-  startWorkerLocationWatch();
-  sendWorkerLocationNow(true, false);
+  resetWorkerLocationWatch_();
+  queryWorkerGeolocationPermission_(function (state, result) {
+    bindWorkerGeolocationPermissionChange_(result);
+    if (state === 'denied') {
+      showWorkerLocPermissionBanner_(true);
+      return;
+    }
+    startWorkerLocationWatch();
+    sendWorkerLocationNow(true, false);
+  });
 }
 function startWorkerLocationWatch() {
   if (!isCivilWorker() || !workerLocationActionsEnabled() || !navigator.geolocation) return;
   if (_workerLocWatchId != null) return;
   _workerLocWatchId = navigator.geolocation.watchPosition(onWorkerPosition, function (err) {
-    if (err && err.code === 1) onWorkerPositionError(err, isWorkerLocPromptDone_());
+    if (err && err.code === 1) onWorkerPositionError(err, false);
   }, {
     enableHighAccuracy: true,
     maximumAge: 30000,
@@ -821,16 +898,17 @@ function startWorkerLocationWatch() {
 function maybeResumeWorkerLocationSilently_() {
   if (!navigator.geolocation) return;
   var resume = function () {
+    resetWorkerLocationWatch_();
     startWorkerLocationWatch();
     sendWorkerLocationNow(true, true);
   };
-  if (navigator.permissions && navigator.permissions.query) {
-    navigator.permissions.query({ name: 'geolocation' }).then(function (result) {
-      if (result.state === 'granted') resume();
-    }).catch(function () {});
-    return;
-  }
-  resume();
+  queryWorkerGeolocationPermission_(function (state, result) {
+    bindWorkerGeolocationPermissionChange_(result);
+    if (state === 'granted') resume();
+    else if (state === 'denied') showWorkerLocPermissionBanner_(true);
+    else if (state === 'prompt') showWorkerLocPermissionBanner_(false);
+    else resume();
+  });
 }
 function startWorkerLocationPing() {
   if (!isCivilWorker() || !workerLocationActionsEnabled() || !navigator.geolocation) return;
@@ -843,8 +921,7 @@ function startWorkerLocationPing() {
     maybeResumeWorkerLocationSilently_();
     return;
   }
-  markWorkerLocPromptDone_();
-  setWorkerLocBanner('Tap Enable location so the engineer can see where you are on site.', false, true);
+  showWorkerLocPermissionBanner_(false);
 }
 function stopWorkerLocationPing() {
   if (_workerLocWatchId != null && navigator.geolocation) {
