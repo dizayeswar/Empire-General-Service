@@ -1311,8 +1311,8 @@ function openWorkerJob(id) {
   if (title) title.textContent = '#' + issueRef(r.num);
   var body = document.getElementById('workerModalBody');
   if (!body) return;
-  var h = '<h2>' + r.issueType + '</h2><p class="loc">' + (projectNames[r.project] || r.project) + ' &middot; ' + locStr(r) + '</p>';
-  if (r.note) h += '<p style="color:var(--text-soft);font-size:14px;margin-bottom:12px;"><strong>Note:</strong> ' + r.note + '</p>';
+  var h = '<h2 class="worker-job-type-title">' + r.issueType + '</h2><p class="loc">' + workerJobLocStr(r) + '</p>';
+  if (r.note) h += '<p class="worker-issue-note"><strong>Note:</strong> ' + r.note + '</p>';
   if (r.assignVoiceNote && r.assignVoiceNote.url && typeof assignVoiceNoteDisplayHtml === 'function') {
     h += assignVoiceNoteDisplayHtml(r.assignVoiceNote, { worker: true });
   }
@@ -1320,17 +1320,16 @@ function openWorkerJob(id) {
   if (need > 1) {
     h += '<p class="worker-two-note">This job needs <strong>' + need + ' workers</strong> to each take photos.' + (issueWorkerDone(r) ? (' <span>(' + issueWorkerDone(r) + '/' + need + ' already done)</span>') : '') + '</p>';
   }
-  h += r.photo ? '<img class="worker-problem-img" src="' + r.photo + '" alt="Problem">' : '<p style="color:var(--text-faint);">No problem photo</p>';
-  h += '<div class="worker-fix-section"><h3>' + checkIconHtml() + ' Complete this job</h3>';
-  h += '<p style="font-size:13px;color:var(--text-soft);margin:0 0 10px;">Add at least one completion photo. Take on site with your camera or upload from your gallery.</p>';
+  h += r.photo ? '<img class="worker-problem-img" src="' + r.photo + '" alt="Problem">' : '';
+  h += '<div class="worker-fix-section worker-fix-simple">';
   h += '<div id="worker-photo-grid" class="worker-photo-grid"></div>';
   h += '<div class="worker-photo-actions">';
   h += '<div class="worker-camera-zone compact" onclick="triggerWorkerCamera()" role="button" tabindex="0" aria-label="Take completion photo with camera">';
   h += '<span class="worker-camera-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/></svg></span>';
-  h += '<strong>Take photo</strong><span>Opens camera on site</span></div>';
+  h += '<strong>Take photo</strong></div>';
   h += '<div class="worker-gallery-zone compact" onclick="triggerWorkerGallery()" role="button" tabindex="0" aria-label="Upload completion photo from gallery">';
   h += '<span class="worker-gallery-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></span>';
-  h += '<strong>Upload photo</strong><span>Choose from gallery</span></div></div>';
+  h += '<strong>Upload photo</strong></div></div>';
   h += '<input type="file" id="worker-fix-camera" accept="image/*" capture="environment" style="display:none" onchange="handleWorkerFixFile(event,\'camera\')">';
   h += '<input type="file" id="worker-fix-gallery" accept="image/*" style="display:none" onchange="handleWorkerFixFile(event,\'gallery\')">';
   h += '<input type="text" id="worker-fix-note" class="worker-fix-note" placeholder="Note (optional)">';
@@ -1367,7 +1366,7 @@ function openWorkerJobPendingView(id) {
       photos = item.orderedPhotos.map(function (p) { return p.url; });
       itemSources = item.orderedPhotos.map(function (p) { return p.source; });
     }
-    var h = '<h2>' + r.issueType + '</h2><p class="loc">' + (projectNames[r.project] || r.project) + ' &middot; ' + locStr(r) + '</p>';
+    var h = '<h2 class="worker-job-type-title">' + r.issueType + '</h2><p class="loc">' + workerJobLocStr(r) + '</p>';
     h += '<div class="worker-done-locked worker-pending-sync"><p class="worker-done-msg">' + checkIconHtml('#d68910') + ' Saved on this device</p>';
     h += '<p style="font-size:13px;color:var(--text-soft);margin:0;">Waiting for internet to upload your photos and mark this job fixed. Keep this page open or come back later.</p></div>';
     if (photos.length) {
@@ -1396,7 +1395,7 @@ function openWorkerJobDoneView(id) {
   var body = document.getElementById('workerModalBody');
   if (!body) return;
   var mine = myWorkerCompletion(r);
-  var h = '<h2>' + r.issueType + '</h2><p class="loc">' + (projectNames[r.project] || r.project) + ' &middot; ' + locStr(r) + '</p>';
+  var h = '<h2 class="worker-job-type-title">' + r.issueType + '</h2><p class="loc">' + workerJobLocStr(r) + '</p>';
   h += '<div class="worker-done-locked"><p class="worker-done-msg">' + checkIconHtml('#1d9e75') + ' You already marked this job as fixed.</p>';
   h += '<p style="font-size:13px;color:var(--text-soft);margin:0;">You cannot add more photos for this issue.</p></div>';
   if (mine && mine.photos && mine.photos.length) {
@@ -1426,8 +1425,10 @@ function renderWorkerPhotoGrid() {
   var grid = document.getElementById('worker-photo-grid');
   if (!grid) return;
   if (!_workerFixPhotos.length) {
-    grid.innerHTML = '<p class="worker-photo-empty">No photos yet — use camera or gallery below</p>';
+    grid.innerHTML = '';
+    grid.classList.add('worker-photo-grid-empty');
   } else {
+    grid.classList.remove('worker-photo-grid-empty');
     grid.innerHTML = _workerFixPhotos.map(function (item, i) {
       var url = workerPhotoUrl(item);
       var offline = isOfflinePhotoUrl(url);
@@ -1991,6 +1992,14 @@ function setIssuesFromData(arr){ var sig=issuesListSig(arr); var changed=(sig!==
 function deferHeavyRenders(){ var run=function(){ var ac=document.getElementById('analytics'); if(ac&&ac.classList.contains('active')) renderAnalytics(); }; if(window.requestIdleCallback) requestIdleCallback(run,{timeout:2500}); else setTimeout(run,80); }
 function loadIssues(force){ force=!!force; if(isCivilWorker()&&!force&&workerBackgroundPaused_()) return; if(isCivilWorker()&&force) sendWorkerLocationNow(true, isWorkerLocPromptDone_()); if(isCivilWorker()){ var cached=readIssuesCache(); if(cached){ setIssuesFromData(cached); renderWorkerJobs(); if(typeof empirePushOnIssuesLoaded==='function') empirePushOnIssuesLoaded(cached); } } var cached=readIssuesCache(); var prevIssues=allIssues.slice(); if(cached && !isCivilWorker()){ setIssuesFromData(cached); requestAnimationFrame(function(){ refreshAllIssueTabs(); }); } var spinEls=[document.getElementById('listRefreshIcon'),document.getElementById('navRefreshIcon'),document.getElementById('workerRefreshIcon'),document.getElementById('notCivilRefreshIcon'),document.getElementById('fixDelayRefreshIcon')]; var cacheFresh=cached && !force && (Date.now()-readIssuesCacheTs()<ISSUES_CACHE_TTL); if(cacheFresh) return; var it=document.getElementById('issuesTable'); if(it && !cached && !isCivilWorker()) it.innerHTML=LOADING_HTML; if(isCivilWorker() && !cached){ var wbar=document.getElementById('workerCountBar'); if(wbar) wbar.textContent='Loading jobs\u2026'; } spinEls.forEach(function(el){ if(el) el.classList.add('spinning'); }); if(_issuesFetchCtrl) try{ _issuesFetchCtrl.abort(); }catch(e){} _issuesFetchCtrl=new AbortController(); var fetchTimeout=setTimeout(function(){ try{ _issuesFetchCtrl.abort(); }catch(e){} }, 45000); fetchIssuesFromServer(_issuesFetchCtrl.signal).then(function(d){ if(Array.isArray(d)){ var merged=mergeIssueMetaFromServer(d, prevIssues.length?prevIssues:(cached||[])); setIssuesFromData(merged); writeIssuesCacheAsync(merged); if(isCivilWorker()){ renderWorkerJobs(); if(typeof empirePushOnIssuesLoaded==='function') empirePushOnIssuesLoaded(merged); } else { requestAnimationFrame(function(){ refreshAllIssueTabs(); }); } } else if(d&&d.ok===false){ if(!forceSessionLogout(d) && isCivilWorker()){ var wl=document.getElementById('workerJobList'); if(wl && !cached) wl.innerHTML='<p class="worker-empty">Could not load jobs: '+String(d.message||d.error||'server error')+'</p>'; var wcb=document.getElementById('workerCountBar'); if(wcb) wcb.textContent='Jobs unavailable'; } } }).catch(function(e){ if(e&&e.name==='AbortError'){ if(isCivilWorker()){ var wl2=document.getElementById('workerJobList'); if(wl2 && !cached) wl2.innerHTML='<p class="worker-empty">Jobs timed out — pull down to refresh or tap the refresh icon.</p>'; } return; } if(!cached && it && !isCivilWorker()) it.innerHTML='<p>Error loading: '+e.message+'</p>'; if(isCivilWorker()){ var wl=document.getElementById('workerJobList'); if(wl && !cached) wl.innerHTML='<p class="worker-empty">Error: '+e.message+'</p>'; } }).finally(function(){ clearTimeout(fetchTimeout); spinEls.forEach(function(el){ if(el) el.classList.remove('spinning'); }); }); }
 function locStr(r){ return r.building+' \u00B7 '+r.floor+' \u00B7 '+r.spot; }
+function workerJobLocStr(r) {
+  var b = String((r && r.building) || '').trim();
+  var f = String((r && r.floor) || '').trim();
+  var s = String((r && r.spot) || '').trim();
+  if (b && f) return b + '-' + f + (s ? '. ' + s : '');
+  if (b || f || s) return [b, f, s].filter(Boolean).join(' \u00B7 ');
+  return '';
+}
 function dayOf(r){ var d=String(r.date||r.createdAt||''); if(/^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0,10); var dt=new Date(d.replace(' ','T')); if(!isNaN(dt.getTime())){ var z=function(n){return String(n).padStart(2,'0');}; return dt.getFullYear()+'-'+z(dt.getMonth()+1)+'-'+z(dt.getDate()); } return ''; }
 function monthOf(r){ var d=String(r.date||r.createdAt||''); if(!/^\d{4}-\d{2}-\d{2}/.test(d)) return ''; var yr=parseInt(d.slice(0,4),10), mo=parseInt(d.slice(5,7),10), dy=parseInt(d.slice(8,10),10); if(dy>=26){ mo+=1; if(mo>12){mo=1;yr+=1;} } return yr+'-'+String(mo).padStart(2,'0'); }
 function canBulkDeleteIssues() {

@@ -200,23 +200,31 @@ body:not(.civil-worker-mode) #workerApp {
   padding: 16px 16px 100px;
   -webkit-overflow-scrolling: touch;
 }
-.worker-modal h2 {
-  margin: 0 0 8px;
-  font-size: 18px;
+.worker-modal h2,
+.worker-job-type-title {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.25;
 }
 .worker-modal .loc {
   color: var(--text-soft);
-  font-size: 14px;
+  font-size: 15px;
   margin-bottom: 14px;
+}
+.worker-issue-note {
+  color: var(--text-soft);
+  font-size: 14px;
+  margin: 0 0 12px;
 }
 .worker-problem-img {
   width: 100%;
-  max-height: 220px;
+  max-height: 240px;
   object-fit: contain;
   border-radius: 14px;
   border: 2px solid var(--card-border);
   background: var(--task-bg);
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 .worker-fix-section {
   background: var(--panel);
@@ -224,6 +232,13 @@ body:not(.civil-worker-mode) #workerApp {
   border-radius: 16px;
   padding: 16px;
   margin-top: 8px;
+}
+.worker-fix-section.worker-fix-simple {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  margin-top: 0;
 }
 .worker-fix-section h3 {
   margin: 0 0 10px;
@@ -233,7 +248,11 @@ body:not(.civil-worker-mode) #workerApp {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   gap: 10px;
-  margin: 10px 0 12px;
+  margin: 0 0 12px;
+}
+.worker-photo-grid.worker-photo-grid-empty {
+  display: none;
+  margin: 0;
 }
 .worker-photo-empty {
   grid-column: 1 / -1;
@@ -306,11 +325,11 @@ body:not(.civil-worker-mode) #workerApp {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-  margin: 10px 0 12px;
+  margin: 0 0 12px;
 }
 .worker-camera-zone.compact,
 .worker-gallery-zone.compact {
-  min-height: 120px;
+  min-height: 108px;
   margin: 0;
   padding: 14px 10px;
 }
