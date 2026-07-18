@@ -738,7 +738,7 @@ function pingWorkerLocation(lat, lng, accuracy, silent) {
         return false;
       }
       _workerLocSharing = true;
-      if (!silent) setWorkerLocBanner('Location shared with engineer. Updates every ~30 sec while logged in.', false);
+      if (!silent) setWorkerLocBanner('', false);
       return true;
     })
     .catch(function () {
@@ -839,6 +839,9 @@ function sendWorkerLocationNow(force, silent) {
   var now = Date.now();
   if (!force && _workerLastLocPing && now - _workerLastLocPing < WORKER_LOC_PING_MS) return;
   if (!silent) setWorkerLocBanner('Getting GPS position\u2026', false);
+  var geoOpts = silent
+    ? { enableHighAccuracy: false, timeout: 8000, maximumAge: 120000 }
+    : { enableHighAccuracy: true, timeout: 20000, maximumAge: force ? 0 : 30000 };
   navigator.geolocation.getCurrentPosition(
     function (pos) {
       if (!pos || !pos.coords) return;
@@ -847,7 +850,7 @@ function sendWorkerLocationNow(force, silent) {
       pingWorkerLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, silent);
     },
     function (err) { onWorkerPositionError(err, silent); },
-    { enableHighAccuracy: true, timeout: 20000, maximumAge: force ? 0 : 30000 }
+    geoOpts
   );
 }
 function onWorkerPosition(pos) {
@@ -856,7 +859,7 @@ function onWorkerPosition(pos) {
   var now = Date.now();
   if (_workerLastLocPing && now - _workerLastLocPing < WORKER_LOC_PING_MS) return;
   _workerLastLocPing = now;
-  pingWorkerLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, isWorkerLocPromptDone_());
+  pingWorkerLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, true);
 }
 function onWorkerPositionError(err, silent) {
   var code = err && err.code;
@@ -1943,7 +1946,7 @@ function syncWorkerRoleThenRoute_() {
   empireAuthRefreshPerms(function () { done(); });
   setTimeout(done, 1200);
 }
-function handleLogin(e){ empireAuthLogin(e, ISSUE_CFG.dept, { onSuccess: function(d){ PAGEPERMS=d.perms||{}; if(typeof empireAuthSet==='function' && d.trade) empireAuthSet('trade', d.trade); routeCivilIssueView_(); if(typeof empirePushTrySaveAfterLogin==='function'){ setTimeout(function(){ empirePushTrySaveAfterLogin(); }, 2000); } } }); }
+function handleLogin(e){ empireAuthLogin(e, ISSUE_CFG.dept, { onSuccess: function(d){ PAGEPERMS=d.perms||{}; if(typeof empireAuthSet==='function' && d.trade) empireAuthSet('trade', d.trade); if(ISSUE_CFG.workerMode) prefetchWorkerIssues_(); routeCivilIssueView_(); if(typeof empirePushTrySaveAfterLogin==='function'){ setTimeout(function(){ empirePushTrySaveAfterLogin(); }, 2000); } } }); }
 function logout(){ stopWorkerLocationPing(); if(typeof empirePushStopWorker==='function') empirePushStopWorker(); stopEngineerLocationPoll(); empireAuthLogout({ extraKeys: [ISSUES_CACHE_KEY, ISSUES_CACHE_TS_KEY], redirect: 'index.html', reload: false }); }
 function issueSessionLogoutOpts(){ return { extraKeys: [ISSUES_CACHE_KEY, ISSUES_CACHE_TS_KEY], redirect: 'index.html', reload: false }; }
 function forceSessionLogout(d){ return empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts()); }
@@ -2002,9 +2005,18 @@ function mergeIssueMetaFromServer(next, prev) {
     return out;
   });
 }
-function setIssuesFromData(arr){ var sig=issuesListSig(arr); var changed=(sig!==_issuesListSig); _issuesListSig=sig; allIssues=arr; return changed; }
+function prefetchWorkerIssues_() {
+  if (!ISSUE_CFG.workerMode || !issueToken()) return;
+  fetchIssuesFromServer().then(function (d) {
+    if (Array.isArray(d)) writeIssuesCacheAsync(d);
+  }).catch(function () {});
+}
+function scheduleWorkerLocationPing_(force) {
+  if (!isCivilWorker() || !workerLocationActionsEnabled()) return;
+  setTimeout(function () { sendWorkerLocationNow(!!force, true); }, force ? 400 : 0);
+}
 function deferHeavyRenders(){ var run=function(){ var ac=document.getElementById('analytics'); if(ac&&ac.classList.contains('active')) renderAnalytics(); }; if(window.requestIdleCallback) requestIdleCallback(run,{timeout:2500}); else setTimeout(run,80); }
-function loadIssues(force){ force=!!force; if(isCivilWorker()&&!force&&workerBackgroundPaused_()) return; if(isCivilWorker()&&force) sendWorkerLocationNow(true, isWorkerLocPromptDone_()); if(isCivilWorker()){ var cached=readIssuesCache(); if(cached){ setIssuesFromData(cached); renderWorkerJobs(); if(typeof empirePushOnIssuesLoaded==='function') empirePushOnIssuesLoaded(cached); } } var cached=readIssuesCache(); var prevIssues=allIssues.slice(); if(cached && !isCivilWorker()){ setIssuesFromData(cached); requestAnimationFrame(function(){ refreshAllIssueTabs(); }); } var spinEls=[document.getElementById('listRefreshIcon'),document.getElementById('navRefreshIcon'),document.getElementById('workerRefreshIcon'),document.getElementById('notCivilRefreshIcon'),document.getElementById('fixDelayRefreshIcon')]; var cacheFresh=cached && !force && (Date.now()-readIssuesCacheTs()<ISSUES_CACHE_TTL); if(cacheFresh) return; var it=document.getElementById('issuesTable'); if(it && !cached && !isCivilWorker()) it.innerHTML=LOADING_HTML; if(isCivilWorker() && !cached){ var wbar=document.getElementById('workerCountBar'); if(wbar) wbar.textContent='Loading jobs\u2026'; } spinEls.forEach(function(el){ if(el) el.classList.add('spinning'); }); if(_issuesFetchCtrl) try{ _issuesFetchCtrl.abort(); }catch(e){} _issuesFetchCtrl=new AbortController(); var fetchTimeout=setTimeout(function(){ try{ _issuesFetchCtrl.abort(); }catch(e){} }, 45000); fetchIssuesFromServer(_issuesFetchCtrl.signal).then(function(d){ if(Array.isArray(d)){ var merged=mergeIssueMetaFromServer(d, prevIssues.length?prevIssues:(cached||[])); setIssuesFromData(merged); writeIssuesCacheAsync(merged); if(isCivilWorker()){ renderWorkerJobs(); if(typeof empirePushOnIssuesLoaded==='function') empirePushOnIssuesLoaded(merged); } else { requestAnimationFrame(function(){ refreshAllIssueTabs(); }); } } else if(d&&d.ok===false){ if(!forceSessionLogout(d) && isCivilWorker()){ var wl=document.getElementById('workerJobList'); if(wl && !cached) wl.innerHTML='<p class="worker-empty">Could not load jobs: '+String(d.message||d.error||'server error')+'</p>'; var wcb=document.getElementById('workerCountBar'); if(wcb) wcb.textContent='Jobs unavailable'; } } }).catch(function(e){ if(e&&e.name==='AbortError'){ if(isCivilWorker()){ var wl2=document.getElementById('workerJobList'); if(wl2 && !cached) wl2.innerHTML='<p class="worker-empty">Jobs timed out — pull down to refresh or tap the refresh icon.</p>'; } return; } if(!cached && it && !isCivilWorker()) it.innerHTML='<p>Error loading: '+e.message+'</p>'; if(isCivilWorker()){ var wl=document.getElementById('workerJobList'); if(wl && !cached) wl.innerHTML='<p class="worker-empty">Error: '+e.message+'</p>'; } }).finally(function(){ clearTimeout(fetchTimeout); spinEls.forEach(function(el){ if(el) el.classList.remove('spinning'); }); }); }
+function loadIssues(force){ force=!!force; if(isCivilWorker()&&!force&&workerBackgroundPaused_()) return; if(isCivilWorker()&&force) scheduleWorkerLocationPing_(true); if(isCivilWorker()){ var cached=readIssuesCache(); if(cached){ setIssuesFromData(cached); renderWorkerJobs(); if(typeof empirePushOnIssuesLoaded==='function') empirePushOnIssuesLoaded(cached); } } var cached=readIssuesCache(); var prevIssues=allIssues.slice(); if(cached && !isCivilWorker()){ setIssuesFromData(cached); requestAnimationFrame(function(){ refreshAllIssueTabs(); }); } var spinEls=[document.getElementById('listRefreshIcon'),document.getElementById('navRefreshIcon'),document.getElementById('workerRefreshIcon'),document.getElementById('notCivilRefreshIcon'),document.getElementById('fixDelayRefreshIcon')]; var cacheFresh=cached && !force && (Date.now()-readIssuesCacheTs()<ISSUES_CACHE_TTL); if(cacheFresh) return; var it=document.getElementById('issuesTable'); if(it && !cached && !isCivilWorker()) it.innerHTML=LOADING_HTML; if(isCivilWorker() && !cached){ var wbar=document.getElementById('workerCountBar'); if(wbar) wbar.textContent='Loading jobs\u2026'; } spinEls.forEach(function(el){ if(el) el.classList.add('spinning'); }); if(_issuesFetchCtrl) try{ _issuesFetchCtrl.abort(); }catch(e){} _issuesFetchCtrl=new AbortController(); var fetchTimeout=setTimeout(function(){ try{ _issuesFetchCtrl.abort(); }catch(e){} }, isCivilWorker()?25000:45000); fetchIssuesFromServer(_issuesFetchCtrl.signal).then(function(d){ if(Array.isArray(d)){ var merged=mergeIssueMetaFromServer(d, prevIssues.length?prevIssues:(cached||[])); setIssuesFromData(merged); writeIssuesCacheAsync(merged); if(isCivilWorker()){ renderWorkerJobs(); if(typeof empirePushOnIssuesLoaded==='function') empirePushOnIssuesLoaded(merged); } else { requestAnimationFrame(function(){ refreshAllIssueTabs(); }); } } else if(d&&d.ok===false){ if(!forceSessionLogout(d) && isCivilWorker()){ var wl=document.getElementById('workerJobList'); if(wl && !cached) wl.innerHTML='<p class="worker-empty">Could not load jobs: '+String(d.message||d.error||'server error')+'</p>'; var wcb=document.getElementById('workerCountBar'); if(wcb) wcb.textContent='Jobs unavailable'; } } }).catch(function(e){ if(e&&e.name==='AbortError'){ if(isCivilWorker()){ var wl2=document.getElementById('workerJobList'); if(wl2 && !cached) wl2.innerHTML='<p class="worker-empty">Jobs timed out — pull down to refresh or tap the refresh icon.</p>'; } return; } if(!cached && it && !isCivilWorker()) it.innerHTML='<p>Error loading: '+e.message+'</p>'; if(isCivilWorker()){ var wl=document.getElementById('workerJobList'); if(wl && !cached) wl.innerHTML='<p class="worker-empty">Error: '+e.message+'</p>'; } }).finally(function(){ clearTimeout(fetchTimeout); spinEls.forEach(function(el){ if(el) el.classList.remove('spinning'); }); }); }
 function locStr(r){ return r.building+' \u00B7 '+r.floor+' \u00B7 '+r.spot; }
 function workerJobLocStr(r) {
   var b = String((r && r.building) || '').trim();
