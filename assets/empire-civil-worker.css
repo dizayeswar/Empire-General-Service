@@ -94,6 +94,132 @@ body:not(.civil-worker-mode) #workerApp {
   font-weight: 600;
   color: var(--accent2);
 }
+.worker-tab-bar {
+  display: flex;
+  gap: 8px;
+  padding: 10px 14px 0;
+  background: var(--task-bg);
+  border-bottom: 1px solid var(--card-border);
+}
+.worker-tab-btn {
+  flex: 1;
+  border: 2px solid var(--card-border);
+  background: var(--panel);
+  color: var(--text-soft);
+  border-radius: 12px 12px 0 0;
+  padding: 10px 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.worker-tab-btn.active {
+  color: var(--accent2);
+  border-bottom-color: var(--panel);
+  background: var(--panel);
+}
+.worker-report-panel {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px 14px 24px;
+}
+.worker-field-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.worker-field-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+.worker-field-input,
+.worker-field-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 2px solid var(--input-border);
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 15px;
+  background: var(--input-bg);
+  color: var(--text);
+}
+.worker-field-paste {
+  border: 2px dashed var(--card-border);
+  border-radius: 10px;
+  padding: 14px;
+  font-size: 13px;
+  color: var(--text-soft);
+  background: var(--task-bg);
+}
+.worker-field-preview-img {
+  width: 100%;
+  max-width: 280px;
+  border-radius: 10px;
+  border: 2px solid var(--card-border);
+}
+.worker-field-voice-host .assign-voice-note {
+  margin-top: 4px;
+}
+.worker-field-submit {
+  margin-top: 6px;
+  padding: 14px;
+  border-radius: 12px;
+  border: none;
+  background: var(--accent2);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.worker-field-submit:disabled {
+  opacity: 0.6;
+}
+.worker-field-msg {
+  min-height: 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+.worker-field-msg-ok { color: #1d9e75; }
+.worker-field-msg-error { color: #C5504F; }
+.worker-field-subhead {
+  margin: 18px 0 8px;
+  font-size: 14px;
+  color: var(--text);
+}
+.worker-field-my-card {
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--card-border);
+}
+.worker-field-my-thumb {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+.worker-field-my-date {
+  font-size: 12px;
+  color: var(--text-soft);
+}
+.worker-field-my-place {
+  font-weight: 700;
+  font-size: 14px;
+}
+.worker-field-my-note {
+  font-size: 13px;
+  color: var(--text-soft);
+  margin: 4px 0 0;
+}
+#workerJobsPanel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
 .worker-list {
   flex: 1;
   padding: 12px 14px 24px;

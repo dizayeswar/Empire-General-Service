@@ -12,6 +12,7 @@ var FIRE_SHEET = 'FireIssues';
 var HSE_SHEET = 'HseInspections';
 var ELECTRICAL_JOBS_SHEET = 'ElectricalJobs';
 var ELECTRICAL_SUMMARY_SHEET = 'ElectricalSummary';
+var ELECTRIC_WORKER_REPORTS_SHEET = 'ElectricWorkerReports';
 var CIVIL_JOBS_SHEET = 'CivilJobs';
 var CIVIL_SUMMARY_SHEET = 'CivilSummary';
 var TRASH_SHEET = 'Trash';
@@ -20,7 +21,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-18-electric-workers-v1';
+var SCRIPT_VERSION = '2026-07-18-electric-field-reports-v1';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -196,6 +197,8 @@ function doPost(e) {
       'addElectricalJob':'electrical department','getElectricalJobs':'electrical department','updateElectricalJob':'electrical department',
       'deleteElectricalJob':'electrical department','clearElectricalJobs':'electrical department',
       'getElectricalSummary':'electrical department','saveElectricalSummary':'electrical department',
+      'getElectricWorkerReports':'electrical department',
+      'addElectricWorkerReport':'electric issue',
       'addCivilJob':'civil department','getCivilJobs':'civil department','updateCivilJob':'civil department',
       'deleteCivilJob':'civil department','clearCivilJobs':'civil department',
       'getCivilSummary':'civil department','saveCivilSummary':'civil department'
@@ -206,6 +209,9 @@ function doPost(e) {
     var auth;
     if (action === 'getWorkerLocations' || action === 'reportWorkerLocation') {
       auth = verifyToken(body.token, 'civil issue');
+      if (!auth.ok) auth = verifyToken(body.token, 'electric issue');
+    } else if (action === 'getElectricWorkerReports') {
+      auth = verifyToken(body.token, 'electrical department');
       if (!auth.ok) auth = verifyToken(body.token, 'electric issue');
     } else {
       auth = verifyToken(body.token, requiredDept);
@@ -220,6 +226,10 @@ function doPost(e) {
     }
     if (action === 'reportWorkerLocation' && body._authRole !== 'worker') {
       return respond({ok:false,success:false,error:'not_allowed',message:'Only worker accounts can report location.'});
+    }
+    if (action === 'addElectricWorkerReport') {
+      if (body._authRole !== 'worker') return respond({ok:false,success:false,error:'not_allowed',message:'Only electric workers can submit field reports.'});
+      if (!isElectricWorkerId_(body.username)) return respond({ok:false,success:false,error:'not_allowed',message:'This account is not an electric field worker.'});
     }
     var adminOnly = {saveUiSettings:1, clearElectricalJobs:1, clearCivilJobs:1, clearCivilIssues:1, clearElectricIssues:1, clearFireIssues:1, clearHseInspections:1, clearAll:1, getTrash:1, restoreTrash:1, purgeTrash:1};
     if (adminOnly[action] && String(auth.role||'').toLowerCase()!=='admin') return respond({ok:false,success:false,error:'not_allowed',message:'Only an admin can do that.'});
@@ -283,6 +293,8 @@ function doPost(e) {
     if (action==='clearElectricalJobs') return respond(handleClearElectricalJobs(body));
     if (action==='getElectricalSummary') return respond(handleGetElectricalSummary(body));
     if (action==='saveElectricalSummary') return respond(handleSaveElectricalSummary(body));
+    if (action==='getElectricWorkerReports') return respond(handleGetElectricWorkerReports(body, auth));
+    if (action==='addElectricWorkerReport') return respond(handleAddElectricWorkerReport(body, auth));
     if (action==='addCivilJob') return respond(handleAddCivilJob(body));
     if (action==='getCivilJobs') return respond(handleGetCivilJobs(body));
     if (action==='updateCivilJob') return respond(handleUpdateCivilJob(body));
@@ -464,6 +476,10 @@ function formatAssignedWorkers_(workers) {
 function isKnownWorkerId_(id) {
   id = normalizeWorkerId_(id);
   return !!(id && (CIVIL_WORKER_TEAM[id] || ELECTRIC_WORKER_TEAM[id]));
+}
+function isElectricWorkerId_(id) {
+  id = normalizeWorkerId_(id);
+  return !!(id && ELECTRIC_WORKER_TEAM[id]);
 }
 function isKnownCivilWorkerId_(id) {
   return isKnownWorkerId_(id);
@@ -2688,6 +2704,87 @@ function handleSaveElectricalSummary(body) {
   }
   sheet.appendRow([body.month, body.text||'', body.username||'', new Date().toISOString()]);
   return {ok:true,success:true};
+}
+
+function ensureElectricWorkerReportsSheet_(sheet) {
+  if (!sheet) return;
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['id','date','place','note','photo','voiceNote','reportedBy','workerName','createdAt']);
+    return;
+  }
+  var headers = ['id','date','place','note','photo','voiceNote','reportedBy','workerName','createdAt'];
+  for (var c = 0; c < headers.length; c++) {
+    if (String(sheet.getRange(1, c + 1).getValue() || '') !== headers[c]) {
+      sheet.getRange(1, c + 1).setValue(headers[c]);
+    }
+  }
+}
+
+function handleAddElectricWorkerReport(body, auth) {
+  var place = String(body.place || body.location || '').trim();
+  var note = String(body.note || body.notes || '').trim();
+  var photo = String(body.photo || '').trim();
+  var voiceNote = body.voiceNote || null;
+  if (voiceNote && typeof voiceNote === 'object') voiceNote = formatAssignVoiceNote_(voiceNote);
+  else voiceNote = String(voiceNote || '').trim();
+  if (!place && !note && !photo && !voiceNote) {
+    return {ok:false,success:false,error:'empty_report',message:'Add a place, note, photo, or voice recording before submitting.'};
+  }
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(ELECTRIC_WORKER_REPORTS_SHEET) || ss.insertSheet(ELECTRIC_WORKER_REPORTS_SHEET);
+  ensureElectricWorkerReportsSheet_(sheet);
+  var tz = ss.getSpreadsheetTimeZone();
+  var now = new Date();
+  var dateStr = String(body.date || '').trim();
+  if (!dateStr) dateStr = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
+  var username = normalizeWorkerId_(auth && auth.username);
+  var workerName = String(body.workerName || body.displayName || username || '').trim();
+  var id = body.id || ('ewr-' + now.getTime());
+  sheet.appendRow([
+    id,
+    dateStr,
+    place,
+    note,
+    photo,
+    voiceNote,
+    username,
+    workerName,
+    now.toISOString()
+  ]);
+  return {ok:true,success:true,id:id};
+}
+
+function handleGetElectricWorkerReports(body, auth) {
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(ELECTRIC_WORKER_REPORTS_SHEET);
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  ensureElectricWorkerReportsSheet_(sheet);
+  var tz = ss.getSpreadsheetTimeZone();
+  var rows = sheet.getDataRange().getValues();
+  var workerOnly = auth && String(auth.role || '').toLowerCase() === 'worker';
+  var workerUser = workerOnly ? normalizeWorkerId_(auth.username) : '';
+  var out = [];
+  for (var i = 1; i < rows.length; i++) {
+    var reportedBy = normalizeWorkerId_(rows[i][6]);
+    if (workerOnly && reportedBy !== workerUser) continue;
+    var dv = rows[i][1];
+    var ds = (dv instanceof Date) ? Utilities.formatDate(dv, tz, 'yyyy-MM-dd') : String(dv || '');
+    out.push({
+      id: String(rows[i][0] || ''),
+      date: ds,
+      place: String(rows[i][2] || ''),
+      note: String(rows[i][3] || ''),
+      photo: String(rows[i][4] || ''),
+      voiceNote: parseAssignVoiceNote_(rows[i][5]),
+      reportedBy: String(rows[i][6] || ''),
+      workerName: String(rows[i][7] || ''),
+      createdAt: dtIssue_(rows[i][8])
+    });
+  }
+  out.sort(function (a, b) {
+    return String(b.createdAt || b.date || '').localeCompare(String(a.createdAt || a.date || ''));
+  });
+  return out;
 }
 
 /* ===== Civil Department jobs (mirrors Electrical, separate storage) ===== */

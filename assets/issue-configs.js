@@ -181,6 +181,24 @@ var ISSUE_CONFIGS = {
       debugPush: 'debugWorkerPush'
     },
     spots: ['Service stairs','Main stairs','Service door','Rooftop door','Exit door','Elevator','Wall','Ceiling','Corridor','Basement','Rooftop','Garden','Parking','Other'],
-    issueTypes: ['Power outage','Broken light','Flickering light','Faulty socket / outlet','Broken switch','Exposed / loose wire','Tripped breaker','Burnt smell','No power in area','Generator issue','Distribution panel issue','Other']
+    issueTypes: ['Power outage','Broken light','Flickering light','Faulty socket / outlet','Broken switch','Exposed / loose wire','Tripped breaker','Burnt smell','No power in area','Generator issue','Distribution panel issue','Other'],
+    workerFieldReport: {
+      enabled: true,
+      photoFolder: 'issues/electric-field',
+      voiceDraftId: 'electric-field-report',
+      actions: {
+        add: 'addElectricWorkerReport',
+        get: 'getElectricWorkerReports'
+      },
+      ui: {
+        jobsTab: 'Assigned jobs',
+        reportTab: 'Add report',
+        deptTabLabel: 'Field Reports',
+        deptTabHint: 'Reports submitted by electric field workers from their phones (photo, place, note, voice).',
+        submitSuccess: 'Report sent to Electrical Department.',
+        placePlaceholder: 'Where? e.g. WW-12 corridor, ES-4 parking…',
+        notePlaceholder: 'What did you find or do?'
+      }
+    }
   }
 };

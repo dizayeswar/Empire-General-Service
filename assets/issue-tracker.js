@@ -622,6 +622,7 @@ function enterWorkerApp() {
     if (bootCached && Array.isArray(bootCached)) setIssuesFromData(bootCached);
   } catch (e) {}
   renderWorkerJobs();
+  if (typeof workerFieldReportInit_ === 'function') workerFieldReportInit_();
   initWorkerOfflineSync();
   startWorkerLocationPing();
   if (typeof empirePushInitWorker === 'function') empirePushInitWorker();

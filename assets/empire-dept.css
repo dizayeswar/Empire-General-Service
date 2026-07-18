@@ -159,3 +159,46 @@ tr.job-row:hover {
 .month-input-wrap input[type='month']:focus ~ .month-ph {
   display: none;
 }
+
+.eldept-field-card {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 14px;
+  box-shadow: 0 1px 4px var(--shadow);
+}
+.eldept-field-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+.eldept-field-date {
+  color: var(--text-soft);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.eldept-field-place {
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.eldept-field-note {
+  color: var(--text-soft);
+  font-size: 14px;
+  line-height: 1.45;
+  margin: 0 0 10px;
+}
+.eldept-field-thumb {
+  width: 100%;
+  max-width: 320px;
+  border-radius: 10px;
+  border: 2px solid var(--card-border);
+  margin: 8px 0;
+  cursor: pointer;
+}
+.eldept-field-card .assign-voice-playback {
+  margin-top: 10px;
+}

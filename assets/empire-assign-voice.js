@@ -472,7 +472,7 @@ function assignVoiceBoxHtml(issueId, existingNote, opts) {
   var locked = !!opts.locked;
   issueId = String(issueId || '');
   var h = '<div class="assign-voice-note' + (locked ? ' assign-voice-note-locked' : '') + '" id="assign-voice-' + issueId + '" onclick="event.stopPropagation()">';
-  h += '<label>Voice note for worker <span class="assign-voice-optional">(optional)</span></label>';
+  h += '<label>' + (opts.workerReport ? 'Voice note <span class="assign-voice-optional">(optional)</span>' : 'Voice note for worker <span class="assign-voice-optional">(optional)</span>') + '</label>';
   if (locked) {
     if (existingNote && existingNote.url) {
       h += assignVoiceNoteDisplayHtml(existingNote, { existing: true });
@@ -493,7 +493,7 @@ function assignVoiceBoxHtml(issueId, existingNote, opts) {
   h += '<span class="assign-voice-timer">0:00</span>';
   h += '<button type="button" class="assign-voice-delete-btn" onclick="assignVoiceClearDraft(\'' + issueId + '\')" style="display:none;">' + assignVoiceTrashIconHtml() + ' Delete recording</button>';
   h += '</div>';
-  h += '<p class="assign-voice-status">Tap Record and speak instructions for the worker.</p>';
+  h += '<p class="assign-voice-status">' + (opts.workerReport ? 'Tap Record and describe what you found.' : 'Tap Record and speak instructions for the worker.') + '</p>';
   h += '<div class="assign-voice-preview" style="display:none;"></div>';
   h += '</div>';
   return h;
