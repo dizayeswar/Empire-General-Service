@@ -2294,7 +2294,7 @@ function renderIssues() {
   var openAll = allIssues.filter(function (r) { return r.status !== 'fixed' && !issueIsRoutedAway(r); });
   var unAssign = openAll.filter(function (r) { return isIssueUnassigned(r); }).length;
   var teamBits = '';
-  if (tradeGroups().length) teamBits = ' &nbsp;&mdash;&nbsp; <span style="color:var(--c-warn,#b8860b);">' + unAssign + ' unassigned</span>';
+  if (tradeGroups().length) teamBits = ' &nbsp;&mdash;&nbsp; <span class="issues-unassigned-count">' + unAssign + ' unassigned</span>';
   var routedTotal = countRoutedAwayIssues();
   if (routedTotal && civilNotCivilTabEnabled()) {
     teamBits += ' &nbsp;&mdash;&nbsp; <span style="color:#d68910;">' + routedTotal + ' in Not Civil Dept</span>';

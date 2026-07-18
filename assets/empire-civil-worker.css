@@ -824,7 +824,13 @@ body:not(.civil-worker-mode) #workerApp {
   margin-left: 6px;
 }
 .trade-badge.unassigned {
-  color: var(--c-warn, #b8860b);
+  background: #eef4ff;
+  color: #185fa5;
+  border-color: #c5d9f2;
+}
+.issues-unassigned-count {
+  color: #185fa5;
+  font-weight: 600;
 }
 .workers-badge {
   display: inline-block;
