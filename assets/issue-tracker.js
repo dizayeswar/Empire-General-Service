@@ -120,7 +120,18 @@ function canMarkIssueFixed() {
   return p.fix === true || p.edit !== false;
 }
 function tradeGroups() { return ISSUE_CFG.tradeGroups || []; }
-function civilWorkersRoster() { return ISSUE_CFG.civilWorkers || null; }
+function issueUi_(key, fallback) {
+  var ui = (ISSUE_CFG && ISSUE_CFG.ui) || {};
+  return ui[key] != null && ui[key] !== '' ? ui[key] : fallback;
+}
+function routedDisposition() {
+  return String((ISSUE_CFG && ISSUE_CFG.routedDisposition) || 'not_civil').toLowerCase();
+}
+function gpsTradesFilter() {
+  if (ISSUE_CFG && ISSUE_CFG.gpsTrades && ISSUE_CFG.gpsTrades.length) return ISSUE_CFG.gpsTrades.slice();
+  return null;
+}
+function civilWorkersRoster() { return ISSUE_CFG.deptWorkers || ISSUE_CFG.civilWorkers || null; }
 function normalizeTradeId(id) {
   id = String(id || '').trim().toLowerCase();
   if (id === 'pipes' || id === 'pipe') return 'plumber';
@@ -405,7 +416,7 @@ function workersBadgeHtml(r) {
 }
 function issueStatusBadgeHtml(r) {
   var parts = [];
-  if (issueIsRoutedAway(r)) parts.push('<span class="badge routed-away">Not Civil Dept</span>');
+  if (issueIsRoutedAway(r)) parts.push('<span class="badge routed-away">' + issueUi_('routedBadge', 'Not Civil Dept') + '</span>');
   else if (r.status === 'fixed') parts.push('<span class="badge fixed">' + checkIconHtml('currentColor') + ' Fixed</span>');
   else {
     var done = issueWorkerDone(r);
@@ -1025,7 +1036,10 @@ function loadWorkerLocations(force) {
   if (!engineerLocationPanelEnabled()) return;
   var spin = document.getElementById('workerLocRefreshIcon');
   if (spin) spin.classList.add('spinning');
-  fetchJSONRetry({ action: ISSUE_CFG.actions.getLocations, token: issueToken() || '' }, 1, 30000)
+  var locBody = { action: ISSUE_CFG.actions.getLocations, token: issueToken() || '' };
+  var gpsTrades = gpsTradesFilter();
+  if (gpsTrades) locBody.tradeFilter = gpsTrades;
+  fetchJSONRetry(locBody, 1, 30000)
     .then(function (d) {
       if (d && d.error === 'Unknown action') {
         throw new Error('Server not updated yet. Redeploy empire-all-in-one.gs in Google Apps Script, then try again.');
@@ -1965,7 +1979,7 @@ function issueMetaCounts_(arr) {
   if (!arr || !arr.length) return { delayed: 0, routed: 0 };
   for (var i = 0; i < arr.length; i++) {
     if (String(arr[i].fixDelay || '').toLowerCase() === 'month_plus') delayed++;
-    if (String(arr[i].disposition || '').toLowerCase() === 'not_civil') routed++;
+    if (String(arr[i].disposition || '').toLowerCase() === routedDisposition()) routed++;
   }
   return { delayed: delayed, routed: routed };
 }
@@ -2032,7 +2046,7 @@ function deleteSelectedIssues() {
 }
 function removeIssue(id){ uiConfirm('Delete this issue? It will go to the Recycle Bin.').then(function(ok){ if(!ok)return; fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:ISSUE_CFG.actions.delete,ids:[id],token:issueToken()||''})}).then(function(r){return r.json();}).then(function(d){ if(d&&(d.ok||d.success)){ allIssues=allIssues.filter(function(x){return x.id!==id;}); renderIssues(); renderAnalytics(); } else { alert('\u274C '+((d&&(d.error||d.message))||'Delete failed')); } }).catch(function(e){ alert('\u274C '+e.message); }); }); }
 function issueIsRoutedAway(r) {
-  return String((r && r.disposition) || '').toLowerCase() === 'not_civil';
+  return String((r && r.disposition) || '').toLowerCase() === routedDisposition();
 }
 function civilNotCivilTabEnabled() {
   return !!(ISSUE_CFG.actions && ISSUE_CFG.actions.routeNotCivil);
@@ -2136,7 +2150,7 @@ function restoreCivilIconHtml() {
   return '<span class="nav-icon" style="width:13px;height:13px;"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg></span>';
 }
 function routeIssueNotCivil(id) {
-  uiConfirm('Move this issue out of Civil?\n\nIt will go to the "Not Civil Department" section. You can re-create it in Electric, Fire, or the correct department.').then(function (ok) {
+  uiConfirm(issueUi_('routeConfirm', 'Move this issue out of Civil?\n\nIt will go to the "Not Civil Department" section. You can re-create it in Electric, Fire, or the correct department.')).then(function (ok) {
     if (!ok) return;
     fetchJSONRetry({ action: ISSUE_CFG.actions.routeNotCivil, id: id, token: issueToken() || '' }).then(function (d) {
       if (d && d.error === 'Unknown action') {
@@ -2147,17 +2161,17 @@ function routeIssueNotCivil(id) {
         throw new Error(d.message || d.error || 'Could not route issue');
       }
       var it = allIssues.find(function (x) { return x.id === id; });
-      if (it) it.disposition = 'not_civil';
+      if (it) it.disposition = routedDisposition();
       writeIssuesCacheAsync(allIssues);
       closeIssueModal();
       refreshAllIssueTabs();
       switchTabTo('notcivil');
-      uiAlert('\u2705 Issue moved to Not Civil Department.');
+      uiAlert('\u2705 ' + issueUi_('routeSuccess', 'Issue moved to Not Civil Department.'));
     }).catch(function (e) { uiAlert('\u274c ' + (e.message || 'Could not route issue')); });
   });
 }
 function restoreCivilIssue(id) {
-  uiConfirm('Restore this issue to the Civil queue?').then(function (ok) {
+  uiConfirm(issueUi_('restoreConfirm', 'Restore this issue to the Civil queue?')).then(function (ok) {
     if (!ok) return;
     fetchJSONRetry({ action: ISSUE_CFG.actions.restoreCivil, id: id, token: issueToken() || '' }).then(function (d) {
       if (d && d.error === 'Unknown action') {
@@ -2172,7 +2186,7 @@ function restoreCivilIssue(id) {
       writeIssuesCacheAsync(allIssues);
       closeIssueModal();
       refreshAllIssueTabs();
-      uiAlert('\u2705 Issue restored to Civil queue.');
+      uiAlert('\u2705 ' + issueUi_('restoreSuccess', 'Issue restored to Civil queue.'));
     }).catch(function (e) { uiAlert('\u274c ' + (e.message || 'Could not restore issue')); });
   });
 }
@@ -2214,7 +2228,7 @@ function issueActionBtns(r, listMode) {
   var h = '<button type="button" onclick="event.stopPropagation();shareIssueWhatsApp(\'' + r.id + '\')" title="Share on WhatsApp" style="background:#25D366;color:#fff;border:none;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:none;margin-right:6px;">' + whatsappIconHtml() + '</button>';
   if (listMode === 'routed') {
     if (PAGEPERMS.edit !== false && ISSUE_CFG.actions && ISSUE_CFG.actions.restoreCivil) {
-      h += '<button type="button" onclick="event.stopPropagation();restoreCivilIssue(\'' + r.id + '\')" title="Restore to Civil queue" style="background:#1d9e75;color:#fff;border:none;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:none;margin-right:6px;">' + restoreCivilIconHtml() + '</button>';
+      h += '<button type="button" onclick="event.stopPropagation();restoreCivilIssue(\'' + r.id + '\')" title="' + issueUi_('restoreButton', 'Restore to Civil queue') + '" style="background:#1d9e75;color:#fff;border:none;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:none;margin-right:6px;">' + restoreCivilIconHtml() + '</button>';
     }
     if (PAGEPERMS.del !== false) {
       h += '<button type="button" onclick="event.stopPropagation();removeIssue(\'' + r.id + '\')" title="Delete issue" style="background:#C5504F;color:#fff;border:none;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:none;">' + trashIconHtml() + '</button>';
@@ -2225,7 +2239,7 @@ function issueActionBtns(r, listMode) {
     h += '<button type="button" onclick="event.stopPropagation();editIssue(\'' + r.id + '\')" title="Edit issue" style="background:var(--accent2);color:#fff;border:none;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:none;margin-right:6px;">' + pencilIconHtml() + '</button>';
   }
   if (canRouteIssueAway(r)) {
-    h += '<button type="button" onclick="event.stopPropagation();routeIssueNotCivil(\'' + r.id + '\')" title="Not Civil Department — route elsewhere" style="background:#d68910;color:#fff;border:none;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:none;margin-right:6px;">' + routeAwayIconHtml() + '</button>';
+    h += '<button type="button" onclick="event.stopPropagation();routeIssueNotCivil(\'' + r.id + '\')" title="' + issueUi_('routeButton', 'Not Civil Department') + ' — route elsewhere" style="background:#d68910;color:#fff;border:none;border-radius:50%;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;box-shadow:none;margin-right:6px;">' + routeAwayIconHtml() + '</button>';
   }
   if (canToggleFixDelay(r)) {
     var delayBg = isIssueFixDelayed(r) ? '#8b939e' : '#c5cad3';
@@ -2297,14 +2311,14 @@ function renderIssues() {
   if (tradeGroups().length) teamBits = ' &nbsp;&mdash;&nbsp; <span class="issues-unassigned-count">' + unAssign + ' unassigned</span>';
   var routedTotal = countRoutedAwayIssues();
   if (routedTotal && civilNotCivilTabEnabled()) {
-    teamBits += ' &nbsp;&mdash;&nbsp; <span style="color:#d68910;">' + routedTotal + ' in Not Civil Dept</span>';
+    teamBits += ' &nbsp;&mdash;&nbsp; <span style="color:#d68910;">' + routedTotal + ' ' + issueUi_('routedCountLabel', 'in Not Civil Dept') + '</span>';
   }
   var delayedCount = openAll.filter(function (r) { return isIssueFixDelayed(r); }).length;
   if (delayedCount && ISSUE_CFG.actions && ISSUE_CFG.actions.setFixDelay) {
     teamBits += ' &nbsp;&mdash;&nbsp; <span style="color:#8b939e;">' + delayedCount + ' need 1+ month</span>';
   }
   var h = '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;"><p style="color:var(--text-soft);margin:0;">' + rows.length + ' issue(s)' + (fm ? (' in ' + fm) : '') + ' &nbsp;&mdash;&nbsp; <span style="color:var(--open-color);">' + squareIconHtml('var(--open-color)') + ' ' + oc + ' open</span> &nbsp;&mdash;&nbsp; <span style="color:#1d9e75;">' + checkIconHtml('#1d9e75') + ' ' + fc + ' fixed</span>' + teamBits + '</p>' + viewToggleHtml() + '</div>' + issueSelectToolbarHtml();
-  if (rows.length === 0) h += '<p style="color:var(--text-faint);">No civil issues match.</p>';
+  if (rows.length === 0) h += '<p style="color:var(--text-faint);">' + issueUi_('emptyIssues', 'No civil issues match.') + '</p>';
   else h += renderIssueListHtml(rows, 'civil');
   document.getElementById('issuesTable').innerHTML = h;
   updateNotCivilNavBadge();
@@ -2343,9 +2357,9 @@ function renderRoutedIssues() {
     return issueMatchesIssueFilters(r, '', '', '', '', q);
   });
   rows.sort(compareIssuesNewestFirst);
-  var h = '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;"><p style="color:var(--text-soft);margin:0;">' + rows.length + ' issue(s) routed away from Civil</p>' + viewToggleHtml() + '</div>';
+  var h = '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;"><p style="color:var(--text-soft);margin:0;">' + rows.length + ' ' + issueUi_('routedListSummary', 'issue(s) routed away from Civil') + '</p>' + viewToggleHtml() + '</div>';
   if (!rows.length) {
-    h += '<p style="color:var(--text-faint);">No issues here yet. Use the orange button on a civil issue card to move misfiled reports here.</p>';
+    h += '<p style="color:var(--text-faint);">' + issueUi_('routedListEmpty', 'No issues here yet. Use the orange button on a civil issue card to move misfiled reports here.') + '</p>';
   } else {
     h += renderIssueListHtml(rows, 'routed');
   }
@@ -2395,7 +2409,7 @@ function openIssue(id) {
   let h = '<span class="close-x" onclick="closeIssueModal()">&times;</span>';
   h += issueDetailMetaSectionHtml(r);
   if (issueIsRoutedAway(r)) {
-    h += '<div class="routed-away-banner"><strong>Not Civil Department</strong> — this issue was routed out of the Civil queue. Re-create it in the correct department (Electric, Fire, etc.).</div>';
+    h += '<div class="routed-away-banner"><strong>' + issueUi_('notDeptPageTitle', 'Not Civil Department') + '</strong> — this issue was routed out of the ' + issueUi_('deptShortName', 'Civil') + ' queue. Re-create it in the correct department.</div>';
   }
   if (isIssueFixDelayed(r) && r.status !== 'fixed' && !issueIsRoutedAway(r)) {
     h += '<div class="fix-delayed-banner"><strong>Needs 1+ month</strong> — this issue cannot be fixed soon. The card is marked silver until the delay is removed.</div>';
@@ -2405,13 +2419,13 @@ function openIssue(id) {
   h += '<div style="margin:12px 0 4px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;">';
   h += '<button type="button" onclick="shareIssueWhatsApp(\'' + r.id + '\')" style="background:#25D366;color:#fff;border:none;padding:10px 16px;border-radius:50px;font-weight:600;display:inline-flex;align-items:center;gap:8px;cursor:pointer;box-shadow:none;">' + whatsappIconHtml() + ' Share on WhatsApp</button>';
   if (canRouteIssueAway(r)) {
-    h += '<button type="button" onclick="routeIssueNotCivil(\'' + r.id + '\')" class="route-not-civil-btn">' + routeAwayIconHtml() + ' Not Civil Department</button>';
+    h += '<button type="button" onclick="routeIssueNotCivil(\'' + r.id + '\')" class="route-not-civil-btn">' + routeAwayIconHtml() + ' ' + issueUi_('routeButton', 'Not Civil Department') + '</button>';
   }
   if (canToggleFixDelay(r)) {
     h += '<button type="button" onclick="toggleIssueFixDelay(\'' + r.id + '\')" class="fix-delay-btn' + (isIssueFixDelayed(r) ? ' active' : '') + '">' + fixDelayIconHtml() + (isIssueFixDelayed(r) ? ' Remove 1+ month mark' : ' Needs 1+ month') + '</button>';
   }
   if (issueIsRoutedAway(r) && PAGEPERMS.edit !== false && ISSUE_CFG.actions && ISSUE_CFG.actions.restoreCivil) {
-    h += '<button type="button" onclick="restoreCivilIssue(\'' + r.id + '\')" class="restore-civil-btn">' + restoreCivilIconHtml() + ' Restore to Civil queue</button>';
+    h += '<button type="button" onclick="restoreCivilIssue(\'' + r.id + '\')" class="restore-civil-btn">' + restoreCivilIconHtml() + ' ' + issueUi_('restoreButton', 'Restore to Civil queue') + '</button>';
   }
   h += '</div>';
   h += issuePhotosSectionHtml(r);

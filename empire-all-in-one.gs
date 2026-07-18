@@ -20,7 +20,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-15-push-v2';
+var SCRIPT_VERSION = '2026-07-18-electric-workers-v1';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -43,6 +43,21 @@ var CIVIL_WORKER_TEAM = {
   shwan_ali: 'plumber',
   halmat_abozaid: 'painting',
   sardam_sardar: 'painting'
+};
+var ELECTRIC_TRADE_IDS = {electric: 1};
+var ELECTRIC_WORKER_TEAM = {
+  hashim_omar: 'electric',
+  ibrahim_sadi: 'electric',
+  ahmad_sadullah: 'electric',
+  mariwan_saeed: 'electric',
+  soran_ibrahim: 'electric',
+  darbaz_majid: 'electric',
+  jasim_muhammad: 'electric',
+  chia_mustafa: 'electric',
+  wrya_muhammad: 'electric',
+  ibrahim_muhammad: 'electric',
+  muhammad_hassan: 'electric',
+  harim_sarkawt: 'electric'
 };
 var HSE_INSPECTOR = 'Evan Mansour';
 var HSE_ASSETKEY_COL = 17;
@@ -73,6 +88,13 @@ function invalidateIssuesCache_(sheetName) {
         var wk = ckey + '_w_' + t;
         cache.remove(wk);
       });
+    }
+    if (sheetName === ELECTRIC_SHEET) {
+      var eworkers = Object.keys(ELECTRIC_WORKER_TEAM);
+      for (var ew = 0; ew < eworkers.length; ew++) {
+        cache.remove(ckey + '_wu_' + eworkers[ew]);
+      }
+      cache.remove(ckey + '_w_electric');
     }
   } catch(e){}
 }
@@ -168,7 +190,7 @@ function doPost(e) {
       'getTaskPhotos':'cleaning','addTaskPhoto':'cleaning','addTaskPhotos':'cleaning','deleteTaskPhoto':'cleaning',
       'logTask':'cleaning','getTaskLog':'cleaning',
       'addCivilIssue':'civil issue','updateCivilIssue':'civil issue','getCivilIssues':'civil issue','markCivilFixed':'civil issue','clearCivilIssues':'civil issue','deleteCivilIssue':'civil issue','assignCivilIssue':'civil issue','markCivilNotDept':'civil issue','restoreCivilIssue':'civil issue','setCivilFixDelay':'civil issue','reportWorkerLocation':'civil issue','getWorkerLocations':'civil issue','saveWorkerPushToken':'civil issue','testWorkerPush':'civil issue','debugWorkerPush':'civil issue',
-      'addElectricIssue':'electric issue','updateElectricIssue':'electric issue','getElectricIssues':'electric issue','markElectricFixed':'electric issue','clearElectricIssues':'electric issue','deleteElectricIssue':'electric issue',
+      'addElectricIssue':'electric issue','updateElectricIssue':'electric issue','getElectricIssues':'electric issue','markElectricFixed':'electric issue','clearElectricIssues':'electric issue','deleteElectricIssue':'electric issue','assignElectricIssue':'electric issue','markElectricNotDept':'electric issue','restoreElectricIssue':'electric issue','setElectricFixDelay':'electric issue',
       'addFireIssue':'fire','updateFireIssue':'fire','getFireIssues':'fire','markFireFixed':'fire','clearFireIssues':'fire','deleteFireIssue':'fire',
       'addHseInspection':'hse','updateHseInspection':'hse','getHseInspections':'hse','markHseResolved':'hse','clearHseInspections':'hse','deleteHseInspection':'hse',
       'addElectricalJob':'electrical department','getElectricalJobs':'electrical department','updateElectricalJob':'electrical department',
@@ -181,13 +203,19 @@ function doPost(e) {
     var trashActions = {getTrash:1, restoreTrash:1, purgeTrash:1, getUiSettings:1, saveUiSettings:1};
     var requiredDept = trashActions[action] ? body.dept : deptByAction[action];
     if (!requiredDept) return respond({ok:false,error:'Unknown action'});
-    var auth = verifyToken(body.token, requiredDept);
+    var auth;
+    if (action === 'getWorkerLocations' || action === 'reportWorkerLocation') {
+      auth = verifyToken(body.token, 'civil issue');
+      if (!auth.ok) auth = verifyToken(body.token, 'electric issue');
+    } else {
+      auth = verifyToken(body.token, requiredDept);
+    }
     if (!auth.ok) return respond(auth);
     body.username = auth.username;
     body._authRole = String(auth.role || '').toLowerCase();
     body._authTrade = String(auth.trade || '').toLowerCase();
     if (body._authRole === 'worker') {
-      var workerBlocked = {addCivilIssue:1, updateCivilIssue:1, deleteCivilIssue:1, clearCivilIssues:1, assignCivilIssue:1, markCivilNotDept:1, restoreCivilIssue:1, setCivilFixDelay:1, getWorkerLocations:1, addElectricIssue:1, updateElectricIssue:1, deleteElectricIssue:1, clearElectricIssues:1, addFireIssue:1, updateFireIssue:1, deleteFireIssue:1, clearFireIssues:1};
+      var workerBlocked = {addCivilIssue:1, updateCivilIssue:1, deleteCivilIssue:1, clearCivilIssues:1, assignCivilIssue:1, markCivilNotDept:1, restoreCivilIssue:1, setCivilFixDelay:1, getWorkerLocations:1, addElectricIssue:1, updateElectricIssue:1, deleteElectricIssue:1, clearElectricIssues:1, assignElectricIssue:1, markElectricNotDept:1, restoreElectricIssue:1, setElectricFixDelay:1, addFireIssue:1, updateFireIssue:1, deleteFireIssue:1, clearFireIssues:1};
       if (workerBlocked[action]) return respond({ok:false,success:false,error:'not_allowed',message:'Not allowed for worker accounts.'});
     }
     if (action === 'reportWorkerLocation' && body._authRole !== 'worker') {
@@ -228,8 +256,12 @@ function doPost(e) {
     if (action==='deleteCivilIssue') return respond(handleDeleteIssue(body, CIVIL_SHEET));
     if (action==='addElectricIssue') return respond(handleAddIssue(body, ELECTRIC_SHEET));
     if (action==='updateElectricIssue') return respond(handleUpdateIssue(body, ELECTRIC_SHEET));
-    if (action==='getElectricIssues') return respond(handleGetIssues(body, ELECTRIC_SHEET));
-    if (action==='markElectricFixed') return respond(handleMarkFixed(body, ELECTRIC_SHEET));
+    if (action==='getElectricIssues') return respond(handleGetIssues(body, ELECTRIC_SHEET, auth));
+    if (action==='assignElectricIssue') return respond(handleAssignElectricIssue(body, auth));
+    if (action==='markElectricNotDept') return respond(handleRouteElectricNotDept(body, auth));
+    if (action==='restoreElectricIssue') return respond(handleRestoreElectricIssue(body, auth));
+    if (action==='setElectricFixDelay') return respond(handleSetElectricFixDelay(body, auth));
+    if (action==='markElectricFixed') return respond(handleMarkFixed(body, ELECTRIC_SHEET, auth));
     if (action==='clearElectricIssues') return respond(handleClearIssues(body, ELECTRIC_SHEET));
     if (action==='deleteElectricIssue') return respond(handleDeleteIssue(body, ELECTRIC_SHEET));
     if (action==='addFireIssue') return respond(handleAddIssue(body, FIRE_SHEET));
@@ -319,14 +351,19 @@ function normalizeTrade_(raw) {
   raw = String(raw || '').trim().toLowerCase();
   if (raw === 'pipes' || raw === 'pipe' || raw === 'plumbing') return 'plumber';
   if (raw === 'carpentry' || raw === 'carpenter' || raw === 'doors') return 'wood';
+  if (raw === 'electrician') return 'electric';
+  if (ELECTRIC_TRADE_IDS[raw]) return raw;
   if (CIVIL_TRADE_IDS[raw]) return raw === 'pipes' ? 'plumber' : raw;
   return '';
 }
-function tradeForUserRow_(row) {
-  if (!row) return '';
-  return normalizeTrade_(row[6]);
+function isWorkerIssueSheet_(sheetName) {
+  return sheetName === CIVIL_SHEET || sheetName === ELECTRIC_SHEET;
 }
-function ensureCivilIssueHeaders_(sheet) {
+function routedDispositionForSheet_(sheetName) {
+  if (sheetName === ELECTRIC_SHEET) return 'not_electric';
+  return 'not_civil';
+}
+function ensureExtendedIssueHeaders_(sheet) {
   if (!sheet) return;
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(['id','project','building','floor','spot','issueType','note','date','photo','fixedPhoto','status','createdBy','createdAt','fixedBy','fixedAt','num','assignedGroup','workersRequired','workerCompletions','assignedWorkers','disposition','fixDelay','assignVoiceNote']);
@@ -353,6 +390,13 @@ function ensureCivilIssueHeaders_(sheet) {
   if (String(sheet.getRange(1, CIVIL_ASSIGN_VOICE_COL).getValue() || '') !== 'assignVoiceNote') {
     sheet.getRange(1, CIVIL_ASSIGN_VOICE_COL).setValue('assignVoiceNote');
   }
+}
+function ensureCivilIssueHeaders_(sheet) {
+  ensureExtendedIssueHeaders_(sheet);
+}
+function tradeForUserRow_(row) {
+  if (!row) return '';
+  return normalizeTrade_(row[6]);
 }
 function parseAssignVoiceNote_(raw) {
   raw = String(raw || '').trim();
@@ -417,9 +461,18 @@ function parseAssignedWorkers_(raw) {
 function formatAssignedWorkers_(workers) {
   return JSON.stringify(workers || []);
 }
-function isKnownCivilWorkerId_(id) {
+function isKnownWorkerId_(id) {
   id = normalizeWorkerId_(id);
-  return !!(id && CIVIL_WORKER_TEAM[id]);
+  return !!(id && (CIVIL_WORKER_TEAM[id] || ELECTRIC_WORKER_TEAM[id]));
+}
+function isKnownCivilWorkerId_(id) {
+  return isKnownWorkerId_(id);
+}
+function workerIssueDeptForUser_(username) {
+  username = normalizeWorkerId_(username);
+  if (username && ELECTRIC_WORKER_TEAM[username]) return 'electric issue';
+  if (username && CIVIL_WORKER_TEAM[username]) return 'civil issue';
+  return '';
 }
 function normalizeAssignedWorkersInput_(body) {
   var out = [];
@@ -427,7 +480,7 @@ function normalizeAssignedWorkersInput_(body) {
     for (var i = 0; i < body.assignedWorkers.length; i++) {
       var id = normalizeWorkerId_(body.assignedWorkers[i]);
       if (!id || out.indexOf(id) !== -1) continue;
-      if (!isKnownCivilWorkerId_(id)) continue;
+      if (!isKnownWorkerId_(id)) continue;
       out.push(id);
     }
   }
@@ -444,7 +497,7 @@ function workerAssignedToIssue_(assignedWorkers, username) {
 function primaryTeamForWorkers_(workerIds) {
   if (!workerIds || !workerIds.length) return '';
   for (var i = 0; i < workerIds.length; i++) {
-    var team = CIVIL_WORKER_TEAM[normalizeWorkerId_(workerIds[i])];
+    var team = CIVIL_WORKER_TEAM[normalizeWorkerId_(workerIds[i])] || ELECTRIC_WORKER_TEAM[normalizeWorkerId_(workerIds[i])];
     if (team) return normalizeTrade_(team);
   }
   return '';
@@ -720,7 +773,7 @@ function handleLogin(body) {
       var projects = projectsForUserRow_(rows[i]);
       var trade = tradeForUserRow_(rows[i]);
       if (rp.role === 'worker' && !trade) {
-        return {ok:false,success:false,message:'Worker account needs a trade in column G (plumber, painting, tiles, or wood).',error:'trade_not_set'};
+        return {ok:false,success:false,message:'Worker account needs a trade in column G (plumber, painting, tiles, wood, or electric).',error:'trade_not_set'};
       }
       var tokenDept = userDept;
       var token = Utilities.getUuid();
@@ -1425,12 +1478,12 @@ function handleGetHseInspections(body) {
 function handleAddIssue(body, sheetName) {
   var ss = getSS_();
   var sheet = ss.getSheetByName(sheetName) || ss.insertSheet(sheetName);
-  var isCivil = (sheetName === CIVIL_SHEET);
+  var isWorkerIssue = isWorkerIssueSheet_(sheetName);
   if (sheet.getLastRow()===0) {
-    if (isCivil) sheet.appendRow(['id','project','building','floor','spot','issueType','note','date','photo','fixedPhoto','status','createdBy','createdAt','fixedBy','fixedAt','num','assignedGroup','workersRequired','workerCompletions','assignedWorkers','disposition','fixDelay','assignVoiceNote']);
+    if (isWorkerIssue) sheet.appendRow(['id','project','building','floor','spot','issueType','note','date','photo','fixedPhoto','status','createdBy','createdAt','fixedBy','fixedAt','num','assignedGroup','workersRequired','workerCompletions','assignedWorkers','disposition','fixDelay','assignVoiceNote']);
     else sheet.appendRow(['id','project','building','floor','spot','issueType','note','date','photo','fixedPhoto','status','createdBy','createdAt','fixedBy','fixedAt','num']);
-  } else if (isCivil) {
-    ensureCivilIssueHeaders_(sheet);
+  } else if (isWorkerIssue) {
+    ensureExtendedIssueHeaders_(sheet);
   }
   var id = String(body.id||'') || Utilities.getUuid();
   // Backfill numbers for any existing rows and reconcile the counter.
@@ -1445,7 +1498,7 @@ function handleAddIssue(body, sheetName) {
   try { props.setProperty(key, String(num)); } catch(e){}
   var reporter = String(body.supervisor||'').trim() || String(body.username||'');
   var status = issueStatusFromCondition_(body);
-  if (isCivil) {
+  if (isWorkerIssue) {
     sheet.appendRow([id, body.project||'', body.building||'', body.floor||'', body.spot||'', body.issueType||'', body.note||'', body.date||'', body.photo||'', '', status, reporter, new Date().toISOString(), '', '', num, '', 1, '']);
   } else {
     sheet.appendRow([id, body.project||'', body.building||'', body.floor||'', body.spot||'', body.issueType||'', body.note||'', body.date||'', body.photo||'', '', status, reporter, new Date().toISOString(), '', '', num]);
@@ -1477,7 +1530,8 @@ function handleUpdateIssue(body, sheetName) {
 
 function handleGetIssues(body, sheetName, auth) {
   var ckey = issuesCacheKey_(sheetName);
-  var isWorker = auth && String(auth.role || '').toLowerCase() === 'worker' && sheetName === CIVIL_SHEET;
+  var isWorkerIssue = isWorkerIssueSheet_(sheetName);
+  var isWorker = auth && String(auth.role || '').toLowerCase() === 'worker' && isWorkerIssue;
   var workerUser = '';
   var workerTrade = '';
   if (isWorker) {
@@ -1491,23 +1545,24 @@ function handleGetIssues(body, sheetName, auth) {
   var ss = getSS_();
   var sheet = ss.getSheetByName(sheetName);
   if (!sheet||sheet.getLastRow()<2) return [];
-  if (sheetName === CIVIL_SHEET) ensureCivilIssueHeaders_(sheet);
+  if (isWorkerIssue) ensureExtendedIssueHeaders_(sheet);
   var tz = ss.getSpreadsheetTimeZone();
   var rows = sheet.getDataRange().getValues();
   ensureIssueNums_(sheet, sheetName, rows);
+  var routedDisposition = routedDispositionForSheet_(sheetName);
   var out = [];
   for (var i=1;i<rows.length;i++) {
     var dv=rows[i][7]; var ds=(dv instanceof Date)?Utilities.formatDate(dv,tz,'yyyy-MM-dd'):String(dv);
     var st=String(rows[i][10]||'open');
     var fp=String(rows[i][9]||'');
-    var assignedGroup = sheetName === CIVIL_SHEET ? normalizeTrade_(rows[i][CIVIL_ASSIGNED_COL - 1] || '') : '';
-    var assignedWorkers = sheetName === CIVIL_SHEET ? parseAssignedWorkers_(rows[i][CIVIL_ASSIGNED_WORKERS_COL - 1]) : [];
-    var workersRequired = sheetName === CIVIL_SHEET ? parseWorkersRequired_(rows[i][CIVIL_WORKERS_REQUIRED_COL - 1]) : 1;
-    var workerCompletions = sheetName === CIVIL_SHEET ? parseWorkerCompletions_(rows[i][CIVIL_WORKER_COMPLETIONS_COL - 1]) : [];
+    var assignedGroup = isWorkerIssue ? normalizeTrade_(rows[i][CIVIL_ASSIGNED_COL - 1] || '') : '';
+    var assignedWorkers = isWorkerIssue ? parseAssignedWorkers_(rows[i][CIVIL_ASSIGNED_WORKERS_COL - 1]) : [];
+    var workersRequired = isWorkerIssue ? parseWorkersRequired_(rows[i][CIVIL_WORKERS_REQUIRED_COL - 1]) : 1;
+    var workerCompletions = isWorkerIssue ? parseWorkerCompletions_(rows[i][CIVIL_WORKER_COMPLETIONS_COL - 1]) : [];
     if (isWorker) {
       if (st === 'fixed') continue;
       var disposition = String(rows[i][CIVIL_DISPOSITION_COL - 1] || '').trim().toLowerCase();
-      if (disposition === 'not_civil') continue;
+      if (disposition === routedDisposition) continue;
       if (assignedWorkers.length) {
         if (!workerAssignedToIssue_(assignedWorkers, workerUser)) continue;
       } else {
@@ -1516,11 +1571,11 @@ function handleGetIssues(body, sheetName, auth) {
       if (workerAlreadyCompleted_(workerCompletions, auth.username)) continue;
     }
     var fixedPhotos = st === 'fixed' ? parseFixedPhotosFromCell_(fp) : [];
-    if (sheetName === CIVIL_SHEET && st !== 'fixed' && workerCompletions.length) {
+    if (isWorkerIssue && st !== 'fixed' && workerCompletions.length) {
       fixedPhotos = mergeWorkerCompletionPhotos_(workerCompletions);
     }
     var item = {id:String(rows[i][0]),num:Number(rows[i][ISSUE_NUM_COL-1]||0),project:String(rows[i][1]),building:String(rows[i][2]),floor:String(rows[i][3]),spot:String(rows[i][4]),issueType:String(rows[i][5]),note:String(rows[i][6]||''),date:ds,photo:String(rows[i][8]||''),fixedPhoto:(st==='fixed'?fp:(fixedPhotos.length?formatFixedPhotosForStorage_(fixedPhotos):'')),fixedPhotos:fixedPhotos,status:st,createdBy:String(rows[i][11]||''),createdAt:dtIssue_(rows[i][12]),fixedBy:String(rows[i][13]||''),fixedAt:dtIssue_(rows[i][14]),assignedGroup:assignedGroup};
-    if (sheetName === CIVIL_SHEET) {
+    if (isWorkerIssue) {
       item.disposition = String(rows[i][CIVIL_DISPOSITION_COL - 1] || '').trim();
       item.fixDelay = String(rows[i][CIVIL_FIX_DELAY_COL - 1] || '').trim();
       item.assignVoiceNote = parseAssignVoiceNote_(rows[i][CIVIL_ASSIGN_VOICE_COL - 1]);
@@ -1579,9 +1634,11 @@ function ensureWorkerPushSheet_(sheet) {
 function workerPushPropKey_(username) {
   return 'worker_push_' + String(username || '').trim().toLowerCase();
 }
+function isKnownWorker_(username) {
+  return isKnownWorkerId_(username);
+}
 function isKnownCivilWorker_(username) {
-  username = String(username || '').trim().toLowerCase();
-  return !!(username && CIVIL_WORKER_TEAM[username]);
+  return isKnownWorker_(username);
 }
 /** Fast session lookup for push (cache/properties first, spreadsheet only if needed). */
 function pushSessionAuth_(token) {
@@ -1647,10 +1704,10 @@ function handleSaveWorkerPushToken_(body) {
   if (!auth.ok) return auth;
   var username = String(auth.username || '').trim().toLowerCase();
   var role = String(auth.role || '').toLowerCase();
-  if (role !== 'worker' && !isKnownCivilWorker_(username)) {
+  if (role !== 'worker' && !isKnownWorker_(username)) {
     return {ok:false, error:'not_allowed', message:'Only worker accounts can register push alerts.'};
   }
-  if (!tokenDeptAllows_(String(auth.dept || ''), 'civil issue')) {
+  if (!tokenDeptAllows_(String(auth.dept || ''), 'civil issue') && !tokenDeptAllows_(String(auth.dept || ''), 'electric issue')) {
     return {ok:false, error:'This login is not allowed for this section'};
   }
   var fcmToken = String((body && (body.fcmToken || body.pushToken)) || '').trim();
@@ -1779,7 +1836,9 @@ function fcmDataStrings_(data) {
   return out;
 }
 function buildFcmDeepLink_(data) {
-  var base = 'https://dizayeswar.github.io/Empire-General-Service/civil-issue.html';
+  var page = (data && (data.deptPage || data.jobPage)) || 'civil-issue.html';
+  if (String(page).indexOf('.html') === -1) page = String(page) + '.html';
+  var base = 'https://dizayeswar.github.io/Empire-General-Service/' + page;
   var id = data && (data.issueId || data.jobId);
   if (id) return base + '?job=' + encodeURIComponent(String(id));
   return base;
@@ -1904,14 +1963,14 @@ function handleTestWorkerPush(body, auth) {
   if (result.ok) return {ok:true, success:true, message:'Test notification sent.'};
   return {ok:false, error:'send_failed', message: result.error || 'FCM send failed.'};
 }
-function notifyWorkersOnAssign_(assignedWorkers, issues) {
+function notifyWorkersOnAssign_(assignedWorkers, issues, deptPage) {
   if (!assignedWorkers || !assignedWorkers.length || !issues || !issues.length) return;
   var tokens = getWorkerPushTokens_(assignedWorkers);
   if (!tokens.length) return;
   var title = issues.length === 1 ? 'New job assigned' : issues.length + ' jobs assigned';
   var body = buildAssignNotifyBody_(issues);
   if (issues.length === 1) body += ' Open the job to hear the voice note if one was left.';
-  var data = { type: 'assign', count: String(issues.length) };
+  var data = { type: 'assign', count: String(issues.length), deptPage: deptPage || 'civil-issue.html' };
   if (issues.length === 1 && issues[0].id) data.issueId = String(issues[0].id);
   for (var t = 0; t < tokens.length; t++) {
     sendFcmToWorker_(tokens[t].fcmToken, title, body, data);
@@ -2117,6 +2176,205 @@ function handleSetCivilFixDelay(body, auth) {
   return {ok:false, error:'Issue not found', message:'Issue not found on server. Refresh and try again.'};
 }
 
+function handleAssignElectricIssue(body, auth) {
+  auth = enrichAuthRole_(auth || {});
+  var urow = getUserRowByName_(auth && auth.username);
+  var rp = computePerms_(urow ? urow[3] : auth.role, urow ? urow[4] : '');
+  if (rp.role !== 'admin' && rp.role !== 'editor') {
+    return {ok:false, error:'not_allowed', message:'Only editor or admin accounts can assign issues. Your Users sheet role is "' + rp.role + '". Log out and log in again after updating the sheet.'};
+  }
+  if (rp.perms.assign === false) {
+    return {ok:false, error:'not_allowed', message:'Your account cannot assign issues.'};
+  }
+  var assignedWorkers = normalizeAssignedWorkersInput_(body);
+  if (assignedWorkers.length > 4) {
+    return {ok:false, error:'too_many_workers', message:'Select at most 4 workers.'};
+  }
+  var group = normalizeTrade_(body.assignedGroup || body.group || primaryTeamForWorkers_(assignedWorkers) || '');
+  if (!assignedWorkers.length) group = '';
+  else if (!group && body.assignedGroup !== '' && body.group !== '') {
+    return {ok:false, error:'invalid_group', message:'Invalid trade group.'};
+  }
+  var idList = [];
+  if (body.ids && Object.prototype.toString.call(body.ids) === '[object Array]') {
+    for (var k = 0; k < body.ids.length; k++) {
+      var rawId = String(body.ids[k] || '').trim();
+      if (rawId) idList.push(rawId);
+    }
+  } else if (body.id) {
+    idList.push(String(body.id));
+  }
+  if (!idList.length) return {ok:false, error:'missing_id', message:'Select at least one issue.'};
+  var workersRequired = assignWorkersRequiredCount_(assignedWorkers);
+  if (body.workersRequired !== undefined && body.workersRequired !== null && body.workersRequired !== '') {
+    workersRequired = parseWorkersRequired_(body.workersRequired);
+  }
+  var voiceNote = null;
+  if (body.assignVoiceNote && body.assignVoiceNote.url) {
+    voiceNote = {
+      url: String(body.assignVoiceNote.url || ''),
+      by: String((auth && auth.username) || body.assignVoiceNote.by || ''),
+      at: String(body.assignVoiceNote.at || ''),
+      durationSec: Number(body.assignVoiceNote.durationSec) || 0,
+      mimeType: String(body.assignVoiceNote.mimeType || '')
+    };
+  }
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(ELECTRIC_SHEET);
+  if (!sheet) return {ok:false, error:'Sheet not found'};
+  ensureExtendedIssueHeaders_(sheet);
+  if (sheet.getLastRow() < 2) return {ok:false, error:'Issue not found'};
+  var want = {};
+  for (var w = 0; w < idList.length; w++) want[idList[w]] = true;
+  var rows = sheet.getDataRange().getValues();
+  var updated = 0;
+  var notifyIssues = [];
+  for (var i = 1; i < rows.length; i++) {
+    if (want[String(rows[i][0])]) {
+      if (String(rows[i][CIVIL_DISPOSITION_COL - 1] || '').trim().toLowerCase() === 'not_electric') continue;
+      sheet.getRange(i + 1, CIVIL_ASSIGNED_COL).setValue(group);
+      sheet.getRange(i + 1, CIVIL_ASSIGNED_WORKERS_COL).setValue(formatAssignedWorkers_(assignedWorkers));
+      if (workersRequired !== null || assignedWorkers.length) {
+        sheet.getRange(i + 1, CIVIL_WORKERS_REQUIRED_COL).setValue(workersRequired);
+        sheet.getRange(i + 1, CIVIL_WORKER_COMPLETIONS_COL).setValue('');
+        sheet.getRange(i + 1, 10).setValue('');
+        sheet.getRange(i + 1, 14).setValue('');
+        sheet.getRange(i + 1, 15).setValue('');
+      }
+      if (voiceNote) {
+        sheet.getRange(i + 1, CIVIL_ASSIGN_VOICE_COL).setValue(formatAssignVoiceNote_(voiceNote));
+      }
+      notifyIssues.push({
+        id: String(rows[i][0]),
+        num: Number(rows[i][ISSUE_NUM_COL - 1] || 0),
+        issueType: String(rows[i][5] || ''),
+        building: String(rows[i][2] || ''),
+        floor: String(rows[i][3] || '')
+      });
+      updated++;
+    }
+  }
+  if (!updated) return {ok:false, error:'Issue not found', message:'Issue not found on server. Refresh the list and try again.'};
+  invalidateIssuesCache_(ELECTRIC_SHEET);
+  try { notifyWorkersOnAssign_(assignedWorkers, notifyIssues, 'electric-issue.html'); } catch (e) {}
+  return {ok:true, success:true, assignedGroup:group, assignedWorkers:assignedWorkers, workersRequired:workersRequired || 1, updated:updated};
+}
+
+function handleRouteElectricNotDept(body, auth) {
+  auth = enrichAuthRole_(auth || {});
+  var urow = getUserRowByName_(auth && auth.username);
+  var rp = computePerms_(urow ? urow[3] : auth.role, urow ? urow[4] : '');
+  if (rp.role !== 'admin' && rp.role !== 'editor') {
+    return {ok:false, error:'not_allowed', message:'Only editor or admin accounts can route issues away from Electric.'};
+  }
+  if (rp.perms.edit === false) {
+    return {ok:false, error:'not_allowed', message:'Your account cannot edit issues.'};
+  }
+  var id = String(body.id || '').trim();
+  if (!id) return {ok:false, error:'missing_id', message:'Issue id is required.'};
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(ELECTRIC_SHEET);
+  if (!sheet) return {ok:false, error:'Sheet not found'};
+  ensureExtendedIssueHeaders_(sheet);
+  var rows = sheet.getDataRange().getValues();
+  var user = String((auth && auth.username) || '').trim();
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) !== id) continue;
+    if (String(rows[i][10] || '') === 'fixed') {
+      return {ok:false, error:'already_fixed', message:'This issue is already fixed.'};
+    }
+    sheet.getRange(i + 1, CIVIL_DISPOSITION_COL).setValue('not_electric');
+    sheet.getRange(i + 1, CIVIL_FIX_DELAY_COL).setValue('');
+    sheet.getRange(i + 1, CIVIL_ASSIGNED_COL).setValue('');
+    sheet.getRange(i + 1, CIVIL_ASSIGNED_WORKERS_COL).setValue('');
+    sheet.getRange(i + 1, CIVIL_WORKERS_REQUIRED_COL).setValue(1);
+    sheet.getRange(i + 1, CIVIL_WORKER_COMPLETIONS_COL).setValue('');
+    sheet.getRange(i + 1, CIVIL_ASSIGN_VOICE_COL).setValue('');
+    sheet.getRange(i + 1, 10).setValue('');
+    var note = String(rows[i][6] || '');
+    var stamp = 'Not electric dept — routed by ' + user + ' on ' + Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy-MM-dd');
+    if (note.indexOf('Not electric dept') === -1) {
+      sheet.getRange(i + 1, 7).setValue(note ? (note + ' | ' + stamp) : stamp);
+    }
+    invalidateIssuesCache_(ELECTRIC_SHEET);
+    return {ok:true, success:true, disposition:'not_electric'};
+  }
+  return {ok:false, error:'Issue not found', message:'Issue not found on server. Refresh and try again.'};
+}
+
+function handleRestoreElectricIssue(body, auth) {
+  auth = enrichAuthRole_(auth || {});
+  var urow = getUserRowByName_(auth && auth.username);
+  var rp = computePerms_(urow ? urow[3] : auth.role, urow ? urow[4] : '');
+  if (rp.role !== 'admin' && rp.role !== 'editor') {
+    return {ok:false, error:'not_allowed', message:'Only editor or admin accounts can restore issues to Electric.'};
+  }
+  if (rp.perms.edit === false) {
+    return {ok:false, error:'not_allowed', message:'Your account cannot edit issues.'};
+  }
+  var id = String(body.id || '').trim();
+  if (!id) return {ok:false, error:'missing_id', message:'Issue id is required.'};
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(ELECTRIC_SHEET);
+  if (!sheet) return {ok:false, error:'Sheet not found'};
+  ensureExtendedIssueHeaders_(sheet);
+  var rows = sheet.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) !== id) continue;
+    sheet.getRange(i + 1, CIVIL_DISPOSITION_COL).setValue('');
+    invalidateIssuesCache_(ELECTRIC_SHEET);
+    return {ok:true, success:true, disposition:''};
+  }
+  return {ok:false, error:'Issue not found', message:'Issue not found on server. Refresh and try again.'};
+}
+
+function handleSetElectricFixDelay(body, auth) {
+  auth = enrichAuthRole_(auth || {});
+  var urow = getUserRowByName_(auth && auth.username);
+  var rp = computePerms_(urow ? urow[3] : auth.role, urow ? urow[4] : '');
+  if (rp.role !== 'admin' && rp.role !== 'editor') {
+    return {ok:false, error:'not_allowed', message:'Only editor or admin accounts can mark fix delays.'};
+  }
+  if (rp.perms.edit === false) {
+    return {ok:false, error:'not_allowed', message:'Your account cannot edit issues.'};
+  }
+  var id = String(body.id || '').trim();
+  if (!id) return {ok:false, error:'missing_id', message:'Issue id is required.'};
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(ELECTRIC_SHEET);
+  if (!sheet) return {ok:false, error:'Sheet not found'};
+  ensureExtendedIssueHeaders_(sheet);
+  var rows = sheet.getDataRange().getValues();
+  var user = String((auth && auth.username) || '').trim();
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) !== id) continue;
+    if (String(rows[i][10] || '') === 'fixed') {
+      return {ok:false, error:'already_fixed', message:'This issue is already fixed.'};
+    }
+    if (String(rows[i][CIVIL_DISPOSITION_COL - 1] || '').trim().toLowerCase() === 'not_electric') {
+      return {ok:false, error:'not_electric', message:'This issue is in Not Electric Department.'};
+    }
+    var current = String(rows[i][CIVIL_FIX_DELAY_COL - 1] || '').trim().toLowerCase();
+    var next = '';
+    if (body.toggle) {
+      next = current === 'month_plus' ? '' : 'month_plus';
+    } else {
+      next = String(body.fixDelay || '').trim().toLowerCase() === 'month_plus' ? 'month_plus' : '';
+    }
+    sheet.getRange(i + 1, CIVIL_FIX_DELAY_COL).setValue(next);
+    if (next === 'month_plus') {
+      var note = String(rows[i][6] || '');
+      var stamp = 'Fix delayed 1+ month — marked by ' + user + ' on ' + Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy-MM-dd');
+      if (note.indexOf('Fix delayed 1+ month') === -1) {
+        sheet.getRange(i + 1, 7).setValue(note ? (note + ' | ' + stamp) : stamp);
+      }
+    }
+    invalidateIssuesCache_(ELECTRIC_SHEET);
+    return {ok:true, success:true, fixDelay:next};
+  }
+  return {ok:false, error:'Issue not found', message:'Issue not found on server. Refresh and try again.'};
+}
+
 function ensureWorkerLocationsSheet_(sheet) {
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(['username', 'trade', 'lat', 'lng', 'accuracy', 'updatedAt']);
@@ -2167,6 +2425,15 @@ function handleGetWorkerLocations(body, auth) {
   var urow = getUserRowByName_(auth && auth.username);
   var rp = computePerms_(urow ? urow[3] : role, urow ? urow[4] : '');
   if (rp.perms.liveLocation === false) return {ok:false, error:'not_allowed', message:'Live location is not available for this account.'};
+  var tradeFilter = null;
+  if (body && body.tradeFilter && Object.prototype.toString.call(body.tradeFilter) === '[object Array]') {
+    tradeFilter = {};
+    for (var tf = 0; tf < body.tradeFilter.length; tf++) {
+      var tradeId = normalizeTrade_(body.tradeFilter[tf]);
+      if (tradeId) tradeFilter[tradeId] = 1;
+    }
+    if (!Object.keys(tradeFilter).length) tradeFilter = null;
+  }
   var ss = getSS_();
   var sheet = ss.getSheetByName(WORKER_LOCATIONS_SHEET);
   if (!sheet || sheet.getLastRow() < 2) return {ok:true, success:true, workers:[]};
@@ -2176,12 +2443,14 @@ function handleGetWorkerLocations(body, auth) {
   for (var i = 1; i < rows.length; i++) {
     var user = String(rows[i][0] || '').trim();
     if (!user) continue;
+    var trade = normalizeTrade_(rows[i][1] || '');
+    if (tradeFilter && !tradeFilter[trade]) continue;
     var lat = Number(rows[i][2]);
     var lng = Number(rows[i][3]);
     if (!isFinite(lat) || !isFinite(lng)) continue;
     out.push({
       username: user,
-      trade: String(rows[i][1] || '').trim(),
+      trade: trade || String(rows[i][1] || '').trim(),
       lat: lat,
       lng: lng,
       accuracy: rows[i][4] === '' || rows[i][4] === null || rows[i][4] === undefined ? null : Number(rows[i][4]),
@@ -2248,19 +2517,22 @@ function handleMarkFixed(body, sheetName, auth) {
   var ss = getSS_();
   var sheet = ss.getSheetByName(sheetName);
   if (!sheet) return {ok:false,error:'Sheet not found'};
-  if (sheetName === CIVIL_SHEET) ensureCivilIssueHeaders_(sheet);
+  var isWorkerIssue = isWorkerIssueSheet_(sheetName);
+  if (isWorkerIssue) ensureExtendedIssueHeaders_(sheet);
   var rows = sheet.getDataRange().getValues();
   var role = String((auth && auth.role) || body._authRole || '').toLowerCase();
   var workerTrade = '';
-  if (role === 'worker' && sheetName === CIVIL_SHEET) {
+  var routedDisposition = routedDispositionForSheet_(sheetName);
+  if (role === 'worker' && isWorkerIssue) {
     workerTrade = normalizeTrade_((auth && auth.trade) || body._authTrade || tradeForUserRow_(getUserRowByName_(body.username)));
   }
   for (var i=1;i<rows.length;i++) {
     if (String(rows[i][0])===String(body.id)) {
-      if (sheetName === CIVIL_SHEET && String(rows[i][CIVIL_DISPOSITION_COL - 1] || '').trim().toLowerCase() === 'not_civil') {
-        return {ok:false, error:'not_civil', message:'This issue was routed out of Civil department.'};
+      if (isWorkerIssue && String(rows[i][CIVIL_DISPOSITION_COL - 1] || '').trim().toLowerCase() === routedDisposition) {
+        var deptLabel = sheetName === ELECTRIC_SHEET ? 'Electric' : 'Civil';
+        return {ok:false, error:routedDisposition, message:'This issue was routed out of ' + deptLabel + ' department.'};
       }
-      if (role === 'worker' && sheetName === CIVIL_SHEET) {
+      if (role === 'worker' && isWorkerIssue) {
         var ag = normalizeTrade_(rows[i][CIVIL_ASSIGNED_COL - 1] || '');
         var assignedWorkers = parseAssignedWorkers_(rows[i][CIVIL_ASSIGNED_WORKERS_COL - 1]);
         if (assignedWorkers.length) {
@@ -2300,7 +2572,8 @@ function handleMarkFixed(body, sheetName, auth) {
           return {ok:true, success:true, partial:true, workerDone:completions.length, workersRequired:workersRequired, workerCompletions:completions};
         }
         sheet.getRange(i+1,11).setValue('fixed');
-        if (sheetName === CIVIL_SHEET) sheet.getRange(i+1, CIVIL_FIX_DELAY_COL).setValue('');
+        if (isWorkerIssue) sheet.getRange(i+1, CIVIL_FIX_DELAY_COL).setValue('');
+        var allBy = [];
         for (var c = 0; c < completions.length; c++) {
           var nm = String((completions[c] && completions[c].user) || '').trim();
           if (nm && allBy.indexOf(nm) === -1) allBy.push(nm);
@@ -2314,7 +2587,7 @@ function handleMarkFixed(body, sheetName, auth) {
       if (role !== 'worker' && body.fixedByName) fixedBy = String(body.fixedByName || fixedBy);
       sheet.getRange(i+1,10).setValue(stored);
       sheet.getRange(i+1,11).setValue('fixed');
-      if (sheetName === CIVIL_SHEET) sheet.getRange(i+1, CIVIL_FIX_DELAY_COL).setValue('');
+      if (isWorkerIssue) sheet.getRange(i+1, CIVIL_FIX_DELAY_COL).setValue('');
       sheet.getRange(i+1,15).setValue(new Date().toISOString());
       if (body.fixNote) sheet.getRange(i+1,7).setValue(String(rows[i][6]||'') + (rows[i][6] ? ' | ' : '') + 'Fix: ' + String(body.fixNote));
       invalidateIssuesCache_(sheetName);
@@ -2595,7 +2868,7 @@ function handleRestoreTrash(body) {
     try {
       var arr = JSON.parse(rows[i][2]);
       var dst = ss.getSheetByName(src) || ss.insertSheet(src);
-      if (src === CIVIL_SHEET) ensureCivilIssueHeaders_(dst);
+      if (isWorkerIssueSheet_(src)) ensureExtendedIssueHeaders_(dst);
       dst.appendRow(arr);
       restored++;
       restoredSheets[src] = true;

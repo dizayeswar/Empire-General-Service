@@ -178,7 +178,8 @@
   var _pendingJobRetry = false;
 
   function jobUrl_(issueId) {
-    var url = './civil-issue.html';
+    var page = (typeof ISSUE_CFG !== 'undefined' && ISSUE_CFG && ISSUE_CFG.jobPage) ? ISSUE_CFG.jobPage : 'civil-issue.html';
+    var url = './' + String(page).replace(/^\.\//, '');
     if (issueId) url += '?job=' + encodeURIComponent(String(issueId));
     return url;
   }

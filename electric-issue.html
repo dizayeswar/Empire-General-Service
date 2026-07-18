@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
@@ -13,7 +13,8 @@
 <link rel="preconnect" href="https://script.google.com">
 <link rel="preconnect" href="https://api.imgbb.com">
 <title>Electric Issues — Empire World</title>
-<link rel="stylesheet" href="assets/empire.css">
+<link rel="stylesheet" href="assets/empire.css?v=2026-07-18-electric-workers">
+<link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-07-18-electric-workers">
 </head>
 <body>
 <div class="login-page show" id="loginPage">
@@ -29,6 +30,30 @@
       <button type="submit">Login</button>
     </form>
   </div>
+</div>
+<div id="workerApp" class="worker-app">
+  <header class="worker-head">
+    <img src="logo-light.png" alt="Empire World" class="worker-logo">
+    <div class="worker-head-text">
+      <h1 id="workerTeamTitle">My jobs</h1>
+    </div>
+    <div class="worker-head-actions">
+      <button type="button" class="worker-icon-btn theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span></button>
+      <button type="button" class="worker-logout-head" onclick="logout()">Logout</button>
+      <button type="button" class="worker-icon-btn worker-refresh" onclick="loadIssues(true)" aria-label="Refresh"><span class="nav-icon spin-icon" id="workerRefreshIcon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span></button>
+    </div>
+  </header>
+  <div class="worker-count-bar" id="workerCountBar">Loading…</div>
+  <div id="workerPushBanner" class="worker-loc-banner worker-push-banner" style="display:none;"></div>
+  <div id="workerLocBanner" class="worker-loc-banner" style="display:none;"></div>
+  <main id="workerJobList" class="worker-list"><p class="worker-empty">Loading…</p></main>
+</div>
+<div id="workerJobModal" class="worker-modal">
+  <header class="worker-modal-head">
+    <button type="button" class="worker-modal-back" onclick="closeWorkerJob()" aria-label="Back">&larr;</button>
+    <strong id="workerModalTitle">Job</strong>
+  </header>
+  <div class="worker-modal-scroll" id="workerModalBody"></div>
 </div>
 <div class="container" id="mainContainer">
   <div class="app-shell">
@@ -46,6 +71,9 @@
         <button class="tab-btn active" onclick="switchTab(event,'list')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span> <span class="lbl">Issues</span></button>
         <button class="tab-btn" onclick="switchTab(event,'add')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span> <span class="lbl">Add Issue</span></button>
         <button class="tab-btn" onclick="switchTab(event,'analytics')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 11h8"/><path d="M7 16h12"/><path d="M7 6h3"/></svg></span> <span class="lbl">Analytics</span></button>
+        <button class="tab-btn tab-btn-not-civil" id="tabBtnNotCivil" onclick="switchTab(event,'notcivil')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></span> <span class="lbl">Not Electric Dept</span> <span class="side-nav-badge" id="notCivilNavBadge" style="display:none;"></span></button>
+        <button class="tab-btn tab-btn-fix-delay" id="tabBtnFixDelay" onclick="switchTab(event,'fixdelay')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span> <span class="lbl">Needs 1+ Month</span> <span class="side-nav-badge side-nav-badge-silver" id="fixDelayNavBadge" style="display:none;"></span></button>
+        <button class="tab-btn tab-btn-gps" id="tabBtnGps" onclick="switchTab(event,'gps')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg></span> <span class="lbl">GPS</span></button>
       </nav>
       <div class="side-actions">
         <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span> <span class="lbl">Theme</span></button>
@@ -87,12 +115,49 @@
     <div class="form-section"><h2><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span> Reported Issues</h2>
       <div class="form-row">
         <div class="form-group"><label>Project</label><select id="f-project" onchange="selectProjectFilter(this.value)"><option value="">All</option></select></div>
+        <div class="form-group"><label>Team</label><select id="f-group" onchange="renderIssues();if(window._issueFilterState)window._issueFilterState.save();"><option value="">All teams</option><option value="unassigned">Unassigned</option></select></div>
         <div class="form-group"><label>Status</label><select id="f-status" onchange="renderIssues()"><option value="">All</option><option value="open">Open</option><option value="fixed">Fixed</option></select></div>
         <div class="form-group"><label>Date</label><input type="date" id="f-month" onchange="renderIssues()"><span onclick="document.getElementById('f-month').value='';renderIssues();" style="font-size:11px;color:var(--text-faint);cursor:pointer;margin-top:4px;">clear date</span></div>
         <div class="form-group"><label>Search building/floor/spot</label><input type="text" id="f-search" oninput="renderIssues()" placeholder="e.g. A12, #A12, or stairs"></div>
         <div class="form-group"><label>&nbsp;</label><button onclick="loadIssues(true)"><span class="nav-icon spin-icon" id="listRefreshIcon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> Refresh</button></div>
       </div>
       <div id="issuesTable"><p>Loading…</p></div>
+    </div>
+  </div>
+  <div id="gps" class="tab-content">
+    <div class="form-section gps-page">
+      <div id="workerLocationsPanel" class="worker-locations-panel">
+        <div class="worker-locations-head">
+          <h2><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg></span> Worker GPS — live on site</h2>
+          <button type="button" class="worker-loc-refresh-btn" onclick="loadWorkerLocations(true)"><span class="nav-icon spin-icon" id="workerLocRefreshIcon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> Refresh</button>
+        </div>
+        <p class="worker-locations-hint">Shows each worker’s last reported GPS while they are logged in on their phone. Location refreshes every ~30 seconds in the app and when they return to it. Updates every 30 seconds on this page. When a worker marks a job fixed, that GPS snapshot also appears on the issue card.</p>
+        <div id="workerLocationsBody"><p class="worker-loc-empty">Loading…</p></div>
+      </div>
+    </div>
+  </div>
+  <div id="notcivil" class="tab-content">
+    <div class="form-section not-civil-page">
+      <h2><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></span> Not Electric Department</h2>
+      <p class="routed-away-hint">Issues that were reviewed and do not belong in Electric. Re-create them in Civil, Fire, or the correct department.</p>
+      <div class="form-row">
+        <div class="form-group"><label>Project</label><select id="f-nc-project" onchange="renderRoutedIssues()"><option value="">All</option></select></div>
+        <div class="form-group"><label>Search building/floor/spot</label><input type="text" id="f-nc-search" oninput="renderRoutedIssues()" placeholder="e.g. A12, #A12, or stairs"></div>
+        <div class="form-group"><label>&nbsp;</label><button onclick="loadIssues(true)"><span class="nav-icon spin-icon" id="notCivilRefreshIcon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> Refresh</button></div>
+      </div>
+      <div id="issuesNotCivilTable"><p>Loading…</p></div>
+    </div>
+  </div>
+  <div id="fixdelay" class="tab-content">
+    <div class="form-section fix-delay-page">
+      <h2><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span> Needs 1+ Month</h2>
+      <p class="fix-delay-page-hint">Issues that cannot be fixed soon and need at least one month. Cards appear silver in the main list too.</p>
+      <div class="form-row">
+        <div class="form-group"><label>Project</label><select id="f-fd-project" onchange="renderFixDelayIssues()"><option value="">All</option></select></div>
+        <div class="form-group"><label>Search building/floor/spot</label><input type="text" id="f-fd-search" oninput="renderFixDelayIssues()" placeholder="e.g. A12, #A12, or stairs"></div>
+        <div class="form-group"><label>&nbsp;</label><button onclick="loadIssues(true)"><span class="nav-icon spin-icon" id="fixDelayRefreshIcon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> Refresh</button></div>
+      </div>
+      <div id="issuesFixDelayTable"><p>Loading…</p></div>
     </div>
   </div>
   <div id="analytics" class="tab-content">
@@ -114,16 +179,22 @@
 </div>
 <div class="modal" id="issueModal" onclick="if(event.target===this)closeIssueModal()"><div class="modal-box" id="issueBox"></div></div>
 <div class="modal" id="imgModal" onclick="closeImg()"><img id="imgBig" style="max-width:92%;max-height:92%;border-radius:10px;"></div>
-<script src="config.js"></script>
-<script src="assets/empire-storage.js"></script>
-<script src="assets/empire-api.js"></script>
-<script src="assets/empire-auth.js"></script>
-<script src="assets/empire-core.js"></script>
-<script src="assets/issue-configs.js"></script>
+<script src="assets/empire-sw-update.js?v=2026-07-18-electric-workers"></script>
+<script src="config.js?v=2026-07-18-electric-workers"></script>
+<script src="assets/empire-storage.js?v=2026-07-18-electric-workers"></script>
+<script src="assets/empire-api.js?v=2026-07-18-electric-workers"></script>
+<script src="assets/empire-auth.js?v=2026-07-18-electric-workers"></script>
+<script src="assets/empire-core.js?v=2026-07-18-electric-workers"></script>
+<script src="assets/empire-offline-queue.js?v=2026-07-18-electric-workers"></script>
+<script src="assets/issue-configs.js?v=2026-07-18-electric-workers"></script>
 <script>ISSUE_CFG=ISSUE_CONFIGS.electric;</script>
-<script src="assets/issue-tracker.js"></script>
-<script src="assets/issue-excel-export.js"></script>
-<script src="assets/issue-recycle-bin.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js"></script>
+<script src="assets/empire-push.js?v=2026-07-18-electric-workers"></script>
+<script src="assets/empire-assign-voice.js?v=2026-07-18-electric-workers"></script>
+<script src="assets/issue-tracker.js?v=2026-07-18-electric-workers"></script>
+<script src="assets/issue-excel-export.js?v=2026-07-18-electric-workers"></script>
+<script src="assets/issue-recycle-bin.js?v=2026-07-18-electric-workers"></script>
 <div id="resetModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1600;align-items:center;justify-content:center;">
   <div style="background:var(--panel);border:2px solid var(--card-border);border-radius:14px;max-width:440px;width:92%;padding:28px;box-shadow:0 10px 40px var(--shadow);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
     <h2 style="margin:0 0 10px;color:var(--text);">⚠️ Reset Electric Data</h2>
@@ -142,7 +213,7 @@
   <div style="background:var(--panel);border:2px solid var(--card-border);border-radius:14px;max-width:780px;width:94%;max-height:86vh;overflow:auto;padding:24px;box-shadow:0 10px 40px var(--shadow);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--text);">
     <span onclick="rbClose()" style="float:right;cursor:pointer;font-size:26px;line-height:1;color:var(--text);">&times;</span>
     <h2 style="margin:0 0 6px;color:var(--text);"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 19H4.815a1.83 1.83 0 0 1-1.57-.881 1.785 1.785 0 0 1-.004-1.784L7.196 9.5"/><path d="M11 19h8.203a1.83 1.83 0 0 0 1.556-.89 1.784 1.784 0 0 0 0-1.775l-1.226-2.12"/><path d="m14 16-3 3 3 3"/><path d="M8.293 13.596 7.196 9.5 3.1 10.598"/><path d="m9.344 5.811 1.093-1.892A1.83 1.83 0 0 1 11.985 3a1.784 1.784 0 0 1 1.546.888l3.943 6.843"/><path d="m13.378 9.633 4.096 1.098 1.097-4.096"/></svg></span> Recycle Bin</h2>
-    <p style="color:var(--text-soft);font-size:13px;margin-bottom:14px;">Anything deleted or cleared by a Reset is kept here. <strong>Restore</strong> puts it back; <strong>Delete forever</strong> removes it permanently.</p>
+    <p style="color:var(--text-soft);font-size:13px;margin-bottom:14px;">Deleted issues are kept here with their photo, reference (#A1), and location. <strong>Restore</strong> puts them back exactly as they were.</p>
     <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
       <button onclick="rbLoad()"><span class="nav-icon spin-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> Refresh</button>
       <button onclick="rbRestoreAll()" style="color:#fff;background:#1d9e75;border-color:#1d9e75;">↩️ Restore all</button>
