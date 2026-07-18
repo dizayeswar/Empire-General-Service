@@ -1,5 +1,5 @@
 /* Empire EGS — service worker (cache + Firebase background push) */
-var CACHE_VERSION = '2026-07-17-push-job-v1';
+var CACHE_VERSION = '2026-07-18-worker-fix-v2';
 var CACHE_NAME = 'empire-egs-' + CACHE_VERSION;
 var NOTIFY_ICON = 'https://dizayeswar.github.io/Empire-General-Service/icons/icon-192.png';
 var NOTIFY_BASE = 'https://dizayeswar.github.io/Empire-General-Service/civil-issue.html';
@@ -37,6 +37,7 @@ var PRECACHE = [
   './',
   './index.html',
   './civil-issue.html',
+  './electric-issue.html',
   './config.js',
   './firebase-messaging-sw.js',
   './service-worker.js',

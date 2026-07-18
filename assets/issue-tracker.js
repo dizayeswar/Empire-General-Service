@@ -617,6 +617,11 @@ function enterWorkerApp() {
   var user = empireGetUser() || '';
   var displayName = civilWorkerName(user) || user;
   if (title) title.textContent = displayName;
+  try {
+    var bootCached = readIssuesCache();
+    if (bootCached && Array.isArray(bootCached)) setIssuesFromData(bootCached);
+  } catch (e) {}
+  renderWorkerJobs();
   initWorkerOfflineSync();
   startWorkerLocationPing();
   if (typeof empirePushInitWorker === 'function') empirePushInitWorker();
@@ -625,7 +630,16 @@ function enterWorkerApp() {
     setTimeout(function () { empirePushTrySaveAfterLogin(); }, 2000);
   }
   bindWorkerAppLifecycle_();
-  loadIssues(true);
+  try { loadIssues(true); } catch (e) { workerShowJobsError_(e); }
+}
+function workerShowJobsError_(err) {
+  var host = document.getElementById('workerJobList');
+  var bar = document.getElementById('workerCountBar');
+  var msg = String((err && err.message) || err || 'Could not load jobs');
+  if (bar) bar.textContent = 'Jobs unavailable';
+  if (host) {
+    host.innerHTML = '<p class="worker-empty worker-load-error">' + msg + '<br><button type="button" class="worker-loc-enable-btn" onclick="loadIssues(true)" style="margin-top:10px;">Try again</button></p>';
+  }
 }
 var _workerLocWatchId = null;
 var _workerLocIntervalId = null;
@@ -2005,19 +2019,81 @@ function mergeIssueMetaFromServer(next, prev) {
     return out;
   });
 }
-function setIssuesFromData(arr){ var sig=issuesListSig(arr); var changed=(sig!==_issuesListSig); _issuesListSig=sig; allIssues=arr; return changed; }
+function setIssuesFromData(arr){ if(!Array.isArray(arr)) arr=[]; var sig=issuesListSig(arr); var changed=(sig!==_issuesListSig); _issuesListSig=sig; allIssues=arr; return changed; }
 function prefetchWorkerIssues_() {
-  if (!ISSUE_CFG.workerMode || !issueToken()) return;
-  fetchIssuesFromServer().then(function (d) {
-    if (Array.isArray(d)) writeIssuesCacheAsync(d);
-  }).catch(function () {});
+  if (!ISSUE_CFG.workerMode || !issueToken() || !isCivilWorker()) return;
+  fetchJSONRetry({ action: ISSUE_CFG.actions.get, token: issueToken() || '' }, 1, 45000)
+    .then(function (d) {
+      if (Array.isArray(d)) {
+        setIssuesFromData(d);
+        writeIssuesCacheAsync(d);
+        renderWorkerJobs();
+      }
+    })
+    .catch(function () {});
 }
 function scheduleWorkerLocationPing_(force) {
   if (!isCivilWorker() || !workerLocationActionsEnabled()) return;
   setTimeout(function () { sendWorkerLocationNow(!!force, true); }, force ? 400 : 0);
 }
 function deferHeavyRenders(){ var run=function(){ var ac=document.getElementById('analytics'); if(ac&&ac.classList.contains('active')) renderAnalytics(); }; if(window.requestIdleCallback) requestIdleCallback(run,{timeout:2500}); else setTimeout(run,80); }
-function loadIssues(force){ force=!!force; if(isCivilWorker()&&!force&&workerBackgroundPaused_()) return; if(isCivilWorker()&&force) scheduleWorkerLocationPing_(true); if(isCivilWorker()){ var cached=readIssuesCache(); if(cached){ setIssuesFromData(cached); renderWorkerJobs(); if(typeof empirePushOnIssuesLoaded==='function') empirePushOnIssuesLoaded(cached); } } var cached=readIssuesCache(); var prevIssues=allIssues.slice(); if(cached && !isCivilWorker()){ setIssuesFromData(cached); requestAnimationFrame(function(){ refreshAllIssueTabs(); }); } var spinEls=[document.getElementById('listRefreshIcon'),document.getElementById('navRefreshIcon'),document.getElementById('workerRefreshIcon'),document.getElementById('notCivilRefreshIcon'),document.getElementById('fixDelayRefreshIcon')]; var cacheFresh=cached && !force && (Date.now()-readIssuesCacheTs()<ISSUES_CACHE_TTL); if(cacheFresh) return; var it=document.getElementById('issuesTable'); if(it && !cached && !isCivilWorker()) it.innerHTML=LOADING_HTML; if(isCivilWorker() && !cached){ var wbar=document.getElementById('workerCountBar'); if(wbar) wbar.textContent='Loading jobs\u2026'; } spinEls.forEach(function(el){ if(el) el.classList.add('spinning'); }); if(_issuesFetchCtrl) try{ _issuesFetchCtrl.abort(); }catch(e){} _issuesFetchCtrl=new AbortController(); var fetchTimeout=setTimeout(function(){ try{ _issuesFetchCtrl.abort(); }catch(e){} }, isCivilWorker()?25000:45000); fetchIssuesFromServer(_issuesFetchCtrl.signal).then(function(d){ if(Array.isArray(d)){ var merged=mergeIssueMetaFromServer(d, prevIssues.length?prevIssues:(cached||[])); setIssuesFromData(merged); writeIssuesCacheAsync(merged); if(isCivilWorker()){ renderWorkerJobs(); if(typeof empirePushOnIssuesLoaded==='function') empirePushOnIssuesLoaded(merged); } else { requestAnimationFrame(function(){ refreshAllIssueTabs(); }); } } else if(d&&d.ok===false){ if(!forceSessionLogout(d) && isCivilWorker()){ var wl=document.getElementById('workerJobList'); if(wl && !cached) wl.innerHTML='<p class="worker-empty">Could not load jobs: '+String(d.message||d.error||'server error')+'</p>'; var wcb=document.getElementById('workerCountBar'); if(wcb) wcb.textContent='Jobs unavailable'; } } else if(isCivilWorker() && !Array.isArray(d)){ var wl3=document.getElementById('workerJobList'); if(wl3 && !cached) wl3.innerHTML='<p class="worker-empty">Could not load jobs. Tap refresh to try again.</p>'; var wcb3=document.getElementById('workerCountBar'); if(wcb3 && !cached) wcb3.textContent='Jobs unavailable'; } }).catch(function(e){ if(e&&e.name==='AbortError'){ if(isCivilWorker() && !cached){ var wl2=document.getElementById('workerJobList'); if(wl2) wl2.innerHTML='<p class="worker-empty">Jobs timed out — tap refresh to try again.</p>'; } return; } if(!cached && it && !isCivilWorker()) it.innerHTML='<p>Error loading: '+e.message+'</p>'; if(isCivilWorker()){ var wl=document.getElementById('workerJobList'); if(wl && !cached) wl.innerHTML='<p class="worker-empty">Error: '+e.message+'</p>'; var wcb2=document.getElementById('workerCountBar'); if(wcb2 && !cached) wcb2.textContent='Jobs unavailable'; } }).finally(function(){ clearTimeout(fetchTimeout); spinEls.forEach(function(el){ if(el) el.classList.remove('spinning'); }); if(isCivilWorker() && Array.isArray(allIssues)) renderWorkerJobs(); }); }
+var _workerIssuesFetchSeq = 0;
+function loadIssues(force){ force=!!force; try {
+  if(isCivilWorker()&&!force&&workerBackgroundPaused_()) return;
+  if(isCivilWorker()&&force) scheduleWorkerLocationPing_(true);
+  if(isCivilWorker()){
+    var cached=readIssuesCache();
+    if(cached){ setIssuesFromData(cached); renderWorkerJobs(); if(typeof empirePushOnIssuesLoaded==='function') empirePushOnIssuesLoaded(cached); }
+  }
+  var cached=readIssuesCache();
+  var prevIssues=allIssues.slice();
+  if(cached && !isCivilWorker()){ setIssuesFromData(cached); requestAnimationFrame(function(){ refreshAllIssueTabs(); }); }
+  var spinEls=[document.getElementById('listRefreshIcon'),document.getElementById('navRefreshIcon'),document.getElementById('workerRefreshIcon'),document.getElementById('notCivilRefreshIcon'),document.getElementById('fixDelayRefreshIcon')];
+  var cacheFresh=cached && !force && (Date.now()-readIssuesCacheTs()<ISSUES_CACHE_TTL);
+  if(cacheFresh) return;
+  var it=document.getElementById('issuesTable');
+  if(it && !cached && !isCivilWorker()) it.innerHTML=LOADING_HTML;
+  if(isCivilWorker() && !cached){ var wbar=document.getElementById('workerCountBar'); if(wbar) wbar.textContent='Loading jobs\u2026'; }
+  spinEls.forEach(function(el){ if(el) el.classList.add('spinning'); });
+  var fetchSeq=++_workerIssuesFetchSeq;
+  var workerFetch=isCivilWorker();
+  if(!workerFetch){
+    if(_issuesFetchCtrl) try{ _issuesFetchCtrl.abort(); }catch(e){}
+    _issuesFetchCtrl=new AbortController();
+  }
+  var fetchTimeout=workerFetch ? null : setTimeout(function(){ try{ if(_issuesFetchCtrl) _issuesFetchCtrl.abort(); }catch(e){} }, 45000);
+  var fetchPromise=workerFetch
+    ? fetchJSONRetry({ action: ISSUE_CFG.actions.get, token: issueToken() || '' }, 2, 45000)
+    : fetchIssuesFromServer(_issuesFetchCtrl.signal);
+  fetchPromise.then(function(d){
+    if(workerFetch && fetchSeq!==_workerIssuesFetchSeq) return;
+    if(Array.isArray(d)){
+      var merged=mergeIssueMetaFromServer(d, prevIssues.length?prevIssues:(cached||[]));
+      setIssuesFromData(merged);
+      writeIssuesCacheAsync(merged);
+      if(isCivilWorker()){ renderWorkerJobs(); if(typeof empirePushOnIssuesLoaded==='function') empirePushOnIssuesLoaded(merged); }
+      else { requestAnimationFrame(function(){ refreshAllIssueTabs(); }); }
+    } else if(d&&d.ok===false){
+      if(forceSessionLogout(d)) return;
+      if(isCivilWorker()) workerShowJobsError_(new Error(d.message||d.error||'Could not load jobs'));
+    } else if(isCivilWorker() && !Array.isArray(d)){
+      workerShowJobsError_(new Error('Unexpected server response. Redeploy empire-all-in-one.gs, then try again.'));
+    }
+  }).catch(function(e){
+    if(workerFetch && fetchSeq!==_workerIssuesFetchSeq) return;
+    if(e&&e.name==='AbortError') return;
+    if(!cached && it && !isCivilWorker()) it.innerHTML='<p>Error loading: '+e.message+'</p>';
+    if(isCivilWorker()) workerShowJobsError_(e);
+  }).finally(function(){
+    if(workerFetch && fetchSeq!==_workerIssuesFetchSeq) return;
+    if(fetchTimeout) clearTimeout(fetchTimeout);
+    spinEls.forEach(function(el){ if(el) el.classList.remove('spinning'); });
+    if(isCivilWorker()) renderWorkerJobs();
+  });
+} catch (e) {
+  if(isCivilWorker()) workerShowJobsError_(e);
+  else throw e;
+}}
 function locStr(r){ return r.building+' \u00B7 '+r.floor+' \u00B7 '+r.spot; }
 function workerJobLocStr(r) {
   var b = String((r && r.building) || '').trim();
@@ -2473,6 +2549,7 @@ var _lastPermFetch=0;
 function refreshPerms(){ var tk=issueToken(); if(!tk) return; var now=Date.now(); if(now-_lastPermFetch<300000) return; _lastPermFetch=now; empireAuthRefreshPerms(function(d){ PAGEPERMS=d.perms||empireGetPerms(); applyPerms(); }); }
 function bootApp(){ empireAuthPageBoot({ dept: ISSUE_CFG.dept, onEnter: function(){ syncWorkerRoleThenRoute_(); } }); }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', bootApp); else bootApp();
+window.loadIssues = loadIssues;
 // ===== Reset Data (password) =====
 function openResetModal(){ document.getElementById('resetPwInput').value=''; document.getElementById('resetMsg').textContent=''; document.getElementById('resetModal').style.display='flex'; setTimeout(function(){document.getElementById('resetPwInput').focus();},30); }
 function closeResetModal(){ document.getElementById('resetModal').style.display='none'; }
