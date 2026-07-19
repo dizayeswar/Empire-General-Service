@@ -103,13 +103,11 @@
 
   function getSwRegistration() {
     if (!('serviceWorker' in navigator)) return Promise.reject(new Error('Service worker not supported'));
-    return withTimeout(
-      navigator.serviceWorker.register(SW_URL, { scope: './', updateViaCache: 'none' }),
-      20000,
-      'Service worker'
-    ).then(function (reg) {
-      if (reg.waiting) try { reg.waiting.postMessage({ type: 'SKIP_WAITING' }); } catch (e) {}
-      if (reg.installing) try { reg.installing.postMessage({ type: 'SKIP_WAITING' }); } catch (e) {}
+    var regPromise = navigator.serviceWorker.getRegistration('./').then(function (reg) {
+      if (reg) return reg;
+      return navigator.serviceWorker.register(SW_URL, { scope: './', updateViaCache: 'none' });
+    });
+    return withTimeout(regPromise, 20000, 'Service worker').then(function () {
       return withTimeout(navigator.serviceWorker.ready, 20000, 'Service worker');
     });
   }

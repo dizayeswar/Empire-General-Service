@@ -669,6 +669,7 @@ var _workerLocSharing = false;
 var _workerLifecycleBound = false;
 var _workerVisRefreshTimer = null;
 var _workerLastResumeFetch = 0;
+var _workerJobsRenderSig = '';
 var WORKER_RESUME_FETCH_MIN_MS = 12000;
 var WORKER_LOC_PING_MS = 30000;
 function workerJobsDisplayed_() {
@@ -1342,6 +1343,12 @@ function renderWorkerJobs() {
   var rows = allIssues.filter(function (r) { return r.status !== 'fixed' && !workerCompletedByMe(r); });
   rows.sort(compareIssuesNewestFirst);
   if (bar) bar.textContent = rows.length + ' open job' + (rows.length === 1 ? '' : 's') + ' assigned to you';
+  var sig = rows.length + '|' + Object.keys(_workerOfflineQueuedIds || {}).length + '|' + rows.map(function (r) { return r.id + ':' + r.status; }).join(',');
+  if (sig === _workerJobsRenderSig && workerJobsDisplayed_()) {
+    workerPushTryOpenPendingJob_();
+    return;
+  }
+  _workerJobsRenderSig = sig;
   if (!rows.length) {
     var pending = Object.keys(_workerOfflineQueuedIds || {}).length;
     var pendingNote = pending
@@ -2041,36 +2048,23 @@ function applyPerms(){ if(window.tsPerm) window.tsPerm(); if(window.tsLoadGlobal
   var wl=document.getElementById('whoLabel'); if(wl){ var u=empireGetUser()||''; var role=empireGetRole()||''; wl.textContent = u ? ('Logged in as: '+u+(role?(' ('+role+')'):'')) : ''; }
 }
 var _issueRouteLock = false;
-function supervisorDeptForIssue_() {
-  var page = String(ISSUE_CFG.supervisorPage || '');
-  if (page.indexOf('electrical') !== -1) return 'electrical department';
-  if (page.indexOf('civil-department') !== -1) return 'civil department';
-  return '';
-}
 function routeCivilIssueView_() {
   if (_issueRouteLock) return;
+  _issueRouteLock = true;
   applyPerms();
   if (isCivilWorker()) {
     enterWorkerApp();
     return;
   }
-  var sup = ISSUE_CFG.supervisorPage;
-  if (sup && String(window.location.pathname || '').indexOf(sup) === -1) {
-    var supDept = supervisorDeptForIssue_();
-    if (!supDept || (typeof empireCanAccessDept === 'function' && empireCanAccessDept(supDept))) {
-      _issueRouteLock = true;
-      var tail = window.location.search + window.location.hash;
-      window.location.replace(sup + tail);
-      return;
-    }
-  }
   enterApp();
 }
 function syncWorkerRoleThenRoute_() {
   var routed = false;
+  var timer = null;
   function done() {
     if (routed) return;
     routed = true;
+    if (timer) clearTimeout(timer);
     routeCivilIssueView_();
   }
   if (!ISSUE_CFG.workerMode || !empireGetToken()) {
@@ -2082,7 +2076,7 @@ function syncWorkerRoleThenRoute_() {
     return;
   }
   empireAuthRefreshPerms(function () { done(); });
-  setTimeout(done, 1200);
+  timer = setTimeout(done, 1200);
 }
 function handleLogin(e){ empireAuthLogin(e, ISSUE_CFG.dept, { onSuccess: function(d){ PAGEPERMS=d.perms||{}; if(typeof empireAuthSet==='function' && d.trade) empireAuthSet('trade', d.trade); if(ISSUE_CFG.workerMode) prefetchWorkerIssues_(); routeCivilIssueView_(); if(typeof empirePushTrySaveAfterLogin==='function'){ setTimeout(function(){ empirePushTrySaveAfterLogin(); }, 2000); } } }); }
 function logout(){ stopWorkerLocationPing(); if(typeof empirePushStopWorker==='function') empirePushStopWorker(); stopEngineerLocationPoll(); empireAuthLogout({ extraKeys: [ISSUES_CACHE_KEY, ISSUES_CACHE_TS_KEY], redirect: 'index.html', reload: false }); }
@@ -2686,13 +2680,6 @@ function refreshPerms(){ var tk=issueToken(); if(!tk) return; var now=Date.now()
 function bootApp(){ empireAuthPageBoot({ dept: ISSUE_CFG.dept, sendToHomeLogin: false, onEnter: function(){ syncWorkerRoleThenRoute_(); } }); }
 if (!ISSUE_CFG.embeddedInDept) {
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', bootApp); else bootApp();
-  window.addEventListener('pageshow', function (ev) {
-    if (!ev || !ev.persisted) return;
-    var lp = document.getElementById('loginPage');
-    if (lp && lp.classList.contains('show') && typeof empireAuthMarkLoginVisible === 'function') {
-      empireAuthMarkLoginVisible(true);
-    }
-  });
 }
 window.loadIssues = loadIssues;
 window.renderIssueAnalytics = renderAnalytics;

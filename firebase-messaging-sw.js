@@ -1,5 +1,5 @@
 /* Empire EGS — service worker (cache + Firebase background push) */
-var CACHE_VERSION = '2026-07-19-android-stable-v2';
+var CACHE_VERSION = '2026-07-19-android-stable-v3';
 var CACHE_NAME = 'empire-egs-' + CACHE_VERSION;
 var NOTIFY_ICON = 'https://dizayeswar.github.io/Empire-General-Service/icons/icon-192.png';
 var NOTIFY_BASE = 'https://dizayeswar.github.io/Empire-General-Service/civil-issue.html';
@@ -100,7 +100,7 @@ self.addEventListener('install', function (event) {
         return cache.add(url).catch(function () {});
       }));
     }).then(function () {
-      return self.skipWaiting();
+      /* Activate on next navigation — avoid mid-page takeover flicker on Android */
     })
   );
 });
@@ -112,8 +112,6 @@ self.addEventListener('activate', function (event) {
         keys.filter(function (key) { return key.indexOf('empire-egs-') === 0 && key !== CACHE_NAME; })
           .map(function (key) { return caches.delete(key); })
       );
-    }).then(function () {
-      return self.clients.claim();
     })
   );
 });

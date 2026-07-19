@@ -13,9 +13,10 @@
 <link rel="preconnect" href="https://script.google.com">
 <link rel="preconnect" href="https://api.imgbb.com">
 <title>Electrical Department — Empire World</title>
-<link rel="stylesheet" href="assets/empire.css?v=2026-07-19-android-stable-v2">
+<style id="empire-auth-boot">body.auth-login-visible #mainContainer,body.auth-login-visible .modal{display:none!important}</style>
+<link rel="stylesheet" href="assets/empire.css?v=2026-07-19-android-stable-v3">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-07-19-jobs-filter-inline">
-<link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-07-19-android-stable-v2">
+<link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-07-19-android-stable-v3">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -325,10 +326,11 @@
     </div>
   </div>
 </div>
+<script src="assets/empire-sw-update.js?v=2026-07-19-android-stable-v3"></script>
 <script src="config.js"></script>
 <script src="assets/empire-storage.js"></script>
 <script src="assets/empire-api.js"></script>
-<script src="assets/empire-auth.js?v=2026-07-19-android-stable-v2"></script>
+<script src="assets/empire-auth.js?v=2026-07-19-android-stable-v3"></script>
 <script src="assets/empire-core.js"></script>
 <script src="assets/empire-assign-voice.js"></script>
 <div class="modal" id="imgModal" onclick="closeImg()"><img id="imgBig" style="max-width:92%;max-height:92%;border-radius:10px;"></div>
@@ -1336,7 +1338,7 @@ function doReset(){ var pw=document.getElementById('resetPwInput').value; var ms
 <script src="assets/empire-offline-queue.js"></script>
 <script src="assets/issue-configs.js?v=2026-07-19-elec-merge"></script>
 <script>ISSUE_CFG=Object.assign({},ISSUE_CONFIGS.electric,{embeddedInDept:true,tabNavScope:'.side-nav-issue',tabPaneScope:'#issueMain',analyticsContentId:'analyticsContent'});</script>
-<script src="assets/issue-tracker.js?v=2026-07-19-issue-monthly"></script>
+<script src="assets/issue-tracker.js?v=2026-07-19-android-stable-v3"></script>
 <script src="assets/issue-excel-export.js?v=2026-07-19-elec-merge"></script>
 <script src="assets/issue-recycle-bin.js?v=2026-07-19-elec-merge"></script>
 <script>

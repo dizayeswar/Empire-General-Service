@@ -28,14 +28,15 @@ body { font-family:var(--app-font); font-size:var(--fs-body); background:var(--b
 .login-page { display:none; position:fixed; top:0; left:0; width:100%; height:100%; min-height:100vh; min-height:100dvh; background:#f4f6fb; align-items:center; justify-content:center; z-index:99999; isolation:isolate; contain:layout style paint; transform:translateZ(0); -webkit-backface-visibility:hidden; backface-visibility:hidden; }
 html[data-theme="dark"] .login-page { background:#0d3a6e; }
 .login-page.show { display:flex; }
+body.auth-login-visible { overflow:hidden; }
 body.auth-login-visible #workerApp,
 body.auth-login-visible #mainContainer,
 body.auth-login-visible .worker-modal,
 body.auth-login-visible .modal,
 body.auth-login-visible .container:not(#loginPage) {
+  display:none !important;
   visibility:hidden !important;
   pointer-events:none !important;
-  opacity:0 !important;
 }
 .login-box { background:var(--panel); padding:40px; border-radius:var(--radius-lg); border:2px solid var(--card-border); box-shadow:0 8px 32px var(--shadow); width:100%; max-width:400px; position:relative; }
 .login-box h1 { font-size:var(--fs-h1); margin-bottom:24px; text-align:center; color:var(--header-accent); }

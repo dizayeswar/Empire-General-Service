@@ -371,4 +371,21 @@ function empireAuthRefreshPerms(onUpdate) {
     .catch(function () {});
 }
 
+(function empireAuthBindBfCacheFix_() {
+  if (window.__empireAuthBfCacheBound) return;
+  window.__empireAuthBfCacheBound = true;
+  window.addEventListener('pageshow', function (ev) {
+    if (!ev || !ev.persisted) return;
+    var lp = document.getElementById('loginPage');
+    if (!lp || !lp.classList.contains('show')) return;
+    empireAuthMarkLoginVisible(true);
+    try {
+      var key = 'empire_bf_' + location.pathname;
+      if (sessionStorage.getItem(key) === '1') return;
+      sessionStorage.setItem(key, '1');
+    } catch (e) {}
+    location.reload();
+  });
+})();
+
 empireMigrateSession();

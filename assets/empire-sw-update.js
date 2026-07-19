@@ -1,8 +1,7 @@
 /* Empire EGS — register service worker; purge caches only when build id changes */
 (function () {
-  var BUILD = '2026-07-19-android-stable-v2';
+  var BUILD = '2026-07-19-android-stable-v3';
   var STORAGE_KEY = 'empire_build_id';
-  var RELOAD_GUARD = 'empire_build_reload_' + BUILD;
 
   function purgeEmpireCaches() {
     if (!('caches' in window)) return Promise.resolve();
@@ -16,22 +15,14 @@
   try {
     var prev = localStorage.getItem(STORAGE_KEY);
     if (prev && prev !== BUILD) {
-      localStorage.setItem(STORAGE_KEY, BUILD);
-      var alreadyReloaded = false;
-      try { alreadyReloaded = sessionStorage.getItem(RELOAD_GUARD) === '1'; } catch (e) {}
-      if (!alreadyReloaded) {
-        try { sessionStorage.setItem(RELOAD_GUARD, '1'); } catch (e2) {}
-        purgeEmpireCaches().finally(function () {
-          var base = location.pathname.split('?')[0];
-          location.replace(base + '?v=' + encodeURIComponent(BUILD));
-        });
-        return;
-      }
+      purgeEmpireCaches();
     }
     localStorage.setItem(STORAGE_KEY, BUILD);
   } catch (e) {}
 
   if (!('serviceWorker' in navigator)) return;
+  if (window.__empireSwRegistering) return;
+  window.__empireSwRegistering = true;
 
   navigator.serviceWorker.register('./firebase-messaging-sw.js?v=' + BUILD, {
     scope: './',
