@@ -21,7 +21,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-19-field-transfer-fast-v1';
+var SCRIPT_VERSION = '2026-07-19-elec-dept-merge-v1';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -207,12 +207,21 @@ function doPost(e) {
     var requiredDept = trashActions[action] ? body.dept : deptByAction[action];
     if (!requiredDept) return respond({ok:false,error:'Unknown action'});
     var auth;
+    var electricIssueActions = {
+      addElectricIssue:1, updateElectricIssue:1, getElectricIssues:1, markElectricFixed:1,
+      clearElectricIssues:1, deleteElectricIssue:1, assignElectricIssue:1, markElectricNotDept:1,
+      restoreElectricIssue:1, setElectricFixDelay:1
+    };
     if (action === 'getWorkerLocations' || action === 'reportWorkerLocation') {
       auth = verifyToken(body.token, 'civil issue');
       if (!auth.ok) auth = verifyToken(body.token, 'electric issue');
+      if (!auth.ok) auth = verifyToken(body.token, 'electrical department');
     } else if (action === 'getElectricWorkerReports') {
       auth = verifyToken(body.token, 'electrical department');
       if (!auth.ok) auth = verifyToken(body.token, 'electric issue');
+    } else if (electricIssueActions[action]) {
+      auth = verifyToken(body.token, 'electric issue');
+      if (!auth.ok) auth = verifyToken(body.token, 'electrical department');
     } else {
       auth = verifyToken(body.token, requiredDept);
     }

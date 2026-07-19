@@ -126,6 +126,11 @@ var ISSUE_CONFIGS = {
     maxAssignWorkers: 4,
     gpsTrades: ['electric'],
     jobPage: 'electric-issue.html',
+    supervisorPage: 'electrical.html',
+    embeddedInDept: false,
+    tabNavScope: '',
+    tabPaneScope: '',
+    analyticsContentId: 'analyticsContent',
     routedDisposition: 'not_electric',
     ui: {
       routedBadge: 'Not Electric Dept',
