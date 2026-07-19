@@ -197,7 +197,9 @@ var ISSUE_CONFIGS = {
         deptTabHint: 'Reports submitted by electric field workers from their phones (photo, place, note, voice).',
         submitSuccess: 'Report sent to Electrical Department.',
         placePlaceholder: 'Where? e.g. WW-12 corridor, ES-4 parking…',
-        notePlaceholder: 'What did you find or do?'
+        notePlaceholder: 'What did you find or do?',
+        amountPlaceholder: 'IQD — leave empty for maintenance',
+        amountHint: 'Leave empty for maintenance. Enter an amount for refundable work.'
       }
     }
   }

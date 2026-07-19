@@ -21,7 +21,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-18-electric-field-reports-v1';
+var SCRIPT_VERSION = '2026-07-19-electric-field-amount-v1';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -2706,13 +2706,26 @@ function handleSaveElectricalSummary(body) {
   return {ok:true,success:true};
 }
 
+function parseElectricWorkerReportAmount_(body) {
+  var raw = body && body.amount;
+  if (raw == null || raw === '') return 0;
+  var s = String(raw).replace(/[^\d.-]/g, '');
+  var n = parseFloat(s);
+  if (isNaN(n) || n <= 0) return 0;
+  return Math.round(n);
+}
+
+function electricWorkerReportTypeFromAmount_(amount) {
+  return amount > 0 ? 'refundable' : 'maintenance';
+}
+
 function ensureElectricWorkerReportsSheet_(sheet) {
   if (!sheet) return;
+  var headers = ['id','date','place','note','photo','voiceNote','reportedBy','workerName','createdAt','amount','reportType'];
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow(['id','date','place','note','photo','voiceNote','reportedBy','workerName','createdAt']);
+    sheet.appendRow(headers);
     return;
   }
-  var headers = ['id','date','place','note','photo','voiceNote','reportedBy','workerName','createdAt'];
   for (var c = 0; c < headers.length; c++) {
     if (String(sheet.getRange(1, c + 1).getValue() || '') !== headers[c]) {
       sheet.getRange(1, c + 1).setValue(headers[c]);
@@ -2739,6 +2752,8 @@ function handleAddElectricWorkerReport(body, auth) {
   if (!dateStr) dateStr = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
   var username = normalizeWorkerId_(auth && auth.username);
   var workerName = String(body.workerName || body.displayName || username || '').trim();
+  var amount = parseElectricWorkerReportAmount_(body);
+  var reportType = electricWorkerReportTypeFromAmount_(amount);
   var id = body.id || ('ewr-' + now.getTime());
   sheet.appendRow([
     id,
@@ -2749,7 +2764,9 @@ function handleAddElectricWorkerReport(body, auth) {
     voiceNote,
     username,
     workerName,
-    now.toISOString()
+    now.toISOString(),
+    amount || '',
+    reportType
   ]);
   return {ok:true,success:true,id:id};
 }
@@ -2769,6 +2786,13 @@ function handleGetElectricWorkerReports(body, auth) {
     if (workerOnly && reportedBy !== workerUser) continue;
     var dv = rows[i][1];
     var ds = (dv instanceof Date) ? Utilities.formatDate(dv, tz, 'yyyy-MM-dd') : String(dv || '');
+    var amountRaw = rows[i][9];
+    var amountNum = parseFloat(amountRaw);
+    if (isNaN(amountNum) || amountNum < 0) amountNum = 0;
+    var reportType = String(rows[i][10] || '').trim().toLowerCase();
+    if (reportType !== 'refundable' && reportType !== 'maintenance') {
+      reportType = electricWorkerReportTypeFromAmount_(amountNum);
+    }
     out.push({
       id: String(rows[i][0] || ''),
       date: ds,
@@ -2778,7 +2802,9 @@ function handleGetElectricWorkerReports(body, auth) {
       voiceNote: parseAssignVoiceNote_(rows[i][5]),
       reportedBy: String(rows[i][6] || ''),
       workerName: String(rows[i][7] || ''),
-      createdAt: dtIssue_(rows[i][8])
+      createdAt: dtIssue_(rows[i][8]),
+      amount: amountNum > 0 ? amountNum : '',
+      reportType: reportType
     });
   }
   out.sort(function (a, b) {

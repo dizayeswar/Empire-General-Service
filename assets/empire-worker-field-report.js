@@ -31,6 +31,34 @@ function workerFieldReportPhotoFolder_() {
   return String((cfg && cfg.photoFolder) || 'issues/electric-field');
 }
 
+function workerFieldReportParseAmount_(raw) {
+  if (raw == null || raw === '') return 0;
+  var n = parseFloat(String(raw).replace(/[^\d.-]/g, ''));
+  if (isNaN(n) || n <= 0) return 0;
+  return Math.round(n);
+}
+
+function workerFieldReportType_(rOrAmount) {
+  if (rOrAmount && typeof rOrAmount === 'object') {
+    if (rOrAmount.reportType === 'refundable') return 'refundable';
+    if (rOrAmount.reportType === 'maintenance') return 'maintenance';
+    return workerFieldReportParseAmount_(rOrAmount.amount) > 0 ? 'refundable' : 'maintenance';
+  }
+  return workerFieldReportParseAmount_(rOrAmount) > 0 ? 'refundable' : 'maintenance';
+}
+
+function workerFieldReportTypeBadgeHtml_(r) {
+  var t = workerFieldReportType_(r);
+  if (t === 'refundable') return '<span class="badge refundable">Refundable</span>';
+  return '<span class="badge maintenance">Maintenance</span>';
+}
+
+function workerFieldReportAmountLabel_(amount) {
+  var n = workerFieldReportParseAmount_(amount);
+  if (!n) return '';
+  return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',') + ' IQD';
+}
+
 function workerFieldReportInit_() {
   if (!workerFieldReportEnabled_() || !isCivilWorker()) return;
   var bar = document.getElementById('workerTabBar');
@@ -43,6 +71,8 @@ function workerFieldReportInit_() {
   var note = document.getElementById('wfrNote');
   if (place) place.placeholder = workerFieldReportUi_('placePlaceholder', 'Where?');
   if (note) note.placeholder = workerFieldReportUi_('notePlaceholder', 'What did you find or do?');
+  var amount = document.getElementById('wfrAmount');
+  if (amount) amount.placeholder = workerFieldReportUi_('amountPlaceholder', 'IQD — leave empty for maintenance');
   workerFieldReportMountVoice_();
   workerFieldReportClearForm_(false);
   workerFieldReportLoadMine_();
@@ -83,11 +113,13 @@ function workerFieldReportClearForm_(resetMsg) {
   _wfrUploading = false;
   var place = document.getElementById('wfrPlace');
   var note = document.getElementById('wfrNote');
+  var amount = document.getElementById('wfrAmount');
   var img = document.getElementById('wfrImage');
   var status = document.getElementById('wfrPhotoStatus');
   var msg = document.getElementById('wfrFormMsg');
   if (place) place.value = '';
   if (note) note.value = '';
+  if (amount) amount.value = '';
   if (img) {
     img.style.display = 'none';
     img.removeAttribute('src');
@@ -158,8 +190,12 @@ function workerFieldReportRenderMine_() {
     var voice = (r.voiceNote && r.voiceNote.url && typeof assignVoiceNoteDisplayHtml === 'function')
       ? assignVoiceNoteDisplayHtml(r.voiceNote, { worker: true })
       : '';
+    var amountLabel = workerFieldReportAmountLabel_(r.amount);
     return '<div class="worker-field-my-card">' + thumb
-      + '<div class="worker-field-my-body"><div class="worker-field-my-date">' + (r.date || '') + '</div>'
+      + '<div class="worker-field-my-body"><div class="worker-field-my-top">'
+      + workerFieldReportTypeBadgeHtml_(r)
+      + '<span class="worker-field-my-date">' + (r.date || '') + '</span></div>'
+      + (amountLabel ? ('<div class="worker-field-my-amount">' + amountLabel + '</div>') : '')
       + (r.place ? ('<div class="worker-field-my-place">' + r.place + '</div>') : '')
       + (r.note ? ('<p class="worker-field-my-note">' + r.note + '</p>') : '')
       + voice + '</div></div>';
@@ -177,8 +213,10 @@ function workerFieldReportSubmit_() {
   }
   var placeEl = document.getElementById('wfrPlace');
   var noteEl = document.getElementById('wfrNote');
+  var amountEl = document.getElementById('wfrAmount');
   var place = placeEl ? String(placeEl.value || '').trim() : '';
   var note = noteEl ? String(noteEl.value || '').trim() : '';
+  var amount = amountEl ? workerFieldReportParseAmount_(amountEl.value) : 0;
   var msg = document.getElementById('wfrFormMsg');
   var btn = document.getElementById('wfrSubmitBtn');
   if (!place && !note && !_wfrPhotoUrl) {
@@ -206,6 +244,7 @@ function workerFieldReportSubmit_() {
       token: issueToken() || '',
       place: place,
       note: note,
+      amount: amount || '',
       photo: _wfrPhotoUrl || '',
       workerName: typeof civilWorkerName === 'function' ? civilWorkerName(empireGetUser()) : (empireGetUser() || '')
     };

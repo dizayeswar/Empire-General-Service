@@ -137,6 +137,7 @@ html[data-theme="dark"] .issue-card-check { background:rgba(13,50,100,0.92); }
 .issue-card-body { padding:12px 14px; }
 .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.55); z-index:1500; align-items:center; justify-content:center; }
 .modal.show { display:flex; }
+#imgModal { z-index:2100; }
 @keyframes empireSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 .spin-icon.spinning svg { animation: empireSpin 0.8s linear infinite; }
 .load-ring { width:42px;height:42px;border:4px solid rgba(128,128,128,0.3);border-top-color:#e8a0cf;border-radius:50%;animation:empireSpin 0.8s linear infinite;margin:0 auto 14px; }

@@ -14,8 +14,8 @@
 <link rel="preconnect" href="https://api.imgbb.com">
 <title>Electrical Department — Empire World</title>
 <link rel="stylesheet" href="assets/empire.css">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-07-18-field-reports">
-<link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-07-18-field-reports">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-07-19-field-amount">
+<link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-07-19-field-cards">
 </head>
 <body>
 <div class="login-page show" id="loginPage">
@@ -212,6 +212,9 @@
 <script src="assets/empire-core.js"></script>
 <script src="assets/empire-assign-voice.js"></script>
 <div class="modal" id="imgModal" onclick="closeImg()"><img id="imgBig" style="max-width:92%;max-height:92%;border-radius:10px;"></div>
+<div class="modal" id="fieldReportModal" onclick="if(event.target===this)closeFieldReportModal()">
+  <div class="modal-box field-report-modal-box" id="fieldReportModalBody" onclick="event.stopPropagation()"></div>
+</div>
 <script>
 const JOB_PHOTO_FOLDER = 'jobs/electrical';
 let allJobs = [], allFieldReports = [], currentPhoto = '', uploading = false, currentFormType = 'maintenance';
@@ -326,6 +329,55 @@ function loadFieldReports(){
     })
     .catch(function(e){ if(host) host.innerHTML='<p style="color:var(--c-error);">❌ Error: '+e.message+'</p>'; });
 }
+function fieldReportRef_(r) {
+  var id = String((r && r.id) || '');
+  if (id.indexOf('ewr-') === 0) return '#FR' + id.slice(-6);
+  if (id.length > 8) return '#FR' + id.slice(-6);
+  return id ? ('#FR' + id) : '#FR';
+}
+function fieldReportType_(r) {
+  if (r && r.reportType === 'refundable') return 'refundable';
+  if (r && r.reportType === 'maintenance') return 'maintenance';
+  var amt = parseFloat(r && r.amount);
+  return (!isNaN(amt) && amt > 0) ? 'refundable' : 'maintenance';
+}
+function fieldReportTypeBadge_(r) {
+  return fieldReportType_(r) === 'refundable'
+    ? '<span class="badge refundable">Refundable</span>'
+    : '<span class="badge maintenance">Maintenance</span>';
+}
+function fieldReportAmountLabel_(r) {
+  var amt = parseFloat(r && r.amount);
+  if (isNaN(amt) || amt <= 0) return '';
+  return fmtMoney(amt) + ' IQD';
+}
+function fieldReportActionBtns_(r) {
+  return '<div class="field-report-actions" data-report-id="' + _esc(String(r.id || '')) + '" onclick="event.stopPropagation()"></div>';
+}
+function fieldReportVoiceBadge_(note) {
+  if (!note || !note.url) return '';
+  var dur = (note.durationSec && typeof assignVoiceFormatSec === 'function')
+    ? assignVoiceFormatSec(note.durationSec) : '';
+  return '<div class="field-report-voice-badge">Voice note' + (dur ? (' · ' + dur) : '') + '</div>';
+}
+function fieldReportModalVoiceHtml_(note) {
+  if (!note || !note.url) return '';
+  var player = (typeof assignVoiceInlinePlayerHtml_ === 'function')
+    ? assignVoiceInlinePlayerHtml_(note.url, note.durationSec || 0)
+    : ((typeof assignVoiceNoteDisplayHtml === 'function') ? assignVoiceNoteDisplayHtml(note) : '');
+  if (!player) return '';
+  var meta = [];
+  if (note.by) meta.push(note.by);
+  if (note.at && typeof dateOnly === 'function') meta.push(dateOnly(note.at));
+  else if (note.at) meta.push(String(note.at).slice(0, 10));
+  if (note.durationSec && typeof assignVoiceFormatSec === 'function') meta.push(assignVoiceFormatSec(note.durationSec));
+  var h = '<div class="field-report-modal-section field-report-modal-voice">';
+  h += '<span class="field-report-modal-label">Voice note</span>';
+  if (meta.length) h += '<span class="field-report-modal-voice-meta">' + _esc(meta.join(' · ')) + '</span>';
+  h += player;
+  h += '</div>';
+  return h;
+}
 function renderFieldReports(){
   var host=document.getElementById('fieldReportsTable');
   if(!host) return;
@@ -334,7 +386,7 @@ function renderFieldReports(){
   var rows=allFieldReports.filter(function(r){
     if(fd && String(r.date||'')!==fd) return false;
     if(fq){
-      var hay=(String(r.workerName||'')+' '+String(r.reportedBy||'')+' '+String(r.place||'')+' '+String(r.note||'')).toLowerCase();
+      var hay=(String(r.workerName||'')+' '+String(r.reportedBy||'')+' '+String(r.place||'')+' '+String(r.note||'')+' '+String(r.amount||'')).toLowerCase();
       if(hay.indexOf(fq)===-1) return false;
     }
     return true;
@@ -343,16 +395,77 @@ function renderFieldReports(){
     host.innerHTML='<p style="color:var(--text-faint);">No field reports match.</p>';
     return;
   }
-  host.innerHTML=rows.map(function(r){
+  var h='<p style="color:var(--text-soft);margin-bottom:12px;">'+rows.length+' field report'+(rows.length===1?'':'s')+(fd?' on '+fd:'')+'</p>';
+  h+='<div class="issue-grid field-reports-grid">';
+  rows.forEach(function(r){
     var who=r.workerName||r.reportedBy||'Worker';
-    var photo=r.photo?('<img class="eldept-field-thumb" src="'+r.photo+'" onclick="bigImg(this.src)" loading="lazy" alt="">'):'';
-    var voice=(r.voiceNote&&r.voiceNote.url&&typeof assignVoiceNoteDisplayHtml==='function')?assignVoiceNoteDisplayHtml(r.voiceNote):'';
-    return '<div class="eldept-field-card"><div class="eldept-field-head"><strong>'+_esc(who)+'</strong><span class="eldept-field-date">'+_esc(r.date||'')+'</span></div>'
-      +(r.place?('<div class="eldept-field-place">📍 '+_esc(r.place)+'</div>'):'')
-      +(r.note?('<p class="eldept-field-note">'+_esc(r.note)+'</p>'):'')
-      +photo+voice+'</div>';
-  }).join('');
-  if(typeof assignVoiceBindPlayers==='function') assignVoiceBindPlayers(host);
+    var ref=fieldReportRef_(r);
+    var photoHtml=r.photo
+      ? '<img class="issue-card-photo" src="'+r.photo+'" loading="lazy" alt="" onclick="event.stopPropagation();bigImg(this.src)">'
+      : '<div class="issue-card-photo issue-card-nophoto">No photo</div>';
+    var voice=fieldReportVoiceBadge_(r.voiceNote);
+    h+='<div class="issue-card field-report-card" data-id="'+_esc(String(r.id||''))+'" onclick="openFieldReportCard(\''+String(r.id||'').replace(/'/g,"\\'")+'\')">';
+    h+=photoHtml;
+    h+='<div class="issue-card-body">';
+    h+='<div class="field-report-top"><span class="field-report-ref">'+ref+'</span>'+fieldReportTypeBadge_(r)+'</div>';
+    h+='<div class="field-report-title">'+_esc(who)+' <span class="field-report-type-badge">Field report</span></div>';
+    if(fieldReportAmountLabel_(r)) h+='<div class="field-report-amount">'+fieldReportAmountLabel_(r)+'</div>';
+    if(r.place) h+='<div class="field-report-loc">'+_esc(r.place)+'</div>';
+    if(r.note) h+='<div class="field-report-note">'+_esc(r.note)+'</div>';
+    h+='<div class="field-report-date">'+_esc(r.date||'')+'</div>';
+    h+=voice;
+    h+=fieldReportActionBtns_(r);
+    h+='</div></div>';
+  });
+  h+='</div>';
+  host.innerHTML=h;
+}
+function openFieldReportCard(id){
+  var r=allFieldReports.find(function(x){ return String(x.id)===String(id); });
+  if(!r) return;
+  var who=r.workerName||r.reportedBy||'Worker';
+  var body=document.getElementById('fieldReportModalBody');
+  if(!body) return;
+  var hasPhoto=!!r.photo;
+  var hasVoice=!!(r.voiceNote&&r.voiceNote.url);
+  var hasMedia=hasPhoto||hasVoice;
+  var h='<div class="field-report-modal">';
+  h+='<span class="close-x" onclick="closeFieldReportModal()" aria-label="Close">&times;</span>';
+  h+='<div class="field-report-modal-head"><span class="field-report-ref">'+fieldReportRef_(r)+'</span>'+fieldReportTypeBadge_(r)+'</div>';
+  h+='<p class="field-report-modal-worker">'+_esc(who)+'</p>';
+  h+='<div class="field-report-modal-body'+(hasMedia?' has-media':'')+'">';
+  h+='<div class="field-report-modal-main">';
+  h+='<div class="field-report-modal-meta">';
+  h+='<div class="field-report-modal-row"><span class="field-report-modal-label">Type</span><span class="field-report-modal-value">'+_esc(fieldReportType_(r)==='refundable'?'Refundable':'Maintenance')+'</span></div>';
+  if(fieldReportAmountLabel_(r)) h+='<div class="field-report-modal-row"><span class="field-report-modal-label">Amount</span><span class="field-report-modal-value field-report-modal-amount">'+fieldReportAmountLabel_(r)+'</span></div>';
+  if(r.place) h+='<div class="field-report-modal-row"><span class="field-report-modal-label">Place</span><span class="field-report-modal-value">'+_esc(r.place)+'</span></div>';
+  if(r.note) h+='<div class="field-report-modal-row"><span class="field-report-modal-label">Note</span><span class="field-report-modal-value">'+_esc(r.note)+'</span></div>';
+  h+='<div class="field-report-modal-row"><span class="field-report-modal-label">Date</span><span class="field-report-modal-value">'+_esc(r.date||'')+'</span></div>';
+  h+='</div>';
+  if(hasVoice&&!hasPhoto) h+=fieldReportModalVoiceHtml_(r.voiceNote);
+  h+='</div>';
+  if(hasMedia){
+    h+='<div class="field-report-modal-side">';
+    if(hasPhoto){
+      h+='<div class="field-report-modal-section field-report-modal-photo-wrap">';
+      h+='<span class="field-report-modal-label">Photo</span>';
+      h+='<div class="field-report-modal-photo-frame">';
+      h+='<img class="field-report-modal-photo" src="'+r.photo+'" onclick="bigImg(this.src)" alt="Report photo">';
+      h+='</div>';
+      h+='<p class="field-report-modal-photo-hint">Tap photo to enlarge</p>';
+      h+='</div>';
+    }
+    if(hasVoice&&hasPhoto) h+=fieldReportModalVoiceHtml_(r.voiceNote);
+    h+='</div>';
+  }
+  h+='</div></div>';
+  body.innerHTML=h;
+  if(typeof assignVoiceBindPlayers==='function') assignVoiceBindPlayers(body);
+  document.getElementById('fieldReportModal').classList.add('show');
+}
+function closeFieldReportModal(){
+  var m=document.getElementById('fieldReportModal');
+  if(m) m.classList.remove('show');
 }
 function dayOf(r){ var d=String(r.date||r.createdAt||''); if(/^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0,10); var dt=new Date(d.replace(' ','T')); if(!isNaN(dt.getTime())){ var z=function(n){return String(n).padStart(2,'0');}; return dt.getFullYear()+'-'+z(dt.getMonth()+1)+'-'+z(dt.getDate()); } return ''; }
 function monthOf(r){

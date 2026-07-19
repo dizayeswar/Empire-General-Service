@@ -144,6 +144,15 @@ body:not(.civil-worker-mode) #workerApp {
   background: var(--input-bg);
   color: var(--text);
 }
+.worker-field-amount {
+  max-width: 220px;
+}
+.worker-field-hint {
+  margin: -4px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-soft);
+}
 .worker-field-photo-btn {
   width: 100%;
   padding: 14px 16px;
@@ -213,6 +222,19 @@ body:not(.civil-worker-mode) #workerApp {
 .worker-field-my-date {
   font-size: 12px;
   color: var(--text-soft);
+}
+.worker-field-my-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.worker-field-my-amount {
+  color: var(--c-money, #9a7b10);
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 4px;
 }
 .worker-field-my-place {
   font-weight: 700;
