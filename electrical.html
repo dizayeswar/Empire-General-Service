@@ -45,14 +45,14 @@
       </div>
       <p id="whoLabel"></p>
       <nav class="side-nav side-nav-dept">
-        <button class="tab-btn dept-tab-btn active" onclick="switchDeptTab(event,'jobs')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span> <span class="lbl">Jobs</span></button>
+        <button class="tab-btn dept-tab-btn active" id="tab-jobs" onclick="switchDeptTab(event,'jobs')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span> <span class="lbl">Jobs</span></button>
         <button class="tab-btn dept-tab-btn" id="tab-fieldreports" onclick="switchDeptTab(event,'fieldreports')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 18V5"/><path d="M8 21h8"/><path d="M6 8h12"/><path d="M9 5h6"/></svg></span> <span class="lbl">Field Reports</span></button>
         <button class="tab-btn dept-tab-btn" id="tab-add" onclick="switchDeptTab(event,'jobadd')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span> <span class="lbl">Add</span></button>
         <button class="tab-btn dept-tab-btn" id="tab-report" onclick="switchDeptTab(event,'report')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg></span> <span class="lbl">Report</span></button>
         <button class="tab-btn dept-tab-btn" id="tab-analytics" onclick="switchDeptTab(event,'jobanalytics')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 11h8"/><path d="M7 16h12"/><path d="M7 6h3"/></svg></span> <span class="lbl">Analytics</span></button>
       </nav>
       <nav class="side-nav-issue" aria-label="Electric issues">
-        <button class="tab-btn issue-tab-btn" onclick="switchTab(event,'list')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span> <span class="lbl">Issues</span></button>
+        <button class="tab-btn issue-tab-btn" id="tab-issues" onclick="switchTab(event,'list')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span> <span class="lbl">Issues</span></button>
         <button class="tab-btn issue-tab-btn" id="tab-issue-add" onclick="switchTab(event,'add')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span> <span class="lbl">Add Issue</span></button>
         <button class="tab-btn issue-tab-btn" id="tab-issue-analytics" onclick="switchTab(event,'analytics')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 11h8"/><path d="M7 16h12"/><path d="M7 6h3"/></svg></span> <span class="lbl">Issue Analytics</span></button>
         <button class="tab-btn issue-tab-btn tab-btn-not-civil" id="tabBtnNotCivil" onclick="switchTab(event,'notcivil')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></span> <span class="lbl">Not Electric Dept</span> <span class="side-nav-badge" id="notCivilNavBadge" style="display:none;"></span></button>
@@ -323,7 +323,7 @@
 <script src="config.js"></script>
 <script src="assets/empire-storage.js"></script>
 <script src="assets/empire-api.js"></script>
-<script src="assets/empire-auth.js"></script>
+<script src="assets/empire-auth.js?v=2026-07-19-hide-electrical"></script>
 <script src="assets/empire-core.js"></script>
 <script src="assets/empire-assign-voice.js"></script>
 <div class="modal" id="imgModal" onclick="closeImg()"><img id="imgBig" style="max-width:92%;max-height:92%;border-radius:10px;"></div>
@@ -335,10 +335,12 @@ const JOB_PHOTO_FOLDER = 'jobs/electrical';
 let allJobs = [], allFieldReports = [], currentPhoto = '', uploading = false, currentFormType = 'maintenance', _fieldReportEditingId = '', _fieldReportTransferring = false, _issueMonthlySaving = false;
 function tok(){ return empireGetToken(); }
 function currentUser(){ return empireGetUser(); }
-function PERMS(){ return empireGetPerms(); }
+function PERMS(){ return typeof empireGetElectricalPerms==='function' ? empireGetElectricalPerms() : empireGetPerms(); }
 function applyDeptPerms(){ if(window.tsPerm) window.tsPerm(); if(window.tsLoadGlobal&&empireGetToken()) window.tsLoadGlobal();
   var p=PERMS();
   function show(id,ok){ var el=document.getElementById(id); if(el) el.style.display = ok ? '' : 'none'; }
+  show('tab-jobs', p.jobsTab!==false);
+  show('tab-fieldreports', p.fieldReports!==false);
   show('tab-add', p.add!==false);
   show('tab-report', p.report!==false);
   show('tab-analytics', p.analytics!==false);
@@ -1332,12 +1334,17 @@ function doReset(){ var pw=document.getElementById('resetPwInput').value; var ms
 (function(){
   window._applyIssuePerms = applyPerms;
   window.applyPerms = function(){
+    if(typeof PAGEPERMS!=='undefined') PAGEPERMS = PERMS();
     applyDeptPerms();
     if(window._applyIssuePerms) window._applyIssuePerms();
     var p=PERMS();
     function showTab(id,ok){ var el=document.getElementById(id); if(el) el.style.display = ok ? '' : 'none'; }
+    showTab('tab-issues', p.issuesTab!==false);
     showTab('tab-issue-add', p.add!==false);
     showTab('tab-issue-analytics', p.analytics!==false);
+    if(p.notElectricTab===false) showTab('tabBtnNotCivil', false);
+    if(p.fixDelayTab===false) showTab('tabBtnFixDelay', false);
+    if(p.liveLocation===false) showTab('tabBtnGps', false);
   };
   window.enterApp = function(){ enterDeptApp(); if(window.issueEnterApp) window.issueEnterApp(); };
   window.refreshAllData = function(forceIssues){ loadJobs(); loadFieldReports(); if(window.loadIssues) window.loadIssues(forceIssues!==false); };

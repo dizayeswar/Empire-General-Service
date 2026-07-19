@@ -338,16 +338,18 @@ function respond(obj) {
 }
 
 // Roles: admin = everything incl reset; editor = add/edit/delete + analytics + report (no reset); viewer = read-only; worker = assigned civil jobs + fix only.
-// Optional "Hide" column (col E) removes extra abilities: list any of add, edit, delete, analytics, report, dashboard, categories, live location.
-function computePerms_(role, hide) {
+// Optional "Hide" column (col E) removes abilities on every page.
+// Optional "hideElectrical" column (col H) removes Electrical Department sidebar items only (same keywords + jobs, field reports, issues, not electric, needs month).
+function basePermsForRole_(role) {
   role = normalizeRole_(role);
-  var p;
-  if (role==='admin') p = {view:true,add:true,edit:true,del:true,analytics:true,report:true,dashboard:true,reset:true,assign:true,fix:true,categories:true,liveLocation:true};
-  else if (role==='worker') p = {view:true,add:false,edit:false,del:false,analytics:false,report:false,dashboard:true,reset:false,assign:false,fix:true,categories:true,liveLocation:false};
-  else if (role==='viewer') p = {view:true,add:false,edit:false,del:false,analytics:true,report:true,dashboard:true,reset:false,assign:false,fix:false,categories:true,liveLocation:true};
-  else p = {view:true,add:true,edit:true,del:true,analytics:true,report:true,dashboard:true,reset:false,assign:true,fix:true,categories:true,liveLocation:true};
-  var raw = String(hide||'').toLowerCase();
-  if (!raw) return {role:role, perms:p};
+  if (role==='admin') return {view:true,add:true,edit:true,del:true,analytics:true,report:true,dashboard:true,reset:true,assign:true,fix:true,categories:true,liveLocation:true,jobsTab:true,fieldReports:true,issuesTab:true,notElectricTab:true,fixDelayTab:true};
+  if (role==='worker') return {view:true,add:false,edit:false,del:false,analytics:false,report:false,dashboard:true,reset:false,assign:false,fix:true,categories:true,liveLocation:false,jobsTab:true,fieldReports:true,issuesTab:true,notElectricTab:true,fixDelayTab:true};
+  if (role==='viewer') return {view:true,add:false,edit:false,del:false,analytics:true,report:true,dashboard:true,reset:false,assign:false,fix:false,categories:true,liveLocation:true,jobsTab:true,fieldReports:true,issuesTab:true,notElectricTab:true,fixDelayTab:true};
+  return {view:true,add:true,edit:true,del:true,analytics:true,report:true,dashboard:true,reset:false,assign:true,fix:true,categories:true,liveLocation:true,jobsTab:true,fieldReports:true,issuesTab:true,notElectricTab:true,fixDelayTab:true};
+}
+function applyHideTokens_(p, hide) {
+  var raw = String(hide || '').toLowerCase();
+  if (!raw) return p;
   var tokens = raw.indexOf(',') === -1 ? [raw] : raw.split(',');
   tokens.forEach(function (tok) {
     tok = String(tok || '').trim();
@@ -360,8 +362,32 @@ function computePerms_(role, hide) {
     if (tok.indexOf('dashboard') !== -1 || tok === 'dash') p.dashboard = false;
     if (tok.indexOf('categor') !== -1) p.categories = false;
     if (tok.indexOf('live') !== -1 && tok.indexOf('loc') !== -1) p.liveLocation = false;
+    if (tok.indexOf('field report') !== -1) p.fieldReports = false;
+    if (tok.indexOf('jobs') !== -1 || tok === 'job') p.jobsTab = false;
+    if (tok.indexOf('issues') !== -1 || tok === 'issue') p.issuesTab = false;
+    if (tok.indexOf('not electric') !== -1 || tok.indexOf('not dept') !== -1) p.notElectricTab = false;
+    if (tok.indexOf('needs month') !== -1 || tok.indexOf('fix delay') !== -1) p.fixDelayTab = false;
   });
+  return p;
+}
+function computePerms_(role, hide) {
+  role = normalizeRole_(role);
+  var p = basePermsForRole_(role);
+  applyHideTokens_(p, hide);
   return {role:role, perms:p};
+}
+function electricalHideForUserRow_(row) {
+  if (!row) return '';
+  return String(row[7] || '').trim();
+}
+function mergeElectricalHidePerms_(basePerms, electricalHide) {
+  var p = {};
+  var k;
+  for (k in basePerms) {
+    if (Object.prototype.hasOwnProperty.call(basePerms, k)) p[k] = basePerms[k];
+  }
+  applyHideTokens_(p, electricalHide);
+  return p;
 }
 function normalizeProjectsField_(raw, userDept) {
   userDept = String(userDept || '').trim().toLowerCase();
@@ -835,7 +861,8 @@ function handleLogin(body) {
       var tsheet = ss.getSheetByName(TOKENS_SHEET) || ss.insertSheet(TOKENS_SHEET);
       tsheet.appendRow([token, username, tokenDept, new Date().getTime(), rp.role, passwordDigest_(upass)]);
       rememberPushAuth_(token, username, tokenDept, rp.role);
-      var loginResult = {ok:true,success:true,token:token,username:username,dept:tokenDept,role:rp.role,perms:rp.perms,projects:projects,trade:trade,message:'Login successful'};
+      var electricalHide = electricalHideForUserRow_(rows[i]);
+      var loginResult = {ok:true,success:true,token:token,username:username,dept:tokenDept,role:rp.role,perms:rp.perms,electricalHide:electricalHide,electricalPerms:mergeElectricalHidePerms_(rp.perms, electricalHide),projects:projects,trade:trade,message:'Login successful'};
       var loginFcm = String(body.fcmToken || body.pushToken || '').trim();
       if (loginFcm && rp.role === 'worker') {
         try { persistWorkerPushToken_(username, loginFcm, String(body.platform || 'web-fcm')); } catch (e) {}
@@ -874,7 +901,8 @@ function handleGetPerms(body) {
   for (var j=1;j<urows.length;j++) {
     if (String(urows[j][0]||'').trim().toLowerCase()===username) {
       var rp = computePerms_(urows[j][3], urows[j][4]);
-      return {ok:true, role:rp.role, perms:rp.perms, projects:projectsForUserRow_(urows[j]), trade:tradeForUserRow_(urows[j])};
+      var electricalHide = electricalHideForUserRow_(urows[j]);
+      return {ok:true, role:rp.role, perms:rp.perms, electricalHide:electricalHide, electricalPerms:mergeElectricalHidePerms_(rp.perms, electricalHide), projects:projectsForUserRow_(urows[j]), trade:tradeForUserRow_(urows[j])};
     }
   }
   return {ok:false, error:'User not found'};

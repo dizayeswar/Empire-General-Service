@@ -8,6 +8,7 @@ var EMPIRE_AUTH_KEYS = {
   tokenDept: 'empire_token_dept',
   projects: 'empire_projects',
   trade: 'empire_trade',
+  electricalHide: 'empire_electrical_hide',
   loggedIn: 'empire_loggedIn'
 };
 
@@ -103,6 +104,49 @@ function empireGetTrade() {
   return empireAuthLs('trade');
 }
 
+function empireGetElectricalHide() {
+  empireMigrateSession();
+  return empireAuthLs('electricalHide');
+}
+
+function empireApplyHideTokens_(p, hide) {
+  p = p || {};
+  var raw = String(hide || '').toLowerCase();
+  if (!raw) return p;
+  var out = {};
+  var k;
+  for (k in p) {
+    if (Object.prototype.hasOwnProperty.call(p, k)) out[k] = p[k];
+  }
+  var tokens = raw.indexOf(',') === -1 ? [raw] : raw.split(',');
+  tokens.forEach(function (tok) {
+    tok = String(tok || '').trim();
+    if (!tok) return;
+    if (tok.indexOf('add') !== -1) out.add = false;
+    if (tok.indexOf('edit') !== -1) out.edit = false;
+    if (tok.indexOf('delete') !== -1 || tok.indexOf('del') !== -1) out.del = false;
+    if (tok.indexOf('analytic') !== -1) out.analytics = false;
+    if (tok.indexOf('report') !== -1 || tok.indexOf('monthly') !== -1) out.report = false;
+    if (tok.indexOf('dashboard') !== -1 || tok === 'dash') out.dashboard = false;
+    if (tok.indexOf('categor') !== -1) out.categories = false;
+    if (tok.indexOf('live') !== -1 && tok.indexOf('loc') !== -1) out.liveLocation = false;
+    if (tok.indexOf('field report') !== -1) out.fieldReports = false;
+    if (tok.indexOf('jobs') !== -1 || tok === 'job') out.jobsTab = false;
+    if (tok.indexOf('issues') !== -1 || tok === 'issue') out.issuesTab = false;
+    if (tok.indexOf('not electric') !== -1 || tok.indexOf('not dept') !== -1) out.notElectricTab = false;
+    if (tok.indexOf('needs month') !== -1 || tok.indexOf('fix delay') !== -1) out.fixDelayTab = false;
+  });
+  return out;
+}
+
+function empireMergeElectricalHidePerms(basePerms, electricalHide) {
+  return empireApplyHideTokens_(basePerms, electricalHide);
+}
+
+function empireGetElectricalPerms() {
+  return empireMergeElectricalHidePerms(empireGetPerms(), empireGetElectricalHide());
+}
+
 function empireCanAccessProject(project) {
   var scoped = empireGetProjects();
   if (!scoped) return true;
@@ -135,6 +179,7 @@ function empireSetSession(username, data) {
   empireAuthSet('tokenDept', String(data.dept || data.tokenDept || '').trim().toLowerCase());
   empireAuthSet('projects', JSON.stringify(data.projects || []));
   empireAuthSet('trade', String(data.trade || '').trim().toLowerCase());
+  empireAuthSet('electricalHide', String(data.electricalHide || '').trim());
 }
 
 function empireClearLegacyKeys() {
@@ -305,6 +350,7 @@ function empireAuthRefreshPerms(onUpdate) {
         if (d.role) empireAuthSet('role', d.role);
         if (d.projects) empireAuthSet('projects', JSON.stringify(d.projects));
         if (d.trade) empireAuthSet('trade', String(d.trade).trim().toLowerCase());
+        if (d.electricalHide != null) empireAuthSet('electricalHide', String(d.electricalHide || '').trim());
         if (typeof onUpdate === 'function') onUpdate(d);
       } else if (empireAuthHandleInvalidSession_(d)) {
         return;
