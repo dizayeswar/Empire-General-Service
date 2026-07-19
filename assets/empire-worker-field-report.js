@@ -146,12 +146,14 @@ function workerFieldReportClearForm_(resetMsg) {
   _wfrUploading = false;
   var place = document.getElementById('wfrPlace');
   var note = document.getElementById('wfrNote');
+  var materials = document.getElementById('wfrMaterials');
   var amount = document.getElementById('wfrAmount');
   var img = document.getElementById('wfrImage');
   var status = document.getElementById('wfrPhotoStatus');
   var msg = document.getElementById('wfrFormMsg');
   if (place) place.value = '';
   if (note) note.value = '';
+  if (materials) materials.value = '';
   if (amount) amount.value = '';
   if (img) {
     img.style.display = 'none';
@@ -234,6 +236,7 @@ function workerFieldReportRenderMine_() {
       + '</div>'
       + (r.place ? ('<div class="worker-field-my-place">' + workerFieldReportEsc_(r.place) + '</div>') : '')
       + (r.note ? ('<p class="worker-field-my-note">' + workerFieldReportEsc_(r.note) + '</p>') : '')
+      + (r.materials ? ('<p class="worker-field-my-note">' + workerFieldReportEsc_(r.materials) + '</p>') : '')
       + (meta.length ? ('<div class="worker-field-my-meta">' + meta.join('') + '</div>') : '')
       + '</div></article>';
   }).join('') + '</div>';
@@ -249,9 +252,11 @@ function workerFieldReportSubmit_() {
   }
   var placeEl = document.getElementById('wfrPlace');
   var noteEl = document.getElementById('wfrNote');
+  var materialsEl = document.getElementById('wfrMaterials');
   var amountEl = document.getElementById('wfrAmount');
   var place = placeEl ? String(placeEl.value || '').trim() : '';
   var note = noteEl ? String(noteEl.value || '').trim() : '';
+  var materials = materialsEl ? String(materialsEl.value || '').trim() : '';
   var amount = amountEl ? workerFieldReportParseAmount_(amountEl.value) : 0;
   var msg = document.getElementById('wfrFormMsg');
   var btn = document.getElementById('wfrSubmitBtn');
@@ -280,6 +285,7 @@ function workerFieldReportSubmit_() {
       token: issueToken() || '',
       place: place,
       note: note,
+      materials: materials,
       amount: amount || '',
       photo: _wfrPhotoUrl || '',
       workerName: typeof civilWorkerName === 'function' ? civilWorkerName(empireGetUser()) : (empireGetUser() || '')

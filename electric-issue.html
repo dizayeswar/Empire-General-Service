@@ -59,6 +59,8 @@
       <input type="text" id="wfrPlace" class="worker-field-input" placeholder="Where? e.g. WW-12 corridor, ES-4 parking…" autocomplete="off">
       <label class="worker-field-label" for="wfrNote">Note</label>
       <textarea id="wfrNote" class="worker-field-textarea" rows="3" placeholder="What did you find or do?"></textarea>
+      <label class="worker-field-label" for="wfrMaterials">Materials (optional)</label>
+      <input type="text" id="wfrMaterials" class="worker-field-input" placeholder="e.g. 2 Switch plug, 1m Wire 2x2.5" autocomplete="off">
       <label class="worker-field-label" for="wfrAmount">Amount (optional)</label>
       <input type="text" id="wfrAmount" class="worker-field-input worker-field-amount" placeholder="IQD — leave empty for maintenance" inputmode="numeric" autocomplete="off" oninput="workerFieldReportHandleAmountInput(event)">
       <p class="worker-field-hint">Leave empty for a <strong>maintenance</strong> report. Enter an amount for <strong>refundable</strong> work.</p>
@@ -218,9 +220,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js"></script>
 <script src="assets/empire-push.js?v=2026-07-18-electric-workers"></script>
-<script src="assets/empire-assign-voice.js?v=2026-07-19-issue-review"></script>
-<script src="assets/empire-worker-field-report.js?v=2026-07-19-my-reports"></script>
-<script src="assets/issue-tracker.js?v=2026-07-19-issue-review"></script>
+<script src="assets/empire-assign-voice.js?v=2026-07-19-issue-monthly"></script>
+<script src="assets/empire-worker-field-report.js?v=2026-07-19-issue-monthly"></script>
+<script src="assets/issue-tracker.js?v=2026-07-19-issue-monthly"></script>
 <script src="assets/issue-excel-export.js?v=2026-07-18-electric-workers"></script>
 <script src="assets/issue-recycle-bin.js?v=2026-07-18-electric-workers"></script>
 <div id="resetModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1600;align-items:center;justify-content:center;">

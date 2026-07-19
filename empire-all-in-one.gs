@@ -21,7 +21,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-19-issue-review-v1';
+var SCRIPT_VERSION = '2026-07-19-issue-monthly-v1';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -602,6 +602,7 @@ function parseWorkerCompletions_(raw) {
         photoSources: photoSources,
         at: String(item.at || '').trim(),
         note: String(item.note || '').trim(),
+        materials: String(item.materials || '').trim(),
         lat: isFinite(Number(item.lat)) ? Number(item.lat) : null,
         lng: isFinite(Number(item.lng)) ? Number(item.lng) : null,
         accuracy: item.accuracy === '' || item.accuracy === null || item.accuracy === undefined ? null : Number(item.accuracy),
@@ -2612,7 +2613,8 @@ function handleMarkFixed(body, sheetName, auth) {
           photos: photos,
           photoSources: normalizePhotoSources_(body, photos.length),
           at: new Date().toISOString(),
-          note: String(body.fixNote || '').trim()
+          note: String(body.fixNote || '').trim(),
+          materials: String(body.fixMaterials || '').trim()
         };
         if (body.fixVoiceNote && body.fixVoiceNote.url) {
           completion.voiceNote = {
@@ -2783,7 +2785,7 @@ function electricReportMonthOfDate_(dateStr) {
 
 function ensureElectricWorkerReportsSheet_(sheet) {
   if (!sheet) return;
-  var headers = ['id','date','place','note','photo','voiceNote','reportedBy','workerName','createdAt','amount','reportType','status','transferredJobId','editedNote','transferredAt','transferredBy'];
+  var headers = ['id','date','place','note','photo','voiceNote','reportedBy','workerName','createdAt','amount','reportType','status','transferredJobId','editedNote','transferredAt','transferredBy','materials'];
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(headers);
     return;
@@ -2816,6 +2818,7 @@ function handleAddElectricWorkerReport(body, auth) {
   var workerName = String(body.workerName || body.displayName || username || '').trim();
   var amount = parseElectricWorkerReportAmount_(body);
   var reportType = electricWorkerReportTypeFromAmount_(amount);
+  var materials = String(body.materials || '').trim();
   var id = body.id || ('ewr-' + now.getTime());
   sheet.appendRow([
     id,
@@ -2833,7 +2836,8 @@ function handleAddElectricWorkerReport(body, auth) {
     '',
     '',
     '',
-    ''
+    '',
+    materials
   ]);
   return {ok:true,success:true,id:id};
 }
@@ -2879,6 +2883,7 @@ function handleGetElectricWorkerReports(body, auth) {
       editedNote: String(rows[i][13] || ''),
       transferredAt: dtIssue_(rows[i][14]),
       transferredBy: String(rows[i][15] || ''),
+      materials: String(rows[i][16] || ''),
       reportMonth: electricReportMonthOfDate_(ds)
     });
   }
@@ -2891,12 +2896,13 @@ function handleGetElectricWorkerReports(body, auth) {
 function findElectricWorkerReportRow_(sheet, id) {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return null;
+  var colCount = Math.max(16, sheet.getLastColumn());
   var idCol = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
   for (var i = 0; i < idCol.length; i++) {
     if (String(idCol[i][0]) === id) {
       return {
         rowIdx: i + 2,
-        row: sheet.getRange(i + 2, 1, 1, 16).getValues()[0]
+        row: sheet.getRange(i + 2, 1, 1, colCount).getValues()[0]
       };
     }
   }
@@ -2937,6 +2943,7 @@ function handleTransferElectricWorkerReport(body, auth) {
   var jobType = reportType === 'refundable' ? 'refundable' : 'general';
   var workerName = String(row[7] || row[6] || '');
   var photo = String(row[4] || '');
+  var materials = String(body.materials || row[16] || '').trim() || '0';
   var now = new Date();
   var jobId = 'job-' + now.getTime();
   var reportMonth = electricReportMonthOfDate_(dateStr);
@@ -2950,11 +2957,11 @@ function handleTransferElectricWorkerReport(body, auth) {
     dateStr,
     editedNote,
     place,
-    '0',
+    materials,
     workerName,
     jobType,
     photo,
-    'From field report ' + id,
+    '',
     createdBy,
     createdAt,
     amountNum > 0 ? amountNum : ''
@@ -3019,8 +3026,8 @@ function firstIssueFixedPhotoGs_(row, completions) {
 function handleTransferElectricIssueCompletion(body, auth) {
   var id = String(body.id || '').trim();
   if (!id) return {ok:false,success:false,error:'missing_id',message:'Issue id is required.'};
-  var editedNote = String(body.note || body.job || '').trim();
-  if (!editedNote) return {ok:false,success:false,error:'empty_note',message:'Enter a job description before saving to the monthly report.'};
+  var editedJob = String(body.job || body.note || '').trim();
+  if (!editedJob) return {ok:false,success:false,error:'empty_note',message:'Enter a job description before saving to the monthly report.'};
 
   var ss = getSS_();
   var sheet = ss.getSheetByName(ELECTRIC_SHEET);
@@ -3050,25 +3057,44 @@ function handleTransferElectricIssueCompletion(body, auth) {
 
   var completions = parseWorkerCompletions_(row[CIVIL_WORKER_COMPLETIONS_COL - 1]);
   var fixedAtRaw = row[14];
-  var dateStr = '';
-  if (fixedAtRaw instanceof Date) dateStr = Utilities.formatDate(fixedAtRaw, tz, 'yyyy-MM-dd');
+  var defaultDateStr = '';
+  if (fixedAtRaw instanceof Date) defaultDateStr = Utilities.formatDate(fixedAtRaw, tz, 'yyyy-MM-dd');
   else {
     var s = String(fixedAtRaw || row[7] || '');
-    dateStr = /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+    defaultDateStr = /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
   }
-  var location = issueLocationLabelGs_(row[2], row[3], row[4]);
-  var staff = String(row[13] || '');
-  if (!staff && completions.length) {
+  var dateStr = String(body.date || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}/.test(dateStr)) dateStr = defaultDateStr;
+
+  var defaultLocation = issueLocationLabelGs_(row[2], row[3], row[4]);
+  var location = String(body.location || '').trim() || defaultLocation;
+
+  var defaultStaff = String(row[13] || '');
+  if (!defaultStaff && completions.length) {
     var names = [];
     for (var c = 0; c < completions.length; c++) {
       var nm = String((completions[c] && completions[c].user) || '').trim();
       if (nm && names.indexOf(nm) === -1) names.push(nm);
     }
-    staff = names.join(', ');
+    defaultStaff = names.join(', ');
   }
-  var photo = firstIssueFixedPhotoGs_(row, completions);
-  var issueNum = Number(row[ISSUE_NUM_COL - 1] || 0);
-  var issueRef = issueNum ? issueRefGs_(issueNum) : id;
+  var staff = String(body.staff || '').trim() || defaultStaff;
+
+  var defaultMaterials = '0';
+  if (completions.length) {
+    var matParts = [];
+    for (var m = 0; m < completions.length; m++) {
+      var mt = String((completions[m] && completions[m].materials) || '').trim();
+      if (mt && matParts.indexOf(mt) === -1) matParts.push(mt);
+    }
+    if (matParts.length) defaultMaterials = matParts.join('; ');
+  }
+  var materials = String(body.materials || '').trim() || defaultMaterials || '0';
+
+  var defaultPhoto = firstIssueFixedPhotoGs_(row, completions);
+  var photo = String(body.photo || '').trim() || defaultPhoto;
+  var amount = String(body.amount || '').trim();
+  var jobType = 'general';
   var now = new Date();
   var jobId = 'job-' + now.getTime();
   var reportMonth = electricReportMonthOfDate_(dateStr);
@@ -3080,22 +3106,22 @@ function handleTransferElectricIssueCompletion(body, auth) {
   jobsSheet.appendRow([
     jobId,
     dateStr,
-    editedNote,
+    editedJob,
     location,
-    '0',
+    materials,
     staff,
-    'general',
+    jobType,
     photo,
-    'From issue #' + issueRef + ' ' + id,
+    '',
     createdBy,
     createdAt,
-    ''
+    amount
   ]);
 
   sheet.getRange(foundIdx, CIVIL_MONTHLY_TRANSFER_STATUS_COL, 1, 5).setValues([[
     'transferred',
     jobId,
-    editedNote,
+    editedJob,
     createdAt,
     createdBy
   ]]);
@@ -3111,16 +3137,16 @@ function handleTransferElectricIssueCompletion(body, auth) {
     job: {
       id: jobId,
       date: dateStr,
-      job: editedNote,
+      job: editedJob,
       location: location,
-      materials: '0',
+      materials: materials,
       staff: staff,
-      type: 'general',
+      type: jobType,
       photo: photo,
-      notes: 'From issue #' + issueRef + ' ' + id,
+      notes: '',
       createdBy: createdBy,
       createdAt: createdAt,
-      amount: ''
+      amount: amount
     }
   };
 }
