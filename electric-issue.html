@@ -60,7 +60,7 @@
       <label class="worker-field-label" for="wfrNote">Note</label>
       <textarea id="wfrNote" class="worker-field-textarea" rows="3" placeholder="What did you find or do?"></textarea>
       <label class="worker-field-label" for="wfrAmount">Amount (optional)</label>
-      <input type="number" id="wfrAmount" class="worker-field-input worker-field-amount" placeholder="IQD — leave empty for maintenance" min="0" step="1" inputmode="numeric" autocomplete="off">
+      <input type="text" id="wfrAmount" class="worker-field-input worker-field-amount" placeholder="IQD — leave empty for maintenance" inputmode="numeric" autocomplete="off" oninput="workerFieldReportHandleAmountInput(event)">
       <p class="worker-field-hint">Leave empty for a <strong>maintenance</strong> report. Enter an amount for <strong>refundable</strong> work.</p>
       <label class="worker-field-label">Photo (optional)</label>
       <button type="button" class="worker-field-photo-btn" onclick="workerFieldReportPickPhoto()">Camera / gallery</button>
@@ -219,7 +219,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js"></script>
 <script src="assets/empire-push.js?v=2026-07-18-electric-workers"></script>
 <script src="assets/empire-assign-voice.js?v=2026-07-18-field-reports"></script>
-<script src="assets/empire-worker-field-report.js?v=2026-07-19-field-amount"></script>
+<script src="assets/empire-worker-field-report.js?v=2026-07-19-amount-format"></script>
 <script src="assets/issue-tracker.js?v=2026-07-18-field-reports"></script>
 <script src="assets/issue-excel-export.js?v=2026-07-18-electric-workers"></script>
 <script src="assets/issue-recycle-bin.js?v=2026-07-18-electric-workers"></script>

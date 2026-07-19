@@ -33,9 +33,25 @@ function workerFieldReportPhotoFolder_() {
 
 function workerFieldReportParseAmount_(raw) {
   if (raw == null || raw === '') return 0;
-  var n = parseFloat(String(raw).replace(/[^\d.-]/g, ''));
+  var digits = String(raw).replace(/\D/g, '');
+  if (!digits) return 0;
+  var n = parseInt(digits, 10);
   if (isNaN(n) || n <= 0) return 0;
-  return Math.round(n);
+  return n;
+}
+
+function workerFieldReportFormatAmountDigits_(digits) {
+  digits = String(digits || '').replace(/\D/g, '');
+  if (!digits) return '';
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+function workerFieldReportHandleAmountInput_(e) {
+  var el = (e && e.target) ? e.target : document.getElementById('wfrAmount');
+  if (!el) return;
+  var digits = String(el.value || '').replace(/\D/g, '');
+  var formatted = workerFieldReportFormatAmountDigits_(digits);
+  if (el.value !== formatted) el.value = formatted;
 }
 
 function workerFieldReportType_(rOrAmount) {
@@ -72,7 +88,13 @@ function workerFieldReportInit_() {
   if (place) place.placeholder = workerFieldReportUi_('placePlaceholder', 'Where?');
   if (note) note.placeholder = workerFieldReportUi_('notePlaceholder', 'What did you find or do?');
   var amount = document.getElementById('wfrAmount');
-  if (amount) amount.placeholder = workerFieldReportUi_('amountPlaceholder', 'IQD — leave empty for maintenance');
+  if (amount) {
+    amount.placeholder = workerFieldReportUi_('amountPlaceholder', 'IQD — leave empty for maintenance');
+    if (!amount.dataset.wfrAmountBound) {
+      amount.dataset.wfrAmountBound = '1';
+      amount.addEventListener('input', workerFieldReportHandleAmountInput_);
+    }
+  }
   workerFieldReportMountVoice_();
   workerFieldReportClearForm_(false);
   workerFieldReportLoadMine_();
@@ -279,3 +301,4 @@ window.workerFieldReportSwitchTab = workerFieldReportSwitchTab_;
 window.workerFieldReportSubmit = workerFieldReportSubmit_;
 window.workerFieldReportHandleFile = workerFieldReportHandleFile_;
 window.workerFieldReportPickPhoto = workerFieldReportPickPhoto_;
+window.workerFieldReportHandleAmountInput = workerFieldReportHandleAmountInput_;
