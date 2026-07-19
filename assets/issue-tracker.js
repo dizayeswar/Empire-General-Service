@@ -448,6 +448,9 @@ function workerCompletionsBlockHtml(r) {
     if (c.photos && c.photos.length) {
       h += completionPhotoGridHtml(c.photos, c);
     }
+    if (c.voiceNote && c.voiceNote.url && typeof assignVoiceNoteDisplayHtml === 'function') {
+      h += assignVoiceNoteDisplayHtml(c.voiceNote, { worker: true });
+    }
     h += '</div>';
   });
   h += '</div>';
@@ -467,6 +470,9 @@ function workerCompletionsAsideHtml(r) {
       h += fixGpsCompletionHtml(c, false);
       if (c.photos && c.photos.length) {
         h += completionPhotoGridHtml(c.photos, c);
+      }
+      if (c.voiceNote && c.voiceNote.url && typeof assignVoiceNoteDisplayHtml === 'function') {
+        h += assignVoiceNoteDisplayHtml(c.voiceNote, { worker: true });
       }
       h += '</div>';
     });
@@ -1155,7 +1161,7 @@ async function restoreWorkerOfflineQueueState() {
   });
   saveWorkerOfflinePendingMap();
 }
-async function enqueueWorkerFixOffline(issueId, note, photos, coords) {
+async function enqueueWorkerFixOffline(issueId, note, photos, coords, voiceNote) {
   if (typeof empireOfflineQueuePut !== 'function') throw new Error('Offline queue not available');
   var remoteUrls = [];
   var imageDataUrls = [];
@@ -1186,6 +1192,7 @@ async function enqueueWorkerFixOffline(issueId, note, photos, coords) {
     queueItem.fixLng = Number(coords.lng);
     queueItem.fixAccuracy = coords.accuracy;
   }
+  if (voiceNote && voiceNote.url) queueItem.fixVoiceNote = voiceNote;
   await empireOfflineQueuePut(queueItem);
   _workerOfflineQueuedIds[issueId] = { queueId: id, at: Date.now() };
   saveWorkerOfflinePendingMap();
@@ -1258,6 +1265,7 @@ async function syncWorkerOfflineFixes(silent) {
           payload.lng = Number(item.fixLng);
           payload.accuracy = item.fixAccuracy;
         }
+        if (item.fixVoiceNote && item.fixVoiceNote.url) payload.fixVoiceNote = item.fixVoiceNote;
         var d = await fetchJSONRetry(payload, 3);
         if (d && d.ok === false) {
           if (empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts())) return;
@@ -1333,6 +1341,9 @@ function workerPushTryOpenPendingJob_() {
     setTimeout(function () { empirePushTryOpenPendingJob(); }, 80);
   }
 }
+function workerFixVoiceId_(issueId) {
+  return 'worker-fix-' + String(issueId || '');
+}
 function openWorkerJob(id) {
   var r = allIssues.find(function (x) { return x.id === id; });
   if (!r) return;
@@ -1370,8 +1381,13 @@ function openWorkerJob(id) {
   h += '<input type="file" id="worker-fix-camera" accept="image/*" capture="environment" style="display:none" onchange="handleWorkerFixFile(event,\'camera\')">';
   h += '<input type="file" id="worker-fix-gallery" accept="image/*" style="display:none" onchange="handleWorkerFixFile(event,\'gallery\')">';
   h += '<input type="text" id="worker-fix-note" class="worker-fix-note" placeholder="Note (optional)">';
+  h += '<div id="workerFixVoiceHost" class="worker-field-voice-host"></div>';
   h += '<button type="button" id="worker-submit-btn" class="worker-submit-fix" disabled onclick="submitWorkerFix(\'' + id + '\')">Mark as fixed</button></div>';
   body.innerHTML = h;
+  var voiceHost = document.getElementById('workerFixVoiceHost');
+  if (voiceHost && typeof assignVoiceBoxHtml === 'function') {
+    voiceHost.innerHTML = assignVoiceBoxHtml(workerFixVoiceId_(id), null, { workerReport: true });
+  }
   renderWorkerPhotoGrid();
   if (typeof assignVoiceBindPlayers === 'function') assignVoiceBindPlayers(body);
   document.getElementById('workerJobModal').classList.add('show');
@@ -1443,6 +1459,9 @@ function openWorkerJobDoneView(id) {
     });
     h += '</div></div>';
   }
+  if (mine && mine.voiceNote && mine.voiceNote.url && typeof assignVoiceNoteDisplayHtml === 'function') {
+    h += '<div class="worker-fix-section"><h3>Your voice note</h3>' + assignVoiceNoteDisplayHtml(mine.voiceNote, { worker: true }) + '</div>';
+  }
   var needDone = issueWorkersRequired(r);
   if (needDone > 1 && r.status !== 'fixed') {
     h += '<p class="worker-two-note">Waiting for other workers to complete this job (' + issueWorkerDone(r) + '/' + needDone + ' done).</p>';
@@ -1493,6 +1512,7 @@ function removeWorkerFixPhoto(idx) {
   renderWorkerPhotoGrid();
 }
 function closeWorkerJob() {
+  if (_workerFixId && typeof assignVoiceClearDraft === 'function') assignVoiceClearDraft(workerFixVoiceId_(_workerFixId));
   document.getElementById('workerJobModal').classList.remove('show');
   _workerFixId = null;
   _workerFixPhotos = [];
@@ -1590,8 +1610,9 @@ function submitWorkerFixSuccess(id, d) {
   renderWorkerJobs();
   uiAlert('\u2705 Job marked fixed!');
 }
-function submitWorkerFixOffline(id, note, btn, coords) {
-  enqueueWorkerFixOffline(id, note, _workerFixPhotos.slice(), coords).then(function () {
+function submitWorkerFixOffline(id, note, btn, coords, voiceNote) {
+  enqueueWorkerFixOffline(id, note, _workerFixPhotos.slice(), coords, voiceNote).then(function () {
+    if (typeof assignVoiceClearDraft === 'function') assignVoiceClearDraft(workerFixVoiceId_(id));
     markWorkerFixQueuedLocally(id);
     allIssues = allIssues.filter(function (x) { return x.id !== id; });
     writeIssuesCacheAsync(allIssues);
@@ -1630,45 +1651,52 @@ function submitWorkerFix(id) {
   var noteEl = document.getElementById('worker-fix-note');
   var note = noteEl ? noteEl.value.trim() : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Saving\u2026'; }
-  getWorkerFixLocationAsync(function (coords) {
-    if (workerFixNeedsOfflineQueue()) {
-      submitWorkerFixOffline(id, note, btn, coords);
-      return;
-    }
-    var urls = normalizePhotoUrls(_workerFixPhotos);
-    var photoSources = _workerFixPhotos.map(workerPhotoSource);
-    var payload = Object.assign({
-      action: ISSUE_CFG.actions.markFixed,
-      id: id,
-      fixedPhoto: joinFixedPhotos(urls),
-      fixedPhotos: urls,
-      photoSources: photoSources,
-      fixNote: note,
-      token: issueToken() || ''
-    }, workerFixPayloadExtras_(coords));
-    fetchJSONRetry(payload)
-    .then(function (d) {
-      if (d && d.ok === false) {
-        if (empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts())) return;
-        throw new Error(d.message || d.error || 'Could not save');
-      }
-      submitWorkerFixSuccess(id, d);
-    })
-    .catch(function (e) {
-      if (/already_submitted|already submitted/i.test(e.message || '')) {
-        allIssues = allIssues.filter(function (x) { return x.id !== id; });
-        writeIssuesCacheAsync(allIssues);
-        closeWorkerJob();
-        renderWorkerJobs();
-        uiAlert('\u2705 You already completed this job.');
+  var voicePromise = (typeof uploadAssignVoiceForIssue === 'function')
+    ? uploadAssignVoiceForIssue(workerFixVoiceId_(id)).catch(function () { return null; })
+    : Promise.resolve(null);
+  voicePromise.then(function (voiceNote) {
+    getWorkerFixLocationAsync(function (coords) {
+      if (workerFixNeedsOfflineQueue()) {
+        submitWorkerFixOffline(id, note, btn, coords, voiceNote);
         return;
       }
-      if (!navigator.onLine || /fetch|network|failed|timeout|upload/i.test(e.message || '')) {
-        submitWorkerFixOffline(id, note, btn, coords);
-        return;
-      }
-      uiAlert('\u274c ' + e.message);
-      if (btn) { btn.disabled = false; btn.textContent = 'Mark as fixed'; }
+      var urls = normalizePhotoUrls(_workerFixPhotos);
+      var photoSources = _workerFixPhotos.map(workerPhotoSource);
+      var payload = Object.assign({
+        action: ISSUE_CFG.actions.markFixed,
+        id: id,
+        fixedPhoto: joinFixedPhotos(urls),
+        fixedPhotos: urls,
+        photoSources: photoSources,
+        fixNote: note,
+        token: issueToken() || ''
+      }, workerFixPayloadExtras_(coords));
+      if (voiceNote && voiceNote.url) payload.fixVoiceNote = voiceNote;
+      fetchJSONRetry(payload)
+      .then(function (d) {
+        if (d && d.ok === false) {
+          if (empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts())) return;
+          throw new Error(d.message || d.error || 'Could not save');
+        }
+        if (typeof assignVoiceClearDraft === 'function') assignVoiceClearDraft(workerFixVoiceId_(id));
+        submitWorkerFixSuccess(id, d);
+      })
+      .catch(function (e) {
+        if (/already_submitted|already submitted/i.test(e.message || '')) {
+          allIssues = allIssues.filter(function (x) { return x.id !== id; });
+          writeIssuesCacheAsync(allIssues);
+          closeWorkerJob();
+          renderWorkerJobs();
+          uiAlert('\u2705 You already completed this job.');
+          return;
+        }
+        if (!navigator.onLine || /fetch|network|failed|timeout|upload/i.test(e.message || '')) {
+          submitWorkerFixOffline(id, note, btn, coords, voiceNote);
+          return;
+        }
+        uiAlert('\u274c ' + e.message);
+        if (btn) { btn.disabled = false; btn.textContent = 'Mark as fixed'; }
+      });
     });
   });
 }
@@ -1913,6 +1941,7 @@ function applyPerms(){ if(window.tsPerm) window.tsPerm(); if(window.tsLoadGlobal
   function hideTab(act){ issueTabBtns().forEach(function(b){ var o=b.getAttribute('onclick')||''; if(o.indexOf("'"+act+"'")!==-1) b.style.display='none'; }); }
   if(p.add===false) hideTab('add');
   if(p.analytics===false) hideTab('analytics');
+  if(p.edit===false) hideTab('issuereview');
   var hideCategories = isCivilWorker() || p.categories === false;
   document.querySelectorAll('.side-actions button').forEach(function(b){
     var o=b.getAttribute('onclick')||'';
@@ -2422,6 +2451,7 @@ function renderIssues() {
   document.getElementById('issuesTable').innerHTML = h;
   updateNotCivilNavBadge();
   updateFixDelayNavBadge();
+  if (ISSUE_CFG.embeddedInDept && typeof window.updateIssueReviewBadge === 'function') window.updateIssueReviewBadge();
 }
 function renderFixDelayIssues() {
   if (isCivilWorker() || !civilFixDelayTabEnabled()) return;
@@ -2552,8 +2582,8 @@ function miniDonutHtml(name,open,fixed){ var total=open+fixed; var fp=total?fixe
 function initRepMonth(){ var mm=document.getElementById('rep-month-m'); var ym=document.getElementById('rep-month-y'); if(mm && mm.options.length<=1){ var names=['January','February','March','April','May','June','July','August','September','October','November','December']; for(var i=0;i<12;i++){ var o=document.createElement('option'); o.value=String(i+1).padStart(2,'0'); o.textContent=names[i]; mm.appendChild(o); } } if(ym && ym.options.length<=1){ var cy=new Date().getFullYear(); for(var y=cy+1;y>=cy-3;y--){ var o2=document.createElement('option'); o2.value=String(y); o2.textContent=String(y); ym.appendChild(o2); } } }
 function syncRepMonth(){ var y=(document.getElementById('rep-month-y')||{}).value||''; var m=(document.getElementById('rep-month-m')||{}).value||''; var h=document.getElementById('rep-month'); if(h) h.value=(y&&m)?(y+'-'+m):''; }
 function renderAnalytics(){ const queue=allIssues.filter(function(r){ return !issueIsRoutedAway(r); }); const total=queue.length; const open=queue.filter(r=>r.status!=='fixed').length; const fixed=total-open; let h='<div class="stats"><div class="stat-box"><div class="stat-value">'+total+'</div><div class="stat-label">Total Issues</div></div><div class="stat-box"><div class="stat-value" style="color:var(--open-color);">'+open+'</div><div class="stat-label">Open</div></div><div class="stat-box"><div class="stat-value" style="color:#27ae60;">'+fixed+'</div><div class="stat-label">Fixed</div></div></div>'; h+='<h3>Open vs Fixed</h3><div style="display:flex;flex-wrap:wrap;gap:26px;align-items:center;margin:10px 0 22px;">'+donutHtml(open,fixed,total)+'<div style="display:flex;flex-wrap:wrap;gap:12px;">'+['ec','es','wd','ww','ra'].map(function(p){ var pr=queue.filter(function(r){return r.project===p;}); var o=pr.filter(function(r){return r.status!=='fixed';}).length; return miniDonutHtml(projectNames[p],o,pr.length-o); }).join('')+'</div></div>'; var colg='<colgroup><col style="width:40%"><col style="width:20%"><col style="width:20%"><col style="width:20%"></colgroup>'; h+='<h3>By Project</h3><table style="table-layout:fixed;width:100%;">'+colg+'<thead><tr><th>Project</th><th>Open</th><th>Fixed</th><th>Total</th></tr></thead><tbody>'; ['ec','es','wd','ww','ra'].forEach(p=>{ const pr=queue.filter(r=>r.project===p); if(pr.length===0)return; const o=pr.filter(r=>r.status!=='fixed').length; h+='<tr><td>'+projectNames[p]+'</td><td style="color:var(--open-color);">'+o+'</td><td style="color:#1d9e75;">'+(pr.length-o)+'</td><td>'+pr.length+'</td></tr>'; }); h+='</tbody></table>'; const types={}; queue.forEach(r=>{ const t=r.issueType; if(!types[t]) types[t]={open:0,fixed:0}; if(r.status==='fixed') types[t].fixed++; else types[t].open++; }); h+='<h3>By Issue Type</h3><table style="table-layout:fixed;width:100%;">'+colg+'<thead><tr><th>Type</th><th>Open</th><th>Fixed</th><th>Total</th></tr></thead><tbody>'; Object.keys(types).sort((a,b)=>(types[b].open+types[b].fixed)-(types[a].open+types[a].fixed)).forEach(t=>{ const o=types[t].open,f=types[t].fixed; h+='<tr><td>'+t+'</td><td style="color:var(--open-color);">'+o+'</td><td style="color:#1d9e75;">'+f+'</td><td>'+(o+f)+'</td></tr>'; }); h+='</tbody></table>'; var ac=issueAnalyticsContentEl(); if(ac) ac.innerHTML=h; }
-function switchTab(e,t){ issueTabPanes().forEach(x=>x.classList.remove('active')); issueTabBtns().forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); e.target.classList.add('active'); empireSaveActiveTab(ISSUE_CFG.prefix+'_active_tab', t); if(t==='add'){ window._editingId=null; var eb=document.getElementById('editBanner'); if(eb) eb.style.display='none'; } if(t==='analytics') renderAnalytics(); if(t==='notcivil') renderRoutedIssues(); if(t==='fixdelay') renderFixDelayIssues(); if(t==='gps'){ loadWorkerLocations(false); startEngineerLocationPoll(); } else stopEngineerLocationPoll(); }
-function switchTabTo(t){ issueTabPanes().forEach(x=>x.classList.remove('active')); issueTabBtns().forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); issueTabBtns().forEach(b=>{ var o=b.getAttribute('onclick')||''; if(o.indexOf("'"+t+"'")!==-1) b.classList.add('active'); }); if(t==='analytics') renderAnalytics(); if(t==='notcivil') renderRoutedIssues(); if(t==='fixdelay') renderFixDelayIssues(); if(t==='gps'){ loadWorkerLocations(false); startEngineerLocationPoll(); } else stopEngineerLocationPoll(); }
+function switchTab(e,t){ issueTabPanes().forEach(x=>x.classList.remove('active')); issueTabBtns().forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); e.target.classList.add('active'); empireSaveActiveTab(ISSUE_CFG.prefix+'_active_tab', t); if(t==='add'){ window._editingId=null; var eb=document.getElementById('editBanner'); if(eb) eb.style.display='none'; } if(t==='analytics') renderAnalytics(); if(t==='notcivil') renderRoutedIssues(); if(t==='fixdelay') renderFixDelayIssues(); if(t==='issuereview' && typeof window.renderIssueReviewTab==='function') window.renderIssueReviewTab(); if(t==='gps'){ loadWorkerLocations(false); startEngineerLocationPoll(); } else stopEngineerLocationPoll(); }
+function switchTabTo(t){ issueTabPanes().forEach(x=>x.classList.remove('active')); issueTabBtns().forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); issueTabBtns().forEach(b=>{ var o=b.getAttribute('onclick')||''; if(o.indexOf("'"+t+"'")!==-1) b.classList.add('active'); }); if(t==='analytics') renderAnalytics(); if(t==='notcivil') renderRoutedIssues(); if(t==='fixdelay') renderFixDelayIssues(); if(t==='issuereview' && typeof window.renderIssueReviewTab==='function') window.renderIssueReviewTab(); if(t==='gps'){ loadWorkerLocations(false); startEngineerLocationPoll(); } else stopEngineerLocationPoll(); }
 function enterApp(){ document.body.classList.remove('civil-worker-mode'); document.getElementById('loginPage').classList.remove('show'); var wa=document.getElementById('workerApp'); if(wa) wa.classList.remove('show'); stopWorkerLocationPing(); document.getElementById('mainContainer').classList.add('show'); applyPerms(); refreshPerms(); populateSelect('ci-project',['ec','es','wd','ww','ra'],true); updateCIBuildings(); populateSelect('ci-spot',spots,false); populateSelect('ci-issuetype',issueTypes,false); const fp=document.getElementById('f-project'); if(fp && fp.options.length<=1){ ['ec','es','wd','ww','ra'].forEach(p=>{ const o=document.createElement('option'); o.value=p;o.textContent=projectNames[p]; fp.appendChild(o); }); } const fnc=document.getElementById('f-nc-project'); if(fnc && fnc.options.length<=1){ ['ec','es','wd','ww','ra'].forEach(p=>{ const o=document.createElement('option'); o.value=p;o.textContent=projectNames[p]; fnc.appendChild(o); }); } const ffd=document.getElementById('f-fd-project'); if(ffd && ffd.options.length<=1){ ['ec','es','wd','ww','ra'].forEach(p=>{ const o=document.createElement('option'); o.value=p;o.textContent=projectNames[p]; ffd.appendChild(o); }); } initTradeFilters(); window._issueFilterState=empireBindFilterPersistence({ key:ISSUE_CFG.prefix+'_list_filters', fields:['f-project','f-group','f-status','f-month','f-search'], onApply:function(){ renderIssues(); } }); initRepMonth(); document.getElementById('ci-date').value=empireLocalDateIso(); if(!ISSUE_CFG.embeddedInDept){ var tab=empireRestoreActiveTab(ISSUE_CFG.prefix+'_active_tab','list'); switchTabTo(tab); if(tab==='analytics') renderAnalytics(); } setTimeout(function(){ loadIssues(false); },0); syncWorkerLocationsUi(); }
 var _lastPermFetch=0;
 function refreshPerms(){ var tk=issueToken(); if(!tk) return; var now=Date.now(); if(now-_lastPermFetch<300000) return; _lastPermFetch=now; empireAuthRefreshPerms(function(d){ PAGEPERMS=d.perms||empireGetPerms(); applyPerms(); }); }
@@ -2563,6 +2593,7 @@ if (!ISSUE_CFG.embeddedInDept) {
 }
 window.loadIssues = loadIssues;
 window.renderIssueAnalytics = renderAnalytics;
+window.getAllIssues = function(){ return allIssues; };
 // ===== Reset Data (password) =====
 function issueResetPwEl(){ return document.getElementById(ISSUE_CFG.embeddedInDept ? 'issueResetPwInput' : 'resetPwInput'); }
 function issueResetMsgEl(){ return document.getElementById(ISSUE_CFG.embeddedInDept ? 'issueResetMsg' : 'resetMsg'); }

@@ -21,7 +21,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-19-elec-dept-merge-v1';
+var SCRIPT_VERSION = '2026-07-19-issue-review-v1';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -29,6 +29,11 @@ var CIVIL_ASSIGNED_WORKERS_COL = 20;
 var CIVIL_DISPOSITION_COL = 21;
 var CIVIL_FIX_DELAY_COL = 22;
 var CIVIL_ASSIGN_VOICE_COL = 23;
+var CIVIL_MONTHLY_TRANSFER_STATUS_COL = 24;
+var CIVIL_TRANSFERRED_JOB_COL = 25;
+var CIVIL_EDITED_JOB_NOTE_COL = 26;
+var CIVIL_TRANSFERRED_AT_COL = 27;
+var CIVIL_TRANSFERRED_BY_COL = 28;
 var CIVIL_TRADE_IDS = {plumber:1, pipes:1, painting:1, tiles:1, wood:1};
 var CIVIL_WORKER_TEAM = {
   mohammed_luqman: 'wood',
@@ -198,6 +203,7 @@ function doPost(e) {
       'deleteElectricalJob':'electrical department','clearElectricalJobs':'electrical department',
       'getElectricalSummary':'electrical department','saveElectricalSummary':'electrical department',
       'getElectricWorkerReports':'electrical department','transferElectricWorkerReport':'electrical department',
+      'transferElectricIssueCompletion':'electrical department',
       'addElectricWorkerReport':'electric issue',
       'addCivilJob':'civil department','getCivilJobs':'civil department','updateCivilJob':'civil department',
       'deleteCivilJob':'civil department','clearCivilJobs':'civil department',
@@ -216,7 +222,7 @@ function doPost(e) {
       auth = verifyToken(body.token, 'civil issue');
       if (!auth.ok) auth = verifyToken(body.token, 'electric issue');
       if (!auth.ok) auth = verifyToken(body.token, 'electrical department');
-    } else if (action === 'getElectricWorkerReports') {
+    } else if (action === 'getElectricWorkerReports' || action === 'transferElectricIssueCompletion') {
       auth = verifyToken(body.token, 'electrical department');
       if (!auth.ok) auth = verifyToken(body.token, 'electric issue');
     } else if (electricIssueActions[action]) {
@@ -305,6 +311,7 @@ function doPost(e) {
     if (action==='getElectricWorkerReports') return respond(handleGetElectricWorkerReports(body, auth));
     if (action==='addElectricWorkerReport') return respond(handleAddElectricWorkerReport(body, auth));
     if (action==='transferElectricWorkerReport') return respond(handleTransferElectricWorkerReport(body, auth));
+    if (action==='transferElectricIssueCompletion') return respond(handleTransferElectricIssueCompletion(body, auth));
     if (action==='addCivilJob') return respond(handleAddCivilJob(body));
     if (action==='getCivilJobs') return respond(handleGetCivilJobs(body));
     if (action==='updateCivilJob') return respond(handleUpdateCivilJob(body));
@@ -411,6 +418,21 @@ function ensureExtendedIssueHeaders_(sheet) {
   }
   if (String(sheet.getRange(1, CIVIL_ASSIGN_VOICE_COL).getValue() || '') !== 'assignVoiceNote') {
     sheet.getRange(1, CIVIL_ASSIGN_VOICE_COL).setValue('assignVoiceNote');
+  }
+  if (String(sheet.getRange(1, CIVIL_MONTHLY_TRANSFER_STATUS_COL).getValue() || '') !== 'monthlyTransferStatus') {
+    sheet.getRange(1, CIVIL_MONTHLY_TRANSFER_STATUS_COL).setValue('monthlyTransferStatus');
+  }
+  if (String(sheet.getRange(1, CIVIL_TRANSFERRED_JOB_COL).getValue() || '') !== 'transferredJobId') {
+    sheet.getRange(1, CIVIL_TRANSFERRED_JOB_COL).setValue('transferredJobId');
+  }
+  if (String(sheet.getRange(1, CIVIL_EDITED_JOB_NOTE_COL).getValue() || '') !== 'editedJobNote') {
+    sheet.getRange(1, CIVIL_EDITED_JOB_NOTE_COL).setValue('editedJobNote');
+  }
+  if (String(sheet.getRange(1, CIVIL_TRANSFERRED_AT_COL).getValue() || '') !== 'transferredAt') {
+    sheet.getRange(1, CIVIL_TRANSFERRED_AT_COL).setValue('transferredAt');
+  }
+  if (String(sheet.getRange(1, CIVIL_TRANSFERRED_BY_COL).getValue() || '') !== 'transferredBy') {
+    sheet.getRange(1, CIVIL_TRANSFERRED_BY_COL).setValue('transferredBy');
   }
 }
 function ensureCivilIssueHeaders_(sheet) {
@@ -582,7 +604,8 @@ function parseWorkerCompletions_(raw) {
         note: String(item.note || '').trim(),
         lat: isFinite(Number(item.lat)) ? Number(item.lat) : null,
         lng: isFinite(Number(item.lng)) ? Number(item.lng) : null,
-        accuracy: item.accuracy === '' || item.accuracy === null || item.accuracy === undefined ? null : Number(item.accuracy)
+        accuracy: item.accuracy === '' || item.accuracy === null || item.accuracy === undefined ? null : Number(item.accuracy),
+        voiceNote: parseAssignVoiceNote_(item.voiceNote && item.voiceNote.url ? JSON.stringify(item.voiceNote) : (typeof item.voiceNote === 'string' ? item.voiceNote : ''))
       });
     }
     return out;
@@ -1609,6 +1632,14 @@ function handleGetIssues(body, sheetName, auth) {
       item.workerCompletions = workerCompletions;
       item.workerDone = workerCompletions.length;
       item.assignedWorkers = assignedWorkers;
+      item.monthlyTransferStatus = String(rows[i][CIVIL_MONTHLY_TRANSFER_STATUS_COL - 1] || '').trim();
+      item.transferredJobId = String(rows[i][CIVIL_TRANSFERRED_JOB_COL - 1] || '').trim();
+      item.editedJobNote = String(rows[i][CIVIL_EDITED_JOB_NOTE_COL - 1] || '').trim();
+      item.transferredAt = dtIssue_(rows[i][CIVIL_TRANSFERRED_AT_COL - 1]);
+      item.transferredBy = String(rows[i][CIVIL_TRANSFERRED_BY_COL - 1] || '').trim();
+      if (st === 'fixed' && item.monthlyTransferStatus !== 'transferred' && !item.transferredJobId) {
+        if (!item.monthlyTransferStatus) item.monthlyTransferStatus = 'pending';
+      }
     }
     out.push(item);
   }
@@ -2583,6 +2614,15 @@ function handleMarkFixed(body, sheetName, auth) {
           at: new Date().toISOString(),
           note: String(body.fixNote || '').trim()
         };
+        if (body.fixVoiceNote && body.fixVoiceNote.url) {
+          completion.voiceNote = {
+            url: String(body.fixVoiceNote.url || ''),
+            by: String(body.fixVoiceNote.by || fixedBy || ''),
+            at: String(body.fixVoiceNote.at || ''),
+            durationSec: Number(body.fixVoiceNote.durationSec) || 0,
+            mimeType: String(body.fixVoiceNote.mimeType || '')
+          };
+        }
         if (fixLoc) {
           completion.lat = fixLoc.lat;
           completion.lng = fixLoc.lng;
@@ -2599,6 +2639,7 @@ function handleMarkFixed(body, sheetName, auth) {
         }
         sheet.getRange(i+1,11).setValue('fixed');
         if (isWorkerIssue) sheet.getRange(i+1, CIVIL_FIX_DELAY_COL).setValue('');
+        sheet.getRange(i+1, CIVIL_MONTHLY_TRANSFER_STATUS_COL).setValue('pending');
         var allBy = [];
         for (var c = 0; c < completions.length; c++) {
           var nm = String((completions[c] && completions[c].user) || '').trim();
@@ -2614,6 +2655,7 @@ function handleMarkFixed(body, sheetName, auth) {
       sheet.getRange(i+1,10).setValue(stored);
       sheet.getRange(i+1,11).setValue('fixed');
       if (isWorkerIssue) sheet.getRange(i+1, CIVIL_FIX_DELAY_COL).setValue('');
+      if (isWorkerIssue) sheet.getRange(i+1, CIVIL_MONTHLY_TRANSFER_STATUS_COL).setValue('pending');
       sheet.getRange(i+1,15).setValue(new Date().toISOString());
       if (body.fixNote) sheet.getRange(i+1,7).setValue(String(rows[i][6]||'') + (rows[i][6] ? ' | ' : '') + 'Fix: ' + String(body.fixNote));
       invalidateIssuesCache_(sheetName);
@@ -2945,6 +2987,140 @@ function handleTransferElectricWorkerReport(body, auth) {
       createdBy: createdBy,
       createdAt: createdAt,
       amount: amountNum > 0 ? amountNum : ''
+    }
+  };
+}
+
+function issueLocationLabelGs_(building, floor, spot) {
+  var b = String(building || '').trim();
+  var f = String(floor || '').trim();
+  var s = String(spot || '').trim();
+  if (s) s = s.charAt(0).toLowerCase() + s.slice(1);
+  return b + (f ? '-' + f : '') + (s ? '. ' + s : '');
+}
+
+function defaultIssueTransferJobTextGs_(row, completions) {
+  var parts = [String(row[5] || ''), issueLocationLabelGs_(row[2], row[3], row[4])];
+  var note = String(row[6] || '').trim();
+  if (note) parts.push(note);
+  for (var i = 0; i < (completions || []).length; i++) {
+    var cn = String((completions[i] && completions[i].note) || '').trim();
+    if (cn) parts.push('Fix (' + (completions[i].user || 'worker') + '): ' + cn);
+  }
+  return parts.filter(Boolean).join(' — ');
+}
+
+function firstIssueFixedPhotoGs_(row, completions) {
+  var photos = parseFixedPhotosFromCell_(String(row[9] || ''));
+  if (!photos.length && completions && completions.length) photos = mergeWorkerCompletionPhotos_(completions);
+  return photos.length ? photos[0] : String(row[8] || '');
+}
+
+function handleTransferElectricIssueCompletion(body, auth) {
+  var id = String(body.id || '').trim();
+  if (!id) return {ok:false,success:false,error:'missing_id',message:'Issue id is required.'};
+  var editedNote = String(body.note || body.job || '').trim();
+  if (!editedNote) return {ok:false,success:false,error:'empty_note',message:'Enter a job description before saving to the monthly report.'};
+
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(ELECTRIC_SHEET);
+  if (!sheet || sheet.getLastRow() < 2) return {ok:false,success:false,error:'not_found',message:'Issue not found.'};
+  ensureExtendedIssueHeaders_(sheet);
+
+  var rows = sheet.getDataRange().getValues();
+  var tz = ss.getSpreadsheetTimeZone();
+  var foundIdx = -1;
+  var row = null;
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === id) {
+      foundIdx = i + 1;
+      row = rows[i];
+      break;
+    }
+  }
+  if (!row) return {ok:false,success:false,error:'not_found',message:'Issue not found.'};
+
+  if (String(row[10] || '') !== 'fixed') {
+    return {ok:false,success:false,error:'not_fixed',message:'This issue is not marked fixed yet.'};
+  }
+  var transferStatus = String(row[CIVIL_MONTHLY_TRANSFER_STATUS_COL - 1] || '').trim().toLowerCase();
+  if (transferStatus === 'transferred' || String(row[CIVIL_TRANSFERRED_JOB_COL - 1] || '').trim()) {
+    return {ok:false,success:false,error:'already_transferred',message:'This issue was already added to the monthly report.'};
+  }
+
+  var completions = parseWorkerCompletions_(row[CIVIL_WORKER_COMPLETIONS_COL - 1]);
+  var fixedAtRaw = row[14];
+  var dateStr = '';
+  if (fixedAtRaw instanceof Date) dateStr = Utilities.formatDate(fixedAtRaw, tz, 'yyyy-MM-dd');
+  else {
+    var s = String(fixedAtRaw || row[7] || '');
+    dateStr = /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  }
+  var location = issueLocationLabelGs_(row[2], row[3], row[4]);
+  var staff = String(row[13] || '');
+  if (!staff && completions.length) {
+    var names = [];
+    for (var c = 0; c < completions.length; c++) {
+      var nm = String((completions[c] && completions[c].user) || '').trim();
+      if (nm && names.indexOf(nm) === -1) names.push(nm);
+    }
+    staff = names.join(', ');
+  }
+  var photo = firstIssueFixedPhotoGs_(row, completions);
+  var issueNum = Number(row[ISSUE_NUM_COL - 1] || 0);
+  var issueRef = issueNum ? issueRefGs_(issueNum) : id;
+  var now = new Date();
+  var jobId = 'job-' + now.getTime();
+  var reportMonth = electricReportMonthOfDate_(dateStr);
+  var createdAt = now.toISOString();
+  var createdBy = body.username || '';
+
+  var jobsSheet = ss.getSheetByName(ELECTRICAL_JOBS_SHEET) || ss.insertSheet(ELECTRICAL_JOBS_SHEET);
+  if (jobsSheet.getLastRow() === 0) jobsSheet.appendRow(['id','date','job','location','materials','staff','type','photo','notes','createdBy','createdAt','amount']);
+  jobsSheet.appendRow([
+    jobId,
+    dateStr,
+    editedNote,
+    location,
+    '0',
+    staff,
+    'general',
+    photo,
+    'From issue #' + issueRef + ' ' + id,
+    createdBy,
+    createdAt,
+    ''
+  ]);
+
+  sheet.getRange(foundIdx, CIVIL_MONTHLY_TRANSFER_STATUS_COL, 1, 5).setValues([[
+    'transferred',
+    jobId,
+    editedNote,
+    createdAt,
+    createdBy
+  ]]);
+
+  invalidateIssuesCache_(ELECTRIC_SHEET);
+
+  return {
+    ok: true,
+    success: true,
+    id: id,
+    jobId: jobId,
+    reportMonth: reportMonth,
+    job: {
+      id: jobId,
+      date: dateStr,
+      job: editedNote,
+      location: location,
+      materials: '0',
+      staff: staff,
+      type: 'general',
+      photo: photo,
+      notes: 'From issue #' + issueRef + ' ' + id,
+      createdBy: createdBy,
+      createdAt: createdAt,
+      amount: ''
     }
   };
 }
