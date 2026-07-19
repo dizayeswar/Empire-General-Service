@@ -65,8 +65,19 @@ function workerFieldReportType_(rOrAmount) {
 
 function workerFieldReportTypeBadgeHtml_(r) {
   var t = workerFieldReportType_(r);
-  if (t === 'refundable') return '<span class="badge refundable">Refundable</span>';
-  return '<span class="badge maintenance">Maintenance</span>';
+  if (t === 'refundable') return '<span class="worker-field-my-type refundable">Refundable</span>';
+  return '<span class="worker-field-my-type maintenance">Maintenance</span>';
+}
+
+function workerFieldReportEsc_(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function workerFieldReportVoiceBadgeHtml_(note) {
+  if (!note || !note.url) return '';
+  var dur = (note.durationSec && typeof assignVoiceFormatSec === 'function')
+    ? assignVoiceFormatSec(note.durationSec) : '';
+  return '<span class="worker-field-my-voice">Voice' + (dur ? (' · ' + dur) : '') + '</span>';
 }
 
 function workerFieldReportAmountLabel_(amount) {
@@ -205,24 +216,27 @@ function workerFieldReportRenderMine_() {
     host.innerHTML = '<p class="worker-empty" style="font-size:13px;">No reports submitted yet.</p>';
     return;
   }
-  host.innerHTML = _wfrReports.slice(0, 12).map(function (r) {
-    var thumb = r.photo
-      ? '<img class="worker-field-my-thumb" src="' + r.photo + '" alt="">'
-      : '';
-    var voice = (r.voiceNote && r.voiceNote.url && typeof assignVoiceNoteDisplayHtml === 'function')
-      ? assignVoiceNoteDisplayHtml(r.voiceNote, { worker: true })
-      : '';
+  host.innerHTML = '<div class="worker-field-my-list">' + _wfrReports.slice(0, 12).map(function (r) {
+    var media = r.photo
+      ? ('<div class="worker-field-my-media"><img class="worker-field-my-thumb" src="' + workerFieldReportEsc_(r.photo) + '" alt=""></div>')
+      : '<div class="worker-field-my-media worker-field-my-nophoto">No photo</div>';
     var amountLabel = workerFieldReportAmountLabel_(r.amount);
-    return '<div class="worker-field-my-card">' + thumb
-      + '<div class="worker-field-my-body"><div class="worker-field-my-top">'
+    var voiceBadge = workerFieldReportVoiceBadgeHtml_(r.voiceNote);
+    var meta = [];
+    if (amountLabel) meta.push('<span class="worker-field-my-amount">' + workerFieldReportEsc_(amountLabel) + '</span>');
+    if (voiceBadge) meta.push(voiceBadge);
+    return '<article class="worker-field-my-card">'
+      + media
+      + '<div class="worker-field-my-body">'
+      + '<div class="worker-field-my-top">'
       + workerFieldReportTypeBadgeHtml_(r)
-      + '<span class="worker-field-my-date">' + (r.date || '') + '</span></div>'
-      + (amountLabel ? ('<div class="worker-field-my-amount">' + amountLabel + '</div>') : '')
-      + (r.place ? ('<div class="worker-field-my-place">' + r.place + '</div>') : '')
-      + (r.note ? ('<p class="worker-field-my-note">' + r.note + '</p>') : '')
-      + voice + '</div></div>';
-  }).join('');
-  if (typeof assignVoiceBindPlayers === 'function') assignVoiceBindPlayers(host);
+      + '<time class="worker-field-my-date">' + workerFieldReportEsc_(r.date || '') + '</time>'
+      + '</div>'
+      + (r.place ? ('<div class="worker-field-my-place">' + workerFieldReportEsc_(r.place) + '</div>') : '')
+      + (r.note ? ('<p class="worker-field-my-note">' + workerFieldReportEsc_(r.note) + '</p>') : '')
+      + (meta.length ? ('<div class="worker-field-my-meta">' + meta.join('') + '</div>') : '')
+      + '</div></article>';
+  }).join('') + '</div>';
 }
 
 function workerFieldReportSubmit_() {

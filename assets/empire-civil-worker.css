@@ -202,48 +202,131 @@ body:not(.civil-worker-mode) #workerApp {
 .worker-field-msg-ok { color: #1d9e75; }
 .worker-field-msg-error { color: #C5504F; }
 .worker-field-subhead {
-  margin: 18px 0 8px;
-  font-size: 14px;
-  color: var(--text);
+  margin: 22px 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+}
+.worker-field-my-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 .worker-field-my-card {
   display: flex;
-  gap: 10px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--card-border);
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  background: var(--card, #fff);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+.worker-field-my-media {
+  width: 72px;
+  height: 72px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--task-bg, #f0f2f6);
+  border: 1px solid var(--card-border);
 }
 .worker-field-my-thumb {
-  width: 56px;
-  height: 56px;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  border-radius: 8px;
-  flex-shrink: 0;
+  display: block;
 }
-.worker-field-my-date {
-  font-size: 12px;
-  color: var(--text-soft);
+.worker-field-my-nophoto {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-faint);
+  text-align: center;
+  line-height: 1.2;
+  padding: 4px;
+}
+.worker-field-my-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 .worker-field-my-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  margin-bottom: 6px;
 }
-.worker-field-my-amount {
-  color: var(--c-money, #9a7b10);
-  font-size: 13px;
+.worker-field-my-type {
+  display: inline-block;
+  font-size: 10px;
   font-weight: 700;
-  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 3px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.worker-field-my-type.maintenance {
+  background: rgba(26, 110, 181, 0.12);
+  color: #1a6eb5;
+}
+.worker-field-my-type.refundable {
+  background: rgba(230, 126, 34, 0.14);
+  color: #c0650a;
+}
+.worker-field-my-date {
+  font-size: 11px;
+  color: var(--text-faint);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .worker-field-my-place {
   font-weight: 700;
   font-size: 14px;
+  line-height: 1.3;
+  color: var(--text);
+  word-break: break-word;
 }
 .worker-field-my-note {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-soft);
-  margin: 4px 0 0;
+  margin: 0;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.worker-field-my-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+.worker-field-my-amount {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--c-money, #9a7b10);
+}
+.worker-field-my-voice {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-soft);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.18);
 }
 #workerJobsPanel {
   display: flex;
