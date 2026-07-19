@@ -1,7 +1,8 @@
 /* Empire EGS — register service worker; purge caches only when build id changes */
 (function () {
-  var BUILD = '2026-07-19-android-stable-v1';
+  var BUILD = '2026-07-19-android-stable-v2';
   var STORAGE_KEY = 'empire_build_id';
+  var RELOAD_GUARD = 'empire_build_reload_' + BUILD;
 
   function purgeEmpireCaches() {
     if (!('caches' in window)) return Promise.resolve();
@@ -16,16 +17,16 @@
     var prev = localStorage.getItem(STORAGE_KEY);
     if (prev && prev !== BUILD) {
       localStorage.setItem(STORAGE_KEY, BUILD);
-      purgeEmpireCaches().then(function () {
-        if ('serviceWorker' in navigator) {
-          return navigator.serviceWorker.getRegistrations().then(function (regs) {
-            return Promise.all(regs.map(function (r) { return r.unregister(); }));
-          });
-        }
-      }).finally(function () {
-        location.replace(location.pathname.split('?')[0] + '?v=' + encodeURIComponent(BUILD));
-      });
-      return;
+      var alreadyReloaded = false;
+      try { alreadyReloaded = sessionStorage.getItem(RELOAD_GUARD) === '1'; } catch (e) {}
+      if (!alreadyReloaded) {
+        try { sessionStorage.setItem(RELOAD_GUARD, '1'); } catch (e2) {}
+        purgeEmpireCaches().finally(function () {
+          var base = location.pathname.split('?')[0];
+          location.replace(base + '?v=' + encodeURIComponent(BUILD));
+        });
+        return;
+      }
     }
     localStorage.setItem(STORAGE_KEY, BUILD);
   } catch (e) {}

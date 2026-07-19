@@ -1,5 +1,5 @@
 /* Empire EGS — service worker (cache + Firebase background push) */
-var CACHE_VERSION = '2026-07-19-android-stable-v1';
+var CACHE_VERSION = '2026-07-19-android-stable-v2';
 var CACHE_NAME = 'empire-egs-' + CACHE_VERSION;
 var NOTIFY_ICON = 'https://dizayeswar.github.io/Empire-General-Service/icons/icon-192.png';
 var NOTIFY_BASE = 'https://dizayeswar.github.io/Empire-General-Service/civil-issue.html';
@@ -133,6 +133,21 @@ function isLiveConfigAsset(pathname) {
     /issue-configs\.js$/i.test(pathname);
 }
 
+function isHtmlAsset(pathname) {
+  return /\.html$/i.test(pathname) || pathname === '/' || /\/$/.test(pathname);
+}
+
+function offlineNavigateFallback_(request) {
+  return caches.match(request).then(function (cached) {
+    if (cached) return cached;
+    var path = new URL(request.url).pathname;
+    if (path.indexOf('electric-issue') !== -1) return caches.match('./electric-issue.html');
+    if (path.indexOf('civil-issue') !== -1) return caches.match('./civil-issue.html');
+    if (path.indexOf('electrical') !== -1) return caches.match('./electrical.html');
+    return caches.match('./index.html');
+  });
+}
+
 self.addEventListener('fetch', function (event) {
   if (event.request.method !== 'GET') return;
   var url = new URL(event.request.url);
@@ -154,18 +169,15 @@ self.addEventListener('fetch', function (event) {
     return;
   }
 
-  if (event.request.mode === 'navigate') {
+  if (event.request.mode === 'navigate' || isHtmlAsset(url.pathname)) {
     event.respondWith(
       fetch(event.request)
         .then(function (response) {
-          var copy = response.clone();
-          caches.open(CACHE_NAME).then(function (cache) { cache.put(event.request, copy); });
-          return response;
+          if (response && response.ok) return response;
+          throw new Error('navigate failed');
         })
         .catch(function () {
-          return caches.match(event.request).then(function (cached) {
-            return cached || caches.match('./index.html');
-          });
+          return offlineNavigateFallback_(event.request);
         })
     );
     return;

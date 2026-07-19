@@ -13,11 +13,11 @@
 <link rel="preconnect" href="https://script.google.com">
 <link rel="preconnect" href="https://api.imgbb.com">
 <title>Electrical Department — Empire World</title>
-<link rel="stylesheet" href="assets/empire.css?v=2026-07-19-elec-merge">
+<link rel="stylesheet" href="assets/empire.css?v=2026-07-19-android-stable-v2">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-07-19-jobs-filter-inline">
-<link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-07-19-invoice-photo">
+<link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-07-19-android-stable-v2">
 </head>
-<body>
+<body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
   <div class="login-box">
     <button class="theme-btn login-theme" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span></button>
@@ -328,7 +328,7 @@
 <script src="config.js"></script>
 <script src="assets/empire-storage.js"></script>
 <script src="assets/empire-api.js"></script>
-<script src="assets/empire-auth.js?v=2026-07-19-hide-electrical"></script>
+<script src="assets/empire-auth.js?v=2026-07-19-android-stable-v2"></script>
 <script src="assets/empire-core.js"></script>
 <script src="assets/empire-assign-voice.js"></script>
 <div class="modal" id="imgModal" onclick="closeImg()"><img id="imgBig" style="max-width:92%;max-height:92%;border-radius:10px;"></div>
@@ -356,7 +356,7 @@ function applyDeptPerms(){ if(window.tsPerm) window.tsPerm(); if(window.tsLoadGl
 function handleLogin(e){ empireAuthLogin(e, 'electrical department', { onSuccess: function(){ enterApp(); } }); }
 function logout(){ empireAuthLogout({ extraKeys: ['eldept_jobs_cache'], redirect: 'index.html', reload: false }); }
 function forceSessionLogout(d){ empireAuthHandleInvalidSession_(d, { extraKeys: ['eldept_jobs_cache'], redirect: 'index.html', reload: false }); }
-function enterDeptApp(){ document.getElementById('loginPage').classList.remove('show'); document.getElementById('mainContainer').classList.add('show'); applyDeptPerms(); refreshPerms(); document.getElementById('j-date').value=new Date().toISOString().split('T')[0]; document.getElementById('cc-date').value=new Date().toISOString().split('T')[0]; empireBindFilterPersistence({ key:'eldept_list_filters', fields:['jf-month','jf-type','jf-search'], onApply:renderJobs }); loadJobs(); loadFieldReports(); }
+function enterDeptApp(){ document.getElementById('loginPage').classList.remove('show'); if(typeof empireAuthMarkLoginVisible==='function') empireAuthMarkLoginVisible(false); document.getElementById('mainContainer').classList.add('show'); applyDeptPerms(); refreshPerms(); document.getElementById('j-date').value=new Date().toISOString().split('T')[0]; document.getElementById('cc-date').value=new Date().toISOString().split('T')[0]; empireBindFilterPersistence({ key:'eldept_list_filters', fields:['jf-month','jf-type','jf-search'], onApply:renderJobs }); loadJobs(); loadFieldReports(); }
 function refreshPerms(){ var now=Date.now(); if(now-(_lastPermFetch||0)<300000) return; _lastPermFetch=Date.now(); empireAuthRefreshPerms(function(){ applyDeptPerms(); if(window._applyIssuePerms) window._applyIssuePerms(); }); }
 var _lastPermFetch=0;
 window.addEventListener('load',()=>{ empireAuthPageBoot({ dept: 'electrical department', onEnter: enterApp }); });

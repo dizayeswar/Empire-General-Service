@@ -166,7 +166,17 @@ function empireCanAccessDept(requiredDept) {
   requiredDept = empireNormDept(requiredDept);
   var list = empireParseDeptList(empireGetTokenDept());
   if (list.indexOf('all') !== -1) return true;
-  return list.indexOf(requiredDept) !== -1;
+  if (list.indexOf(requiredDept) !== -1) return true;
+  if (requiredDept === 'electrical department' && list.indexOf('electric issue') !== -1) return true;
+  if (requiredDept === 'electric issue' && list.indexOf('electrical department') !== -1) return true;
+  return false;
+}
+
+function empireAuthMarkLoginVisible(visible) {
+  try {
+    document.body.classList.toggle('auth-login-visible', !!visible);
+    document.body.classList.toggle('auth-ready', !visible);
+  } catch (e) {}
 }
 
 function empireSetSession(username, data) {
@@ -296,6 +306,7 @@ function empireAuthPageBoot(opts) {
     }
     if (loginPage) loginPage.classList.add('show');
     if (main) main.classList.remove('show');
+    empireAuthMarkLoginVisible(true);
     return false;
   }
 
@@ -305,6 +316,7 @@ function empireAuthPageBoot(opts) {
   }
 
   if (loginPage) loginPage.classList.remove('show');
+  empireAuthMarkLoginVisible(false);
   if (typeof opts.onEnter === 'function') opts.onEnter();
   else if (main) main.classList.add('show');
   return true;

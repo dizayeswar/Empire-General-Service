@@ -625,6 +625,7 @@ function assignIssue(id) {
 }
 function enterWorkerApp() {
   document.getElementById('loginPage').classList.remove('show');
+  if (typeof empireAuthMarkLoginVisible === 'function') empireAuthMarkLoginVisible(false);
   document.getElementById('mainContainer').classList.remove('show');
   document.body.classList.add('civil-worker-mode');
   stopEngineerLocationPoll();
@@ -2039,15 +2040,29 @@ function applyPerms(){ if(window.tsPerm) window.tsPerm(); if(window.tsLoadGlobal
   var rb=document.querySelector((ISSUE_CFG.tabNavScope||'.side-nav')+' button[onclick*="openIssueResetModal"], button[onclick="openResetModal()"]'); if(rb && p.reset!==true) rb.style.display='none'; var tb=document.getElementById('btnIssueTrash'); if(!tb) tb=document.getElementById('btnTrash'); if(tb && p.reset!==true) tb.style.display='none';
   var wl=document.getElementById('whoLabel'); if(wl){ var u=empireGetUser()||''; var role=empireGetRole()||''; wl.textContent = u ? ('Logged in as: '+u+(role?(' ('+role+')'):'')) : ''; }
 }
+var _issueRouteLock = false;
+function supervisorDeptForIssue_() {
+  var page = String(ISSUE_CFG.supervisorPage || '');
+  if (page.indexOf('electrical') !== -1) return 'electrical department';
+  if (page.indexOf('civil-department') !== -1) return 'civil department';
+  return '';
+}
 function routeCivilIssueView_() {
+  if (_issueRouteLock) return;
   applyPerms();
   if (isCivilWorker()) {
     enterWorkerApp();
     return;
   }
-  if (ISSUE_CFG.supervisorPage && String(window.location.pathname || '').indexOf(ISSUE_CFG.supervisorPage) === -1) {
-    window.location.href = ISSUE_CFG.supervisorPage;
-    return;
+  var sup = ISSUE_CFG.supervisorPage;
+  if (sup && String(window.location.pathname || '').indexOf(sup) === -1) {
+    var supDept = supervisorDeptForIssue_();
+    if (!supDept || (typeof empireCanAccessDept === 'function' && empireCanAccessDept(supDept))) {
+      _issueRouteLock = true;
+      var tail = window.location.search + window.location.hash;
+      window.location.replace(sup + tail);
+      return;
+    }
   }
   enterApp();
 }
@@ -2665,12 +2680,19 @@ function syncRepMonth(){ var y=(document.getElementById('rep-month-y')||{}).valu
 function renderAnalytics(){ const queue=allIssues.filter(function(r){ return !issueIsRoutedAway(r); }); const total=queue.length; const open=queue.filter(r=>r.status!=='fixed').length; const fixed=total-open; let h='<div class="stats"><div class="stat-box"><div class="stat-value">'+total+'</div><div class="stat-label">Total Issues</div></div><div class="stat-box"><div class="stat-value" style="color:var(--open-color);">'+open+'</div><div class="stat-label">Open</div></div><div class="stat-box"><div class="stat-value" style="color:#27ae60;">'+fixed+'</div><div class="stat-label">Fixed</div></div></div>'; h+='<h3>Open vs Fixed</h3><div style="display:flex;flex-wrap:wrap;gap:26px;align-items:center;margin:10px 0 22px;">'+donutHtml(open,fixed,total)+'<div style="display:flex;flex-wrap:wrap;gap:12px;">'+['ec','es','wd','ww','ra'].map(function(p){ var pr=queue.filter(function(r){return r.project===p;}); var o=pr.filter(function(r){return r.status!=='fixed';}).length; return miniDonutHtml(projectNames[p],o,pr.length-o); }).join('')+'</div></div>'; var colg='<colgroup><col style="width:40%"><col style="width:20%"><col style="width:20%"><col style="width:20%"></colgroup>'; h+='<h3>By Project</h3><table style="table-layout:fixed;width:100%;">'+colg+'<thead><tr><th>Project</th><th>Open</th><th>Fixed</th><th>Total</th></tr></thead><tbody>'; ['ec','es','wd','ww','ra'].forEach(p=>{ const pr=queue.filter(r=>r.project===p); if(pr.length===0)return; const o=pr.filter(r=>r.status!=='fixed').length; h+='<tr><td>'+projectNames[p]+'</td><td style="color:var(--open-color);">'+o+'</td><td style="color:#1d9e75;">'+(pr.length-o)+'</td><td>'+pr.length+'</td></tr>'; }); h+='</tbody></table>'; const types={}; queue.forEach(r=>{ const t=r.issueType; if(!types[t]) types[t]={open:0,fixed:0}; if(r.status==='fixed') types[t].fixed++; else types[t].open++; }); h+='<h3>By Issue Type</h3><table style="table-layout:fixed;width:100%;">'+colg+'<thead><tr><th>Type</th><th>Open</th><th>Fixed</th><th>Total</th></tr></thead><tbody>'; Object.keys(types).sort((a,b)=>(types[b].open+types[b].fixed)-(types[a].open+types[a].fixed)).forEach(t=>{ const o=types[t].open,f=types[t].fixed; h+='<tr><td>'+t+'</td><td style="color:var(--open-color);">'+o+'</td><td style="color:#1d9e75;">'+f+'</td><td>'+(o+f)+'</td></tr>'; }); h+='</tbody></table>'; var ac=issueAnalyticsContentEl(); if(ac) ac.innerHTML=h; }
 function switchTab(e,t){ issueTabPanes().forEach(x=>x.classList.remove('active')); issueTabBtns().forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); e.target.classList.add('active'); empireSaveActiveTab(ISSUE_CFG.prefix+'_active_tab', t); if(t==='add'){ window._editingId=null; var eb=document.getElementById('editBanner'); if(eb) eb.style.display='none'; } if(t==='analytics') renderAnalytics(); if(t==='notcivil') renderRoutedIssues(); if(t==='fixdelay') renderFixDelayIssues(); if(t==='gps'){ loadWorkerLocations(false); startEngineerLocationPoll(); } else stopEngineerLocationPoll(); }
 function switchTabTo(t){ issueTabPanes().forEach(x=>x.classList.remove('active')); issueTabBtns().forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); issueTabBtns().forEach(b=>{ var o=b.getAttribute('onclick')||''; if(o.indexOf("'"+t+"'")!==-1) b.classList.add('active'); }); if(t==='analytics') renderAnalytics(); if(t==='notcivil') renderRoutedIssues(); if(t==='fixdelay') renderFixDelayIssues(); if(t==='gps'){ loadWorkerLocations(false); startEngineerLocationPoll(); } else stopEngineerLocationPoll(); }
-function enterApp(){ document.body.classList.remove('civil-worker-mode'); document.getElementById('loginPage').classList.remove('show'); var wa=document.getElementById('workerApp'); if(wa) wa.classList.remove('show'); stopWorkerLocationPing(); document.getElementById('mainContainer').classList.add('show'); applyPerms(); refreshPerms(); populateSelect('ci-project',['ec','es','wd','ww','ra'],true); updateCIBuildings(); populateSelect('ci-spot',spots,false); populateSelect('ci-issuetype',issueTypes,false); const fp=document.getElementById('f-project'); if(fp && fp.options.length<=1){ ['ec','es','wd','ww','ra'].forEach(p=>{ const o=document.createElement('option'); o.value=p;o.textContent=projectNames[p]; fp.appendChild(o); }); } const fnc=document.getElementById('f-nc-project'); if(fnc && fnc.options.length<=1){ ['ec','es','wd','ww','ra'].forEach(p=>{ const o=document.createElement('option'); o.value=p;o.textContent=projectNames[p]; fnc.appendChild(o); }); } const ffd=document.getElementById('f-fd-project'); if(ffd && ffd.options.length<=1){ ['ec','es','wd','ww','ra'].forEach(p=>{ const o=document.createElement('option'); o.value=p;o.textContent=projectNames[p]; ffd.appendChild(o); }); } initTradeFilters(); window._issueFilterState=empireBindFilterPersistence({ key:ISSUE_CFG.prefix+'_list_filters', fields:['f-project','f-group','f-status','f-month','f-search'], onApply:function(){ renderIssues(); } }); initRepMonth(); document.getElementById('ci-date').value=empireLocalDateIso(); if(!ISSUE_CFG.embeddedInDept){ var tab=empireRestoreActiveTab(ISSUE_CFG.prefix+'_active_tab','list'); switchTabTo(tab); if(tab==='analytics') renderAnalytics(); } setTimeout(function(){ loadIssues(false); },0); syncWorkerLocationsUi(); }
+function enterApp(){ document.body.classList.remove('civil-worker-mode'); document.getElementById('loginPage').classList.remove('show'); if(typeof empireAuthMarkLoginVisible==='function') empireAuthMarkLoginVisible(false); var wa=document.getElementById('workerApp'); if(wa) wa.classList.remove('show'); stopWorkerLocationPing(); document.getElementById('mainContainer').classList.add('show'); applyPerms(); refreshPerms(); populateSelect('ci-project',['ec','es','wd','ww','ra'],true); updateCIBuildings(); populateSelect('ci-spot',spots,false); populateSelect('ci-issuetype',issueTypes,false); const fp=document.getElementById('f-project'); if(fp && fp.options.length<=1){ ['ec','es','wd','ww','ra'].forEach(p=>{ const o=document.createElement('option'); o.value=p;o.textContent=projectNames[p]; fp.appendChild(o); }); } const fnc=document.getElementById('f-nc-project'); if(fnc && fnc.options.length<=1){ ['ec','es','wd','ww','ra'].forEach(p=>{ const o=document.createElement('option'); o.value=p;o.textContent=projectNames[p]; fnc.appendChild(o); }); } const ffd=document.getElementById('f-fd-project'); if(ffd && ffd.options.length<=1){ ['ec','es','wd','ww','ra'].forEach(p=>{ const o=document.createElement('option'); o.value=p;o.textContent=projectNames[p]; ffd.appendChild(o); }); } initTradeFilters(); window._issueFilterState=empireBindFilterPersistence({ key:ISSUE_CFG.prefix+'_list_filters', fields:['f-project','f-group','f-status','f-month','f-search'], onApply:function(){ renderIssues(); } }); initRepMonth(); document.getElementById('ci-date').value=empireLocalDateIso(); if(!ISSUE_CFG.embeddedInDept){ var tab=empireRestoreActiveTab(ISSUE_CFG.prefix+'_active_tab','list'); switchTabTo(tab); if(tab==='analytics') renderAnalytics(); } setTimeout(function(){ loadIssues(false); },0); syncWorkerLocationsUi(); }
 var _lastPermFetch=0;
 function refreshPerms(){ var tk=issueToken(); if(!tk) return; var now=Date.now(); if(now-_lastPermFetch<300000) return; _lastPermFetch=now; empireAuthRefreshPerms(function(d){ PAGEPERMS=d.perms||empireGetPerms(); applyPerms(); }); }
-function bootApp(){ empireAuthPageBoot({ dept: ISSUE_CFG.dept, onEnter: function(){ syncWorkerRoleThenRoute_(); } }); }
+function bootApp(){ empireAuthPageBoot({ dept: ISSUE_CFG.dept, sendToHomeLogin: false, onEnter: function(){ syncWorkerRoleThenRoute_(); } }); }
 if (!ISSUE_CFG.embeddedInDept) {
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', bootApp); else bootApp();
+  window.addEventListener('pageshow', function (ev) {
+    if (!ev || !ev.persisted) return;
+    var lp = document.getElementById('loginPage');
+    if (lp && lp.classList.contains('show') && typeof empireAuthMarkLoginVisible === 'function') {
+      empireAuthMarkLoginVisible(true);
+    }
+  });
 }
 window.loadIssues = loadIssues;
 window.renderIssueAnalytics = renderAnalytics;
