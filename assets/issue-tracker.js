@@ -563,9 +563,11 @@ function assignIssue(id) {
   var hasVoice = !!(draft && draft.blob);
   setAssignBtnState(id, hasVoice ? 'uploading' : 'saving');
   patchIssueModalAssign(id);
-  var voicePromise = (hasVoice && typeof uploadAssignVoiceForIssue === 'function')
-    ? uploadAssignVoiceForIssue(id)
-    : Promise.resolve(null);
+  var voicePromise = (hasVoice && typeof assignVoiceEnsureUploaded_ === 'function')
+    ? assignVoiceEnsureUploaded_(id, 45000)
+    : (hasVoice && typeof uploadAssignVoiceForIssue === 'function')
+      ? uploadAssignVoiceForIssue(id)
+      : Promise.resolve(null);
   voicePromise.then(function (voiceNote) {
     if (hasVoice) setAssignBtnState(id, 'saving');
     var payload = {
@@ -1166,6 +1168,9 @@ async function restoreWorkerOfflineQueueState() {
   saveWorkerOfflinePendingMap();
 }
 async function enqueueWorkerFixOffline(issueId, note, photos, coords, voiceNote, materials) {
+  if (typeof assignVoiceBlockSaveIfDraftFailed_ === 'function') {
+    assignVoiceBlockSaveIfDraftFailed_(workerFixVoiceId_(issueId), voiceNote);
+  }
   if (typeof empireOfflineQueuePut !== 'function') throw new Error('Offline queue not available');
   var remoteUrls = [];
   var imageDataUrls = [];
@@ -1628,18 +1633,33 @@ function submitWorkerFixOffline(id, note, btn, coords, voiceNote, materials) {
     uiAlert('\u2705 Saved on this device. Will upload automatically when you have signal.');
   }).catch(function (e) {
     uiAlert('\u274c ' + (e.message || 'Could not save offline'));
-    if (btn) { btn.disabled = false; updateWorkerSubmitBtn(); }
+    resetWorkerSubmitBtn_();
   });
 }
+function resetWorkerSubmitBtn_() {
+  var btn = document.getElementById('worker-submit-btn');
+  var modal = document.getElementById('workerJobModal');
+  if (!btn || !modal || !modal.classList.contains('show')) return;
+  btn.disabled = false;
+  btn.textContent = 'Mark as fixed';
+  updateWorkerSubmitBtn();
+}
 function getWorkerFixLocationAsync(cb) {
-  if (!navigator.geolocation) { cb(null); return; }
+  var done = false;
+  function finish(val) {
+    if (done) return;
+    done = true;
+    cb(val);
+  }
+  setTimeout(function () { finish(null); }, 14000);
+  if (!navigator.geolocation) { finish(null); return; }
   navigator.geolocation.getCurrentPosition(
     function (pos) {
-      if (!pos || !pos.coords) { cb(null); return; }
-      cb({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy });
+      if (!pos || !pos.coords) { finish(null); return; }
+      finish({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy });
     },
-    function () { cb(null); },
-    { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+    function () { finish(null); },
+    { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
   );
 }
 function workerFixPayloadExtras_(coords) {
@@ -1660,11 +1680,20 @@ function submitWorkerFix(id) {
   var note = noteEl ? noteEl.value.trim() : '';
   var materials = materialsEl ? materialsEl.value.trim() : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Saving\u2026'; }
-  var voicePromise = (typeof uploadAssignVoiceForIssue === 'function')
-    ? uploadAssignVoiceForIssue(workerFixVoiceId_(id)).catch(function () { return null; })
+  var voiceUpload = (typeof assignVoiceEnsureUploaded_ === 'function')
+    ? assignVoiceEnsureUploaded_(workerFixVoiceId_(id), 45000)
     : Promise.resolve(null);
-  voicePromise.then(function (voiceNote) {
+  voiceUpload.then(function (voiceNote) {
     getWorkerFixLocationAsync(function (coords) {
+      try {
+        if (typeof assignVoiceBlockSaveIfDraftFailed_ === 'function') {
+          assignVoiceBlockSaveIfDraftFailed_(workerFixVoiceId_(id), voiceNote);
+        }
+      } catch (voiceErr) {
+        uiAlert('\u274c ' + voiceErr.message);
+        resetWorkerSubmitBtn_();
+        return;
+      }
       if (workerFixNeedsOfflineQueue()) {
         submitWorkerFixOffline(id, note, btn, coords, voiceNote, materials);
         return;
@@ -1682,10 +1711,13 @@ function submitWorkerFix(id) {
         token: issueToken() || ''
       }, workerFixPayloadExtras_(coords));
       if (voiceNote && voiceNote.url) payload.fixVoiceNote = voiceNote;
-      fetchJSONRetry(payload)
+      fetchJSONRetry(payload, 2, 45000)
       .then(function (d) {
         if (d && d.ok === false) {
-          if (empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts())) return;
+          if (empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts())) {
+            resetWorkerSubmitBtn_();
+            return;
+          }
           throw new Error(d.message || d.error || 'Could not save');
         }
         if (typeof assignVoiceClearDraft === 'function') assignVoiceClearDraft(workerFixVoiceId_(id));
@@ -1700,14 +1732,26 @@ function submitWorkerFix(id) {
           uiAlert('\u2705 You already completed this job.');
           return;
         }
-        if (!navigator.onLine || /fetch|network|failed|timeout|upload/i.test(e.message || '')) {
+        if (!navigator.onLine || /fetch|network|failed|timeout/i.test(e.message || '')) {
+          try {
+            if (typeof assignVoiceBlockSaveIfDraftFailed_ === 'function') {
+              assignVoiceBlockSaveIfDraftFailed_(workerFixVoiceId_(id), voiceNote);
+            }
+          } catch (voiceErr) {
+            uiAlert('\u274c ' + voiceErr.message);
+            resetWorkerSubmitBtn_();
+            return;
+          }
           submitWorkerFixOffline(id, note, btn, coords, voiceNote, materials);
           return;
         }
-        uiAlert('\u274c ' + e.message);
-        if (btn) { btn.disabled = false; btn.textContent = 'Mark as fixed'; }
+        uiAlert('\u274c ' + (e.message || 'Could not save'));
+        resetWorkerSubmitBtn_();
       });
     });
+  }).catch(function (e) {
+    uiAlert('\u274c ' + (e.message || 'Voice note upload failed. The job was not saved — try again or delete the recording.'));
+    resetWorkerSubmitBtn_();
   });
 }
 

@@ -522,6 +522,53 @@ function uploadAssignVoiceForIssue(issueId) {
   });
 }
 
+function assignVoiceHasDraft_(issueId) {
+  var draft = assignVoiceDraft_(issueId);
+  return !!(draft && draft.blob);
+}
+
+/** Optional voice: no recording = skip. If recorded, upload must succeed or save is blocked. */
+function uploadAssignVoiceRequired_(issueId, timeoutMs) {
+  timeoutMs = timeoutMs || 45000;
+  if (!assignVoiceHasDraft_(issueId)) return Promise.resolve(null);
+  if (typeof uploadAssignVoiceForIssue !== 'function') {
+    return Promise.reject(new Error('Voice upload is not available.'));
+  }
+  return Promise.race([
+    uploadAssignVoiceForIssue(issueId),
+    new Promise(function (_, reject) {
+      setTimeout(function () {
+        reject(new Error('Voice note upload timed out. Check your connection and try again.'));
+      }, timeoutMs);
+    })
+  ]).then(function (note) {
+    if (!note || !note.url) {
+      throw new Error(_lastEmpireUploadError || 'Voice note upload failed. The job was not saved — try again or delete the recording.');
+    }
+    return note;
+  });
+}
+
+function assignVoiceEnsureUploaded_(issueId, timeoutMs) {
+  if (typeof uploadAssignVoiceRequired_ === 'function') {
+    return uploadAssignVoiceRequired_(issueId, timeoutMs);
+  }
+  if (assignVoiceHasDraft_(issueId)) {
+    if (typeof uploadAssignVoiceForIssue === 'function') {
+      return uploadAssignVoiceForIssue(issueId);
+    }
+    return Promise.reject(new Error('Voice note could not upload. Refresh the page and try again.'));
+  }
+  return Promise.resolve(null);
+}
+
+function assignVoiceBlockSaveIfDraftFailed_(issueId, voiceNote) {
+  if (!assignVoiceHasDraft_(issueId)) return;
+  if (!voiceNote || !voiceNote.url) {
+    throw new Error('Voice note failed to upload. The job was not saved — try again or delete the recording.');
+  }
+}
+
 function assignVoiceOnModalClose_() {
   assignVoiceCloseActive_();
 }

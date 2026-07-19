@@ -612,6 +612,19 @@ tr.job-row:hover {
   font-family: inherit;
 }
 
+.field-report-editor-materials {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 6px;
+  padding: 11px 14px;
+  border: 2px solid var(--input-border, var(--card-border));
+  border-radius: 10px;
+  font-size: 15px;
+  background: var(--input-bg, #fff);
+  color: var(--text);
+  font-family: inherit;
+}
+
 .field-report-editor-actions {
   display: flex;
   flex-wrap: wrap;

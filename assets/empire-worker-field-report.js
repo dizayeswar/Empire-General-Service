@@ -276,10 +276,17 @@ function workerFieldReportSubmit_() {
     msg.textContent = '\u23F3 Sending\u2026';
     msg.className = 'worker-field-msg';
   }
-  var voicePromise = (typeof uploadAssignVoiceForIssue === 'function')
-    ? uploadAssignVoiceForIssue(workerFieldReportVoiceId_()).catch(function () { return null; })
+  var voiceUpload = (typeof assignVoiceEnsureUploaded_ === 'function')
+    ? assignVoiceEnsureUploaded_(workerFieldReportVoiceId_(), 45000)
     : Promise.resolve(null);
-  voicePromise.then(function (voiceNote) {
+  voiceUpload.then(function (voiceNote) {
+    try {
+      if (typeof assignVoiceBlockSaveIfDraftFailed_ === 'function') {
+        assignVoiceBlockSaveIfDraftFailed_(workerFieldReportVoiceId_(), voiceNote);
+      }
+    } catch (voiceErr) {
+      throw voiceErr;
+    }
     var body = {
       action: cfg.actions.add,
       token: issueToken() || '',

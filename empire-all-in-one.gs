@@ -2974,6 +2974,9 @@ function handleTransferElectricWorkerReport(body, auth) {
     createdAt,
     createdBy
   ]]);
+  if (sheet.getLastColumn() >= 17) {
+    sheet.getRange(rowIdx, 17).setValue(materials);
+  }
 
   return {
     ok: true,
@@ -2986,11 +2989,11 @@ function handleTransferElectricWorkerReport(body, auth) {
       date: dateStr,
       job: editedNote,
       location: place,
-      materials: '0',
+      materials: materials,
       staff: workerName,
       type: jobType,
       photo: photo,
-      notes: 'From field report ' + id,
+      notes: '',
       createdBy: createdBy,
       createdAt: createdAt,
       amount: amountNum > 0 ? amountNum : ''

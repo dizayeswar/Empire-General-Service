@@ -86,7 +86,20 @@ function empireUploadBlob(blob, folder, path, cb) {
   var uploadPath = path || empireStorageFilePath(folder, blob);
   var url = String(SUPABASE_CONFIG.url || '').replace(/\/$/, '') +
     '/storage/v1/object/' + SUPABASE_CONFIG.bucket + '/' + uploadPath;
-  fetch(url, {
+  var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  var finished = false;
+  function finish(result) {
+    if (finished) return;
+    finished = true;
+    clearTimeout(timeoutId);
+    cb(result);
+  }
+  var timeoutId = setTimeout(function () {
+    if (controller) controller.abort();
+    else finish(null);
+    if (!finished) _lastEmpireUploadError = 'Upload timed out — check your connection and try again.';
+  }, 30000);
+  var fetchOpts = {
     method: 'POST',
     headers: {
       apikey: SUPABASE_CONFIG.anonKey,
@@ -95,10 +108,12 @@ function empireUploadBlob(blob, folder, path, cb) {
       'x-upsert': 'true'
     },
     body: blob
-  }).then(function (res) {
+  };
+  if (controller) fetchOpts.signal = controller.signal;
+  fetch(url, fetchOpts).then(function (res) {
     return res.text().then(function (txt) {
       if (res.ok) {
-        cb(empireStoragePublicUrl(uploadPath));
+        finish(empireStoragePublicUrl(uploadPath));
         return;
       }
       try {
@@ -107,11 +122,15 @@ function empireUploadBlob(blob, folder, path, cb) {
       } catch (e) {
         _lastEmpireUploadError = empireStorageFriendlyError_(txt || ('Upload failed (' + res.status + ')'));
       }
-      cb(null);
+      finish(null);
     });
   }).catch(function (err) {
-    _lastEmpireUploadError = (err && err.message) || 'Network error reaching Supabase';
-    cb(null);
+    if (err && err.name === 'AbortError') {
+      _lastEmpireUploadError = 'Upload timed out — check your connection and try again.';
+    } else {
+      _lastEmpireUploadError = (err && err.message) || 'Network error reaching Supabase';
+    }
+    finish(null);
   });
 }
 
