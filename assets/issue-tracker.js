@@ -666,7 +666,15 @@ var _workerLastCoords = null;
 var _workerLocDenied = false;
 var _workerLocSharing = false;
 var _workerLifecycleBound = false;
+var _workerVisRefreshTimer = null;
+var _workerLastResumeFetch = 0;
+var WORKER_RESUME_FETCH_MIN_MS = 12000;
 var WORKER_LOC_PING_MS = 30000;
+function workerJobsDisplayed_() {
+  var host = document.getElementById('workerJobList');
+  if (!host) return false;
+  return !!(host.querySelector('.worker-job-card') || host.querySelector('.worker-empty:not(.worker-load-error)'));
+}
 function workerLocUserKey_() {
   var u = typeof empireGetUser === 'function' ? empireGetUser() : '';
   return String(u || '').trim().toLowerCase();
@@ -826,16 +834,21 @@ function bindWorkerAppLifecycle_() {
     var wa = document.getElementById('workerApp');
     if (!wa || !wa.classList.contains('show')) return;
     if (document.visibilityState === 'visible') {
-      queryWorkerGeolocationPermission_(function (state) {
-        if (state === 'granted') {
-          resetWorkerLocationWatch_();
-          startWorkerLocationWatch();
-          sendWorkerLocationNow(true, true);
-        } else if (state === 'denied') {
-          showWorkerLocPermissionBanner_(true);
-        }
-      });
-      loadIssues(true);
+      clearTimeout(_workerVisRefreshTimer);
+      _workerVisRefreshTimer = setTimeout(function () {
+        queryWorkerGeolocationPermission_(function (state) {
+          if (state === 'granted') {
+            if (_workerLocWatchId == null) startWorkerLocationWatch();
+            sendWorkerLocationNow(true, true);
+          } else if (state === 'denied') {
+            showWorkerLocPermissionBanner_(true);
+          }
+        });
+        var now = Date.now();
+        if (now - _workerLastResumeFetch < WORKER_RESUME_FETCH_MIN_MS) return;
+        _workerLastResumeFetch = now;
+        loadIssues(true);
+      }, 600);
     } else {
       sendWorkerLocationNow(true, true);
       beaconWorkerLocationNow_();
@@ -850,9 +863,13 @@ function bindWorkerAppLifecycle_() {
     var wa = document.getElementById('workerApp');
     if (!wa || !wa.classList.contains('show')) return;
     if (ev && ev.persisted) {
-      startWorkerLocationWatch();
+      if (_workerLocWatchId == null) startWorkerLocationWatch();
       sendWorkerLocationNow(true, true);
-      loadIssues(true);
+      var now = Date.now();
+      if (now - _workerLastResumeFetch >= WORKER_RESUME_FETCH_MIN_MS) {
+        _workerLastResumeFetch = now;
+        loadIssues(true);
+      }
     }
   });
 }
@@ -933,7 +950,7 @@ function startWorkerLocationWatch() {
   if (!isCivilWorker() || !workerLocationActionsEnabled() || !navigator.geolocation) return;
   if (_workerLocWatchId != null) return;
   _workerLocWatchId = navigator.geolocation.watchPosition(onWorkerPosition, function (err) {
-    if (err && err.code === 1) onWorkerPositionError(err, false);
+    if (err && err.code === 1) onWorkerPositionError(err, true);
   }, {
     enableHighAccuracy: true,
     maximumAge: 30000,
@@ -2133,19 +2150,26 @@ var _workerIssuesFetchSeq = 0;
 function loadIssues(force){ force=!!force; try {
   if(isCivilWorker()&&!force&&workerBackgroundPaused_()) return;
   if(isCivilWorker()&&force) scheduleWorkerLocationPing_(true);
-  if(isCivilWorker()){
-    var cached=readIssuesCache();
-    if(cached){ setIssuesFromData(cached); renderWorkerJobs(); if(typeof empirePushOnIssuesLoaded==='function') empirePushOnIssuesLoaded(cached); }
-  }
   var cached=readIssuesCache();
+  if(isCivilWorker()){
+    if(cached){
+      var changedFromCache=setIssuesFromData(cached);
+      if(changedFromCache) renderWorkerJobs();
+      if(typeof empirePushOnIssuesLoaded==='function') empirePushOnIssuesLoaded(cached);
+    }
+  }
   var prevIssues=allIssues.slice();
   if(cached && !isCivilWorker()){ setIssuesFromData(cached); requestAnimationFrame(function(){ refreshAllIssueTabs(); }); }
   var spinEls=[document.getElementById('listRefreshIcon'),document.getElementById('navRefreshIcon'),document.getElementById('workerRefreshIcon'),document.getElementById('notCivilRefreshIcon'),document.getElementById('fixDelayRefreshIcon')];
   var cacheFresh=cached && !force && (Date.now()-readIssuesCacheTs()<ISSUES_CACHE_TTL);
   if(cacheFresh) return;
+  if(isCivilWorker() && force && cached && (Date.now()-readIssuesCacheTs()<WORKER_RESUME_FETCH_MIN_MS)) return;
   var it=document.getElementById('issuesTable');
   if(it && !cached && !isCivilWorker()) it.innerHTML=LOADING_HTML;
-  if(isCivilWorker() && !cached){ var wbar=document.getElementById('workerCountBar'); if(wbar) wbar.textContent='Loading jobs\u2026'; }
+  if(isCivilWorker() && !workerJobsDisplayed_() && !cached){
+    var wbar=document.getElementById('workerCountBar');
+    if(wbar) wbar.textContent='Loading jobs\u2026';
+  }
   spinEls.forEach(function(el){ if(el) el.classList.add('spinning'); });
   var fetchSeq=++_workerIssuesFetchSeq;
   var workerFetch=isCivilWorker();
@@ -2161,29 +2185,31 @@ function loadIssues(force){ force=!!force; try {
     if(workerFetch && fetchSeq!==_workerIssuesFetchSeq) return;
     if(Array.isArray(d)){
       var merged=mergeIssueMetaFromServer(d, prevIssues.length?prevIssues:(cached||[]));
-      setIssuesFromData(merged);
+      var changed=setIssuesFromData(merged);
       writeIssuesCacheAsync(merged);
-      if(isCivilWorker()){ renderWorkerJobs(); if(typeof empirePushOnIssuesLoaded==='function') empirePushOnIssuesLoaded(merged); }
+      if(isCivilWorker()){
+        if(changed) renderWorkerJobs();
+        if(typeof empirePushOnIssuesLoaded==='function') empirePushOnIssuesLoaded(merged);
+      }
       else { requestAnimationFrame(function(){ refreshAllIssueTabs(); }); }
     } else if(d&&d.ok===false){
       if(forceSessionLogout(d)) return;
-      if(isCivilWorker()) workerShowJobsError_(new Error(d.message||d.error||'Could not load jobs'));
-    } else if(isCivilWorker() && !Array.isArray(d)){
+      if(isCivilWorker() && !workerJobsDisplayed_()) workerShowJobsError_(new Error(d.message||d.error||'Could not load jobs'));
+    } else if(isCivilWorker() && !Array.isArray(d) && !workerJobsDisplayed_()){
       workerShowJobsError_(new Error('Unexpected server response. Redeploy empire-all-in-one.gs, then try again.'));
     }
   }).catch(function(e){
     if(workerFetch && fetchSeq!==_workerIssuesFetchSeq) return;
     if(e&&e.name==='AbortError') return;
     if(!cached && it && !isCivilWorker()) it.innerHTML='<p>Error loading: '+e.message+'</p>';
-    if(isCivilWorker()) workerShowJobsError_(e);
+    if(isCivilWorker() && !workerJobsDisplayed_() && !cached) workerShowJobsError_(e);
   }).finally(function(){
     if(workerFetch && fetchSeq!==_workerIssuesFetchSeq) return;
     if(fetchTimeout) clearTimeout(fetchTimeout);
     spinEls.forEach(function(el){ if(el) el.classList.remove('spinning'); });
-    if(isCivilWorker()) renderWorkerJobs();
   });
 } catch (e) {
-  if(isCivilWorker()) workerShowJobsError_(e);
+  if(isCivilWorker() && !workerJobsDisplayed_()) workerShowJobsError_(e);
   else throw e;
 }}
 function locStr(r){ return r.building+' \u00B7 '+r.floor+' \u00B7 '+r.spot; }
