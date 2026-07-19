@@ -440,3 +440,119 @@ tr.job-row:hover {
   width: 100%;
   text-align: center;
 }
+
+.field-report-card-done {
+  opacity: 0.82;
+}
+
+.field-report-start-btn,
+.field-report-review-btn {
+  background: var(--accent2);
+  color: #fff;
+  border-color: var(--accent2);
+}
+
+.field-report-month-target {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(29, 158, 117, 0.08);
+  border: 1px solid rgba(29, 158, 117, 0.22);
+}
+
+.field-report-month-target strong {
+  font-size: 16px;
+  color: var(--text);
+}
+
+.field-report-month-note,
+.field-report-editor-hint,
+.field-report-voice-skip-note,
+.field-report-queue-hint {
+  font-size: 12px;
+  color: var(--text-soft);
+  line-height: 1.45;
+}
+
+.field-report-queue-hint {
+  margin: -8px 0 12px;
+}
+
+.field-report-editor-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (min-width: 560px) {
+  .field-report-editor-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 220px;
+    align-items: start;
+  }
+}
+
+.field-report-editor-note {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 6px;
+  padding: 12px 14px;
+  border: 2px solid var(--input-border, var(--card-border));
+  border-radius: 10px;
+  font-size: 15px;
+  line-height: 1.45;
+  background: var(--input-bg, #fff);
+  color: var(--text);
+  resize: vertical;
+  min-height: 110px;
+  font-family: inherit;
+}
+
+.field-report-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--card-border);
+}
+
+.field-report-save-btn,
+.field-report-save-next-btn {
+  padding: 11px 16px;
+  border-radius: 10px;
+  border: none;
+  background: var(--accent2);
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.field-report-save-next-btn {
+  background: #1a6eb5;
+}
+
+.field-report-save-btn:disabled,
+.field-report-save-next-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.field-report-cancel-btn {
+  padding: 11px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--card-border);
+  background: transparent;
+  color: var(--text-soft);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.field-report-voice-review {
+  background: rgba(99, 102, 241, 0.04);
+}

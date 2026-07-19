@@ -21,7 +21,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-19-electric-field-amount-v1';
+var SCRIPT_VERSION = '2026-07-19-field-report-transfer-v1';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -197,7 +197,7 @@ function doPost(e) {
       'addElectricalJob':'electrical department','getElectricalJobs':'electrical department','updateElectricalJob':'electrical department',
       'deleteElectricalJob':'electrical department','clearElectricalJobs':'electrical department',
       'getElectricalSummary':'electrical department','saveElectricalSummary':'electrical department',
-      'getElectricWorkerReports':'electrical department',
+      'getElectricWorkerReports':'electrical department','transferElectricWorkerReport':'electrical department',
       'addElectricWorkerReport':'electric issue',
       'addCivilJob':'civil department','getCivilJobs':'civil department','updateCivilJob':'civil department',
       'deleteCivilJob':'civil department','clearCivilJobs':'civil department',
@@ -295,6 +295,7 @@ function doPost(e) {
     if (action==='saveElectricalSummary') return respond(handleSaveElectricalSummary(body));
     if (action==='getElectricWorkerReports') return respond(handleGetElectricWorkerReports(body, auth));
     if (action==='addElectricWorkerReport') return respond(handleAddElectricWorkerReport(body, auth));
+    if (action==='transferElectricWorkerReport') return respond(handleTransferElectricWorkerReport(body, auth));
     if (action==='addCivilJob') return respond(handleAddCivilJob(body));
     if (action==='getCivilJobs') return respond(handleGetCivilJobs(body));
     if (action==='updateCivilJob') return respond(handleUpdateCivilJob(body));
@@ -2719,9 +2720,19 @@ function electricWorkerReportTypeFromAmount_(amount) {
   return amount > 0 ? 'refundable' : 'maintenance';
 }
 
+function electricReportMonthOfDate_(dateStr) {
+  dateStr = String(dateStr || '');
+  if (!/^\d{4}-\d{2}-\d{2}/.test(dateStr)) return '';
+  var yr = parseInt(dateStr.slice(0, 4), 10);
+  var mo = parseInt(dateStr.slice(5, 7), 10);
+  var dy = parseInt(dateStr.slice(8, 10), 10);
+  if (dy >= 26) { mo += 1; if (mo > 12) { mo = 1; yr += 1; } }
+  return yr + '-' + String(mo).padStart(2, '0');
+}
+
 function ensureElectricWorkerReportsSheet_(sheet) {
   if (!sheet) return;
-  var headers = ['id','date','place','note','photo','voiceNote','reportedBy','workerName','createdAt','amount','reportType'];
+  var headers = ['id','date','place','note','photo','voiceNote','reportedBy','workerName','createdAt','amount','reportType','status','transferredJobId','editedNote','transferredAt','transferredBy'];
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(headers);
     return;
@@ -2766,7 +2777,12 @@ function handleAddElectricWorkerReport(body, auth) {
     workerName,
     now.toISOString(),
     amount || '',
-    reportType
+    reportType,
+    'pending',
+    '',
+    '',
+    '',
+    ''
   ]);
   return {ok:true,success:true,id:id};
 }
@@ -2793,6 +2809,8 @@ function handleGetElectricWorkerReports(body, auth) {
     if (reportType !== 'refundable' && reportType !== 'maintenance') {
       reportType = electricWorkerReportTypeFromAmount_(amountNum);
     }
+    var status = String(rows[i][11] || 'pending').trim().toLowerCase();
+    if (!status) status = 'pending';
     out.push({
       id: String(rows[i][0] || ''),
       date: ds,
@@ -2804,13 +2822,88 @@ function handleGetElectricWorkerReports(body, auth) {
       workerName: String(rows[i][7] || ''),
       createdAt: dtIssue_(rows[i][8]),
       amount: amountNum > 0 ? amountNum : '',
-      reportType: reportType
+      reportType: reportType,
+      status: status,
+      transferredJobId: String(rows[i][12] || ''),
+      editedNote: String(rows[i][13] || ''),
+      transferredAt: dtIssue_(rows[i][14]),
+      transferredBy: String(rows[i][15] || ''),
+      reportMonth: electricReportMonthOfDate_(ds)
     });
   }
   out.sort(function (a, b) {
     return String(b.createdAt || b.date || '').localeCompare(String(a.createdAt || a.date || ''));
   });
   return out;
+}
+
+function handleTransferElectricWorkerReport(body, auth) {
+  var id = String(body.id || '').trim();
+  if (!id) return {ok:false,success:false,error:'missing_id',message:'Report id is required.'};
+  var editedNote = String(body.note || body.job || '').trim();
+  if (!editedNote) return {ok:false,success:false,error:'empty_note',message:'Enter a job description before saving to the monthly report.'};
+
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(ELECTRIC_WORKER_REPORTS_SHEET);
+  if (!sheet || sheet.getLastRow() < 2) return {ok:false,success:false,error:'not_found',message:'Report not found.'};
+  ensureElectricWorkerReportsSheet_(sheet);
+
+  var rows = sheet.getDataRange().getValues();
+  var rowIdx = -1;
+  var row = null;
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === id) { rowIdx = i + 1; row = rows[i]; break; }
+  }
+  if (!row) return {ok:false,success:false,error:'not_found',message:'Report not found.'};
+
+  var status = String(row[11] || 'pending').trim().toLowerCase();
+  if (status === 'transferred') {
+    return {ok:false,success:false,error:'already_transferred',message:'This report was already added to the monthly report.'};
+  }
+
+  var tz = ss.getSpreadsheetTimeZone();
+  var dv = row[1];
+  var dateStr = (dv instanceof Date) ? Utilities.formatDate(dv, tz, 'yyyy-MM-dd') : String(dv || '');
+  var place = String(row[2] || '');
+  var amountNum = parseFloat(row[9]);
+  if (isNaN(amountNum) || amountNum < 0) amountNum = 0;
+  var reportType = String(row[10] || '').trim().toLowerCase();
+  if (reportType !== 'refundable' && reportType !== 'maintenance') {
+    reportType = electricWorkerReportTypeFromAmount_(amountNum);
+  }
+  var jobType = reportType === 'refundable' ? 'refundable' : 'general';
+  var workerName = String(row[7] || row[6] || '');
+  var photo = String(row[4] || '');
+  var now = new Date();
+  var jobId = 'job-' + now.getTime();
+  var reportMonth = electricReportMonthOfDate_(dateStr);
+
+  var jobsSheet = ss.getSheetByName(ELECTRICAL_JOBS_SHEET) || ss.insertSheet(ELECTRICAL_JOBS_SHEET);
+  if (jobsSheet.getLastRow() === 0) jobsSheet.appendRow(['id','date','job','location','materials','staff','type','photo','notes','createdBy','createdAt','amount']);
+  jobsSheet.appendRow([
+    jobId,
+    dateStr,
+    editedNote,
+    place,
+    '0',
+    workerName,
+    jobType,
+    photo,
+    'From field report ' + id,
+    body.username || '',
+    now.toISOString(),
+    amountNum > 0 ? amountNum : ''
+  ]);
+
+  sheet.getRange(rowIdx, 12, 1, 5).setValues([[
+    'transferred',
+    jobId,
+    editedNote,
+    now.toISOString(),
+    body.username || ''
+  ]]);
+
+  return {ok:true,success:true,id:id,jobId:jobId,reportMonth:reportMonth};
 }
 
 /* ===== Civil Department jobs (mirrors Electrical, separate storage) ===== */
