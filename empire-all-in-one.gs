@@ -3020,7 +3020,7 @@ function handleTransferElectricWorkerReport(body, auth) {
   var tz = ss.getSpreadsheetTimeZone();
   var dv = row[1];
   var dateStr = (dv instanceof Date) ? Utilities.formatDate(dv, tz, 'yyyy-MM-dd') : String(dv || '');
-  var place = String(row[2] || '');
+  var place = String(body.place != null ? body.place : row[2] || '').trim();
   var amountNum = parseFloat(row[9]);
   if (isNaN(amountNum) || amountNum < 0) amountNum = 0;
   var reportType = String(row[10] || '').trim().toLowerCase();
@@ -3054,6 +3054,7 @@ function handleTransferElectricWorkerReport(body, auth) {
     amountNum > 0 ? amountNum : ''
   ]);
 
+  sheet.getRange(rowIdx, 3).setValue(place);
   sheet.getRange(rowIdx, 12, 1, 5).setValues([[
     'transferred',
     jobId,

@@ -688,6 +688,20 @@ tr.job-row:hover {
   font-family: inherit;
 }
 
+.field-report-editor-place {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 6px;
+  padding: 12px 14px;
+  border: 2px solid var(--input-border, var(--card-border));
+  border-radius: 10px;
+  font-size: 15px;
+  line-height: 1.45;
+  background: var(--input-bg, #fff);
+  color: var(--text);
+  font-family: inherit;
+}
+
 .field-report-editor-materials {
   width: 100%;
   box-sizing: border-box;

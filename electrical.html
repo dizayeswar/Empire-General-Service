@@ -15,7 +15,7 @@
 <title>Electrical Department — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer,body.auth-login-visible .modal{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-07-19-android-stable-v3">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-07-20-materials-textarea">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-07-20-edit-place">
 <link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-07-19-android-stable-v3">
 <link rel="stylesheet" href="assets/empire-electrical-materials.css?v=2026-07-20-materials-textarea">
 </head>
@@ -618,7 +618,9 @@ function openFieldReportEditor(id){
   h+='<div class="field-report-month-target"><span class="field-report-modal-label">Monthly report</span><strong>'+_esc(fieldReportMonthLabel_(r))+'</strong><span class="field-report-month-note">Billing month runs 26th to 25th</span></div>';
   h+='<div class="field-report-editor-grid">';
   h+='<div class="field-report-editor-main">';
-  if(r.place) h+='<div class="field-report-modal-row"><span class="field-report-modal-label">Place</span><span class="field-report-modal-value">'+_esc(r.place)+'</span></div>';
+  h+='<label class="field-report-modal-label" for="frEditPlace">Place / location</label>';
+  h+='<input type="text" id="frEditPlace" class="field-report-editor-place" value="'+_esc(r.place||'')+'" placeholder="Where? e.g. WW-12 corridor, ES-4 parking…">';
+  h+='<p class="field-report-editor-hint">Saved to the Location column in the monthly report.</p>';
   h+='<div class="field-report-modal-row"><span class="field-report-modal-label">Date</span><span class="field-report-modal-value">'+_esc(r.date||'')+'</span></div>';
   if(fieldReportAmountLabel_(r)) h+='<div class="field-report-modal-row"><span class="field-report-modal-label">Amount</span><span class="field-report-modal-value field-report-modal-amount">'+fieldReportAmountLabel_(r)+'</span></div>';
   h+='<label class="field-report-modal-label" for="frEditNote">Job description (edit note)</label>';
@@ -727,7 +729,7 @@ function openFieldReportView(id){
   if(typeof assignVoiceBindPlayers==='function') assignVoiceBindPlayers(body);
   document.getElementById('fieldReportModal').classList.add('show');
 }
-function fieldReportApplyTransfer_(id, note, resp, materials) {
+function fieldReportApplyTransfer_(id, note, resp, materials, place) {
   var now = new Date().toISOString();
   var user = currentUser() || '';
   var idx = allFieldReports.findIndex(function(r) { return String(r.id) === String(id); });
@@ -735,6 +737,7 @@ function fieldReportApplyTransfer_(id, note, resp, materials) {
     allFieldReports[idx] = Object.assign({}, allFieldReports[idx], {
       status: 'transferred',
       editedNote: note,
+      place: place != null ? place : (allFieldReports[idx].place || ''),
       materials: materials || allFieldReports[idx].materials || '',
       transferredJobId: (resp && resp.jobId) || '',
       transferredAt: now,
@@ -758,8 +761,10 @@ function transferFieldReport_(openNext){
   if(!id) return;
   var noteEl=document.getElementById('frEditNote');
   var materialsEl=document.getElementById('frEditMaterials');
+  var placeEl=document.getElementById('frEditPlace');
   var note=noteEl?String(noteEl.value||'').trim():'';
   var materials=materialsEl?String(materialsEl.value||'').trim():'';
+  var place=placeEl?String(placeEl.value||'').trim():'';
   if(!note){ alert('Please enter the job description before saving.'); if(noteEl) noteEl.focus(); return; }
   _fieldReportTransferring=true;
   var btn=document.getElementById('frTransferBtn');
@@ -768,14 +773,14 @@ function transferFieldReport_(openNext){
   var nextLabels=btnNext?[btnNext.textContent,'']:['',''];
   if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
   if(btnNext){ btnNext.disabled=true; btnNext.textContent='Saving…'; }
-  fetchJSONRetry({action:'transferElectricWorkerReport',id:id,note:note,materials:materials,token:tok()},1,30000)
+  fetchJSONRetry({action:'transferElectricWorkerReport',id:id,note:note,materials:materials,place:place,token:tok()},1,30000)
     .then(function(d){
       if(d&&d.ok===false){
         if(typeof forceSessionLogout==='function'&&forceSessionLogout(d)) return;
         throw new Error(d.message||d.error||'Could not save report');
       }
       if(!d||(!d.ok&&!d.success)) throw new Error('Unexpected server response');
-      fieldReportApplyTransfer_(id, note, d, materials);
+      fieldReportApplyTransfer_(id, note, d, materials, place);
       closeFieldReportModal();
       if(openNext){
         var queue=fieldReportPendingQueue_();
