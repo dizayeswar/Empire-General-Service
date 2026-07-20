@@ -159,7 +159,15 @@ function workerFieldReportSwitchTab_(tab) {
 }
 
 function workerFieldReportPickPhoto_() {
-  var input = document.getElementById('wfrFile');
+  if (typeof empireWorkerPickPhoto === 'function') {
+    empireWorkerPickPhoto({
+      camera: 'wfrFileCamera',
+      gallery: 'wfrFileGallery',
+      title: 'Job photo'
+    });
+    return;
+  }
+  var input = document.getElementById('wfrFileGallery') || document.getElementById('wfrFile');
   if (!input) return;
   input.value = '';
   input.click();
@@ -242,7 +250,15 @@ function workerFieldReportHandleFile_(e) {
 }
 
 function workerFieldReportPickInvoicePhoto_() {
-  var input = document.getElementById('wfrInvoiceFile');
+  if (typeof empireWorkerPickPhoto === 'function') {
+    empireWorkerPickPhoto({
+      camera: 'wfrInvoiceFileCamera',
+      gallery: 'wfrInvoiceFileGallery',
+      title: 'Invoice photo'
+    });
+    return;
+  }
+  var input = document.getElementById('wfrInvoiceFileGallery') || document.getElementById('wfrInvoiceFile');
   if (!input) return;
   input.value = '';
   input.click();
@@ -358,7 +374,8 @@ function workerFieldReportOpenInvoiceModal_(id) {
   }
   h += '<label class="worker-field-label" style="margin-top:14px;">Invoice photo</label>';
   h += '<button type="button" class="worker-field-photo-btn" onclick="workerFieldReportPickInvoiceModalPhoto()">Camera / gallery — invoice</button>';
-  h += '<input type="file" id="wfrInvoiceModalFile" accept="image/*" style="display:none" onchange="workerFieldReportHandleInvoiceModalFile(event)">';
+  h += '<input type="file" id="wfrInvoiceModalFileCamera" class="worker-sr-file-input" accept="image/*" capture="environment" onchange="workerFieldReportHandleInvoiceModalFile(event)">';
+  h += '<input type="file" id="wfrInvoiceModalFileGallery" class="worker-sr-file-input" accept="image/*" onchange="workerFieldReportHandleInvoiceModalFile(event)">';
   h += '<p id="wfrInvoiceModalStatus" class="worker-field-photo-status" aria-live="polite"></p>';
   h += '<img id="wfrInvoiceModalPreview" class="worker-field-preview-img" style="display:none" alt="Invoice preview">';
   h += '<button type="button" id="wfrInvoiceModalSaveBtn" class="worker-field-submit" disabled onclick="workerFieldReportSaveInvoicePhoto()">Save invoice photo</button>';
@@ -376,7 +393,15 @@ function workerFieldReportCloseInvoiceModal_() {
 }
 
 function workerFieldReportPickInvoiceModalPhoto_() {
-  var input = document.getElementById('wfrInvoiceModalFile');
+  if (typeof empireWorkerPickPhoto === 'function') {
+    empireWorkerPickPhoto({
+      camera: 'wfrInvoiceModalFileCamera',
+      gallery: 'wfrInvoiceModalFileGallery',
+      title: 'Invoice photo'
+    });
+    return;
+  }
+  var input = document.getElementById('wfrInvoiceModalFileGallery') || document.getElementById('wfrInvoiceModalFile');
   if (!input) return;
   input.value = '';
   input.click();

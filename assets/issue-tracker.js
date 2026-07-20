@@ -1408,15 +1408,11 @@ function openWorkerJob(id) {
   h += r.photo ? '<img class="worker-problem-img" src="' + r.photo + '" alt="Problem">' : '';
   h += '<div class="worker-fix-section worker-fix-simple">';
   h += '<div id="worker-photo-grid" class="worker-photo-grid"></div>';
-  h += '<div class="worker-photo-actions">';
-  h += '<div class="worker-camera-zone compact" onclick="triggerWorkerCamera()" role="button" tabindex="0" aria-label="Take completion photo with camera">';
+  h += '<div class="worker-photo-add-zone" onclick="triggerWorkerPhotoPick()" role="button" tabindex="0" aria-label="Add completion photo">';
   h += '<span class="worker-camera-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/></svg></span>';
-  h += '<strong>Take photo</strong></div>';
-  h += '<div class="worker-gallery-zone compact" onclick="triggerWorkerGallery()" role="button" tabindex="0" aria-label="Upload completion photo from gallery">';
-  h += '<span class="worker-gallery-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></span>';
-  h += '<strong>Upload photo</strong></div></div>';
-  h += '<input type="file" id="worker-fix-camera" accept="image/*" capture="environment" style="display:none" onchange="handleWorkerFixFile(event,\'camera\')">';
-  h += '<input type="file" id="worker-fix-gallery" accept="image/*" style="display:none" onchange="handleWorkerFixFile(event,\'gallery\')">';
+  h += '<strong>Add photo</strong><span>Camera or gallery</span></div>';
+  h += '<input type="file" id="worker-fix-camera" class="worker-sr-file-input" accept="image/*" capture="environment" onchange="handleWorkerFixFile(event,\'camera\')">';
+  h += '<input type="file" id="worker-fix-gallery" class="worker-sr-file-input" accept="image/*" onchange="handleWorkerFixFile(event,\'gallery\')">';
   h += '<input type="text" id="worker-fix-note" class="worker-fix-note" placeholder="Note (optional)">';
   h += '<input type="text" id="worker-fix-materials" class="worker-fix-note" placeholder="Materials used (optional)">';
   h += '<div id="workerFixVoiceHost" class="worker-field-voice-host"></div>';
@@ -1507,13 +1503,26 @@ function openWorkerJobDoneView(id) {
   body.innerHTML = h;
   document.getElementById('workerJobModal').classList.add('show');
 }
+function triggerWorkerPhotoPick() {
+  if (typeof empireWorkerPickPhoto === 'function') {
+    empireWorkerPickPhoto({
+      camera: 'worker-fix-camera',
+      gallery: 'worker-fix-gallery',
+      title: 'Completion photo'
+    });
+    return;
+  }
+  triggerWorkerGallery();
+}
 function triggerWorkerCamera() {
-  var inp = document.getElementById('worker-fix-camera');
-  if (inp) inp.click();
+  if (typeof empireWorkerClickFileInput === 'function') {
+    empireWorkerClickFileInput(document.getElementById('worker-fix-camera'));
+  }
 }
 function triggerWorkerGallery() {
-  var inp = document.getElementById('worker-fix-gallery');
-  if (inp) inp.click();
+  if (typeof empireWorkerClickFileInput === 'function') {
+    empireWorkerClickFileInput(document.getElementById('worker-fix-gallery'));
+  }
 }
 function renderWorkerPhotoGrid() {
   var grid = document.getElementById('worker-photo-grid');

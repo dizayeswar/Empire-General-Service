@@ -15,7 +15,7 @@
 <title>Electric Issues — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #workerApp,body.auth-login-visible #mainContainer,body.auth-login-visible .worker-modal,body.auth-login-visible .modal{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-07-19-android-stable-v3">
-<link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-07-19-android-stable-v3">
+<link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-07-20-photo-choice">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -69,14 +69,16 @@
         <p class="worker-field-hint worker-field-refundable-note">Refundable work needs a <strong>job photo</strong>. Add an <strong>invoice photo</strong> now or later from your recent reports.</p>
       </div>
       <label class="worker-field-label" for="wfrJobPhotoBtn">Job photo</label>
-      <button type="button" id="wfrJobPhotoBtn" class="worker-field-photo-btn" onclick="workerFieldReportPickPhoto()">Camera / gallery — job</button>
-      <input type="file" id="wfrFile" accept="image/*" style="display:none" onchange="workerFieldReportHandleFile(event)">
+      <button type="button" id="wfrJobPhotoBtn" class="worker-field-photo-btn" onclick="workerFieldReportPickPhoto()">Add photo — camera or gallery</button>
+      <input type="file" id="wfrFileCamera" class="worker-sr-file-input" accept="image/*" capture="environment" onchange="workerFieldReportHandleFile(event)">
+      <input type="file" id="wfrFileGallery" class="worker-sr-file-input" accept="image/*" onchange="workerFieldReportHandleFile(event)">
       <p id="wfrPhotoStatus" class="worker-field-photo-status" aria-live="polite"></p>
       <img id="wfrImage" class="worker-field-preview-img" style="display:none" alt="Job photo preview">
       <div id="wfrInvoiceBlock" class="worker-field-invoice-block" style="display:none;">
         <label class="worker-field-label" for="wfrInvoicePhotoBtn">Invoice photo (optional now)</label>
-        <button type="button" id="wfrInvoicePhotoBtn" class="worker-field-photo-btn worker-field-photo-btn-secondary" onclick="workerFieldReportPickInvoicePhoto()">Camera / gallery — invoice</button>
-        <input type="file" id="wfrInvoiceFile" accept="image/*" style="display:none" onchange="workerFieldReportHandleInvoiceFile(event)">
+        <button type="button" id="wfrInvoicePhotoBtn" class="worker-field-photo-btn worker-field-photo-btn-secondary" onclick="workerFieldReportPickInvoicePhoto()">Add photo — camera or gallery</button>
+        <input type="file" id="wfrInvoiceFileCamera" class="worker-sr-file-input" accept="image/*" capture="environment" onchange="workerFieldReportHandleInvoiceFile(event)">
+        <input type="file" id="wfrInvoiceFileGallery" class="worker-sr-file-input" accept="image/*" onchange="workerFieldReportHandleInvoiceFile(event)">
         <p id="wfrInvoiceStatus" class="worker-field-photo-status" aria-live="polite"></p>
         <img id="wfrInvoiceImage" class="worker-field-preview-img" style="display:none" alt="Invoice preview">
       </div>
@@ -238,8 +240,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js"></script>
 <script src="assets/empire-push.js?v=2026-07-18-electric-workers"></script>
 <script src="assets/empire-assign-voice.js?v=2026-07-19-voice-guard"></script>
-<script src="assets/empire-worker-field-report.js?v=2026-07-20-portal-materials"></script>
-<script src="assets/issue-tracker.js?v=2026-07-20-free-issue-type"></script>
+<script src="assets/empire-worker-photo.js?v=2026-07-20-photo-choice"></script>
+<script src="assets/empire-worker-field-report.js?v=2026-07-20-photo-choice"></script>
+<script src="assets/issue-tracker.js?v=2026-07-20-photo-choice"></script>
 <script src="assets/issue-excel-export.js?v=2026-07-18-electric-workers"></script>
 <script src="assets/issue-recycle-bin.js?v=2026-07-18-electric-workers"></script>
 <div id="resetModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1600;align-items:center;justify-content:center;">

@@ -635,6 +635,115 @@ body:not(.civil-worker-mode) #workerApp {
   font-size: 14px;
   cursor: pointer;
 }
+/* Off-screen file inputs — display:none breaks camera capture on Android */
+.worker-sr-file-input {
+  position: fixed;
+  left: -9999px;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0.001;
+  overflow: hidden;
+}
+
+.worker-photo-choice-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 25000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.worker-photo-choice-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+}
+.worker-photo-choice-panel {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 12px 12px;
+  padding: 16px 14px calc(14px + env(safe-area-inset-bottom, 0px));
+  border-radius: 18px;
+  background: var(--panel, #fff);
+  border: 2px solid var(--card-border, #dde3ef);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+.worker-photo-choice-title {
+  margin: 0 0 12px;
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--text, #1a1a2e);
+}
+.worker-photo-choice-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  margin: 0 0 8px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 2px solid var(--card-border, #dde3ef);
+  background: var(--btn-bg, #f4f6fb);
+  color: var(--text, #1a1a2e);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.worker-photo-choice-btn:active {
+  transform: scale(0.98);
+}
+.worker-photo-choice-camera {
+  border-color: #5b7cfa;
+  background: rgba(91, 124, 250, 0.08);
+}
+.worker-photo-choice-gallery {
+  border-color: #1d9e75;
+  background: rgba(29, 158, 117, 0.08);
+}
+.worker-photo-choice-cancel {
+  margin-top: 4px;
+  font-weight: 600;
+  color: var(--text-soft, #6b7280);
+  background: transparent;
+}
+.worker-photo-choice-icon svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+
+.worker-photo-add-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 108px;
+  margin: 0 0 12px;
+  padding: 18px 14px;
+  border-radius: 16px;
+  border: 2px dashed #5b7cfa;
+  background: var(--task-bg);
+  text-align: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.worker-photo-add-zone:active {
+  opacity: 0.85;
+}
+.worker-photo-add-zone strong {
+  font-size: 15px;
+  color: var(--text);
+}
+.worker-photo-add-zone span {
+  font-size: 13px;
+  color: var(--text-soft);
+}
+
 .worker-photo-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
