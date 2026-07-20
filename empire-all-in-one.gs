@@ -2857,8 +2857,11 @@ function handleAddElectricWorkerReport(body, auth) {
   var username = normalizeWorkerId_(auth && auth.username);
   var workerName = String(body.workerName || body.displayName || username || '').trim();
   var amount = parseElectricWorkerReportAmount_(body);
-  var reportType = electricWorkerReportTypeFromAmount_(amount);
-  if (amount > 0 && !photo) {
+  var reportType = String(body.reportType || '').trim().toLowerCase();
+  if (reportType !== 'refundable' && reportType !== 'maintenance') {
+    reportType = electricWorkerReportTypeFromAmount_(amount);
+  }
+  if (reportType === 'refundable' && !photo) {
     return {ok:false,success:false,error:'missing_job_photo',message:'Refundable reports need a job photo before sending.'};
   }
   var materials = String(body.materials || '').trim();

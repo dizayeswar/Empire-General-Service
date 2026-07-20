@@ -97,9 +97,19 @@ function workerFieldReportNeedsInvoice_(r) {
     && !String(r.invoicePhoto || '').trim();
 }
 
-function workerFieldReportSyncRefundableUi_() {
+function workerFieldReportIsRefundableForm_() {
+  var check = document.getElementById('wfrRefundableCheck');
+  if (check) return !!check.checked;
   var amountEl = document.getElementById('wfrAmount');
-  var refundable = amountEl ? workerFieldReportParseAmount_(amountEl.value) > 0 : false;
+  return amountEl ? workerFieldReportParseAmount_(amountEl.value) > 0 : false;
+}
+
+function workerFieldReportHandleRefundableCheck_(e) {
+  workerFieldReportSyncRefundableUi_();
+}
+
+function workerFieldReportSyncRefundableUi_() {
+  var refundable = workerFieldReportIsRefundableForm_();
   var block = document.getElementById('wfrRefundablePhotos');
   var invoiceBlock = document.getElementById('wfrInvoiceBlock');
   if (block) block.style.display = refundable ? '' : 'none';
@@ -118,6 +128,11 @@ function workerFieldReportInit_() {
   var note = document.getElementById('wfrNote');
   if (place) place.placeholder = workerFieldReportUi_('placePlaceholder', 'Where?');
   if (note) note.placeholder = workerFieldReportUi_('notePlaceholder', 'What did you find or do?');
+  var check = document.getElementById('wfrRefundableCheck');
+  if (check && !check.dataset.wfrRefundableBound) {
+    check.dataset.wfrRefundableBound = '1';
+    check.addEventListener('change', workerFieldReportHandleRefundableCheck_);
+  }
   var amount = document.getElementById('wfrAmount');
   if (amount) {
     amount.placeholder = workerFieldReportUi_('amountPlaceholder', 'IQD — leave empty for maintenance');
@@ -181,7 +196,6 @@ function workerFieldReportClearForm_(resetMsg) {
   var place = document.getElementById('wfrPlace');
   var note = document.getElementById('wfrNote');
   var materials = document.getElementById('wfrMaterials');
-  var amount = document.getElementById('wfrAmount');
   var img = document.getElementById('wfrImage');
   var invoiceImg = document.getElementById('wfrInvoiceImage');
   var status = document.getElementById('wfrPhotoStatus');
@@ -190,6 +204,9 @@ function workerFieldReportClearForm_(resetMsg) {
   if (place) place.value = '';
   if (note) note.value = '';
   if (materials) materials.value = '';
+  var check = document.getElementById('wfrRefundableCheck');
+  if (check) check.checked = false;
+  var amount = document.getElementById('wfrAmount');
   if (amount) amount.value = '';
   if (img) {
     img.style.display = 'none';
@@ -470,16 +487,27 @@ function workerFieldReportSubmit_() {
   var placeEl = document.getElementById('wfrPlace');
   var noteEl = document.getElementById('wfrNote');
   var materialsEl = document.getElementById('wfrMaterials');
-  var amountEl = document.getElementById('wfrAmount');
   var place = placeEl ? String(placeEl.value || '').trim() : '';
   var note = noteEl ? String(noteEl.value || '').trim() : '';
   var materials = materialsEl ? String(materialsEl.value || '').trim() : '';
-  var amount = amountEl ? workerFieldReportParseAmount_(amountEl.value) : 0;
+  var refundable = workerFieldReportIsRefundableForm_();
+  var amount = 0;
+  var amountEl = document.getElementById('wfrAmount');
+  if (amountEl && !document.getElementById('wfrRefundableCheck')) {
+    amount = workerFieldReportParseAmount_(amountEl.value);
+  }
   var msg = document.getElementById('wfrFormMsg');
   var btn = document.getElementById('wfrSubmitBtn');
-  if (amount > 0 && !_wfrPhotoUrl) {
+  if (refundable && !_wfrPhotoUrl) {
     if (msg) {
       msg.textContent = 'Refundable reports need a job photo before sending.';
+      msg.className = 'worker-field-msg worker-field-msg-error';
+    }
+    return;
+  }
+  if (refundable && !_wfrInvoicePhotoUrl) {
+    if (msg) {
+      msg.textContent = 'Refundable reports need an invoice photo before sending.';
       msg.className = 'worker-field-msg worker-field-msg-error';
     }
     return;
@@ -518,6 +546,7 @@ function workerFieldReportSubmit_() {
       note: note,
       materials: materials,
       amount: amount || '',
+      reportType: refundable ? 'refundable' : 'maintenance',
       photo: _wfrPhotoUrl || '',
       invoicePhoto: _wfrInvoicePhotoUrl || '',
       workerName: typeof civilWorkerName === 'function' ? civilWorkerName(empireGetUser()) : (empireGetUser() || '')
@@ -549,6 +578,7 @@ function workerFieldReportSubmit_() {
   });
 }
 
+window.workerFieldReportHandleRefundableCheck = workerFieldReportHandleRefundableCheck_;
 window.workerFieldReportSwitchTab = workerFieldReportSwitchTab_;
 window.workerFieldReportSubmit = workerFieldReportSubmit_;
 window.workerFieldReportHandleFile = workerFieldReportHandleFile_;

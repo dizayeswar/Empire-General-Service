@@ -169,6 +169,38 @@ body:not(.civil-worker-mode) #workerApp {
   color: var(--text);
   background: var(--input-bg, #fff);
 }
+.worker-field-mobile-hidden {
+  display: none !important;
+}
+.worker-field-refundable-check {
+  margin: 4px 0 10px;
+}
+.worker-field-check-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 14px;
+  border-radius: 12px;
+  border: 2px solid var(--card-border);
+  background: var(--input-bg, #fff);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.worker-field-check-row input[type="checkbox"] {
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: #1d9e75;
+}
+.worker-field-check-text {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+.worker-field-refundable-hint {
+  margin-top: 8px;
+}
 .worker-field-refundable-note {
   margin-top: 0;
   padding: 10px 12px;
@@ -206,6 +238,16 @@ body:not(.civil-worker-mode) #workerApp {
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
+}
+.worker-field-submit-green,
+#workerReportPanel .worker-field-submit {
+  background: #1d9e75;
+  border: 2px solid #178f6a;
+  color: #fff;
+}
+.worker-field-submit-green:active,
+#workerReportPanel .worker-field-submit:active {
+  background: #178f6a;
 }
 .worker-field-submit:disabled {
   opacity: 0.6;
