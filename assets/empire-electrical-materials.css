@@ -1,0 +1,148 @@
+/* Electrical materials picker — worker fix + dept field report review */
+.empire-materials-picker {
+  margin-top: 8px;
+  border: 2px solid var(--card-border, #e6d6df);
+  border-radius: 12px;
+  background: var(--panel, #fff);
+  overflow: hidden;
+}
+.empire-materials-picker-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border: none;
+  background: var(--btn-bg, #fff);
+  color: var(--header-accent, #185fa5);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+.empire-materials-picker-toggle .chev {
+  transition: transform 0.15s ease;
+}
+.empire-materials-picker.open .empire-materials-picker-toggle .chev {
+  transform: rotate(180deg);
+}
+.empire-materials-picker-panel {
+  display: none;
+  border-top: 1px solid var(--card-border, #e6d6df);
+}
+.empire-materials-picker.open .empire-materials-picker-panel {
+  display: block;
+}
+.empire-materials-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: none;
+  border-bottom: 1px solid var(--card-border, #e6d6df);
+  background: var(--input-bg, #fff);
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+}
+.empire-materials-search:focus {
+  outline: none;
+  box-shadow: inset 0 0 0 2px rgba(141, 1, 93, 0.2);
+}
+.empire-materials-list {
+  max-height: min(42vh, 280px);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.empire-mat-row {
+  position: relative;
+  border-bottom: 1px solid var(--table-border, #e6e9f2);
+}
+.empire-mat-row:last-child {
+  border-bottom: none;
+}
+.empire-mat-row.hidden {
+  display: none;
+}
+.empire-mat-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+.empire-mat-name:hover,
+.empire-mat-name:focus-visible {
+  background: var(--row-hover, #faf6f8);
+}
+.empire-mat-name .mat-hint {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-soft, #5b6478);
+  flex-shrink: 0;
+}
+.empire-mat-variants {
+  display: none;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 10px 10px 12px;
+}
+.empire-mat-row.has-variants.expanded .empire-mat-variants,
+.empire-mat-row.has-variants:hover .empire-mat-variants,
+.empire-mat-row.has-variants:focus-within .empire-mat-variants {
+  display: flex;
+}
+@media (hover: hover) and (pointer: fine) {
+  .empire-mat-row.has-variants:hover .empire-mat-variants {
+    position: absolute;
+    left: 100%;
+    top: 0;
+    z-index: 20;
+    min-width: 120px;
+    max-width: 200px;
+    padding: 8px;
+    margin-left: 4px;
+    background: var(--panel, #fff);
+    border: 2px solid var(--card-border, #e6d6df);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px var(--shadow, rgba(0, 0, 0, 0.12));
+  }
+  .empire-mat-row.has-variants.expanded .empire-mat-variants {
+    position: static;
+    box-shadow: none;
+    border: none;
+    padding: 0 10px 10px 12px;
+    margin-left: 0;
+  }
+}
+.empire-mat-variant {
+  padding: 6px 10px;
+  border: 2px solid var(--input-border, #e6d6df);
+  border-radius: 999px;
+  background: var(--input-bg, #fff);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+.empire-mat-variant:hover,
+.empire-mat-variant:focus-visible {
+  border-color: var(--accent2, #8d015d);
+  color: var(--accent2, #8d015d);
+}
+.empire-materials-picker-hint {
+  padding: 8px 12px 10px;
+  font-size: 11px;
+  color: var(--text-soft, #5b6478);
+  line-height: 1.4;
+}

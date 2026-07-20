@@ -1428,6 +1428,9 @@ function openWorkerJob(id) {
   }
   renderWorkerPhotoGrid();
   if (typeof assignVoiceBindPlayers === 'function') assignVoiceBindPlayers(body);
+  if (typeof empireMaterialsPickerMount === 'function' && ISSUE_CFG && ISSUE_CFG.prefix === 'elec') {
+    empireMaterialsPickerMount('worker-fix-materials');
+  }
   document.getElementById('workerJobModal').classList.add('show');
   sendWorkerLocationNow(true, isWorkerLocPromptDone_());
 }
