@@ -15,7 +15,7 @@
 <title>Electrical Department — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer,body.auth-login-visible .modal{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-07-19-android-stable-v3">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-07-20-refund-amount">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-07-20-job-month-no">
 <link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-07-19-android-stable-v3">
 <link rel="stylesheet" href="assets/empire-electrical-materials.css?v=2026-07-20-mat-comma">
 </head>
@@ -424,8 +424,9 @@ function saveJob(){
       photo:currentPhoto, notes:document.getElementById('j-notes').value,
       amount:document.getElementById('j-amount').value||'', token:tok() };
   }
-  fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify(rec)}).then(r=>r.json()).then(()=>{
-    alert(editId?'✅ Job updated!':'✅ Job saved!');
+  fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify(rec)}).then(r=>r.json()).then(d=>{
+    var refTxt=(d&&Number(d.num)>0)?(' '+jobRef_({num:d.num})):'';
+    alert(editId?'✅ Job updated!':('✅ Job saved!'+refTxt));
     clearForm(); loadJobs(); switchDeptTabTo('jobs');
   }).catch(e=>alert('❌ Error: '+e.message));
 }
@@ -464,6 +465,37 @@ function fieldReportRef_(r) {
   var n = Number(r && r.num);
   if (n > 0) return 'R#' + n;
   return 'R#—';
+}
+function jobRef_(r) {
+  var n = Number(r && r.num);
+  if (n > 0) return 'J#' + n;
+  return 'J#—';
+}
+function buildJobMonthIndexMap_(jobs) {
+  var byMonth = {};
+  (jobs || []).forEach(function (r) {
+    var m = monthOf(r);
+    if (!m) return;
+    if (!byMonth[m]) byMonth[m] = [];
+    byMonth[m].push(r);
+  });
+  var map = {};
+  Object.keys(byMonth).forEach(function (m) {
+    byMonth[m].sort(function (a, b) {
+      var da = String(a.date || ''), db = String(b.date || '');
+      if (da !== db) return da.localeCompare(db);
+      return String(a.createdAt || a.id || '').localeCompare(String(b.createdAt || b.id || ''));
+    });
+    byMonth[m].forEach(function (r, i) {
+      map[String(r.id)] = i + 1;
+    });
+  });
+  return map;
+}
+function jobMonthIndex_(r, map) {
+  if (!r) return '';
+  map = map || buildJobMonthIndexMap_(allJobs);
+  return map[String(r.id)] || '';
 }
 function fieldReportType_(r) {
   if (r && r.reportType === 'refundable') return 'refundable';
@@ -1015,18 +1047,18 @@ function renderJobs(){
   }
   var h='';
   var showActions=(P.edit!==false || P.del!==false);
-  h+='<div style="overflow-x:auto;"><table><thead><tr><th>#</th><th>Date</th><th>Type</th><th>Job</th><th>Location</th><th>Materials</th><th>Staff</th><th>Amount</th><th>Photo</th>'+(showActions?'<th>Actions</th>':'')+'</tr></thead><tbody>';
-  if(rows.length===0) h+='<tr><td colspan="10" style="color:var(--text-faint);">No records match.</td></tr>';
-  var num=0;
+  var monthIndexMap=buildJobMonthIndexMap_(allJobs);
+  h+='<div style="overflow-x:auto;"><table><thead><tr><th>#</th><th>Ref</th><th>Date</th><th>Type</th><th>Job</th><th>Location</th><th>Materials</th><th>Staff</th><th>Amount</th><th>Photo</th>'+(showActions?'<th>Actions</th>':'')+'</tr></thead><tbody>';
+  if(rows.length===0) h+='<tr><td colspan="11" style="color:var(--text-faint);">No records match.</td></tr>';
   rows.forEach(r=>{
-    num++;
+    var monthNo=jobMonthIndex_(r, monthIndexMap);
     var typeBadge='<span class="badge '+r.type+'">'+(r.type==='general'?'General':r.type==='refundable'?'Refundable':'Call Center')+'</span>';
     var photo=r.photo?'<img class="thumb" src="'+r.photo+'" onclick="bigImg(this.src)" loading="lazy">':'—';
     var amountCell=r.type==='refundable'&&r.amount?'<span style="color:var(--c-money);font-weight:600;">'+fmtMoney(parseFloat(r.amount))+' IQD</span>':'—';
     var acts='';
     if(P.edit!==false) acts+='<button class="act-btn" onclick="editJob(\''+r.id+'\')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/></svg></span> Edit</button>';
     if(P.del!==false) acts+='<button class="act-btn" onclick="deleteJob(\''+r.id+'\')" style="color:#fff;background:#C5504F;border-color:#C5504F;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span></button>';
-    h+='<tr class="job-row"><td>'+num+'</td><td>'+r.date+'</td><td>'+typeBadge+'</td><td>'+_esc(r.job)+'</td><td>'+_esc(r.location||'')+'</td><td style="max-width:160px;word-break:break-word;">'+_esc(materialsDisplay_(r.materials)||'—')+'</td><td>'+_esc(r.staff||'')+'</td><td>'+amountCell+'</td><td>'+photo+'</td>'+(showActions?('<td>'+(acts||'—')+'</td>'):'')+'</tr>';
+    h+='<tr class="job-row"><td><span class="job-month-no">'+monthNo+'</span></td><td><span class="job-ref">'+jobRef_(r)+'</span></td><td>'+r.date+'</td><td>'+typeBadge+'</td><td>'+_esc(r.job)+'</td><td>'+_esc(r.location||'')+'</td><td style="max-width:160px;word-break:break-word;">'+_esc(materialsDisplay_(r.materials)||'—')+'</td><td>'+_esc(r.staff||'')+'</td><td>'+amountCell+'</td><td>'+photo+'</td>'+(showActions?('<td>'+(acts||'—')+'</td>'):'')+'</tr>';
   });
   h+='</tbody></table></div>';
   document.getElementById('jobsTable').innerHTML=h;
@@ -1084,16 +1116,19 @@ function renderReportPreview(){
   var m=document.getElementById('rep-month').value||''; if(!m){ document.getElementById('reportPreview').innerHTML='<p style="color:var(--text-faint);">Select a month above.</p>'; return; }
   var jobs=allJobs.filter(r=>monthOf(r)===m&&r.type!=='callcenter');
   var cc=allJobs.filter(r=>monthOf(r)===m&&r.type==='callcenter');
+  jobs.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  cc.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  var monthIndexMap=buildJobMonthIndexMap_(allJobs);
   var total=jobs.length+cc.length;
   var h='<div class="stats"><div class="stat-box"><div class="stat-value">'+jobs.length+'</div><div class="stat-label">Maintenance Jobs</div></div><div class="stat-box"><div class="stat-value" style="color:var(--c-refundable);">'+jobs.filter(r=>r.type==='refundable').length+'</div><div class="stat-label">Refundable</div></div><div class="stat-box"><div class="stat-value" style="color:var(--c-callcenter);">'+cc.length+'</div><div class="stat-label">Call Center Shifts</div></div><div class="stat-box"><div class="stat-value">'+total+'</div><div class="stat-label">Total Records</div></div></div>';
   if(jobs.length>0){
-    h+='<h3>Maintenance Jobs ('+jobs.length+')</h3><div style="overflow-x:auto;"><table><thead><tr><th>#</th><th>Date</th><th>Job</th><th>Location</th><th>Materials</th><th>Staff</th><th>Notes</th></tr></thead><tbody>';
-    jobs.forEach((r,i)=>{ h+='<tr><td>'+(i+1)+'</td><td>'+r.date+'</td><td>'+_esc(r.job)+'</td><td>'+_esc(r.location||'')+'</td><td>'+_esc(materialsDisplay_(r.materials))+'</td><td>'+_esc(r.staff||'')+'</td><td><span class="badge '+(r.type==='refundable'?'refundable':'general')+'">'+(r.type==='refundable'?'Refundable Work':'General Maintenance')+'</span></td></tr>'; });
+    h+='<h3>Maintenance Jobs ('+jobs.length+')</h3><div style="overflow-x:auto;"><table><thead><tr><th>#</th><th>Ref</th><th>Date</th><th>Job</th><th>Location</th><th>Materials</th><th>Staff</th><th>Notes</th></tr></thead><tbody>';
+    jobs.forEach(r=>{ h+='<tr><td>'+jobMonthIndex_(r, monthIndexMap)+'</td><td>'+jobRef_(r)+'</td><td>'+r.date+'</td><td>'+_esc(r.job)+'</td><td>'+_esc(r.location||'')+'</td><td>'+_esc(materialsDisplay_(r.materials))+'</td><td>'+_esc(r.staff||'')+'</td><td><span class="badge '+(r.type==='refundable'?'refundable':'general')+'">'+(r.type==='refundable'?'Refundable Work':'General Maintenance')+'</span></td></tr>'; });
     h+='</tbody></table></div>';
   }
   if(cc.length>0){
-    h+='<h3>Call Center Shifts ('+cc.length+')</h3><div style="overflow-x:auto;"><table><thead><tr><th>#</th><th>Date</th><th>Shift</th><th>Staff</th></tr></thead><tbody>';
-    cc.forEach((r,i)=>{ h+='<tr><td>'+(i+1)+'</td><td>'+r.date+'</td><td>'+_esc(r.job)+'</td><td>'+_esc(r.staff||'')+'</td></tr>'; });
+    h+='<h3>Call Center Shifts ('+cc.length+')</h3><div style="overflow-x:auto;"><table><thead><tr><th>#</th><th>Ref</th><th>Date</th><th>Shift</th><th>Staff</th></tr></thead><tbody>';
+    cc.forEach(r=>{ h+='<tr><td>'+jobMonthIndex_(r, monthIndexMap)+'</td><td>'+jobRef_(r)+'</td><td>'+r.date+'</td><td>'+_esc(r.job)+'</td><td>'+_esc(r.staff||'')+'</td></tr>'; });
     h+='</tbody></table></div>';
   }
   document.getElementById('reportPreview').innerHTML=h;
@@ -1124,16 +1159,18 @@ function buildReportHtml(jobs,cc,summary,map,logo,monthLabel,gen){
   if(summary){ b+='<h2>Monthly Summary</h2><div class="summary">'+_esc(summary).replace(/\n/g,'<br>')+'</div>'; }
   if(jobs.length>0){
     b+='<h2>A- Daily Operation and Maintenance ('+jobs.length+' jobs)</h2>';
-    b+='<table><thead><tr><th>#</th><th>Date</th><th>Electricity Establishment</th><th>Location</th><th>Using Quantity</th><th>Staff</th><th>Notes</th></tr></thead><tbody>';
-    jobs.forEach((r,i)=>{ b+='<tr><td>'+(i+1)+'</td><td>'+_esc(r.date)+'</td><td>'+_esc(r.job)+'</td><td>'+_esc(r.location||'')+'</td><td>'+_esc(materialsDisplay_(r.materials)||'0')+'</td><td>'+_esc(r.staff||'')+'</td><td><span class="badge '+(r.type==='refundable'?'refundable':'general')+'">'+(r.type==='refundable'?'Refundable Work':'General Maintenance')+'</span></td></tr>'; });
+    var monthIndexMap=buildJobMonthIndexMap_(jobs.concat(cc));
+    b+='<table><thead><tr><th>#</th><th>Ref</th><th>Date</th><th>Electricity Establishment</th><th>Location</th><th>Using Quantity</th><th>Staff</th><th>Notes</th></tr></thead><tbody>';
+    jobs.forEach(r=>{ b+='<tr><td>'+jobMonthIndex_(r, monthIndexMap)+'</td><td>'+_esc(jobRef_(r))+'</td><td>'+_esc(r.date)+'</td><td>'+_esc(r.job)+'</td><td>'+_esc(r.location||'')+'</td><td>'+_esc(materialsDisplay_(r.materials)||'0')+'</td><td>'+_esc(r.staff||'')+'</td><td><span class="badge '+(r.type==='refundable'?'refundable':'general')+'">'+(r.type==='refundable'?'Refundable Work':'General Maintenance')+'</span></td></tr>'; });
     b+='</tbody></table>';
     var photos=jobs.filter(r=>r.photo);
     if(photos.length>0){ b+='<h2>Photos</h2><div class="photos">'; photos.forEach(r=>{ var src=map[r.photo]||r.photo; b+='<figure><a href="'+src+'" target="_blank"><img src="'+src+'"></a><figcaption>'+_esc(r.job)+' — '+_esc(r.location||'')+'</figcaption></figure>'; }); b+='</div>'; }
   }
   if(cc.length>0){
     b+='<h2>B- Call Center Shifts ('+cc.length+' shifts)</h2>';
-    b+='<table><thead><tr><th>#</th><th>Date</th><th>Shift</th><th>Location</th><th>Using Quantity</th><th>Staff</th><th>Notes</th></tr></thead><tbody>';
-    cc.forEach((r,i)=>{ b+='<tr><td>'+(i+1)+'</td><td>'+_esc(r.date)+'</td><td>'+_esc(r.job)+'</td><td>Empire project</td><td>0</td><td>'+_esc(r.staff||'')+'</td><td>Call center</td></tr>'; });
+    var monthIndexMapCc=buildJobMonthIndexMap_(jobs.concat(cc));
+    b+='<table><thead><tr><th>#</th><th>Ref</th><th>Date</th><th>Shift</th><th>Location</th><th>Using Quantity</th><th>Staff</th><th>Notes</th></tr></thead><tbody>';
+    cc.forEach(r=>{ b+='<tr><td>'+jobMonthIndex_(r, monthIndexMapCc)+'</td><td>'+_esc(jobRef_(r))+'</td><td>'+_esc(r.date)+'</td><td>'+_esc(r.job)+'</td><td>Empire project</td><td>0</td><td>'+_esc(r.staff||'')+'</td><td>Call center</td></tr>'; });
     b+='</tbody></table>';
   }
   b+='</body></html>';
@@ -1161,9 +1198,10 @@ function renderJobAnalytics(){
   h+='</div>';
   if(refJobs.length>0){
     h+='<h3>💰 Refundable Jobs'+(m?' ('+m+')':' (all time)')+'</h3>';
-    h+='<table><thead><tr><th>#</th><th>Date</th><th>Job</th><th>Location</th><th>Staff</th><th>Amount (IQD)</th></tr></thead><tbody>';
-    refJobs.forEach((r,i)=>{ h+='<tr><td>'+(i+1)+'</td><td>'+r.date+'</td><td>'+_esc(r.job)+'</td><td>'+_esc(r.location||'')+'</td><td>'+_esc(r.staff||'')+'</td><td style="color:var(--c-money);font-weight:600;">'+(r.amount?fmtMoney(parseFloat(r.amount))+' IQD':'—')+'</td></tr>'; });
-    h+='<tr style="font-weight:700;border-top:2px solid var(--accent2);"><td colspan="5" style="text-align:right;color:var(--text-soft);">Total:</td><td style="color:var(--c-money);">'+fmtMoney(refTotal)+' IQD</td></tr>';
+    var monthIndexMapAnalytics=buildJobMonthIndexMap_(allJobs);
+    h+='<table><thead><tr><th>#</th><th>Ref</th><th>Date</th><th>Job</th><th>Location</th><th>Staff</th><th>Amount (IQD)</th></tr></thead><tbody>';
+    refJobs.forEach(r=>{ h+='<tr><td>'+jobMonthIndex_(r, monthIndexMapAnalytics)+'</td><td>'+jobRef_(r)+'</td><td>'+r.date+'</td><td>'+_esc(r.job)+'</td><td>'+_esc(r.location||'')+'</td><td>'+_esc(r.staff||'')+'</td><td style="color:var(--c-money);font-weight:600;">'+(r.amount?fmtMoney(parseFloat(r.amount))+' IQD':'—')+'</td></tr>'; });
+    h+='<tr style="font-weight:700;border-top:2px solid var(--accent2);"><td colspan="6" style="text-align:right;color:var(--text-soft);">Total:</td><td style="color:var(--c-money);">'+fmtMoney(refTotal)+' IQD</td></tr>';
     h+='</tbody></table>';
   }
   if(!m){

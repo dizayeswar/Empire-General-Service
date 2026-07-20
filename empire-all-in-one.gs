@@ -21,7 +21,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-20-field-report-ref-v1';
+var SCRIPT_VERSION = '2026-07-20-job-ref-v1';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -227,6 +227,126 @@ function nextFieldReportNum_(sheet) {
     try { props.setProperty(key, String(num)); } catch (e) {}
     return num;
   });
+}
+
+// ---- Permanent electrical job numbers (J#1, J#2, ...) — never reused after delete ----
+var ELECTRICAL_JOB_NUM_COL = 13;
+function jobnumKey_() { return 'jobnum_' + ELECTRICAL_JOBS_SHEET; }
+function ensureElectricalJobsSheet_(sheet) {
+  if (!sheet) return;
+  var headers = ['id','date','job','location','materials','staff','type','photo','notes','createdBy','createdAt','amount','num'];
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(headers);
+    return;
+  }
+  for (var c = 0; c < headers.length; c++) {
+    if (String(sheet.getRange(1, c + 1).getValue() || '') !== headers[c]) {
+      sheet.getRange(1, c + 1).setValue(headers[c]);
+    }
+  }
+}
+function ensureElectricalJobNums_(sheet, rows) {
+  if (!sheet || !rows || rows.length < 2) return 0;
+  if (String(rows[0][ELECTRICAL_JOB_NUM_COL - 1] || '') !== 'num') {
+    sheet.getRange(1, ELECTRICAL_JOB_NUM_COL).setValue('num');
+  }
+  var maxNum = 0, missing = false, i;
+  for (i = 1; i < rows.length; i++) {
+    var v = Number(rows[i][ELECTRICAL_JOB_NUM_COL - 1] || 0);
+    if (v > maxNum) maxNum = v;
+    if (!v) missing = true;
+  }
+  if (!missing) return maxNum;
+  var next = maxNum, out = [];
+  for (i = 1; i < rows.length; i++) {
+    var cur = Number(rows[i][ELECTRICAL_JOB_NUM_COL - 1] || 0);
+    if (!cur) { next++; cur = next; rows[i][ELECTRICAL_JOB_NUM_COL - 1] = cur; }
+    out.push([cur]);
+  }
+  sheet.getRange(2, ELECTRICAL_JOB_NUM_COL, out.length, 1).setValues(out);
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var key = jobnumKey_();
+    if (next > Number(props.getProperty(key) || 0)) props.setProperty(key, String(next));
+  } catch (e) {}
+  return next;
+}
+function nextElectricalJobNum_(sheet) {
+  return withScriptLock_(function () {
+    var rows = sheet.getDataRange().getValues();
+    var maxNum = ensureElectricalJobNums_(sheet, rows);
+    var props = PropertiesService.getScriptProperties();
+    var key = jobnumKey_();
+    var num = Math.max(Number(props.getProperty(key) || 0), maxNum) + 1;
+    try { props.setProperty(key, String(num)); } catch (e) {}
+    return num;
+  });
+}
+function electricalJobFromRow_(rows, i, ds) {
+  return {
+    id: String(rows[i][0] || ''),
+    num: Number(rows[i][ELECTRICAL_JOB_NUM_COL - 1] || 0) || 0,
+    date: ds,
+    job: String(rows[i][2] || ''),
+    location: String(rows[i][3] || ''),
+    materials: String(rows[i][4] || ''),
+    staff: String(rows[i][5] || ''),
+    type: String(rows[i][6] || ''),
+    photo: String(rows[i][7] || ''),
+    notes: String(rows[i][8] || ''),
+    createdBy: String(rows[i][9] || ''),
+    createdAt: rows[i][10],
+    amount: rows[i][11] || ''
+  };
+}
+function appendElectricalJob_(sheet, fields) {
+  ensureElectricalJobsSheet_(sheet);
+  var id = String(fields.id || '') || ('job-' + new Date().getTime());
+  var rows = sheet.getDataRange().getValues();
+  if (fields.id) {
+    for (var k = 1; k < rows.length; k++) {
+      if (String(rows[k][0]) === id) {
+        var dv = rows[k][1];
+        var tz = sheet.getParent().getSpreadsheetTimeZone();
+        var ds = (dv instanceof Date) ? Utilities.formatDate(dv, tz, 'yyyy-MM-dd') : String(dv || '');
+        var existing = electricalJobFromRow_(rows, k, ds);
+        return Object.assign(existing, { deduped: true });
+      }
+    }
+  }
+  var num = nextElectricalJobNum_(sheet);
+  var createdAt = fields.createdAt || new Date().toISOString();
+  var createdBy = fields.createdBy || fields.username || '';
+  sheet.appendRow([
+    id,
+    fields.date || '',
+    fields.job || '',
+    fields.location || '',
+    fields.materials || '',
+    fields.staff || '',
+    fields.type || '',
+    fields.photo || '',
+    fields.notes || '',
+    createdBy,
+    createdAt,
+    fields.amount != null && fields.amount !== undefined ? fields.amount : '',
+    num
+  ]);
+  return {
+    id: id,
+    num: num,
+    date: fields.date || '',
+    job: fields.job || '',
+    location: fields.location || '',
+    materials: fields.materials || '',
+    staff: fields.staff || '',
+    type: fields.type || '',
+    photo: fields.photo || '',
+    notes: fields.notes || '',
+    createdBy: createdBy,
+    createdAt: createdAt,
+    amount: fields.amount != null && fields.amount !== undefined ? fields.amount : ''
+  };
 }
 
 function doGet(e) {
@@ -2768,23 +2888,35 @@ function handleClearIssues(body, sheetName) {
 function handleAddElectricalJob(body) {
   var ss = getSS_();
   var sheet = ss.getSheetByName(ELECTRICAL_JOBS_SHEET) || ss.insertSheet(ELECTRICAL_JOBS_SHEET);
-  if (sheet.getLastRow()===0) sheet.appendRow(['id','date','job','location','materials','staff','type','photo','notes','createdBy','createdAt','amount']);
-  var id = body.id || ('job-' + new Date().getTime());
-  sheet.appendRow([id, body.date||'', body.job||'', body.location||'', body.materials||'', body.staff||'', body.type||'', body.photo||'', body.notes||'', body.username||'', new Date().toISOString(), body.amount||'']);
-  return {ok:true, success:true, id:id};
+  var job = appendElectricalJob_(sheet, {
+    id: body.id,
+    date: body.date || '',
+    job: body.job || '',
+    location: body.location || '',
+    materials: body.materials || '',
+    staff: body.staff || '',
+    type: body.type || '',
+    photo: body.photo || '',
+    notes: body.notes || '',
+    amount: body.amount || '',
+    username: body.username || ''
+  });
+  return {ok:true, success:true, id:job.id, num:job.num, job:job};
 }
 
 function handleGetElectricalJobs(body) {
   var ss = getSS_();
   var sheet = ss.getSheetByName(ELECTRICAL_JOBS_SHEET);
   if (!sheet||sheet.getLastRow()<2) return [];
+  ensureElectricalJobsSheet_(sheet);
   var tz = ss.getSpreadsheetTimeZone();
   var rows = sheet.getDataRange().getValues();
+  ensureElectricalJobNums_(sheet, rows);
   var jobs = [];
   for (var i=1;i<rows.length;i++) {
     var dv = rows[i][1];
     var ds = (dv instanceof Date) ? Utilities.formatDate(dv, tz, 'yyyy-MM-dd') : String(dv);
-    jobs.push({id:rows[i][0],date:ds,job:rows[i][2],location:rows[i][3],materials:rows[i][4],staff:rows[i][5],type:rows[i][6],photo:rows[i][7],notes:rows[i][8],createdBy:rows[i][9],createdAt:rows[i][10],amount:rows[i][11]||''});
+    jobs.push(electricalJobFromRow_(rows, i, ds));
   }
   return jobs;
 }
@@ -3105,27 +3237,25 @@ function handleTransferElectricWorkerReport(body, auth) {
   var photo = String(row[4] || '');
   var materials = String(body.materials || row[16] || '').trim() || '0';
   var now = new Date();
-  var jobId = 'job-' + now.getTime();
   var reportMonth = electricReportMonthOfDate_(dateStr);
   var createdAt = now.toISOString();
   var createdBy = body.username || '';
 
   var jobsSheet = ss.getSheetByName(ELECTRICAL_JOBS_SHEET) || ss.insertSheet(ELECTRICAL_JOBS_SHEET);
-  if (jobsSheet.getLastRow() === 0) jobsSheet.appendRow(['id','date','job','location','materials','staff','type','photo','notes','createdBy','createdAt','amount']);
-  jobsSheet.appendRow([
-    jobId,
-    dateStr,
-    editedNote,
-    place,
-    materials,
-    workerName,
-    jobType,
-    photo,
-    '',
-    createdBy,
-    createdAt,
-    amountNum > 0 ? amountNum : ''
-  ]);
+  var job = appendElectricalJob_(jobsSheet, {
+    date: dateStr,
+    job: editedNote,
+    location: place,
+    materials: materials,
+    staff: workerName,
+    type: jobType,
+    photo: photo,
+    notes: '',
+    amount: amountNum > 0 ? amountNum : '',
+    createdBy: createdBy,
+    createdAt: createdAt
+  });
+  var jobId = job.id;
 
   sheet.getRange(rowIdx, 3).setValue(place);
   sheet.getRange(rowIdx, 10).setValue(amountNum > 0 ? amountNum : '');
@@ -3146,20 +3276,7 @@ function handleTransferElectricWorkerReport(body, auth) {
     id: id,
     jobId: jobId,
     reportMonth: reportMonth,
-    job: {
-      id: jobId,
-      date: dateStr,
-      job: editedNote,
-      location: place,
-      materials: materials,
-      staff: workerName,
-      type: jobType,
-      photo: photo,
-      notes: '',
-      createdBy: createdBy,
-      createdAt: createdAt,
-      amount: amountNum > 0 ? amountNum : ''
-    }
+    job: job
   };
 }
 
@@ -3261,27 +3378,25 @@ function handleTransferElectricIssueCompletion(body, auth) {
   var amount = String(body.amount || '').trim();
   var jobType = 'general';
   var now = new Date();
-  var jobId = 'job-' + now.getTime();
   var reportMonth = electricReportMonthOfDate_(dateStr);
   var createdAt = now.toISOString();
   var createdBy = body.username || '';
 
   var jobsSheet = ss.getSheetByName(ELECTRICAL_JOBS_SHEET) || ss.insertSheet(ELECTRICAL_JOBS_SHEET);
-  if (jobsSheet.getLastRow() === 0) jobsSheet.appendRow(['id','date','job','location','materials','staff','type','photo','notes','createdBy','createdAt','amount']);
-  jobsSheet.appendRow([
-    jobId,
-    dateStr,
-    editedJob,
-    location,
-    materials,
-    staff,
-    jobType,
-    photo,
-    '',
-    createdBy,
-    createdAt,
-    amount
-  ]);
+  var job = appendElectricalJob_(jobsSheet, {
+    date: dateStr,
+    job: editedJob,
+    location: location,
+    materials: materials,
+    staff: staff,
+    type: jobType,
+    photo: photo,
+    notes: '',
+    amount: amount,
+    createdBy: createdBy,
+    createdAt: createdAt
+  });
+  var jobId = job.id;
 
   sheet.getRange(foundIdx, CIVIL_MONTHLY_TRANSFER_STATUS_COL, 1, 5).setValues([[
     'transferred',
@@ -3299,20 +3414,7 @@ function handleTransferElectricIssueCompletion(body, auth) {
     id: id,
     jobId: jobId,
     reportMonth: reportMonth,
-    job: {
-      id: jobId,
-      date: dateStr,
-      job: editedJob,
-      location: location,
-      materials: materials,
-      staff: staff,
-      type: jobType,
-      photo: photo,
-      notes: '',
-      createdBy: createdBy,
-      createdAt: createdAt,
-      amount: amount
-    }
+    job: job
   };
 }
 

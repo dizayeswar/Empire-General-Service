@@ -358,6 +358,20 @@ tr.job-row:hover {
   font-size: 13px;
 }
 
+.job-ref {
+  color: var(--header-accent, #185fa5);
+  font-weight: 800;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.job-month-no {
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
 .field-report-title {
   font-weight: 600;
   line-height: 1.35;
