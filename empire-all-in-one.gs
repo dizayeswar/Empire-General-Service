@@ -2948,16 +2948,23 @@ function handleDeleteElectricalJob(body) {
 
 function handleClearElectricalJobs(body) {
   if (String((body && body.resetPassword) || '') !== RESET_PASSWORD) return {ok:false,success:false,error:'bad_password'};
+  var target = String(body.target || 'all').trim().toLowerCase();
+  if (target === 'field_reports') target = 'fieldreports';
+  if (target !== 'jobs' && target !== 'fieldreports' && target !== 'all') target = 'all';
   var ss = getSS_();
-  var sheet = ss.getSheetByName(ELECTRICAL_JOBS_SHEET);
-  if (sheet && sheet.getLastRow()>1) { var _r=sheet.getDataRange().getValues(); trashRows_(ELECTRICAL_JOBS_SHEET,_r.slice(1),'reset',body.username); sheet.deleteRows(2,sheet.getLastRow()-1); }
-  var frSheet = ss.getSheetByName(ELECTRIC_WORKER_REPORTS_SHEET);
-  if (frSheet && frSheet.getLastRow()>1) {
-    var _fr = frSheet.getDataRange().getValues();
-    trashRows_(ELECTRIC_WORKER_REPORTS_SHEET, _fr.slice(1), 'reset', body.username);
-    frSheet.deleteRows(2, frSheet.getLastRow() - 1);
+  if (target === 'jobs' || target === 'all') {
+    var sheet = ss.getSheetByName(ELECTRICAL_JOBS_SHEET);
+    if (sheet && sheet.getLastRow()>1) { var _r=sheet.getDataRange().getValues(); trashRows_(ELECTRICAL_JOBS_SHEET,_r.slice(1),'reset',body.username); sheet.deleteRows(2,sheet.getLastRow()-1); }
   }
-  return {ok:true,success:true};
+  if (target === 'fieldreports' || target === 'all') {
+    var frSheet = ss.getSheetByName(ELECTRIC_WORKER_REPORTS_SHEET);
+    if (frSheet && frSheet.getLastRow()>1) {
+      var _fr = frSheet.getDataRange().getValues();
+      trashRows_(ELECTRIC_WORKER_REPORTS_SHEET, _fr.slice(1), 'reset', body.username);
+      frSheet.deleteRows(2, frSheet.getLastRow() - 1);
+    }
+  }
+  return {ok:true,success:true,target:target};
 }
 
 function handleGetElectricalSummary(body) {

@@ -15,7 +15,7 @@
 <title>Electrical Department — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer,body.auth-login-visible .modal{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-07-19-android-stable-v3">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-07-20-job-month-no">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-07-20-reset-choices">
 <link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-07-19-android-stable-v3">
 <link rel="stylesheet" href="assets/empire-electrical-materials.css?v=2026-07-20-mat-comma">
 </head>
@@ -60,7 +60,6 @@
         <button class="tab-btn issue-tab-btn tab-btn-not-civil" id="tabBtnNotCivil" onclick="switchTab(event,'notcivil')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></span> <span class="lbl">Not Electric Dept</span> <span class="side-nav-badge" id="notCivilNavBadge" style="display:none;"></span></button>
         <button class="tab-btn issue-tab-btn tab-btn-fix-delay" id="tabBtnFixDelay" onclick="switchTab(event,'fixdelay')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span> <span class="lbl">Needs 1+ Month</span> <span class="side-nav-badge side-nav-badge-silver" id="fixDelayNavBadge" style="display:none;"></span></button>
         <button class="tab-btn issue-tab-btn tab-btn-gps" id="tabBtnGps" onclick="switchTab(event,'gps')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg></span> <span class="lbl">GPS</span></button>
-        <button class="tab-btn issue-tab-btn" id="btnIssueReset" onclick="openIssueResetModal()" style="color:#fff;background:#C5734F;border-color:#C5734F;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5H3"/><path d="M7 12H3"/><path d="M7 19H3"/><path d="M12 18a5 5 0 0 0 9-3 4.5 4.5 0 0 0-4.5-4.5c-1.33 0-2.54.54-3.41 1.41L11 14"/><path d="M11 10v4h4"/></svg></span> <span class="lbl">Reset Issues</span></button>
       </nav>
       <div class="side-actions">
         <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span> <span class="lbl">Light Mode</span></button>
@@ -1244,20 +1243,112 @@ function switchDeptTab(e,t){ document.querySelectorAll('.dept-tab-content').forE
 function switchDeptTabTo(t){ document.querySelectorAll('.dept-tab-content').forEach(x=>x.classList.remove('active')); document.querySelectorAll('.side-nav-dept .tab-btn').forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); document.querySelectorAll('.side-nav-dept .tab-btn').forEach(b=>{ if(b.getAttribute('onclick')&&b.getAttribute('onclick').indexOf("'"+t+"'")!==-1)b.classList.add('active'); }); }
 function bigImg(src){ document.getElementById('imgBig').src=src; document.getElementById('imgModal').classList.add('show'); }
 function closeImg(){ document.getElementById('imgModal').classList.remove('show'); }
-function openResetModal(){ document.getElementById('resetPwInput').value=''; document.getElementById('resetMsg2').textContent=''; document.getElementById('resetModal').style.display='flex'; setTimeout(()=>document.getElementById('resetPwInput').focus(),30); }
-function closeResetModal(){ document.getElementById('resetModal').style.display='none'; }
-function doReset(){ var pw=document.getElementById('resetPwInput').value; var msg=document.getElementById('resetMsg2'); if(!pw){ msg.style.color='var(--c-error)'; msg.textContent='Please enter the password.'; return; } msg.style.color='var(--text-soft)'; msg.textContent='⏳ Deleting…'; fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'clearElectricalJobs',resetPassword:pw,token:tok()})}).then(r=>r.json()).then(d=>{ if(d&&d.success){ closeResetModal(); allJobs=[]; allFieldReports=[]; renderJobs(); renderJobAnalytics(); renderFieldReports(); uiAlert('✅ All jobs, shifts, and worker field reports deleted.'); } else if(d&&d.error==='bad_password'){ msg.style.color='var(--c-error)'; msg.textContent='❌ Wrong password.'; } else if(d&&d.error==='not_allowed'){ msg.style.color='var(--c-error)'; msg.textContent='❌ Only an admin can reset data.'; } else{ msg.style.color='var(--c-error)'; msg.textContent='❌ Could not reset.'; } }).catch(e=>{ msg.style.color='var(--c-error)'; msg.textContent='❌ '+e.message; }); }
+function openResetModal(){
+  _resetTarget='';
+  var pw=document.getElementById('resetPwInput');
+  var msg=document.getElementById('resetMsg2');
+  var choices=document.getElementById('resetChoicePanel');
+  var confirm=document.getElementById('resetConfirmPanel');
+  if(pw) pw.value='';
+  if(msg) msg.textContent='';
+  if(choices) choices.style.display='';
+  if(confirm) confirm.style.display='none';
+  document.getElementById('resetModal').style.display='flex';
+}
+function closeResetModal(){ document.getElementById('resetModal').style.display='none'; _resetTarget=''; }
+var _resetTarget='';
+var _resetTargetMeta={
+  jobs:{title:'Reset Jobs',desc:'Permanently deletes <strong>all electrical jobs and call center shifts</strong>. Field reports and issues are not affected.',action:'clearElectricalJobs',payload:{target:'jobs'},success:'All jobs and shifts deleted.',after:function(){ allJobs=[]; renderJobs(); renderJobAnalytics(); renderReportPreview(); }},
+  fieldReports:{title:'Reset Field Reports',desc:'Permanently deletes <strong>all worker field reports</strong> (including what workers see under &ldquo;Your recent reports&rdquo; on their phones). Jobs and issues are not affected.',action:'clearElectricalJobs',payload:{target:'fieldReports'},success:'All field reports deleted.',after:function(){ allFieldReports=[]; renderFieldReports(); }},
+  issues:{title:'Reset Issues',desc:'Permanently deletes <strong>all electric issues</strong> — reports, photos and fixed history. Jobs and field reports are not affected.',action:'clearElectricIssues',payload:{},success:'All electric issues deleted.',after:function(){ if(window.loadIssues) loadIssues(true); }}
+};
+function selectResetTarget(key){
+  var meta=_resetTargetMeta[key];
+  if(!meta) return;
+  _resetTarget=key;
+  var choices=document.getElementById('resetChoicePanel');
+  var confirm=document.getElementById('resetConfirmPanel');
+  var title=document.getElementById('resetConfirmTitle');
+  var desc=document.getElementById('resetConfirmDesc');
+  var btn=document.getElementById('resetConfirmBtn');
+  var pw=document.getElementById('resetPwInput');
+  var msg=document.getElementById('resetMsg2');
+  if(choices) choices.style.display='none';
+  if(confirm) confirm.style.display='';
+  if(title) title.textContent=meta.title;
+  if(desc) desc.innerHTML=meta.desc;
+  if(btn) btn.textContent='Delete';
+  if(pw){ pw.value=''; setTimeout(function(){ pw.focus(); },30); }
+  if(msg) msg.textContent='';
+}
+function resetBackToChoices(){
+  _resetTarget='';
+  var choices=document.getElementById('resetChoicePanel');
+  var confirm=document.getElementById('resetConfirmPanel');
+  var msg=document.getElementById('resetMsg2');
+  if(choices) choices.style.display='';
+  if(confirm) confirm.style.display='none';
+  if(msg) msg.textContent='';
+}
+function doReset(){
+  var meta=_resetTargetMeta[_resetTarget];
+  var pw=document.getElementById('resetPwInput').value;
+  var msg=document.getElementById('resetMsg2');
+  if(!meta){ resetBackToChoices(); return; }
+  if(!pw){ msg.style.color='var(--c-error)'; msg.textContent='Please enter the password.'; return; }
+  msg.style.color='var(--text-soft)'; msg.textContent='⏳ Deleting…';
+  var body=Object.assign({action:meta.action,resetPassword:pw,token:tok()}, meta.payload||{});
+  fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify(body)}).then(r=>r.json()).then(function(d){
+    if(d&&d.success){
+      closeResetModal();
+      if(typeof meta.after==='function') meta.after();
+      uiAlert('✅ '+meta.success);
+    } else if(d&&d.error==='bad_password'){
+      msg.style.color='var(--c-error)'; msg.textContent='❌ Wrong password.';
+    } else if(d&&d.error==='not_allowed'){
+      msg.style.color='var(--c-error)'; msg.textContent='❌ Only an admin can reset data.';
+    } else if(d&&d.ok===false && typeof forceSessionLogout==='function' && forceSessionLogout(d)){
+      /* session ended */
+    } else {
+      msg.style.color='var(--c-error)'; msg.textContent='❌ Could not reset.';
+    }
+  }).catch(function(e){ msg.style.color='var(--c-error)'; msg.textContent='❌ '+e.message; });
+}
 </script>
 <div id="resetModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1600;align-items:center;justify-content:center;">
-  <div style="background:var(--panel);border:2px solid var(--card-border);border-radius:14px;max-width:440px;width:92%;padding:28px;box-shadow:0 10px 40px var(--shadow);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-    <h2 style="margin:0 0 10px;color:var(--text);">⚠️ Reset Electrical Data</h2>
-    <p style="color:var(--text-soft);font-size:14px;margin-bottom:16px;line-height:1.5;">This permanently deletes <strong>all electrical jobs, call center shifts, and worker field reports</strong> (including what workers see under &ldquo;Your recent reports&rdquo; on their phones). This cannot be undone.</p>
-    <label style="color:var(--text);font-weight:600;font-size:14px;">Reset password</label>
-    <input type="password" id="resetPwInput" placeholder="Enter password" onkeydown="if(event.key==='Enter')doReset()" style="width:100%;margin-top:6px;padding:12px;border:2px solid var(--input-border);border-radius:6px;background:var(--input-bg);color:var(--text);font-size:14px;box-sizing:border-box;">
-    <div id="resetMsg2" style="min-height:18px;margin-top:10px;font-size:13px;font-weight:600;"></div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
-      <button onclick="closeResetModal()">Cancel</button>
-      <button onclick="doReset()" style="color:#fff;background:#C5504F;border-color:#C5504F;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span> Delete Everything</button>
+  <div class="reset-modal-box">
+    <h2 style="margin:0 0 10px;color:var(--text);">⚠️ Reset Data</h2>
+    <div id="resetChoicePanel">
+      <p class="reset-modal-lead">Choose what to permanently delete. Deleted items are kept in the Recycle Bin until you empty it.</p>
+      <div class="reset-choice-list">
+        <button type="button" class="reset-choice-btn" onclick="selectResetTarget('jobs')">
+          <strong>Reset Jobs</strong>
+          <span>All maintenance jobs and call center shifts</span>
+        </button>
+        <button type="button" class="reset-choice-btn" onclick="selectResetTarget('fieldReports')">
+          <strong>Reset Field Reports</strong>
+          <span>All worker mobile field reports</span>
+        </button>
+        <button type="button" class="reset-choice-btn" onclick="selectResetTarget('issues')">
+          <strong>Reset Issues</strong>
+          <span>All electric issues and fix history</span>
+        </button>
+      </div>
+      <div class="reset-modal-actions">
+        <button type="button" onclick="closeResetModal()">Cancel</button>
+      </div>
+    </div>
+    <div id="resetConfirmPanel" style="display:none;">
+      <h3 id="resetConfirmTitle" class="reset-confirm-title"></h3>
+      <p id="resetConfirmDesc" class="reset-modal-lead"></p>
+      <label class="reset-modal-label" for="resetPwInput">Reset password</label>
+      <input type="password" id="resetPwInput" placeholder="Enter password" onkeydown="if(event.key==='Enter')doReset()">
+      <div id="resetMsg2" class="reset-modal-msg"></div>
+      <div class="reset-modal-actions">
+        <button type="button" onclick="resetBackToChoices()">Back</button>
+        <button type="button" onclick="closeResetModal()">Cancel</button>
+        <button type="button" id="resetConfirmBtn" onclick="doReset()" style="color:#fff;background:#C5504F;border-color:#C5504F;">Delete</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1421,19 +1512,6 @@ function doReset(){ var pw=document.getElementById('resetPwInput').value; var ms
 })();
 </script>
 <div class="modal" id="issueModal" onclick="if(event.target===this)closeIssueModal()"><div class="modal-box" id="issueBox"></div></div>
-<div id="issueResetModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1600;align-items:center;justify-content:center;">
-  <div style="background:var(--panel);border:2px solid var(--card-border);border-radius:14px;max-width:440px;width:92%;padding:28px;box-shadow:0 10px 40px var(--shadow);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-    <h2 style="margin:0 0 10px;color:var(--text);">⚠️ Reset Electric Issues</h2>
-    <p style="color:var(--text-soft);font-size:14px;margin-bottom:16px;line-height:1.5;">This permanently deletes <strong>all electric issues</strong> — reports, photos and fixed history. Jobs and field reports are not affected.</p>
-    <label style="color:var(--text);font-weight:600;font-size:14px;">Reset password</label>
-    <input type="password" id="issueResetPwInput" placeholder="Enter password" onkeydown="if(event.key==='Enter')doIssueReset()" style="width:100%;margin-top:6px;padding:12px;border:2px solid var(--input-border);border-radius:6px;background:var(--input-bg);color:var(--text);font-size:14px;box-sizing:border-box;">
-    <div id="issueResetMsg" style="min-height:18px;margin-top:10px;font-size:13px;font-weight:600;"></div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
-      <button onclick="closeIssueResetModal()">Cancel</button>
-      <button onclick="doIssueReset()" style="color:#fff;background:#C5504F;border-color:#C5504F;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span> Delete All Issues</button>
-    </div>
-  </div>
-</div>
 <script src="assets/empire-offline-queue.js"></script>
 <script src="assets/issue-configs.js?v=2026-07-20-free-issue-type"></script>
 <script>ISSUE_CFG=Object.assign({},ISSUE_CONFIGS.electric,{embeddedInDept:true,tabNavScope:'.side-nav-issue',tabPaneScope:'#issueMain',analyticsContentId:'analyticsContent'});</script>
