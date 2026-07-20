@@ -15,7 +15,7 @@
 <title>Electrical Department — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer,body.auth-login-visible .modal{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-07-19-android-stable-v3">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-07-20-edit-place">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-07-20-refund-amount">
 <link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-07-19-android-stable-v3">
 <link rel="stylesheet" href="assets/empire-electrical-materials.css?v=2026-07-20-mat-qty">
 </head>
@@ -485,6 +485,30 @@ function fieldReportAmountLabel_(r) {
   if (isNaN(amt) || amt <= 0) return '';
   return fmtMoney(amt) + ' IQD';
 }
+function fieldReportParseAmount_(raw) {
+  if (raw == null || raw === '') return 0;
+  var digits = String(raw).replace(/\D/g, '');
+  if (!digits) return 0;
+  var n = parseInt(digits, 10);
+  return isNaN(n) || n <= 0 ? 0 : n;
+}
+function fieldReportFormatAmountDigits_(digits) {
+  digits = String(digits || '').replace(/\D/g, '');
+  if (!digits) return '';
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+function fieldReportAmountInputValue_(r) {
+  var amt = parseFloat(r && r.amount);
+  if (isNaN(amt) || amt <= 0) return '';
+  return fieldReportFormatAmountDigits_(Math.round(amt));
+}
+function fieldReportHandleAmountInput_(e) {
+  var el = (e && e.target) ? e.target : document.getElementById('frEditAmount');
+  if (!el) return;
+  var digits = String(el.value || '').replace(/\D/g, '');
+  var formatted = fieldReportFormatAmountDigits_(digits);
+  if (el.value !== formatted) el.value = formatted;
+}
 function fieldReportIsPending_(r) {
   return String((r && r.status) || 'pending').toLowerCase() !== 'transferred';
 }
@@ -622,7 +646,13 @@ function openFieldReportEditor(id){
   h+='<input type="text" id="frEditPlace" class="field-report-editor-place" value="'+_esc(r.place||'')+'" placeholder="Where? e.g. WW-12 corridor, ES-4 parking…">';
   h+='<p class="field-report-editor-hint">Saved to the Location column in the monthly report.</p>';
   h+='<div class="field-report-modal-row"><span class="field-report-modal-label">Date</span><span class="field-report-modal-value">'+_esc(r.date||'')+'</span></div>';
-  if(fieldReportAmountLabel_(r)) h+='<div class="field-report-modal-row"><span class="field-report-modal-label">Amount</span><span class="field-report-modal-value field-report-modal-amount">'+fieldReportAmountLabel_(r)+'</span></div>';
+  if(fieldReportType_(r)==='refundable'){
+    h+='<label class="field-report-modal-label" for="frEditAmount">Amount (IQD)</label>';
+    h+='<input type="text" id="frEditAmount" class="field-report-editor-amount" value="'+_esc(fieldReportAmountInputValue_(r))+'" placeholder="e.g. 25,000" inputmode="numeric" autocomplete="off">';
+    h+='<p class="field-report-editor-hint">Required for refundable work. Saved to the Amount column in the monthly report.</p>';
+  } else if(fieldReportAmountLabel_(r)){
+    h+='<div class="field-report-modal-row"><span class="field-report-modal-label">Amount</span><span class="field-report-modal-value field-report-modal-amount">'+fieldReportAmountLabel_(r)+'</span></div>';
+  }
   h+='<label class="field-report-modal-label" for="frEditNote">Job description (edit note)</label>';
   h+='<textarea id="frEditNote" class="field-report-editor-note" rows="4">'+_esc(r.note||'')+'</textarea>';
   h+='<p class="field-report-editor-hint">This text becomes the job line in the monthly report. Voice notes are not copied.</p>';
@@ -669,6 +699,8 @@ function openFieldReportEditor(id){
   body.innerHTML=h;
   if(typeof assignVoiceBindPlayers==='function') assignVoiceBindPlayers(body);
   if(typeof empireMaterialsPickerMount==='function') empireMaterialsPickerMount('frEditMaterials', { autoOpen: true });
+  var amtEl=document.getElementById('frEditAmount');
+  if(amtEl) amtEl.addEventListener('input', fieldReportHandleAmountInput_);
   document.getElementById('fieldReportModal').classList.add('show');
   var noteEl=document.getElementById('frEditNote');
   if(noteEl) noteEl.focus();
@@ -729,7 +761,7 @@ function openFieldReportView(id){
   if(typeof assignVoiceBindPlayers==='function') assignVoiceBindPlayers(body);
   document.getElementById('fieldReportModal').classList.add('show');
 }
-function fieldReportApplyTransfer_(id, note, resp, materials, place) {
+function fieldReportApplyTransfer_(id, note, resp, materials, place, amount) {
   var now = new Date().toISOString();
   var user = currentUser() || '';
   var idx = allFieldReports.findIndex(function(r) { return String(r.id) === String(id); });
@@ -739,6 +771,7 @@ function fieldReportApplyTransfer_(id, note, resp, materials, place) {
       editedNote: note,
       place: place != null ? place : (allFieldReports[idx].place || ''),
       materials: materials || allFieldReports[idx].materials || '',
+      amount: amount > 0 ? amount : ((resp && resp.job && resp.job.amount) || allFieldReports[idx].amount || ''),
       transferredJobId: (resp && resp.jobId) || '',
       transferredAt: now,
       transferredBy: user
@@ -759,13 +792,21 @@ function transferFieldReport_(openNext){
   if(_fieldReportTransferring) return;
   var id=_fieldReportEditingId;
   if(!id) return;
+  var r=allFieldReports.find(function(x){ return String(x.id)===String(id); });
   var noteEl=document.getElementById('frEditNote');
   var materialsEl=document.getElementById('frEditMaterials');
   var placeEl=document.getElementById('frEditPlace');
+  var amountEl=document.getElementById('frEditAmount');
   var note=noteEl?String(noteEl.value||'').trim():'';
   var materials=materialsEl?String(materialsEl.value||'').trim():'';
   var place=placeEl?String(placeEl.value||'').trim():'';
+  var amount=amountEl?fieldReportParseAmount_(amountEl.value):0;
   if(!note){ alert('Please enter the job description before saving.'); if(noteEl) noteEl.focus(); return; }
+  if(r && fieldReportType_(r)==='refundable' && amount<=0){
+    alert('Please enter the refundable amount (IQD) before saving.');
+    if(amountEl) amountEl.focus();
+    return;
+  }
   _fieldReportTransferring=true;
   var btn=document.getElementById('frTransferBtn');
   var btnNext=document.getElementById('frTransferNextBtn');
@@ -773,14 +814,14 @@ function transferFieldReport_(openNext){
   var nextLabels=btnNext?[btnNext.textContent,'']:['',''];
   if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
   if(btnNext){ btnNext.disabled=true; btnNext.textContent='Saving…'; }
-  fetchJSONRetry({action:'transferElectricWorkerReport',id:id,note:note,materials:materials,place:place,token:tok()},1,30000)
+  fetchJSONRetry({action:'transferElectricWorkerReport',id:id,note:note,materials:materials,place:place,amount:amount||'',token:tok()},1,30000)
     .then(function(d){
       if(d&&d.ok===false){
         if(typeof forceSessionLogout==='function'&&forceSessionLogout(d)) return;
         throw new Error(d.message||d.error||'Could not save report');
       }
       if(!d||(!d.ok&&!d.success)) throw new Error('Unexpected server response');
-      fieldReportApplyTransfer_(id, note, d, materials, place);
+      fieldReportApplyTransfer_(id, note, d, materials, place, amount);
       closeFieldReportModal();
       if(openNext){
         var queue=fieldReportPendingQueue_();

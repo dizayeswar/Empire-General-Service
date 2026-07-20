@@ -702,6 +702,21 @@ tr.job-row:hover {
   font-family: inherit;
 }
 
+.field-report-editor-amount {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 6px;
+  padding: 12px 14px;
+  border: 2px solid rgba(230, 126, 34, 0.45);
+  border-radius: 10px;
+  font-size: 15px;
+  line-height: 1.45;
+  background: var(--input-bg, #fff);
+  color: var(--c-money, #b15a17);
+  font-weight: 700;
+  font-family: inherit;
+}
+
 .field-report-editor-materials {
   width: 100%;
   box-sizing: border-box;

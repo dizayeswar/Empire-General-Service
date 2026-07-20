@@ -3023,9 +3023,14 @@ function handleTransferElectricWorkerReport(body, auth) {
   var place = String(body.place != null ? body.place : row[2] || '').trim();
   var amountNum = parseFloat(row[9]);
   if (isNaN(amountNum) || amountNum < 0) amountNum = 0;
+  var amountFromBody = parseElectricWorkerReportAmount_(body);
+  if (amountFromBody > 0) amountNum = amountFromBody;
   var reportType = String(row[10] || '').trim().toLowerCase();
   if (reportType !== 'refundable' && reportType !== 'maintenance') {
     reportType = electricWorkerReportTypeFromAmount_(amountNum);
+  }
+  if (reportType === 'refundable' && amountNum <= 0) {
+    return {ok:false,success:false,error:'missing_amount',message:'Enter the refundable amount (IQD) before saving to the monthly report.'};
   }
   var jobType = reportType === 'refundable' ? 'refundable' : 'general';
   var workerName = String(row[7] || row[6] || '');
@@ -3055,6 +3060,7 @@ function handleTransferElectricWorkerReport(body, auth) {
   ]);
 
   sheet.getRange(rowIdx, 3).setValue(place);
+  sheet.getRange(rowIdx, 10).setValue(amountNum > 0 ? amountNum : '');
   sheet.getRange(rowIdx, 12, 1, 5).setValues([[
     'transferred',
     jobId,
