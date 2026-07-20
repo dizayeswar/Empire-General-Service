@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="assets/empire.css?v=2026-07-19-android-stable-v3">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-07-20-refund-amount">
 <link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-07-19-android-stable-v3">
-<link rel="stylesheet" href="assets/empire-electrical-materials.css?v=2026-07-20-mat-qty">
+<link rel="stylesheet" href="assets/empire-electrical-materials.css?v=2026-07-20-mat-comma">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -333,7 +333,7 @@
 <script src="assets/empire-auth.js?v=2026-07-19-android-stable-v3"></script>
 <script src="assets/empire-core.js"></script>
 <script src="assets/empire-assign-voice.js"></script>
-<script src="assets/empire-electrical-materials.js?v=2026-07-20-mat-qty"></script>
+<script src="assets/empire-electrical-materials.js?v=2026-07-20-mat-comma"></script>
 <div class="modal" id="imgModal" onclick="closeImg()"><img id="imgBig" style="max-width:92%;max-height:92%;border-radius:10px;"></div>
 <div class="modal" id="fieldReportModal" onclick="if(event.target===this)closeFieldReportModal()">
   <div class="modal-box field-report-modal-box" id="fieldReportModalBody" onclick="event.stopPropagation()"></div>
@@ -418,7 +418,7 @@ function saveJob(){
     rec={ action: editId?'updateElectricalJob':'addElectricalJob', id:editId||undefined,
       date:document.getElementById('j-date').value||new Date().toISOString().split('T')[0],
       job:job, location:document.getElementById('j-location').value,
-      materials:document.getElementById('j-materials').value,
+      materials:materialsDisplay_(document.getElementById('j-materials').value),
       staff:document.getElementById('j-staff').value,
       type:document.getElementById('j-type').value,
       photo:currentPhoto, notes:document.getElementById('j-notes').value,
@@ -657,8 +657,8 @@ function openFieldReportEditor(id){
   h+='<textarea id="frEditNote" class="field-report-editor-note" rows="4">'+_esc(r.note||'')+'</textarea>';
   h+='<p class="field-report-editor-hint">This text becomes the job line in the monthly report. Voice notes are not copied.</p>';
   h+='<label class="field-report-modal-label" for="frEditMaterials" style="margin-top:14px;display:block;">Materials / quantity</label>';
-  h+='<textarea id="frEditMaterials" class="field-report-editor-materials" rows="5" placeholder="e.g. 2 × Main Sensor 40a&#10;3 × Cable Single 2x2.5">'+_esc(r.materials||'')+'</textarea>';
-  h+='<p class="field-report-editor-hint">One material per line with quantity, e.g. <strong>2 × Main Sensor 40a</strong>. Saved to Jobs and counted in Analytics.</p>';
+  h+='<textarea id="frEditMaterials" class="field-report-editor-materials" rows="5" placeholder="e.g. 2 × Main Sensor 40a, 3 × Cable Single 2x2.5">'+_esc(materialsDisplay_(r.materials))+'</textarea>';
+  h+='<p class="field-report-editor-hint">Separate each material with a comma, e.g. <strong>2 × Main Sensor 40a, 3 × Cable Single 2x2.5</strong>. Saved to Jobs and counted in Analytics.</p>';
   h+='</div>';
   if(hasPhoto || hasInvoice || hasVoice || fieldReportType_(r)==='refundable'){
     h+='<div class="field-report-editor-side">';
@@ -728,7 +728,7 @@ function openFieldReportView(id){
   if(fieldReportAmountLabel_(r)) h+='<div class="field-report-modal-row"><span class="field-report-modal-label">Amount</span><span class="field-report-modal-value field-report-modal-amount">'+fieldReportAmountLabel_(r)+'</span></div>';
   if(r.place) h+='<div class="field-report-modal-row"><span class="field-report-modal-label">Place</span><span class="field-report-modal-value">'+_esc(r.place)+'</span></div>';
   if(noteText) h+='<div class="field-report-modal-row"><span class="field-report-modal-label">'+(fieldReportIsPending_(r)?'Note':'Saved job text')+'</span><span class="field-report-modal-value">'+_esc(noteText)+'</span></div>';
-  if(r.materials) h+='<div class="field-report-modal-row"><span class="field-report-modal-label">Materials</span><span class="field-report-modal-value">'+_esc(r.materials)+'</span></div>';
+  if(r.materials) h+='<div class="field-report-modal-row"><span class="field-report-modal-label">Materials</span><span class="field-report-modal-value">'+_esc(materialsDisplay_(r.materials))+'</span></div>';
   h+='<div class="field-report-modal-row"><span class="field-report-modal-label">Date</span><span class="field-report-modal-value">'+_esc(r.date||'')+'</span></div>';
   if(!fieldReportIsPending_(r) && r.reportMonth) h+='<div class="field-report-modal-row"><span class="field-report-modal-label">Monthly report</span><span class="field-report-modal-value">'+_esc(fieldReportMonthLabel_(r))+'</span></div>';
   h+='</div></div>';
@@ -798,7 +798,7 @@ function transferFieldReport_(openNext){
   var placeEl=document.getElementById('frEditPlace');
   var amountEl=document.getElementById('frEditAmount');
   var note=noteEl?String(noteEl.value||'').trim():'';
-  var materials=materialsEl?String(materialsEl.value||'').trim():'';
+  var materials=materialsEl?materialsDisplay_(materialsEl.value):'';
   var place=placeEl?String(placeEl.value||'').trim():'';
   var amount=amountEl?fieldReportParseAmount_(amountEl.value):0;
   if(!note){ alert('Please enter the job description before saving.'); if(noteEl) noteEl.focus(); return; }
@@ -1027,7 +1027,7 @@ function renderJobs(){
     var acts='';
     if(P.edit!==false) acts+='<button class="act-btn" onclick="editJob(\''+r.id+'\')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/></svg></span> Edit</button>';
     if(P.del!==false) acts+='<button class="act-btn" onclick="deleteJob(\''+r.id+'\')" style="color:#fff;background:#C5504F;border-color:#C5504F;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span></button>';
-    h+='<tr class="job-row"><td>'+num+'</td><td>'+r.date+'</td><td>'+typeBadge+'</td><td>'+_esc(r.job)+'</td><td>'+_esc(r.location||'')+'</td><td style="max-width:160px;word-break:break-word;">'+_esc(r.materials||'—')+'</td><td>'+_esc(r.staff||'')+'</td><td>'+amountCell+'</td><td>'+photo+'</td>'+(showActions?('<td>'+(acts||'—')+'</td>'):'')+'</tr>';
+    h+='<tr class="job-row"><td>'+num+'</td><td>'+r.date+'</td><td>'+typeBadge+'</td><td>'+_esc(r.job)+'</td><td>'+_esc(r.location||'')+'</td><td style="max-width:160px;word-break:break-word;">'+_esc(materialsDisplay_(r.materials)||'—')+'</td><td>'+_esc(r.staff||'')+'</td><td>'+amountCell+'</td><td>'+photo+'</td>'+(showActions?('<td>'+(acts||'—')+'</td>'):'')+'</tr>';
   });
   h+='</tbody></table></div>';
   document.getElementById('jobsTable').innerHTML=h;
@@ -1050,7 +1050,7 @@ function editJob(id){
     document.getElementById('j-type').value=r.type;
     document.getElementById('j-job').value=r.job;
     document.getElementById('j-location').value=r.location||'';
-    document.getElementById('j-materials').value=r.materials||'';
+    document.getElementById('j-materials').value=materialsDisplay_(r.materials);
     document.getElementById('j-staff').value=r.staff||'';
     document.getElementById('j-notes').value=r.notes||'';
     document.getElementById('j-amount').value=r.amount||'';
@@ -1089,7 +1089,7 @@ function renderReportPreview(){
   var h='<div class="stats"><div class="stat-box"><div class="stat-value">'+jobs.length+'</div><div class="stat-label">Maintenance Jobs</div></div><div class="stat-box"><div class="stat-value" style="color:var(--c-refundable);">'+jobs.filter(r=>r.type==='refundable').length+'</div><div class="stat-label">Refundable</div></div><div class="stat-box"><div class="stat-value" style="color:var(--c-callcenter);">'+cc.length+'</div><div class="stat-label">Call Center Shifts</div></div><div class="stat-box"><div class="stat-value">'+total+'</div><div class="stat-label">Total Records</div></div></div>';
   if(jobs.length>0){
     h+='<h3>Maintenance Jobs ('+jobs.length+')</h3><div style="overflow-x:auto;"><table><thead><tr><th>#</th><th>Date</th><th>Job</th><th>Location</th><th>Materials</th><th>Staff</th><th>Notes</th></tr></thead><tbody>';
-    jobs.forEach((r,i)=>{ h+='<tr><td>'+(i+1)+'</td><td>'+r.date+'</td><td>'+_esc(r.job)+'</td><td>'+_esc(r.location||'')+'</td><td>'+_esc(r.materials||'')+'</td><td>'+_esc(r.staff||'')+'</td><td><span class="badge '+(r.type==='refundable'?'refundable':'general')+'">'+(r.type==='refundable'?'Refundable Work':'General Maintenance')+'</span></td></tr>'; });
+    jobs.forEach((r,i)=>{ h+='<tr><td>'+(i+1)+'</td><td>'+r.date+'</td><td>'+_esc(r.job)+'</td><td>'+_esc(r.location||'')+'</td><td>'+_esc(materialsDisplay_(r.materials))+'</td><td>'+_esc(r.staff||'')+'</td><td><span class="badge '+(r.type==='refundable'?'refundable':'general')+'">'+(r.type==='refundable'?'Refundable Work':'General Maintenance')+'</span></td></tr>'; });
     h+='</tbody></table></div>';
   }
   if(cc.length>0){
@@ -1126,7 +1126,7 @@ function buildReportHtml(jobs,cc,summary,map,logo,monthLabel,gen){
   if(jobs.length>0){
     b+='<h2>A- Daily Operation and Maintenance ('+jobs.length+' jobs)</h2>';
     b+='<table><thead><tr><th>#</th><th>Date</th><th>Electricity Establishment</th><th>Location</th><th>Using Quantity</th><th>Staff</th><th>Notes</th></tr></thead><tbody>';
-    jobs.forEach((r,i)=>{ b+='<tr><td>'+(i+1)+'</td><td>'+_esc(r.date)+'</td><td>'+_esc(r.job)+'</td><td>'+_esc(r.location||'')+'</td><td>'+_esc(r.materials||'0')+'</td><td>'+_esc(r.staff||'')+'</td><td><span class="badge '+(r.type==='refundable'?'refundable':'general')+'">'+(r.type==='refundable'?'Refundable Work':'General Maintenance')+'</span></td></tr>'; });
+    jobs.forEach((r,i)=>{ b+='<tr><td>'+(i+1)+'</td><td>'+_esc(r.date)+'</td><td>'+_esc(r.job)+'</td><td>'+_esc(r.location||'')+'</td><td>'+_esc(materialsDisplay_(r.materials)||'0')+'</td><td>'+_esc(r.staff||'')+'</td><td><span class="badge '+(r.type==='refundable'?'refundable':'general')+'">'+(r.type==='refundable'?'Refundable Work':'General Maintenance')+'</span></td></tr>'; });
     b+='</tbody></table>';
     var photos=jobs.filter(r=>r.photo);
     if(photos.length>0){ b+='<h2>Photos</h2><div class="photos">'; photos.forEach(r=>{ var src=map[r.photo]||r.photo; b+='<figure><a href="'+src+'" target="_blank"><img src="'+src+'"></a><figcaption>'+_esc(r.job)+' — '+_esc(r.location||'')+'</figcaption></figure>'; }); b+='</div>'; }
@@ -1141,6 +1141,9 @@ function buildReportHtml(jobs,cc,summary,map,logo,monthLabel,gen){
   return b;
 }
 function fmtMoney(n){ return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,','); }
+function materialsDisplay_(s){
+  return typeof empireMaterialsNormalizeList==='function'?empireMaterialsNormalizeList(s||''):(s||'');
+}
 function renderJobAnalytics(){
   var m=document.getElementById('an-month').value||'';
   var rows=m?allJobs.filter(r=>monthOf(r)===m):allJobs;

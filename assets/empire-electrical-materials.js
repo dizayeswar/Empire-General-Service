@@ -113,7 +113,7 @@
   function appendToInput(input, text) {
     if (!input || !text) return;
     var cur = String(input.value || '').trim();
-    var sep = input.tagName === 'TEXTAREA' ? '\n' : ', ';
+    var sep = ', ';
     input.value = cur ? (cur + sep + text) : text;
     try {
       input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -168,6 +168,17 @@
     });
   }
 
+  function normalizeMaterialsList(text) {
+    var items = parseMaterialsText(text);
+    if (!items.length) return String(text || '').trim();
+    return items.map(function (item) {
+      var q = item.qty;
+      if (Math.abs(q - Math.round(q)) < 0.0001) q = Math.round(q);
+      else q = Math.round(q * 100) / 100;
+      return q + ' \u00d7 ' + item.name;
+    }).join(', ');
+  }
+
   function buildPickerHtml() {
     var rows = CATALOG.map(function (item, idx) {
       var hasVar = item.variants && item.variants.length > 0;
@@ -188,7 +199,7 @@
       + '<div class="empire-materials-picker-panel">'
       + '<input type="search" class="empire-materials-search" placeholder="Search materials…" autocomplete="off">'
       + '<div class="empire-materials-list">' + rows + '</div>'
-      + '<p class="empire-materials-picker-hint">Tap a material, enter a quantity, then it is saved to the list. Totals appear in Analytics at month end.</p>'
+      + '<p class="empire-materials-picker-hint">Tap a material, enter a quantity, then it is added with a comma between each item. Totals appear in Analytics at month end.</p>'
       + '</div>';
   }
 
@@ -268,4 +279,5 @@
   window.empireMaterialsFormatSelectionWithQty = formatSelectionWithQty;
   window.empireMaterialsParseText = parseMaterialsText;
   window.empireMaterialsAggregateUsage = aggregateMaterialsUsage;
+  window.empireMaterialsNormalizeList = normalizeMaterialsList;
 })();
