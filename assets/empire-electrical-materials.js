@@ -144,7 +144,8 @@
     });
   }
 
-  function mount(inputId) {
+  function mount(inputId, opts) {
+    opts = opts || {};
     var input = document.getElementById(inputId);
     if (!input || input.dataset.empireMaterialsPicker === '1') return null;
     input.dataset.empireMaterialsPicker = '1';
@@ -154,6 +155,11 @@
     if (input.nextSibling) input.parentNode.insertBefore(picker, input.nextSibling);
     else input.parentNode.appendChild(picker);
     bindPicker(picker, input);
+    if (opts.autoOpen) {
+      picker.classList.add('open');
+      var toggle = picker.querySelector('.empire-materials-picker-toggle');
+      if (toggle) toggle.setAttribute('aria-expanded', 'true');
+    }
     return picker;
   }
 

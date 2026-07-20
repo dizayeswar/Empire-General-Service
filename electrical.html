@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="assets/empire.css?v=2026-07-19-android-stable-v3">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-07-19-jobs-filter-inline">
 <link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-07-19-android-stable-v3">
-<link rel="stylesheet" href="assets/empire-electrical-materials.css?v=2026-07-20-materials-picker">
+<link rel="stylesheet" href="assets/empire-electrical-materials.css?v=2026-07-20-portal-materials">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -334,7 +334,7 @@
 <script src="assets/empire-auth.js?v=2026-07-19-android-stable-v3"></script>
 <script src="assets/empire-core.js"></script>
 <script src="assets/empire-assign-voice.js"></script>
-<script src="assets/empire-electrical-materials.js?v=2026-07-20-materials-picker"></script>
+<script src="assets/empire-electrical-materials.js?v=2026-07-20-portal-materials"></script>
 <div class="modal" id="imgModal" onclick="closeImg()"><img id="imgBig" style="max-width:92%;max-height:92%;border-radius:10px;"></div>
 <div class="modal" id="fieldReportModal" onclick="if(event.target===this)closeFieldReportModal()">
   <div class="modal-box field-report-modal-box" id="fieldReportModalBody" onclick="event.stopPropagation()"></div>
@@ -667,7 +667,7 @@ function openFieldReportEditor(id){
   h+='</div></div>';
   body.innerHTML=h;
   if(typeof assignVoiceBindPlayers==='function') assignVoiceBindPlayers(body);
-  if(typeof empireMaterialsPickerMount==='function') empireMaterialsPickerMount('frEditMaterials');
+  if(typeof empireMaterialsPickerMount==='function') empireMaterialsPickerMount('frEditMaterials', { autoOpen: true });
   document.getElementById('fieldReportModal').classList.add('show');
   var noteEl=document.getElementById('frEditNote');
   if(noteEl) noteEl.focus();

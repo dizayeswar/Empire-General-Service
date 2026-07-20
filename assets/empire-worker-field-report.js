@@ -133,7 +133,6 @@ function workerFieldReportInit_() {
   workerFieldReportMountVoice_();
   workerFieldReportClearForm_(false);
   workerFieldReportLoadMine_();
-  if (typeof empireMaterialsPickerMount === 'function') empireMaterialsPickerMount('wfrMaterials');
 }
 
 function workerFieldReportMountVoice_() {
