@@ -354,6 +354,14 @@ body:not(.civil-worker-mode) #workerApp {
   color: #c0650a;
   font-weight: 600;
 }
+.worker-field-my-view-hint {
+  margin-top: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--header-accent, #185fa5);
+}
 .worker-field-my-card-needs-invoice {
   border-color: rgba(230, 126, 34, 0.45);
   box-shadow: 0 0 0 1px rgba(230, 126, 34, 0.12);

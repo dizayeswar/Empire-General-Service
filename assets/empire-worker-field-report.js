@@ -335,6 +335,26 @@ function workerFieldReportLoadMine_(force) {
     });
 }
 
+function workerFieldReportAttr_(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
+
+function workerFieldReportBindCards_(root) {
+  if (!root) return;
+  root.querySelectorAll('[data-report-id]').forEach(function (card) {
+    function openCard() {
+      workerFieldReportOpenView_(card.getAttribute('data-report-id'));
+    }
+    card.addEventListener('click', openCard);
+    card.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openCard();
+      }
+    });
+  });
+}
+
 function workerFieldReportRenderMine_() {
   var host = document.getElementById('workerFieldMyReports');
   if (!host) return;
@@ -354,8 +374,7 @@ function workerFieldReportRenderMine_() {
     if (voiceBadge) meta.push(voiceBadge);
     if (r.invoicePhoto) meta.push('<span class="worker-field-my-invoice-ok">Invoice added</span>');
     var cardClass = 'worker-field-my-card worker-field-my-card-tappable' + (needsInvoice ? ' worker-field-my-card-needs-invoice' : '');
-    var clickAttr = ' onclick="workerFieldReportOpenView(' + JSON.stringify(String(r.id || '')) + ')" role="button" tabindex="0" aria-label="View report details"';
-    return '<article class="' + cardClass + '"' + clickAttr + '>'
+    return '<article class="' + cardClass + '" data-report-id="' + workerFieldReportAttr_(r.id || '') + '" role="button" tabindex="0" aria-label="View report details">'
       + media
       + '<div class="worker-field-my-body">'
       + '<div class="worker-field-my-top">'
@@ -367,8 +386,10 @@ function workerFieldReportRenderMine_() {
       + (r.note ? ('<p class="worker-field-my-note">' + workerFieldReportEsc_(r.note) + '</p>') : '')
       + (r.materials ? ('<p class="worker-field-my-note">' + workerFieldReportEsc_(r.materials) + '</p>') : '')
       + (meta.length ? ('<div class="worker-field-my-meta">' + meta.join('') + '</div>') : '')
+      + '<div class="worker-field-my-view-hint">Tap to view</div>'
       + '</div></article>';
   }).join('') + '</div>';
+  workerFieldReportBindCards_(host);
 }
 
 function workerFieldReportStatusLabel_(r) {
