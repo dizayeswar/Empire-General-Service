@@ -69,7 +69,41 @@ body:not(.asaas-mobile-mode) #asaasMobileApp { display: none !important; }
   }
 }
 
-/* Mobile guard — tighter layout (less “zoomed in”) */
+.asaas-item-block {
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  padding: 8px 10px 10px;
+  margin-bottom: 8px;
+  background: var(--panel);
+}
+.asaas-item-block-head {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent2);
+  margin-bottom: 4px;
+}
+.asaas-item-photos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 4px;
+}
+.asaas-item-photo-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+#asaasMobileApp .asaas-item-photo-slot .worker-field-photo-btn {
+  padding: 7px 8px !important;
+  font-size: 11px !important;
+}
+#asaasMobileApp .asaas-item-photo-slot .worker-field-preview-img {
+  max-width: 100% !important;
+  max-height: 72px !important;
+}
+
 #asaasMobileApp.worker-app {
   font-size: 14px;
 }

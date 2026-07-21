@@ -102,15 +102,10 @@ body.asaas-mobile-mode { -webkit-text-size-adjust: 100%; text-size-adjust: 100%;
         <select id="asaasApartment" class="worker-field-input"></select>
       </div>
       <div class="asaas-field-cell">
-        <label class="worker-field-label" for="asaasItemDesc" data-asaas-i18n="item">Item description</label>
-        <input type="text" id="asaasItemDesc" class="worker-field-input" data-asaas-i18n-placeholder="itemPlaceholder" placeholder="e.g. Red electric scooter, bicycle…" autocomplete="off">
+        <label class="worker-field-label" for="asaasItemCount" data-asaas-i18n="howManyItems">How many items</label>
+        <select id="asaasItemCount" class="worker-field-input" onchange="asaasUpdateItemCount_()"></select>
       </div>
-      <label class="worker-field-label" data-asaas-i18n="photo">Corridor photo</label>
-      <button type="button" class="worker-field-photo-btn" onclick="asaasPickPhoto_('item')" data-asaas-i18n="addPhoto">Add photo — camera or gallery</button>
-      <input type="file" id="asaasFileCamera" class="worker-sr-file-input" accept="image/*" capture="environment" onchange="asaasHandleFile_(event,'item')">
-      <input type="file" id="asaasFileGallery" class="worker-sr-file-input" accept="image/*" onchange="asaasHandleFile_(event,'item')">
-      <p id="asaasPhotoStatus" class="worker-field-photo-status" aria-live="polite"></p>
-      <img id="asaasPreview" class="worker-field-preview-img" style="display:none" alt="">
+      <div id="asaasItemsHost"></div>
       <button type="button" id="asaasSubmitBtn" class="worker-field-submit worker-field-submit-green" onclick="asaasSubmitItem_()" data-asaas-i18n="submit">Save to warehouse</button>
       <p id="asaasFormMsg" class="worker-field-msg" aria-live="polite"></p>
     </div>
@@ -218,8 +213,8 @@ body.asaas-mobile-mode { -webkit-text-size-adjust: 100%; text-size-adjust: 100%;
 <script src="assets/empire-auth.js?v=2026-07-21-asaas-v1"></script>
 <script src="assets/empire-core.js?v=2026-07-21-asaas-v1"></script>
 <script src="assets/empire-worker-photo.js?v=2026-07-21-asaas-v1"></script>
-<script src="assets/asaas-i18n.js?v=2026-07-21-asaas-v6"></script>
-<script src="assets/asaas-app.js?v=2026-07-21-asaas-v6"></script>
+<script src="assets/asaas-i18n.js?v=2026-07-21-asaas-v7"></script>
+<script src="assets/asaas-app.js?v=2026-07-21-asaas-v7"></script>
 <script src="assets/issue-excel-export.js?v=2026-07-21-asaas-v1"></script>
 <script src="assets/asaas-excel.js?v=2026-07-21-asaas-v1"></script>
 </body>

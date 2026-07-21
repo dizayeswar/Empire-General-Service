@@ -22,7 +22,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-21-asaas-v2';
+var SCRIPT_VERSION = '2026-07-21-asaas-v3';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -4089,11 +4089,12 @@ function asaasNumKey_() { return 'asanum_' + ASAAS_SHEET; }
 function ensureAsaasSheet_(sheet) {
   if (!sheet) return;
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow(['id','num','date','building','floor','spot','itemDescription','photo','apartment','status','warehouseNote','removedBy','removedByName','createdAt','returnedAt','returnedTo','returnApartment','returnPhoto','returnNote','updatedAt']);
+    sheet.appendRow(['id','num','date','building','floor','spot','itemDescription','photo','apartment','status','warehouseNote','removedBy','removedByName','createdAt','returnedAt','returnedTo','returnApartment','returnPhoto','returnNote','updatedAt','photo2']);
     return;
   }
-  var h = sheet.getRange(1, 1, 1, Math.max(20, sheet.getLastColumn())).getValues()[0];
+  var h = sheet.getRange(1, 1, 1, Math.max(21, sheet.getLastColumn())).getValues()[0];
   if (String(h[1] || '') !== 'num') sheet.getRange(1, 2).setValue('num');
+  if (String(h[20] || '') !== 'photo2') sheet.getRange(1, 21).setValue('photo2');
 }
 function ensureAsaasNums_(sheet, rows) {
   if (!sheet || !rows || rows.length < 2) return 0;
@@ -4160,6 +4161,7 @@ function rowToAsaasItem_(row, tz) {
     spot: String(row[5] || ''),
     itemDescription: String(row[6] || ''),
     photo: String(row[7] || ''),
+    photo2: String(row[20] || ''),
     apartment: String(row[8] || ''),
     status: status,
     warehouseNote: String(row[10] || ''),
@@ -4224,15 +4226,16 @@ function handleAddAsaasItem(body, auth) {
   var spot = String(body.spot || '').trim();
   var itemDescription = String(body.itemDescription || body.item || '').trim();
   var photo = String(body.photo || '').trim();
+  var photo2 = String(body.photo2 || '').trim();
   var apartment = String(body.apartment || '').trim();
-  if (!itemDescription && !photo) {
+  if (!itemDescription && !photo && !photo2) {
     return {ok:false,success:false,error:'empty_item',message:'Add a description or photo before saving.'};
   }
   if (!building || !floor) {
     return {ok:false,success:false,error:'missing_location',message:'Building and floor are required.'};
   }
-  if (!photo) {
-    return {ok:false,success:false,error:'missing_photo',message:'A corridor photo is required.'};
+  if (!photo && !photo2) {
+    return {ok:false,success:false,error:'missing_photo',message:'At least one corridor photo is required.'};
   }
   var ss = getSS_();
   var sheet = ss.getSheetByName(ASAAS_SHEET) || ss.insertSheet(ASAAS_SHEET);
@@ -4256,7 +4259,7 @@ function handleAddAsaasItem(body, auth) {
   sheet.appendRow([
     id, num, dateStr, building, floor, spot, itemDescription, photo, apartment,
     'in_warehouse', '', username, displayName, now.toISOString(),
-    '', '', '', '', '', now.toISOString()
+    '', '', '', '', '', now.toISOString(), photo2
   ]);
   return {ok:true,success:true,id:id,num:num};
 }
