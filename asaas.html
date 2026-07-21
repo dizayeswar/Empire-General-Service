@@ -97,15 +97,13 @@ body.asaas-mobile-mode { -webkit-text-size-adjust: 100%; text-size-adjust: 100%;
         <label class="worker-field-label" for="asaasSpot" data-asaas-i18n="spot">Spot / location</label>
         <select id="asaasSpot" class="worker-field-input"></select>
       </div>
-      <div class="asaas-field-grid asaas-field-grid-2">
-        <div class="asaas-field-cell asaas-field-cell-grow">
-          <label class="worker-field-label" for="asaasItemDesc" data-asaas-i18n="item">Item description</label>
-          <input type="text" id="asaasItemDesc" class="worker-field-input" data-asaas-i18n-placeholder="itemPlaceholder" placeholder="e.g. Red electric scooter, bicycle…" autocomplete="off">
-        </div>
-        <div class="asaas-field-cell">
-          <label class="worker-field-label" for="asaasApartment" data-asaas-i18n="apartment">Apartment (optional)</label>
-          <input type="text" id="asaasApartment" class="worker-field-input" data-asaas-i18n-placeholder="apartmentPlaceholder" placeholder="e.g. 1204" autocomplete="off">
-        </div>
+      <div class="asaas-field-cell">
+        <label class="worker-field-label" for="asaasApartment" data-asaas-i18n="apartment">Apartment (optional)</label>
+        <select id="asaasApartment" class="worker-field-input"></select>
+      </div>
+      <div class="asaas-field-cell">
+        <label class="worker-field-label" for="asaasItemDesc" data-asaas-i18n="item">Item description</label>
+        <input type="text" id="asaasItemDesc" class="worker-field-input" data-asaas-i18n-placeholder="itemPlaceholder" placeholder="e.g. Red electric scooter, bicycle…" autocomplete="off">
       </div>
       <label class="worker-field-label" data-asaas-i18n="photo">Corridor photo</label>
       <button type="button" class="worker-field-photo-btn" onclick="asaasPickPhoto_('item')" data-asaas-i18n="addPhoto">Add photo — camera or gallery</button>
@@ -220,8 +218,8 @@ body.asaas-mobile-mode { -webkit-text-size-adjust: 100%; text-size-adjust: 100%;
 <script src="assets/empire-auth.js?v=2026-07-21-asaas-v1"></script>
 <script src="assets/empire-core.js?v=2026-07-21-asaas-v1"></script>
 <script src="assets/empire-worker-photo.js?v=2026-07-21-asaas-v1"></script>
-<script src="assets/asaas-i18n.js?v=2026-07-21-asaas-v2"></script>
-<script src="assets/asaas-app.js?v=2026-07-21-asaas-v5"></script>
+<script src="assets/asaas-i18n.js?v=2026-07-21-asaas-v6"></script>
+<script src="assets/asaas-app.js?v=2026-07-21-asaas-v6"></script>
 <script src="assets/issue-excel-export.js?v=2026-07-21-asaas-v1"></script>
 <script src="assets/asaas-excel.js?v=2026-07-21-asaas-v1"></script>
 </body>

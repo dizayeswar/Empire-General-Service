@@ -19,6 +19,7 @@ var ASAAS_WW_FLOORS = {
   WW15:['B1','Ground','F1','F2','F3','F4','F5','F6','F7','F8','F9','F10','F11','F12','F13','F14','F15','F16','F17','F18','F19','F20','F21','F22','F23','F24','F25','F26','F27','F28','F29','F30']
 };
 var ASAAS_SPOTS = ['Corridor','In front of apartment door','Service stairs','Elevator lobby','Parking','Other'];
+var ASAAS_APARTMENTS = ['', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
 var _asaasItems = [];
 var _asaasPhotoUrl = '';
@@ -86,6 +87,17 @@ function asaasPopulateSpots_() {
     el.appendChild(o);
   });
 }
+function asaasPopulateApartments_() {
+  var el = document.getElementById('asaasApartment');
+  if (!el) return;
+  el.innerHTML = '';
+  ASAAS_APARTMENTS.forEach(function (a) {
+    var o = document.createElement('option');
+    o.value = a;
+    o.textContent = a ? a : asaasT('apartmentUnknown');
+    el.appendChild(o);
+  });
+}
 
 function asaasEnterMobile_() {
   document.body.classList.add('asaas-mobile-mode');
@@ -98,6 +110,7 @@ function asaasEnterMobile_() {
   if (title) title.textContent = empireGetUser() || asaasT('titleMobile');
   asaasPopulateBuildings_();
   asaasPopulateSpots_();
+  asaasPopulateApartments_();
   asaasLoadItems_(true);
 }
 function asaasEnterOffice_() {
@@ -180,6 +193,11 @@ function asaasLoadItems_(force) {
     });
 }
 window.asaasRefreshUi_ = function () {
+  if (isAsaasMobile_() && document.getElementById('asaasApartment')) {
+    var aptVal = document.getElementById('asaasApartment').value;
+    asaasPopulateApartments_();
+    document.getElementById('asaasApartment').value = aptVal;
+  }
   asaasRenderCountBar_();
   asaasRenderMobileRecent_();
   asaasRenderOfficeList_();
@@ -318,10 +336,12 @@ function asaasHandleFile_(e, kind) {
 function asaasClearForm_() {
   _asaasPhotoUrl = '';
   _asaasUploading = false;
-  ['asaasItemDesc', 'asaasApartment'].forEach(function (id) {
+  ['asaasItemDesc'].forEach(function (id) {
     var el = document.getElementById(id);
     if (el) el.value = '';
   });
+  var aptEl = document.getElementById('asaasApartment');
+  if (aptEl) aptEl.value = '';
   var im = document.getElementById('asaasPreview');
   if (im) { im.style.display = 'none'; im.removeAttribute('src'); }
   var st = document.getElementById('asaasPhotoStatus');
