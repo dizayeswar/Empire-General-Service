@@ -78,7 +78,11 @@
     </div>
   </div>
   <div id="asaasMobileListPanel" style="display:none;">
-    <h3 class="worker-field-subhead" data-asaas-i18n="recentTitle">Your recent items</h3>
+    <div class="worker-field-form" style="padding-bottom:0;">
+      <label class="worker-field-label" for="asaasMobileSearch" data-asaas-i18n="searchRef">Search reference</label>
+      <input type="search" id="asaasMobileSearch" class="worker-field-input" data-asaas-i18n-placeholder="searchRefPlaceholder" placeholder="Search A#…" autocomplete="off" oninput="asaasRefreshUi_()">
+    </div>
+    <h3 class="worker-field-subhead" data-asaas-i18n="warehouseListTitle">Items in warehouse</h3>
     <div id="asaasMobileRecent"><p class="worker-empty" style="font-size:13px;" data-asaas-i18n="noItems">No items yet.</p></div>
   </div>
 </div>
@@ -175,8 +179,8 @@
 <script src="assets/empire-auth.js?v=2026-07-21-asaas-v1"></script>
 <script src="assets/empire-core.js?v=2026-07-21-asaas-v1"></script>
 <script src="assets/empire-worker-photo.js?v=2026-07-21-asaas-v1"></script>
-<script src="assets/asaas-i18n.js?v=2026-07-21-asaas-v1"></script>
-<script src="assets/asaas-app.js?v=2026-07-21-asaas-v1"></script>
+<script src="assets/asaas-i18n.js?v=2026-07-21-asaas-v2"></script>
+<script src="assets/asaas-app.js?v=2026-07-21-asaas-v2"></script>
 <script src="assets/issue-excel-export.js?v=2026-07-21-asaas-v1"></script>
 <script src="assets/asaas-excel.js?v=2026-07-21-asaas-v1"></script>
 </body>

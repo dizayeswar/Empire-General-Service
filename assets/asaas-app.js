@@ -177,6 +177,20 @@ function asaasFilteredItems_() {
   });
 }
 
+function asaasMobileFilteredItems_() {
+  var q = String((document.getElementById('asaasMobileSearch') || {}).value || '').trim().toLowerCase();
+  return _asaasItems.filter(function (r) {
+    if (r.status === 'returned') return false;
+    if (!q) return true;
+    var ref = asaasRef_(r.num).toLowerCase();
+    var num = String(r.num || '');
+    var needle = q.replace(/^a#?\s*/i, '').replace('#', '');
+    return ref.indexOf(q) !== -1
+      || num === needle
+      || (needle && ref.replace('#', '').indexOf(needle) !== -1);
+  });
+}
+
 function asaasRenderCountBar_() {
   var bar = document.getElementById('asaasCountBar');
   if (!bar) return;
@@ -187,26 +201,26 @@ function asaasRenderCountBar_() {
 function asaasRenderMobileRecent_() {
   var host = document.getElementById('asaasMobileRecent');
   if (!host) return;
-  var rows = _asaasItems.slice(0, 15);
+  var rows = asaasMobileFilteredItems_();
   if (!rows.length) {
-    host.innerHTML = '<p class="worker-empty" style="font-size:13px;">' + asaasEsc_(asaasT('noItems')) + '</p>';
+    var emptyKey = (document.getElementById('asaasMobileSearch') || {}).value ? 'noItems' : 'noWarehouseItems';
+    host.innerHTML = '<p class="worker-empty" style="font-size:13px;">' + asaasEsc_(asaasT(emptyKey)) + '</p>';
     return;
   }
   host.innerHTML = rows.map(function (r) {
     var thumb = r.photo
       ? '<img class="worker-field-my-thumb" src="' + asaasEsc_(r.photo) + '" alt="">'
       : '';
-    var st = r.status === 'returned' ? asaasT('returned') : asaasT('inWarehouse');
-    var cls = r.status === 'returned' ? ' returned' : '';
-    return '<button type="button" class="worker-field-my-card worker-field-my-card-tappable' + cls + '" data-asaas-id="' + asaasEsc_(r.id) + '">'
+    var st = asaasT('inWarehouse');
+    return '<button type="button" class="worker-field-my-card worker-field-my-card-tappable" data-asaas-id="' + asaasEsc_(r.id) + '">'
       + (thumb ? ('<div class="worker-field-my-media">' + thumb + '</div>') : '')
       + '<div class="worker-field-my-body">'
       + '<div class="worker-field-my-top"><span class="worker-field-my-ref">' + asaasEsc_(asaasRef_(r.num)) + '</span>'
       + '<time class="worker-field-my-date">' + asaasEsc_(r.date || '') + '</time></div>'
-      + '<div class="worker-field-my-badges"><span class="worker-field-my-type ' + (r.status === 'returned' ? 'maintenance' : 'refundable') + '">' + asaasEsc_(st) + '</span></div>'
+      + '<div class="worker-field-my-badges"><span class="worker-field-my-type refundable">' + asaasEsc_(st) + '</span></div>'
       + '<div class="worker-field-my-place">' + asaasEsc_(asaasLocStr_(r)) + '</div>'
       + '<p class="worker-field-my-note">' + asaasEsc_(r.itemDescription || '') + '</p>'
-      + '<div class="worker-field-my-view-hint">' + asaasEsc_(asaasT('tapToView')) + '</div>'
+      + '<div class="worker-field-my-view-hint">' + asaasEsc_(asaasT('tapToReturn')) + '</div>'
       + '</div></button>';
   }).join('');
 }
@@ -360,9 +374,12 @@ function asaasOpenDetail_(id) {
 }
 
 function asaasOpenViewModal_(r) {
+  _asaasReturnId = r.status !== 'returned' ? r.id : '';
+  _asaasReturnPhotoUrl = '';
   var modal = document.getElementById('asaasViewModal');
   var body = document.getElementById('asaasViewModalBody');
   if (!modal || !body) return;
+  var canReturn = isAsaasMobile_() && r.status !== 'returned';
   var h = '<div class="worker-field-view">';
   if (r.status === 'returned') h += '<p class="worker-field-view-lead">' + asaasEsc_(asaasT('readOnlyReturned')) + '</p>';
   h += '<div class="worker-field-view-row"><span class="worker-field-view-label">' + asaasT('reference') + '</span><span class="worker-field-view-value worker-field-view-ref">' + asaasEsc_(asaasRef_(r.num)) + '</span></div>';
@@ -377,6 +394,19 @@ function asaasOpenViewModal_(r) {
     h += '<p class="worker-field-view-text">' + asaasEsc_(r.returnedTo || '') + (r.returnApartment ? (' · ' + r.returnApartment) : '') + '</p>';
     if (r.returnPhoto) h += '<img class="worker-field-view-photo" src="' + asaasEsc_(r.returnPhoto) + '" alt="" onclick="bigImg(this.src)">';
     h += '</div>';
+  } else if (canReturn) {
+    h += '<hr style="margin:18px 0;border:none;border-top:1px solid var(--card-border);">';
+    h += '<p class="worker-field-view-lead">' + asaasEsc_(asaasT('mobileReturnHint')) + '</p>';
+    h += '<label class="worker-field-label" for="asaasReturnedTo">' + asaasT('returnedTo') + '</label>';
+    h += '<input type="text" id="asaasReturnedTo" class="worker-field-input" autocomplete="name">';
+    h += '<label class="worker-field-label">' + asaasT('signedPaperPhoto') + '</label>';
+    h += '<button type="button" class="worker-field-photo-btn" onclick="asaasPickPhoto_(\'return\')">' + asaasT('addPhoto') + '</button>';
+    h += '<input type="file" id="asaasReturnFileCamera" class="worker-sr-file-input" accept="image/*" capture="environment" onchange="asaasHandleFile_(event,\'return\')">';
+    h += '<input type="file" id="asaasReturnFileGallery" class="worker-sr-file-input" accept="image/*" onchange="asaasHandleFile_(event,\'return\')">';
+    h += '<p id="asaasReturnPhotoStatus" class="worker-field-photo-status"></p>';
+    h += '<img id="asaasReturnPreview" class="worker-field-preview-img" style="display:none" alt="">';
+    h += '<button type="button" id="asaasReturnBtn" class="worker-field-submit worker-field-submit-green" onclick="asaasMarkReturned_()">' + asaasT('markReturned') + '</button>';
+    h += '<p id="asaasReturnMsg" class="worker-field-msg"></p>';
   }
   h += '</div>';
   body.innerHTML = h;
@@ -384,6 +414,8 @@ function asaasOpenViewModal_(r) {
 }
 
 function asaasCloseViewModal_() {
+  _asaasReturnId = '';
+  _asaasReturnPhotoUrl = '';
   var modal = document.getElementById('asaasViewModal');
   if (modal) modal.classList.remove('show');
 }
@@ -484,6 +516,7 @@ function asaasMarkReturned_() {
     if (d && (d.ok || d.success)) {
       if (msg) { msg.textContent = '\u2705 ' + asaasT('returnSuccess'); msg.className = 'worker-field-msg worker-field-msg-ok'; }
       asaasCloseReturnModal_();
+      asaasCloseViewModal_();
       asaasLoadItems_(true);
     } else throw new Error((d && (d.message || d.error)) || 'Failed');
   }).catch(function (e) {

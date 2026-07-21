@@ -22,7 +22,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-21-asaas-v1';
+var SCRIPT_VERSION = '2026-07-21-asaas-v2';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -4209,11 +4209,8 @@ function handleGetAsaasItems(body, auth) {
   var tz = ss.getSpreadsheetTimeZone();
   var rows = sheet.getDataRange().getValues();
   ensureAsaasNums_(sheet, rows);
-  var guardOnly = isAsaasMobileGuard_(auth && auth.username);
-  var guardUser = guardOnly ? normalizeWorkerId_(auth.username) : '';
   var out = [];
   for (var i = 1; i < rows.length; i++) {
-    if (guardOnly && normalizeWorkerId_(rows[i][11]) !== guardUser) continue;
     out.push(rowToAsaasItem_(rows[i], tz));
   }
   out.sort(function (a, b) {
@@ -4285,9 +4282,6 @@ function handleUpdateAsaasItem(body, auth) {
   return {ok:true,success:true,id:id};
 }
 function handleMarkAsaasReturned(body, auth) {
-  if (isAsaasMobileGuard_(auth && auth.username)) {
-    return {ok:false,success:false,error:'not_allowed',message:'Only the office can mark items as returned.'};
-  }
   var id = String(body.id || '').trim();
   var returnedTo = String(body.returnedTo || '').trim();
   var returnPhoto = String(body.returnPhoto || '').trim();
