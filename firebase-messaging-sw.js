@@ -38,6 +38,7 @@ var PRECACHE = [
   './index.html',
   './civil-issue.html',
   './electric-issue.html',
+  './asaas.html',
   './config.js',
   './firebase-messaging-sw.js',
   './service-worker.js',
@@ -141,6 +142,7 @@ function offlineNavigateFallback_(request) {
     var path = new URL(request.url).pathname;
     if (path.indexOf('electric-issue') !== -1) return caches.match('./electric-issue.html');
     if (path.indexOf('civil-issue') !== -1) return caches.match('./civil-issue.html');
+    if (path.indexOf('asaas') !== -1) return caches.match('./asaas.html');
     if (path.indexOf('electrical') !== -1) return caches.match('./electrical.html');
     return caches.match('./index.html');
   });

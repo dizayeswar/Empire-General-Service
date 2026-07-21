@@ -13,6 +13,7 @@ var HSE_SHEET = 'HseInspections';
 var ELECTRICAL_JOBS_SHEET = 'ElectricalJobs';
 var ELECTRICAL_SUMMARY_SHEET = 'ElectricalSummary';
 var ELECTRIC_WORKER_REPORTS_SHEET = 'ElectricWorkerReports';
+var ASAAS_SHEET = 'AsaasItems';
 var CIVIL_JOBS_SHEET = 'CivilJobs';
 var CIVIL_SUMMARY_SHEET = 'CivilSummary';
 var TRASH_SHEET = 'Trash';
@@ -21,7 +22,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-20-job-ref-v1';
+var SCRIPT_VERSION = '2026-07-21-asaas-v1';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -382,7 +383,9 @@ function doPost(e) {
       'addElectricWorkerReport':'electric issue','updateElectricWorkerReportInvoice':'electric issue',
       'addCivilJob':'civil department','getCivilJobs':'civil department','updateCivilJob':'civil department',
       'deleteCivilJob':'civil department','clearCivilJobs':'civil department',
-      'getCivilSummary':'civil department','saveCivilSummary':'civil department'
+      'getCivilSummary':'civil department','saveCivilSummary':'civil department',
+      'getAsaasItems':'asaas','addAsaasItem':'asaas','updateAsaasItem':'asaas','markAsaasReturned':'asaas',
+      'deleteAsaasItem':'asaas','clearAsaasItems':'asaas'
     };
     var trashActions = {getTrash:1, restoreTrash:1, purgeTrash:1, getUiSettings:1, saveUiSettings:1};
     var requiredDept = trashActions[action] ? body.dept : deptByAction[action];
@@ -499,6 +502,12 @@ function doPost(e) {
     if (action==='clearCivilJobs') return respond(handleClearCivilJobs(body));
     if (action==='getCivilSummary') return respond(handleGetCivilSummary(body));
     if (action==='saveCivilSummary') return respond(handleSaveCivilSummary(body));
+    if (action==='getAsaasItems') return respond(handleGetAsaasItems(body, auth));
+    if (action==='addAsaasItem') return respond(handleAddAsaasItem(body, auth));
+    if (action==='updateAsaasItem') return respond(handleUpdateAsaasItem(body, auth));
+    if (action==='markAsaasReturned') return respond(handleMarkAsaasReturned(body, auth));
+    if (action==='deleteAsaasItem') return respond(handleDeleteAsaasItem(body, auth));
+    if (action==='clearAsaasItems') return respond(handleClearAsaasItems(body));
     if (action==='getTrash') return respond(handleGetTrash(body));
     if (action==='restoreTrash') return respond(handleRestoreTrash(body));
     if (action==='purgeTrash') return respond(handlePurgeTrash(body));
@@ -1029,7 +1038,9 @@ function handleLogin(body) {
       var projects = projectsForUserRow_(rows[i]);
       var trade = tradeForUserRow_(rows[i]);
       if (rp.role === 'worker' && !trade) {
-        return {ok:false,success:false,message:'Worker account needs a trade in column G (plumber, painting, tiles, wood, or electric).',error:'trade_not_set'};
+        if (!deptListAllows_(userDept, 'asaas') || String(userDept || '').replace(/\s/g, '') !== 'asaas') {
+          return {ok:false,success:false,message:'Worker account needs a trade in column G (plumber, painting, tiles, wood, or electric).',error:'trade_not_set'};
+        }
       }
       var tokenDept = userDept;
       var token = Utilities.getUuid();
@@ -1313,6 +1324,7 @@ function handleGetSummary(body) {
   if (summaryAllowedForToken_(sess.dept, 'civil department')) summary['civil department'] = buildJobsHubSummary_(CIVIL_JOBS_SHEET);
   if (summaryAllowedForToken_(sess.dept, 'hse')) summary.hse = buildIssueHubSummary_(HSE_SHEET);
   if (summaryAllowedForToken_(sess.dept, 'electrical department')) summary['electrical department'] = buildJobsHubSummary_(ELECTRICAL_JOBS_SHEET);
+  if (summaryAllowedForToken_(sess.dept, 'asaas')) summary.asaas = buildAsaasHubSummary_();
   var out = {ok:true, summary:summary, generatedAt:new Date().toISOString()};
   try { cache.put(cacheKey, JSON.stringify(out), 120); } catch(e){}
   return out;
@@ -4069,4 +4081,255 @@ function migrateImgbbDiagnoseOne() {
   } catch (e) {
     Logger.log('FAILED: ' + String(e.message || e));
   }
+}
+
+// ---- A.S.A.A.S — corridor storage (West Wing) ----
+var ASAAS_NUM_COL = 2;
+function asaasNumKey_() { return 'asanum_' + ASAAS_SHEET; }
+function ensureAsaasSheet_(sheet) {
+  if (!sheet) return;
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['id','num','date','building','floor','spot','itemDescription','photo','apartment','status','warehouseNote','removedBy','removedByName','createdAt','returnedAt','returnedTo','returnApartment','returnPhoto','returnNote','updatedAt']);
+    return;
+  }
+  var h = sheet.getRange(1, 1, 1, Math.max(20, sheet.getLastColumn())).getValues()[0];
+  if (String(h[1] || '') !== 'num') sheet.getRange(1, 2).setValue('num');
+}
+function ensureAsaasNums_(sheet, rows) {
+  if (!sheet || !rows || rows.length < 2) return 0;
+  ensureAsaasSheet_(sheet);
+  var maxNum = 0, missing = false, i;
+  for (i = 1; i < rows.length; i++) {
+    var v = Number(rows[i][ASAAS_NUM_COL - 1] || 0);
+    if (v > maxNum) maxNum = v;
+    if (!v) missing = true;
+  }
+  if (!missing) return maxNum;
+  var next = maxNum, out = [];
+  for (i = 1; i < rows.length; i++) {
+    var cur = Number(rows[i][ASAAS_NUM_COL - 1] || 0);
+    if (!cur) { next++; cur = next; rows[i][ASAAS_NUM_COL - 1] = cur; }
+    out.push([cur]);
+  }
+  sheet.getRange(2, ASAAS_NUM_COL, out.length, 1).setValues(out);
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var key = asaasNumKey_();
+    if (next > Number(props.getProperty(key) || 0)) props.setProperty(key, String(next));
+  } catch (e) {}
+  return next;
+}
+function nextAsaasNum_(sheet) {
+  return withScriptLock_(function () {
+    var rows = sheet.getDataRange().getValues();
+    var maxNum = ensureAsaasNums_(sheet, rows);
+    var props = PropertiesService.getScriptProperties();
+    var key = asaasNumKey_();
+    var stored = Number(props.getProperty(key) || 0);
+    var next = Math.max(maxNum, stored) + 1;
+    props.setProperty(key, String(next));
+    return next;
+  });
+}
+function findAsaasRow_(sheet, id) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return null;
+  var ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]) === String(id)) {
+      return {
+        rowIdx: i + 2,
+        row: sheet.getRange(i + 2, 1, 1, Math.max(20, sheet.getLastColumn())).getValues()[0]
+      };
+    }
+  }
+  return null;
+}
+function rowToAsaasItem_(row, tz) {
+  var dv = row[2];
+  var ds = (dv instanceof Date) ? Utilities.formatDate(dv, tz, 'yyyy-MM-dd') : String(dv || '');
+  var status = String(row[9] || 'in_warehouse').trim().toLowerCase();
+  if (status !== 'returned') status = 'in_warehouse';
+  return {
+    id: String(row[0] || ''),
+    num: Number(row[1] || 0) || 0,
+    date: ds,
+    project: 'ww',
+    building: String(row[3] || ''),
+    floor: String(row[4] || ''),
+    spot: String(row[5] || ''),
+    itemDescription: String(row[6] || ''),
+    photo: String(row[7] || ''),
+    apartment: String(row[8] || ''),
+    status: status,
+    warehouseNote: String(row[10] || ''),
+    removedBy: String(row[11] || ''),
+    removedByName: String(row[12] || ''),
+    createdAt: dtIssue_(row[13]),
+    returnedAt: dtIssue_(row[14]),
+    returnedTo: String(row[15] || ''),
+    returnApartment: String(row[16] || ''),
+    returnPhoto: String(row[17] || ''),
+    returnNote: String(row[18] || ''),
+    updatedAt: dtIssue_(row[19])
+  };
+}
+function asaasStatsFromSheet_() {
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(ASAAS_SHEET);
+  if (!sheet || sheet.getLastRow() < 2) return { inWarehouse: 0, returned: 0, lastActivity: '' };
+  var rows = sheet.getDataRange().getValues();
+  var inWarehouse = 0, returned = 0, last = '';
+  for (var i = 1; i < rows.length; i++) {
+    var st = String(rows[i][9] || 'in_warehouse').trim().toLowerCase();
+    if (st === 'returned') returned++;
+    else inWarehouse++;
+    var ca = dtIssue_(rows[i][13]);
+    if (ca && (!last || String(ca).localeCompare(last) > 0)) last = ca;
+  }
+  return { inWarehouse: inWarehouse, returned: returned, lastActivity: last };
+}
+function buildAsaasHubSummary_() {
+  var stats = asaasStatsFromSheet_();
+  return {
+    open: stats.inWarehouse,
+    level: stats.inWarehouse > 0 ? 'warn' : 'muted',
+    label: stats.inWarehouse + ' in warehouse',
+    lastActivity: stats.lastActivity
+  };
+}
+function isAsaasMobileGuard_(username) {
+  return normalizeWorkerId_(username) === 'asaas_guard1';
+}
+function handleGetAsaasItems(body, auth) {
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(ASAAS_SHEET);
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  ensureAsaasSheet_(sheet);
+  var tz = ss.getSpreadsheetTimeZone();
+  var rows = sheet.getDataRange().getValues();
+  ensureAsaasNums_(sheet, rows);
+  var guardOnly = isAsaasMobileGuard_(auth && auth.username);
+  var guardUser = guardOnly ? normalizeWorkerId_(auth.username) : '';
+  var out = [];
+  for (var i = 1; i < rows.length; i++) {
+    if (guardOnly && normalizeWorkerId_(rows[i][11]) !== guardUser) continue;
+    out.push(rowToAsaasItem_(rows[i], tz));
+  }
+  out.sort(function (a, b) {
+    return String(b.createdAt || b.date || '').localeCompare(String(a.createdAt || a.date || ''));
+  });
+  return out;
+}
+function handleAddAsaasItem(body, auth) {
+  var building = String(body.building || '').trim();
+  var floor = String(body.floor || '').trim();
+  var spot = String(body.spot || '').trim();
+  var itemDescription = String(body.itemDescription || body.item || '').trim();
+  var photo = String(body.photo || '').trim();
+  var apartment = String(body.apartment || '').trim();
+  if (!itemDescription && !photo) {
+    return {ok:false,success:false,error:'empty_item',message:'Add a description or photo before saving.'};
+  }
+  if (!building || !floor) {
+    return {ok:false,success:false,error:'missing_location',message:'Building and floor are required.'};
+  }
+  if (!photo) {
+    return {ok:false,success:false,error:'missing_photo',message:'A corridor photo is required.'};
+  }
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(ASAAS_SHEET) || ss.insertSheet(ASAAS_SHEET);
+  ensureAsaasSheet_(sheet);
+  var tz = ss.getSpreadsheetTimeZone();
+  var now = new Date();
+  var dateStr = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
+  var username = normalizeWorkerId_(auth && auth.username);
+  var displayName = String(body.removedByName || body.displayName || auth.username || '').trim();
+  var id = String(body.id || '') || ('asaas-' + now.getTime());
+  var rows = sheet.getDataRange().getValues();
+  if (body.id) {
+    for (var k = 1; k < rows.length; k++) {
+      if (String(rows[k][0]) === id) {
+        var existingNum = Number(rows[k][ASAAS_NUM_COL - 1] || 0);
+        return {ok:true,success:true,id:id,num:existingNum > 0 ? existingNum : null,deduped:true};
+      }
+    }
+  }
+  var num = nextAsaasNum_(sheet);
+  sheet.appendRow([
+    id, num, dateStr, building, floor, spot, itemDescription, photo, apartment,
+    'in_warehouse', '', username, displayName, now.toISOString(),
+    '', '', '', '', '', now.toISOString()
+  ]);
+  return {ok:true,success:true,id:id,num:num};
+}
+function handleUpdateAsaasItem(body, auth) {
+  if (isAsaasMobileGuard_(auth && auth.username)) {
+    return {ok:false,success:false,error:'not_allowed',message:'Use the office account to update warehouse notes.'};
+  }
+  var id = String(body.id || '').trim();
+  if (!id) return {ok:false,success:false,error:'missing_id',message:'Item id is required.'};
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(ASAAS_SHEET);
+  if (!sheet || sheet.getLastRow() < 2) return {ok:false,success:false,error:'not_found',message:'Item not found.'};
+  var found = findAsaasRow_(sheet, id);
+  if (!found) return {ok:false,success:false,error:'not_found',message:'Item not found.'};
+  if (String(found.row[9] || '').trim().toLowerCase() === 'returned') {
+    return {ok:false,success:false,error:'already_returned',message:'Returned items cannot be edited.'};
+  }
+  var now = new Date().toISOString();
+  if (body.apartment != null) sheet.getRange(found.rowIdx, 9).setValue(String(body.apartment || '').trim());
+  if (body.warehouseNote != null) sheet.getRange(found.rowIdx, 11).setValue(String(body.warehouseNote || '').trim());
+  if (body.itemDescription != null) sheet.getRange(found.rowIdx, 7).setValue(String(body.itemDescription || '').trim());
+  sheet.getRange(found.rowIdx, 20).setValue(now);
+  return {ok:true,success:true,id:id};
+}
+function handleMarkAsaasReturned(body, auth) {
+  if (isAsaasMobileGuard_(auth && auth.username)) {
+    return {ok:false,success:false,error:'not_allowed',message:'Only the office can mark items as returned.'};
+  }
+  var id = String(body.id || '').trim();
+  var returnedTo = String(body.returnedTo || '').trim();
+  var returnPhoto = String(body.returnPhoto || '').trim();
+  var returnApartment = String(body.returnApartment || body.apartment || '').trim();
+  var returnNote = String(body.returnNote || '').trim();
+  if (!id) return {ok:false,success:false,error:'missing_id',message:'Item id is required.'};
+  if (!returnedTo) return {ok:false,success:false,error:'missing_name',message:'Collector name is required.'};
+  if (!returnPhoto) return {ok:false,success:false,error:'missing_photo',message:'Photo of signed paper is required.'};
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(ASAAS_SHEET);
+  if (!sheet || sheet.getLastRow() < 2) return {ok:false,success:false,error:'not_found',message:'Item not found.'};
+  var found = findAsaasRow_(sheet, id);
+  if (!found) return {ok:false,success:false,error:'not_found',message:'Item not found.'};
+  if (String(found.row[9] || '').trim().toLowerCase() === 'returned') {
+    return {ok:false,success:false,error:'already_returned',message:'This item was already returned.'};
+  }
+  var now = new Date().toISOString();
+  sheet.getRange(found.rowIdx, 10).setValue('returned');
+  sheet.getRange(found.rowIdx, 15).setValue(now);
+  sheet.getRange(found.rowIdx, 16).setValue(returnedTo);
+  sheet.getRange(found.rowIdx, 17).setValue(returnApartment);
+  sheet.getRange(found.rowIdx, 18).setValue(returnPhoto);
+  sheet.getRange(found.rowIdx, 19).setValue(returnNote);
+  sheet.getRange(found.rowIdx, 20).setValue(now);
+  return {ok:true,success:true,id:id};
+}
+function handleDeleteAsaasItem(body) {
+  var id = String(body.id || '').trim();
+  if (!id) return {ok:false,success:false,error:'missing_id',message:'Item id is required.'};
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(ASAAS_SHEET);
+  if (!sheet || sheet.getLastRow() < 2) return {ok:false,success:false,error:'not_found',message:'Item not found.'};
+  var found = findAsaasRow_(sheet, id);
+  if (!found) return {ok:false,success:false,error:'not_found',message:'Item not found.'};
+  sheet.deleteRow(found.rowIdx);
+  return {ok:true,success:true,id:id};
+}
+function handleClearAsaasItems(body) {
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(ASAAS_SHEET);
+  if (!sheet || sheet.getLastRow() < 2) return {ok:true,success:true,deleted:0};
+  var lastRow = sheet.getLastRow();
+  if (lastRow > 1) sheet.deleteRows(2, lastRow - 1);
+  return {ok:true,success:true,deleted:lastRow - 1};
 }

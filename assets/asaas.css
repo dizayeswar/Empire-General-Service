@@ -1,0 +1,48 @@
+.asaas-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+.asaas-card {
+  border: 2px solid var(--card-border);
+  border-radius: 14px;
+  background: var(--card);
+  overflow: hidden;
+  cursor: pointer;
+  transition: box-shadow 0.15s;
+}
+.asaas-card:hover { box-shadow: 0 4px 16px var(--shadow); }
+.asaas-card-warehouse { border-left: 4px solid #d68910; }
+.asaas-card-returned { border-left: 4px solid #27ae60; opacity: 0.92; }
+.asaas-card-thumb {
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+  display: block;
+  background: var(--task-bg);
+}
+.asaas-card-body { padding: 12px 14px; }
+.asaas-card-ref { font-weight: 800; font-size: 16px; }
+.asaas-card-status { font-size: 12px; font-weight: 700; color: var(--text-soft); margin: 4px 0; }
+.asaas-card-loc { font-size: 13px; color: var(--text-soft); }
+.asaas-card-item { font-size: 14px; font-weight: 600; margin-top: 6px; }
+.asaas-card-apt { font-size: 12px; color: var(--text-soft); margin-top: 4px; }
+.asaas-card-days { font-size: 12px; color: #d68910; margin-top: 6px; font-weight: 600; }
+.asaas-return-head { font-size: 15px; margin-bottom: 10px; }
+.asaas-return-loc { color: var(--text-soft); font-size: 13px; margin-bottom: 12px; }
+#asaasOfficeApp.show { display: block !important; }
+#asaasOfficeApp { display: none; }
+#asaasMobileApp.show { display: flex !important; }
+#asaasMobileApp { display: none; }
+body.asaas-mobile-mode #asaasOfficeApp { display: none !important; }
+body:not(.asaas-mobile-mode) #asaasMobileApp { display: none !important; }
+#asaasImgModal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0,0,0,0.85);
+  align-items: center;
+  justify-content: center;
+}
+#asaasImgModal.show { display: flex; }

@@ -220,7 +220,8 @@ var EMPIRE_DEPT_HOME = {
   'electric issue': 'electric-issue.html',
   hse: 'hse-inspection.html',
   'civil department': 'civil-department.html',
-  'electrical department': 'electrical.html'
+  'electrical department': 'electrical.html',
+  asaas: 'asaas.html'
 };
 
 var EMPIRE_LOGIN_PAGE = 'index.html';
