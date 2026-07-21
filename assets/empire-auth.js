@@ -163,12 +163,16 @@ function empireParseDeptList(deptStr) {
 
 function empireCanAccessDept(requiredDept) {
   if (!empireGetToken() || !requiredDept) return false;
-  requiredDept = empireNormDept(requiredDept);
+  var required = empireParseDeptList(requiredDept);
+  if (!required.length) return false;
   var list = empireParseDeptList(empireGetTokenDept());
   if (list.indexOf('all') !== -1) return true;
-  if (list.indexOf(requiredDept) !== -1) return true;
-  if (requiredDept === 'electrical department' && list.indexOf('electric issue') !== -1) return true;
-  if (requiredDept === 'electric issue' && list.indexOf('electrical department') !== -1) return true;
+  for (var i = 0; i < required.length; i++) {
+    var r = required[i];
+    if (list.indexOf(r) !== -1) return true;
+    if (r === 'electrical department' && list.indexOf('electric issue') !== -1) return true;
+    if (r === 'electric issue' && list.indexOf('electrical department') !== -1) return true;
+  }
   return false;
 }
 
