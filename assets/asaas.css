@@ -46,3 +46,153 @@ body:not(.asaas-mobile-mode) #asaasMobileApp { display: none !important; }
   justify-content: center;
 }
 #asaasImgModal.show { display: flex; }
+
+/* Mobile guard — tighter layout (less “zoomed in”) */
+#asaasMobileApp.worker-app {
+  font-size: 14px;
+}
+#asaasMobileApp .worker-head {
+  padding: 8px 10px;
+  gap: 8px;
+}
+#asaasMobileApp .worker-logo {
+  height: 28px;
+}
+#asaasMobileApp .worker-head-text h1 {
+  font-size: 13px;
+  line-height: 1.2;
+}
+#asaasMobileApp .worker-head-sub {
+  margin: 1px 0 0;
+  font-size: 10px;
+  line-height: 1.2;
+  color: var(--text-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#asaasMobileApp .worker-logout-head {
+  padding: 5px 9px;
+  font-size: 11px;
+}
+#asaasMobileApp .worker-icon-btn,
+#asaasMobileApp .worker-refresh {
+  width: 34px;
+  height: 34px;
+}
+#asaasMobileApp .worker-lang-btn {
+  padding: 5px 8px;
+  font-size: 11px;
+  min-width: 36px;
+}
+#asaasMobileApp .worker-count-bar {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+#asaasMobileApp .worker-tab-bar {
+  padding: 6px 10px 0;
+  gap: 6px;
+}
+#asaasMobileApp .worker-tab-btn {
+  padding: 7px 6px;
+  font-size: 12px;
+  border-radius: 8px 8px 0 0;
+}
+#asaasLogPanel,
+#asaasMobileListPanel {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 12px 18px;
+}
+#asaasMobileApp .worker-field-form {
+  gap: 5px;
+}
+#asaasMobileApp .worker-field-label {
+  font-size: 11px;
+  margin-top: 2px;
+}
+#asaasMobileApp .worker-field-input,
+#asaasMobileApp .worker-field-textarea,
+#asaasMobileApp select.worker-field-input {
+  padding: 8px 10px;
+  font-size: 14px;
+  border-radius: 8px;
+  min-height: 0;
+}
+#asaasMobileApp .worker-field-photo-btn {
+  padding: 9px 12px;
+  font-size: 13px;
+  border-radius: 8px;
+}
+#asaasMobileApp .worker-field-photo-status {
+  margin: 2px 0 0;
+  font-size: 12px;
+  min-height: 16px;
+}
+#asaasMobileApp .worker-field-preview-img {
+  max-width: 200px;
+  max-height: 110px;
+  object-fit: cover;
+  margin-top: 4px;
+}
+#asaasMobileApp .worker-field-submit {
+  padding: 10px 12px;
+  font-size: 14px;
+  border-radius: 8px;
+  margin-top: 4px;
+}
+#asaasMobileApp .worker-field-msg {
+  font-size: 12px;
+  min-height: 16px;
+}
+#asaasMobileApp .worker-field-subhead {
+  margin: 6px 0 4px;
+  font-size: 11px;
+}
+#asaasMobileApp .worker-field-my-card {
+  padding: 10px;
+  border-radius: 10px;
+}
+#asaasMobileApp .worker-field-my-thumb {
+  width: 56px;
+  height: 56px;
+}
+#asaasMobileApp .worker-field-my-ref {
+  font-size: 14px;
+}
+#asaasMobileApp .worker-field-my-note {
+  font-size: 13px;
+}
+#asaasMobileApp .worker-field-my-view-hint {
+  font-size: 11px;
+}
+#asaasViewModal .worker-modal-head {
+  padding: 10px 12px;
+}
+#asaasViewModal .worker-modal-head strong {
+  font-size: 14px;
+}
+#asaasViewModal .worker-field-view-label {
+  font-size: 10px;
+}
+#asaasViewModal .worker-field-view-value,
+#asaasViewModal .worker-field-view-text {
+  font-size: 13px;
+}
+#asaasViewModal .worker-field-view-photo {
+  max-height: 140px;
+  object-fit: cover;
+}
+#asaasViewModal .worker-field-input {
+  padding: 8px 10px;
+  font-size: 14px;
+}
+#asaasViewModal .worker-field-photo-btn {
+  padding: 9px 12px;
+  font-size: 13px;
+}
+#asaasViewModal .worker-field-submit {
+  padding: 10px 12px;
+  font-size: 14px;
+}
