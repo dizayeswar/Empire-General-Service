@@ -133,7 +133,7 @@ function empireApplyHideTokens_(p, hide) {
     if (tok.indexOf('field report') !== -1) out.fieldReports = false;
     if (tok.indexOf('jobs') !== -1 || tok === 'job') out.jobsTab = false;
     if (tok.indexOf('issues') !== -1 || tok === 'issue') out.issuesTab = false;
-    if (tok.indexOf('not electric') !== -1 || tok.indexOf('not dept') !== -1) out.notElectricTab = false;
+    if (tok.indexOf('not electric') !== -1 || tok.indexOf('not civil') !== -1 || tok.indexOf('not dept') !== -1) out.notElectricTab = false;
     if (tok.indexOf('needs month') !== -1 || tok.indexOf('fix delay') !== -1) out.fixDelayTab = false;
   });
   return out;

@@ -540,7 +540,7 @@ function applyHideTokens_(p, hide) {
     if (tok.indexOf('field report') !== -1) p.fieldReports = false;
     if (tok.indexOf('jobs') !== -1 || tok === 'job') p.jobsTab = false;
     if (tok.indexOf('issues') !== -1 || tok === 'issue') p.issuesTab = false;
-    if (tok.indexOf('not electric') !== -1 || tok.indexOf('not dept') !== -1) p.notElectricTab = false;
+    if (tok.indexOf('not electric') !== -1 || tok.indexOf('not civil') !== -1 || tok.indexOf('not dept') !== -1) p.notElectricTab = false;
     if (tok.indexOf('needs month') !== -1 || tok.indexOf('fix delay') !== -1) p.fixDelayTab = false;
   });
   return p;

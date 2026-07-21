@@ -2078,9 +2078,9 @@ function applyPerms(){ if(window.tsPerm) window.tsPerm(); if(window.tsLoadGlobal
     hideTab('fixdelay');
     hideTab('gps');
   }
-  if (!civilNotCivilTabEnabled()) hideTab('notcivil');
-  if (!civilFixDelayTabEnabled()) hideTab('fixdelay');
-  if (!engineerLocationPanelEnabled()) hideTab('gps');
+  if (!civilNotCivilTabEnabled() || p.notElectricTab === false) hideTab('notcivil');
+  if (!civilFixDelayTabEnabled() || p.fixDelayTab === false) hideTab('fixdelay');
+  if (!engineerLocationPanelEnabled() || p.liveLocation === false) hideTab('gps');
   updateNotCivilNavBadge();
   updateFixDelayNavBadge();
   syncWorkerLocationsUi();
