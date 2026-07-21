@@ -467,12 +467,22 @@ function assignVoiceNoteDisplayHtml(note, opts) {
   return h;
 }
 
+function assignVoiceWorkerT_(key, fallback) {
+  if (typeof workerT === 'function') {
+    var v = workerT(key);
+    if (v && v !== key) return v;
+  }
+  return fallback != null ? fallback : key;
+}
+
 function assignVoiceBoxHtml(issueId, existingNote, opts) {
   opts = opts || {};
   var locked = !!opts.locked;
   issueId = String(issueId || '');
   var h = '<div class="assign-voice-note' + (locked ? ' assign-voice-note-locked' : '') + '" id="assign-voice-' + issueId + '" onclick="event.stopPropagation()">';
-  h += '<label>' + (opts.workerReport ? 'Voice note <span class="assign-voice-optional">(optional)</span>' : 'Voice note for worker <span class="assign-voice-optional">(optional)</span>') + '</label>';
+  h += '<label>' + (opts.workerReport
+    ? assignVoiceWorkerT_('voiceLabel', 'Voice note <span class="assign-voice-optional">(optional)</span>')
+    : 'Voice note for worker <span class="assign-voice-optional">(optional)</span>') + '</label>';
   if (locked) {
     if (existingNote && existingNote.url) {
       h += assignVoiceNoteDisplayHtml(existingNote, { existing: true });
@@ -486,14 +496,14 @@ function assignVoiceBoxHtml(issueId, existingNote, opts) {
     h += assignVoiceNoteDisplayHtml(existingNote, { existing: true });
     h += '<p class="assign-voice-replace-hint">Record below to replace the current voice note when you save.</p>';
   }
-  h += '<div class="assign-voice-recording-live" style="display:none;"><span class="assign-voice-live-dot"></span><span class="assign-voice-live-time">0:00</span><span class="assign-voice-live-label">Recording</span></div>';
+  h += '<div class="assign-voice-recording-live" style="display:none;"><span class="assign-voice-live-dot"></span><span class="assign-voice-live-time">0:00</span><span class="assign-voice-live-label">' + (opts.workerReport ? assignVoiceWorkerT_('voiceRecording', 'Recording') : 'Recording') + '</span></div>';
   h += '<div class="assign-voice-controls">';
-  h += '<button type="button" class="assign-voice-record-btn" onclick="assignVoiceStartRecord(\'' + issueId + '\')">' + assignVoiceMicIconHtml() + ' Record</button>';
-  h += '<button type="button" class="assign-voice-stop-btn" onclick="assignVoiceStopRecord(\'' + issueId + '\')" disabled>' + assignVoiceStopIconHtml() + ' Stop</button>';
+  h += '<button type="button" class="assign-voice-record-btn" onclick="assignVoiceStartRecord(\'' + issueId + '\')">' + assignVoiceMicIconHtml() + ' ' + (opts.workerReport ? assignVoiceWorkerT_('voiceRecord', 'Record') : 'Record') + '</button>';
+  h += '<button type="button" class="assign-voice-stop-btn" onclick="assignVoiceStopRecord(\'' + issueId + '\')" disabled>' + assignVoiceStopIconHtml() + ' ' + (opts.workerReport ? assignVoiceWorkerT_('voiceStop', 'Stop') : 'Stop') + '</button>';
   h += '<span class="assign-voice-timer">0:00</span>';
-  h += '<button type="button" class="assign-voice-delete-btn" onclick="assignVoiceClearDraft(\'' + issueId + '\')" style="display:none;">' + assignVoiceTrashIconHtml() + ' Delete recording</button>';
+  h += '<button type="button" class="assign-voice-delete-btn" onclick="assignVoiceClearDraft(\'' + issueId + '\')" style="display:none;">' + assignVoiceTrashIconHtml() + ' ' + (opts.workerReport ? assignVoiceWorkerT_('voiceDelete', 'Delete recording') : 'Delete recording') + '</button>';
   h += '</div>';
-  h += '<p class="assign-voice-status">' + (opts.workerReport ? 'Tap Record and describe what you found.' : 'Tap Record and speak instructions for the worker.') + '</p>';
+  h += '<p class="assign-voice-status">' + (opts.workerReport ? assignVoiceWorkerT_('voiceStatusWorker', 'Tap Record and describe what you found.') : 'Tap Record and speak instructions for the worker.') + '</p>';
   h += '<div class="assign-voice-preview" style="display:none;"></div>';
   h += '</div>';
   return h;

@@ -10,9 +10,17 @@
     } catch (e) { /* ignore */ }
   }
 
+  function photoT_(key, fallback) {
+    if (typeof workerT === 'function') {
+      var v = workerT(key);
+      if (v && v !== key) return v;
+    }
+    return fallback != null ? fallback : key;
+  }
+
   function empireWorkerShowPhotoChoice(opts) {
     opts = opts || {};
-    var title = opts.title || 'Add photo';
+    var title = opts.title || photoT_('photoTitleAdd', 'Add photo');
     var existing = document.getElementById('empireWorkerPhotoChoice');
     if (existing) existing.remove();
 
@@ -27,13 +35,13 @@
       + '<span class="worker-photo-choice-icon" aria-hidden="true">'
       + '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
       + '<path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/>'
-      + '</svg></span> Take photo (camera)</button>'
+      + '</svg></span> ' + photoT_('photoTakeCamera', 'Take photo (camera)') + '</button>'
       + '<button type="button" class="worker-photo-choice-btn worker-photo-choice-gallery" data-choice="gallery">'
       + '<span class="worker-photo-choice-icon" aria-hidden="true">'
       + '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
       + '<rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>'
-      + '</svg></span> Choose from gallery</button>'
-      + '<button type="button" class="worker-photo-choice-btn worker-photo-choice-cancel" data-close="1">Cancel</button>'
+      + '</svg></span> ' + photoT_('photoChooseGallery', 'Choose from gallery') + '</button>'
+      + '<button type="button" class="worker-photo-choice-btn worker-photo-choice-cancel" data-close="1">' + photoT_('photoCancel', 'Cancel') + '</button>'
       + '</div>';
     document.body.appendChild(wrap);
 
@@ -59,7 +67,7 @@
     var galId = inputIds.gallery || inputIds.galleryId;
     if (!camId || !galId) return;
     empireWorkerShowPhotoChoice({
-      title: inputIds.title || 'Add photo',
+      title: inputIds.title || photoT_('photoTitleAdd', 'Add photo'),
       onCamera: function () {
         empireWorkerClickFileInput(document.getElementById(camId));
       },

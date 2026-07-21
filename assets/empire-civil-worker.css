@@ -1867,3 +1867,53 @@ body.worker-field-modal-open {
   color: var(--text-soft);
   line-height: 1.45;
 }
+
+/* Language toggle + Sorani RTL */
+.worker-lang-btn {
+  padding: 8px 10px;
+  border-radius: 50px;
+  border: 2px solid var(--card-border);
+  background: var(--btn-bg);
+  color: var(--text);
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  min-width: 44px;
+  font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+}
+.worker-lang-btn:active {
+  transform: scale(0.97);
+}
+.worker-app.worker-rtl {
+  direction: rtl;
+  text-align: right;
+}
+.worker-app.worker-rtl .worker-head-text h1 {
+  text-align: right;
+}
+.worker-app.worker-rtl .worker-job-body,
+.worker-app.worker-rtl .worker-field-form,
+.worker-app.worker-rtl .worker-modal-scroll {
+  text-align: right;
+}
+.worker-app.worker-rtl .worker-field-check-row {
+  flex-direction: row-reverse;
+}
+.worker-app.worker-rtl .worker-modal-back {
+  transform: scaleX(-1);
+}
+.worker-app.worker-rtl .worker-job-card {
+  flex-direction: row-reverse;
+}
+.worker-app.worker-rtl .worker-field-my-card {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+.worker-app.worker-rtl .assign-voice-controls {
+  flex-direction: row-reverse;
+}
+.worker-app.worker-rtl .worker-photo-add-zone {
+  text-align: center;
+}

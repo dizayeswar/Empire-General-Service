@@ -628,6 +628,7 @@ function enterWorkerApp() {
   if (typeof empireAuthMarkLoginVisible === 'function') empireAuthMarkLoginVisible(false);
   document.getElementById('mainContainer').classList.remove('show');
   document.body.classList.add('civil-worker-mode');
+  if (typeof workerApplyStaticLang === 'function') workerApplyStaticLang();
   stopEngineerLocationPoll();
   var wa = document.getElementById('workerApp');
   if (wa) wa.classList.add('show');
@@ -651,13 +652,22 @@ function enterWorkerApp() {
   bindWorkerAppLifecycle_();
   try { loadIssues(true); } catch (e) { workerShowJobsError_(e); }
 }
+function workerTxt_(key, fallback, params) {
+  if (typeof workerT === 'function') return workerT(key, params);
+  if (typeof fallback === 'function') return fallback(params || {});
+  return fallback != null ? fallback : key;
+}
 function workerShowJobsError_(err) {
   var host = document.getElementById('workerJobList');
   var bar = document.getElementById('workerCountBar');
   var msg = String((err && err.message) || err || 'Could not load jobs');
-  if (bar) bar.textContent = 'Jobs unavailable';
+  if (bar) {
+    bar.removeAttribute('data-i18n-loading');
+    bar.textContent = workerTxt_('jobsUnavailable', 'Jobs unavailable');
+  }
   if (host) {
-    host.innerHTML = '<p class="worker-empty worker-load-error">' + msg + '<br><button type="button" class="worker-loc-enable-btn" onclick="loadIssues(true)" style="margin-top:10px;">Try again</button></p>';
+    host.removeAttribute('data-i18n-loading');
+    host.innerHTML = '<p class="worker-empty worker-load-error">' + msg + '<br><button type="button" class="worker-loc-enable-btn" onclick="loadIssues(true)" style="margin-top:10px;">' + workerTxt_('jobsTryAgain', 'Try again') + '</button></p>';
   }
 }
 var _workerLocWatchId = null;
@@ -796,7 +806,7 @@ function setWorkerLocBanner(text, isError, showEnableBtn) {
   el.classList.toggle('worker-loc-banner-error', !!isError);
   var h = '<span class="worker-loc-banner-text">' + text + '</span>';
   if (showEnableBtn) {
-    h += ' <button type="button" class="worker-loc-enable-btn" onclick="requestWorkerLocationAccess()">' + (isError ? 'Try again' : 'Enable location') + '</button>';
+    h += ' <button type="button" class="worker-loc-enable-btn" onclick="requestWorkerLocationAccess()">' + (isError ? workerTxt_('locTryAgain', 'Try again') : workerTxt_('locEnable', 'Enable location')) + '</button>';
   }
   el.innerHTML = h;
 }
@@ -1337,15 +1347,21 @@ function initWorkerOfflineSync() {
     }, 20000);
   }
 }
-function renderWorkerJobs() {
+function renderWorkerJobs(force) {
   var host = document.getElementById('workerJobList');
   var bar = document.getElementById('workerCountBar');
   if (!host) return;
   var rows = allIssues.filter(function (r) { return r.status !== 'fixed' && !workerCompletedByMe(r); });
   rows.sort(compareIssuesNewestFirst);
-  if (bar) bar.textContent = rows.length + ' open job' + (rows.length === 1 ? '' : 's') + ' assigned to you';
+  if (bar) {
+    bar.removeAttribute('data-i18n-loading');
+    bar.textContent = workerTxt_('jobsOpenCount', function (p) {
+      var n = p.count || 0;
+      return n + ' open job' + (n === 1 ? '' : 's') + ' assigned to you';
+    }, { count: rows.length });
+  }
   var sig = rows.length + '|' + Object.keys(_workerOfflineQueuedIds || {}).length + '|' + rows.map(function (r) { return r.id + ':' + r.status; }).join(',');
-  if (sig === _workerJobsRenderSig && workerJobsDisplayed_()) {
+  if (!force && sig === _workerJobsRenderSig && workerJobsDisplayed_()) {
     workerPushTryOpenPendingJob_();
     return;
   }
@@ -1353,16 +1369,21 @@ function renderWorkerJobs() {
   if (!rows.length) {
     var pending = Object.keys(_workerOfflineQueuedIds || {}).length;
     var pendingNote = pending
-      ? ('<br><span style="font-size:13px;color:#d68910;">' + pending + ' fix' + (pending === 1 ? '' : 'es') + ' waiting to upload when you have signal.</span>')
+      ? ('<br><span style="font-size:13px;color:#d68910;">' + workerTxt_('jobsPendingUpload', function (p) {
+        var n = p.count || 0;
+        return n + ' fix' + (n === 1 ? '' : 'es') + ' waiting to upload when you have signal.';
+      }, { count: pending }) + '</span>')
       : '';
-    host.innerHTML = '<p class="worker-empty">\u2705 No open jobs right now.' + pendingNote + '<br><span style="font-size:13px;color:var(--text-soft);">Pull down or tap refresh when the engineer assigns new work.</span></p>';
+    host.removeAttribute('data-i18n-loading');
+    host.innerHTML = '<p class="worker-empty">\u2705 ' + workerTxt_('jobsNoOpen', 'No open jobs right now.') + pendingNote + '<br><span style="font-size:13px;color:var(--text-soft);">' + workerTxt_('jobsNoOpenHint', 'Pull down or tap refresh when the engineer assigns new work.') + '</span></p>';
     workerPushTryOpenPendingJob_();
     return;
   }
+  host.removeAttribute('data-i18n-loading');
   host.innerHTML = rows.map(function (r) {
     var thumb = r.photo
       ? '<img class="worker-job-thumb" src="' + r.photo + '" loading="lazy" alt="">'
-      : '<div class="worker-job-thumb worker-job-thumb-empty">No photo</div>';
+      : '<div class="worker-job-thumb worker-job-thumb-empty">' + workerTxt_('jobsNoPhoto', 'No photo') + '</div>';
     var need = issueWorkersRequired(r);
     var twoBadge = need > 1 ? '<span class="workers-badge">' + issueWorkerDone(r) + '/' + need + ' workers</span>' : '';
     return '<div class="worker-job-card" onclick="openWorkerJob(\'' + r.id + '\')">' + thumb
@@ -1397,26 +1418,30 @@ function openWorkerJob(id) {
   var body = document.getElementById('workerModalBody');
   if (!body) return;
   var h = '<h2 class="worker-job-type-title">' + r.issueType + '</h2><p class="loc">' + workerJobLocStr(r) + '</p>';
-  if (r.note) h += '<p class="worker-issue-note"><strong>Note:</strong> ' + r.note + '</p>';
+  if (r.note) h += '<p class="worker-issue-note"><strong>' + workerTxt_('fixNoteLabel', 'Note:') + '</strong> ' + r.note + '</p>';
   if (r.assignVoiceNote && r.assignVoiceNote.url && typeof assignVoiceNoteDisplayHtml === 'function') {
     h += assignVoiceNoteDisplayHtml(r.assignVoiceNote, { worker: true });
   }
   var need = issueWorkersRequired(r);
   if (need > 1) {
-    h += '<p class="worker-two-note">This job needs <strong>' + need + ' workers</strong> to each take photos.' + (issueWorkerDone(r) ? (' <span>(' + issueWorkerDone(r) + '/' + need + ' already done)</span>') : '') + '</p>';
+    h += '<p class="worker-two-note">' + workerTxt_('fixJobNeedsWorkers', function (p) {
+      var s = 'This job needs <strong>' + p.need + ' workers</strong> to each take photos.';
+      if (p.done) s += ' <span>(' + p.done + '/' + p.need + ' already done)</span>';
+      return s;
+    }, { need: need, done: issueWorkerDone(r) }) + '</p>';
   }
   h += r.photo ? '<img class="worker-problem-img" src="' + r.photo + '" alt="Problem">' : '';
   h += '<div class="worker-fix-section worker-fix-simple">';
   h += '<div id="worker-photo-grid" class="worker-photo-grid"></div>';
-  h += '<div class="worker-photo-add-zone" onclick="triggerWorkerPhotoPick()" role="button" tabindex="0" aria-label="Add completion photo">';
+  h += '<div class="worker-photo-add-zone" onclick="triggerWorkerPhotoPick()" role="button" tabindex="0" aria-label="' + workerTxt_('fixAddPhotoAria', 'Add completion photo') + '">';
   h += '<span class="worker-camera-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/></svg></span>';
-  h += '<strong>Add photo</strong><span>Camera or gallery</span></div>';
+  h += '<strong>' + workerTxt_('fixAddPhoto', 'Add photo') + '</strong><span>' + workerTxt_('fixCameraOrGallery', 'Camera or gallery') + '</span></div>';
   h += '<input type="file" id="worker-fix-camera" class="worker-sr-file-input" accept="image/*" capture="environment" onchange="handleWorkerFixFile(event,\'camera\')">';
   h += '<input type="file" id="worker-fix-gallery" class="worker-sr-file-input" accept="image/*" onchange="handleWorkerFixFile(event,\'gallery\')">';
-  h += '<input type="text" id="worker-fix-note" class="worker-fix-note" placeholder="Note (optional)">';
-  h += '<input type="text" id="worker-fix-materials" class="worker-fix-note" placeholder="Materials used (optional)">';
+  h += '<input type="text" id="worker-fix-note" class="worker-fix-note" placeholder="' + workerTxt_('fixNoteOptional', 'Note (optional)') + '">';
+  h += '<input type="text" id="worker-fix-materials" class="worker-fix-note" placeholder="' + workerTxt_('fixMaterialsOptional', 'Materials used (optional)') + '">';
   h += '<div id="workerFixVoiceHost" class="worker-field-voice-host"></div>';
-  h += '<button type="button" id="worker-submit-btn" class="worker-submit-fix" disabled onclick="submitWorkerFix(\'' + id + '\')">Mark as fixed</button></div>';
+  h += '<button type="button" id="worker-submit-btn" class="worker-submit-fix" disabled onclick="submitWorkerFix(\'' + id + '\')">' + workerTxt_('fixMarkFixed', 'Mark as fixed') + '</button></div>';
   body.innerHTML = h;
   var voiceHost = document.getElementById('workerFixVoiceHost');
   if (voiceHost && typeof assignVoiceBoxHtml === 'function') {
@@ -1437,10 +1462,10 @@ function openWorkerJobPendingView(id) {
   if (title) title.textContent = '#' + issueRef(r.num);
   var body = document.getElementById('workerModalBody');
   if (!body) return;
-  body.innerHTML = '<p class="worker-empty">Loading saved fix\u2026</p>';
+  body.innerHTML = '<p class="worker-empty">' + workerTxt_('fixLoadingSaved', 'Loading saved fix\u2026') + '</p>';
   document.getElementById('workerJobModal').classList.add('show');
   if (typeof empireOfflineQueueAll !== 'function') {
-    body.innerHTML = '<p class="worker-empty">Waiting to upload when you have signal.</p>';
+    body.innerHTML = '<p class="worker-empty">' + workerTxt_('fixWaitingSignal', 'Waiting to upload when you have signal.') + '</p>';
     return;
   }
   empireOfflineQueueAll().then(function (rows) {
@@ -1454,21 +1479,22 @@ function openWorkerJobPendingView(id) {
       itemSources = item.orderedPhotos.map(function (p) { return p.source; });
     }
     var h = '<h2 class="worker-job-type-title">' + r.issueType + '</h2><p class="loc">' + workerJobLocStr(r) + '</p>';
-    h += '<div class="worker-done-locked worker-pending-sync"><p class="worker-done-msg">' + checkIconHtml('#d68910') + ' Saved on this device</p>';
-    h += '<p style="font-size:13px;color:var(--text-soft);margin:0;">Waiting for internet to upload your photos and mark this job fixed. Keep this page open or come back later.</p></div>';
+    h += '<div class="worker-done-locked worker-pending-sync"><p class="worker-done-msg">' + checkIconHtml('#d68910') + ' ' + workerTxt_('fixSavedOnDevice', 'Saved on this device') + '</p>';
+    h += '<p style="font-size:13px;color:var(--text-soft);margin:0;">' + workerTxt_('fixPendingSync', 'Waiting for internet to upload your photos and mark this job fixed. Keep this page open or come back later.') + '</p></div>';
     if (photos.length) {
-      h += '<div class="worker-fix-section"><h3>Your photos (not uploaded yet)</h3><div class="worker-photo-grid">';
+      h += '<div class="worker-fix-section"><h3>' + workerTxt_('fixYourPhotosPending', 'Your photos (not uploaded yet)') + '</h3><div class="worker-photo-grid">';
       photos.forEach(function (url, i) {
         var src = itemSources[i] || 'camera';
         h += '<div class="worker-photo-item"><img src="' + url + '" onclick="bigImg(this.src)" alt="Photo ' + (i + 1) + '"><span class="worker-photo-label">'
-          + photoSourceBadgeHtml(src) + ' Photo ' + (i + 1) + (isOfflinePhotoUrl(url) ? ' &middot; on device' : '') + '</span></div>';
+          + photoSourceBadgeHtml(src) + ' ' + workerTxt_('fixPhotoN', 'Photo ' + (i + 1), { index: i + 1 })
+          + (isOfflinePhotoUrl(url) ? ' &middot; ' + workerTxt_('fixOnDevice', 'on device') : '') + '</span></div>';
       });
       h += '</div></div>';
     }
-    if (item && item.fixNote) h += '<p style="font-size:13px;color:var(--text-soft);margin-top:10px;"><strong>Note:</strong> ' + item.fixNote + '</p>';
+    if (item && item.fixNote) h += '<p style="font-size:13px;color:var(--text-soft);margin-top:10px;"><strong>' + workerTxt_('fixNoteLabel', 'Note:') + '</strong> ' + item.fixNote + '</p>';
     body.innerHTML = h;
   }).catch(function () {
-    body.innerHTML = '<p class="worker-empty">Waiting to upload when you have signal.</p>';
+    body.innerHTML = '<p class="worker-empty">' + workerTxt_('fixWaitingSignal', 'Waiting to upload when you have signal.') + '</p>';
   });
 }
 function openWorkerJobDoneView(id) {
@@ -1483,22 +1509,24 @@ function openWorkerJobDoneView(id) {
   if (!body) return;
   var mine = myWorkerCompletion(r);
   var h = '<h2 class="worker-job-type-title">' + r.issueType + '</h2><p class="loc">' + workerJobLocStr(r) + '</p>';
-  h += '<div class="worker-done-locked"><p class="worker-done-msg">' + checkIconHtml('#1d9e75') + ' You already marked this job as fixed.</p>';
-  h += '<p style="font-size:13px;color:var(--text-soft);margin:0;">You cannot add more photos for this issue.</p></div>';
+  h += '<div class="worker-done-locked"><p class="worker-done-msg">' + checkIconHtml('#1d9e75') + ' ' + workerTxt_('fixAlreadyFixed', 'You already marked this job as fixed.') + '</p>';
+  h += '<p style="font-size:13px;color:var(--text-soft);margin:0;">' + workerTxt_('fixNoMorePhotos', 'You cannot add more photos for this issue.') + '</p></div>';
   if (mine && mine.photos && mine.photos.length) {
-    h += '<div class="worker-fix-section"><h3>Your submitted photos</h3><div class="worker-photo-grid">';
+    h += '<div class="worker-fix-section"><h3>' + workerTxt_('fixYourSubmittedPhotos', 'Your submitted photos') + '</h3><div class="worker-photo-grid">';
     mine.photos.forEach(function (url, i) {
       h += '<div class="worker-photo-item"><img src="' + url + '" onclick="bigImg(this.src)" alt="Photo ' + (i + 1) + '"><span class="worker-photo-label">'
-        + photoSourceBadgeHtml(completionPhotoSource(mine, i)) + ' Photo ' + (i + 1) + '</span></div>';
+        + photoSourceBadgeHtml(completionPhotoSource(mine, i)) + ' ' + workerTxt_('fixPhotoN', 'Photo ' + (i + 1), { index: i + 1 }) + '</span></div>';
     });
     h += '</div></div>';
   }
   if (mine && mine.voiceNote && mine.voiceNote.url && typeof assignVoiceNoteDisplayHtml === 'function') {
-    h += '<div class="worker-fix-section"><h3>Your voice note</h3>' + assignVoiceNoteDisplayHtml(mine.voiceNote, { worker: true }) + '</div>';
+    h += '<div class="worker-fix-section"><h3>' + workerTxt_('fixYourVoiceNote', 'Your voice note') + '</h3>' + assignVoiceNoteDisplayHtml(mine.voiceNote, { worker: true }) + '</div>';
   }
   var needDone = issueWorkersRequired(r);
   if (needDone > 1 && r.status !== 'fixed') {
-    h += '<p class="worker-two-note">Waiting for other workers to complete this job (' + issueWorkerDone(r) + '/' + needDone + ' done).</p>';
+    h += '<p class="worker-two-note">' + workerTxt_('fixWaitingOthers', function (p) {
+      return 'Waiting for other workers to complete this job (' + p.done + '/' + p.need + ' done).';
+    }, { done: issueWorkerDone(r), need: needDone }) + '</p>';
   }
   body.innerHTML = h;
   document.getElementById('workerJobModal').classList.add('show');
@@ -1508,7 +1536,7 @@ function triggerWorkerPhotoPick() {
     empireWorkerPickPhoto({
       camera: 'worker-fix-camera',
       gallery: 'worker-fix-gallery',
-      title: 'Completion photo'
+      title: workerTxt_('photoTitleCompletion', 'Completion photo')
     });
     return;
   }
@@ -1537,9 +1565,9 @@ function renderWorkerPhotoGrid() {
       var offline = isOfflinePhotoUrl(url);
       var source = workerPhotoSource(item);
       return '<div class="worker-photo-item"><img src="' + url + '" onclick="bigImg(this.src)" alt="Photo ' + (i + 1) + '">'
-        + '<button type="button" class="worker-photo-remove" onclick="removeWorkerFixPhoto(' + i + ')" aria-label="Remove photo">&times;</button>'
-        + '<span class="worker-photo-label">' + photoSourceBadgeHtml(source) + ' Photo ' + (i + 1)
-        + (offline ? ' <span class="worker-photo-offline">on device</span>' : '') + '</span></div>';
+        + '<button type="button" class="worker-photo-remove" onclick="removeWorkerFixPhoto(' + i + ')" aria-label="' + workerTxt_('fixRemovePhotoAria', 'Remove photo') + '">&times;</button>'
+        + '<span class="worker-photo-label">' + photoSourceBadgeHtml(source) + ' ' + workerTxt_('fixPhotoN', 'Photo ' + (i + 1), { index: i + 1 })
+        + (offline ? ' <span class="worker-photo-offline">' + workerTxt_('fixOnDevice', 'on device') + '</span>' : '') + '</span></div>';
     }).join('');
   }
   updateWorkerSubmitBtn();
@@ -1550,9 +1578,11 @@ function updateWorkerSubmitBtn() {
   var n = _workerFixPhotos.length;
   var ready = n > 0 && _workerUploading === 0;
   btn.disabled = !ready;
-  if (_workerUploading > 0) btn.textContent = 'Uploading photo\u2026';
-  else if (!n) btn.textContent = 'Mark as fixed';
-  else btn.textContent = 'Mark as fixed (' + n + ' photo' + (n === 1 ? '' : 's') + ')';
+  if (_workerUploading > 0) btn.textContent = workerTxt_('fixUploading', 'Uploading photo\u2026');
+  else if (!n) btn.textContent = workerTxt_('fixMarkFixed', 'Mark as fixed');
+  else btn.textContent = workerTxt_('fixMarkFixedPhotos', function (p) {
+    return 'Mark as fixed (' + p.count + ' photo' + (p.count === 1 ? '' : 's') + ')';
+  }, { count: n });
 }
 function removeWorkerFixPhoto(idx) {
   _workerFixPhotos.splice(idx, 1);
