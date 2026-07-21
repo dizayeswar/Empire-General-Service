@@ -1,5 +1,5 @@
 /* Empire EGS — service worker (cache + Firebase background push) */
-var CACHE_VERSION = '2026-07-19-android-stable-v3';
+var CACHE_VERSION = '2026-07-21-asaas-v4';
 var CACHE_NAME = 'empire-egs-' + CACHE_VERSION;
 var NOTIFY_ICON = 'https://dizayeswar.github.io/Empire-General-Service/icons/icon-192.png';
 var NOTIFY_BASE = 'https://dizayeswar.github.io/Empire-General-Service/civil-issue.html';

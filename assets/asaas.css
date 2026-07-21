@@ -47,6 +47,28 @@ body:not(.asaas-mobile-mode) #asaasMobileApp { display: none !important; }
 }
 #asaasImgModal.show { display: flex; }
 
+.asaas-field-grid {
+  display: grid;
+  gap: 4px 8px;
+}
+.asaas-field-grid-2 {
+  grid-template-columns: 1fr 1fr;
+}
+.asaas-field-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.asaas-field-cell-grow {
+  grid-column: span 1;
+}
+@media (max-width: 360px) {
+  .asaas-field-grid-2 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 /* Mobile guard — tighter layout (less “zoomed in”) */
 #asaasMobileApp.worker-app {
   font-size: 14px;
