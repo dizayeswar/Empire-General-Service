@@ -26,13 +26,66 @@
 .asaas-card-status { font-size: 12px; font-weight: 700; color: var(--text-soft); margin: 4px 0; }
 .asaas-card-loc { font-size: 13px; color: var(--text-soft); margin-top: 2px; }
 .asaas-card-item { font-size: 14px; font-weight: 600; margin-top: 6px; }
-.asaas-item-summary { margin-bottom: 12px; }
-.asaas-item-summary-line { margin: 0 0 6px; font-size: 14px; line-height: 1.45; }
-.asaas-item-summary-label { color: var(--text-soft); font-weight: 600; }
+.asaas-detail-photo-block {
+  margin: 14px 0 0;
+}
+.asaas-detail-photo-block .issue-meta-row {
+  margin-bottom: 8px;
+}
+.asaas-detail-photo-block .worker-field-view-photo {
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid var(--card-border);
+  cursor: pointer;
+}
+#asaasReturnModal .issue-meta-wrap,
+#asaasViewModal .issue-meta-wrap {
+  margin-bottom: 0;
+}
+#asaasReturnModal .issue-meta-list,
+#asaasViewModal .issue-meta-list {
+  margin-bottom: 4px;
+}
 .asaas-card-apt { font-size: 12px; color: var(--text-soft); margin-top: 4px; }
 .asaas-card-days { font-size: 12px; color: #d68910; margin-top: 6px; font-weight: 600; }
 .asaas-return-head { font-size: 15px; margin-bottom: 10px; }
 .asaas-return-loc { color: var(--text-soft); font-size: 13px; margin-bottom: 12px; }
+.asaas-analytics-table-wrap {
+  overflow-x: auto;
+  margin-top: 8px;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  background: var(--card);
+}
+.asaas-analytics-table {
+  min-width: 980px;
+}
+.asaas-analytics-table th,
+.asaas-analytics-table td {
+  padding: 10px 12px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--card-border);
+  text-align: left;
+  vertical-align: top;
+}
+.asaas-analytics-table th {
+  background: var(--task-bg, #f8f9fc);
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+}
+.asaas-analytics-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.asaas-analytics-row {
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.asaas-analytics-row:hover {
+  background: rgba(141, 1, 93, 0.04);
+}
 #asaasOfficeApp.show { display: block !important; }
 #asaasOfficeApp { display: none; }
 #asaasMobileApp.show { display: flex !important; }
@@ -231,13 +284,6 @@ body:not(.asaas-mobile-mode) #asaasMobileApp { display: none !important; }
 }
 #asaasViewModal .worker-modal-head strong {
   font-size: 14px;
-}
-#asaasViewModal .worker-field-view-label {
-  font-size: 10px;
-}
-#asaasViewModal .worker-field-view-value,
-#asaasViewModal .worker-field-view-text {
-  font-size: 13px;
 }
 #asaasViewModal .worker-field-view-photo {
   max-height: 140px;

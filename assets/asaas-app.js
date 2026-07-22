@@ -63,23 +63,49 @@ function asaasFloorPart_(floor) {
   if (m) return m[1];
   return f;
 }
+function asaasBuildingPart_(building) {
+  var b = String(building || '').trim();
+  if (!b) return '';
+  var m = b.match(/^WW(\d+)$/i);
+  if (m) return 'WW-' + m[1];
+  return b;
+}
 function asaasLocStr_(r) {
   if (!r) return '';
-  var building = String(r.building || '').trim();
+  var buildingPart = asaasBuildingPart_(r.building);
   var floorPart = asaasFloorPart_(r.floor);
   var apt = String(r.apartment || '').trim();
-  if (!building) return '';
-  var tail = floorPart + apt;
-  return tail ? building + '-' + tail : building;
+  if (!buildingPart) return '';
+  var parts = [buildingPart];
+  if (floorPart) parts.push(floorPart);
+  if (apt) parts.push(apt);
+  return parts.join('-');
 }
-function asaasItemSummaryHtml_(r) {
-  var h = '<div class="asaas-item-summary">';
-  h += '<p class="asaas-item-summary-line"><span class="asaas-item-summary-label">' + asaasT('refShort') + ':</span> <strong>' + asaasEsc_(asaasRef_(r.num)) + '</strong></p>';
-  var loc = asaasLocStr_(r);
-  if (loc) h += '<p class="asaas-item-summary-line"><span class="asaas-item-summary-label">' + asaasT('location') + ':</span> ' + asaasEsc_(loc) + '</p>';
-  if (r.itemDescription) h += '<p class="asaas-item-summary-line"><span class="asaas-item-summary-label">' + asaasT('description') + ':</span> ' + asaasEsc_(r.itemDescription) + '</p>';
-  h += '</div>';
+function asaasMetaRow_(label, value) {
+  var v = (value === undefined || value === null || String(value).trim() === '') ? '\u2014' : String(value);
+  return '<div class="issue-meta-row"><span class="issue-meta-label">' + label + '</span><span class="issue-meta-value">' + asaasEsc_(v) + '</span></div>';
+}
+function asaasItemMetaHtml_(r) {
+  var h = '<div class="issue-meta-wrap"><div class="issue-meta-list">';
+  h += asaasMetaRow_(asaasT('refShort') + ':', asaasRef_(r.num));
+  h += asaasMetaRow_(asaasT('location') + ':', asaasLocStr_(r));
+  h += asaasMetaRow_(asaasT('description') + ':', r.itemDescription);
+  h += asaasMetaRow_(asaasT('status') + ':', r.status === 'returned' ? asaasT('returned') : asaasT('inWarehouse'));
+  h += asaasMetaRow_(asaasT('date') + ':', r.date);
+  h += asaasMetaRow_(asaasT('spot') + ':', r.spot);
+  if (r.warehouseNote) h += asaasMetaRow_(asaasT('warehouseNote') + ':', r.warehouseNote);
+  if (r.status === 'returned') {
+    h += asaasMetaRow_(asaasT('returnedTo') + ':', r.returnedTo);
+    h += asaasMetaRow_(asaasT('returnApartment') + ':', r.returnApartment);
+    if (r.returnNote) h += asaasMetaRow_(asaasT('returnNote') + ':', r.returnNote);
+  }
+  h += '</div></div>';
   return h;
+}
+function asaasPhotoBlockHtml_(label, url) {
+  if (!url) return '';
+  return '<div class="asaas-detail-photo-block"><div class="issue-meta-row"><span class="issue-meta-label">' + label + '</span></div>'
+    + '<img class="worker-field-view-photo" src="' + asaasEsc_(url) + '" alt="" onclick="bigImg(this.src)"></div>';
 }
 
 function asaasPopulateBuildings_() {
@@ -520,22 +546,16 @@ function asaasOpenViewModal_(r) {
   var inWarehouse = r.status !== 'returned';
   var h = '<div class="worker-field-view">';
   if (r.status === 'returned') h += '<p class="worker-field-view-lead">' + asaasEsc_(asaasT('readOnlyReturned')) + '</p>';
-  h += asaasItemSummaryHtml_(r);
-  h += '<div class="worker-field-view-row"><span class="worker-field-view-label">' + asaasT('status') + '</span><span class="worker-field-view-value">' + asaasEsc_(r.status === 'returned' ? asaasT('returned') : asaasT('inWarehouse')) + '</span></div>';
-  h += '<div class="worker-field-view-row"><span class="worker-field-view-label">' + asaasT('date') + '</span><span class="worker-field-view-value">' + asaasEsc_(r.date || '') + '</span></div>';
-  if (r.spot) h += '<div class="worker-field-view-row"><span class="worker-field-view-label">' + asaasT('spot') + '</span><span class="worker-field-view-value">' + asaasEsc_(r.spot) + '</span></div>';
-  if (r.photo) h += '<div class="worker-field-view-block"><span class="worker-field-view-label">' + asaasT('photo') + '</span><img class="worker-field-view-photo" src="' + asaasEsc_(r.photo) + '" alt="" onclick="bigImg(this.src)"></div>';
+  h += asaasItemMetaHtml_(r);
+  h += asaasPhotoBlockHtml_(asaasT('photo') + ':', r.photo);
   if (inWarehouse) {
     h += '<hr style="margin:18px 0;border:none;border-top:1px solid var(--card-border);">';
     h += asaasStickerSectionHtml_(r, true);
-  } else if (r.photo2) {
-    h += '<div class="worker-field-view-block"><span class="worker-field-view-label">' + asaasT('stickerPhoto') + '</span><img class="worker-field-view-photo" src="' + asaasEsc_(r.photo2) + '" alt="" onclick="bigImg(this.src)"></div>';
+  } else {
+    h += asaasPhotoBlockHtml_(asaasT('stickerPhoto') + ':', r.photo2);
   }
   if (r.status === 'returned') {
-    h += '<div class="worker-field-view-block"><span class="worker-field-view-label">' + asaasT('returnDetails') + '</span>';
-    h += '<p class="worker-field-view-text">' + asaasEsc_(r.returnedTo || '') + (r.returnApartment ? (' · ' + r.returnApartment) : '') + '</p>';
-    if (r.returnPhoto) h += '<img class="worker-field-view-photo" src="' + asaasEsc_(r.returnPhoto) + '" alt="" onclick="bigImg(this.src)">';
-    h += '</div>';
+    h += asaasPhotoBlockHtml_(asaasT('signedPaperPhoto') + ':', r.returnPhoto);
   } else if (isAsaasMobile_()) {
     h += '<hr style="margin:18px 0;border:none;border-top:1px solid var(--card-border);">';
     h += '<p class="worker-field-view-lead">' + asaasEsc_(asaasT('mobileReturnHint')) + '</p>';
@@ -625,25 +645,15 @@ function asaasOpenReturnModal_(r) {
   if (!modal || !body) return;
   var inWarehouse = r.status !== 'returned';
   var h = '<div class="asaas-return-form worker-field-view">';
-  h += asaasItemSummaryHtml_(r);
-  h += '<div class="worker-field-view-row"><span class="worker-field-view-label">' + asaasT('status') + '</span><span class="worker-field-view-value">' + asaasEsc_(r.status === 'returned' ? asaasT('returned') : asaasT('inWarehouse')) + '</span></div>';
-  h += '<div class="worker-field-view-row"><span class="worker-field-view-label">' + asaasT('date') + '</span><span class="worker-field-view-value">' + asaasEsc_(r.date || '') + '</span></div>';
-  if (r.spot) h += '<div class="worker-field-view-row"><span class="worker-field-view-label">' + asaasT('spot') + '</span><span class="worker-field-view-value">' + asaasEsc_(r.spot) + '</span></div>';
-  if (r.photo) h += '<div class="worker-field-view-block"><span class="worker-field-view-label">' + asaasT('photo') + '</span><img class="worker-field-view-photo" src="' + asaasEsc_(r.photo) + '" alt="" onclick="bigImg(this.src)"></div>';
+  h += asaasItemMetaHtml_(r);
+  h += asaasPhotoBlockHtml_(asaasT('photo') + ':', r.photo);
   if (r.photo2) {
-    h += '<div class="worker-field-view-block"><span class="worker-field-view-label">' + asaasT('stickerPhoto') + '</span><img class="worker-field-view-photo" src="' + asaasEsc_(r.photo2) + '" alt="" onclick="bigImg(this.src)"></div>';
+    h += asaasPhotoBlockHtml_(asaasT('stickerPhoto') + ':', r.photo2);
   } else if (inWarehouse) {
-    h += '<div class="worker-field-view-block"><span class="worker-field-view-label">' + asaasT('stickerPhoto') + '</span><p class="worker-field-view-text">' + asaasEsc_(asaasT('stickerPhotoMissing')) + '</p></div>';
-  }
-  if (r.warehouseNote) {
-    h += '<div class="worker-field-view-block"><span class="worker-field-view-label">' + asaasT('warehouseNote') + '</span><p class="worker-field-view-text">' + asaasEsc_(r.warehouseNote) + '</p></div>';
+    h += '<div class="issue-meta-wrap"><div class="issue-meta-list">' + asaasMetaRow_(asaasT('stickerPhoto') + ':', asaasT('stickerPhotoMissing')) + '</div></div>';
   }
   if (r.status === 'returned') {
-    h += '<div class="worker-field-view-block"><span class="worker-field-view-label">' + asaasT('returnDetails') + '</span>';
-    h += '<p class="worker-field-view-text">' + asaasEsc_(r.returnedTo || '') + (r.returnApartment ? (' · ' + r.returnApartment) : '') + '</p>';
-    if (r.returnNote) h += '<p class="worker-field-view-text">' + asaasEsc_(r.returnNote) + '</p>';
-    if (r.returnPhoto) h += '<img class="worker-field-view-photo" src="' + asaasEsc_(r.returnPhoto) + '" alt="" onclick="bigImg(this.src)">';
-    h += '</div>';
+    h += asaasPhotoBlockHtml_(asaasT('signedPaperPhoto') + ':', r.returnPhoto);
   } else {
     h += '<p class="worker-field-view-lead">' + asaasEsc_(asaasT('officeViewOnlyHint')) + '</p>';
   }
@@ -694,17 +704,67 @@ function asaasMarkReturned_() {
   });
 }
 
+function asaasSortItemsNewest_(rows) {
+  return rows.slice().sort(function (a, b) {
+    var ta = new Date(String(a.createdAt || a.date || '').replace(' ', 'T')).getTime();
+    var tb = new Date(String(b.createdAt || b.date || '').replace(' ', 'T')).getTime();
+    return (isNaN(tb) ? 0 : tb) - (isNaN(ta) ? 0 : ta);
+  });
+}
+function asaasAnalyticsCell_(value) {
+  var v = (value === undefined || value === null || String(value).trim() === '') ? '\u2014' : String(value);
+  return asaasEsc_(v);
+}
 function asaasRenderAnalytics_() {
   var host = document.getElementById('asaasAnalyticsContent');
   if (!host) return;
   var total = _asaasItems.length;
   var warehouse = _asaasItems.filter(function (r) { return r.status !== 'returned'; }).length;
   var returned = total - warehouse;
-  host.innerHTML = '<div class="stats">'
+  var rows = asaasSortItemsNewest_(_asaasItems);
+  var h = '<div class="stats">'
     + '<div class="stat-box"><div class="stat-value">' + total + '</div><div class="stat-label">Total items</div></div>'
     + '<div class="stat-box"><div class="stat-value" style="color:#d68910;">' + warehouse + '</div><div class="stat-label">In warehouse</div></div>'
     + '<div class="stat-box"><div class="stat-value" style="color:#27ae60;">' + returned + '</div><div class="stat-label">Returned</div></div>'
     + '</div>';
+  h += '<h3 style="margin-top:24px;">' + asaasEsc_(asaasT('analyticsBoardTitle')) + '</h3>';
+  if (!rows.length) {
+    h += '<p class="worker-empty">' + asaasEsc_(asaasT('noItems')) + '</p>';
+  } else {
+    h += '<div class="asaas-analytics-table-wrap"><table class="asaas-analytics-table"><thead><tr>'
+      + '<th>' + asaasT('refShort') + '</th>'
+      + '<th>' + asaasT('date') + '</th>'
+      + '<th>' + asaasT('location') + '</th>'
+      + '<th>' + asaasT('analyticsApartment') + '</th>'
+      + '<th>' + asaasT('description') + '</th>'
+      + '<th>' + asaasT('spot') + '</th>'
+      + '<th>' + asaasT('status') + '</th>'
+      + '<th>' + asaasT('analyticsDays') + '</th>'
+      + '<th>' + asaasT('removedBy') + '</th>'
+      + '<th>' + asaasT('analyticsReturnedAt') + '</th>'
+      + '</tr></thead><tbody>';
+    rows.forEach(function (r) {
+      var inWh = r.status !== 'returned';
+      var days = inWh ? asaasDaysSince_(r.createdAt || r.date) : '';
+      var st = inWh ? asaasT('inWarehouse') : asaasT('returned');
+      var apt = r.apartment ? r.apartment : asaasT('apartmentUnknown');
+      var retDate = r.returnedAt ? String(r.returnedAt).slice(0, 10) : '';
+      h += '<tr class="asaas-analytics-row" onclick="asaasOpenDetail_(\'' + asaasEsc_(r.id).replace(/'/g, "\\'") + '\')">'
+        + '<td><strong>' + asaasEsc_(asaasRef_(r.num)) + '</strong></td>'
+        + '<td>' + asaasAnalyticsCell_(r.date) + '</td>'
+        + '<td>' + asaasAnalyticsCell_(asaasLocStr_(r)) + '</td>'
+        + '<td>' + asaasAnalyticsCell_(apt) + '</td>'
+        + '<td>' + asaasAnalyticsCell_(r.itemDescription) + '</td>'
+        + '<td>' + asaasAnalyticsCell_(r.spot) + '</td>'
+        + '<td>' + asaasEsc_(st) + '</td>'
+        + '<td>' + asaasAnalyticsCell_(days !== '' ? days : '') + '</td>'
+        + '<td>' + asaasAnalyticsCell_(r.removedByName || r.removedBy) + '</td>'
+        + '<td>' + asaasAnalyticsCell_(retDate) + '</td>'
+        + '</tr>';
+    });
+    h += '</tbody></table></div>';
+  }
+  host.innerHTML = h;
 }
 
 function bigImg(src) {
