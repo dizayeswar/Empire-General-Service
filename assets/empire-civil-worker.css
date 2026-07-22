@@ -82,6 +82,35 @@ body:not(.civil-worker-mode) #workerApp {
   white-space: nowrap;
   flex-shrink: 0;
 }
+.empire-logout-modal .empire-logout-modal-head {
+  justify-content: center;
+}
+.empire-logout-modal-body {
+  padding: 16px;
+}
+.empire-logout-lead {
+  margin: 0 0 14px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text-soft);
+}
+.empire-logout-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+.empire-logout-cancel,
+.empire-logout-confirm {
+  flex: 1;
+  margin: 0;
+}
+.empire-logout-confirm {
+  background: #C5504F;
+}
+.empire-logout-msg {
+  min-height: 18px;
+  margin-top: 8px;
+}
 .worker-refresh {
   width: 40px;
   height: 40px;

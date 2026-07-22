@@ -22,7 +22,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-22-electric-photos';
+var SCRIPT_VERSION = '2026-07-22-mobile-logout-pw';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -363,6 +363,7 @@ function doPost(e) {
     if (action === 'testWorkerPush') return respond(handleTestWorkerPush_(body));
     if (action === 'debugWorkerPush') return respond(handleDebugWorkerPush_(body));
     if (action === 'login' || action === 'verifyLogin') return respond(handleLogin(body));
+    if (action === 'verifyPassword') return respond(handleVerifyPassword(body));
     if (action === 'getPerms') return respond(handleGetPerms(body));
     if (action === 'getSummary') return respond(handleGetSummary(body));
     var deptByAction = {
@@ -1013,6 +1014,26 @@ function rememberPushAuth_(token, username, tokenDept, role) {
     );
   } catch (e) {}
 }
+function handleVerifyPassword(body) {
+  var username = String(body.username || '').trim().toLowerCase();
+  var password = String(body.password || '').trim();
+  if (!username || !password) {
+    return {ok:false,success:false,error:'missing_credentials',message:'Enter your password.'};
+  }
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(USERS_SHEET);
+  if (!sheet) return {ok:false,success:false,message:'Users sheet not found',error:'Users sheet not found'};
+  var rows = sheet.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) {
+    var uname = String(rows[i][0] || '').trim().toLowerCase();
+    var upass = String(rows[i][1] || '').trim();
+    if (uname === username && upass === password) {
+      return {ok:true,success:true};
+    }
+  }
+  return {ok:false,success:false,error:'bad_password',message:'Wrong password.'};
+}
+
 function handleLogin(body) {
   var ss = getSS_();
   var sheet = ss.getSheetByName(USERS_SHEET);

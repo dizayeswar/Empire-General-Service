@@ -214,7 +214,11 @@ function asaasHandleLogin_(e) {
   });
 }
 function asaasLogout_() {
-  empireAuthLogout({ redirect: 'index.html', reload: false });
+  empireAuthWorkerLogout({
+    requirePassword: isAsaasMobile_(),
+    redirect: 'index.html',
+    reload: false
+  });
 }
 
 function asaasSwitchTab_(tab) {

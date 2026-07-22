@@ -2149,7 +2149,7 @@ function syncWorkerRoleThenRoute_() {
   timer = setTimeout(done, 1200);
 }
 function handleLogin(e){ empireAuthLogin(e, ISSUE_CFG.dept, { onSuccess: function(d){ PAGEPERMS=d.perms||{}; if(typeof empireAuthSet==='function' && d.trade) empireAuthSet('trade', d.trade); if(ISSUE_CFG.workerMode) prefetchWorkerIssues_(); routeCivilIssueView_(); if(typeof empirePushTrySaveAfterLogin==='function'){ setTimeout(function(){ empirePushTrySaveAfterLogin(); }, 2000); } } }); }
-function logout(){ stopWorkerLocationPing(); if(typeof empirePushStopWorker==='function') empirePushStopWorker(); stopEngineerLocationPoll(); empireAuthLogout({ extraKeys: [ISSUES_CACHE_KEY, ISSUES_CACHE_TS_KEY], redirect: 'index.html', reload: false }); }
+function logout(){ empireAuthWorkerLogout({ beforeLogout: function(){ stopWorkerLocationPing(); if(typeof empirePushStopWorker==='function') empirePushStopWorker(); stopEngineerLocationPoll(); }, extraKeys: [ISSUES_CACHE_KEY, ISSUES_CACHE_TS_KEY], redirect: 'index.html', reload: false }); }
 function issueSessionLogoutOpts(){ return { extraKeys: [ISSUES_CACHE_KEY, ISSUES_CACHE_TS_KEY], redirect: 'index.html', reload: false }; }
 function forceSessionLogout(d){ return empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts()); }
 function compressImage(file, cb) {

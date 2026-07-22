@@ -284,6 +284,181 @@ function empireAuthLogout(opts) {
   else if (opts.reload !== false) location.reload();
 }
 
+function empireAuthLogoutTxt_(key, fallback, params) {
+  if (typeof workerT === 'function') {
+    var w = workerT(key, params);
+    if (w && w !== key) return w;
+  }
+  if (typeof asaasT === 'function') {
+    var a = asaasT(key, params);
+    if (a && a !== key) return a;
+  }
+  if (typeof fallback === 'function') return fallback(params || {});
+  return fallback != null ? fallback : key;
+}
+
+function empireAuthMobileLogoutRequired_(opts) {
+  opts = opts || {};
+  if (opts.requirePassword === true) return true;
+  if (opts.requirePassword === false) return false;
+  if (document.body && document.body.classList.contains('civil-worker-mode')) return true;
+  var asaasMobile = document.getElementById('asaasMobileApp');
+  if (asaasMobile && asaasMobile.classList.contains('show')) return true;
+  return false;
+}
+
+function empireAuthEnsureLogoutModal_() {
+  if (document.getElementById('empireLogoutModal')) return;
+  var modal = document.createElement('div');
+  modal.id = 'empireLogoutModal';
+  modal.className = 'worker-modal empire-logout-modal';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-labelledby', 'empireLogoutModalTitle');
+  modal.innerHTML = ''
+    + '<header class="worker-modal-head empire-logout-modal-head">'
+    + '<strong id="empireLogoutModalTitle" data-empire-logout-i18n="logoutConfirmTitle">Log out?</strong>'
+    + '</header>'
+    + '<div class="worker-modal-scroll empire-logout-modal-body">'
+    + '<p class="empire-logout-lead" data-empire-logout-i18n="logoutConfirmLead">Enter your login password to confirm logout.</p>'
+    + '<label class="worker-field-label" for="empireLogoutPassword" data-empire-logout-i18n="logoutPasswordLabel">Password</label>'
+    + '<input type="password" id="empireLogoutPassword" class="worker-field-input empire-logout-password" autocomplete="current-password" data-empire-logout-i18n-placeholder="logoutPasswordPlaceholder" placeholder="Your login password">'
+    + '<p id="empireLogoutMsg" class="worker-field-msg empire-logout-msg" aria-live="polite"></p>'
+    + '<div class="empire-logout-actions">'
+    + '<button type="button" id="empireLogoutCancelBtn" class="worker-field-photo-btn empire-logout-cancel" data-empire-logout-i18n="logoutCancel">Cancel</button>'
+    + '<button type="button" id="empireLogoutConfirmBtn" class="worker-field-submit empire-logout-confirm" data-empire-logout-i18n="logoutConfirmBtn">Log out</button>'
+    + '</div></div>';
+  document.body.appendChild(modal);
+  modal.addEventListener('click', function (ev) {
+    if (ev.target === modal) empireAuthCloseLogoutModal_();
+  });
+  var cancelBtn = document.getElementById('empireLogoutCancelBtn');
+  if (cancelBtn) cancelBtn.addEventListener('click', empireAuthCloseLogoutModal_);
+  var confirmBtn = document.getElementById('empireLogoutConfirmBtn');
+  if (confirmBtn) confirmBtn.addEventListener('click', empireAuthConfirmLogout_);
+  var pwEl = document.getElementById('empireLogoutPassword');
+  if (pwEl) {
+    pwEl.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        empireAuthConfirmLogout_();
+      }
+    });
+  }
+}
+
+var _empireLogoutPendingOpts = null;
+var _empireLogoutVerifying = false;
+
+function empireAuthLogoutModalApplyLang_() {
+  var modal = document.getElementById('empireLogoutModal');
+  if (!modal) return;
+  modal.querySelectorAll('[data-empire-logout-i18n]').forEach(function (el) {
+    var key = el.getAttribute('data-empire-logout-i18n');
+    if (!key) return;
+    el.textContent = empireAuthLogoutTxt_(key, el.textContent);
+  });
+  modal.querySelectorAll('[data-empire-logout-i18n-placeholder]').forEach(function (el) {
+    var key = el.getAttribute('data-empire-logout-i18n-placeholder');
+    if (!key) return;
+    el.placeholder = empireAuthLogoutTxt_(key, el.placeholder || '');
+  });
+}
+
+function empireAuthCloseLogoutModal_() {
+  var modal = document.getElementById('empireLogoutModal');
+  if (modal) modal.classList.remove('show');
+  _empireLogoutPendingOpts = null;
+  _empireLogoutVerifying = false;
+  var pwEl = document.getElementById('empireLogoutPassword');
+  if (pwEl) pwEl.value = '';
+  var msg = document.getElementById('empireLogoutMsg');
+  if (msg) {
+    msg.textContent = '';
+    msg.className = 'worker-field-msg empire-logout-msg';
+  }
+  var btn = document.getElementById('empireLogoutConfirmBtn');
+  if (btn) btn.disabled = false;
+}
+
+function empireAuthConfirmLogout_() {
+  if (_empireLogoutVerifying || !_empireLogoutPendingOpts) return;
+  var pwEl = document.getElementById('empireLogoutPassword');
+  var msg = document.getElementById('empireLogoutMsg');
+  var btn = document.getElementById('empireLogoutConfirmBtn');
+  var password = pwEl ? String(pwEl.value || '').trim() : '';
+  var username = empireGetUser();
+  if (!password) {
+    if (msg) {
+      msg.textContent = empireAuthLogoutTxt_('logoutNeedPassword', 'Enter your password.');
+      msg.className = 'worker-field-msg worker-field-msg-error empire-logout-msg';
+    }
+    if (pwEl) pwEl.focus();
+    return;
+  }
+  if (typeof empireVerifyPassword !== 'function') {
+    empireAuthCloseLogoutModal_();
+    if (typeof _empireLogoutPendingOpts.beforeLogout === 'function') _empireLogoutPendingOpts.beforeLogout();
+    empireAuthLogout(_empireLogoutPendingOpts);
+    return;
+  }
+  _empireLogoutVerifying = true;
+  if (btn) btn.disabled = true;
+  if (msg) {
+    msg.textContent = empireAuthLogoutTxt_('logoutChecking', 'Checking password\u2026');
+    msg.className = 'worker-field-msg empire-logout-msg';
+  }
+  empireVerifyPassword(username, password).then(function (d) {
+    if (d && (d.ok || d.success)) {
+      var opts = _empireLogoutPendingOpts;
+      empireAuthCloseLogoutModal_();
+      if (typeof opts.beforeLogout === 'function') opts.beforeLogout();
+      empireAuthLogout(opts);
+      return;
+    }
+    if (msg) {
+      msg.textContent = empireAuthLogoutTxt_('logoutWrongPassword', 'Wrong password. Try again.');
+      msg.className = 'worker-field-msg worker-field-msg-error empire-logout-msg';
+    }
+    if (pwEl) {
+      pwEl.value = '';
+      pwEl.focus();
+    }
+  }).catch(function () {
+    if (msg) {
+      msg.textContent = empireAuthLogoutTxt_('logoutVerifyFailed', 'Could not verify password. Check your signal and try again.');
+      msg.className = 'worker-field-msg worker-field-msg-error empire-logout-msg';
+    }
+  }).finally(function () {
+    _empireLogoutVerifying = false;
+    if (btn) btn.disabled = false;
+  });
+}
+
+function empireAuthWorkerLogout(opts) {
+  opts = opts || {};
+  if (!empireAuthMobileLogoutRequired_(opts)) {
+    if (typeof opts.beforeLogout === 'function') opts.beforeLogout();
+    empireAuthLogout(opts);
+    return;
+  }
+  empireAuthEnsureLogoutModal_();
+  empireAuthLogoutModalApplyLang_();
+  _empireLogoutPendingOpts = opts;
+  var modal = document.getElementById('empireLogoutModal');
+  var pwEl = document.getElementById('empireLogoutPassword');
+  var msg = document.getElementById('empireLogoutMsg');
+  if (msg) {
+    msg.textContent = '';
+    msg.className = 'worker-field-msg empire-logout-msg';
+  }
+  if (modal) modal.classList.add('show');
+  if (pwEl) {
+    pwEl.value = '';
+    setTimeout(function () { pwEl.focus(); }, 60);
+  }
+}
+
 function empireAuthLogin(e, dept, opts) {
   if (e && e.preventDefault) e.preventDefault();
   opts = opts || {};

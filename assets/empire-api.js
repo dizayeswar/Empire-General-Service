@@ -59,6 +59,15 @@ function empireShowLoginMessage(msgEl, text, isError) {
   msgEl.textContent = text;
 }
 
+/** Verify password without creating a session (mobile logout confirm). */
+function empireVerifyPassword(username, password) {
+  return fetchJSONRetry(
+    { action: 'verifyPassword', username: username, password: password },
+    1,
+    30000
+  );
+}
+
 /** Login with retry. opts: { username, password, dept, messageEl } */
 function empireLogin(opts) {
   opts = opts || {};
