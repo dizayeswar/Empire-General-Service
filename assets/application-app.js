@@ -203,8 +203,9 @@ function appSummaryHtml_(rows) {
   h += '<div class="app-summary-grid">';
   keys.forEach(function (k) {
     var cls = appStatusClass_(k === 'Not visited' ? '' : k);
+    var label = k === 'Not visited' ? 'NOT VISITED' : k;
     h += '<div class="app-summary-card"><strong>' + counts[k] + '</strong>'
-      + '<span class="app-status-badge ' + cls + '">' + appEsc_(k) + '</span></div>';
+      + '<span class="app-summary-badge ' + cls + '">' + appEsc_(label) + '</span></div>';
   });
   h += '</div>';
   var projSel = String((document.getElementById('appSummaryProject') || {}).value || '');
