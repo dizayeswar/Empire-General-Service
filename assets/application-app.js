@@ -45,11 +45,14 @@ function appSortRows_(rows) {
 }
 
 function appStatusClass_(status) {
-  var s = String(status || '').toUpperCase();
+  var s = String(status || '').trim().toUpperCase();
   if (!s) return 'app-status-empty';
-  if (s.indexOf('ACTIVE') !== -1) return 'app-status-active';
-  if (s === 'PENDING') return 'app-status-pending';
   if (s.indexOf('WANT') !== -1) return 'app-status-refused';
+  if (s.indexOf('NEW ACTIVE') !== -1) return 'app-status-new-active';
+  if (s === 'ACTIVE') return 'app-status-active';
+  if (s === 'PENDING') return 'app-status-pending';
+  if (s === 'CHECK AGAIN') return 'app-status-check-again';
+  if (s === 'TRY TO REACH') return 'app-status-try-reach';
   return 'app-status-follow';
 }
 

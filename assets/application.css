@@ -68,8 +68,11 @@
   font-weight: 700;
   white-space: nowrap;
 }
-.app-status-active { background: #d4edda; color: #155724; }
-.app-status-pending { background: #fff3cd; color: #856404; }
+.app-status-active { background: #c8e6c9; color: #1b5e20; }
+.app-status-new-active { background: #95b825; color: #fff; }
+.app-status-pending { background: #b3e5fc; color: #01579b; }
+.app-status-check-again { background: #fff176; color: #5d4037; }
+.app-status-try-reach { background: #1565c0; color: #fff; }
 .app-status-follow { background: #ffe8cc; color: #9a5200; }
 .app-status-refused { background: #f8d7da; color: #721c24; }
 .app-status-empty { background: #eef1f6; color: #666; }
