@@ -24,7 +24,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-22-application-v6';
+var SCRIPT_VERSION = '2026-07-22-application-v7';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -4508,12 +4508,20 @@ function getApplicationCheckHistory_(checkId) {
   return out;
 }
 
+function applicationCheckRowA1_(rowIdx) {
+  return 'A' + rowIdx + ':H' + rowIdx;
+}
+
+function applicationCheckFieldsA1_(rowIdx) {
+  return 'D' + rowIdx + ':H' + rowIdx;
+}
+
 function applicationCheckRowValues_(sheet, rowIdx) {
-  return sheet.getRange(rowIdx, 1, rowIdx, 8).getValues()[0];
+  return sheet.getRange(applicationCheckRowA1_(rowIdx)).getValues()[0];
 }
 
 function applicationCheckWriteFields_(sheet, rowIdx, phone, status, note, now, user) {
-  sheet.getRange(rowIdx, 4, rowIdx, 8).setValues([[phone, status, note, now, user]]);
+  sheet.getRange(applicationCheckFieldsA1_(rowIdx)).setValues([[phone, status, note, now, user]]);
   SpreadsheetApp.flush();
 }
 
@@ -4668,7 +4676,7 @@ function handleImportApplicationChecks(body, auth) {
     if (index[id]) {
       var existing = applicationCheckRowValues_(sheet, index[id]);
       logApplicationCheckFieldChanges_(id, existing[3], existing[4], phone, status, user);
-      sheet.getRange(index[id], 2, index[id], 8).setValues([[project, propertyId, phone, status, note, now, user]]);
+      sheet.getRange('B' + index[id] + ':H' + index[id]).setValues([[project, propertyId, phone, status, note, now, user]]);
       updated++;
     } else {
       newRows.push([id, project, propertyId, phone, status, note, now, user]);
@@ -4676,7 +4684,8 @@ function handleImportApplicationChecks(body, auth) {
   }
   if (newRows.length) {
     var startRow = sheet.getLastRow() + 1;
-    sheet.getRange(startRow, 1, startRow + newRows.length - 1, 8).setValues(newRows);
+    var endRow = startRow + newRows.length - 1;
+    sheet.getRange('A' + startRow + ':H' + endRow).setValues(newRows);
     inserted = newRows.length;
   }
   return {ok:true,success:true,inserted:inserted,updated:updated,skipped:skipped,processed:items.length};
