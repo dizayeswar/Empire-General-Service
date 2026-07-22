@@ -449,6 +449,7 @@ function appRowClick_(ev) {
   appOpenDetail_(tr ? tr.getAttribute('data-app-id') : '');
 }
 
+function appCountsHtml_() {
   var loaded = appCountByProject_(_appRows);
   var parts = APP_PROJECTS.map(function (p) {
     var have = loaded[p] || 0;
