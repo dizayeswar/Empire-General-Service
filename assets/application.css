@@ -366,6 +366,13 @@
   background: #fff3cd;
   color: #856404;
 }
+.app-table tbody tr.app-row-saving {
+  opacity: 0.72;
+}
+.app-table tbody tr.app-row-saving .app-updated-cell {
+  color: var(--header-accent);
+  font-weight: 600;
+}
 .app-table tbody tr.app-row-clickable {
   cursor: pointer;
 }

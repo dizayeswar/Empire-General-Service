@@ -349,7 +349,7 @@ function appStatusDdPick_(ev, optBtn) {
     el.classList.toggle('app-status-dd-opt-selected', el === optBtn);
   });
   appStatusDdCloseAll_();
-  appSaveRow_(wrap.getAttribute('data-app-id'));
+  appSaveRow_(wrap.getAttribute('data-app-id'), { status: value });
 }
 
 function appFormatDateTime_(raw) {
@@ -490,23 +490,44 @@ function appRenderTable_() {
   host.innerHTML = h;
 }
 
-function appSaveRow_(id) {
+function appFindTableRow_(id) {
+  var want = String(id || '');
+  var rows = document.querySelectorAll('tr[data-app-id]');
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i].getAttribute('data-app-id') || '') === want) return rows[i];
+  }
+  return null;
+}
+
+function appMarkRowSaving_(id, saving) {
+  var tr = appFindTableRow_(id);
+  if (!tr) return;
+  tr.classList.toggle('app-row-saving', !!saving);
+  var cell = tr.querySelector('.app-updated-cell');
+  if (cell && saving) cell.textContent = 'Saving…';
+}
+
+function appSaveRow_(id, patch) {
+  patch = patch || {};
   if (_appSaving[id]) return;
   var row = _appRows.find(function (x) { return String(x.id) === String(id); });
   if (!row) return;
-  var tr = document.querySelector('tr[data-app-id="' + id + '"]');
+  var tr = appFindTableRow_(id);
   var phoneEl = tr ? tr.querySelector('[data-app-field="phone"]') : null;
   var statusEl = tr ? tr.querySelector('[data-app-field="status"]') : null;
-  var phone = phoneEl ? String(phoneEl.value || '').replace(/\D/g, '') : String(row.phone || '');
-  var status = statusEl ? String(statusEl.value || '') : String(row.status || '');
+  var phone = patch.phone != null ? String(patch.phone || '').replace(/\D/g, '') : (phoneEl ? String(phoneEl.value || '').replace(/\D/g, '') : String(row.phone || ''));
+  var status = patch.status != null ? String(patch.status || '') : (statusEl ? String(statusEl.value || '') : String(row.status || ''));
   _appSaving[id] = true;
+  appMarkRowSaving_(id, true);
   fetchJSONRetry({
     action: 'updateApplicationCheck',
     token: appToken_(),
     id: id,
+    project: row.project,
+    propertyId: row.propertyId,
     phone: phone,
     status: status
-  }, 1, 45000).then(function (d) {
+  }, 2, 45000).then(function (d) {
     if (d && (d.ok || d.success)) {
       row.phone = d.phone != null ? d.phone : phone;
       row.status = d.status != null ? d.status : status;
@@ -516,9 +537,11 @@ function appSaveRow_(id) {
       appRefreshDetailIfOpen_(id, d.history);
     } else if (d && d.ok === false) {
       alert(d.message || d.error || 'Could not save');
+      appRenderTable_();
     }
   }).catch(function (e) {
     alert(String((e && e.message) || e || 'Save failed'));
+    appRenderTable_();
   }).finally(function () {
     delete _appSaving[id];
   });

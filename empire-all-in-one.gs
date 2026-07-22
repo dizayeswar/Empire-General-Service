@@ -24,7 +24,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-22-application-v5';
+var SCRIPT_VERSION = '2026-07-22-application-v6';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -4508,6 +4508,15 @@ function getApplicationCheckHistory_(checkId) {
   return out;
 }
 
+function applicationCheckRowValues_(sheet, rowIdx) {
+  return sheet.getRange(rowIdx, 1, rowIdx, 8).getValues()[0];
+}
+
+function applicationCheckWriteFields_(sheet, rowIdx, phone, status, note, now, user) {
+  sheet.getRange(rowIdx, 4, rowIdx, 8).setValues([[phone, status, note, now, user]]);
+  SpreadsheetApp.flush();
+}
+
 function findApplicationCheckRowIndex_(sheet, id) {
   if (!sheet || sheet.getLastRow() < 2) return -1;
   var rows = sheet.getDataRange().getValues();
@@ -4590,7 +4599,7 @@ function handleGetApplicationCheckDetail(body, auth) {
   ensureApplicationChecksSheet_(sheet);
   var rowIdx = findApplicationCheckRowIndex_(sheet, id);
   if (rowIdx < 0) return {ok:false,error:'not_found',message:'Record not found.'};
-  var record = applicationCheckRowToObj_(sheet.getRange(rowIdx, 1, 1, 8).getValues()[0]);
+  var record = applicationCheckRowToObj_(applicationCheckRowValues_(sheet, rowIdx));
   return {ok:true,record:record,history:getApplicationCheckHistory_(id)};
 }
 
@@ -4606,7 +4615,7 @@ function handleUpdateApplicationCheck(body, auth) {
   ensureApplicationChecksSheet_(sheet);
   var rowIdx = findApplicationCheckRowIndex_(sheet, id);
   if (rowIdx < 0) return {ok:false,success:false,error:'not_found',message:'Record not found.'};
-  var existing = sheet.getRange(rowIdx, 1, 1, 8).getValues()[0];
+  var existing = applicationCheckRowValues_(sheet, rowIdx);
   var oldPhone = String(existing[3] || '');
   var oldStatus = String(existing[4] || '');
   var phone = body.phone != null ? String(body.phone || '').replace(/\D/g, '') : oldPhone;
@@ -4615,7 +4624,7 @@ function handleUpdateApplicationCheck(body, auth) {
   var now = new Date().toISOString();
   var user = String((auth && auth.username) || body.username || '');
   logApplicationCheckFieldChanges_(id, oldPhone, oldStatus, phone, status, user);
-  sheet.getRange(rowIdx, 4, 1, 5).setValues([[phone, status, note, now, user]]);
+  applicationCheckWriteFields_(sheet, rowIdx, phone, status, note, now, user);
   return {
     ok: true,
     success: true,
@@ -4638,10 +4647,9 @@ function handleImportApplicationChecks(body, auth) {
   var ss = getSS_();
   var sheet = ss.getSheetByName(APPLICATION_CHECKS_SHEET) || ss.insertSheet(APPLICATION_CHECKS_SHEET);
   ensureApplicationChecksSheet_(sheet);
-  var lastRow = sheet.getLastRow();
-  var indexRows = lastRow > 1 ? sheet.getRange(2, 1, lastRow - 1, 1).getValues() : [];
+  var rows = sheet.getDataRange().getValues();
   var index = {};
-  for (var i = 0; i < indexRows.length; i++) index[String(indexRows[i][0])] = i + 2;
+  for (var i = 1; i < rows.length; i++) index[String(rows[i][0])] = i + 1;
   var inserted = 0;
   var updated = 0;
   var skipped = 0;
@@ -4658,18 +4666,17 @@ function handleImportApplicationChecks(body, auth) {
     var status = normalizeApplicationStatus_(it.status);
     var note = String(it.note || '').trim();
     if (index[id]) {
-      var existing = sheet.getRange(index[id], 1, 1, 8).getValues()[0];
+      var existing = applicationCheckRowValues_(sheet, index[id]);
       logApplicationCheckFieldChanges_(id, existing[3], existing[4], phone, status, user);
-      sheet.getRange(index[id], 2, 1, 7).setValues([[project, propertyId, phone, status, note, now, user]]);
+      sheet.getRange(index[id], 2, index[id], 8).setValues([[project, propertyId, phone, status, note, now, user]]);
       updated++;
     } else {
       newRows.push([id, project, propertyId, phone, status, note, now, user]);
-      index[id] = lastRow + newRows.length + 1;
     }
   }
   if (newRows.length) {
     var startRow = sheet.getLastRow() + 1;
-    sheet.getRange(startRow, 1, newRows.length, 8).setValues(newRows);
+    sheet.getRange(startRow, 1, startRow + newRows.length - 1, 8).setValues(newRows);
     inserted = newRows.length;
   }
   return {ok:true,success:true,inserted:inserted,updated:updated,skipped:skipped,processed:items.length};
