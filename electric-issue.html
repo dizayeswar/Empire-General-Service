@@ -15,7 +15,7 @@
 <title>Electric Issues — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #workerApp,body.auth-login-visible #mainContainer,body.auth-login-visible .worker-modal,body.auth-login-visible .modal{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-07-19-android-stable-v3">
-<link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-07-21-worker-ku">
+<link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-07-22-electric-loc">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -53,6 +53,10 @@
   <div id="workerJobsPanel">
   <div id="workerPushBanner" class="worker-loc-banner worker-push-banner" style="display:none;"></div>
   <div id="workerLocBanner" class="worker-loc-banner" style="display:none;"></div>
+  <div class="worker-jobs-search-wrap">
+    <label class="worker-field-label" for="workerJobsSearch" data-i18n="jobsSearchLabel">Search location</label>
+    <input type="search" id="workerJobsSearch" class="worker-field-input" data-i18n-placeholder="jobsSearchPlaceholder" placeholder="e.g. WW-10-8" autocomplete="off" oninput="renderWorkerJobs(true)">
+  </div>
   <main id="workerJobList" class="worker-list" data-i18n-loading="1"><p class="worker-empty">Loading…</p></main>
   </div>
   <div id="workerReportPanel" class="worker-report-panel" style="display:none;">
@@ -254,10 +258,10 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js"></script>
 <script src="assets/empire-push.js?v=2026-07-18-electric-workers"></script>
 <script src="assets/empire-assign-voice.js?v=2026-07-21-worker-ku"></script>
-<script src="assets/empire-worker-i18n.js?v=2026-07-21-worker-ku"></script>
+<script src="assets/empire-worker-i18n.js?v=2026-07-22-electric-loc"></script>
 <script src="assets/empire-worker-photo.js?v=2026-07-21-worker-ku"></script>
 <script src="assets/empire-worker-field-report.js?v=2026-07-21-worker-ku"></script>
-<script src="assets/issue-tracker.js?v=2026-07-21-worker-ku"></script>
+<script src="assets/issue-tracker.js?v=2026-07-22-electric-loc"></script>
 <script src="assets/issue-excel-export.js?v=2026-07-18-electric-workers"></script>
 <script src="assets/issue-recycle-bin.js?v=2026-07-18-electric-workers"></script>
 <div id="resetModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1600;align-items:center;justify-content:center;">

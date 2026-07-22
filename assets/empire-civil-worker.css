@@ -567,6 +567,16 @@ body.worker-field-modal-open {
   flex: 1;
   min-height: 0;
 }
+.worker-jobs-search-wrap {
+  padding: 10px 14px 0;
+}
+.worker-jobs-search-wrap .worker-field-label {
+  margin-bottom: 4px;
+}
+.worker-jobs-search-wrap .worker-field-input {
+  width: 100%;
+  box-sizing: border-box;
+}
 .worker-list {
   flex: 1;
   padding: 12px 14px 24px;

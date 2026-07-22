@@ -1353,6 +1353,8 @@ function renderWorkerJobs(force) {
   if (!host) return;
   var rows = allIssues.filter(function (r) { return r.status !== 'fixed' && !workerCompletedByMe(r); });
   rows.sort(compareIssuesNewestFirst);
+  var searchQ = String((document.getElementById('workerJobsSearch') || {}).value || '').trim();
+  var filtered = searchQ ? rows.filter(function (r) { return workerJobMatchesSearch_(r, searchQ); }) : rows;
   if (bar) {
     bar.removeAttribute('data-i18n-loading');
     bar.textContent = workerTxt_('jobsOpenCount', function (p) {
@@ -1360,7 +1362,7 @@ function renderWorkerJobs(force) {
       return n + ' open job' + (n === 1 ? '' : 's') + ' assigned to you';
     }, { count: rows.length });
   }
-  var sig = rows.length + '|' + Object.keys(_workerOfflineQueuedIds || {}).length + '|' + rows.map(function (r) { return r.id + ':' + r.status; }).join(',');
+  var sig = rows.length + '|' + searchQ + '|' + Object.keys(_workerOfflineQueuedIds || {}).length + '|' + rows.map(function (r) { return r.id + ':' + r.status; }).join(',');
   if (!force && sig === _workerJobsRenderSig && workerJobsDisplayed_()) {
     workerPushTryOpenPendingJob_();
     return;
@@ -1379,8 +1381,14 @@ function renderWorkerJobs(force) {
     workerPushTryOpenPendingJob_();
     return;
   }
+  if (!filtered.length) {
+    host.removeAttribute('data-i18n-loading');
+    host.innerHTML = '<p class="worker-empty">' + workerTxt_('jobsNoSearchMatch', 'No jobs match your search.') + '</p>';
+    workerPushTryOpenPendingJob_();
+    return;
+  }
   host.removeAttribute('data-i18n-loading');
-  host.innerHTML = rows.map(function (r) {
+  host.innerHTML = filtered.map(function (r) {
     var thumb = r.photo
       ? '<img class="worker-job-thumb" src="' + r.photo + '" loading="lazy" alt="">'
       : '<div class="worker-job-thumb worker-job-thumb-empty">' + workerTxt_('jobsNoPhoto', 'No photo') + '</div>';
@@ -1389,7 +1397,7 @@ function renderWorkerJobs(force) {
     return '<div class="worker-job-card" onclick="openWorkerJob(\'' + r.id + '\')">' + thumb
       + '<div class="worker-job-body"><div class="worker-job-ref">#' + issueRef(r.num) + twoBadge + '</div>'
       + '<div class="worker-job-type">' + r.issueType + '</div>'
-      + '<div class="worker-job-loc">' + locStr(r) + '</div>'
+      + '<div class="worker-job-loc">' + workerDisplayLocStr_(r) + '</div>'
       + '<div class="worker-job-proj">' + (projectNames[r.project] || r.project) + '</div></div></div>';
   }).join('');
   workerPushTryOpenPendingJob_();
@@ -2291,13 +2299,68 @@ function loadIssues(force){ force=!!force; try {
   else throw e;
 }}
 function locStr(r){ return r.building+' \u00B7 '+r.floor+' \u00B7 '+r.spot; }
+function issueFloorPart_(floor) {
+  var f = String(floor || '').trim();
+  if (!f) return '';
+  var m = f.match(/^F(\d+)$/i);
+  if (m) return m[1];
+  return f;
+}
+function issueBuildingHyphen_(building) {
+  var b = String(building || '').trim();
+  if (!b) return '';
+  var m = b.match(/^([A-Za-z]+)(\d+)$/);
+  if (m) return m[1].toUpperCase() + '-' + m[2];
+  return b;
+}
+function workerCompactLocStr_(r) {
+  if (!r) return '';
+  var b = issueBuildingHyphen_(r.building);
+  var f = issueFloorPart_(r.floor);
+  if (!b) return locStr(r);
+  var parts = [b];
+  if (f) parts.push(f);
+  return parts.join('-');
+}
+function workerUseCompactLoc_() {
+  return !!(ISSUE_CFG && ISSUE_CFG.dept === 'electric issue');
+}
+function workerDisplayLocStr_(r) {
+  return workerUseCompactLoc_() ? workerCompactLocStr_(r) : locStr(r);
+}
 function workerJobLocStr(r) {
+  if (workerUseCompactLoc_()) {
+    var compact = workerCompactLocStr_(r);
+    var s = String((r && r.spot) || '').trim();
+    if (s) return compact + '. ' + (s.charAt(0).toLowerCase() + s.slice(1));
+    return compact;
+  }
   var b = String((r && r.building) || '').trim();
   var f = String((r && r.floor) || '').trim();
   var s = String((r && r.spot) || '').trim();
   if (b && f) return b + '-' + f + (s ? '. ' + s : '');
   if (b || f || s) return [b, f, s].filter(Boolean).join(' \u00B7 ');
   return '';
+}
+function workerJobSearchHaystack_(r) {
+  return [
+    workerCompactLocStr_(r),
+    locStr(r),
+    workerJobLocStr(r),
+    r.building,
+    r.floor,
+    r.spot,
+    r.issueType,
+    issueRef(r.num)
+  ].join(' ').toLowerCase().replace(/[#\u00B7]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+function workerJobMatchesSearch_(r, q) {
+  if (!q) return true;
+  var hay = workerJobSearchHaystack_(r);
+  var needle = String(q).toLowerCase().replace(/[#\u00B7]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!needle) return true;
+  if (hay.indexOf(needle) !== -1) return true;
+  return hay.replace(/-/g, ' ').indexOf(needle.replace(/-/g, ' ')) !== -1;
 }
 function dayOf(r){ var d=String(r.date||r.createdAt||''); if(/^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0,10); var dt=new Date(d.replace(' ','T')); if(!isNaN(dt.getTime())){ var z=function(n){return String(n).padStart(2,'0');}; return dt.getFullYear()+'-'+z(dt.getMonth()+1)+'-'+z(dt.getDate()); } return ''; }
 function monthOf(r){ var d=String(r.date||r.createdAt||''); if(!/^\d{4}-\d{2}-\d{2}/.test(d)) return ''; var yr=parseInt(d.slice(0,4),10), mo=parseInt(d.slice(5,7),10), dy=parseInt(d.slice(8,10),10); if(dy>=26){ mo+=1; if(mo>12){mo=1;yr+=1;} } return yr+'-'+String(mo).padStart(2,'0'); }

@@ -28,6 +28,9 @@
         return n + ' fix' + (n === 1 ? '' : 'es') + ' waiting to upload when you have signal.';
       },
       jobsNoPhoto: 'No photo',
+      jobsSearchLabel: 'Search location',
+      jobsSearchPlaceholder: 'e.g. WW-10-8',
+      jobsNoSearchMatch: 'No jobs match your search.',
       wfrPlaceLabel: 'Place / location',
       wfrPlacePlaceholder: 'Where? e.g. WW-12 corridor, ES-4 parking…',
       wfrNoteLabel: 'Note',
@@ -153,6 +156,9 @@
         return (p.count || 0) + ' چاکسازی چاوەڕێی ئینتەرنێتە بۆ بارکردن.';
       },
       jobsNoPhoto: 'وێنە نییە',
+      jobsSearchLabel: 'گەڕان بە شوێن',
+      jobsSearchPlaceholder: 'بۆ نموونە WW-10-8',
+      jobsNoSearchMatch: 'هیچ کارێک لەگەڵ گەڕانەکەت ناگونجێت.',
       wfrPlaceLabel: 'شوێن / جێگا',
       wfrPlacePlaceholder: 'لە کوێ؟ بۆ نموونە WW-12 ڕێڕەو، ES-4 پارکینگ…',
       wfrNoteLabel: 'تێبینی',
