@@ -161,10 +161,9 @@
   vertical-align: middle;
 }
 .app-table td:nth-child(1) { min-width: 100px; }
-.app-table td:nth-child(2) { width: 52px; }
-.app-table td:nth-child(3) { width: 110px; }
-.app-table td:nth-child(4) { width: 160px; overflow: visible; }
-.app-table td:nth-child(5) { width: 88px; }
+.app-table td:nth-child(2) { width: 148px; min-width: 148px; }
+.app-table td:nth-child(3) { width: 168px; min-width: 168px; overflow: visible; }
+.app-table td:nth-child(4) { width: 88px; }
 .app-table tr:nth-child(even) td {
   background: var(--row-hover, rgba(0,0,0,.02));
 }
@@ -173,16 +172,19 @@
   color: var(--text-soft);
   white-space: nowrap;
 }
-.app-table input[type="text"] {
+.app-table input.app-phone-input {
   width: 100%;
-  min-width: 0;
-  padding: 6px 12px;
+  min-width: 132px;
+  padding: 6px 14px;
   border: 2px solid var(--input-border);
   border-radius: var(--radius-pill);
   background: var(--input-bg);
   color: var(--text);
   font-size: 12px;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  box-sizing: border-box;
 }
 .app-status-dd {
   position: relative;

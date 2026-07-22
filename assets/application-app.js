@@ -382,13 +382,12 @@ function appRenderTable_() {
   }
   var h = appCountsHtml_();
   h += '<div class="app-table-wrap"><table class="app-table"><thead><tr>'
-    + '<th>Property</th><th>Project</th><th>Phone</th><th>Account status</th><th>Updated</th>'
+    + '<th>Property</th><th>Phone</th><th>Account status</th><th>Updated</th>'
     + '</tr></thead><tbody>';
   rows.forEach(function (r) {
     h += '<tr data-app-id="' + appEsc_(r.id) + '">'
       + '<td><strong>' + appEsc_(r.propertyId) + '</strong></td>'
-      + '<td>' + appEsc_(r.project) + '</td>'
-      + '<td><input type="text" inputmode="numeric" data-app-id="' + appEsc_(r.id) + '" data-app-field="phone" value="' + appEsc_(r.phone || '') + '" onchange="appSaveRow_(this.getAttribute(\'data-app-id\'))"></td>'
+      + '<td><input type="text" class="app-phone-input" inputmode="numeric" data-app-id="' + appEsc_(r.id) + '" data-app-field="phone" value="' + appEsc_(r.phone || '') + '" onchange="appSaveRow_(this.getAttribute(\'data-app-id\'))"></td>'
       + '<td>' + appStatusSelectHtml_(r.id, r.status) + '</td>'
       + '<td class="app-updated-cell">' + (r.updatedAt ? appEsc_(r.updatedAt.slice(0, 10)) : '—') + '</td></tr>';
   });
