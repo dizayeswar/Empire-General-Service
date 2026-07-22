@@ -15,6 +15,7 @@ var ELECTRICAL_SUMMARY_SHEET = 'ElectricalSummary';
 var ELECTRIC_WORKER_REPORTS_SHEET = 'ElectricWorkerReports';
 var ASAAS_SHEET = 'AsaasItems';
 var APPLICATION_CHECKS_SHEET = 'ApplicationChecks';
+var APPLICATION_CHECK_HISTORY_SHEET = 'ApplicationCheckHistory';
 var CIVIL_JOBS_SHEET = 'CivilJobs';
 var CIVIL_SUMMARY_SHEET = 'CivilSummary';
 var TRASH_SHEET = 'Trash';
@@ -23,7 +24,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-22-application-v4';
+var SCRIPT_VERSION = '2026-07-22-application-v5';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -388,7 +389,7 @@ function doPost(e) {
       'getCivilSummary':'civil department','saveCivilSummary':'civil department',
       'getAsaasItems':'asaas','addAsaasItem':'asaas','updateAsaasItem':'asaas','markAsaasReturned':'asaas',
       'deleteAsaasItem':'asaas','clearAsaasItems':'asaas',
-      'getApplicationChecks':'application','getApplicationCheckMeta':'application','updateApplicationCheck':'application','importApplicationChecks':'application','clearApplicationChecks':'application'
+      'getApplicationChecks':'application','getApplicationCheckMeta':'application','getApplicationCheckDetail':'application','updateApplicationCheck':'application','importApplicationChecks':'application','clearApplicationChecks':'application'
     };
     var trashActions = {getTrash:1, restoreTrash:1, purgeTrash:1, getUiSettings:1, saveUiSettings:1};
     var requiredDept = trashActions[action] ? body.dept : deptByAction[action];
@@ -513,6 +514,7 @@ function doPost(e) {
     if (action==='clearAsaasItems') return respond(handleClearAsaasItems(body));
     if (action==='getApplicationChecks') return respond(handleGetApplicationChecks(body, auth));
     if (action==='getApplicationCheckMeta') return respond(handleGetApplicationCheckMeta(body, auth));
+    if (action==='getApplicationCheckDetail') return respond(handleGetApplicationCheckDetail(body, auth));
     if (action==='updateApplicationCheck') return respond(handleUpdateApplicationCheck(body, auth));
     if (action==='importApplicationChecks') return respond(handleImportApplicationChecks(body, auth));
     if (action==='clearApplicationChecks') return respond(handleClearApplicationChecks(body, auth));
@@ -4428,6 +4430,93 @@ function applicationCheckRowToObj_(row) {
   };
 }
 
+function ensureApplicationCheckHistorySheet_(sheet) {
+  if (!sheet) return;
+  var headers = ['id', 'checkId', 'field', 'oldValue', 'newValue', 'changedAt', 'changedBy'];
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(headers);
+    return;
+  }
+  for (var c = 0; c < headers.length; c++) {
+    if (String(sheet.getRange(1, c + 1).getValue() || '') !== headers[c]) {
+      sheet.getRange(1, c + 1).setValue(headers[c]);
+    }
+  }
+}
+
+function applicationCheckHistoryEntry_(checkId, field, oldValue, newValue, user, changedAt) {
+  return {
+    id: Utilities.getUuid(),
+    checkId: String(checkId || ''),
+    field: String(field || ''),
+    oldValue: String(oldValue != null ? oldValue : ''),
+    newValue: String(newValue != null ? newValue : ''),
+    changedAt: changedAt || new Date().toISOString(),
+    changedBy: String(user || '')
+  };
+}
+
+function appendApplicationCheckHistoryEntries_(entries) {
+  if (!entries || !entries.length) return;
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(APPLICATION_CHECK_HISTORY_SHEET) || ss.insertSheet(APPLICATION_CHECK_HISTORY_SHEET);
+  ensureApplicationCheckHistorySheet_(sheet);
+  var rows = entries.map(function (e) {
+    return [e.id, e.checkId, e.field, e.oldValue, e.newValue, e.changedAt, e.changedBy];
+  });
+  var startRow = sheet.getLastRow() + 1;
+  sheet.getRange(startRow, 1, rows.length, 7).setValues(rows);
+}
+
+function logApplicationCheckFieldChanges_(checkId, oldPhone, oldStatus, newPhone, newStatus, user) {
+  var entries = [];
+  var op = String(oldPhone || '').replace(/\D/g, '');
+  var np = String(newPhone || '').replace(/\D/g, '');
+  if (op !== np) {
+    entries.push(applicationCheckHistoryEntry_(checkId, 'phone', op, np, user));
+  }
+  var os = normalizeApplicationStatus_(oldStatus);
+  var ns = normalizeApplicationStatus_(newStatus);
+  if (os !== ns) {
+    entries.push(applicationCheckHistoryEntry_(checkId, 'status', os, ns, user));
+  }
+  appendApplicationCheckHistoryEntries_(entries);
+}
+
+function getApplicationCheckHistory_(checkId) {
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(APPLICATION_CHECK_HISTORY_SHEET);
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  ensureApplicationCheckHistorySheet_(sheet);
+  var rows = sheet.getDataRange().getValues();
+  var out = [];
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][1]) !== String(checkId || '')) continue;
+    out.push({
+      id: String(rows[i][0] || ''),
+      checkId: String(rows[i][1] || ''),
+      field: String(rows[i][2] || ''),
+      oldValue: String(rows[i][3] || ''),
+      newValue: String(rows[i][4] || ''),
+      changedAt: dtIssue_(rows[i][5]) || String(rows[i][5] || ''),
+      changedBy: String(rows[i][6] || '')
+    });
+  }
+  out.sort(function (a, b) {
+    return String(b.changedAt).localeCompare(String(a.changedAt));
+  });
+  return out;
+}
+
+function findApplicationCheckRowIndex_(sheet, id) {
+  if (!sheet || sheet.getLastRow() < 2) return -1;
+  var rows = sheet.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(id || '')) return i + 1;
+  }
+  return -1;
+}
+
 function applicationPropertySortKey_(propertyId) {
   return String(propertyId || '').toUpperCase().split('-').map(function (part) {
     if (part === 'G') return '0';
@@ -4482,10 +4571,27 @@ function handleClearApplicationChecks(body, auth) {
   }
   var ss = getSS_();
   var sheet = ss.getSheetByName(APPLICATION_CHECKS_SHEET);
-  if (!sheet || sheet.getLastRow() < 2) return {ok:true,success:true,deleted:0};
-  var deleted = sheet.getLastRow() - 1;
-  sheet.deleteRows(2, deleted);
+  var deleted = 0;
+  if (sheet && sheet.getLastRow() >= 2) {
+    deleted = sheet.getLastRow() - 1;
+    sheet.deleteRows(2, deleted);
+  }
+  var hist = ss.getSheetByName(APPLICATION_CHECK_HISTORY_SHEET);
+  if (hist && hist.getLastRow() >= 2) hist.deleteRows(2, hist.getLastRow() - 1);
   return {ok:true,success:true,deleted:deleted};
+}
+
+function handleGetApplicationCheckDetail(body, auth) {
+  var id = String(body.id || '').trim();
+  if (!id) return {ok:false,error:'missing_id',message:'Record id is required.'};
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(APPLICATION_CHECKS_SHEET);
+  if (!sheet || sheet.getLastRow() < 2) return {ok:false,error:'not_found',message:'Record not found.'};
+  ensureApplicationChecksSheet_(sheet);
+  var rowIdx = findApplicationCheckRowIndex_(sheet, id);
+  if (rowIdx < 0) return {ok:false,error:'not_found',message:'Record not found.'};
+  var record = applicationCheckRowToObj_(sheet.getRange(rowIdx, 1, 1, 8).getValues()[0]);
+  return {ok:true,record:record,history:getApplicationCheckHistory_(id)};
 }
 
 function handleUpdateApplicationCheck(body, auth) {
@@ -4498,17 +4604,17 @@ function handleUpdateApplicationCheck(body, auth) {
   var sheet = ss.getSheetByName(APPLICATION_CHECKS_SHEET);
   if (!sheet || sheet.getLastRow() < 2) return {ok:false,success:false,error:'not_found',message:'Record not found.'};
   ensureApplicationChecksSheet_(sheet);
-  var rows = sheet.getDataRange().getValues();
-  var rowIdx = -1;
-  for (var i = 1; i < rows.length; i++) {
-    if (String(rows[i][0]) === id) { rowIdx = i + 1; break; }
-  }
+  var rowIdx = findApplicationCheckRowIndex_(sheet, id);
   if (rowIdx < 0) return {ok:false,success:false,error:'not_found',message:'Record not found.'};
-  var phone = body.phone != null ? String(body.phone || '').replace(/\D/g, '') : String(rows[rowIdx - 1][3] || '');
-  var status = body.status != null ? normalizeApplicationStatus_(body.status) : String(rows[rowIdx - 1][4] || '');
-  var note = body.note != null ? String(body.note || '').trim() : String(rows[rowIdx - 1][5] || '');
+  var existing = sheet.getRange(rowIdx, 1, 1, 8).getValues()[0];
+  var oldPhone = String(existing[3] || '');
+  var oldStatus = String(existing[4] || '');
+  var phone = body.phone != null ? String(body.phone || '').replace(/\D/g, '') : oldPhone;
+  var status = body.status != null ? normalizeApplicationStatus_(body.status) : oldStatus;
+  var note = body.note != null ? String(body.note || '').trim() : String(existing[5] || '');
   var now = new Date().toISOString();
   var user = String((auth && auth.username) || body.username || '');
+  logApplicationCheckFieldChanges_(id, oldPhone, oldStatus, phone, status, user);
   sheet.getRange(rowIdx, 4, 1, 5).setValues([[phone, status, note, now, user]]);
   return {
     ok: true,
@@ -4517,8 +4623,9 @@ function handleUpdateApplicationCheck(body, auth) {
     phone: phone,
     status: status,
     note: note,
-    updatedAt: now,
-    updatedBy: user
+    updatedAt: dtIssue_(now),
+    updatedBy: user,
+    history: getApplicationCheckHistory_(id)
   };
 }
 
@@ -4551,6 +4658,8 @@ function handleImportApplicationChecks(body, auth) {
     var status = normalizeApplicationStatus_(it.status);
     var note = String(it.note || '').trim();
     if (index[id]) {
+      var existing = sheet.getRange(index[id], 1, 1, 8).getValues()[0];
+      logApplicationCheckFieldChanges_(id, existing[3], existing[4], phone, status, user);
       sheet.getRange(index[id], 2, 1, 7).setValues([[project, propertyId, phone, status, note, now, user]]);
       updated++;
     } else {

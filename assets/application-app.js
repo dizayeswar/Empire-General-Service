@@ -11,9 +11,10 @@ var APP_STATUS_OPTIONS = [
   'TRY TO REACH',
   'HE DOESN\'T WANT THE APP'
 ];
-var APP_SEED_URL = 'assets/application-seed.json?v=2026-07-22-application-v4';
+var APP_SEED_URL = 'assets/application-seed.json?v=2026-07-22-application-v5';
 var _appRows = [];
 var _appSaving = {};
+var _appDetailId = '';
 var _appExpectedTotal = 0;
 var _appExpectedByProject = {};
 var _appSeedItems = null;
@@ -351,7 +352,103 @@ function appStatusDdPick_(ev, optBtn) {
   appSaveRow_(wrap.getAttribute('data-app-id'));
 }
 
-function appCountsHtml_() {
+function appFormatDateTime_(raw) {
+  var s = String(raw || '').trim();
+  if (!s) return '—';
+  if (s.indexOf('T') !== -1) {
+    var d = new Date(s);
+    if (!isNaN(d.getTime())) {
+      var z = function (n) { return String(n).padStart(2, '0'); };
+      return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + ' ' + z(d.getHours()) + ':' + z(d.getMinutes());
+    }
+  }
+  return s.length > 16 ? s.slice(0, 16) : s;
+}
+
+function appHistoryFieldLabel_(field) {
+  return String(field || '').toLowerCase() === 'phone' ? 'Phone number' : 'Account status';
+}
+
+function appHistoryValueLabel_(field, value) {
+  if (String(field || '').toLowerCase() === 'status') return appStatusDisplayLabel_(value);
+  var p = String(value || '').replace(/\D/g, '');
+  return p || '(empty)';
+}
+
+function appDetailHtml_(record, history) {
+  var stClass = appStatusClass_(record.status);
+  var h = '<div class="app-detail-grid">'
+    + '<div class="app-detail-card"><label>Project</label><strong>' + appEsc_(record.project) + '</strong></div>'
+    + '<div class="app-detail-card"><label>Property</label><strong>' + appEsc_(record.propertyId) + '</strong></div>'
+    + '<div class="app-detail-card"><label>Phone</label><strong>' + appEsc_(record.phone || '—') + '</strong></div>'
+    + '<div class="app-detail-card"><label>Account status</label><span class="app-detail-status ' + stClass + '">' + appEsc_(appStatusDisplayLabel_(record.status)) + '</span></div>'
+    + '<div class="app-detail-card"><label>Last updated</label><span>' + appEsc_(appFormatDateTime_(record.updatedAt)) + '</span></div>'
+    + '<div class="app-detail-card"><label>Updated by</label><span>' + appEsc_(record.updatedBy || '—') + '</span></div>'
+    + '</div>';
+  h += '<h3 class="app-detail-history-title">Change history</h3>';
+  if (!history || !history.length) {
+    h += '<div class="app-detail-history"><p class="app-detail-empty">No phone or status changes recorded yet.</p></div>';
+    return h;
+  }
+  h += '<div class="app-detail-history">';
+  history.forEach(function (item) {
+    var oldL = appHistoryValueLabel_(item.field, item.oldValue);
+    var newL = appHistoryValueLabel_(item.field, item.newValue);
+    h += '<div class="app-detail-history-item">'
+      + '<div class="app-detail-history-when">' + appEsc_(appFormatDateTime_(item.changedAt)) + '<br>' + appEsc_(item.changedBy || '—') + '</div>'
+      + '<div class="app-detail-history-what"><strong>' + appEsc_(appHistoryFieldLabel_(item.field)) + '</strong>'
+      + '<div class="app-detail-history-change">' + appEsc_(oldL) + ' → ' + appEsc_(newL) + '</div></div>'
+      + '</div>';
+  });
+  h += '</div>';
+  return h;
+}
+
+function appOpenDetail_(id) {
+  if (!id) return;
+  _appDetailId = String(id);
+  var modal = document.getElementById('appDetailModal');
+  var body = document.getElementById('appDetailBody');
+  var title = document.getElementById('appDetailTitle');
+  var row = _appRows.find(function (x) { return String(x.id) === String(id); });
+  if (title) title.textContent = row ? (row.project + ' · ' + row.propertyId) : 'Apartment';
+  if (body) body.innerHTML = '<p>Loading apartment info…</p>';
+  if (modal) modal.classList.add('show');
+  fetchJSONRetry({ action: 'getApplicationCheckDetail', token: appToken_(), id: id }, 1, 45000).then(function (d) {
+    if (!_appDetailId || String(_appDetailId) !== String(id)) return;
+    if (!d || d.ok === false) {
+      if (body) body.innerHTML = '<p class="worker-empty">' + appEsc_((d && (d.message || d.error)) || 'Could not load details') + '</p>';
+      return;
+    }
+    if (title && d.record) title.textContent = d.record.project + ' · ' + d.record.propertyId;
+    if (body) body.innerHTML = appDetailHtml_(d.record || {}, d.history || []);
+  }).catch(function (e) {
+    if (body) body.innerHTML = '<p class="worker-empty">' + appEsc_(String((e && e.message) || e || 'Load failed')) + '</p>';
+  });
+}
+
+function appCloseDetail_() {
+  _appDetailId = '';
+  var modal = document.getElementById('appDetailModal');
+  if (modal) modal.classList.remove('show');
+}
+
+function appRefreshDetailIfOpen_(id, history) {
+  if (!_appDetailId || String(_appDetailId) !== String(id)) return;
+  var row = _appRows.find(function (x) { return String(x.id) === String(id); });
+  if (!row) return;
+  var body = document.getElementById('appDetailBody');
+  var title = document.getElementById('appDetailTitle');
+  if (title) title.textContent = row.project + ' · ' + row.propertyId;
+  if (body) body.innerHTML = appDetailHtml_(row, history || []);
+}
+
+function appRowClick_(ev) {
+  if (ev.target.closest('input, button, .app-status-dd, .app-status-dd-menu-portal')) return;
+  var tr = ev.currentTarget;
+  appOpenDetail_(tr ? tr.getAttribute('data-app-id') : '');
+}
+
   var loaded = appCountByProject_(_appRows);
   var parts = APP_PROJECTS.map(function (p) {
     var have = loaded[p] || 0;
@@ -381,8 +478,8 @@ function appRenderTable_() {
     + '<th>Property</th><th>Phone</th><th>Account status</th><th>Updated</th>'
     + '</tr></thead><tbody>';
   rows.forEach(function (r) {
-    h += '<tr data-app-id="' + appEsc_(r.id) + '">'
-      + '<td><strong>' + appEsc_(r.propertyId) + '</strong></td>'
+    h += '<tr class="app-row-clickable" data-app-id="' + appEsc_(r.id) + '" onclick="appRowClick_(event)">'
+      + '<td><strong class="app-property-link">' + appEsc_(r.propertyId) + '</strong></td>'
       + '<td><input type="text" class="app-phone-input" inputmode="numeric" data-app-id="' + appEsc_(r.id) + '" data-app-field="phone" value="' + appEsc_(r.phone || '') + '" onchange="appSaveRow_(this.getAttribute(\'data-app-id\'))"></td>'
       + '<td>' + appStatusSelectHtml_(r.id, r.status) + '</td>'
       + '<td class="app-updated-cell">' + (r.updatedAt ? appEsc_(r.updatedAt.slice(0, 10)) : '—') + '</td></tr>';
@@ -415,6 +512,7 @@ function appSaveRow_(id) {
       row.updatedAt = d.updatedAt || row.updatedAt;
       row.updatedBy = d.updatedBy || row.updatedBy;
       appRenderTable_();
+      appRefreshDetailIfOpen_(id, d.history);
     } else if (d && d.ok === false) {
       alert(d.message || d.error || 'Could not save');
     }
