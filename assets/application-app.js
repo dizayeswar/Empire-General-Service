@@ -210,13 +210,22 @@ function appImportSeed_() {
     });
 }
 
+function appEnterApp_() {
+  var loginPage = document.getElementById('loginPage');
+  var main = document.getElementById('mainContainer');
+  if (loginPage) loginPage.classList.remove('show');
+  if (main) main.classList.add('show');
+  if (typeof empireAuthMarkLoginVisible === 'function') empireAuthMarkLoginVisible(false);
+  var who = document.getElementById('whoLabel');
+  if (who) who.textContent = 'Logged in as: ' + (empireGetUser() || '');
+  appPopulateFilters_();
+  appLoad_(true);
+}
+
 function appHandleLogin_(e) {
   empireAuthLogin(e, APP_DEPT, {
     onSuccess: function () {
-      var who = document.getElementById('whoLabel');
-      if (who) who.textContent = 'Logged in as: ' + (empireGetUser() || '');
-      appPopulateFilters_();
-      appLoad_(true);
+      appEnterApp_();
     }
   });
 }
@@ -229,11 +238,8 @@ function appInit_() {
   appPopulateFilters_();
   if (!empireAuthPageBoot({
     dept: APP_DEPT,
-    onEnter: function () {
-      var who = document.getElementById('whoLabel');
-      if (who) who.textContent = 'Logged in as: ' + (empireGetUser() || '');
-      appLoad_(true);
-    }
+    sendToHomeLogin: false,
+    onEnter: appEnterApp_
   })) return;
 }
 
