@@ -599,10 +599,7 @@ function asaasSaveStickerPhoto_() {
     throw new Error((d && (d.message || d.error)) || 'Failed');
   }).then(function () {
     var r = _asaasItems.find(function (x) { return String(x.id) === String(_asaasStickerItemId); });
-    if (r) {
-      if (isAsaasMobile_()) asaasOpenViewModal_(r);
-      else asaasOpenReturnModal_(r);
-    }
+    if (r && isAsaasMobile_()) asaasOpenViewModal_(r);
   }).catch(function (e) {
     if (msg) { msg.textContent = '\u274C ' + String((e && e.message) || e); msg.className = 'worker-field-msg worker-field-msg-error'; }
     if (btn) btn.disabled = false;
@@ -619,76 +616,45 @@ function asaasCloseViewModal_() {
 }
 
 function asaasOpenReturnModal_(r) {
-  _asaasReturnId = r.id;
-  _asaasReturnPhotoUrl = '';
-  _asaasStickerItemId = r.status !== 'returned' ? r.id : '';
-  _asaasStickerPhotoUrl = '';
-  var modal = document.getElementById('asaasReturnModal');
-  var body = document.getElementById('asaasReturnModalBody');
-  if (!modal || !body) return;
-  var readOnly = r.status === 'returned';
-  var h = '<div class="asaas-return-form">';
-  if (readOnly) h += '<p class="worker-field-view-lead">' + asaasEsc_(asaasT('readOnlyReturned')) + '</p>';
-  h += asaasItemSummaryHtml_(r);
-  if (r.photo) h += '<img class="worker-field-view-photo" src="' + asaasEsc_(r.photo) + '" alt="" onclick="bigImg(this.src)">';
-  if (!readOnly) {
-    h += asaasStickerSectionHtml_(r, true);
-    h += '<hr style="margin:16px 0;border:none;border-top:1px solid var(--card-border);">';
-    h += '<label class="worker-field-label" for="asaasWarehouseNote">' + asaasT('warehouseNote') + '</label>';
-    h += '<input type="text" id="asaasWarehouseNote" class="worker-field-input" value="' + asaasEsc_(r.warehouseNote || '') + '" placeholder="' + asaasEsc_(asaasT('warehouseNotePlaceholder')) + '">';
-    h += '<label class="worker-field-label" for="asaasOfficeApartment">' + asaasT('apartment') + '</label>';
-    h += '<input type="text" id="asaasOfficeApartment" class="worker-field-input" value="' + asaasEsc_(r.apartment || '') + '" placeholder="' + asaasEsc_(asaasT('apartmentPlaceholder')) + '">';
-    h += '<button type="button" class="worker-field-submit" style="margin-top:8px;" onclick="asaasSaveNote_()">' + asaasT('saveNote') + '</button>';
-    h += '<hr style="margin:16px 0;border:none;border-top:1px solid var(--card-border);">';
-    h += '<label class="worker-field-label" for="asaasReturnedTo">' + asaasT('returnedTo') + '</label>';
-    h += '<input type="text" id="asaasReturnedTo" class="worker-field-input">';
-    h += '<label class="worker-field-label" for="asaasReturnApartment">' + asaasT('returnApartment') + '</label>';
-    h += '<input type="text" id="asaasReturnApartment" class="worker-field-input" value="' + asaasEsc_(r.apartment || '') + '">';
-    h += '<label class="worker-field-label">' + asaasT('signedPaperPhoto') + '</label>';
-    h += '<button type="button" class="worker-field-photo-btn" onclick="asaasPickPhoto_(\'return\')">' + asaasT('addPhoto') + '</button>';
-    h += '<input type="file" id="asaasReturnFileCamera" class="worker-sr-file-input" accept="image/*" capture="environment" onchange="asaasHandleFile_(event,\'return\')">';
-    h += '<input type="file" id="asaasReturnFileGallery" class="worker-sr-file-input" accept="image/*" onchange="asaasHandleFile_(event,\'return\')">';
-    h += '<p id="asaasReturnPhotoStatus" class="worker-field-photo-status"></p>';
-    h += '<img id="asaasReturnPreview" class="worker-field-preview-img" style="display:none" alt="">';
-    h += '<label class="worker-field-label" for="asaasReturnNote">' + asaasT('returnNote') + '</label>';
-    h += '<input type="text" id="asaasReturnNote" class="worker-field-input">';
-    h += '<button type="button" id="asaasReturnBtn" class="worker-field-submit worker-field-submit-green" onclick="asaasMarkReturned_()">' + asaasT('markReturned') + '</button>';
-  } else {
-    h += '<p><strong>' + asaasT('returnedTo') + ':</strong> ' + asaasEsc_(r.returnedTo || '') + '</p>';
-    if (r.returnApartment) h += '<p><strong>' + asaasT('returnApartment') + ':</strong> ' + asaasEsc_(r.returnApartment) + '</p>';
-    if (r.returnPhoto) h += '<img class="worker-field-view-photo" src="' + asaasEsc_(r.returnPhoto) + '" alt="" onclick="bigImg(this.src)">';
-  }
-  h += '<p id="asaasReturnMsg" class="worker-field-msg"></p></div>';
-  body.innerHTML = h;
-  modal.classList.add('show');
-}
-
-function asaasCloseReturnModal_() {
   _asaasReturnId = '';
   _asaasReturnPhotoUrl = '';
   _asaasStickerItemId = '';
   _asaasStickerPhotoUrl = '';
   var modal = document.getElementById('asaasReturnModal');
-  if (modal) modal.classList.remove('show');
+  var body = document.getElementById('asaasReturnModalBody');
+  if (!modal || !body) return;
+  var inWarehouse = r.status !== 'returned';
+  var h = '<div class="asaas-return-form worker-field-view">';
+  h += asaasItemSummaryHtml_(r);
+  h += '<div class="worker-field-view-row"><span class="worker-field-view-label">' + asaasT('status') + '</span><span class="worker-field-view-value">' + asaasEsc_(r.status === 'returned' ? asaasT('returned') : asaasT('inWarehouse')) + '</span></div>';
+  h += '<div class="worker-field-view-row"><span class="worker-field-view-label">' + asaasT('date') + '</span><span class="worker-field-view-value">' + asaasEsc_(r.date || '') + '</span></div>';
+  if (r.spot) h += '<div class="worker-field-view-row"><span class="worker-field-view-label">' + asaasT('spot') + '</span><span class="worker-field-view-value">' + asaasEsc_(r.spot) + '</span></div>';
+  if (r.photo) h += '<div class="worker-field-view-block"><span class="worker-field-view-label">' + asaasT('photo') + '</span><img class="worker-field-view-photo" src="' + asaasEsc_(r.photo) + '" alt="" onclick="bigImg(this.src)"></div>';
+  if (r.photo2) {
+    h += '<div class="worker-field-view-block"><span class="worker-field-view-label">' + asaasT('stickerPhoto') + '</span><img class="worker-field-view-photo" src="' + asaasEsc_(r.photo2) + '" alt="" onclick="bigImg(this.src)"></div>';
+  } else if (inWarehouse) {
+    h += '<div class="worker-field-view-block"><span class="worker-field-view-label">' + asaasT('stickerPhoto') + '</span><p class="worker-field-view-text">' + asaasEsc_(asaasT('stickerPhotoMissing')) + '</p></div>';
+  }
+  if (r.warehouseNote) {
+    h += '<div class="worker-field-view-block"><span class="worker-field-view-label">' + asaasT('warehouseNote') + '</span><p class="worker-field-view-text">' + asaasEsc_(r.warehouseNote) + '</p></div>';
+  }
+  if (r.status === 'returned') {
+    h += '<div class="worker-field-view-block"><span class="worker-field-view-label">' + asaasT('returnDetails') + '</span>';
+    h += '<p class="worker-field-view-text">' + asaasEsc_(r.returnedTo || '') + (r.returnApartment ? (' · ' + r.returnApartment) : '') + '</p>';
+    if (r.returnNote) h += '<p class="worker-field-view-text">' + asaasEsc_(r.returnNote) + '</p>';
+    if (r.returnPhoto) h += '<img class="worker-field-view-photo" src="' + asaasEsc_(r.returnPhoto) + '" alt="" onclick="bigImg(this.src)">';
+    h += '</div>';
+  } else {
+    h += '<p class="worker-field-view-lead">' + asaasEsc_(asaasT('officeViewOnlyHint')) + '</p>';
+  }
+  h += '</div>';
+  body.innerHTML = h;
+  modal.classList.add('show');
 }
 
-function asaasSaveNote_() {
-  if (!_asaasReturnId) return;
-  var msg = document.getElementById('asaasReturnMsg');
-  fetchJSONRetry({
-    action: 'updateAsaasItem',
-    token: asaasToken_(),
-    id: _asaasReturnId,
-    warehouseNote: String((document.getElementById('asaasWarehouseNote') || {}).value || '').trim(),
-    apartment: String((document.getElementById('asaasOfficeApartment') || {}).value || '').trim()
-  }, 2, 45000).then(function (d) {
-    if (d && (d.ok || d.success)) {
-      if (msg) { msg.textContent = '\u2705 Saved'; msg.className = 'worker-field-msg worker-field-msg-ok'; }
-      asaasLoadItems_(true);
-    } else throw new Error((d && (d.message || d.error)) || 'Failed');
-  }).catch(function (e) {
-    if (msg) { msg.textContent = '\u274C ' + String((e && e.message) || e); msg.className = 'worker-field-msg worker-field-msg-error'; }
-  });
+function asaasCloseReturnModal_() {
+  var modal = document.getElementById('asaasReturnModal');
+  if (modal) modal.classList.remove('show');
 }
 
 function asaasMarkReturned_() {

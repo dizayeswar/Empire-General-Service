@@ -22,7 +22,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-21-asaas-v4';
+var SCRIPT_VERSION = '2026-07-22-asaas-v1';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -4289,14 +4289,12 @@ function handleUpdateAsaasItem(body, auth) {
     sheet.getRange(found.rowIdx, 20).setValue(now);
     return {ok:true,success:true,id:id};
   }
-  if (body.apartment != null) sheet.getRange(found.rowIdx, 9).setValue(String(body.apartment || '').trim());
-  if (body.warehouseNote != null) sheet.getRange(found.rowIdx, 11).setValue(String(body.warehouseNote || '').trim());
-  if (body.itemDescription != null) sheet.getRange(found.rowIdx, 7).setValue(String(body.itemDescription || '').trim());
-  if (body.photo2 != null) sheet.getRange(found.rowIdx, 21).setValue(String(body.photo2 || '').trim());
-  sheet.getRange(found.rowIdx, 20).setValue(now);
-  return {ok:true,success:true,id:id};
+  return {ok:false,success:false,error:'not_allowed',message:'Only the mobile guard can update warehouse items.'};
 }
 function handleMarkAsaasReturned(body, auth) {
+  if (!isAsaasMobileGuard_(auth && auth.username)) {
+    return {ok:false,success:false,error:'not_allowed',message:'Only the mobile guard can mark items returned.'};
+  }
   var id = String(body.id || '').trim();
   var returnedTo = String(body.returnedTo || '').trim();
   var returnPhoto = String(body.returnPhoto || '').trim();
