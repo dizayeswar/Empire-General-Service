@@ -243,15 +243,35 @@ function appOnSummaryProjectChange_() {
   appRenderSummary_();
 }
 
+function appStatusDisplayLabel_(status) {
+  var s = String(status || '').trim();
+  return s ? s.toUpperCase() : 'NOT VISITED';
+}
+
 function appStatusSelectHtml_(id, value) {
-  var h = '<select data-app-id="' + appEsc_(id) + '" data-app-field="status" onchange="appSaveRow_(this.getAttribute(\'data-app-id\'))">';
+  var stClass = appStatusClass_(value);
+  var h = '<select class="app-status-select ' + stClass + '" data-app-id="' + appEsc_(id) + '" data-app-field="status" onchange="appOnStatusChange_(this)">';
   APP_STATUS_OPTIONS.forEach(function (opt) {
     var sel = String(value || '').toUpperCase() === String(opt || '').toUpperCase() ? ' selected' : '';
-    var label = opt || 'Not visited';
+    var label = appStatusDisplayLabel_(opt);
     h += '<option value="' + appEsc_(opt) + '"' + sel + '>' + appEsc_(label) + '</option>';
   });
   h += '</select>';
   return h;
+}
+
+function appOnStatusChange_(el) {
+  if (!el) return;
+  el.className = 'app-status-select ' + appStatusClass_(el.value);
+  var tr = el.closest('tr');
+  if (tr) {
+    var badge = tr.querySelector('.app-status-badge');
+    if (badge) {
+      badge.className = 'app-status-badge ' + appStatusClass_(el.value);
+      badge.textContent = appStatusDisplayLabel_(el.value);
+    }
+  }
+  appSaveRow_(el.getAttribute('data-app-id'));
 }
 
 function appCountsHtml_() {
@@ -290,7 +310,7 @@ function appRenderTable_() {
       + '<td>' + appEsc_(r.project) + '</td>'
       + '<td><input type="text" inputmode="numeric" data-app-id="' + appEsc_(r.id) + '" data-app-field="phone" value="' + appEsc_(r.phone || '') + '" onchange="appSaveRow_(this.getAttribute(\'data-app-id\'))"></td>'
       + '<td>' + appStatusSelectHtml_(r.id, r.status) + '</td>'
-      + '<td><span class="app-status-badge ' + stClass + '">' + appEsc_(r.status || 'Not visited') + '</span>'
+      + '<td><span class="app-status-badge ' + stClass + '">' + appEsc_(appStatusDisplayLabel_(r.status)) + '</span>'
       + (r.updatedAt ? ('<div style="font-size:11px;color:var(--text-faint);margin-top:4px;">' + appEsc_(r.updatedAt.slice(0, 10)) + '</div>') : '')
       + '</td></tr>';
   });
