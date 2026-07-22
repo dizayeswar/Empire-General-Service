@@ -20,19 +20,19 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 118px;
+  min-height: 88px;
   background: var(--panel);
   border: 1px solid var(--card-border);
-  border-radius: 12px;
-  padding: 14px 10px;
+  border-radius: 10px;
+  padding: 10px 8px;
   text-align: center;
 }
 .app-summary-card strong {
   display: block;
-  font-size: 24px;
+  font-size: 20px;
   line-height: 1;
   color: #111;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   font-weight: 700;
 }
 .app-summary-badge {
@@ -40,18 +40,19 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 44px;
-  max-height: 44px;
-  padding: 4px 8px;
-  border-radius: 999px;
+  min-height: 32px;
+  max-height: 32px;
+  padding: 2px 8px;
+  border-radius: 6px;
   font-size: 10px;
   font-weight: 700;
   line-height: 1.2;
   text-align: center;
   color: #111;
   text-transform: uppercase;
-  white-space: normal;
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 .app-summary-badge.app-status-active { background: #c8e6c9; }
 .app-summary-badge.app-status-new-active { background: #95b825; }
@@ -141,7 +142,7 @@
 .app-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 12px;
 }
 .app-table th {
   position: sticky;
@@ -150,71 +151,60 @@
   background: var(--accent2);
   color: #fff;
   text-align: left;
-  padding: 8px 10px;
+  padding: 6px 8px;
   white-space: nowrap;
+  font-size: 11px;
 }
 .app-table td {
   border-top: 1px solid var(--card-border);
-  padding: 6px 10px;
+  padding: 4px 8px;
   vertical-align: middle;
 }
+.app-table td:nth-child(1) { min-width: 100px; }
+.app-table td:nth-child(2) { width: 52px; }
+.app-table td:nth-child(3) { width: 110px; }
+.app-table td:nth-child(4) { width: 148px; }
+.app-table td:nth-child(5) { width: 88px; }
 .app-table tr:nth-child(even) td {
   background: var(--row-hover, rgba(0,0,0,.02));
 }
+.app-updated-cell {
+  font-size: 11px;
+  color: var(--text-soft);
+  white-space: nowrap;
+}
 .app-table input[type="text"] {
   width: 100%;
-  min-width: 120px;
-  padding: 6px 8px;
+  min-width: 0;
+  padding: 4px 6px;
   border: 1px solid var(--card-border);
-  border-radius: 6px;
+  border-radius: 4px;
   background: var(--panel);
   color: var(--text);
-  font-size: 13px;
-}
-.app-status-badge,
-.app-summary-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1.2;
-  text-align: center;
-  color: #111;
-  text-transform: uppercase;
-  white-space: normal;
-  word-break: break-word;
-}
-.app-table .app-status-badge {
-  width: 100%;
-  min-width: 120px;
-  max-width: 180px;
+  font-size: 12px;
 }
 .app-table select.app-status-select {
   width: 100%;
-  min-width: 120px;
-  max-width: 180px;
-  min-height: 44px;
-  padding: 4px 10px;
-  border: none;
-  border-radius: 999px;
+  min-width: 0;
+  max-width: 140px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0 22px 0 8px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 4px;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.2;
-  text-align: center;
-  text-align-last: center;
+  text-align: left;
+  text-align-last: left;
   color: #111;
   text-transform: uppercase;
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23111' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 10px center;
-  padding-right: 28px;
+  background-position: right 6px center;
 }
 .app-status-active,
 .app-summary-badge.app-status-active,

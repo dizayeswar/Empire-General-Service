@@ -263,14 +263,6 @@ function appStatusSelectHtml_(id, value) {
 function appOnStatusChange_(el) {
   if (!el) return;
   el.className = 'app-status-select ' + appStatusClass_(el.value);
-  var tr = el.closest('tr');
-  if (tr) {
-    var badge = tr.querySelector('.app-status-badge');
-    if (badge) {
-      badge.className = 'app-status-badge ' + appStatusClass_(el.value);
-      badge.textContent = appStatusDisplayLabel_(el.value);
-    }
-  }
   appSaveRow_(el.getAttribute('data-app-id'));
 }
 
@@ -304,15 +296,12 @@ function appRenderTable_() {
     + '<th>Property</th><th>Project</th><th>Phone</th><th>Account status</th><th>Updated</th>'
     + '</tr></thead><tbody>';
   rows.forEach(function (r) {
-    var stClass = appStatusClass_(r.status);
     h += '<tr data-app-id="' + appEsc_(r.id) + '">'
       + '<td><strong>' + appEsc_(r.propertyId) + '</strong></td>'
       + '<td>' + appEsc_(r.project) + '</td>'
       + '<td><input type="text" inputmode="numeric" data-app-id="' + appEsc_(r.id) + '" data-app-field="phone" value="' + appEsc_(r.phone || '') + '" onchange="appSaveRow_(this.getAttribute(\'data-app-id\'))"></td>'
       + '<td>' + appStatusSelectHtml_(r.id, r.status) + '</td>'
-      + '<td><span class="app-status-badge ' + stClass + '">' + appEsc_(appStatusDisplayLabel_(r.status)) + '</span>'
-      + (r.updatedAt ? ('<div style="font-size:11px;color:var(--text-faint);margin-top:4px;">' + appEsc_(r.updatedAt.slice(0, 10)) + '</div>') : '')
-      + '</td></tr>';
+      + '<td class="app-updated-cell">' + (r.updatedAt ? appEsc_(r.updatedAt.slice(0, 10)) : '—') + '</td></tr>';
   });
   h += '</tbody></table></div>';
   h += '<p style="margin-top:10px;font-size:13px;color:var(--text-soft);">' + rows.length + ' shown</p>';
