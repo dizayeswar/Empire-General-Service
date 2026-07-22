@@ -84,16 +84,162 @@ function appFilteredRows_() {
   });
 }
 
-function appSummaryHtml_(rows) {
+function appStatusColor_(status) {
+  var s = String(status || '').trim().toUpperCase();
+  if (!s) return '#b71c1c';
+  if (s.indexOf('WANT') !== -1) return '#9e9e9e';
+  if (s.indexOf('NEW ACTIVE') !== -1) return '#95b825';
+  if (s === 'ACTIVE') return '#2e7d32';
+  if (s === 'PENDING') return '#29b6f6';
+  if (s === 'CHECK AGAIN') return '#f9a825';
+  if (s === 'TRY TO REACH') return '#1565c0';
+  return '#e65100';
+}
+
+function appStatusLabel_(status) {
+  var s = String(status || '').trim().toUpperCase();
+  return s || 'Not visited';
+}
+
+function appSummaryFilteredRows_() {
+  var project = String((document.getElementById('appSummaryProject') || {}).value || '').trim().toUpperCase();
+  if (!project) return _appRows.slice();
+  return _appRows.filter(function (r) {
+    return String(r.project || '').toUpperCase() === project;
+  });
+}
+
+function appStatusCounts_(rows) {
   var counts = {};
   rows.forEach(function (r) {
-    var key = String(r.status || '').trim().toUpperCase() || 'Not visited';
+    var key = appStatusLabel_(r.status);
     counts[key] = (counts[key] || 0) + 1;
   });
-  var keys = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; });
-  return keys.slice(0, 8).map(function (k) {
-    return '<div class="app-summary-card"><strong>' + counts[k] + '</strong><span>' + appEsc_(k) + '</span></div>';
+  return counts;
+}
+
+function appSummaryStatusOrder_(a, b, counts) {
+  var order = {
+    'ACTIVE': 1,
+    'NEW ACTIVE': 2,
+    'NEW ACTIVE REMOVED OLD': 3,
+    'PENDING': 4,
+    'CHECK AGAIN': 5,
+    'TRY TO REACH': 6,
+    'COME BACK LATER': 7,
+    'HE DOESN\'T WANT THE APP': 8,
+    'Not visited': 9
+  };
+  var oa = order[a] || 50;
+  var ob = order[b] || 50;
+  if (oa !== ob) return oa - ob;
+  return counts[b] - counts[a];
+}
+
+function appDonutHtml_(segments, total) {
+  if (!total) return '<p class="worker-empty">No apartments for this project yet.</p>';
+  var offset = 25;
+  var circles = '<circle cx="21" cy="21" r="15.915" fill="transparent" stroke="var(--donut-track)" stroke-width="5"></circle>';
+  segments.forEach(function (seg) {
+    if (!seg.count) return;
+    var pct = seg.count / total * 100;
+    circles += '<circle cx="21" cy="21" r="15.915" fill="transparent" stroke="' + appEsc_(seg.color) + '" stroke-width="5" stroke-dasharray="' + pct + ' ' + (100 - pct) + '" stroke-dashoffset="' + offset + '"></circle>';
+    offset -= pct;
+  });
+  var legend = segments.map(function (seg) {
+    if (!seg.count) return '';
+    var pct = Math.round(seg.count / total * 100);
+    return '<div class="app-donut-legend-item">'
+      + '<span class="app-donut-swatch" style="background:' + appEsc_(seg.color) + '"></span>'
+      + '<span class="app-donut-legend-label">' + appEsc_(seg.label) + '</span>'
+      + '<strong>' + seg.count + '</strong>'
+      + '<span class="app-donut-legend-pct">' + pct + '%</span>'
+      + '</div>';
   }).join('');
+  return '<div class="app-donut-board">'
+    + '<svg class="app-donut-chart" width="220" height="220" viewBox="0 0 42 42" aria-hidden="true">' + circles
+    + '<text x="21" y="20.2" text-anchor="middle" class="app-donut-total">' + total + '</text>'
+    + '<text x="21" y="26.2" text-anchor="middle" class="app-donut-sub">apartments</text></svg>'
+    + '<div class="app-donut-legend">' + legend + '</div></div>';
+}
+
+function appMiniDonutHtml_(label, rows) {
+  var counts = appStatusCounts_(rows);
+  var total = rows.length;
+  var active = (counts.ACTIVE || 0) + (counts['NEW ACTIVE'] || 0) + (counts['NEW ACTIVE REMOVED OLD'] || 0);
+  var pending = (counts.PENDING || 0) + (counts['CHECK AGAIN'] || 0) + (counts['TRY TO REACH'] || 0) + (counts['COME BACK LATER'] || 0);
+  var other = total - active - pending - (counts['Not visited'] || 0);
+  var segments = [
+    { count: active, color: '#2e7d32' },
+    { count: pending, color: '#1565c0' },
+    { count: counts['Not visited'] || 0, color: '#b71c1c' },
+    { count: other, color: '#9e9e9e' }
+  ].filter(function (s) { return s.count > 0; });
+  var offset = 25;
+  var circles = '<circle cx="21" cy="21" r="15.915" fill="transparent" stroke="var(--donut-track)" stroke-width="6"></circle>';
+  if (total) {
+    segments.forEach(function (seg) {
+      var pct = seg.count / total * 100;
+      circles += '<circle cx="21" cy="21" r="15.915" fill="transparent" stroke="' + seg.color + '" stroke-width="6" stroke-dasharray="' + pct + ' ' + (100 - pct) + '" stroke-dashoffset="' + offset + '"></circle>';
+      offset -= pct;
+    });
+  }
+  return '<div class="app-mini-donut"><svg width="96" height="96" viewBox="0 0 42 42">' + circles
+    + '<text x="21" y="24" text-anchor="middle" class="app-mini-donut-num">' + total + '</text></svg>'
+    + '<div class="app-mini-donut-label">' + appEsc_(label) + '</div></div>';
+}
+
+function appSummaryHtml_(rows) {
+  var counts = appStatusCounts_(rows);
+  var keys = Object.keys(counts).sort(function (a, b) {
+    return appSummaryStatusOrder_(a, b, counts);
+  });
+  var total = rows.length;
+  var segments = keys.map(function (k) {
+    return { label: k, count: counts[k], color: appStatusColor_(k === 'Not visited' ? '' : k) };
+  });
+  var h = '<div class="app-summary-top"><strong>' + total + ' apartments</strong></div>';
+  h += appDonutHtml_(segments, total);
+  h += '<div class="app-summary-grid">';
+  keys.forEach(function (k) {
+    var cls = appStatusClass_(k === 'Not visited' ? '' : k);
+    h += '<div class="app-summary-card"><strong>' + counts[k] + '</strong>'
+      + '<span class="app-status-badge ' + cls + '">' + appEsc_(k) + '</span></div>';
+  });
+  h += '</div>';
+  var projSel = String((document.getElementById('appSummaryProject') || {}).value || '');
+  if (!projSel) {
+    h += '<h3 class="app-summary-subhead">By project</h3><div class="app-mini-donut-row">';
+    APP_PROJECTS.forEach(function (p) {
+      var proRows = _appRows.filter(function (r) { return String(r.project || '').toUpperCase() === p; });
+      h += appMiniDonutHtml_(p, proRows);
+    });
+    h += '</div>';
+  }
+  return h;
+}
+
+function appRenderSummary_() {
+  var host = document.getElementById('appSummaryHost');
+  if (!host) return;
+  appPopulateSummaryFilters_();
+  host.innerHTML = appSummaryHtml_(appSummaryFilteredRows_());
+}
+
+function appPopulateSummaryFilters_() {
+  var sp = document.getElementById('appSummaryProject');
+  if (sp && sp.options.length <= 1) {
+    sp.innerHTML = '<option value="">All projects</option>'
+      + APP_PROJECTS.map(function (p) { return '<option value="' + p + '">' + p + '</option>'; }).join('');
+  }
+}
+
+function appOnSummaryProjectChange_() {
+  var sp = document.getElementById('appSummaryProject');
+  var fp = document.getElementById('appFilterProject');
+  if (sp && fp) fp.value = sp.value;
+  appRenderTable_();
+  appRenderSummary_();
 }
 
 function appStatusSelectHtml_(id, value) {
@@ -126,10 +272,8 @@ function appCountsHtml_() {
 
 function appRenderTable_() {
   var host = document.getElementById('appTableHost');
-  var summary = document.getElementById('appSummaryHost');
   if (!host) return;
   var rows = appFilteredRows_();
-  if (summary) summary.innerHTML = appSummaryHtml_(rows);
   if (!rows.length) {
     host.innerHTML = appCountsHtml_() + '<p class="worker-empty">No properties match your filters.</p>';
     return;
@@ -193,6 +337,7 @@ function appPopulateFilters_() {
     proj.innerHTML = '<option value="">All projects</option>'
       + APP_PROJECTS.map(function (p) { return '<option value="' + p + '">' + p + '</option>'; }).join('');
   }
+  appPopulateSummaryFilters_();
   var st = document.getElementById('appFilterStatus');
   if (st && st.options.length <= 1) {
     var opts = '<option value="">All statuses</option><option value="__EMPTY__">Not visited</option>';
@@ -227,6 +372,7 @@ function appLoad_(force) {
     _appRows = appSortRows_(_appRows);
     appToggleImportBar_();
     appRenderTable_();
+    appRenderSummary_();
   }).catch(function (e) {
     if (host) host.innerHTML = '<p class="worker-empty">Could not load data. ' + appEsc_((e && e.message) || e) + '</p>';
   });

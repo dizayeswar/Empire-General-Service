@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://script.google.com">
 <title>Application — Door Check — Empire World</title>
 <link rel="stylesheet" href="assets/empire.css?v=2026-07-22-application-v4">
-<link rel="stylesheet" href="assets/application.css?v=2026-07-22-application-v6">
+<link rel="stylesheet" href="assets/application.css?v=2026-07-22-application-v7">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -76,11 +76,11 @@
       <div id="analytics" class="tab-content">
         <div class="form-section">
           <h2>Summary by status</h2>
-          <p style="color:var(--text-soft);font-size:13px;margin:-6px 0 14px;">Counts for the current filters on the Door check tab.</p>
+          <p style="color:var(--text-soft);font-size:13px;margin:-6px 0 14px;">Status breakdown by project — donut chart and counts for Active, New Active, Pending, etc.</p>
           <div class="form-row">
-            <div class="form-group"><label>Project</label><select id="appSummaryProject" onchange="document.getElementById('appFilterProject').value=this.value;appRenderTable_();appRenderSummary_();"><option value="">All projects</option></select></div>
+            <div class="form-group"><label>Project</label><select id="appSummaryProject" onchange="appOnSummaryProjectChange_()"><option value="">All projects</option><option value="RA">RA</option><option value="WW">WW</option><option value="WD">WD</option><option value="ES">ES</option></select></div>
           </div>
-          <div id="appSummaryHost" class="app-summary-grid"></div>
+          <div id="appSummaryHost" class="app-summary-host"></div>
         </div>
       </div>
       <footer>Prepared by <strong>Swar Dizayee</strong></footer>
@@ -92,7 +92,7 @@
 <script src="assets/empire-api.js"></script>
 <script src="assets/empire-auth.js?v=2026-07-22-application-v3"></script>
 <script src="assets/empire-core.js"></script>
-<script src="assets/application-app.js?v=2026-07-22-application-v6"></script>
+<script src="assets/application-app.js?v=2026-07-22-application-v7"></script>
 <script>
 function switchTab(ev, tab) {
   document.querySelectorAll('.tab-content').forEach(function (el) { el.classList.remove('active'); });
@@ -101,18 +101,6 @@ function switchTab(ev, tab) {
   if (pane) pane.classList.add('active');
   if (ev && ev.currentTarget) ev.currentTarget.classList.add('active');
   if (tab === 'analytics') appRenderSummary_();
-}
-function appRenderSummary_() {
-  var host = document.getElementById('appSummaryHost');
-  if (!host) return;
-  var rows = appFilteredRows_();
-  host.innerHTML = appSummaryHtml_(rows);
-  var sp = document.getElementById('appSummaryProject');
-  var fp = document.getElementById('appFilterProject');
-  if (sp && fp && !sp.options.length) {
-    sp.innerHTML = fp.innerHTML;
-    sp.value = fp.value;
-  }
 }
 </script>
 </body>
