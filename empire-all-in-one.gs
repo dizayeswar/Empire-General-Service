@@ -4399,7 +4399,6 @@ function normalizeApplicationStatus_(raw) {
   var s = String(raw || '').trim().toUpperCase();
   if (!s) return '';
   s = s.replace(/\s+/g, ' ');
-  if (s === 'EMPTY') return '';
   return s;
 }
 

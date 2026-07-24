@@ -4,6 +4,7 @@ var APP_DEPT = 'application';
 var APP_PROJECTS = ['RA', 'WW', 'WD', 'ES'];
 var APP_STATUS_OPTIONS = [
   '',
+  'EMPTY',
   'ACTIVE',
   'NEW ACTIVE',
   'PENDING',
@@ -45,7 +46,7 @@ function appSortRows_(rows) {
 
 function appStatusClass_(status) {
   var s = String(status || '').trim().toUpperCase();
-  if (!s) return 'app-status-empty';
+  if (!s || s === 'EMPTY') return 'app-status-empty';
   if (s.indexOf('WANT') !== -1) return 'app-status-refused';
   if (s.indexOf('NEW ACTIVE') !== -1) return 'app-status-new-active';
   if (s === 'ACTIVE') return 'app-status-active';
@@ -86,6 +87,7 @@ function appFilteredRows_() {
 function appStatusColor_(status) {
   var s = String(status || '').trim().toUpperCase();
   if (!s) return '#b71c1c';
+  if (s === 'EMPTY') return '#e57373';
   if (s.indexOf('WANT') !== -1) return '#9e9e9e';
   if (s.indexOf('NEW ACTIVE') !== -1) return '#95b825';
   if (s === 'ACTIVE') return '#2e7d32';
@@ -97,7 +99,7 @@ function appStatusColor_(status) {
 
 function appStatusLabel_(status) {
   var s = String(status || '').trim().toUpperCase();
-  return s || 'EMPTY';
+  return s || 'Not visited';
 }
 
 function appSummaryFilteredRows_() {
@@ -125,7 +127,8 @@ function appSummaryStatusOrder_(a, b, counts) {
     'CHECK AGAIN': 4,
     'TRY TO REACH': 5,
     'HE DOESN\'T WANT THE APP': 6,
-    'EMPTY': 9
+    'EMPTY': 7,
+    'Not visited': 9
   };
   var oa = order[a] || 50;
   var ob = order[b] || 50;
@@ -165,11 +168,12 @@ function appMiniDonutHtml_(label, rows) {
   var total = rows.length;
   var active = (counts.ACTIVE || 0) + (counts['NEW ACTIVE'] || 0) + (counts['NEW ACTIVE REMOVED OLD'] || 0);
   var pending = (counts.PENDING || 0) + (counts['CHECK AGAIN'] || 0) + (counts['TRY TO REACH'] || 0) + (counts['COME BACK LATER'] || 0);
-  var other = total - active - pending - (counts.EMPTY || 0) - (counts['HE DOESN\'T WANT THE APP'] || 0);
+  var other = total - active - pending - (counts['Not visited'] || 0) - (counts.EMPTY || 0) - (counts['HE DOESN\'T WANT THE APP'] || 0);
   var segments = [
     { count: active, color: '#2e7d32' },
     { count: pending, color: '#1565c0' },
-    { count: counts.EMPTY || 0, color: '#b71c1c' },
+    { count: counts['Not visited'] || 0, color: '#b71c1c' },
+    { count: counts.EMPTY || 0, color: '#e57373' },
     { count: other, color: '#9e9e9e' }
   ].filter(function (s) { return s.count > 0; });
   var offset = 25;
@@ -193,14 +197,14 @@ function appSummaryHtml_(rows) {
   });
   var total = rows.length;
   var segments = keys.map(function (k) {
-    return { label: k, count: counts[k], color: appStatusColor_(k === 'EMPTY' ? '' : k) };
+    return { label: k, count: counts[k], color: appStatusColor_(k === 'Not visited' ? '' : k) };
   });
   var h = '<div class="app-summary-top"><strong>' + total + ' apartments</strong></div>';
   h += appDonutHtml_(segments, total);
   h += '<div class="app-summary-grid">';
   keys.forEach(function (k) {
-    var cls = appStatusClass_(k === 'EMPTY' ? '' : k);
-    var label = k === 'EMPTY' ? 'EMPTY' : k;
+    var cls = appStatusClass_(k === 'Not visited' ? '' : k);
+    var label = k === 'Not visited' ? 'NOT VISITED' : k;
     h += '<div class="app-summary-card"><strong>' + counts[k] + '</strong>'
       + '<span class="app-summary-badge ' + cls + '">' + appEsc_(label) + '</span></div>';
   });
@@ -242,7 +246,7 @@ function appOnSummaryProjectChange_() {
 
 function appStatusDisplayLabel_(status) {
   var s = String(status || '').trim();
-  return s ? s.toUpperCase() : 'EMPTY';
+  return s ? s.toUpperCase() : 'NOT VISITED';
 }
 
 function appStatusSelectHtml_(id, value) {
@@ -556,7 +560,7 @@ function appPopulateFilters_() {
   appPopulateSummaryFilters_();
   var st = document.getElementById('appFilterStatus');
   if (st && st.options.length <= 1) {
-    var opts = '<option value="">All statuses</option><option value="__EMPTY__">EMPTY</option>';
+    var opts = '<option value="">All statuses</option><option value="__EMPTY__">Not visited</option>';
     APP_STATUS_OPTIONS.forEach(function (s) {
       if (!s) return;
       opts += '<option value="' + appEsc_(s) + '">' + appEsc_(s) + '</option>';
