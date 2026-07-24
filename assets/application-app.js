@@ -97,7 +97,7 @@ function appStatusColor_(status) {
 
 function appStatusLabel_(status) {
   var s = String(status || '').trim().toUpperCase();
-  return s || 'Not visited';
+  return s || 'EMPTY';
 }
 
 function appSummaryFilteredRows_() {
@@ -125,7 +125,7 @@ function appSummaryStatusOrder_(a, b, counts) {
     'CHECK AGAIN': 4,
     'TRY TO REACH': 5,
     'HE DOESN\'T WANT THE APP': 6,
-    'Not visited': 9
+    'EMPTY': 9
   };
   var oa = order[a] || 50;
   var ob = order[b] || 50;
@@ -165,11 +165,11 @@ function appMiniDonutHtml_(label, rows) {
   var total = rows.length;
   var active = (counts.ACTIVE || 0) + (counts['NEW ACTIVE'] || 0) + (counts['NEW ACTIVE REMOVED OLD'] || 0);
   var pending = (counts.PENDING || 0) + (counts['CHECK AGAIN'] || 0) + (counts['TRY TO REACH'] || 0) + (counts['COME BACK LATER'] || 0);
-  var other = total - active - pending - (counts['Not visited'] || 0) - (counts['HE DOESN\'T WANT THE APP'] || 0);
+  var other = total - active - pending - (counts.EMPTY || 0) - (counts['HE DOESN\'T WANT THE APP'] || 0);
   var segments = [
     { count: active, color: '#2e7d32' },
     { count: pending, color: '#1565c0' },
-    { count: counts['Not visited'] || 0, color: '#b71c1c' },
+    { count: counts.EMPTY || 0, color: '#b71c1c' },
     { count: other, color: '#9e9e9e' }
   ].filter(function (s) { return s.count > 0; });
   var offset = 25;
@@ -193,14 +193,14 @@ function appSummaryHtml_(rows) {
   });
   var total = rows.length;
   var segments = keys.map(function (k) {
-    return { label: k, count: counts[k], color: appStatusColor_(k === 'Not visited' ? '' : k) };
+    return { label: k, count: counts[k], color: appStatusColor_(k === 'EMPTY' ? '' : k) };
   });
   var h = '<div class="app-summary-top"><strong>' + total + ' apartments</strong></div>';
   h += appDonutHtml_(segments, total);
   h += '<div class="app-summary-grid">';
   keys.forEach(function (k) {
-    var cls = appStatusClass_(k === 'Not visited' ? '' : k);
-    var label = k === 'Not visited' ? 'NOT VISITED' : k;
+    var cls = appStatusClass_(k === 'EMPTY' ? '' : k);
+    var label = k === 'EMPTY' ? 'EMPTY' : k;
     h += '<div class="app-summary-card"><strong>' + counts[k] + '</strong>'
       + '<span class="app-summary-badge ' + cls + '">' + appEsc_(label) + '</span></div>';
   });
@@ -242,7 +242,7 @@ function appOnSummaryProjectChange_() {
 
 function appStatusDisplayLabel_(status) {
   var s = String(status || '').trim();
-  return s ? s.toUpperCase() : 'NOT VISITED';
+  return s ? s.toUpperCase() : 'EMPTY';
 }
 
 function appStatusSelectHtml_(id, value) {
@@ -556,7 +556,7 @@ function appPopulateFilters_() {
   appPopulateSummaryFilters_();
   var st = document.getElementById('appFilterStatus');
   if (st && st.options.length <= 1) {
-    var opts = '<option value="">All statuses</option><option value="__EMPTY__">Not visited</option>';
+    var opts = '<option value="">All statuses</option><option value="__EMPTY__">EMPTY</option>';
     APP_STATUS_OPTIONS.forEach(function (s) {
       if (!s) return;
       opts += '<option value="' + appEsc_(s) + '">' + appEsc_(s) + '</option>';
@@ -575,9 +575,24 @@ function appFetchProjectRows_(project, force) {
   });
 }
 
+function appRefreshIcons_() {
+  return [
+    document.getElementById('navRefreshIcon'),
+    document.getElementById('listRefreshIcon')
+  ].filter(Boolean);
+}
+
+function appSetRefreshSpinning_(on) {
+  appRefreshIcons_().forEach(function (el) {
+    if (on) el.classList.add('spinning');
+    else el.classList.remove('spinning');
+  });
+}
+
 function appLoad_(force) {
   var host = document.getElementById('appTableHost');
   if (host) host.innerHTML = '<p>Loading all projects (RA, WW, WD, ES)…</p>';
+  appSetRefreshSpinning_(true);
   return Promise.all(APP_PROJECTS.map(function (p) {
     return appFetchProjectRows_(p, force);
   })).then(function (parts) {
@@ -586,11 +601,12 @@ function appLoad_(force) {
       _appRows = _appRows.concat(rows);
     });
     _appRows = appSortRows_(_appRows);
-    appToggleImportBar_();
     appRenderTable_();
     appRenderSummary_();
   }).catch(function (e) {
     if (host) host.innerHTML = '<p class="worker-empty">Could not load data. ' + appEsc_((e && e.message) || e) + '</p>';
+  }).finally(function () {
+    appSetRefreshSpinning_(false);
   });
 }
 
@@ -617,103 +633,6 @@ function appEnsureSeedMeta_() {
   });
 }
 
-function appToggleImportBar_() {
-  var bar = document.getElementById('appImportBar');
-  if (!bar) return;
-  var isAdmin = String(empireGetRole() || '').toLowerCase() === 'admin';
-  if (!isAdmin) {
-    bar.style.display = 'none';
-    return;
-  }
-  bar.style.display = 'flex';
-  var msg = document.getElementById('appImportMsg');
-  var btn = document.getElementById('appImportBtn');
-  if (!msg) return;
-  var expected = _appExpectedTotal || 4199;
-  var loaded = _appRows.length;
-  if (loaded >= expected) {
-    msg.textContent = 'All ' + expected + ' apartments loaded. Click sync to refresh from Excel seed.';
-    if (btn) btn.textContent = 'Re-sync from Excel';
-  } else {
-    msg.textContent = loaded + ' / ' + expected + ' apartments loaded — sync to load all RA, WW, WD, ES sheets.';
-    if (btn) btn.textContent = 'Sync all apartments from Excel';
-  }
-}
-
-function appImportBatch_(slice, tries) {
-  return fetchJSONRetry({ action: 'importApplicationChecks', token: appToken_(), items: slice }, tries || 3, 180000)
-    .then(function (d) {
-      if (d && (d.ok || d.success)) return d;
-      throw new Error((d && (d.message || d.error)) || 'Import failed');
-    });
-}
-
-function appImportSeed_(clearFirst) {
-  var msg = document.getElementById('appImportMsg');
-  var btn = document.getElementById('appImportBtn');
-  var clearBtn = document.getElementById('appClearBtn');
-  if (btn) btn.disabled = true;
-  if (clearBtn) clearBtn.disabled = true;
-  if (msg) msg.textContent = clearFirst ? 'Clearing old data…' : 'Loading seed file…';
-
-  function runImport() {
-    return appEnsureSeedMeta_().then(function (items) {
-      if (!items.length) throw new Error('Seed file is empty');
-      var chunk = 150;
-      var i = 0;
-      var inserted = 0;
-      var updated = 0;
-      function nextBatch() {
-        var slice = items.slice(i, i + chunk);
-        if (!slice.length) {
-          if (msg) msg.textContent = 'Import complete — ' + inserted + ' new, ' + updated + ' updated. Reloading…';
-          return appLoad_(true).then(function () {
-            if (msg) msg.textContent = 'Sync complete — ' + _appRows.length + ' / ' + _appExpectedTotal + ' apartments loaded.';
-            if (btn) btn.disabled = false;
-            if (clearBtn) clearBtn.disabled = false;
-          });
-        }
-        if (msg) msg.textContent = 'Syncing ' + Math.min(i + chunk, items.length) + ' / ' + items.length + ' apartments…';
-        return appImportBatch_(slice, 3).then(function (d) {
-          inserted += Number(d.inserted || 0);
-          updated += Number(d.updated || 0);
-          i += chunk;
-          return nextBatch();
-        }).catch(function (err) {
-          if (msg) msg.textContent = 'Retrying batch at ' + (i + 1) + '… (' + String((err && err.message) || err) + ')';
-          return appImportBatch_(slice, 2).then(function (d) {
-            inserted += Number(d.inserted || 0);
-            updated += Number(d.updated || 0);
-            i += chunk;
-            return nextBatch();
-          });
-        });
-      }
-      return nextBatch();
-    });
-  }
-
-  var chain = Promise.resolve();
-  if (clearFirst) {
-    chain = fetchJSONRetry({ action: 'clearApplicationChecks', token: appToken_() }, 2, 60000).then(function (d) {
-      if (!d || !(d.ok || d.success)) throw new Error((d && (d.message || d.error)) || 'Could not clear data');
-      _appRows = [];
-    });
-  }
-  chain.then(runImport).catch(function (e) {
-    if (msg) msg.textContent = 'Sync failed: ' + String((e && e.message) || e);
-    if (btn) btn.disabled = false;
-    if (clearBtn) clearBtn.disabled = false;
-  });
-}
-
-function appClearAndResync_() {
-  var expected = _appExpectedTotal || 4199;
-  var ok = confirm('Delete all ' + _appRows.length + ' door check records and re-import all ' + expected + ' apartments from Excel?\n\nThis fixes mixed-up data.');
-  if (!ok) return;
-  appImportSeed_(true);
-}
-
 function appEnterApp_() {
   var loginPage = document.getElementById('loginPage');
   var main = document.getElementById('mainContainer');
@@ -723,9 +642,7 @@ function appEnterApp_() {
   var who = document.getElementById('whoLabel');
   if (who) who.textContent = 'Logged in as: ' + (empireGetUser() || '');
   appPopulateFilters_();
-  appEnsureSeedMeta_().finally(function () {
-    appToggleImportBar_();
-  });
+  appEnsureSeedMeta_();
   appLoad_(true);
 }
 

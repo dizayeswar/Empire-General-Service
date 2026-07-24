@@ -316,26 +316,6 @@
 .app-summary-badge.app-status-empty,
 .app-status-dd-btn.app-status-empty,
 .app-status-dd-opt.app-status-empty { background-color: #f8d7da; }
-.app-import-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
-  margin: 0 0 14px;
-  padding: 12px 14px;
-  border-radius: 10px;
-  border: 1px dashed var(--card-border);
-  background: var(--task-bg, #f7f9fc);
-}
-.app-import-msg {
-  font-size: 13px;
-  color: var(--text-soft);
-}
-.app-import-bar button.app-clear-btn {
-  background: #C5504F;
-  color: #fff;
-  border-color: #C5504F;
-}
 .app-counts-bar {
   margin: 0 0 12px;
   padding: 10px 12px;

@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://script.google.com">
 <title>Application — Door Check — Empire World</title>
 <link rel="stylesheet" href="assets/empire.css?v=2026-07-22-application-v4">
-<link rel="stylesheet" href="assets/application.css?v=2026-07-22-application-v18">
+<link rel="stylesheet" href="assets/application.css?v=2026-07-24-application-v19">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -59,16 +59,11 @@
         <div class="form-section">
           <h2>📱 Door check register</h2>
           <p style="color:var(--text-soft);font-size:13px;margin:-6px 0 14px;">Track app registration by apartment — update phone and account status after each visit.</p>
-          <div id="appImportBar" class="app-import-bar" style="display:none;">
-            <button type="button" id="appImportBtn" onclick="appImportSeed_(false)">Sync all apartments from Excel</button>
-            <button type="button" id="appClearBtn" class="app-clear-btn" onclick="appClearAndResync_()">Clear all &amp; re-sync</button>
-            <span id="appImportMsg" class="app-import-msg">Loads all RA, WW, WD, ES apartments from the Excel seed file.</span>
-          </div>
           <div class="form-row">
             <div class="form-group"><label>Project</label><select id="appFilterProject" onchange="appRenderTable_()"><option value="">All projects</option></select></div>
             <div class="form-group"><label>Status</label><select id="appFilterStatus" onchange="appRenderTable_()"><option value="">All statuses</option></select></div>
             <div class="form-group"><label>Search property / phone</label><input type="text" id="appFilterSearch" oninput="appRenderTable_()" placeholder="e.g. RA-A1, WW-10, 750…"></div>
-            <div class="form-group"><label>&nbsp;</label><button onclick="appLoad_(true)">Refresh</button></div>
+            <div class="form-group"><label>&nbsp;</label><button onclick="appLoad_(true)"><span class="nav-icon spin-icon" id="listRefreshIcon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> Refresh</button></div>
           </div>
           <div id="appTableHost"><p>Loading…</p></div>
         </div>
@@ -101,7 +96,7 @@
 <script src="assets/empire-api.js"></script>
 <script src="assets/empire-auth.js?v=2026-07-22-application-v3"></script>
 <script src="assets/empire-core.js"></script>
-<script src="assets/application-app.js?v=2026-07-22-application-v18"></script>
+<script src="assets/application-app.js?v=2026-07-24-application-v19"></script>
 <script>
 function switchTab(ev, tab) {
   document.querySelectorAll('.tab-content').forEach(function (el) { el.classList.remove('active'); });
