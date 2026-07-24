@@ -46,7 +46,8 @@ function appSortRows_(rows) {
 
 function appStatusClass_(status) {
   var s = String(status || '').trim().toUpperCase();
-  if (!s || s === 'EMPTY') return 'app-status-empty';
+  if (!s) return 'app-status-not-visited';
+  if (s === 'EMPTY') return 'app-status-empty';
   if (s.indexOf('WANT') !== -1) return 'app-status-refused';
   if (s.indexOf('NEW ACTIVE') !== -1) return 'app-status-new-active';
   if (s === 'ACTIVE') return 'app-status-active';
@@ -86,8 +87,8 @@ function appFilteredRows_() {
 
 function appStatusColor_(status) {
   var s = String(status || '').trim().toUpperCase();
-  if (!s) return '#b71c1c';
-  if (s === 'EMPTY') return '#e57373';
+  if (!s) return '#d32f2f';
+  if (s === 'EMPTY') return '#6d4c41';
   if (s.indexOf('WANT') !== -1) return '#9e9e9e';
   if (s.indexOf('NEW ACTIVE') !== -1) return '#95b825';
   if (s === 'ACTIVE') return '#2e7d32';
@@ -116,6 +117,7 @@ function appStatusCounts_(rows) {
     var key = appStatusLabel_(r.status);
     counts[key] = (counts[key] || 0) + 1;
   });
+  if (counts.EMPTY == null) counts.EMPTY = 0;
   return counts;
 }
 
@@ -172,8 +174,8 @@ function appMiniDonutHtml_(label, rows) {
   var segments = [
     { count: active, color: '#2e7d32' },
     { count: pending, color: '#1565c0' },
-    { count: counts['Not visited'] || 0, color: '#b71c1c' },
-    { count: counts.EMPTY || 0, color: '#e57373' },
+    { count: counts['Not visited'] || 0, color: '#d32f2f' },
+    { count: counts.EMPTY || 0, color: '#6d4c41' },
     { count: other, color: '#9e9e9e' }
   ].filter(function (s) { return s.count > 0; });
   var offset = 25;

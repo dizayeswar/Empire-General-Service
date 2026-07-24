@@ -61,7 +61,8 @@
 .app-summary-badge.app-status-try-reach { background: #1565c0; }
 .app-summary-badge.app-status-follow { background: #ffe8cc; }
 .app-summary-badge.app-status-refused { background: #c0c0c0; }
-.app-summary-badge.app-status-empty { background: #f8d7da; }
+.app-summary-badge.app-status-not-visited { background: #d32f2f; color: #fff; }
+.app-summary-badge.app-status-empty { background: #6d4c41; color: #fff; }
 .app-donut-board {
   display: flex;
   flex-wrap: wrap;
@@ -312,10 +313,20 @@
 .app-summary-badge.app-status-refused,
 .app-status-dd-btn.app-status-refused,
 .app-status-dd-opt.app-status-refused { background-color: #c0c0c0; }
+.app-status-not-visited,
+.app-summary-badge.app-status-not-visited,
+.app-status-dd-btn.app-status-not-visited,
+.app-status-dd-opt.app-status-not-visited {
+  background-color: #d32f2f;
+  color: #fff;
+}
 .app-status-empty,
 .app-summary-badge.app-status-empty,
 .app-status-dd-btn.app-status-empty,
-.app-status-dd-opt.app-status-empty { background-color: #f8d7da; }
+.app-status-dd-opt.app-status-empty {
+  background-color: #6d4c41;
+  color: #fff;
+}
 .app-counts-bar {
   margin: 0 0 12px;
   padding: 10px 12px;
