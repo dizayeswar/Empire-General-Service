@@ -1811,16 +1811,16 @@ function workerFixNeedsOfflineQueue() {
 function submitWorkerFixSuccess(id, d) {
   if (d && d.partial) {
     allIssues = allIssues.filter(function (x) { return x.id !== id; });
-    writeIssuesCacheAsync(allIssues);
+    writeIssuesCache(allIssues);
     closeWorkerJob();
-    renderWorkerJobs();
+    renderWorkerJobs(true);
     uiAlert('\u2705 Your fix was saved. Waiting for other workers (' + (d.workerDone || 1) + '/' + (d.workersRequired || 2) + ').');
     return;
   }
   allIssues = allIssues.filter(function (x) { return x.id !== id; });
-  writeIssuesCacheAsync(allIssues);
+  writeIssuesCache(allIssues);
   closeWorkerJob();
-  renderWorkerJobs();
+  renderWorkerJobs(true);
   uiAlert('\u2705 Job marked fixed!');
 }
 function submitWorkerFixOffline(id, note, btn, coords, voiceNote, materials) {
@@ -1828,9 +1828,9 @@ function submitWorkerFixOffline(id, note, btn, coords, voiceNote, materials) {
     if (typeof assignVoiceClearDraft === 'function') assignVoiceClearDraft(workerFixVoiceId_(id));
     markWorkerFixQueuedLocally(id);
     allIssues = allIssues.filter(function (x) { return x.id !== id; });
-    writeIssuesCacheAsync(allIssues);
+    writeIssuesCache(allIssues);
     closeWorkerJob();
-    renderWorkerJobs();
+    renderWorkerJobs(true);
     return syncWorkerOfflineFixes(true).then(function (result) {
       var syncedIds = (result && result.syncedIds) || [];
       if (syncedIds.indexOf(id) !== -1) {
@@ -2283,7 +2283,13 @@ function issueMetaCounts_(arr) {
 function issuesListSig(arr) {
   if (!arr || !arr.length) return '0';
   var meta = issueMetaCounts_(arr);
-  return arr.length + '|' + String(arr[0].id) + '|' + String(arr[arr.length - 1].id) + '|' + String(arr[0].status) + '|' + String(arr[arr.length - 1].status) + '|d' + meta.delayed + '|r' + meta.routed;
+  var open = 0;
+  var idBits = [];
+  for (var i = 0; i < arr.length; i++) {
+    if (String(arr[i].status || '') !== 'fixed') open++;
+    if (i < 8 || i >= arr.length - 4) idBits.push(String(arr[i].id || '') + ':' + String(arr[i].status || ''));
+  }
+  return arr.length + '|o' + open + '|' + idBits.join(',') + '|d' + meta.delayed + '|r' + meta.routed;
 }
 function mergeIssueMetaFromServer(next, prev) {
   if (!prev || !prev.length || !next || !next.length) return next;
@@ -2306,8 +2312,8 @@ function prefetchWorkerIssues_() {
     .then(function (d) {
       if (Array.isArray(d)) {
         setIssuesFromData(d);
-        writeIssuesCacheAsync(d);
-        renderWorkerJobs();
+        writeIssuesCache(d);
+        renderWorkerJobs(true);
       }
     })
     .catch(function () {});
@@ -2334,7 +2340,7 @@ function loadIssues(force){ force=!!force; try {
   var spinEls=[document.getElementById('listRefreshIcon'),document.getElementById('navRefreshIcon'),document.getElementById('workerRefreshIcon'),document.getElementById('notCivilRefreshIcon'),document.getElementById('fixDelayRefreshIcon')];
   var cacheFresh=cached && !force && (Date.now()-readIssuesCacheTs()<ISSUES_CACHE_TTL);
   if(cacheFresh) return;
-  if(isCivilWorker() && force && cached && (Date.now()-readIssuesCacheTs()<WORKER_RESUME_FETCH_MIN_MS)) return;
+  // Never skip a forced worker refresh — stale local cache was keeping fixed jobs visible.
   var it=document.getElementById('issuesTable');
   if(it && !cached && !isCivilWorker()) it.innerHTML=LOADING_HTML;
   if(isCivilWorker() && !workerJobsDisplayed_() && !cached){
@@ -2356,13 +2362,14 @@ function loadIssues(force){ force=!!force; try {
     if(workerFetch && fetchSeq!==_workerIssuesFetchSeq) return;
     if(Array.isArray(d)){
       var merged=mergeIssueMetaFromServer(d, prevIssues.length?prevIssues:(cached||[]));
-      var changed=setIssuesFromData(merged);
-      writeIssuesCacheAsync(merged);
+      setIssuesFromData(merged);
+      writeIssuesCache(merged);
       if(isCivilWorker()){
-        if(changed) renderWorkerJobs();
+        renderWorkerJobs(true);
         if(typeof empirePushOnIssuesLoaded==='function') empirePushOnIssuesLoaded(merged);
+      } else {
+        requestAnimationFrame(function(){ refreshAllIssueTabs(); });
       }
-      else { requestAnimationFrame(function(){ refreshAllIssueTabs(); }); }
     } else if(d&&d.ok===false){
       if(forceSessionLogout(d)) return;
       if(isCivilWorker() && !workerJobsDisplayed_()) workerShowJobsError_(new Error(d.message||d.error||'Could not load jobs'));

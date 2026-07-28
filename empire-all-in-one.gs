@@ -75,35 +75,37 @@ var HSE_JOBDEPT_COL = 19;
 var _SS_CACHE = null;
 function getSS_() { if (!_SS_CACHE) _SS_CACHE = SpreadsheetApp.openById(SHEET_ID); return _SS_CACHE; }
 function issuesCacheKey_(sheetName) { return 'issues_v2_' + sheetName; }
+function invalidateIssuesCacheKey_(cache, ckey) {
+  try {
+    var meta = cache.get(ckey + '_meta');
+    if (meta) {
+      var m = JSON.parse(meta);
+      for (var p = 0; p < m.parts; p++) cache.remove(ckey + '_' + p);
+      cache.remove(ckey + '_meta');
+    }
+  } catch (e2) {}
+  try { cache.remove(ckey); } catch (e3) {}
+}
 function invalidateIssuesCache_(sheetName) {
   try {
     var cache = CacheService.getScriptCache();
     var ckey = issuesCacheKey_(sheetName);
-    try {
-      var meta = cache.get(ckey + '_meta');
-      if (meta) {
-        var m = JSON.parse(meta);
-        for (var p = 0; p < m.parts; p++) cache.remove(ckey + '_' + p);
-        cache.remove(ckey + '_meta');
-      }
-    } catch(e2){}
-    cache.remove(ckey);
+    invalidateIssuesCacheKey_(cache, ckey);
     if (sheetName === CIVIL_SHEET) {
       var workers = Object.keys(CIVIL_WORKER_TEAM);
       for (var wi = 0; wi < workers.length; wi++) {
-        cache.remove(ckey + '_wu_' + workers[wi]);
+        invalidateIssuesCacheKey_(cache, ckey + '_wu_' + workers[wi]);
       }
       ['plumber', 'pipes', 'painting', 'tiles', 'wood'].forEach(function (t) {
-        var wk = ckey + '_w_' + t;
-        cache.remove(wk);
+        invalidateIssuesCacheKey_(cache, ckey + '_w_' + t);
       });
     }
     if (sheetName === ELECTRIC_SHEET) {
       var eworkers = Object.keys(ELECTRIC_WORKER_TEAM);
       for (var ew = 0; ew < eworkers.length; ew++) {
-        cache.remove(ckey + '_wu_' + eworkers[ew]);
+        invalidateIssuesCacheKey_(cache, ckey + '_wu_' + eworkers[ew]);
       }
-      cache.remove(ckey + '_w_electric');
+      invalidateIssuesCacheKey_(cache, ckey + '_w_electric');
     }
   } catch(e){}
 }
