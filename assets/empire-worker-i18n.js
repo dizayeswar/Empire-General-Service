@@ -1,15 +1,16 @@
 /**
- * Electric worker mobile UI — English / Sorani (ckb) translations.
+ * Electric worker mobile UI — English / Sorani (ckb) / Arabic (ar) translations.
  * Loaded on electric-issue.html only.
  */
 (function () {
   var STORAGE_KEY = 'empire_worker_lang';
+  var LANGS = ['en', 'ckb', 'ar'];
   var _lang = 'en';
 
   var STRINGS = {
     en: {
       langToggle: 'کوردی',
-      langToggleAria: 'Switch to Kurdish',
+      langToggleAria: 'Switch language',
       logout: 'Logout',
       logoutConfirmTitle: 'Log out?',
       logoutConfirmLead: 'Enter your login password to confirm logout.',
@@ -198,8 +199,8 @@
       locTryAgain: 'Try again'
     },
     ckb: {
-      langToggle: 'EN',
-      langToggleAria: 'گۆڕین بۆ ئینگلیزی',
+      langToggle: 'عربي',
+      langToggleAria: 'گۆڕینی زمان',
       logout: 'چوونەدەرەوە',
       logoutConfirmTitle: 'دەتەوێت بچیتە دەرەوە؟',
       logoutConfirmLead: 'وشەی نهێنی چوونەژوورەوە بنووسە بۆ دڵنیابوون.',
@@ -378,13 +379,209 @@
       modalJob: 'کار',
       locEnable: 'چالاککردنی شوێن',
       locTryAgain: 'دووبارە هەوڵ بدەرەوە'
+    },
+    ar: {
+      langToggle: 'EN',
+      langToggleAria: 'تغيير اللغة',
+      logout: 'تسجيل الخروج',
+      logoutConfirmTitle: 'تسجيل الخروج؟',
+      logoutConfirmLead: 'أدخل كلمة مرور الدخول لتأكيد تسجيل الخروج.',
+      logoutPasswordLabel: 'كلمة المرور',
+      logoutPasswordPlaceholder: 'كلمة مرور الدخول',
+      logoutCancel: 'إلغاء',
+      logoutConfirmBtn: 'تسجيل الخروج',
+      logoutNeedPassword: 'أدخل كلمة المرور.',
+      logoutWrongPassword: 'كلمة المرور غير صحيحة. حاول مرة أخرى.',
+      logoutChecking: 'جارٍ التحقق من كلمة المرور\u2026',
+      logoutVerifyFailed: 'تعذّر التحقق من كلمة المرور. تحقق من الاتصال وحاول مرة أخرى.',
+      loading: 'جارٍ التحميل…',
+      refreshAria: 'تحديث',
+      tabJobs: 'المهام المعينة',
+      tabReport: 'إضافة تقرير',
+      jobsOpenCount: function (p) {
+        var n = p.count || 0;
+        return n + ' مهمة مفتوحة معينة لك';
+      },
+      jobsUnavailable: 'المهام غير متاحة',
+      jobsTryAgain: 'حاول مرة أخرى',
+      jobsNoOpen: 'لا توجد مهام مفتوحة حالياً.',
+      jobsNoOpenHint: 'اسحب للأسفل أو اضغط تحديث عندما يعيّن المهندس عملاً جديداً.',
+      jobsPendingUpload: function (p) {
+        var n = p.count || 0;
+        return n + ' إصلاح بانتظار الرفع عند توفر الإشارة.';
+      },
+      jobsNoPhoto: 'لا توجد صورة',
+      jobsSearchLabel: 'البحث بالموقع',
+      jobsSearchPlaceholder: 'مثال: WW-10-8',
+      jobsNoSearchMatch: 'لا توجد مهام تطابق بحثك.',
+      wfrPlaceLabel: 'المكان / الموقع',
+      wfrPlacePlaceholder: 'أين؟ مثال: ممر WW-12، موقف ES-4…',
+      wfrNoteLabel: 'ملاحظة',
+      wfrNotePlaceholder: 'ماذا وجدت أو ماذا فعلت؟',
+      wfrRefundable: 'عمل قابل للاسترداد',
+      wfrRefundableHint: 'اتركه بدون تحديد لـ<strong>الصيانة</strong>. عند التحديد، أضف <strong>صورة العمل</strong> و<strong>صورة الفاتورة</strong>.',
+      wfrRefundableNote: 'العمل القابل للاسترداد يحتاج إلى <strong>صورة العمل</strong> و<strong>صورة الفاتورة</strong> قبل الإرسال.',
+      wfrJobPhoto: 'صور العمل',
+      wfrJobPhotos: 'صور العمل',
+      wfrJobPhotoHint: 'حتى ٣ صور — الكاميرا أو المعرض',
+      wfrAddPhoto: 'إضافة صورة — الكاميرا أو المعرض',
+      wfrInvoicePhoto: 'صورة الفاتورة',
+      wfrSubmit: 'إرسال إلى قسم الكهرباء',
+      wfrSubmitOffline: 'حفظ على الجهاز — أعد المحاولة لاحقاً',
+      wfrSavingOnDevice: 'جارٍ الحفظ على هذا الجهاز…',
+      wfrSavedWillRetry: 'تم الحفظ على هذا الجهاز. ارفع عند توفر الإشارة — اضغط إعادة الرفع.',
+      wfrWaitingSignal: 'بانتظار الرفع عند توفر الإشارة.',
+      wfrOnDevice: 'على الجهاز',
+      wfrPhotoSavedOnDevice: 'تم حفظ الصورة على هذا الجهاز. ستُرفع عند توفر الإشارة.',
+      wfrInvoiceSavedOnDevice: 'تم حفظ الفاتورة على الجهاز — ستُرفع مع التقرير',
+      wfrBannerTitle: function (p) {
+        var n = p.count || 0;
+        return n + ' تقرير بانتظار الرفع';
+      },
+      wfrBannerSubtitle: 'محفوظ على هذا الهاتف — اضغط إعادة المحاولة عند توفر الإشارة.',
+      wfrBannerRetry: 'إعادة الرفع',
+      wfrPendingTitle: function (p) {
+        var n = p.count || 0;
+        return n + ' تقرير بانتظار الرفع';
+      },
+      wfrPendingHint: 'محفوظ على هذا الهاتف. اضغط إعادة المحاولة عند توفر الإشارة.',
+      wfrRecentReports: 'تقاريرك الأخيرة',
+      wfrNoReports: 'لا توجد تقارير بعد.',
+      wfrNoReportsSubmitted: 'لم يُرسل أي تقرير بعد.',
+      wfrCouldNotLoad: 'تعذّر تحميل تقاريرك.',
+      wfrSubmitSuccess: 'تم إرسال التقرير إلى قسم الكهرباء.',
+      wfrUploading: 'جارٍ الرفع…',
+      wfrJobPhotoReady: 'صورة العمل جاهزة — اضغط للاستبدال',
+      wfrJobPhotosReady: function (p) {
+        var n = p.count || 0;
+        return n + ' صورة جاهزة';
+      },
+      wfrPhotoMaxReached: function (p) {
+        return 'يمكنك إضافة حتى ' + (p.max || 3) + ' صور عمل. احذف واحدة لإضافة أخرى.';
+      },
+      wfrPhotoN: function (p) { return 'صورة ' + (p.index || 1); },
+      wfrRemovePhotoAria: 'إزالة الصورة',
+      wfrInvoicePhotoReady: 'صورة الفاتورة جاهزة — اضغط للاستبدال',
+      wfrInvoicePhotoReadyShort: 'صورة الفاتورة جاهزة',
+      wfrUploadFailed: 'فشل الرفع — حاول مرة أخرى',
+      wfrSending: 'جارٍ الإرسال…',
+      wfrNeedJobPhoto: 'تقارير الاسترداد تحتاج إلى صورة عمل قبل الإرسال.',
+      wfrNeedInvoicePhoto: 'تقارير الاسترداد تحتاج إلى صورة فاتورة قبل الإرسال.',
+      wfrNeedContent: 'أضف مكاناً أو ملاحظة أو صورة أو تسجيلاً صوتياً.',
+      wfrWaitUpload: 'يرجى الانتظار حتى ينتهي رفع الصورة.',
+      wfrRefundableBadge: 'قابل للاسترداد',
+      wfrMaintenanceBadge: 'صيانة',
+      wfrVoiceBadge: 'صوت',
+      wfrInvoiceAdded: 'تمت إضافة الفاتورة',
+      wfrInvoiceMissing: 'صورة الفاتورة مفقودة',
+      wfrNoJobPhoto: 'لا توجد صورة عمل',
+      wfrTapToView: 'اضغط للعرض',
+      wfrViewReportAria: 'عرض تفاصيل التقرير',
+      wfrReadOnlyLead: 'للقراءة فقط — لا يمكنك تعديل تقرير مُرسل.',
+      wfrReference: 'المرجع',
+      wfrType: 'النوع',
+      wfrDate: 'التاريخ',
+      wfrStatus: 'الحالة',
+      wfrStatusTransferred: 'أُضيف إلى التقرير الشهري',
+      wfrStatusPending: 'بانتظار مراجعة القسم',
+      wfrPlace: 'المكان',
+      wfrMaterials: 'المواد',
+      wfrAmount: 'المبلغ',
+      wfrNotSubmitted: 'غير مُرسل',
+      wfrVoiceNote: 'ملاحظة صوتية',
+      wfrModalTitle: 'تقريرك',
+      wfrInvoiceModalTitle: 'إضافة صورة الفاتورة',
+      wfrInvoiceModalLead: 'يمكنك إضافة صورة الفاتورة فقط هنا. لا يمكن تعديل التفاصيل الأخرى.',
+      wfrInvoiceModalPick: 'الكاميرا / المعرض — الفاتورة',
+      wfrSaveInvoice: 'حفظ صورة الفاتورة',
+      wfrSaving: 'جارٍ الحفظ…',
+      wfrInvoiceSaved: 'تم حفظ صورة الفاتورة.',
+      wfrChooseInvoiceFirst: 'اختر صورة الفاتورة أولاً.',
+      wfrBack: 'رجوع',
+      voiceLabel: 'ملاحظة صوتية <span class="assign-voice-optional">(اختياري)</span>',
+      voiceRecord: 'تسجيل',
+      voiceStop: 'إيقاف',
+      voiceRecording: 'جارٍ التسجيل',
+      voiceStatusWorker: 'اضغط تسجيل ووصف ما وجدته.',
+      voiceDelete: 'حذف التسجيل',
+      photoTitleJob: 'صورة العمل',
+      photoTitleInvoice: 'صورة الفاتورة',
+      photoTitleCompletion: 'صورة الإنجاز',
+      photoTitleAdd: 'إضافة صورة',
+      photoTakeCamera: 'التقاط صورة (الكاميرا)',
+      photoChooseGallery: 'اختيار من المعرض',
+      photoCancel: 'إلغاء',
+      fixNoteOptional: 'ملاحظة (اختياري)',
+      fixMaterialsOptional: 'المواد المستخدمة (اختياري)',
+      fixAddPhoto: 'إضافة صورة',
+      fixCameraOrGallery: 'الكاميرا أو المعرض',
+      fixAddPhotoAria: 'إضافة صورة الإنجاز',
+      fixPhotoMaxHint: function (p) {
+        return 'حتى ' + (p.max || 3) + ' صور — الكاميرا أو المعرض';
+      },
+      fixPhotoMaxReached: function (p) {
+        return 'يمكنك إضافة حتى ' + (p.max || 3) + ' صور. احذف واحدة لإضافة أخرى.';
+      },
+      fixMarkFixed: 'تحديد كمُصلح',
+      fixMarkFixedPhotos: function (p) {
+        var n = p.count || 0;
+        return 'تحديد كمُصلح (' + n + ' صورة)';
+      },
+      fixUploading: 'جارٍ رفع الصورة…',
+      fixNoteLabel: 'ملاحظة:',
+      fixJobNeedsWorkers: function (p) {
+        var need = p.need || 2;
+        var done = p.done || 0;
+        var s = 'هذه المهمة تحتاج إلى <strong>' + need + ' عمال</strong> ليأخذ كل منهم صوراً.';
+        if (done) s += ' <span>(' + done + '/' + need + ' مكتمل)</span>';
+        return s;
+      },
+      fixSavedOnDevice: 'تم الحفظ على هذا الجهاز',
+      fixPendingSync: 'بانتظار الإنترنت لرفع صورك وتحديد هذه المهمة كمُصلحة. أبقِ هذه الصفحة مفتوحة أو عد لاحقاً.',
+      fixRetryUpload: 'إعادة الرفع الآن',
+      fixRetryHint: 'عند تحسّن الإشارة، اضغط إعادة الرفع. صورك وملاحظاتك محفوظة بالفعل على هذا الهاتف.',
+      fixBannerTitle: function (p) {
+        var n = p.count || 0;
+        return n + ' إصلاح مهمة بانتظار الرفع';
+      },
+      fixBannerSubtitle: 'محفوظ على هذا الهاتف — اضغط إعادة المحاولة عند توفر الإشارة.',
+      fixBannerRetry: 'إعادة الرفع',
+      fixSavedWillRetry: 'تم الحفظ على هذا الجهاز. ارفع عند توفر الإشارة — اضغط إعادة الرفع.',
+      fixSaveOnDevice: function (p) {
+        var n = p.count || 0;
+        return 'حفظ على الجهاز (' + n + ' صورة) — أعد المحاولة لاحقاً';
+      },
+      fixSaving: 'جارٍ الحفظ\u2026',
+      fixSavingOnDevice: 'جارٍ الحفظ على هذا الجهاز\u2026',
+      fixYourPhotosPending: 'صورك (لم تُرفع بعد)',
+      fixPhotoN: function (p) { return 'صورة ' + (p.index || 1); },
+      fixOnDevice: 'على الجهاز',
+      fixWaitingSignal: 'بانتظار الرفع عند توفر الإشارة.',
+      fixLoadingSaved: 'جارٍ تحميل الإصلاح المحفوظ…',
+      fixAlreadyFixed: 'لقد حددت هذه المهمة كمُصلحة مسبقاً.',
+      fixNoMorePhotos: 'لا يمكنك إضافة المزيد من الصور لهذه المشكلة.',
+      fixYourSubmittedPhotos: 'صورك المُرسلة',
+      fixYourVoiceNote: 'ملاحظتك الصوتية',
+      fixWaitingOthers: function (p) {
+        return 'بانتظار العمال الآخرين لإكمال هذه المهمة (' + (p.done || 0) + '/' + (p.need || 0) + ' مكتمل).';
+      },
+      fixRemovePhotoAria: 'إزالة الصورة',
+      modalJob: 'مهمة',
+      locEnable: 'تفعيل الموقع',
+      locTryAgain: 'حاول مرة أخرى'
     }
   };
+
+  function workerNormalizeLang_(lang) {
+    lang = String(lang || '').toLowerCase();
+    if (lang === 'ckb' || lang === 'ar') return lang;
+    return 'en';
+  }
 
   function workerLangLoad_() {
     try {
       var saved = localStorage.getItem(STORAGE_KEY);
-      if (saved === 'ckb' || saved === 'en') return saved;
+      if (saved === 'ckb' || saved === 'en' || saved === 'ar') return saved;
     } catch (e) {}
     return 'en';
   }
@@ -402,7 +599,7 @@
   }
 
   function workerIsRtl() {
-    return _lang === 'ckb';
+    return _lang === 'ckb' || _lang === 'ar';
   }
 
   function workerApplyRtl_() {
@@ -410,7 +607,7 @@
     if (app) app.classList.toggle('worker-rtl', workerIsRtl());
     if (document.body.classList.contains('civil-worker-mode')) {
       document.documentElement.setAttribute('dir', workerIsRtl() ? 'rtl' : 'ltr');
-      document.documentElement.setAttribute('lang', workerIsRtl() ? 'ckb' : 'en');
+      document.documentElement.setAttribute('lang', _lang === 'ar' ? 'ar' : (_lang === 'ckb' ? 'ckb' : 'en'));
     }
   }
 
@@ -455,7 +652,7 @@
   }
 
   function workerSetLang(lang) {
-    lang = lang === 'ckb' ? 'ckb' : 'en';
+    lang = workerNormalizeLang_(lang);
     _lang = lang;
     workerLangSave_(lang);
     workerApplyRtl_();
@@ -464,7 +661,9 @@
   }
 
   function workerToggleLang() {
-    workerSetLang(_lang === 'ckb' ? 'en' : 'ckb');
+    var i = LANGS.indexOf(_lang);
+    if (i < 0) i = 0;
+    workerSetLang(LANGS[(i + 1) % LANGS.length]);
   }
 
   function workerInitLang_() {
