@@ -1243,12 +1243,18 @@ function workerFixVoiceFromDraftLocal_(issueId) {
 }
 function prepareWorkerFixVoice_(issueId) {
   var vid = workerFixVoiceId_(issueId);
+  // No signal: keep the recording on-device — never block Mark as fixed on upload.
+  if (!navigator.onLine) {
+    return workerFixVoiceFromDraftLocal_(issueId);
+  }
+  if (typeof assignVoiceHasDraft_ === 'function' && !assignVoiceHasDraft_(vid)) {
+    return Promise.resolve(null);
+  }
   var upload = (typeof assignVoiceEnsureUploaded_ === 'function')
-    ? assignVoiceEnsureUploaded_(vid, 20000)
+    ? assignVoiceEnsureUploaded_(vid, 12000)
     : Promise.resolve(null);
-  return upload.catch(function (e) {
-    if (typeof assignVoiceHasDraft_ !== 'function' || !assignVoiceHasDraft_(vid)) return null;
-    if (!workerFixIsNetworkError_(e && e.message)) throw e;
+  return upload.catch(function () {
+    // Any upload failure (including "Load failed") → keep voice locally for retry.
     return workerFixVoiceFromDraftLocal_(issueId);
   });
 }
@@ -1425,7 +1431,13 @@ function initWorkerOfflineSync() {
   });
   if (!window._workerOfflineOnlineBound) {
     window._workerOfflineOnlineBound = true;
-    window.addEventListener('online', function () { syncWorkerOfflineFixes(true); });
+    window.addEventListener('online', function () {
+      syncWorkerOfflineFixes(true);
+      try { updateWorkerSubmitBtn(); } catch (e) {}
+    });
+    window.addEventListener('offline', function () {
+      try { updateWorkerSubmitBtn(); } catch (e2) {}
+    });
   }
   if (!window._workerOfflinePollStarted) {
     window._workerOfflinePollStarted = true;
@@ -1691,9 +1703,15 @@ function updateWorkerSubmitBtn() {
   btn.disabled = !ready;
   if (_workerUploading > 0) btn.textContent = workerTxt_('fixUploading', 'Uploading photo\u2026');
   else if (!n) btn.textContent = workerTxt_('fixMarkFixed', 'Mark as fixed');
-  else btn.textContent = workerTxt_('fixMarkFixedPhotos', function (p) {
-    return 'Mark as fixed (' + p.count + ' photo' + (p.count === 1 ? '' : 's') + ')';
-  }, { count: n });
+  else if (!navigator.onLine) {
+    btn.textContent = workerTxt_('fixSaveOnDevice', function (p) {
+      return 'Save on device (' + p.count + ' photo' + (p.count === 1 ? '' : 's') + ') — retry later';
+    }, { count: n });
+  } else {
+    btn.textContent = workerTxt_('fixMarkFixedPhotos', function (p) {
+      return 'Mark as fixed (' + p.count + ' photo' + (p.count === 1 ? '' : 's') + ')';
+    }, { count: n });
+  }
 }
 function removeWorkerFixPhoto(idx) {
   _workerFixPhotos.splice(idx, 1);
@@ -1843,15 +1861,19 @@ function getWorkerFixLocationAsync(cb) {
     done = true;
     cb(val);
   }
-  setTimeout(function () { finish(null); }, 14000);
-  if (!navigator.geolocation) { finish(null); return; }
+  // Offline: don't wait on GPS — save the job immediately.
+  if (!navigator.onLine || !navigator.geolocation) {
+    finish(null);
+    return;
+  }
+  setTimeout(function () { finish(null); }, 8000);
   navigator.geolocation.getCurrentPosition(
     function (pos) {
       if (!pos || !pos.coords) { finish(null); return; }
       finish({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy });
     },
     function () { finish(null); },
-    { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+    { enableHighAccuracy: false, timeout: 6000, maximumAge: 120000 }
   );
 }
 function workerFixPayloadExtras_(coords) {
@@ -1871,15 +1893,23 @@ function submitWorkerFix(id) {
   var materialsEl = document.getElementById('worker-fix-materials');
   var note = noteEl ? noteEl.value.trim() : '';
   var materials = materialsEl ? materialsEl.value.trim() : '';
-  if (btn) { btn.disabled = true; btn.textContent = 'Saving\u2026'; }
-  // Always save on-device first, then upload. Weak signal no longer loses the completion.
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = navigator.onLine
+      ? workerTxt_('fixSaving', 'Saving\u2026')
+      : workerTxt_('fixSavingOnDevice', 'Saving on this device\u2026');
+  }
+  // Always save on-device first, then upload when possible.
   prepareWorkerFixVoice_(id).then(function (voiceNote) {
     getWorkerFixLocationAsync(function (coords) {
       submitWorkerFixOffline(id, note, btn, coords, voiceNote, materials);
     });
   }).catch(function (e) {
-    uiAlert('\u274c ' + (e.message || 'Voice note upload failed. The job was not saved — try again or delete the recording.'));
-    resetWorkerSubmitBtn_();
+    // Last resort: still save the job without voice rather than blocking the worker.
+    console.warn('Voice prepare failed, saving job without voice', e);
+    getWorkerFixLocationAsync(function (coords) {
+      submitWorkerFixOffline(id, note, btn, coords, null, materials);
+    });
   });
 }
 

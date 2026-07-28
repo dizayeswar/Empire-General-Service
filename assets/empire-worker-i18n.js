@@ -156,6 +156,12 @@
       fixBannerSubtitle: 'Saved on this phone — tap Retry when you have signal.',
       fixBannerRetry: 'Retry upload',
       fixSavedWillRetry: 'Saved on this device. Upload when you have signal — tap Retry upload.',
+      fixSaveOnDevice: function (p) {
+        var n = p.count || 0;
+        return 'Save on device (' + n + ' photo' + (n === 1 ? '' : 's') + ') — retry later';
+      },
+      fixSaving: 'Saving\u2026',
+      fixSavingOnDevice: 'Saving on this device\u2026',
       fixYourPhotosPending: 'Your photos (not uploaded yet)',
       fixPhotoN: function (p) { return 'Photo ' + (p.index || 1); },
       fixOnDevice: 'on device',
@@ -317,6 +323,11 @@
       fixBannerSubtitle: 'لەسەر مۆبایل پاشەکەوت کرا — کاتێک سیگنال هەبوو Retry دابگرە.',
       fixBannerRetry: 'دووبارە بارکردن',
       fixSavedWillRetry: 'لەسەر ئەم ئامێرە پاشەکەوت کرا. کاتێک سیگنال هەبوو دووبارە بارکردن دابگرە.',
+      fixSaveOnDevice: function (p) {
+        return 'پاشەکەوت لەسەر ئامێر (' + (p.count || 0) + ' وێنە) — دواتر دووبارە';
+      },
+      fixSaving: 'پاشەکەوتکردن\u2026',
+      fixSavingOnDevice: 'پاشەکەوتکردن لەسەر ئەم ئامێرە\u2026',
       fixYourPhotosPending: 'وێنەکانت (هێشتا بارنەکراون)',
       fixPhotoN: function (p) { return 'وێنە ' + (p.index || 1); },
       fixOnDevice: 'لەسەر ئامێر',
