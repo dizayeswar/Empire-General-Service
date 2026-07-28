@@ -1177,16 +1177,19 @@ async function workerOfflineQueueCount() {
   if (typeof empireOfflineQueueAll !== 'function') return 0;
   var rows = await empireOfflineQueueAll();
   return rows.filter(function (r) {
-    return r.type === 'worker_issue_fix' && r.dept === ISSUE_CFG.dept;
+    return (r.type === 'worker_issue_fix' || r.type === 'worker_field_report') && r.dept === ISSUE_CFG.dept;
   }).length;
 }
 async function refreshWorkerOfflineBanner() {
   if (!isCivilWorker() || typeof empireOfflineSetBanner !== 'function') return;
   var n = await workerOfflineQueueCount();
-  empireOfflineSetBanner(n, function () { syncWorkerOfflineFixes(false); }, {
+  empireOfflineSetBanner(n, function () {
+    syncWorkerOfflineFixes(true);
+    if (typeof syncWorkerFieldReportOffline === 'function') syncWorkerFieldReportOffline(false);
+  }, {
     title: workerTxt_('fixBannerTitle', function (p) {
       var c = p.count || 0;
-      return c + ' job fix' + (c === 1 ? '' : 'es') + ' waiting to upload';
+      return c + ' upload' + (c === 1 ? '' : 's') + ' waiting';
     }, { count: n }),
     subtitle: workerTxt_('fixBannerSubtitle', 'Saved on this phone — tap Retry when you have signal.'),
     buttonLabel: workerTxt_('fixBannerRetry', 'Retry upload')
@@ -1433,6 +1436,7 @@ function initWorkerOfflineSync() {
     window._workerOfflineOnlineBound = true;
     window.addEventListener('online', function () {
       syncWorkerOfflineFixes(true);
+      if (typeof syncWorkerFieldReportOffline === 'function') syncWorkerFieldReportOffline(true);
       try { updateWorkerSubmitBtn(); } catch (e) {}
     });
     window.addEventListener('offline', function () {

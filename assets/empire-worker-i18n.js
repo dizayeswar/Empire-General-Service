@@ -54,6 +54,24 @@
       wfrAddPhoto: 'Add photo — camera or gallery',
       wfrInvoicePhoto: 'Invoice photo',
       wfrSubmit: 'Send to Electrical Department',
+      wfrSubmitOffline: 'Save on device — retry later',
+      wfrSavingOnDevice: 'Saving on this device…',
+      wfrSavedWillRetry: 'Saved on this device. Upload when you have signal — tap Retry upload.',
+      wfrWaitingSignal: 'Waiting to upload when you have signal.',
+      wfrOnDevice: 'on device',
+      wfrPhotoSavedOnDevice: 'Photo saved on this device. It will upload when you have signal.',
+      wfrInvoiceSavedOnDevice: 'Invoice saved on this device — will upload with report',
+      wfrBannerTitle: function (p) {
+        var n = p.count || 0;
+        return n + ' report' + (n === 1 ? '' : 's') + ' waiting to upload';
+      },
+      wfrBannerSubtitle: 'Saved on this phone — tap Retry when you have signal.',
+      wfrBannerRetry: 'Retry upload',
+      wfrPendingTitle: function (p) {
+        var n = p.count || 0;
+        return n + ' report' + (n === 1 ? '' : 's') + ' waiting to upload';
+      },
+      wfrPendingHint: 'Saved on this phone. Tap Retry when you have signal.',
       wfrRecentReports: 'Your recent reports',
       wfrNoReports: 'No reports yet.',
       wfrNoReportsSubmitted: 'No reports submitted yet.',
@@ -224,6 +242,22 @@
       wfrAddPhoto: 'وێنە زیاد بکە — کامێرا یان گالەری',
       wfrInvoicePhoto: 'وێنەی پسوولە',
       wfrSubmit: 'ناردن بۆ بەشی کارەبا',
+      wfrSubmitOffline: 'پاشەکەوت لەسەر ئامێر — دواتر دووبارە',
+      wfrSavingOnDevice: 'پاشەکەوتکردن لەسەر ئەم ئامێرە…',
+      wfrSavedWillRetry: 'لەسەر ئەم ئامێرە پاشەکەوت کرا. کاتێک سیگنال هەبوو دووبارە بارکردن دابگرە.',
+      wfrWaitingSignal: 'چاوەڕێی ئینتەرنێتە بۆ بارکردن.',
+      wfrOnDevice: 'لەسەر ئامێر',
+      wfrPhotoSavedOnDevice: 'وێنە لەسەر ئەم ئامێرە پاشەکەوت کرا. کاتێک سیگنال هەبوو باردەکرێت.',
+      wfrInvoiceSavedOnDevice: 'پسوولە لەسەر ئامێر پاشەکەوت کرا — لەگەڵ ڕاپۆرت باردەکرێت',
+      wfrBannerTitle: function (p) {
+        return (p.count || 0) + ' ڕاپۆرت چاوەڕێی بارکردنە';
+      },
+      wfrBannerSubtitle: 'لەسەر مۆبایل پاشەکەوت کرا — کاتێک سیگنال هەبوو Retry دابگرە.',
+      wfrBannerRetry: 'دووبارە بارکردن',
+      wfrPendingTitle: function (p) {
+        return (p.count || 0) + ' ڕاپۆرت چاوەڕێی بارکردنە';
+      },
+      wfrPendingHint: 'لەسەر مۆبایل پاشەکەوت کرا. کاتێک سیگنال هەبوو Retry دابگرە.',
       wfrRecentReports: 'ڕاپۆرتە نوێیەکانت',
       wfrNoReports: 'هێشتا ڕاپۆرت نییە.',
       wfrNoReportsSubmitted: 'هێشتا ڕاپۆرت نەنێردراوە.',

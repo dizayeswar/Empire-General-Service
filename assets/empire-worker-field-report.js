@@ -10,6 +10,299 @@ var _wfrReports = [];
 var _wfrActiveTab = 'jobs';
 var _wfrInvoiceModalId = '';
 var _wfrInvoiceModalUrl = '';
+var _wfrOfflineSyncRunning = false;
+var _wfrOfflinePending = [];
+
+function workerFieldReportIsDataUrl_(url) {
+  return String(url || '').indexOf('data:') === 0;
+}
+
+function workerFieldReportOfflineId_() {
+  return 'wfr-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+}
+
+function workerFieldReportCompressToBlob_(file, cb) {
+  var r = new FileReader();
+  r.onload = function (e) {
+    var img = new Image();
+    img.onload = function () {
+      var mx = 1400;
+      var s = Math.min(1, mx / Math.max(img.width, img.height));
+      var c = document.createElement('canvas');
+      c.width = Math.round(img.width * s);
+      c.height = Math.round(img.height * s);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      c.toBlob(function (b) { cb(b); }, 'image/jpeg', 0.7);
+    };
+    img.onerror = function () { cb(null); };
+    img.src = e.target.result;
+  };
+  r.onerror = function () { cb(null); };
+  r.readAsDataURL(file);
+}
+
+async function workerFieldReportOfflineCount_() {
+  if (typeof empireOfflineQueueAll !== 'function') return 0;
+  var rows = await empireOfflineQueueAll();
+  var dept = (ISSUE_CFG && ISSUE_CFG.dept) || '';
+  return rows.filter(function (r) {
+    return r.type === 'worker_field_report' && r.dept === dept;
+  }).length;
+}
+
+async function refreshWorkerFieldReportOfflineBanner_() {
+  if (typeof refreshWorkerOfflineBanner === 'function') {
+    await refreshWorkerOfflineBanner();
+    return;
+  }
+  if (typeof empireOfflineSetBanner !== 'function') return;
+  var n = await workerFieldReportOfflineCount_();
+  empireOfflineSetBanner(n, function () { syncWorkerFieldReportOffline(false); }, {
+    title: workerFieldReportT_('wfrBannerTitle', function (p) {
+      var c = p.count || 0;
+      return c + ' report' + (c === 1 ? '' : 's') + ' waiting to upload';
+    }, { count: n }),
+    subtitle: workerFieldReportT_('wfrBannerSubtitle', 'Saved on this phone — tap Retry when you have signal.'),
+    buttonLabel: workerFieldReportT_('wfrBannerRetry', 'Retry upload')
+  });
+}
+
+async function workerFieldReportLoadPendingOffline_() {
+  _wfrOfflinePending = [];
+  if (typeof empireOfflineQueueAll !== 'function') return;
+  try {
+    var rows = await empireOfflineQueueAll();
+    var dept = (ISSUE_CFG && ISSUE_CFG.dept) || '';
+    var user = String(empireGetUser() || '').trim().toLowerCase();
+    _wfrOfflinePending = rows.filter(function (r) {
+      return r.type === 'worker_field_report' && r.dept === dept && (!r.user || String(r.user).toLowerCase() === user);
+    }).sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
+  } catch (e) {
+    _wfrOfflinePending = [];
+  }
+}
+
+function workerFieldReportPrepareVoice_() {
+  var vid = workerFieldReportVoiceId_();
+  if (!navigator.onLine) {
+    return workerFieldReportVoiceFromDraftLocal_();
+  }
+  if (typeof assignVoiceHasDraft_ === 'function' && !assignVoiceHasDraft_(vid)) {
+    return Promise.resolve(null);
+  }
+  var upload = (typeof assignVoiceEnsureUploaded_ === 'function')
+    ? assignVoiceEnsureUploaded_(vid, 12000)
+    : Promise.resolve(null);
+  return upload.catch(function () {
+    return workerFieldReportVoiceFromDraftLocal_();
+  });
+}
+
+function workerFieldReportVoiceFromDraftLocal_() {
+  var vid = workerFieldReportVoiceId_();
+  if (typeof assignVoiceDraft_ !== 'function' || typeof assignVoiceHasDraft_ !== 'function') {
+    return Promise.resolve(null);
+  }
+  if (!assignVoiceHasDraft_(vid)) return Promise.resolve(null);
+  var draft = assignVoiceDraft_(vid);
+  if (!draft || !draft.blob || typeof empireOfflineBlobToDataUrl !== 'function') return Promise.resolve(null);
+  return empireOfflineBlobToDataUrl(draft.blob).then(function (dataUrl) {
+    return {
+      _offlineDataUrl: dataUrl,
+      by: empireGetUser() || '',
+      at: new Date().toISOString(),
+      durationSec: Number(draft.durationSec) || 0,
+      mimeType: (draft.blob && draft.blob.type) || 'audio/wav'
+    };
+  });
+}
+
+async function enqueueWorkerFieldReportOffline_(payload) {
+  if (typeof empireOfflineQueuePut !== 'function') throw new Error('Offline queue not available');
+  var id = workerFieldReportOfflineId_();
+  var photos = (payload.photos || []).slice();
+  var invoice = payload.invoicePhoto || '';
+  var item = {
+    id: id,
+    type: 'worker_field_report',
+    dept: (ISSUE_CFG && ISSUE_CFG.dept) || '',
+    place: payload.place || '',
+    note: payload.note || '',
+    materials: payload.materials || '',
+    amount: payload.amount || '',
+    reportType: payload.reportType || 'maintenance',
+    photos: photos,
+    invoicePhoto: invoice,
+    workerName: payload.workerName || '',
+    user: empireGetUser() || '',
+    createdAt: Date.now()
+  };
+  if (payload.voiceNote && payload.voiceNote.url) {
+    item.voiceNote = payload.voiceNote;
+  } else if (payload.voiceNote && payload.voiceNote._offlineDataUrl) {
+    item.voiceNoteDataUrl = payload.voiceNote._offlineDataUrl;
+    item.voiceMeta = {
+      by: payload.voiceNote.by || empireGetUser() || '',
+      at: payload.voiceNote.at || new Date().toISOString(),
+      durationSec: Number(payload.voiceNote.durationSec) || 0,
+      mimeType: payload.voiceNote.mimeType || 'audio/wav'
+    };
+  }
+  await empireOfflineQueuePut(item);
+  await refreshWorkerFieldReportOfflineBanner_();
+  await workerFieldReportLoadPendingOffline_();
+  workerFieldReportRenderMine_();
+  return id;
+}
+
+async function syncWorkerFieldReportOffline(silent) {
+  if (_wfrOfflineSyncRunning) return { synced: 0 };
+  if (!navigator.onLine) {
+    if (!silent) {
+      var msgOffline = document.getElementById('wfrFormMsg');
+      if (msgOffline) {
+        msgOffline.textContent = workerFieldReportT_('wfrWaitingSignal', 'Waiting to upload when you have signal.');
+        msgOffline.className = 'worker-field-msg';
+      } else if (typeof uiAlert === 'function') {
+        uiAlert(workerFieldReportT_('wfrWaitingSignal', 'Waiting to upload when you have signal.'));
+      }
+    }
+    return { synced: 0 };
+  }
+  if (typeof empireOfflineQueueAll !== 'function') return { synced: 0 };
+  _wfrOfflineSyncRunning = true;
+  var synced = 0;
+  try {
+    var cfg = workerFieldReportCfg_();
+    if (!cfg || !cfg.actions || !cfg.actions.add) return { synced: 0 };
+    var rows = await empireOfflineQueueAll();
+    var dept = (ISSUE_CFG && ISSUE_CFG.dept) || '';
+    var items = rows.filter(function (r) { return r.type === 'worker_field_report' && r.dept === dept; });
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      try {
+        var photos = [];
+        var srcPhotos = item.photos || [];
+        for (var pi = 0; pi < srcPhotos.length; pi++) {
+          var pUrl = String(srcPhotos[pi] || '');
+          if (!pUrl) continue;
+          if (workerFieldReportIsDataUrl_(pUrl)) {
+            var pBlob = empireOfflineDataUrlToBlob(pUrl);
+            if (!pBlob) throw new Error('Invalid saved photo');
+            var uploaded = typeof empireUploadPhotoAsync === 'function'
+              ? await empireUploadPhotoAsync(pBlob, workerFieldReportPhotoFolder_())
+              : null;
+            if (!uploaded) throw new Error('Photo upload failed');
+            photos.push(uploaded);
+          } else {
+            photos.push(pUrl);
+          }
+        }
+        var invoicePhoto = String(item.invoicePhoto || '');
+        if (invoicePhoto && workerFieldReportIsDataUrl_(invoicePhoto)) {
+          var iBlob = empireOfflineDataUrlToBlob(invoicePhoto);
+          if (!iBlob) throw new Error('Invalid saved invoice photo');
+          invoicePhoto = typeof empireUploadPhotoAsync === 'function'
+            ? await empireUploadPhotoAsync(iBlob, workerFieldReportPhotoFolder_())
+            : '';
+          if (!invoicePhoto) throw new Error('Invoice photo upload failed');
+        }
+        var voiceNote = null;
+        if (item.voiceNote && item.voiceNote.url) {
+          voiceNote = item.voiceNote;
+        } else if (item.voiceNoteDataUrl) {
+          var vBlob = empireOfflineDataUrlToBlob(item.voiceNoteDataUrl);
+          if (!vBlob) throw new Error('Invalid saved voice note');
+          var vUrl = typeof empireUploadAudioAsync === 'function'
+            ? await empireUploadAudioAsync(vBlob, workerFieldReportPhotoFolder_())
+            : null;
+          if (!vUrl) throw new Error('Voice note upload failed');
+          var meta = item.voiceMeta || {};
+          voiceNote = {
+            url: vUrl,
+            by: meta.by || item.user || '',
+            at: meta.at || new Date().toISOString(),
+            durationSec: Number(meta.durationSec) || 0,
+            mimeType: meta.mimeType || 'audio/wav'
+          };
+        }
+        var body = {
+          action: cfg.actions.add,
+          token: issueToken() || '',
+          place: item.place || '',
+          note: item.note || '',
+          materials: item.materials || '',
+          amount: item.amount || '',
+          reportType: item.reportType || 'maintenance',
+          photo: photos[0] || '',
+          photos: photos,
+          invoicePhoto: invoicePhoto || '',
+          workerName: item.workerName || ''
+        };
+        if (voiceNote && voiceNote.url) body.voiceNote = voiceNote;
+        var d = await fetchJSONRetry(body, 3, 45000);
+        if (d && d.ok === false) {
+          if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d, typeof issueSessionLogoutOpts === 'function' ? issueSessionLogoutOpts() : undefined)) {
+            return { synced: synced };
+          }
+          throw new Error(d.message || d.error || 'Could not send report');
+        }
+        if (!(d && (d.ok || d.success))) throw new Error('Unexpected server response');
+        await empireOfflineQueueDelete(item.id);
+        synced++;
+      } catch (e) {
+        console.warn('Field report offline sync failed', item.id, e && e.message);
+      }
+    }
+    await refreshWorkerFieldReportOfflineBanner_();
+    await workerFieldReportLoadPendingOffline_();
+    workerFieldReportRenderMine_();
+    if (synced) workerFieldReportLoadMine_(true);
+    if (synced && !silent) {
+      var msgOk = document.getElementById('wfrFormMsg');
+      var text = '\u2705 ' + synced + ' report' + (synced === 1 ? '' : 's') + ' uploaded.';
+      if (msgOk && _wfrActiveTab === 'report') {
+        msgOk.textContent = text;
+        msgOk.className = 'worker-field-msg worker-field-msg-ok';
+      } else if (typeof uiAlert === 'function') {
+        uiAlert(text);
+      }
+    }
+    return { synced: synced };
+  } finally {
+    _wfrOfflineSyncRunning = false;
+  }
+}
+
+function initWorkerFieldReportOfflineSync_() {
+  if (!workerFieldReportEnabled_() || !isCivilWorker()) return;
+  workerFieldReportLoadPendingOffline_().then(function () {
+    refreshWorkerFieldReportOfflineBanner_();
+    workerFieldReportRenderMine_();
+    syncWorkerFieldReportOffline(true);
+  });
+  if (!window._wfrOfflineOnlineBound) {
+    window._wfrOfflineOnlineBound = true;
+    window.addEventListener('online', function () { syncWorkerFieldReportOffline(true); });
+  }
+  if (!window._wfrOfflinePollStarted) {
+    window._wfrOfflinePollStarted = true;
+    setInterval(function () {
+      if (!isCivilWorker() || _wfrActiveTab !== 'report') return;
+      syncWorkerFieldReportOffline(true);
+    }, 20000);
+  }
+}
+
+function workerFieldReportUpdateSubmitBtnLabel_() {
+  var btn = document.getElementById('wfrSubmitBtn');
+  if (!btn || _wfrSubmitting) return;
+  if (!navigator.onLine) {
+    btn.textContent = workerFieldReportT_('wfrSubmitOffline', 'Save on device — retry later');
+  } else {
+    btn.textContent = workerFieldReportT_('wfrSubmit', 'Send to Electrical Department');
+  }
+}
 
 function workerFieldReportCfg_() {
   return (ISSUE_CFG && ISSUE_CFG.workerFieldReport) || null;
@@ -154,9 +447,11 @@ function workerFieldReportRenderJobPhotoGrid_() {
   } else {
     grid.classList.remove('worker-photo-grid-empty');
     grid.innerHTML = _wfrJobPhotos.map(function (url, i) {
+      var offline = workerFieldReportIsDataUrl_(url);
       return '<div class="worker-photo-item"><img src="' + workerFieldReportEsc_(url) + '" onclick="bigImg(this.src)" alt="Photo ' + (i + 1) + '">'
         + '<button type="button" class="worker-photo-remove" onclick="workerFieldReportRemoveJobPhoto(' + i + ')" aria-label="' + workerFieldReportT_('wfrRemovePhotoAria', 'Remove photo') + '">&times;</button>'
-        + '<span class="worker-photo-label">' + workerFieldReportT_('wfrPhotoN', function (p) { return 'Photo ' + (p.index || 1); }, { index: i + 1 }) + '</span></div>';
+        + '<span class="worker-photo-label">' + workerFieldReportT_('wfrPhotoN', function (p) { return 'Photo ' + (p.index || 1); }, { index: i + 1 })
+        + (offline ? (' · ' + workerFieldReportT_('wfrOnDevice', 'on device')) : '') + '</span></div>';
     }).join('');
   }
   var addZone = document.getElementById('wfrJobPhotoAddZone');
@@ -174,6 +469,7 @@ function workerFieldReportRenderJobPhotoGrid_() {
       status.textContent = '';
     }
   }
+  workerFieldReportUpdateSubmitBtnLabel_();
 }
 
 function workerFieldReportRemoveJobPhoto_(idx) {
@@ -234,7 +530,14 @@ function workerFieldReportInit_() {
   workerFieldReportMountVoice_();
   workerFieldReportInitCardTap_();
   workerFieldReportClearForm_(false);
+  workerFieldReportUpdateSubmitBtnLabel_();
+  initWorkerFieldReportOfflineSync_();
   workerFieldReportLoadMine_();
+  if (!window._wfrOfflineBtnBound) {
+    window._wfrOfflineBtnBound = true;
+    window.addEventListener('online', workerFieldReportUpdateSubmitBtnLabel_);
+    window.addEventListener('offline', workerFieldReportUpdateSubmitBtnLabel_);
+  }
 }
 
 function workerFieldReportMountVoice_() {
@@ -257,7 +560,12 @@ function workerFieldReportSwitchTab_(tab) {
   if (countBar) countBar.style.display = tab === 'jobs' ? '' : 'none';
   if (btnJobs) btnJobs.classList.toggle('active', tab === 'jobs');
   if (btnReport) btnReport.classList.toggle('active', tab === 'report');
-  if (tab === 'report') workerFieldReportLoadMine_(true);
+  if (tab === 'report') {
+    workerFieldReportUpdateSubmitBtnLabel_();
+    workerFieldReportLoadPendingOffline_().then(function () { workerFieldReportRenderMine_(); });
+    workerFieldReportLoadMine_(true);
+    syncWorkerFieldReportOffline(true);
+  }
 }
 
 function workerFieldReportPickPhoto_() {
@@ -325,26 +633,67 @@ function workerFieldReportProcessPhoto_(file, kind) {
   if (status) status.textContent = workerFieldReportT_('wfrUploading', 'Uploading\u2026');
   if (kind === 'invoice') _wfrInvoiceUploading = true;
   else _wfrJobUploading++;
-  empireCompressImage(file, workerFieldReportPhotoFolder_(), function (url) {
+
+  function finishWithUrl(url, offline) {
     if (kind === 'invoice') _wfrInvoiceUploading = false;
     else _wfrJobUploading = Math.max(0, _wfrJobUploading - 1);
-    if (url) {
-      if (kind === 'invoice') {
-        _wfrInvoicePhotoUrl = url;
-        var invoiceIm = document.getElementById('wfrInvoiceImage');
-        if (invoiceIm) {
-          invoiceIm.src = url;
-          invoiceIm.style.display = 'block';
-        }
-        if (status) status.textContent = '\u2705 ' + workerFieldReportT_('wfrInvoicePhotoReady', 'Invoice photo ready — tap to replace');
-      } else {
-        _wfrJobPhotos.push(url);
-        workerFieldReportRenderJobPhotoGrid_();
-      }
-    } else if (status) {
-      status.textContent = '\u274C ' + (_lastEmpireUploadError || workerFieldReportT_('wfrUploadFailed', 'Upload failed — try again'));
+    if (!url) {
+      if (status) status.textContent = '\u274C ' + (_lastEmpireUploadError || workerFieldReportT_('wfrUploadFailed', 'Upload failed — try again'));
+      return;
     }
-  }, { maxSize: 1400, quality: 0.7 });
+    if (kind === 'invoice') {
+      _wfrInvoicePhotoUrl = url;
+      var invoiceIm = document.getElementById('wfrInvoiceImage');
+      if (invoiceIm) {
+        invoiceIm.src = url;
+        invoiceIm.style.display = 'block';
+      }
+      if (status) {
+        status.textContent = '\u2705 ' + (offline
+          ? workerFieldReportT_('wfrInvoiceSavedOnDevice', 'Invoice saved on this device — will upload with report')
+          : workerFieldReportT_('wfrInvoicePhotoReady', 'Invoice photo ready — tap to replace'));
+      }
+    } else {
+      _wfrJobPhotos.push(url);
+      workerFieldReportRenderJobPhotoGrid_();
+      if (status && offline) {
+        status.textContent = '\u2705 ' + workerFieldReportT_('wfrPhotoSavedOnDevice', 'Photo saved on this device. It will upload when you have signal.');
+      }
+    }
+    workerFieldReportUpdateSubmitBtnLabel_();
+  }
+
+  workerFieldReportCompressToBlob_(file, function (blob) {
+    if (!blob) {
+      if (kind === 'invoice') _wfrInvoiceUploading = false;
+      else _wfrJobUploading = Math.max(0, _wfrJobUploading - 1);
+      if (status) status.textContent = '\u274C ' + workerFieldReportT_('wfrUploadFailed', 'Upload failed — try again');
+      return;
+    }
+    if (!navigator.onLine) {
+      if (typeof empireOfflineBlobToDataUrl !== 'function') {
+        finishWithUrl(null);
+        return;
+      }
+      empireOfflineBlobToDataUrl(blob).then(function (dataUrl) {
+        finishWithUrl(dataUrl, true);
+      }).catch(function () { finishWithUrl(null); });
+      return;
+    }
+    empireUploadPhoto(blob, workerFieldReportPhotoFolder_(), function (url) {
+      if (url) {
+        finishWithUrl(url, false);
+        return;
+      }
+      if (typeof empireOfflineBlobToDataUrl !== 'function') {
+        finishWithUrl(null);
+        return;
+      }
+      empireOfflineBlobToDataUrl(blob).then(function (dataUrl) {
+        finishWithUrl(dataUrl, true);
+      }).catch(function () { finishWithUrl(null); });
+    });
+  });
 }
 
 function workerFieldReportHandleFile_(e) {
@@ -454,11 +803,21 @@ function workerFieldReportInitCardTap_() {
 function workerFieldReportRenderMine_() {
   var host = document.getElementById('workerFieldMyReports');
   if (!host) return;
-  if (!_wfrReports.length) {
-    host.innerHTML = '<p class="worker-empty" style="font-size:13px;">' + workerFieldReportT_('wfrNoReportsSubmitted', 'No reports submitted yet.') + '</p>';
+  var pendingHtml = '';
+  if (_wfrOfflinePending && _wfrOfflinePending.length) {
+    pendingHtml = '<div class="worker-field-pending-box" style="margin-bottom:12px;padding:12px;border:2px solid #e6b800;border-radius:12px;background:#fff7e8;">'
+      + '<p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#5a4200;">' + workerFieldReportT_('wfrPendingTitle', function (p) {
+        return (p.count || 0) + ' report' + ((p.count || 0) === 1 ? '' : 's') + ' waiting to upload';
+      }, { count: _wfrOfflinePending.length }) + '</p>'
+      + '<p style="margin:0 0 10px;font-size:12px;color:#5a4200;">' + workerFieldReportT_('wfrPendingHint', 'Saved on this phone. Tap Retry when you have signal.') + '</p>'
+      + '<button type="button" class="worker-field-submit" style="margin:0;" onclick="syncWorkerFieldReportOffline(false)">' + workerFieldReportT_('wfrBannerRetry', 'Retry upload') + '</button>'
+      + '</div>';
+  }
+  if (!_wfrReports.length && !(_wfrOfflinePending && _wfrOfflinePending.length)) {
+    host.innerHTML = pendingHtml + '<p class="worker-empty" style="font-size:13px;">' + workerFieldReportT_('wfrNoReportsSubmitted', 'No reports submitted yet.') + '</p>';
     return;
   }
-  host.innerHTML = '<div class="worker-field-my-list">' + _wfrReports.slice(0, 12).map(function (r) {
+  var listHtml = !_wfrReports.length ? '' : ('<div class="worker-field-my-list">' + _wfrReports.slice(0, 12).map(function (r) {
     var jobPhotos = workerFieldReportJobPhotosFromRow_(r);
     var media = jobPhotos.length
       ? ('<div class="worker-field-my-media"><img class="worker-field-my-thumb" src="' + workerFieldReportEsc_(jobPhotos[0]) + '" alt="">'
@@ -489,7 +848,8 @@ function workerFieldReportRenderMine_() {
       + (meta.length ? ('<div class="worker-field-my-meta">' + meta.join('') + '</div>') : '')
       + '<div class="worker-field-my-view-hint">' + workerFieldReportT_('wfrTapToView', 'Tap to view') + '</div>'
       + '</div></button>';
-  }).join('') + '</div>';
+  }).join('') + '</div>');
+  host.innerHTML = pendingHtml + listHtml;
 }
 
 function workerFieldReportStatusLabel_(r) {
@@ -709,61 +1069,59 @@ function workerFieldReportSubmit_() {
     }
   }
   _wfrSubmitting = true;
-  if (btn) btn.disabled = true;
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = navigator.onLine
+      ? workerFieldReportT_('wfrSending', 'Sending\u2026')
+      : workerFieldReportT_('wfrSavingOnDevice', 'Saving on this device\u2026');
+  }
   if (msg) {
-    msg.textContent = workerFieldReportT_('wfrSending', 'Sending\u2026');
+    msg.textContent = navigator.onLine
+      ? workerFieldReportT_('wfrSending', 'Sending\u2026')
+      : workerFieldReportT_('wfrSavingOnDevice', 'Saving on this device\u2026');
     msg.className = 'worker-field-msg';
   }
-  var voiceUpload = (typeof assignVoiceEnsureUploaded_ === 'function')
-    ? assignVoiceEnsureUploaded_(workerFieldReportVoiceId_(), 45000)
-    : Promise.resolve(null);
-  voiceUpload.then(function (voiceNote) {
-    try {
-      if (typeof assignVoiceBlockSaveIfDraftFailed_ === 'function') {
-        assignVoiceBlockSaveIfDraftFailed_(workerFieldReportVoiceId_(), voiceNote);
-      }
-    } catch (voiceErr) {
-      throw voiceErr;
-    }
-    var body = {
-      action: cfg.actions.add,
-      token: issueToken() || '',
+
+  function finishSubmitUi_() {
+    _wfrSubmitting = false;
+    if (btn) btn.disabled = false;
+    workerFieldReportUpdateSubmitBtnLabel_();
+  }
+
+  workerFieldReportPrepareVoice_().then(function (voiceNote) {
+    var payload = {
       place: place,
       note: note,
       materials: materials,
       amount: amount || '',
       reportType: refundable ? 'refundable' : 'maintenance',
-      photo: _wfrJobPhotos[0] || '',
       photos: _wfrJobPhotos.slice(),
       invoicePhoto: _wfrInvoicePhotoUrl || '',
-      workerName: typeof civilWorkerName === 'function' ? civilWorkerName(empireGetUser()) : (empireGetUser() || '')
+      workerName: typeof civilWorkerName === 'function' ? civilWorkerName(empireGetUser()) : (empireGetUser() || ''),
+      voiceNote: voiceNote
     };
-    if (voiceNote) body.voiceNote = voiceNote;
-    return fetchJSONRetry(body, 2, 45000);
-  }).then(function (d) {
-    if (d && (d.ok || d.success)) {
-      var sentRef = Number(d.num) > 0 ? ('R#' + d.num + ' — ') : '';
-      if (msg) {
-        msg.textContent = '\u2705 ' + sentRef + workerFieldReportUi_('submitSuccess', 'Report sent.');
-        msg.className = 'worker-field-msg worker-field-msg-ok';
-      }
+    return enqueueWorkerFieldReportOffline_(payload).then(function () {
+      if (typeof assignVoiceClearDraft === 'function') assignVoiceClearDraft(workerFieldReportVoiceId_());
       workerFieldReportClearForm_(false);
-      workerFieldReportLoadMine_();
-    } else if (d && d.ok === false) {
-      if (typeof forceSessionLogout === 'function' && forceSessionLogout(d)) return;
-      throw new Error(d.message || d.error || 'Could not send report');
-    } else {
-      throw new Error('Unexpected server response');
-    }
+      return syncWorkerFieldReportOffline(true).then(function (result) {
+        var n = (result && result.synced) || 0;
+        if (n > 0) {
+          if (msg) {
+            msg.textContent = '\u2705 ' + workerFieldReportUi_('submitSuccess', 'Report sent.');
+            msg.className = 'worker-field-msg worker-field-msg-ok';
+          }
+        } else if (msg) {
+          msg.textContent = '\u2705 ' + workerFieldReportT_('wfrSavedWillRetry', 'Saved on this device. Upload when you have signal — tap Retry upload.');
+          msg.className = 'worker-field-msg worker-field-msg-ok';
+        }
+      });
+    });
   }).catch(function (e) {
     if (msg) {
       msg.textContent = '\u274C ' + String((e && e.message) || e || 'Failed');
       msg.className = 'worker-field-msg worker-field-msg-error';
     }
-  }).finally(function () {
-    _wfrSubmitting = false;
-    if (btn) btn.disabled = false;
-  });
+  }).finally(finishSubmitUi_);
 }
 
 window.workerFieldReportRemoveJobPhoto = workerFieldReportRemoveJobPhoto_;
@@ -772,6 +1130,7 @@ window.workerFieldReportCloseView = workerFieldReportCloseView_;
 window.workerFieldReportHandleRefundableCheck = workerFieldReportHandleRefundableCheck_;
 window.workerFieldReportSwitchTab = workerFieldReportSwitchTab_;
 window.workerFieldReportSubmit = workerFieldReportSubmit_;
+window.syncWorkerFieldReportOffline = syncWorkerFieldReportOffline;
 window.workerFieldReportHandleFile = workerFieldReportHandleFile_;
 window.workerFieldReportPickPhoto = workerFieldReportPickPhoto_;
 window.workerFieldReportPickInvoicePhoto = workerFieldReportPickInvoicePhoto_;
