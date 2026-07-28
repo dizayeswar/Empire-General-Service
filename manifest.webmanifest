@@ -59,6 +59,12 @@
       "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
+      "name": "Cleaning Supervisor",
+      "short_name": "Cleaning",
+      "url": "./cleaning-mobile.html",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
       "name": "Civil Issues",
       "short_name": "Civil",
       "url": "./civil-issue.html",

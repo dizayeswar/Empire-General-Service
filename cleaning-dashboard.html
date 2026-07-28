@@ -1318,6 +1318,11 @@
             if(document.getElementById('filterDate') && !document.getElementById('filterDate').value) document.getElementById('filterDate').value=today;
         }
         function bootDashboard(){
+            empireMigrateSession();
+            if (typeof empireIsCleaningSupervisor === 'function' && empireGetToken() && empireIsCleaningSupervisor()) {
+                location.replace('cleaning-mobile.html');
+                return;
+            }
             empireAuthPageBoot({ dept: 'cleaning', onEnter: enterDashboard });
         }
         if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', bootDashboard); else bootDashboard();

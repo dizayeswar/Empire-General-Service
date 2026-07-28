@@ -90,6 +90,10 @@
         }
 
         function routeAfterLogin() {
+            if (typeof empireIsCleaningSupervisor === 'function' && empireIsCleaningSupervisor()) {
+                location.replace('cleaning-mobile.html');
+                return;
+            }
             var single = empireSingleDeptHome();
             if (single) {
                 empireRedirectToDeptHome(single);

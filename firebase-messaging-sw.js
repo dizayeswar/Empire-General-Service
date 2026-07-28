@@ -1,12 +1,20 @@
 /* Empire EGS — service worker (cache + Firebase background push) */
-var CACHE_VERSION = '2026-07-21-asaas-v4';
+var CACHE_VERSION = '2026-07-24-cleaning-mobile-v1';
 var CACHE_NAME = 'empire-egs-' + CACHE_VERSION;
 var NOTIFY_ICON = 'https://dizayeswar.github.io/Empire-General-Service/icons/icon-192.png';
 var NOTIFY_BASE = 'https://dizayeswar.github.io/Empire-General-Service/civil-issue.html';
 
 function notifyUrlForData_(data) {
-  var issueId = data && (data.issueId || data.jobId);
-  if (issueId) return NOTIFY_BASE + '?job=' + encodeURIComponent(String(issueId));
+  var page = data && (data.deptPage || data.jobPage);
+  if (page) {
+    if (String(page).indexOf('.html') === -1) page = String(page) + '.html';
+    var base = 'https://dizayeswar.github.io/Empire-General-Service/' + page;
+    var issueId = data && (data.issueId || data.jobId);
+    if (issueId) return base + '?job=' + encodeURIComponent(String(issueId));
+    return base;
+  }
+  var issueId2 = data && (data.issueId || data.jobId);
+  if (issueId2) return NOTIFY_BASE + '?job=' + encodeURIComponent(String(issueId2));
   return NOTIFY_BASE;
 }
 
@@ -38,11 +46,15 @@ var PRECACHE = [
   './index.html',
   './civil-issue.html',
   './electric-issue.html',
+  './cleaning-mobile.html',
   './asaas.html',
   './config.js',
   './firebase-messaging-sw.js',
   './service-worker.js',
   './assets/firebase-sw-config.js',
+  './assets/cleaning-mobile.css',
+  './assets/cleaning-mobile-app.js',
+  './assets/cleaning-mobile-i18n.js',
   './manifest.webmanifest',
   './icons/icon-192.png',
   './assets/empire-sw-update.js',

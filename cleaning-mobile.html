@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#8d015d">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Cleaning Tasks">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="icon" href="logo-light.png" type="image/png">
+  <title>Cleaning Supervisor — Empire EGS</title>
+  <link rel="stylesheet" href="assets/cleaning-mobile.css">
+  <link rel="stylesheet" href="assets/empire-civil-worker.css">
+</head>
+<body class="cleaning-supervisor-mode">
+  <div class="cm-login show" id="cmLogin">
+    <div class="cm-login-card">
+      <div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:8px;">
+        <button type="button" class="cm-icon-btn" id="cmLangBtn2" data-i18n-aria="langToggleAria">کوردی</button>
+      </div>
+      <img src="logo-light.png" alt="Empire">
+      <h1 data-i18n="loginTitle">Cleaning Supervisor</h1>
+      <p data-i18n="taskDoneHint">A task is done only when it has a saved photo</p>
+      <div class="cm-msg" id="cmLoginMsg"></div>
+      <form id="cmLoginForm">
+        <div class="cm-field">
+          <label for="cmUsername" data-i18n="loginUser">Username</label>
+          <input id="cmUsername" name="username" autocomplete="username" required>
+        </div>
+        <div class="cm-field">
+          <label for="cmPassword" data-i18n="loginPass">Password</label>
+          <input id="cmPassword" type="password" name="password" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="cm-btn" id="cmLoginBtn" style="width:100%;" data-i18n="loginBtn">Sign in</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="cm-app" id="cmApp">
+    <header class="cm-head">
+      <div class="cm-head-text">
+        <h1 data-i18n="appTitle">Cleaning Tasks</h1>
+        <p id="cmUserLabel">—</p>
+      </div>
+      <div class="cm-head-actions">
+        <button type="button" class="cm-icon-btn" id="cmLangBtn" data-i18n-aria="langToggleAria">کوردی</button>
+        <button type="button" class="cm-icon-btn" id="cmThemeBtn" aria-label="Theme">◐</button>
+        <button type="button" class="cm-icon-btn" id="cmRefreshBtn" data-i18n-aria="refresh">↻</button>
+        <button type="button" class="cm-icon-btn" id="cmLogoutBtn" data-i18n="logout">Logout</button>
+      </div>
+    </header>
+
+    <div class="cm-status">
+      <span class="cm-chip warn" id="cmGpsChip">GPS</span>
+      <span class="cm-chip warn" id="cmPushChip" style="display:none;"></span>
+      <button type="button" class="cm-btn cm-btn-soft" id="cmPushBtn" style="display:none;padding:6px 12px;font-size:12px;" data-i18n="pushEnable">Allow notifications</button>
+    </div>
+    <div class="cm-banner" id="cmOfflineBanner" style="display:none;"></div>
+
+    <nav class="cm-tabs">
+      <button type="button" class="cm-tab active" data-tab="tasks" data-i18n="tasks">Tasks</button>
+      <button type="button" class="cm-tab" data-tab="analytics" data-i18n="analytics">Analytics</button>
+      <button type="button" class="cm-tab" data-tab="monthly" data-i18n="monthly">Monthly</button>
+    </nav>
+
+    <main class="cm-body">
+      <div id="cmProjectsWrap">
+        <p class="cm-hint" data-i18n="myProjects">My projects</p>
+        <div id="cmProjects"></div>
+      </div>
+      <div id="cmTasksWrap" style="display:none;">
+        <div id="cmTaskPane"></div>
+      </div>
+      <div id="cmAnalyticsWrap" style="display:none;">
+        <div id="cmAnalytics"></div>
+      </div>
+      <div id="cmMonthlyWrap" style="display:none;">
+        <div id="cmMonthly"></div>
+      </div>
+    </main>
+  </div>
+
+  <div class="cm-modal" id="cmModal" role="dialog" aria-modal="true">
+    <img id="cmModalImg" alt="">
+  </div>
+
+  <script src="config.js"></script>
+  <script src="assets/empire-api.js"></script>
+  <script src="assets/empire-auth.js"></script>
+  <script src="assets/empire-storage.js"></script>
+  <script src="assets/empire-offline-queue.js"></script>
+  <script src="assets/empire-pwa.js"></script>
+  <script src="assets/empire-core.js"></script>
+  <script src="assets/cleaning-mobile-i18n.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js"></script>
+  <script src="assets/cleaning-mobile-app.js"></script>
+</body>
+</html>

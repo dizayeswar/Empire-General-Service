@@ -245,17 +245,30 @@ function empireSingleDeptHome() {
   return null;
 }
 
+function empireIsCleaningSupervisor() {
+  return String(empireGetRole() || '').toLowerCase() === 'cleaning_supervisor';
+}
+
+function empireHomeForDept(dept) {
+  if (empireIsCleaningSupervisor() && empireNormDept(dept) === 'cleaning') {
+    return 'cleaning-mobile.html';
+  }
+  return EMPIRE_DEPT_HOME[empireNormDept(dept)] || EMPIRE_LOGIN_PAGE;
+}
+
 function empireRedirectToUserHome() {
+  if (empireIsCleaningSupervisor()) {
+    if (location.pathname.indexOf('cleaning-mobile.html') === -1) {
+      location.replace('cleaning-mobile.html');
+    }
+    return;
+  }
   var single = empireSingleDeptHome();
   if (single) {
     empireRedirectToDeptHome(single);
     return;
   }
   if (!empireOnLoginPage()) location.replace(EMPIRE_LOGIN_PAGE);
-}
-
-function empireHomeForDept(dept) {
-  return EMPIRE_DEPT_HOME[empireNormDept(dept)] || EMPIRE_LOGIN_PAGE;
 }
 
 function empireRedirectToDeptHome(dept) {
@@ -286,6 +299,10 @@ function empireAuthLogout(opts) {
 }
 
 function empireAuthLogoutTxt_(key, fallback, params) {
+  if (typeof cleaningT === 'function') {
+    var c = cleaningT(key, params);
+    if (c && c !== key) return c;
+  }
   if (typeof workerT === 'function') {
     var w = workerT(key, params);
     if (w && w !== key) return w;
@@ -303,6 +320,7 @@ function empireAuthMobileLogoutRequired_(opts) {
   if (opts.requirePassword === true) return true;
   if (opts.requirePassword === false) return false;
   if (document.body && document.body.classList.contains('civil-worker-mode')) return true;
+  if (document.body && document.body.classList.contains('cleaning-supervisor-mode')) return true;
   var asaasMobile = document.getElementById('asaasMobileApp');
   if (asaasMobile && asaasMobile.classList.contains('show')) return true;
   return false;

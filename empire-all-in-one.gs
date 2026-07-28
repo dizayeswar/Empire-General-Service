@@ -24,7 +24,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-22-application-v7';
+var SCRIPT_VERSION = '2026-07-24-cleaning-supervisor-v1';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -374,6 +374,7 @@ function doPost(e) {
       'getWeekCoverage':'cleaning','markTaskWeek':'cleaning','getRangeCoverage':'cleaning',
       'getTaskPhotos':'cleaning','addTaskPhoto':'cleaning','addTaskPhotos':'cleaning','deleteTaskPhoto':'cleaning',
       'logTask':'cleaning','getTaskLog':'cleaning',
+      'sendCleaningReminder':'cleaning','notifyCleaningWeekUnlock':'cleaning',
       'addCivilIssue':'civil issue','updateCivilIssue':'civil issue','getCivilIssues':'civil issue','markCivilFixed':'civil issue','clearCivilIssues':'civil issue','deleteCivilIssue':'civil issue','assignCivilIssue':'civil issue','markCivilNotDept':'civil issue','restoreCivilIssue':'civil issue','setCivilFixDelay':'civil issue','reportWorkerLocation':'civil issue','getWorkerLocations':'civil issue','saveWorkerPushToken':'civil issue','testWorkerPush':'civil issue','debugWorkerPush':'civil issue',
       'addElectricIssue':'electric issue','updateElectricIssue':'electric issue','getElectricIssues':'electric issue','markElectricFixed':'electric issue','clearElectricIssues':'electric issue','deleteElectricIssue':'electric issue','assignElectricIssue':'electric issue','markElectricNotDept':'electric issue','restoreElectricIssue':'electric issue','setElectricFixDelay':'electric issue',
       'addFireIssue':'fire','updateFireIssue':'fire','getFireIssues':'fire','markFireFixed':'fire','clearFireIssues':'fire','deleteFireIssue':'fire',
@@ -404,6 +405,7 @@ function doPost(e) {
       auth = verifyToken(body.token, 'civil issue');
       if (!auth.ok) auth = verifyToken(body.token, 'electric issue');
       if (!auth.ok) auth = verifyToken(body.token, 'electrical department');
+      if (!auth.ok) auth = verifyToken(body.token, 'cleaning');
     } else if (action === 'getElectricWorkerReports' || action === 'transferElectricIssueCompletion') {
       auth = verifyToken(body.token, 'electrical department');
       if (!auth.ok) auth = verifyToken(body.token, 'electric issue');
@@ -421,8 +423,12 @@ function doPost(e) {
       var workerBlocked = {addCivilIssue:1, updateCivilIssue:1, deleteCivilIssue:1, clearCivilIssues:1, assignCivilIssue:1, markCivilNotDept:1, restoreCivilIssue:1, setCivilFixDelay:1, getWorkerLocations:1, addElectricIssue:1, updateElectricIssue:1, deleteElectricIssue:1, clearElectricIssues:1, assignElectricIssue:1, markElectricNotDept:1, restoreElectricIssue:1, setElectricFixDelay:1, addFireIssue:1, updateFireIssue:1, deleteFireIssue:1, clearFireIssues:1};
       if (workerBlocked[action]) return respond({ok:false,success:false,error:'not_allowed',message:'Not allowed for worker accounts.'});
     }
-    if (action === 'reportWorkerLocation' && body._authRole !== 'worker') {
-      return respond({ok:false,success:false,error:'not_allowed',message:'Only worker accounts can report location.'});
+    if (isCleaningSupervisorRole_(body._authRole)) {
+      var cleaningSupervisorBlocked = {clearAll:1, resetTasks:1, getTrash:1, restoreTrash:1, purgeTrash:1, deleteReport:1, deleteTaskPhoto:1, saveUiSettings:1, sendCleaningReminder:1};
+      if (cleaningSupervisorBlocked[action]) return respond({ok:false,success:false,error:'not_allowed',message:'Not allowed for cleaning supervisor accounts.'});
+    }
+    if (action === 'reportWorkerLocation' && body._authRole !== 'worker' && !isCleaningSupervisorRole_(body._authRole)) {
+      return respond({ok:false,success:false,error:'not_allowed',message:'Only worker or cleaning supervisor accounts can report location.'});
     }
     if (action === 'addElectricWorkerReport') {
       if (body._authRole !== 'worker') return respond({ok:false,success:false,error:'not_allowed',message:'Only electric workers can submit field reports.'});
@@ -451,6 +457,8 @@ function doPost(e) {
     if (action==='deleteTaskPhoto') return respond(handleDeleteTaskPhoto(body));
     if (action==='logTask') return respond(handleLogTask(body));
     if (action==='getTaskLog') return respond(handleGetTaskLog(body));
+    if (action==='sendCleaningReminder') return respond(handleSendCleaningReminder(body, auth));
+    if (action==='notifyCleaningWeekUnlock') return respond(handleNotifyCleaningWeekUnlock(body, auth));
     if (action==='getUiSettings') return respond(handleGetUiSettings(body));
     if (action==='saveUiSettings') return respond(handleSaveUiSettings(body));
     if (action==='addCivilIssue') return respond(handleAddIssue(body, CIVIL_SHEET));
@@ -531,7 +539,8 @@ function respond(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
 
-// Roles: admin = everything incl reset; editor = add/edit/delete + analytics + report (no reset); viewer = read-only; worker = assigned civil jobs + fix only.
+// Roles: admin = everything incl reset; editor = add/edit/delete + analytics + report (no reset); viewer = read-only; worker = assigned civil jobs + fix only;
+// cleaning_supervisor = mobile cleaning checklist (assigned projects only) — no categories / recycle bin / reset.
 // Optional "Hide" column (col E) removes abilities on every page.
 // Optional "hideElectrical" column (col H) removes Electrical Department sidebar items only (same keywords + jobs, field reports, issues, not electric, needs month).
 function basePermsForRole_(role) {
@@ -539,6 +548,7 @@ function basePermsForRole_(role) {
   if (role==='admin') return {view:true,add:true,edit:true,del:true,analytics:true,report:true,dashboard:true,reset:true,assign:true,fix:true,categories:true,liveLocation:true,jobsTab:true,fieldReports:true,issuesTab:true,notElectricTab:true,fixDelayTab:true};
   if (role==='worker') return {view:true,add:false,edit:false,del:false,analytics:false,report:false,dashboard:true,reset:false,assign:false,fix:true,categories:true,liveLocation:false,jobsTab:true,fieldReports:true,issuesTab:true,notElectricTab:true,fixDelayTab:true};
   if (role==='viewer') return {view:true,add:false,edit:false,del:false,analytics:true,report:true,dashboard:true,reset:false,assign:false,fix:false,categories:true,liveLocation:true,jobsTab:true,fieldReports:true,issuesTab:true,notElectricTab:true,fixDelayTab:true};
+  if (role==='cleaning_supervisor') return {view:true,add:true,edit:true,del:false,analytics:true,report:true,dashboard:true,reset:false,assign:false,fix:true,categories:false,liveLocation:true,jobsTab:false,fieldReports:false,issuesTab:false,notElectricTab:false,fixDelayTab:false,mobileOnly:true};
   return {view:true,add:true,edit:true,del:true,analytics:true,report:true,dashboard:true,reset:false,assign:true,fix:true,categories:true,liveLocation:true,jobsTab:true,fieldReports:true,issuesTab:true,notElectricTab:true,fixDelayTab:true};
 }
 function applyHideTokens_(p, hide) {
@@ -874,8 +884,12 @@ function getUserRowByName_(username) {
 function normalizeRole_(role) {
   role = String(role || '').trim().toLowerCase();
   if (role === 'engineer') return 'editor';
-  if (role === 'admin' || role === 'viewer' || role === 'editor' || role === 'worker') return role;
+  if (role === 'cleaning supervisor' || role === 'cleaning-supervisor' || role === 'supervisor') return 'cleaning_supervisor';
+  if (role === 'admin' || role === 'viewer' || role === 'editor' || role === 'worker' || role === 'cleaning_supervisor') return role;
   return 'editor';
+}
+function isCleaningSupervisorRole_(role) {
+  return normalizeRole_(role) === 'cleaning_supervisor';
 }
 function roleFromAuth_(auth) {
   var row = getUserRowByName_(auth && auth.username);
@@ -888,8 +902,13 @@ function enrichAuthRole_(auth) {
   return auth;
 }
 function projectAllowedForUser_(username, project) {
-  var projects = projectsForUserRow_(getUserRowByName_(username));
-  if (!projects.length) return true;
+  var row = getUserRowByName_(username);
+  var projects = projectsForUserRow_(row);
+  if (!projects.length) {
+    // Empty projects = all access, except cleaning supervisors must be scoped.
+    if (row && isCleaningSupervisorRole_(row[3])) return false;
+    return true;
+  }
   return projects.indexOf(String(project || '').trim().toLowerCase()) !== -1;
 }
 function passwordDigest_(pw) {
@@ -1080,7 +1099,7 @@ function handleLogin(body) {
       var electricalHide = electricalHideForUserRow_(rows[i]);
       var loginResult = {ok:true,success:true,token:token,username:username,dept:tokenDept,role:rp.role,perms:rp.perms,electricalHide:electricalHide,electricalPerms:mergeElectricalHidePerms_(rp.perms, electricalHide),projects:projects,trade:trade,message:'Login successful'};
       var loginFcm = String(body.fcmToken || body.pushToken || '').trim();
-      if (loginFcm && rp.role === 'worker') {
+      if (loginFcm && (rp.role === 'worker' || isCleaningSupervisorRole_(rp.role))) {
         try { persistWorkerPushToken_(username, loginFcm, String(body.platform || 'web-fcm')); } catch (e) {}
       }
       return loginResult;
@@ -1489,32 +1508,73 @@ function handleResetTasks(body) {
 }
 
 // ===== Task evidence photos (the "a task is done only when it has a saved photo" system) =====
-// TaskPhotos columns: id, project, freq, task, date, period, image, createdBy, createdAt
+// TaskPhotos columns: id, project, freq, task, date, period, image, createdBy, createdAt, lat, lng, accuracy
 // period is "YYYY-MM#week" for daily tasks (e.g. "2026-06#2"), or "YYYY-MM" for weekly/biweekly/monthly tasks.
+function ensureTaskPhotosSheet_(sheet) {
+  if (!sheet) return;
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['id','project','freq','task','date','period','image','createdBy','createdAt','lat','lng','accuracy']);
+    return;
+  }
+  var headers = sheet.getRange(1, 1, 1, Math.max(12, sheet.getLastColumn())).getValues()[0];
+  if (String(headers[9] || '') !== 'lat') sheet.getRange(1, 10).setValue('lat');
+  if (String(headers[10] || '') !== 'lng') sheet.getRange(1, 11).setValue('lng');
+  if (String(headers[11] || '') !== 'accuracy') sheet.getRange(1, 12).setValue('accuracy');
+}
+function photoGpsFromBody_(body, index) {
+  var lat = '', lng = '', accuracy = '';
+  if (body && body.photoGps && body.photoGps.length && index != null && body.photoGps[index]) {
+    lat = body.photoGps[index].lat;
+    lng = body.photoGps[index].lng;
+    accuracy = body.photoGps[index].accuracy;
+  } else if (body) {
+    lat = body.lat;
+    lng = body.lng;
+    accuracy = body.accuracy;
+  }
+  var coords = parseWorkerLocationLatLng_({lat:lat, lng:lng, accuracy:accuracy});
+  if (!coords) return {lat:'', lng:'', accuracy:''};
+  return {lat:coords.lat, lng:coords.lng, accuracy:coords.accuracy};
+}
+function assertCleaningProjectAccess_(body) {
+  var project = String((body && body.project) || '').trim().toLowerCase();
+  if (!project) return {ok:false, error:'missing_project', message:'Project is required.'};
+  if (!projectAllowedForUser_(body.username, project)) {
+    return {ok:false, error:'not_allowed', message:'You do not have access to this project.'};
+  }
+  return {ok:true, project:project};
+}
 function handleAddTaskPhoto(body) {
+  var access = assertCleaningProjectAccess_(body);
+  if (!access.ok) return access;
   var ss = getSS_();
   var sheet = ss.getSheetByName(TASK_PHOTOS_SHEET) || ss.insertSheet(TASK_PHOTOS_SHEET);
-  if (sheet.getLastRow()===0) sheet.appendRow(['id','project','freq','task','date','period','image','createdBy','createdAt']);
+  ensureTaskPhotosSheet_(sheet);
+  var gps = photoGpsFromBody_(body, 0);
   var id = 'tp-' + Utilities.getUuid();
-  sheet.appendRow([id, body.project||'', body.freq||'', body.task||'', body.date||'', body.period||'', body.image||'', body.username||'', new Date().toISOString()]);
+  sheet.appendRow([id, body.project||'', body.freq||'', body.task||'', body.date||'', body.period||'', body.image||'', body.username||'', new Date().toISOString(), gps.lat, gps.lng, gps.accuracy]);
   invalidateTaskPhotosCache_(String(body.period||'').split('#')[0]);
   return {ok:true, success:true, id:id};
 }
 
 function handleAddTaskPhotos(body) {
+  var access = assertCleaningProjectAccess_(body);
+  if (!access.ok) return access;
   var images = body.images || [];
   if (!images.length) return {ok:false, error:'No images'};
+  if (images.length > 3) return {ok:false, error:'too_many_photos', message:'Maximum 3 photos per save.'};
   var ss = getSS_();
   var sheet = ss.getSheetByName(TASK_PHOTOS_SHEET) || ss.insertSheet(TASK_PHOTOS_SHEET);
-  if (sheet.getLastRow()===0) sheet.appendRow(['id','project','freq','task','date','period','image','createdBy','createdAt']);
+  ensureTaskPhotosSheet_(sheet);
   var items = [];
   var periodPrefix = '';
   var now = new Date().toISOString();
   for (var i=0; i<images.length; i++) {
     var id = 'tp-' + Utilities.getUuid();
     var period = body.period || '';
-    sheet.appendRow([id, body.project||'', body.freq||'', body.task||'', body.date||'', period, images[i]||'', body.username||'', now]);
-    items.push({id:id, image:images[i]||''});
+    var gps = photoGpsFromBody_(body, i);
+    sheet.appendRow([id, body.project||'', body.freq||'', body.task||'', body.date||'', period, images[i]||'', body.username||'', now, gps.lat, gps.lng, gps.accuracy]);
+    items.push({id:id, image:images[i]||'', lat:gps.lat, lng:gps.lng, accuracy:gps.accuracy});
     periodPrefix = String(period).split('#')[0];
   }
   invalidateTaskPhotosCache_(periodPrefix);
@@ -1529,12 +1589,26 @@ function handleGetTaskPhotos(body) {
   var ss = getSS_();
   var sheet = ss.getSheetByName(TASK_PHOTOS_SHEET);
   if (!sheet || sheet.getLastRow()<2) return [];
+  ensureTaskPhotosSheet_(sheet);
   var rows = sheet.getDataRange().getValues();
   var out = [];
   for (var i=1;i<rows.length;i++) {
     var period = String(rows[i][5]||'');
     if (prefix && period.indexOf(prefix)!==0) continue;
-    out.push({id:String(rows[i][0]),project:String(rows[i][1]),freq:String(rows[i][2]),task:String(rows[i][3]),date:fmtDate_(rows[i][4]),period:period,image:String(rows[i][6]||''),createdBy:String(rows[i][7]||''),createdAt:String(rows[i][8]||'')});
+    out.push({
+      id:String(rows[i][0]),
+      project:String(rows[i][1]),
+      freq:String(rows[i][2]),
+      task:String(rows[i][3]),
+      date:fmtDate_(rows[i][4]),
+      period:period,
+      image:String(rows[i][6]||''),
+      createdBy:String(rows[i][7]||''),
+      createdAt:String(rows[i][8]||''),
+      lat: rows[i][9] === '' || rows[i][9] == null ? null : Number(rows[i][9]),
+      lng: rows[i][10] === '' || rows[i][10] == null ? null : Number(rows[i][10]),
+      accuracy: rows[i][11] === '' || rows[i][11] == null ? null : Number(rows[i][11])
+    });
   }
   try { var js = JSON.stringify(out); if (js.length < 95000) cache.put(ckey, js, 60); } catch(e){}
   return out;
@@ -2013,10 +2087,15 @@ function handleSaveWorkerPushToken_(body) {
   if (!auth.ok) return auth;
   var username = String(auth.username || '').trim().toLowerCase();
   var role = String(auth.role || '').toLowerCase();
-  if (role !== 'worker' && !isKnownWorker_(username)) {
-    return {ok:false, error:'not_allowed', message:'Only worker accounts can register push alerts.'};
+  var isCleaningSup = isCleaningSupervisorRole_(role);
+  if (role !== 'worker' && !isKnownWorker_(username) && !isCleaningSup) {
+    return {ok:false, error:'not_allowed', message:'Only worker or cleaning supervisor accounts can register push alerts.'};
   }
-  if (!tokenDeptAllows_(String(auth.dept || ''), 'civil issue') && !tokenDeptAllows_(String(auth.dept || ''), 'electric issue')) {
+  if (!isCleaningSup) {
+    if (!tokenDeptAllows_(String(auth.dept || ''), 'civil issue') && !tokenDeptAllows_(String(auth.dept || ''), 'electric issue')) {
+      return {ok:false, error:'This login is not allowed for this section'};
+    }
+  } else if (!tokenDeptAllows_(String(auth.dept || ''), 'cleaning')) {
     return {ok:false, error:'This login is not allowed for this section'};
   }
   var fcmToken = String((body && (body.fcmToken || body.pushToken)) || '').trim();
@@ -2284,6 +2363,126 @@ function notifyWorkersOnAssign_(assignedWorkers, issues, deptPage) {
   for (var t = 0; t < tokens.length; t++) {
     sendFcmToWorker_(tokens[t].fcmToken, title, body, data);
   }
+}
+
+function cleaningSupervisorUsernames_() {
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(USERS_SHEET);
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  var rows = sheet.getDataRange().getValues();
+  var out = [];
+  for (var i = 1; i < rows.length; i++) {
+    if (isCleaningSupervisorRole_(rows[i][3]) && deptListAllows_(normalizeDeptField_(rows[i][2]), 'cleaning')) {
+      var name = String(rows[i][0] || '').trim().toLowerCase();
+      if (name) out.push(name);
+    }
+  }
+  return out;
+}
+
+function pushCleaningSupervisors_(usernames, title, bodyText, data) {
+  if (!usernames || !usernames.length) return {ok:true, sent:0};
+  var tokens = getWorkerPushTokens_(usernames);
+  var sent = 0;
+  data = data || {};
+  if (!data.deptPage) data.deptPage = 'cleaning-mobile.html';
+  for (var t = 0; t < tokens.length; t++) {
+    try {
+      if (sendFcmToWorker_(tokens[t].fcmToken, title, bodyText, data)) sent++;
+    } catch (e) {}
+  }
+  return {ok:true, success:true, sent:sent, targets:usernames.length};
+}
+
+function handleSendCleaningReminder(body, auth) {
+  auth = enrichAuthRole_(auth || {});
+  if (normalizeRole_(auth.role) !== 'admin' && normalizeRole_(auth.role) !== 'editor') {
+    return {ok:false, error:'not_allowed', message:'Only admin or editor can send cleaning reminders.'};
+  }
+  var targets = [];
+  if (body && body.usernames && body.usernames.length) {
+    for (var i = 0; i < body.usernames.length; i++) {
+      var u = String(body.usernames[i] || '').trim().toLowerCase();
+      if (u) targets.push(u);
+    }
+  } else if (body && body.username) {
+    targets.push(String(body.username).trim().toLowerCase());
+  } else {
+    targets = cleaningSupervisorUsernames_();
+  }
+  var title = String((body && body.title) || 'Cleaning reminder').trim() || 'Cleaning reminder';
+  var msg = String((body && (body.message || body.body)) || 'Please finish your cleaning tasks today.').trim();
+  return pushCleaningSupervisors_(targets, title, msg, {type:'cleaning_reminder', deptPage:'cleaning-mobile.html'});
+}
+
+function handleNotifyCleaningWeekUnlock(body, auth) {
+  auth = enrichAuthRole_(auth || {});
+  if (!isCleaningSupervisorRole_(auth.role) && normalizeRole_(auth.role) !== 'admin') {
+    return {ok:false, error:'not_allowed'};
+  }
+  var username = String((auth && auth.username) || '').trim().toLowerCase();
+  var week = Number(body && body.week) || 0;
+  var project = String((body && body.project) || '').trim();
+  if (week < 2 || week > 4) return {ok:false, error:'invalid_week'};
+  if (isCleaningSupervisorRole_(auth.role) && project && !projectAllowedForUser_(username, project)) {
+    return {ok:false, error:'not_allowed', message:'You do not have access to this project.'};
+  }
+  var title = 'Week ' + week + ' unlocked';
+  var msg = project
+    ? ('Week ' + week + ' is open for ' + project + '. Continue your daily tasks.')
+    : ('Week ' + week + ' is unlocked. Continue your daily tasks.');
+  return pushCleaningSupervisors_([username], title, msg, {
+    type: 'cleaning_week_unlock',
+    week: String(week),
+    project: project,
+    deptPage: 'cleaning-mobile.html'
+  });
+}
+
+/** Run from Apps Script Triggers → Time-driven (morning) for daily cleaning reminders. */
+function sendCleaningDailyReminders() {
+  var targets = cleaningSupervisorUsernames_();
+  return pushCleaningSupervisors_(
+    targets,
+    'Daily cleaning tasks',
+    "Don't forget today's cleaning tasks.",
+    {type:'cleaning_daily', deptPage:'cleaning-mobile.html'}
+  );
+}
+
+/**
+ * Optional one-time helper: creates/updates cleaning supervisor rows in Users sheet.
+ * Columns: username | password | dept | role | hide | projects | trade
+ * Passwords default to empire2026 — change them after first login.
+ */
+function seedCleaningSupervisors() {
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(USERS_SHEET);
+  if (!sheet) throw new Error('Users sheet not found');
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['username','password','dept','role','hide','projects','trade','hideElectrical']);
+  }
+  var seeds = [
+    {user:'ibrahim', pass:'empire2026', projects:'ec,es'},
+    {user:'rawa', pass:'empire2026', projects:'ra,wd'},
+    {user:'emad', pass:'empire2026', projects:'ww'},
+    {user:'muhamad', pass:'empire2026', projects:'ww2'}
+  ];
+  var rows = sheet.getDataRange().getValues();
+  var byUser = {};
+  for (var i = 1; i < rows.length; i++) {
+    byUser[String(rows[i][0] || '').trim().toLowerCase()] = i + 1;
+  }
+  for (var s = 0; s < seeds.length; s++) {
+    var seed = seeds[s];
+    var rowNum = byUser[seed.user];
+    if (rowNum) {
+      sheet.getRange(rowNum, 3, 1, 4).setValues([['cleaning', 'cleaning_supervisor', '', seed.projects]]);
+    } else {
+      sheet.appendRow([seed.user, seed.pass, 'cleaning', 'cleaning_supervisor', '', seed.projects, '', '']);
+    }
+  }
+  return {ok:true, users:seeds.length};
 }
 
 function handleAssignCivilIssue(body, auth) {
@@ -2710,7 +2909,9 @@ function handleReportWorkerLocation(body, auth) {
   if (!coords) return {ok:false, error:'invalid_coords', message:'Invalid GPS coordinates.'};
   var username = String((auth && auth.username) || body.username || '').trim().toLowerCase();
   if (!username) return {ok:false, error:'not_authenticated'};
+  var role = normalizeRole_((auth && auth.role) || body._authRole || '');
   var trade = normalizeTrade_((auth && auth.trade) || body._authTrade || tradeForUserRow_(getUserRowByName_(username)));
+  if (isCleaningSupervisorRole_(role)) trade = 'cleaning';
   if (!trade) return {ok:false, error:'trade_not_set', message:'Worker trade not configured.'};
   var ss = getSS_();
   var sheet = ss.getSheetByName(WORKER_LOCATIONS_SHEET) || ss.insertSheet(WORKER_LOCATIONS_SHEET);
