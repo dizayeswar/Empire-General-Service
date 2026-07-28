@@ -1183,26 +1183,77 @@ async function workerOfflineQueueCount() {
 async function refreshWorkerOfflineBanner() {
   if (!isCivilWorker() || typeof empireOfflineSetBanner !== 'function') return;
   var n = await workerOfflineQueueCount();
-  empireOfflineSetBanner(n, function () { syncWorkerOfflineFixes(false); });
+  empireOfflineSetBanner(n, function () { syncWorkerOfflineFixes(false); }, {
+    title: workerTxt_('fixBannerTitle', function (p) {
+      var c = p.count || 0;
+      return c + ' job fix' + (c === 1 ? '' : 'es') + ' waiting to upload';
+    }, { count: n }),
+    subtitle: workerTxt_('fixBannerSubtitle', 'Saved on this phone — tap Retry when you have signal.'),
+    buttonLabel: workerTxt_('fixBannerRetry', 'Retry upload')
+  });
 }
 async function restoreWorkerOfflineQueueState() {
   _workerOfflineQueuedIds = {};
+  if (typeof empireOfflineQueueAll !== 'function') {
+    try {
+      var rawOnly = localStorage.getItem(WORKER_OFFLINE_PENDING_KEY());
+      if (rawOnly) _workerOfflineQueuedIds = JSON.parse(rawOnly) || {};
+    } catch (e0) { _workerOfflineQueuedIds = {}; }
+    return;
+  }
   try {
-    var raw = localStorage.getItem(WORKER_OFFLINE_PENDING_KEY());
-    if (raw) _workerOfflineQueuedIds = JSON.parse(raw) || {};
-  } catch (e) { _workerOfflineQueuedIds = {}; }
-  if (typeof empireOfflineQueueAll !== 'function') return;
-  var rows = await empireOfflineQueueAll();
-  var user = String(empireGetUser() || '').trim().toLowerCase();
-  rows.filter(function (r) {
-    return r.type === 'worker_issue_fix' && r.dept === ISSUE_CFG.dept && (!r.user || String(r.user).toLowerCase() === user);
-  }).forEach(function (r) {
-    _workerOfflineQueuedIds[r.issueId] = { queueId: r.id, at: r.createdAt || Date.now() };
-  });
+    var rows = await empireOfflineQueueAll();
+    var user = String(empireGetUser() || '').trim().toLowerCase();
+    rows.filter(function (r) {
+      return r.type === 'worker_issue_fix' && r.dept === ISSUE_CFG.dept && (!r.user || String(r.user).toLowerCase() === user);
+    }).forEach(function (r) {
+      _workerOfflineQueuedIds[r.issueId] = { queueId: r.id, at: r.createdAt || Date.now() };
+    });
+  } catch (e) {
+    try {
+      var raw = localStorage.getItem(WORKER_OFFLINE_PENDING_KEY());
+      if (raw) _workerOfflineQueuedIds = JSON.parse(raw) || {};
+    } catch (e2) { _workerOfflineQueuedIds = {}; }
+  }
   saveWorkerOfflinePendingMap();
 }
+function workerFixIsNetworkError_(msg) {
+  return /fetch|network|failed|timeout|timed\s*out|abort|offline|HTTP\s*[45]\d\d|connection|signal|Invalid server response/i.test(String(msg || ''));
+}
+function workerFixAlreadyDoneError_(msg) {
+  return /already_submitted|already submitted|already_fixed|already fixed/i.test(String(msg || ''));
+}
+function workerFixVoiceFromDraftLocal_(issueId) {
+  var vid = workerFixVoiceId_(issueId);
+  if (typeof assignVoiceDraft_ !== 'function' || typeof assignVoiceHasDraft_ !== 'function') {
+    return Promise.resolve(null);
+  }
+  if (!assignVoiceHasDraft_(vid)) return Promise.resolve(null);
+  var draft = assignVoiceDraft_(vid);
+  if (!draft || !draft.blob || typeof empireOfflineBlobToDataUrl !== 'function') return Promise.resolve(null);
+  return empireOfflineBlobToDataUrl(draft.blob).then(function (dataUrl) {
+    return {
+      _offlineDataUrl: dataUrl,
+      by: empireGetUser() || '',
+      at: new Date().toISOString(),
+      durationSec: Number(draft.durationSec) || 0,
+      mimeType: (draft.blob && draft.blob.type) || 'audio/wav'
+    };
+  });
+}
+function prepareWorkerFixVoice_(issueId) {
+  var vid = workerFixVoiceId_(issueId);
+  var upload = (typeof assignVoiceEnsureUploaded_ === 'function')
+    ? assignVoiceEnsureUploaded_(vid, 20000)
+    : Promise.resolve(null);
+  return upload.catch(function (e) {
+    if (typeof assignVoiceHasDraft_ !== 'function' || !assignVoiceHasDraft_(vid)) return null;
+    if (!workerFixIsNetworkError_(e && e.message)) throw e;
+    return workerFixVoiceFromDraftLocal_(issueId);
+  });
+}
 async function enqueueWorkerFixOffline(issueId, note, photos, coords, voiceNote, materials) {
-  if (typeof assignVoiceBlockSaveIfDraftFailed_ === 'function') {
+  if (voiceNote && voiceNote.url && typeof assignVoiceBlockSaveIfDraftFailed_ === 'function') {
     assignVoiceBlockSaveIfDraftFailed_(workerFixVoiceId_(issueId), voiceNote);
   }
   if (typeof empireOfflineQueuePut !== 'function') throw new Error('Offline queue not available');
@@ -1236,7 +1287,17 @@ async function enqueueWorkerFixOffline(issueId, note, photos, coords, voiceNote,
     queueItem.fixLng = Number(coords.lng);
     queueItem.fixAccuracy = coords.accuracy;
   }
-  if (voiceNote && voiceNote.url) queueItem.fixVoiceNote = voiceNote;
+  if (voiceNote && voiceNote.url) {
+    queueItem.fixVoiceNote = voiceNote;
+  } else if (voiceNote && voiceNote._offlineDataUrl) {
+    queueItem.fixVoiceNoteDataUrl = voiceNote._offlineDataUrl;
+    queueItem.fixVoiceMeta = {
+      by: voiceNote.by || empireGetUser() || '',
+      at: voiceNote.at || new Date().toISOString(),
+      durationSec: Number(voiceNote.durationSec) || 0,
+      mimeType: voiceNote.mimeType || 'audio/wav'
+    };
+  }
   await empireOfflineQueuePut(queueItem);
   _workerOfflineQueuedIds[issueId] = { queueId: id, at: Date.now() };
   saveWorkerOfflinePendingMap();
@@ -1248,15 +1309,16 @@ function markWorkerFixQueuedLocally(id) {
   saveWorkerOfflinePendingMap();
 }
 async function syncWorkerOfflineFixes(silent) {
-  if (_workerOfflineSyncRunning) return;
-  if (workerBackgroundPaused_()) return;
+  if (_workerOfflineSyncRunning) return { synced: 0, syncedIds: [] };
+  if (workerBackgroundPaused_()) return { synced: 0, syncedIds: [] };
   if (!navigator.onLine) {
-    if (!silent) uiAlert('No connection — your fix will upload when you have signal.');
-    return;
+    if (!silent) uiAlert(workerTxt_('fixWaitingSignal', 'Waiting to upload when you have signal.'));
+    return { synced: 0, syncedIds: [] };
   }
-  if (typeof empireOfflineQueueAll !== 'function') return;
+  if (typeof empireOfflineQueueAll !== 'function') return { synced: 0, syncedIds: [] };
   _workerOfflineSyncRunning = true;
   var synced = 0;
+  var syncedIds = [];
   try {
     var rows = await empireOfflineQueueAll();
     var items = rows.filter(function (r) { return r.type === 'worker_issue_fix' && r.dept === ISSUE_CFG.dept; });
@@ -1295,6 +1357,25 @@ async function syncWorkerOfflineFixes(silent) {
           if (photoSources.length > remoteUrls.length) photoSources = photoSources.slice(0, remoteUrls.length);
         }
         if (!remoteUrls.length) throw new Error('No photos to upload');
+        var voiceNote = null;
+        if (item.fixVoiceNote && item.fixVoiceNote.url) {
+          voiceNote = item.fixVoiceNote;
+        } else if (item.fixVoiceNoteDataUrl) {
+          var voiceBlob = empireOfflineDataUrlToBlob(item.fixVoiceNoteDataUrl);
+          if (!voiceBlob) throw new Error('Invalid saved voice note');
+          var voiceUrl = typeof empireUploadAudioAsync === 'function'
+            ? await empireUploadAudioAsync(voiceBlob, issuePhotoFolder_())
+            : null;
+          if (!voiceUrl) throw new Error('Voice note upload failed');
+          var meta = item.fixVoiceMeta || {};
+          voiceNote = {
+            url: voiceUrl,
+            by: meta.by || item.user || '',
+            at: meta.at || new Date().toISOString(),
+            durationSec: Number(meta.durationSec) || 0,
+            mimeType: meta.mimeType || 'audio/wav'
+          };
+        }
         var payload = {
           action: ISSUE_CFG.actions.markFixed,
           id: item.issueId,
@@ -1309,17 +1390,21 @@ async function syncWorkerOfflineFixes(silent) {
           payload.lng = Number(item.fixLng);
           payload.accuracy = item.fixAccuracy;
         }
-        if (item.fixVoiceNote && item.fixVoiceNote.url) payload.fixVoiceNote = item.fixVoiceNote;
+        if (voiceNote && voiceNote.url) payload.fixVoiceNote = voiceNote;
         if (item.fixMaterials) payload.fixMaterials = item.fixMaterials;
-        var d = await fetchJSONRetry(payload, 3);
+        var d = await fetchJSONRetry(payload, 3, 45000);
         if (d && d.ok === false) {
-          if (empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts())) return;
-          throw new Error(d.message || d.error || 'Could not save fix');
+          if (empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts())) return { synced: synced, syncedIds: syncedIds };
+          var errText = String(d.error || '') + ' ' + String(d.message || '');
+          if (!workerFixAlreadyDoneError_(errText)) {
+            throw new Error(d.message || d.error || 'Could not save fix');
+          }
         }
         delete _workerOfflineQueuedIds[item.issueId];
         saveWorkerOfflinePendingMap();
         await empireOfflineQueueDelete(item.id);
         synced++;
+        syncedIds.push(item.issueId);
       } catch (e) {
         console.warn('Worker offline sync failed for', item.id, e.message);
       }
@@ -1327,6 +1412,7 @@ async function syncWorkerOfflineFixes(silent) {
     if (synced) loadIssues(true);
     await refreshWorkerOfflineBanner();
     if (synced && !silent) uiAlert('\u2705 ' + synced + ' job fix' + (synced === 1 ? '' : 'es') + ' uploaded.');
+    return { synced: synced, syncedIds: syncedIds };
   } finally {
     _workerOfflineSyncRunning = false;
   }
@@ -1498,7 +1584,9 @@ function openWorkerJobPendingView(id) {
     }
     var h = '<h2 class="worker-job-type-title">' + r.issueType + '</h2><p class="loc">' + workerJobLocStr(r) + '</p>';
     h += '<div class="worker-done-locked worker-pending-sync"><p class="worker-done-msg">' + checkIconHtml('#d68910') + ' ' + workerTxt_('fixSavedOnDevice', 'Saved on this device') + '</p>';
-    h += '<p style="font-size:13px;color:var(--text-soft);margin:0;">' + workerTxt_('fixPendingSync', 'Waiting for internet to upload your photos and mark this job fixed. Keep this page open or come back later.') + '</p></div>';
+    h += '<p style="font-size:13px;color:var(--text-soft);margin:0;">' + workerTxt_('fixPendingSync', 'Waiting for internet to upload your photos and mark this job fixed. Keep this page open or come back later.') + '</p>';
+    h += '<p style="font-size:12px;color:var(--text-soft);margin:8px 0 0;">' + workerTxt_('fixRetryHint', 'When you have better signal, tap Retry upload. Your photos and notes are already saved on this phone.') + '</p>';
+    h += '<button type="button" class="worker-submit-fix" style="margin-top:14px;" onclick="syncWorkerOfflineFixes(false)">' + workerTxt_('fixRetryUpload', 'Retry upload now') + '</button></div>';
     if (photos.length) {
       h += '<div class="worker-fix-section"><h3>' + workerTxt_('fixYourPhotosPending', 'Your photos (not uploaded yet)') + '</h3><div class="worker-photo-grid">';
       photos.forEach(function (url, i) {
@@ -1700,7 +1788,7 @@ function compressImageToBlob(file, cb) {
   r.readAsDataURL(file);
 }
 function workerFixNeedsOfflineQueue() {
-  return !navigator.onLine || _workerFixPhotos.some(function (item) { return isOfflinePhotoUrl(workerPhotoUrl(item)); });
+  return true;
 }
 function submitWorkerFixSuccess(id, d) {
   if (d && d.partial) {
@@ -1725,7 +1813,16 @@ function submitWorkerFixOffline(id, note, btn, coords, voiceNote, materials) {
     writeIssuesCacheAsync(allIssues);
     closeWorkerJob();
     renderWorkerJobs();
-    uiAlert('\u2705 Saved on this device. Will upload automatically when you have signal.');
+    return syncWorkerOfflineFixes(true).then(function (result) {
+      var syncedIds = (result && result.syncedIds) || [];
+      if (syncedIds.indexOf(id) !== -1) {
+        uiAlert('\u2705 Job marked fixed!');
+        return;
+      }
+      uiAlert('\u2705 ' + workerTxt_('fixSavedWillRetry', 'Saved on this device. Upload when you have signal — tap Retry upload.'));
+    }).catch(function () {
+      uiAlert('\u2705 ' + workerTxt_('fixSavedWillRetry', 'Saved on this device. Upload when you have signal — tap Retry upload.'));
+    });
   }).catch(function (e) {
     uiAlert('\u274c ' + (e.message || 'Could not save offline'));
     resetWorkerSubmitBtn_();
@@ -1775,74 +1872,10 @@ function submitWorkerFix(id) {
   var note = noteEl ? noteEl.value.trim() : '';
   var materials = materialsEl ? materialsEl.value.trim() : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Saving\u2026'; }
-  var voiceUpload = (typeof assignVoiceEnsureUploaded_ === 'function')
-    ? assignVoiceEnsureUploaded_(workerFixVoiceId_(id), 45000)
-    : Promise.resolve(null);
-  voiceUpload.then(function (voiceNote) {
+  // Always save on-device first, then upload. Weak signal no longer loses the completion.
+  prepareWorkerFixVoice_(id).then(function (voiceNote) {
     getWorkerFixLocationAsync(function (coords) {
-      try {
-        if (typeof assignVoiceBlockSaveIfDraftFailed_ === 'function') {
-          assignVoiceBlockSaveIfDraftFailed_(workerFixVoiceId_(id), voiceNote);
-        }
-      } catch (voiceErr) {
-        uiAlert('\u274c ' + voiceErr.message);
-        resetWorkerSubmitBtn_();
-        return;
-      }
-      if (workerFixNeedsOfflineQueue()) {
-        submitWorkerFixOffline(id, note, btn, coords, voiceNote, materials);
-        return;
-      }
-      var urls = normalizePhotoUrls(_workerFixPhotos);
-      var photoSources = _workerFixPhotos.map(workerPhotoSource);
-      var payload = Object.assign({
-        action: ISSUE_CFG.actions.markFixed,
-        id: id,
-        fixedPhoto: joinFixedPhotos(urls),
-        fixedPhotos: urls,
-        photoSources: photoSources,
-        fixNote: note,
-        fixMaterials: materials,
-        token: issueToken() || ''
-      }, workerFixPayloadExtras_(coords));
-      if (voiceNote && voiceNote.url) payload.fixVoiceNote = voiceNote;
-      fetchJSONRetry(payload, 2, 45000)
-      .then(function (d) {
-        if (d && d.ok === false) {
-          if (empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts())) {
-            resetWorkerSubmitBtn_();
-            return;
-          }
-          throw new Error(d.message || d.error || 'Could not save');
-        }
-        if (typeof assignVoiceClearDraft === 'function') assignVoiceClearDraft(workerFixVoiceId_(id));
-        submitWorkerFixSuccess(id, d);
-      })
-      .catch(function (e) {
-        if (/already_submitted|already submitted/i.test(e.message || '')) {
-          allIssues = allIssues.filter(function (x) { return x.id !== id; });
-          writeIssuesCacheAsync(allIssues);
-          closeWorkerJob();
-          renderWorkerJobs();
-          uiAlert('\u2705 You already completed this job.');
-          return;
-        }
-        if (!navigator.onLine || /fetch|network|failed|timeout/i.test(e.message || '')) {
-          try {
-            if (typeof assignVoiceBlockSaveIfDraftFailed_ === 'function') {
-              assignVoiceBlockSaveIfDraftFailed_(workerFixVoiceId_(id), voiceNote);
-            }
-          } catch (voiceErr) {
-            uiAlert('\u274c ' + voiceErr.message);
-            resetWorkerSubmitBtn_();
-            return;
-          }
-          submitWorkerFixOffline(id, note, btn, coords, voiceNote, materials);
-          return;
-        }
-        uiAlert('\u274c ' + (e.message || 'Could not save'));
-        resetWorkerSubmitBtn_();
-      });
+      submitWorkerFixOffline(id, note, btn, coords, voiceNote, materials);
     });
   }).catch(function (e) {
     uiAlert('\u274c ' + (e.message || 'Voice note upload failed. The job was not saved — try again or delete the recording.'));

@@ -77,12 +77,16 @@ function empireOfflineDataUrlToBlob(dataUrl) {
   return new Blob([arr], { type: mime });
 }
 
-function empireOfflineSetBanner(count, onSync) {
+function empireOfflineSetBanner(count, onSync, opts) {
   var bar = document.getElementById('empire-offline-banner');
   if (!count) {
     if (bar) bar.remove();
     return;
   }
+  opts = opts || {};
+  var title = opts.title || (count + ' photo upload' + (count === 1 ? '' : 's') + ' waiting');
+  var subtitle = opts.subtitle || 'Saved on this device — will sync when you have signal.';
+  var buttonLabel = opts.buttonLabel || 'Sync now';
   if (!bar) {
     bar = document.createElement('div');
     bar.id = 'empire-offline-banner';
@@ -102,9 +106,9 @@ function empireOfflineSetBanner(count, onSync) {
   }
   bar.innerHTML =
     '<div class="empire-offline-inner">' +
-      '<div><strong>' + count + ' photo upload' + (count === 1 ? '' : 's') + ' waiting</strong>' +
-      '<span>Saved on this device — will sync when you have signal.</span></div>' +
-      '<button type="button" id="empireOfflineSyncBtn">Sync now</button>' +
+      '<div><strong>' + title + '</strong>' +
+      '<span>' + subtitle + '</span></div>' +
+      '<button type="button" id="empireOfflineSyncBtn">' + buttonLabel + '</button>' +
     '</div>';
   var btn = document.getElementById('empireOfflineSyncBtn');
   if (btn && typeof onSync === 'function') btn.onclick = onSync;

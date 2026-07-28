@@ -38,7 +38,7 @@ function fetchJSONRetry(body, tries, timeoutMs) {
     })
     .catch(function (e) {
       if (e && e.name === 'AbortError') {
-        throw new Error('Server timed out. Google Apps Script can be slow — wait a moment and try again.');
+        throw new Error('Server timed out (timeout). Google Apps Script can be slow — wait a moment and try again.');
       }
       if (tries > 1) {
         return new Promise(function (res) {

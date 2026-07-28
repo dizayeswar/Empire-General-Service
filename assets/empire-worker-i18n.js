@@ -147,6 +147,15 @@
       },
       fixSavedOnDevice: 'Saved on this device',
       fixPendingSync: 'Waiting for internet to upload your photos and mark this job fixed. Keep this page open or come back later.',
+      fixRetryUpload: 'Retry upload now',
+      fixRetryHint: 'When you have better signal, tap Retry upload. Your photos and notes are already saved on this phone.',
+      fixBannerTitle: function (p) {
+        var n = p.count || 0;
+        return n + ' job fix' + (n === 1 ? '' : 'es') + ' waiting to upload';
+      },
+      fixBannerSubtitle: 'Saved on this phone — tap Retry when you have signal.',
+      fixBannerRetry: 'Retry upload',
+      fixSavedWillRetry: 'Saved on this device. Upload when you have signal — tap Retry upload.',
       fixYourPhotosPending: 'Your photos (not uploaded yet)',
       fixPhotoN: function (p) { return 'Photo ' + (p.index || 1); },
       fixOnDevice: 'on device',
@@ -300,6 +309,14 @@
       },
       fixSavedOnDevice: 'لەسەر ئەم ئامێرە پاشەکەوت کرا',
       fixPendingSync: 'چاوەڕێی ئینتەرنێتە بۆ بارکردنی وێنەکانت و نیشانکردنی کار وەک چارەسەرکراو. ئەم پەڕەیە کراوە بهێڵە یان دواتر بگەڕێرەوە.',
+      fixRetryUpload: 'ئێستا دووبارە بارکردن',
+      fixRetryHint: 'کاتێک سیگنال باشتر بوو، دووبارە بارکردن دابگرە. وێنە و تێبینییەکانت لەسەر ئەم مۆبایلە پاشەکەوت کراون.',
+      fixBannerTitle: function (p) {
+        return (p.count || 0) + ' چاکسازی چاوەڕێی بارکردنە';
+      },
+      fixBannerSubtitle: 'لەسەر مۆبایل پاشەکەوت کرا — کاتێک سیگنال هەبوو Retry دابگرە.',
+      fixBannerRetry: 'دووبارە بارکردن',
+      fixSavedWillRetry: 'لەسەر ئەم ئامێرە پاشەکەوت کرا. کاتێک سیگنال هەبوو دووبارە بارکردن دابگرە.',
       fixYourPhotosPending: 'وێنەکانت (هێشتا بارنەکراون)',
       fixPhotoN: function (p) { return 'وێنە ' + (p.index || 1); },
       fixOnDevice: 'لەسەر ئامێر',
