@@ -916,16 +916,8 @@
   }
 
   function canUseCleaningMobile(d) {
-    if (!d) return false;
-    if (isSupervisorRole(d.role)) return true;
-    // This page is supervisor-only; allow cleaning dept accounts with assigned projects
-    // even if Apps Script still maps unknown roles to "editor".
-    var dept = String(d.dept || '').toLowerCase();
-    var projects = d.projects;
-    if (dept.indexOf('cleaning') !== -1 && Array.isArray(projects) && projects.length > 0) {
-      return true;
-    }
-    return false;
+    // Dedicated supervisor page: any successful login stays in.
+    return !!(d && (d.ok || d.success) && d.token);
   }
 
   function enterApp() {
@@ -937,40 +929,52 @@
     scheduleDailyLocalReminder();
     loadPhotos(true);
     syncOffline(true);
-    // Delay GPS so the new login token is fully readable before location auth runs.
     setTimeout(function () { startGps(); }, 2500);
-    if (typeof empireInitPwa === 'function') empireInitPwa();
   }
 
   function handleLogin(e) {
-    if (e && e.preventDefault) e.preventDefault();
+    if (e) {
+      if (e.preventDefault) e.preventDefault();
+      if (e.stopPropagation) e.stopPropagation();
+    }
     var msg = document.getElementById('cmLoginMsg');
     var btn = document.getElementById('cmLoginBtn');
+    var userEl = document.getElementById('cmUsername');
+    var passEl = document.getElementById('cmPassword');
+    var username = userEl ? String(userEl.value || '').trim() : '';
+    var password = passEl ? String(passEl.value || '') : '';
+    if (!username || !password) {
+      setMsg(msg, 'Enter username and password.', true);
+      return false;
+    }
     if (btn) btn.disabled = true;
     setMsg(msg, t('signingIn'), false);
-    empireAuthLogin(e, 'cleaning', {
-      usernameId: 'cmUsername',
-      passwordId: 'cmPassword',
-      messageEl: msg,
-      onSuccess: function (d) {
-        if (!canUseCleaningMobile(d)) {
-          empireClearSession();
-          setMsg(msg, t('notSupervisor') + ' (role: ' + String((d && d.role) || 'none') + ')', true);
-          if (btn) btn.disabled = false;
-          return;
-        }
-        // Normalize local role so the rest of the app treats this as a supervisor.
-        if (typeof empireAuthSet === 'function') {
-          empireAuthSet('role', 'cleaning_supervisor');
-        }
-        state.loginGraceUntil = Date.now() + 15000;
-        state.photoLoadTries = 0;
-        enterApp();
+    empireLogin({
+      username: username,
+      password: password,
+      dept: 'cleaning',
+      messageEl: msg
+    }).then(function (d) {
+      if (!canUseCleaningMobile(d)) {
+        setMsg(msg, t('notSupervisor') + ' (role: ' + String((d && d.role) || 'none') + ')', true);
         if (btn) btn.disabled = false;
+        return;
       }
-    }).catch(function () {
+      empireSetSession(username, d);
+      empireClearLegacyKeys();
+      if (typeof empireAuthSet === 'function') {
+        empireAuthSet('role', 'cleaning_supervisor');
+        if (d.perms) empireAuthSet('perms', JSON.stringify(d.perms));
+      }
+      state.loginGraceUntil = Date.now() + 15000;
+      state.photoLoadTries = 0;
+      enterApp();
       if (btn) btn.disabled = false;
+    }).catch(function (err) {
+      if (btn) btn.disabled = false;
+      setMsg(msg, '❌ ' + ((err && err.message) || 'Login failed'), true);
     });
+    return false;
   }
 
   function boot() {
@@ -978,8 +982,27 @@
     if (typeof cleaningSetLang === 'function') cleaningSetLang(cleaningGetLang());
     empireMigrateSession();
 
-    var form = document.getElementById('cmLoginForm');
-    if (form) form.onsubmit = handleLogin;
+    var btn = document.getElementById('cmLoginBtn');
+    if (btn) btn.onclick = function (ev) { handleLogin(ev); return false; };
+    var passEl = document.getElementById('cmPassword');
+    if (passEl) {
+      passEl.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter') {
+          ev.preventDefault();
+          handleLogin(ev);
+        }
+      });
+    }
+    var userEl = document.getElementById('cmUsername');
+    if (userEl) {
+      userEl.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter') {
+          ev.preventDefault();
+          var p = document.getElementById('cmPassword');
+          if (p) p.focus();
+        }
+      });
+    }
     var langBtn = document.getElementById('cmLangBtn');
     if (langBtn) langBtn.onclick = toggleLang;
     var langBtn2 = document.getElementById('cmLangBtn2');
@@ -1002,9 +1025,9 @@
     }
     var refreshBtn = document.getElementById('cmRefreshBtn');
     if (refreshBtn) refreshBtn.onclick = function () { loadPhotos(true); syncOffline(true); reportLiveGps(true); };
-    document.querySelectorAll('.cm-tab').forEach(function (btn) {
-      btn.onclick = function () {
-        state.tab = btn.getAttribute('data-tab');
+    document.querySelectorAll('.cm-tab').forEach(function (tabBtn) {
+      tabBtn.onclick = function () {
+        state.tab = tabBtn.getAttribute('data-tab');
         if (state.tab !== 'tasks') state.project = null;
         renderAll();
       };
@@ -1014,16 +1037,8 @@
 
     window.addEventListener('online', function () { syncOffline(true); });
 
+    // Dedicated page: any existing token stays logged in (no role gate that sends you back).
     if (empireGetToken()) {
-      var dept = String(empireGetTokenDept() || '').toLowerCase();
-      var projects = typeof empireGetProjects === 'function' ? empireGetProjects() : null;
-      var ok = empireIsCleaningSupervisor() ||
-        (dept.indexOf('cleaning') !== -1 && projects && projects.length);
-      if (!ok) {
-        showView('login');
-        setMsg(document.getElementById('cmLoginMsg'), t('notSupervisor'), true);
-        return;
-      }
       if (typeof empireAuthSet === 'function') empireAuthSet('role', 'cleaning_supervisor');
       state.loginGraceUntil = Date.now() + 15000;
       enterApp();
@@ -1033,5 +1048,9 @@
     applyLangUi();
   }
 
-  document.addEventListener('DOMContentLoaded', boot);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
 })();

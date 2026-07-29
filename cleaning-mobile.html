@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="icon" href="logo-light.png" type="image/png">
   <title>Cleaning Supervisor — Empire EGS</title>
-  <link rel="stylesheet" href="assets/cleaning-mobile.css">
+  <link rel="stylesheet" href="assets/cleaning-mobile.css?v=2026-07-29c">
   <link rel="stylesheet" href="assets/empire-civil-worker.css">
 </head>
 <body class="cleaning-supervisor-mode">
@@ -24,17 +24,18 @@
       <h1 data-i18n="loginTitle">Cleaning Supervisor</h1>
       <p data-i18n="taskDoneHint">A task is done only when it has a saved photo</p>
       <div class="cm-msg" id="cmLoginMsg"></div>
-      <form id="cmLoginForm">
+      <!-- No <form> — iOS/Safari form submit was reloading the page and wiping the session UI -->
+      <div id="cmLoginBox">
         <div class="cm-field">
           <label for="cmUsername" data-i18n="loginUser">Username</label>
-          <input id="cmUsername" name="username" autocomplete="username" required>
+          <input id="cmUsername" name="username" autocomplete="username" inputmode="text" enterkeyhint="next">
         </div>
         <div class="cm-field">
           <label for="cmPassword" data-i18n="loginPass">Password</label>
-          <input id="cmPassword" type="password" name="password" autocomplete="current-password" required>
+          <input id="cmPassword" type="password" name="password" autocomplete="current-password" enterkeyhint="go">
         </div>
-        <button type="submit" class="cm-btn" id="cmLoginBtn" style="width:100%;" data-i18n="loginBtn">Sign in</button>
-      </form>
+        <button type="button" class="cm-btn" id="cmLoginBtn" style="width:100%;" data-i18n="loginBtn">Sign in</button>
+      </div>
     </div>
   </div>
 
@@ -87,15 +88,15 @@
   </div>
 
   <script src="config.js"></script>
-  <script src="assets/empire-api.js?v=2026-07-29b"></script>
-  <script src="assets/empire-auth.js?v=2026-07-29b"></script>
-  <script src="assets/empire-storage.js"></script>
-  <script src="assets/empire-offline-queue.js"></script>
-  <script src="assets/empire-pwa.js"></script>
-  <script src="assets/empire-core.js"></script>
-  <script src="assets/cleaning-mobile-i18n.js?v=2026-07-29b"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js"></script>
-  <script src="assets/cleaning-mobile-app.js?v=2026-07-29b"></script>
+  <script src="assets/empire-api.js?v=2026-07-29c"></script>
+  <script src="assets/empire-auth.js?v=2026-07-29c"></script>
+  <script src="assets/empire-storage.js?v=2026-07-29c"></script>
+  <script src="assets/empire-offline-queue.js?v=2026-07-29c"></script>
+  <script src="assets/empire-core.js?v=2026-07-29c"></script>
+  <script src="assets/cleaning-mobile-i18n.js?v=2026-07-29c"></script>
+  <script src="assets/cleaning-mobile-app.js?v=2026-07-29c"></script>
+  <script src="assets/empire-pwa.js?v=2026-07-29c" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js" defer></script>
 </body>
 </html>
