@@ -24,7 +24,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-29-photo-sync-v7';
+var SCRIPT_VERSION = '2026-07-29-photo-dedupe-v8';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -1609,16 +1609,41 @@ function handleAddTaskPhotos(body) {
   var ss = getSS_();
   var sheet = ss.getSheetByName(TASK_PHOTOS_SHEET) || ss.insertSheet(TASK_PHOTOS_SHEET);
   ensureTaskPhotosSheet_(sheet);
+  var project = String(body.project || '').toLowerCase();
+  var task = String(body.task || '');
+  var period = String(body.period || '');
+  var existingUrls = {};
+  var existingCount = 0;
+  if (sheet.getLastRow() >= 2) {
+    var rows = sheet.getDataRange().getValues();
+    for (var r = 1; r < rows.length; r++) {
+      if (String(rows[r][1] || '').toLowerCase() !== project) continue;
+      if (String(rows[r][3] || '') !== task) continue;
+      if (String(rows[r][5] || '') !== period) continue;
+      existingCount++;
+      var eu = String(rows[r][6] || '');
+      if (eu) existingUrls[eu] = true;
+    }
+  }
   var items = [];
-  var periodPrefix = '';
+  var periodPrefix = String(period).split('#')[0];
   var now = new Date().toISOString();
-  for (var i=0; i<images.length; i++) {
+  var added = 0;
+  for (var i = 0; i < images.length; i++) {
+    var img = String(images[i] || '');
+    if (!img) continue;
+    // Idempotent: skip exact URL already saved for this task/period (retry safety).
+    if (existingUrls[img]) {
+      items.push({id:'existing', image:img, skipped:true, lat:'', lng:'', accuracy:''});
+      continue;
+    }
+    if (existingCount + added >= 3) break;
     var id = 'tp-' + Utilities.getUuid();
-    var period = body.period || '';
     var gps = photoGpsFromBody_(body, i);
-    sheet.appendRow([id, body.project||'', body.freq||'', body.task||'', body.date||'', period, images[i]||'', body.username||'', now, gps.lat, gps.lng, gps.accuracy]);
-    items.push({id:id, image:images[i]||'', lat:gps.lat, lng:gps.lng, accuracy:gps.accuracy});
-    periodPrefix = String(period).split('#')[0];
+    sheet.appendRow([id, body.project||'', body.freq||'', body.task||'', body.date||'', period, img, body.username||'', now, gps.lat, gps.lng, gps.accuracy]);
+    existingUrls[img] = true;
+    added++;
+    items.push({id:id, image:img, lat:gps.lat, lng:gps.lng, accuracy:gps.accuracy});
   }
   invalidateTaskPhotosCache_(periodPrefix);
   return {ok:true, success:true, items:items};

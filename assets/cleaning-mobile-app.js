@@ -53,6 +53,7 @@
     gpsWatch: null,
     weekNotifySent: {},
     syncing: false,
+    saving: false,
     loginGraceUntil: 0,
     photoLoadTries: 0
   };
@@ -106,10 +107,38 @@
 
   function photosFor(p, g, task, wk) {
     var period = g.daily ? (curMonth() + '#' + wk) : curMonth();
-    return state.photos.filter(function (x) {
-      return String(x.project).toLowerCase() === String(p).toLowerCase() &&
-        x.task === task && x.period === period;
+    var seen = {};
+    var out = [];
+    state.photos.forEach(function (x) {
+      if (String(x.project).toLowerCase() !== String(p).toLowerCase()) return;
+      if (x.task !== task || x.period !== period) return;
+      var img = String(x.image || '');
+      var key = x.id ? ('id:' + x.id) : ('img:' + img);
+      if (img && seen['img:' + img]) return;
+      if (seen[key]) return;
+      if (img) seen['img:' + img] = 1;
+      seen[key] = 1;
+      out.push(x);
     });
+    return out;
+  }
+
+  function dedupePhotoList(list) {
+    var seenId = {};
+    var seenImg = {};
+    var out = [];
+    (list || []).forEach(function (x) {
+      if (!x) return;
+      var id = String(x.id || '');
+      var img = String(x.image || '');
+      var isOffline = id.indexOf('offline-') === 0 || !!x._offline;
+      if (!isOffline && id && seenId[id]) return;
+      if (img && seenImg[img]) return;
+      if (!isOffline && id) seenId[id] = 1;
+      if (img) seenImg[img] = 1;
+      out.push(x);
+    });
+    return out;
   }
 
   function dailyCovered(p, wk) {
@@ -192,8 +221,13 @@
     } catch (e) {}
   }
 
-  async function api(body) {
-    return fetchJSONRetry(Object.assign({ token: empireGetToken() || '' }, body), 2);
+  async function api(body, tries) {
+    return fetchJSONRetry(Object.assign({ token: empireGetToken() || '' }, body), tries == null ? 2 : tries);
+  }
+
+  /** Mutating writes must not retry — a timeout after success would duplicate rows. */
+  async function apiWrite(body) {
+    return api(body, 1);
   }
 
   var _photosRefreshTimer = null;
@@ -202,10 +236,11 @@
 
   async function loadPhotos(force) {
     if (!empireGetToken()) return;
+    if (state.saving || state.syncing) return;
     if (_photosRefreshing) return;
     var now = Date.now();
     // Soft debounce background polls; force/refresh always runs.
-    if (!force && now - _lastPhotosSyncAt < 8000) return;
+    if (!force && now - _lastPhotosSyncAt < 12000) return;
     _photosRefreshing = true;
     var mv = curMonth();
     try {
@@ -237,15 +272,18 @@
         }
         return;
       }
+      // If a save started while we were fetching, keep current UI.
+      if (state.saving || state.syncing) return;
       state.photoLoadTries = 0;
       _lastPhotosSyncAt = Date.now();
       var list = Array.isArray(d) ? d : [];
       var allowed = userProjects();
       // Always replace with server truth so portal deletes disappear here too.
-      state.photos = list.filter(function (x) {
+      state.photos = dedupePhotoList(list.filter(function (x) {
         return !allowed.length || allowed.indexOf(String(x.project || '').toLowerCase()) !== -1;
-      });
+      }));
       await restoreOfflinePlaceholders();
+      state.photos = dedupePhotoList(state.photos);
       await refreshOfflineBanner();
       renderAll();
     } catch (e) {
@@ -261,14 +299,15 @@
       if (document.visibilityState !== 'visible') return;
       if (state.view === 'login') return;
       if (!empireGetToken()) return;
+      if (state.saving || state.syncing) return;
       loadPhotos(false);
     };
-    _photosRefreshTimer = setInterval(tick, 20000);
+    _photosRefreshTimer = setInterval(tick, 30000);
     document.addEventListener('visibilitychange', function () {
       if (document.visibilityState === 'visible') loadPhotos(true);
     });
     window.addEventListener('focus', function () {
-      loadPhotos(true);
+      if (!state.saving && !state.syncing) loadPhotos(true);
     });
   }
 
@@ -438,10 +477,24 @@
   async function restoreOfflinePlaceholders() {
     if (typeof empireOfflineQueueAll !== 'function') return;
     var rows = await empireOfflineQueueAll();
-    rows.filter(function (r) { return r.type === 'cleaning_task_photos'; }).forEach(function (item) {
-      if (state.photos.some(function (x) { return x._queueId === item.id; })) return;
+    var serverImgs = {};
+    state.photos.forEach(function (x) {
+      if (x && x.image && !x._offline) serverImgs[String(x.image)] = 1;
+    });
+    for (var qi = 0; qi < rows.length; qi++) {
+      var item = rows[qi];
+      if (!item || item.type !== 'cleaning_task_photos') continue;
+      var remotes = item.remoteUrls || [];
+      var datas = item.imageDataUrls || [];
+      // Drop queue entries that are already fully on the server (prevents 3→6 flicker).
+      if (remotes.length && remotes.every(function (u) { return serverImgs[String(u)]; }) && !datas.length) {
+        try { await empireOfflineQueueDelete(item.id); } catch (eDel) {}
+        continue;
+      }
+      if (state.photos.some(function (x) { return x._queueId === item.id; })) continue;
       var idx = 0;
-      (item.imageDataUrls || []).forEach(function (dataUrl) {
+      datas.forEach(function (dataUrl) {
+        if (!dataUrl) return;
         state.photos.push({
           id: 'offline-' + item.id + '-' + (idx++),
           project: item.project,
@@ -454,7 +507,8 @@
           _queueId: item.id
         });
       });
-      (item.remoteUrls || []).forEach(function (url) {
+      remotes.forEach(function (url) {
+        if (!url || serverImgs[String(url)]) return;
         state.photos.push({
           id: 'offline-' + item.id + '-' + (idx++),
           project: item.project,
@@ -467,7 +521,7 @@
           _queueId: item.id
         });
       });
-    });
+    }
   }
 
   async function refreshOfflineBanner() {
@@ -487,7 +541,7 @@
   }
 
   async function syncOffline(silent) {
-    if (state.syncing) return;
+    if (state.syncing || state.saving) return;
     if (!navigator.onLine) {
       if (!silent) alert(t('noConnection'));
       return;
@@ -501,17 +555,27 @@
       for (var qi = 0; qi < items.length; qi++) {
         var item = items[qi];
         try {
-          var remoteUrls = (item.remoteUrls || []).slice();
+          var remoteUrls = [];
+          var seenUrl = {};
+          (item.remoteUrls || []).forEach(function (u) {
+            u = String(u || '');
+            if (!u || seenUrl[u]) return;
+            seenUrl[u] = 1;
+            remoteUrls.push(u);
+          });
           var dataUrls = item.imageDataUrls || [];
           for (var bi = 0; bi < dataUrls.length; bi++) {
             var blob = empireOfflineDataUrlToBlob(dataUrls[bi]);
             if (!blob) throw new Error('Invalid saved image');
             var url = await uploadBlob(blob);
             if (!url) throw new Error('Photo upload failed');
+            if (seenUrl[url]) continue;
+            seenUrl[url] = 1;
             remoteUrls.push(url);
           }
           if (!remoteUrls.length) throw new Error('No photos');
-          var batch = await api({
+          if (remoteUrls.length > MAX_PHOTOS) remoteUrls = remoteUrls.slice(0, MAX_PHOTOS);
+          var batch = await apiWrite({
             action: 'addTaskPhotos',
             project: item.project,
             freq: item.freq,
@@ -531,6 +595,7 @@
         }
       }
       if (synced) {
+        state.syncing = false;
         await loadPhotos(true);
         localNotify(t('synced', { count: synced }), '');
         if (!silent) alert(t('synced', { count: synced }));
@@ -544,7 +609,7 @@
   async function confirmSave(p, gi, ti) {
     var key = pendingKey(p, gi, ti);
     var items = ensurePending(key);
-    if (!items.length) return;
+    if (!items.length || state.saving) return;
     var g = TASK_MAP[p].groups[gi];
     var task = g.tasks[ti];
     var freq = g.daily ? 'daily' : g.freq;
@@ -553,6 +618,7 @@
     var date = todayStr();
     var btn = document.querySelector('[data-confirm="' + key + '"]');
     if (btn) { btn.disabled = true; btn.textContent = t('saving'); }
+    state.saving = true;
 
     if (!navigator.onLine) {
       try {
@@ -563,24 +629,35 @@
       } catch (e) {
         alert(e.message || String(e));
       }
+      state.saving = false;
       if (btn) { btn.disabled = false; btn.textContent = t('confirmSave'); }
       return;
     }
 
+    var serverSaved = false;
     try {
       var remoteUrls = [];
       var photoGps = [];
+      var seenUrl = {};
       for (var i = 0; i < items.length; i++) {
         if (btn) btn.textContent = t('uploading') + ' ' + (i + 1) + '/' + items.length;
         var url = items[i].remote;
         if (!url) {
           url = await uploadBlob(items[i].blob);
           if (!url) throw new Error('Upload failed');
+          items[i].remote = url;
         }
+        if (seenUrl[url]) continue;
+        seenUrl[url] = 1;
         remoteUrls.push(url);
         photoGps.push(items[i].gps || state.lastGps || null);
       }
-      var batch = await api({
+      if (!remoteUrls.length) throw new Error('No photos');
+      if (remoteUrls.length > MAX_PHOTOS) {
+        remoteUrls = remoteUrls.slice(0, MAX_PHOTOS);
+        photoGps = photoGps.slice(0, MAX_PHOTOS);
+      }
+      var batch = await apiWrite({
         action: 'addTaskPhotos',
         project: p,
         freq: freq,
@@ -591,18 +668,7 @@
         photoGps: photoGps
       });
       if (batch && batch.ok === false) throw new Error(batch.message || batch.error || 'Save failed');
-      var saved = (batch && batch.items) || remoteUrls.map(function (u, idx) { return { id: 'tmp' + Date.now() + idx, image: u }; });
-      saved.forEach(function (row, idx) {
-        state.photos.push({
-          id: row.id,
-          project: p,
-          freq: freq,
-          task: task,
-          date: date,
-          period: period,
-          image: row.image || remoteUrls[idx]
-        });
-      });
+      serverSaved = true;
       items.forEach(function (it) {
         if (it.preview && String(it.preview).indexOf('blob:') === 0) {
           try { URL.revokeObjectURL(it.preview); } catch (e) {}
@@ -610,17 +676,26 @@
       });
       delete state.pending[key];
       checkWeekCompletionAfterSave(p);
+      state.saving = false;
+      await loadPhotos(true);
       renderTasks();
     } catch (e) {
-      try {
-        await enqueueOffline(p, freq, task, period, date, items);
+      if (!serverSaved) {
+        try {
+          await enqueueOffline(p, freq, task, period, date, items);
+          delete state.pending[key];
+          renderTasks();
+          alert(t('savedOffline'));
+        } catch (err) {
+          alert(e.message || String(e));
+        }
+      } else {
         delete state.pending[key];
+        try { await loadPhotos(true); } catch (e2) {}
         renderTasks();
-        alert(t('savedOffline'));
-      } catch (err) {
-        alert(e.message || String(e));
       }
     } finally {
+      state.saving = false;
       if (btn) { btn.disabled = false; btn.textContent = t('confirmSave'); }
     }
   }
