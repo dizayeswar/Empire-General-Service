@@ -203,12 +203,26 @@
       if (d && d.ok === false) {
         // Never auto-kick supervisors from the mobile app — show error and keep session.
         console.warn('getTaskPhotos rejected', d);
+        var err = String(d.error || '').toLowerCase();
         var bar = document.getElementById('cmOfflineBanner');
         if (bar) {
           bar.style.display = 'flex';
-          bar.innerHTML = '<span>Could not refresh tasks: ' +
-            String(d.message || d.error || 'server error') +
-            '. Pull refresh to retry.</span>';
+          if (err === 'password_changed' || err === 'invalid token' || err === 'token expired') {
+            bar.innerHTML = '<span>Session expired on server. Please Logout and Sign in again.</span>' +
+              '<button type="button" class="cm-btn" id="cmReLoginBtn" style="padding:8px 12px;font-size:12px;">Sign in again</button>';
+            var rb = document.getElementById('cmReLoginBtn');
+            if (rb) {
+              rb.onclick = function () {
+                if (typeof empireClearSession === 'function') empireClearSession();
+                showView('login');
+                setMsg(document.getElementById('cmLoginMsg'), 'Sign in again to refresh your session.', true);
+              };
+            }
+          } else {
+            bar.innerHTML = '<span>Could not refresh tasks: ' +
+              String(d.message || d.error || 'server error') +
+              '. Pull refresh to retry.</span>';
+          }
         }
         return;
       }
