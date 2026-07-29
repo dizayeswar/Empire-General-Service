@@ -196,10 +196,20 @@
     return fetchJSONRetry(Object.assign({ token: empireGetToken() || '' }, body), 2);
   }
 
+  var _photosRefreshTimer = null;
+  var _photosRefreshing = false;
+  var _lastPhotosSyncAt = 0;
+
   async function loadPhotos(force) {
+    if (!empireGetToken()) return;
+    if (_photosRefreshing) return;
+    var now = Date.now();
+    // Soft debounce background polls; force/refresh always runs.
+    if (!force && now - _lastPhotosSyncAt < 8000) return;
+    _photosRefreshing = true;
     var mv = curMonth();
     try {
-      var d = await api({ action: 'getTaskPhotos', periodPrefix: mv });
+      var d = await api({ action: 'getTaskPhotos', periodPrefix: mv, force: true });
       if (d && d.ok === false) {
         // Never auto-kick supervisors from the mobile app — show error and keep session.
         console.warn('getTaskPhotos rejected', d);
@@ -228,16 +238,38 @@
         return;
       }
       state.photoLoadTries = 0;
+      _lastPhotosSyncAt = Date.now();
       var list = Array.isArray(d) ? d : [];
       var allowed = userProjects();
+      // Always replace with server truth so portal deletes disappear here too.
       state.photos = list.filter(function (x) {
         return !allowed.length || allowed.indexOf(String(x.project || '').toLowerCase()) !== -1;
       });
       await restoreOfflinePlaceholders();
+      await refreshOfflineBanner();
       renderAll();
     } catch (e) {
       console.warn(e);
+    } finally {
+      _photosRefreshing = false;
     }
+  }
+
+  function startPhotosAutoSync() {
+    if (_photosRefreshTimer) return;
+    var tick = function () {
+      if (document.visibilityState !== 'visible') return;
+      if (state.view === 'login') return;
+      if (!empireGetToken()) return;
+      loadPhotos(false);
+    };
+    _photosRefreshTimer = setInterval(tick, 20000);
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') loadPhotos(true);
+    });
+    window.addEventListener('focus', function () {
+      loadPhotos(true);
+    });
   }
 
   function compressPreview(file) {
@@ -944,6 +976,7 @@
     scheduleDailyLocalReminder();
     loadPhotos(true);
     syncOffline(true);
+    startPhotosAutoSync();
     setTimeout(function () { startGps(); }, 2500);
   }
 

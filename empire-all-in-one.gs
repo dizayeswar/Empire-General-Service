@@ -24,7 +24,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-29-auth-unblock-v6';
+var SCRIPT_VERSION = '2026-07-29-photo-sync-v7';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -147,8 +147,16 @@ function issuesCachePut_(ckey, out) {
 }
 function reportsCacheKey_() { return 'reports_v1'; }
 function invalidateReportsCache_() { try { CacheService.getScriptCache().remove(reportsCacheKey_()); } catch(e){} }
-function taskPhotosCacheKey_(prefix) { return 'tphotos_v1_' + String(prefix||''); }
-function invalidateTaskPhotosCache_(prefix) { try { CacheService.getScriptCache().remove(taskPhotosCacheKey_(prefix)); } catch(e){} }
+function taskPhotosCacheKey_(prefix) { return 'tphotos_v2_' + String(prefix||''); }
+function invalidateTaskPhotosCache_(prefix) {
+  try {
+    var cache = CacheService.getScriptCache();
+    cache.remove(taskPhotosCacheKey_(prefix));
+    cache.remove(taskPhotosCacheKey_(''));
+    // Also drop legacy key from older deploys.
+    cache.remove('tphotos_v1_' + String(prefix || ''));
+  } catch (e) {}
+}
 
 // ---- Permanent, never-reused issue numbers (#1, #2, ...) per department sheet ----
 // The number lives in column 16 ('num') and is also mirrored in a Script Property
@@ -1618,12 +1626,18 @@ function handleAddTaskPhotos(body) {
 
 function handleGetTaskPhotos(body) {
   var prefix = body.periodPrefix ? String(body.periodPrefix) : '';
+  var force = !!(body && (body.force || body.nocache));
   var cache = CacheService.getScriptCache();
   var ckey = taskPhotosCacheKey_(prefix);
-  try { var hit = cache.get(ckey); if (hit) return JSON.parse(hit); } catch(e){}
+  if (!force) {
+    try { var hit = cache.get(ckey); if (hit) return JSON.parse(hit); } catch(e){}
+  }
   var ss = getSS_();
   var sheet = ss.getSheetByName(TASK_PHOTOS_SHEET);
-  if (!sheet || sheet.getLastRow()<2) return [];
+  if (!sheet || sheet.getLastRow()<2) {
+    try { cache.put(ckey, '[]', 30); } catch (e0) {}
+    return [];
+  }
   ensureTaskPhotosSheet_(sheet);
   var rows = sheet.getDataRange().getValues();
   var out = [];
@@ -1645,7 +1659,7 @@ function handleGetTaskPhotos(body) {
       accuracy: rows[i][11] === '' || rows[i][11] == null ? null : Number(rows[i][11])
     });
   }
-  try { var js = JSON.stringify(out); if (js.length < 95000) cache.put(ckey, js, 60); } catch(e){}
+  try { var js = JSON.stringify(out); if (js.length < 95000) cache.put(ckey, js, 30); } catch(e){}
   return out;
 }
 
