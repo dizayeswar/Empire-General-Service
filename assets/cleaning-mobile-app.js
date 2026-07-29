@@ -207,8 +207,9 @@
         var bar = document.getElementById('cmOfflineBanner');
         if (bar) {
           bar.style.display = 'flex';
-          if (err === 'password_changed' || err === 'invalid token' || err === 'token expired') {
-            bar.innerHTML = '<span>Session expired on server. Please Logout and Sign in again.</span>' +
+          if (err === 'password_changed' || err === 'invalid token' || err === 'token expired' || err === 'no token' || err === 'not authenticated') {
+            bar.innerHTML = '<span>Server auth error: ' + String(d.message || d.error || 'unknown') +
+              ' — Logout and Sign in again.</span>' +
               '<button type="button" class="cm-btn" id="cmReLoginBtn" style="padding:8px 12px;font-size:12px;">Sign in again</button>';
             var rb = document.getElementById('cmReLoginBtn');
             if (rb) {

@@ -24,7 +24,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-29-token-digest-props-v5';
+var SCRIPT_VERSION = '2026-07-29-auth-unblock-v6';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -990,35 +990,15 @@ function passwordChangedResponse_() {
   return {ok:false, error:'password_changed', message:'Your password was changed. Please sign in again.'};
 }
 function ensureTokenPasswordValid_(ss, tsheet, sheetRowNum, tokenRow, username, token) {
-  var current = currentPasswordDigestForUser_(username);
-  if (!current) return {ok:true};
-
-  // Prefer Script Properties / Cache — Google Sheets corrupts digest cells.
-  var stored = readTokenDigestProp_(token);
-  if (!stored) {
-    // Legacy token: adopt current password hash into props and continue.
-    storeTokenDigestProp_(token, current);
-    try {
-      if (tsheet && sheetRowNum) {
-        tsheet.getRange(sheetRowNum, 6).setNumberFormat('@').setValue(String(current));
-      }
-    } catch (e) {}
-    return {ok:true};
-  }
-  if (digestsMatch_(stored, current)) return {ok:true};
-
-  revokeAllTokensForUser_(ss, username);
-  return passwordChangedResponse_();
+  // Password-digest enforcement disabled: Sheets/prop races were false-revoking
+  // brand-new sessions (password_changed → Invalid token). Token TTL still applies.
+  return {ok:true};
 }
 function sessionCacheValid_(cached, requiredDept) {
   if (!cached || !cached.username) return null;
   if (requiredDept && !tokenDeptAllows_(cached.dept, requiredDept)) {
     return {ok:false, error:'This login is not allowed for this section'};
   }
-  if (!cached.pwDigest) return cached;
-  var current = currentPasswordDigestForUser_(cached.username);
-  if (!current) return cached;
-  if (!digestsMatch_(cached.pwDigest, current)) return null; // re-check from sheet/props
   return cached;
 }
 function pruneExpiredTokens_(ss) {
@@ -1159,9 +1139,12 @@ function handleLogin(body) {
         tsheet.getRange(1, 6).setNumberFormat('@');
       }
       var digest = passwordDigest_(upass);
-      var newRow = tsheet.getLastRow() + 1;
-      tsheet.getRange(newRow, 1, 1, 6).setNumberFormats([['@','@','@','0','@','@']]);
-      tsheet.getRange(newRow, 1, 1, 6).setValues([[String(token), String(username), String(tokenDept), new Date().getTime(), String(rp.role), String(digest)]]);
+      tsheet.appendRow([String(token), String(username), String(tokenDept), new Date().getTime(), String(rp.role), String(digest)]);
+      try {
+        var last = tsheet.getLastRow();
+        tsheet.getRange(last, 1).setNumberFormat('@').setValue(String(token));
+        tsheet.getRange(last, 6).setNumberFormat('@').setValue(String(digest));
+      } catch (eFmt) {}
       storeTokenDigestProp_(token, digest);
       rememberPushAuth_(token, username, tokenDept, rp.role);
       var electricalHide = electricalHideForUserRow_(rows[i]);
