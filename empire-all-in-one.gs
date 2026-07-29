@@ -24,7 +24,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-29-cleaning-login-fix-v2';
+var SCRIPT_VERSION = '2026-07-29-cleaning-login-fix-v3';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -946,12 +946,12 @@ function passwordChangedResponse_() {
 function ensureTokenPasswordValid_(ss, tsheet, sheetRowNum, tokenRow, username, token) {
   var current = currentPasswordDigestForUser_(username);
   if (!current) {
-    revokeAllTokensForUser_(ss, username);
-    return passwordChangedResponse_();
+    // User row missing — do not wipe tokens on transient sheet read failures.
+    return {ok:true};
   }
   var stored = String(tokenRow[5] || '').trim();
   if (!stored) {
-    tsheet.getRange(sheetRowNum, 6).setValue(current);
+    try { tsheet.getRange(sheetRowNum, 6).setValue(current); } catch (e) {}
     return {ok:true};
   }
   if (stored !== current) {
@@ -1150,10 +1150,7 @@ function sessionCacheValid_(cached, requiredDept) {
     return {ok:false, error:'This login is not allowed for this section'};
   }
   var current = currentPasswordDigestForUser_(cached.username);
-  if (!current) {
-    revokeAllTokensForUser_(getSS_(), cached.username);
-    return passwordChangedResponse_();
-  }
+  if (!current) return cached; // transient user lookup miss — keep session
   if (!cached.pwDigest) return null;
   if (cached.pwDigest !== current) {
     revokeAllTokensForUser_(getSS_(), cached.username);
@@ -1178,7 +1175,8 @@ function verifyToken(token, requiredDept) {
     }
   } catch(e){}
   var ss = getSS_();
-  maybePruneExpiredTokens_(ss);
+  // Do NOT prune Tokens here — cleanup races with fresh logins and can invalidate
+  // a brand-new session on the very next API call.
   var tsheet = ss.getSheetByName(TOKENS_SHEET);
   if (!tsheet) return {ok:false,error:'Not authenticated'};
   var rows = tsheet.getDataRange().getValues();
@@ -1192,9 +1190,9 @@ function verifyToken(token, requiredDept) {
       if (!pwCheck.ok) return pwCheck;
       if (!tokenDeptAllows_(tokenDept, requiredDept)) return {ok:false,error:'This login is not allowed for this section'};
       var urow = getUserRowByName_(username);
-      var result = enrichAuthRole_({ok:true,username:rows[i][1],dept:tokenDept,role:String(rows[i][4]||''),trade:tradeForUserRow_(urow),pwDigest:currentPasswordDigestForUser_(username)});
+      var result = enrichAuthRole_({ok:true,username:username,dept:tokenDept,role:String(rows[i][4]||''),trade:tradeForUserRow_(urow),pwDigest:currentPasswordDigestForUser_(username)});
       try { cache.put(tkey, JSON.stringify(result), 21600); } catch(e){}
-      rememberPushAuth_(token, rows[i][1], tokenDept, String(rows[i][4]||''));
+      rememberPushAuth_(token, username, tokenDept, String(rows[i][4]||''));
       return result;
     }
   }

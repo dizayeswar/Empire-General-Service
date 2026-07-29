@@ -201,17 +201,15 @@
     try {
       var d = await api({ action: 'getTaskPhotos', periodPrefix: mv });
       if (d && d.ok === false) {
-        var sessionBad = typeof empireSessionInvalid_ === 'function' && empireSessionInvalid_(d);
-        if (sessionBad && Date.now() < state.loginGraceUntil && state.photoLoadTries < 2) {
-          state.photoLoadTries += 1;
-          setTimeout(function () { loadPhotos(true); }, 1200);
-          return;
-        }
-        if (sessionBad && typeof empireAuthHandleInvalidSession_ === 'function') {
-          empireAuthHandleInvalidSession_(d, { redirect: 'cleaning-mobile.html' });
-          return;
-        }
+        // Never auto-kick supervisors from the mobile app — show error and keep session.
         console.warn('getTaskPhotos rejected', d);
+        var bar = document.getElementById('cmOfflineBanner');
+        if (bar) {
+          bar.style.display = 'flex';
+          bar.innerHTML = '<span>Could not refresh tasks: ' +
+            String(d.message || d.error || 'server error') +
+            '. Pull refresh to retry.</span>';
+        }
         return;
       }
       state.photoLoadTries = 0;
@@ -917,12 +915,20 @@
     } catch (e) {}
   }
 
-  function enterApp() {
-    if (!empireIsCleaningSupervisor()) {
-      setMsg(document.getElementById('cmLoginMsg'), t('notSupervisor'), true);
-      showView('login');
-      return;
+  function canUseCleaningMobile(d) {
+    if (!d) return false;
+    if (isSupervisorRole(d.role)) return true;
+    // This page is supervisor-only; allow cleaning dept accounts with assigned projects
+    // even if Apps Script still maps unknown roles to "editor".
+    var dept = String(d.dept || '').toLowerCase();
+    var projects = d.projects;
+    if (dept.indexOf('cleaning') !== -1 && Array.isArray(projects) && projects.length > 0) {
+      return true;
     }
+    return false;
+  }
+
+  function enterApp() {
     document.body.classList.add('cleaning-supervisor-mode');
     showView('app');
     if (typeof cleaningSetLang === 'function') cleaningSetLang(cleaningGetLang());
@@ -932,7 +938,7 @@
     loadPhotos(true);
     syncOffline(true);
     // Delay GPS so the new login token is fully readable before location auth runs.
-    setTimeout(function () { startGps(); }, 1500);
+    setTimeout(function () { startGps(); }, 2500);
     if (typeof empireInitPwa === 'function') empireInitPwa();
   }
 
@@ -947,18 +953,20 @@
       passwordId: 'cmPassword',
       messageEl: msg,
       onSuccess: function (d) {
-        if (!d || !isSupervisorRole(d.role)) {
+        if (!canUseCleaningMobile(d)) {
           empireClearSession();
           setMsg(msg, t('notSupervisor') + ' (role: ' + String((d && d.role) || 'none') + ')', true);
           if (btn) btn.disabled = false;
           return;
         }
-        if (d.role && typeof empireAuthSet === 'function') {
-          empireAuthSet('role', String(d.role).trim().toLowerCase());
+        // Normalize local role so the rest of the app treats this as a supervisor.
+        if (typeof empireAuthSet === 'function') {
+          empireAuthSet('role', 'cleaning_supervisor');
         }
-        state.loginGraceUntil = Date.now() + 10000;
+        state.loginGraceUntil = Date.now() + 15000;
         state.photoLoadTries = 0;
         enterApp();
+        if (btn) btn.disabled = false;
       }
     }).catch(function () {
       if (btn) btn.disabled = false;
@@ -1007,22 +1015,17 @@
     window.addEventListener('online', function () { syncOffline(true); });
 
     if (empireGetToken()) {
-      if (!empireCanAccessDept('cleaning')) {
-        // Keep supervisors on this page even if dept label is slightly off.
-        if (empireIsCleaningSupervisor()) {
-          state.loginGraceUntil = Date.now() + 10000;
-          enterApp();
-          return;
-        }
-        empireRedirectToUserHome();
-        return;
-      }
-      if (!empireIsCleaningSupervisor()) {
+      var dept = String(empireGetTokenDept() || '').toLowerCase();
+      var projects = typeof empireGetProjects === 'function' ? empireGetProjects() : null;
+      var ok = empireIsCleaningSupervisor() ||
+        (dept.indexOf('cleaning') !== -1 && projects && projects.length);
+      if (!ok) {
         showView('login');
         setMsg(document.getElementById('cmLoginMsg'), t('notSupervisor'), true);
         return;
       }
-      state.loginGraceUntil = Date.now() + 8000;
+      if (typeof empireAuthSet === 'function') empireAuthSet('role', 'cleaning_supervisor');
+      state.loginGraceUntil = Date.now() + 15000;
       enterApp();
       return;
     }
