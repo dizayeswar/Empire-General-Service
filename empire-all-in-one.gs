@@ -24,7 +24,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-29-token-digest-fix-v4';
+var SCRIPT_VERSION = '2026-07-29-token-digest-props-v5';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -915,13 +915,11 @@ function projectAllowedForUser_(username, project) {
 }
 function passwordDigest_(pw) {
   var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(pw || ''));
-  // Prefix keeps Google Sheets from mangling the value into a number / scientific notation.
   return 'egs1:' + Utilities.base64EncodeWebSafe(bytes);
 }
 function normalizeStoredDigest_(raw) {
   var s = String(raw == null ? '' : raw).trim();
   if (!s) return '';
-  // Legacy digests had no prefix; keep as-is for compare/heal.
   if (s.indexOf('egs1:') === 0) return s;
   return s;
 }
@@ -930,7 +928,6 @@ function digestsMatch_(stored, current) {
   current = normalizeStoredDigest_(current);
   if (!stored || !current) return false;
   if (stored === current) return true;
-  // Legacy token digest (no prefix) vs new prefixed current
   if (stored.indexOf('egs1:') !== 0 && current.indexOf('egs1:') === 0) {
     return stored === current.slice(5);
   }
@@ -944,11 +941,38 @@ function currentPasswordDigestForUser_(username) {
   if (!row) return '';
   return passwordDigest_(String(row[1] || '').trim());
 }
+function tokenDigestPropKey_(token) {
+  return 'tokpw_' + Utilities.base64EncodeWebSafe(String(token || '')).slice(0, 48);
+}
+function storeTokenDigestProp_(token, digest) {
+  try {
+    PropertiesService.getScriptProperties().setProperty(tokenDigestPropKey_(token), String(digest || ''));
+  } catch (e) {}
+  try {
+    CacheService.getScriptCache().put(tokenDigestPropKey_(token), String(digest || ''), 21600);
+  } catch (e2) {}
+}
+function readTokenDigestProp_(token) {
+  try {
+    var hit = CacheService.getScriptCache().get(tokenDigestPropKey_(token));
+    if (hit) return hit;
+  } catch (e) {}
+  try {
+    return PropertiesService.getScriptProperties().getProperty(tokenDigestPropKey_(token)) || '';
+  } catch (e2) {
+    return '';
+  }
+}
+function clearTokenDigestProp_(token) {
+  try { CacheService.getScriptCache().remove(tokenDigestPropKey_(token)); } catch (e) {}
+  try { PropertiesService.getScriptProperties().deleteProperty(tokenDigestPropKey_(token)); } catch (e2) {}
+}
 function invalidateTokenCache_(token) {
   try {
     var tkey = 'tok_' + Utilities.base64EncodeWebSafe(String(token)).slice(0, 40);
     CacheService.getScriptCache().remove(tkey);
   } catch (e) {}
+  clearTokenDigestProp_(token);
 }
 function revokeAllTokensForUser_(ss, username) {
   var tsheet = ss.getSheetByName(TOKENS_SHEET);
@@ -965,45 +989,39 @@ function revokeAllTokensForUser_(ss, username) {
 function passwordChangedResponse_() {
   return {ok:false, error:'password_changed', message:'Your password was changed. Please sign in again.'};
 }
-function writeTokenDigest_(tsheet, sheetRowNum, digest) {
-  // Always write as plain text so Sheets never converts the digest.
-  tsheet.getRange(sheetRowNum, 6).setNumberFormat('@').setValue(String(digest || ''));
-}
 function ensureTokenPasswordValid_(ss, tsheet, sheetRowNum, tokenRow, username, token) {
   var current = currentPasswordDigestForUser_(username);
-  if (!current) {
-    // User row missing — do not wipe tokens on transient sheet read failures.
-    return {ok:true};
-  }
-  var storedRaw = tokenRow[5];
-  var stored = normalizeStoredDigest_(storedRaw);
+  if (!current) return {ok:true};
+
+  // Prefer Script Properties / Cache — Google Sheets corrupts digest cells.
+  var stored = readTokenDigestProp_(token);
   if (!stored) {
-    try { writeTokenDigest_(tsheet, sheetRowNum, current); } catch (e) {}
+    // Legacy token: adopt current password hash into props and continue.
+    storeTokenDigestProp_(token, current);
+    try {
+      if (tsheet && sheetRowNum) {
+        tsheet.getRange(sheetRowNum, 6).setNumberFormat('@').setValue(String(current));
+      }
+    } catch (e) {}
     return {ok:true};
   }
-  if (digestsMatch_(stored, current)) {
-    // Heal legacy / unprefixed digests to the safe text format.
-    if (String(storedRaw || '').indexOf('egs1:') !== 0) {
-      try { writeTokenDigest_(tsheet, sheetRowNum, current); } catch (e2) {}
-    }
-    return {ok:true};
-  }
-  // Digests differ. Sheets often mangles base64 into numbers — if stored looks corrupted
-  // (not a normal digest shape), heal instead of killing the session.
-  var looksCorrupted = false;
-  if (/e\+/i.test(stored) || /^-?\d+(\.\d+)?$/.test(stored)) looksCorrupted = true;
-  if (stored.indexOf('egs1:') !== 0 && stored.length < 20) looksCorrupted = true;
-  if (looksCorrupted) {
-    try { writeTokenDigest_(tsheet, sheetRowNum, current); } catch (e3) {}
-    try { invalidateTokenCache_(token); } catch (e4) {}
-    return {ok:true};
-  }
+  if (digestsMatch_(stored, current)) return {ok:true};
+
   revokeAllTokensForUser_(ss, username);
   return passwordChangedResponse_();
 }
+function sessionCacheValid_(cached, requiredDept) {
+  if (!cached || !cached.username) return null;
+  if (requiredDept && !tokenDeptAllows_(cached.dept, requiredDept)) {
+    return {ok:false, error:'This login is not allowed for this section'};
+  }
+  if (!cached.pwDigest) return cached;
+  var current = currentPasswordDigestForUser_(cached.username);
+  if (!current) return cached;
+  if (!digestsMatch_(cached.pwDigest, current)) return null; // re-check from sheet/props
+  return cached;
+}
 function pruneExpiredTokens_(ss) {
-  // Keeps the Tokens sheet small so verifyToken()'s scan stays fast on every API call.
-  // Delete expired rows from the bottom up — never wipe-and-rewrite (that can race with login).
   try {
     var tsheet = ss.getSheetByName(TOKENS_SHEET);
     if (!tsheet || tsheet.getLastRow() < 2) return;
@@ -1015,7 +1033,7 @@ function pruneExpiredTokens_(ss) {
         tsheet.deleteRow(i + 1);
       }
     }
-  } catch (e) { /* never let cleanup break login */ }
+  } catch (e) {}
 }
 function maybePruneExpiredTokens_(ss) {
   try {
@@ -1141,9 +1159,10 @@ function handleLogin(body) {
         tsheet.getRange(1, 6).setNumberFormat('@');
       }
       var digest = passwordDigest_(upass);
-      tsheet.appendRow([token, username, tokenDept, new Date().getTime(), rp.role, digest]);
-      // Force digest cell to plain text (Sheets can corrupt base64 into numbers).
-      try { tsheet.getRange(tsheet.getLastRow(), 6).setNumberFormat('@').setValue(digest); } catch (eDig) {}
+      var newRow = tsheet.getLastRow() + 1;
+      tsheet.getRange(newRow, 1, 1, 6).setNumberFormats([['@','@','@','0','@','@']]);
+      tsheet.getRange(newRow, 1, 1, 6).setValues([[String(token), String(username), String(tokenDept), new Date().getTime(), String(rp.role), String(digest)]]);
+      storeTokenDigestProp_(token, digest);
       rememberPushAuth_(token, username, tokenDept, rp.role);
       var electricalHide = electricalHideForUserRow_(rows[i]);
       var loginResult = {ok:true,success:true,token:token,username:username,dept:tokenDept,role:rp.role,perms:rp.perms,electricalHide:electricalHide,electricalPerms:mergeElectricalHidePerms_(rp.perms, electricalHide),projects:projects,trade:trade,message:'Login successful'};
@@ -1192,20 +1211,6 @@ function handleGetPerms(body) {
   return {ok:false, error:'User not found'};
 }
 
-function sessionCacheValid_(cached, requiredDept) {
-  if (!cached || !cached.username) return null;
-  if (requiredDept && !tokenDeptAllows_(cached.dept, requiredDept)) {
-    return {ok:false, error:'This login is not allowed for this section'};
-  }
-  var current = currentPasswordDigestForUser_(cached.username);
-  if (!current) return cached; // transient user lookup miss — keep session
-  if (!cached.pwDigest) return null;
-  if (!digestsMatch_(cached.pwDigest, current)) {
-    // Don't revoke from cache path on format mismatch — force a sheet re-check.
-    return null;
-  }
-  return cached;
-}
 function verifyToken(token, requiredDept) {
   if (!token) return {ok:false,error:'No token'};
   requiredDept = String(requiredDept||'').trim().toLowerCase();
@@ -1230,7 +1235,7 @@ function verifyToken(token, requiredDept) {
   var rows = tsheet.getDataRange().getValues();
   var now = new Date().getTime();
   for (var i=0;i<rows.length;i++) {
-    if (String(rows[i][0])===String(token)) {
+    if (String(rows[i][0] || '').trim() === String(token || '').trim()) {
       var tokenDept = String(rows[i][2]||'').trim().toLowerCase();
       if (now - Number(rows[i][3]) > TOKEN_TTL) return {ok:false,error:'Token expired'};
       var username = String(rows[i][1]||'').trim().toLowerCase();
