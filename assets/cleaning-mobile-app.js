@@ -52,8 +52,18 @@
     lastGps: null,
     gpsWatch: null,
     weekNotifySent: {},
-    syncing: false
+    syncing: false,
+    loginGraceUntil: 0,
+    photoLoadTries: 0
   };
+
+  function isSupervisorRole(role) {
+    if (typeof empireIsCleaningSupervisorRole === 'function') {
+      return empireIsCleaningSupervisorRole(role);
+    }
+    role = String(role || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+    return role === 'cleaning_supervisor' || role === 'supervisor';
+  }
 
   function t(key, params) {
     return typeof cleaningT === 'function' ? cleaningT(key, params) : key;
@@ -191,9 +201,20 @@
     try {
       var d = await api({ action: 'getTaskPhotos', periodPrefix: mv });
       if (d && d.ok === false) {
-        if (typeof empireAuthHandleInvalidSession_ === 'function') empireAuthHandleInvalidSession_(d, { redirect: 'index.html' });
+        var sessionBad = typeof empireSessionInvalid_ === 'function' && empireSessionInvalid_(d);
+        if (sessionBad && Date.now() < state.loginGraceUntil && state.photoLoadTries < 2) {
+          state.photoLoadTries += 1;
+          setTimeout(function () { loadPhotos(true); }, 1200);
+          return;
+        }
+        if (sessionBad && typeof empireAuthHandleInvalidSession_ === 'function') {
+          empireAuthHandleInvalidSession_(d, { redirect: 'cleaning-mobile.html' });
+          return;
+        }
+        console.warn('getTaskPhotos rejected', d);
         return;
       }
+      state.photoLoadTries = 0;
       var list = Array.isArray(d) ? d : [];
       var allowed = userProjects();
       state.photos = list.filter(function (x) {
@@ -898,19 +919,20 @@
 
   function enterApp() {
     if (!empireIsCleaningSupervisor()) {
-      alert(t('notSupervisor'));
-      empireAuthLogout({ redirect: 'index.html', reload: false });
+      setMsg(document.getElementById('cmLoginMsg'), t('notSupervisor'), true);
+      showView('login');
       return;
     }
     document.body.classList.add('cleaning-supervisor-mode');
     showView('app');
     if (typeof cleaningSetLang === 'function') cleaningSetLang(cleaningGetLang());
     applyLangUi();
-    startGps();
     setupPush();
     scheduleDailyLocalReminder();
     loadPhotos(true);
     syncOffline(true);
+    // Delay GPS so the new login token is fully readable before location auth runs.
+    setTimeout(function () { startGps(); }, 1500);
     if (typeof empireInitPwa === 'function') empireInitPwa();
   }
 
@@ -925,12 +947,17 @@
       passwordId: 'cmPassword',
       messageEl: msg,
       onSuccess: function (d) {
-        if (!d || String(d.role || '').toLowerCase() !== 'cleaning_supervisor') {
+        if (!d || !isSupervisorRole(d.role)) {
           empireClearSession();
-          setMsg(msg, t('notSupervisor'), true);
+          setMsg(msg, t('notSupervisor') + ' (role: ' + String((d && d.role) || 'none') + ')', true);
           if (btn) btn.disabled = false;
           return;
         }
+        if (d.role && typeof empireAuthSet === 'function') {
+          empireAuthSet('role', String(d.role).trim().toLowerCase());
+        }
+        state.loginGraceUntil = Date.now() + 10000;
+        state.photoLoadTries = 0;
         enterApp();
       }
     }).catch(function () {
@@ -960,7 +987,7 @@
               try { navigator.geolocation.clearWatch(state.gpsWatch); } catch (e) {}
             }
           },
-          redirect: 'index.html',
+          redirect: 'cleaning-mobile.html',
           reload: false
         });
       };
@@ -981,13 +1008,21 @@
 
     if (empireGetToken()) {
       if (!empireCanAccessDept('cleaning')) {
+        // Keep supervisors on this page even if dept label is slightly off.
+        if (empireIsCleaningSupervisor()) {
+          state.loginGraceUntil = Date.now() + 10000;
+          enterApp();
+          return;
+        }
         empireRedirectToUserHome();
         return;
       }
       if (!empireIsCleaningSupervisor()) {
-        location.replace('cleaning-dashboard.html');
+        showView('login');
+        setMsg(document.getElementById('cmLoginMsg'), t('notSupervisor'), true);
         return;
       }
+      state.loginGraceUntil = Date.now() + 8000;
       enterApp();
       return;
     }

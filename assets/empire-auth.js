@@ -245,8 +245,18 @@ function empireSingleDeptHome() {
   return null;
 }
 
+function empireIsCleaningSupervisorRole(role) {
+  role = String(role || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+  return role === 'cleaning_supervisor' || role === 'supervisor';
+}
+
 function empireIsCleaningSupervisor() {
-  return String(empireGetRole() || '').toLowerCase() === 'cleaning_supervisor';
+  if (empireIsCleaningSupervisorRole(empireGetRole())) return true;
+  try {
+    var perms = empireGetPerms();
+    if (perms && perms.mobileOnly) return true;
+  } catch (e) {}
+  return false;
 }
 
 function empireHomeForDept(dept) {
