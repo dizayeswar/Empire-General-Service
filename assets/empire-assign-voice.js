@@ -175,10 +175,11 @@ function assignVoiceEscapeAttr_(s) {
 
 function assignVoiceInlinePlayerHtml_(url, durationSec) {
   var dur = Math.max(0, Number(durationSec) || 0);
+  var playLabel = assignVoiceWorkerT_('voicePlay', 'Play voice note');
   var h = '<div class="assign-voice-inline-player" data-url="' + assignVoiceEscapeAttr_(url) + '" data-duration="' + dur + '">';
-  h += '<button type="button" class="assign-voice-play-btn" aria-label="Play voice note"><span class="assign-voice-play-icon">&#9654;</span> Play voice note</button>';
-  h += '<span class="assign-voice-play-time">' + (dur ? ('0:00 / ' + assignVoiceFormatSec(dur)) : 'Tap Play') + '</span>';
-  h += '<p class="assign-voice-play-err" style="display:none;">Could not play this voice note.</p>';
+  h += '<button type="button" class="assign-voice-play-btn" aria-label="' + assignVoiceEscapeAttr_(playLabel) + '"><span class="assign-voice-play-icon">&#9654;</span> ' + playLabel + '</button>';
+  h += '<span class="assign-voice-play-time">' + (dur ? ('0:00 / ' + assignVoiceFormatSec(dur)) : assignVoiceWorkerT_('voiceTapPlay', 'Tap Play')) + '</span>';
+  h += '<p class="assign-voice-play-err" style="display:none;">' + assignVoiceWorkerT_('voicePlayFailed', 'Could not play this voice note.') + '</p>';
   h += '</div>';
   return h;
 }
@@ -199,14 +200,14 @@ function assignVoicePlayerUpdateBtn_(state, btn, iconEl, timeEl, totalSec) {
   if (!btn) return;
   if (state.loading) {
     btn.disabled = true;
-    btn.innerHTML = 'Loading\u2026';
+    btn.innerHTML = assignVoiceWorkerT_('voiceLoading', 'Loading\u2026');
     return;
   }
   btn.disabled = false;
   if (state.playing) {
-    btn.innerHTML = '<span class="assign-voice-play-icon">\u23F8</span> Pause';
+    btn.innerHTML = '<span class="assign-voice-play-icon">\u23F8</span> ' + assignVoiceWorkerT_('voicePause', 'Pause');
   } else {
-    btn.innerHTML = '<span class="assign-voice-play-icon">\u9654;</span> Play voice note';
+    btn.innerHTML = '<span class="assign-voice-play-icon">\u9654;</span> ' + assignVoiceWorkerT_('voicePlay', 'Play voice note');
   }
   if (timeEl && state.audio && !isNaN(state.audio.currentTime)) {
     var cur = Math.floor(state.audio.currentTime);
@@ -309,7 +310,10 @@ function assignVoiceBindPlayers(root) {
               assignVoicePlayerUpdateBtn_(state, btn, null, timeEl, totalSec);
             }, 250);
           }).catch(function () {
-            if (errEl) errEl.style.display = 'block';
+            if (errEl) {
+              errEl.textContent = assignVoiceWorkerT_('voicePlayFailed', 'Could not play this voice note.');
+              errEl.style.display = 'block';
+            }
           });
         });
         return;
@@ -329,7 +333,10 @@ function assignVoiceBindPlayers(root) {
             assignVoicePlayerUpdateBtn_(state, btn, null, timeEl, totalSec);
           }, 250);
         }).catch(function () {
-          if (errEl) errEl.style.display = 'block';
+          if (errEl) {
+            errEl.textContent = assignVoiceWorkerT_('voicePlayFailed', 'Could not play this voice note.');
+            errEl.style.display = 'block';
+          }
         });
       }
     });
@@ -422,29 +429,62 @@ function assignVoiceStartTimer_(issueId, draft) {
   }, 200);
 }
 
+function assignVoiceMicDeniedHelp_() {
+  return assignVoiceWorkerT_(
+    'voiceMicDeniedHelp',
+    'Microphone permission denied.\n\nOn Android Chrome:\n1) Tap the lock / tune icon left of the website address\n2) Permissions → Microphone → Allow\n3) Reload the page and tap Record again.\n\nIf you added the app to Home screen, open site settings for this page and Allow Microphone.'
+  );
+}
+
 function assignVoiceStartRecord(issueId) {
   issueId = String(issueId || '');
   if (!issueId) return;
+  if (typeof window.isSecureContext !== 'undefined' && !window.isSecureContext) {
+    alert(assignVoiceWorkerT_('voiceNeedsHttps', 'Voice notes need a secure (https) connection. Open the app from the Empire website link, not a plain http page.'));
+    return;
+  }
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    alert('Voice notes need microphone access. Use Chrome or Safari on your phone.');
+    alert(assignVoiceWorkerT_('voiceNeedsBrowser', 'Voice notes need microphone access. Use Chrome or Safari on your phone.'));
     return;
   }
   assignVoiceCloseActive_();
   var draft = assignVoiceDraft_(issueId);
   assignVoiceReleaseDraft_(draft);
   assignVoiceStopWavCapture_(draft);
-  navigator.mediaDevices.getUserMedia({
+
+  function startWithStream(stream) {
+    draft.stream = stream;
+    assignVoiceStartWavCapture_(issueId, stream, draft);
+  }
+
+  function onMicError(err) {
+    var name = String((err && err.name) || '');
+    var msg = assignVoiceMicDeniedHelp_();
+    if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+      msg = assignVoiceWorkerT_('voiceNoMic', 'No microphone found on this device.');
+    } else if (name === 'NotReadableError' || name === 'TrackStartError') {
+      msg = assignVoiceWorkerT_('voiceMicBusy', 'Microphone is busy. Close other apps using the mic, then try again.');
+    } else if (name === 'SecurityError') {
+      msg = assignVoiceWorkerT_('voiceNeedsHttps', 'Voice notes need a secure (https) connection. Open the app from the Empire website link, not a plain http page.');
+    }
+    alert(msg);
+  }
+
+  var preferred = {
     audio: {
       echoCancellation: true,
       noiseSuppression: false,
       autoGainControl: true,
       channelCount: 1
     }
-  }).then(function (stream) {
-    draft.stream = stream;
-    assignVoiceStartWavCapture_(issueId, stream, draft);
-  }).catch(function () {
-    alert('Microphone permission denied. Allow the mic in your browser settings and try again.');
+  };
+  navigator.mediaDevices.getUserMedia(preferred).then(startWithStream).catch(function (err) {
+    // Some Android devices reject constrained audio — retry with a simple request.
+    if (err && (err.name === 'OverconstrainedError' || err.name === 'ConstraintNotSatisfiedError')) {
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(startWithStream).catch(onMicError);
+      return;
+    }
+    onMicError(err);
   });
 }
 
