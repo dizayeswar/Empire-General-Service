@@ -232,6 +232,15 @@ body.cleaning-supervisor-mode { min-height: 100dvh; }
   border: 1px solid var(--cm-border);
 }
 .cm-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.cm-thumb .photo-source-badge {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  margin: 0;
+  z-index: 1;
+  font-size: 9px;
+  padding: 2px 5px;
+}
 .cm-thumb button {
   position: absolute;
   top: 4px;

@@ -54,6 +54,7 @@
     weekNotifySent: {},
     syncing: false,
     saving: false,
+    stickyPhotos: [],
     loginGraceUntil: 0,
     photoLoadTries: 0
   };
@@ -278,10 +279,11 @@
       _lastPhotosSyncAt = Date.now();
       var list = Array.isArray(d) ? d : [];
       var allowed = userProjects();
-      // Always replace with server truth so portal deletes disappear here too.
-      state.photos = dedupePhotoList(list.filter(function (x) {
+      // Prefer server truth, but keep recently-saved photos so they don't flicker away.
+      var fromServer = list.filter(function (x) {
         return !allowed.length || allowed.indexOf(String(x.project || '').toLowerCase()) !== -1;
-      }));
+      });
+      state.photos = dedupePhotoList(mergeStickyIntoPhotos(fromServer));
       await restoreOfflinePlaceholders();
       state.photos = dedupePhotoList(state.photos);
       await refreshOfflineBanner();
@@ -311,7 +313,57 @@
     });
   }
 
-  function compressPreview(file) {
+  function normalizeSource(v) {
+    return String(v || 'camera').toLowerCase() === 'gallery' ? 'gallery' : 'camera';
+  }
+
+  function rememberStickyPhotos(rows) {
+    var now = Date.now();
+    state.stickyPhotos = (state.stickyPhotos || []).filter(function (x) {
+      return x && x.image && (now - (x._stickyAt || 0) < 120000);
+    });
+    (rows || []).forEach(function (row) {
+      if (!row || !row.image) return;
+      var exists = state.stickyPhotos.some(function (x) { return x.image === row.image; });
+      if (exists) return;
+      state.stickyPhotos.push(Object.assign({}, row, { _stickyAt: now }));
+    });
+  }
+
+  function mergeStickyIntoPhotos(list) {
+    var out = (list || []).slice();
+    var now = Date.now();
+    var serverImgs = {};
+    out.forEach(function (x) {
+      if (x && x.image) serverImgs[String(x.image)] = 1;
+    });
+    state.stickyPhotos = (state.stickyPhotos || []).filter(function (x) {
+      if (!x || !x.image) return false;
+      var age = now - (x._stickyAt || 0);
+      if (age >= 120000) return false;
+      // Already confirmed on server.
+      if (serverImgs[String(x.image)]) return false;
+      // If server omitted it after a short grace, treat as deleted on portal.
+      if (age > 25000) return false;
+      return true;
+    });
+    state.stickyPhotos.forEach(function (sticky) {
+      if (out.some(function (x) { return String(x.image || '') === String(sticky.image || ''); })) return;
+      out.push({
+        id: sticky.id || ('sticky-' + sticky.image),
+        project: sticky.project,
+        freq: sticky.freq,
+        task: sticky.task,
+        date: sticky.date,
+        period: sticky.period,
+        image: sticky.image,
+        source: sticky.source || 'camera'
+      });
+    });
+    return out;
+  }
+
+  function compressPreview(file, source) {
     return new Promise(function (resolve) {
       if (!file) return resolve(null);
       var reader = new FileReader();
@@ -332,6 +384,7 @@
               preview: URL.createObjectURL(blob),
               blob: blob,
               remote: null,
+              source: normalizeSource(source),
               gps: state.lastGps ? Object.assign({}, state.lastGps) : null
             });
           }, 'image/jpeg', 0.85);
@@ -436,8 +489,10 @@
     var imageDataUrls = [];
     var remoteUrls = [];
     var photoGps = [];
+    var photoSources = [];
     for (var i = 0; i < items.length; i++) {
       photoGps.push(items[i].gps || null);
+      photoSources.push(normalizeSource(items[i].source));
       if (items[i].remote) remoteUrls.push(items[i].remote);
       else if (items[i].blob && typeof empireOfflineBlobToDataUrl === 'function') {
         imageDataUrls.push(await empireOfflineBlobToDataUrl(items[i].blob));
@@ -456,7 +511,8 @@
       period: period,
       imageDataUrls: imageDataUrls,
       remoteUrls: remoteUrls,
-      photoGps: photoGps
+      photoGps: photoGps,
+      photoSources: photoSources
     });
     items.forEach(function (it, idx) {
       state.photos.push({
@@ -467,6 +523,7 @@
         date: date,
         period: period,
         image: it.preview || it.remote,
+        source: normalizeSource(it.source),
         _offline: true,
         _queueId: id
       });
@@ -496,30 +553,34 @@
       datas.forEach(function (dataUrl) {
         if (!dataUrl) return;
         state.photos.push({
-          id: 'offline-' + item.id + '-' + (idx++),
+          id: 'offline-' + item.id + '-' + (idx),
           project: item.project,
           freq: item.freq,
           task: item.task,
           date: item.date,
           period: item.period,
           image: dataUrl,
+          source: normalizeSource((item.photoSources || [])[idx]),
           _offline: true,
           _queueId: item.id
         });
+        idx++;
       });
       remotes.forEach(function (url) {
         if (!url || serverImgs[String(url)]) return;
         state.photos.push({
-          id: 'offline-' + item.id + '-' + (idx++),
+          id: 'offline-' + item.id + '-' + (idx),
           project: item.project,
           freq: item.freq,
           task: item.task,
           date: item.date,
           period: item.period,
           image: url,
+          source: normalizeSource((item.photoSources || [])[idx]),
           _offline: true,
           _queueId: item.id
         });
+        idx++;
       });
     }
   }
@@ -556,12 +617,15 @@
         var item = items[qi];
         try {
           var remoteUrls = [];
+          var photoSources = [];
           var seenUrl = {};
-          (item.remoteUrls || []).forEach(function (u) {
+          var queuedSources = item.photoSources || [];
+          (item.remoteUrls || []).forEach(function (u, ui) {
             u = String(u || '');
             if (!u || seenUrl[u]) return;
             seenUrl[u] = 1;
             remoteUrls.push(u);
+            photoSources.push(normalizeSource(queuedSources[ui]));
           });
           var dataUrls = item.imageDataUrls || [];
           for (var bi = 0; bi < dataUrls.length; bi++) {
@@ -572,9 +636,13 @@
             if (seenUrl[url]) continue;
             seenUrl[url] = 1;
             remoteUrls.push(url);
+            photoSources.push(normalizeSource(queuedSources[(item.remoteUrls || []).length + bi]));
           }
           if (!remoteUrls.length) throw new Error('No photos');
-          if (remoteUrls.length > MAX_PHOTOS) remoteUrls = remoteUrls.slice(0, MAX_PHOTOS);
+          if (remoteUrls.length > MAX_PHOTOS) {
+            remoteUrls = remoteUrls.slice(0, MAX_PHOTOS);
+            photoSources = photoSources.slice(0, MAX_PHOTOS);
+          }
           var batch = await apiWrite({
             action: 'addTaskPhotos',
             project: item.project,
@@ -583,9 +651,22 @@
             date: item.date,
             period: item.period,
             images: remoteUrls,
-            photoGps: item.photoGps || []
+            photoGps: item.photoGps || [],
+            photoSources: photoSources
           });
           if (batch && batch.ok === false) throw new Error(batch.message || batch.error || 'save failed');
+          rememberStickyPhotos(remoteUrls.map(function (u, i) {
+            return {
+              id: (batch.items && batch.items[i] && batch.items[i].id) || ('tmp-' + Date.now() + '-' + i),
+              project: item.project,
+              freq: item.freq,
+              task: item.task,
+              date: item.date,
+              period: item.period,
+              image: u,
+              source: photoSources[i] || 'camera'
+            };
+          }));
           state.photos = state.photos.filter(function (x) { return x._queueId !== item.id; });
           await empireOfflineQueueDelete(item.id);
           synced++;
@@ -638,6 +719,7 @@
     try {
       var remoteUrls = [];
       var photoGps = [];
+      var photoSources = [];
       var seenUrl = {};
       for (var i = 0; i < items.length; i++) {
         if (btn) btn.textContent = t('uploading') + ' ' + (i + 1) + '/' + items.length;
@@ -651,11 +733,13 @@
         seenUrl[url] = 1;
         remoteUrls.push(url);
         photoGps.push(items[i].gps || state.lastGps || null);
+        photoSources.push(normalizeSource(items[i].source));
       }
       if (!remoteUrls.length) throw new Error('No photos');
       if (remoteUrls.length > MAX_PHOTOS) {
         remoteUrls = remoteUrls.slice(0, MAX_PHOTOS);
         photoGps = photoGps.slice(0, MAX_PHOTOS);
+        photoSources = photoSources.slice(0, MAX_PHOTOS);
       }
       var batch = await apiWrite({
         action: 'addTaskPhotos',
@@ -665,10 +749,30 @@
         date: date,
         period: period,
         images: remoteUrls,
-        photoGps: photoGps
+        photoGps: photoGps,
+        photoSources: photoSources
       });
       if (batch && batch.ok === false) throw new Error(batch.message || batch.error || 'Save failed');
       serverSaved = true;
+      var stickyRows = remoteUrls.map(function (u, idx) {
+        var row = (batch && batch.items && batch.items[idx]) || {};
+        return {
+          id: row.id || ('tmp-' + Date.now() + '-' + idx),
+          project: p,
+          freq: freq,
+          task: task,
+          date: date,
+          period: period,
+          image: row.image || u,
+          source: row.source || photoSources[idx] || 'camera'
+        };
+      });
+      rememberStickyPhotos(stickyRows);
+      stickyRows.forEach(function (row) {
+        if (!state.photos.some(function (x) { return String(x.image || '') === String(row.image || ''); })) {
+          state.photos.push(row);
+        }
+      });
       items.forEach(function (it) {
         if (it.preview && String(it.preview).indexOf('blob:') === 0) {
           try { URL.revokeObjectURL(it.preview); } catch (e) {}
@@ -676,8 +780,10 @@
       });
       delete state.pending[key];
       checkWeekCompletionAfterSave(p);
+      state.photos = dedupePhotoList(state.photos);
+      renderTasks();
       state.saving = false;
-      await loadPhotos(true);
+      try { await loadPhotos(true); } catch (eLoad) {}
       renderTasks();
     } catch (e) {
       if (!serverSaved) {
@@ -700,7 +806,7 @@
     }
   }
 
-  async function onCameraFiles(p, gi, ti, files) {
+  async function onPhotoFiles(p, gi, ti, files, source) {
     if (!files || !files.length) return;
     var key = pendingKey(p, gi, ti);
     var list = ensurePending(key);
@@ -712,10 +818,37 @@
     }
     var arr = Array.prototype.slice.call(files, 0, room);
     for (var i = 0; i < arr.length; i++) {
-      var item = await compressPreview(arr[i]);
+      var item = await compressPreview(arr[i], source);
       if (item) list.push(item);
     }
     renderTasks();
+  }
+
+  function sourceBadgeHtml(source) {
+    if (normalizeSource(source) === 'gallery') {
+      return '<span class="photo-source-badge photo-source-gallery">' + t('sourceUploaded') + '</span>';
+    }
+    return '<span class="photo-source-badge photo-source-camera">' + t('sourceTaken') + '</span>';
+  }
+
+  function openPhotoPicker(p, gi, ti) {
+    var cam = document.getElementById('cmCam-' + p + '-' + gi + '-' + ti);
+    var gal = document.getElementById('cmGal-' + p + '-' + gi + '-' + ti);
+    if (typeof empireWorkerShowPhotoChoice === 'function') {
+      empireWorkerShowPhotoChoice({
+        title: t('addPhoto'),
+        onCamera: function () {
+          if (typeof empireWorkerClickFileInput === 'function') empireWorkerClickFileInput(cam);
+          else if (cam) cam.click();
+        },
+        onGallery: function () {
+          if (typeof empireWorkerClickFileInput === 'function') empireWorkerClickFileInput(gal);
+          else if (gal) gal.click();
+        }
+      });
+      return;
+    }
+    if (cam) cam.click();
   }
 
   function removePending(p, gi, ti, idx) {
@@ -788,10 +921,12 @@
     if (saved.length || pending.length) {
       html += '<div class="cm-thumbs">';
       saved.forEach(function (ph) {
-        html += '<div class="cm-thumb"><img src="' + ph.image + '" alt="" data-open="' + encodeURIComponent(ph.image) + '"></div>';
+        html += '<div class="cm-thumb"><img src="' + ph.image + '" alt="" data-open="' + encodeURIComponent(ph.image) + '">' +
+          sourceBadgeHtml(ph.source) + '</div>';
       });
       pending.forEach(function (it, idx) {
         html += '<div class="cm-thumb"><img src="' + it.preview + '" alt="">' +
+          sourceBadgeHtml(it.source) +
           '<button type="button" data-rm="' + key + '" data-idx="' + idx + '" aria-label="' + t('removePhoto') + '">×</button></div>';
       });
       html += '</div>';
@@ -799,13 +934,16 @@
     var room = MAX_PHOTOS - saved.length - pending.length;
     html += '<div class="cm-actions">';
     if (room > 0) {
-      html += '<label class="cm-btn cm-btn-soft" style="display:inline-flex;align-items:center;">' + t('takePhoto') +
-        '<input class="cm-file" type="file" accept="image/*" capture="environment" data-cam="' + key + '"></label>';
+      var camId = 'cmCam-' + p + '-' + gi + '-' + ti;
+      var galId = 'cmGal-' + p + '-' + gi + '-' + ti;
+      html += '<button type="button" class="cm-btn cm-btn-soft" data-addphoto="' + key + '">' + t('addPhoto') + '</button>';
+      html += '<input id="' + camId + '" class="cm-file" type="file" accept="image/*" capture="environment" data-cam="' + key + '" data-source="camera">';
+      html += '<input id="' + galId + '" class="cm-file" type="file" accept="image/*" data-cam="' + key + '" data-source="gallery" multiple>';
     }
     if (pending.length) {
       html += '<button type="button" class="cm-btn" data-confirm="' + key + '">' + t('confirmSave') + '</button>';
     }
-    html += '</div><div class="cm-task-meta">' + t('cameraOnly') + '</div></div>';
+    html += '</div><div class="cm-task-meta">' + t('cameraOrUpload') + '</div></div>';
     return html;
   }
 
@@ -861,10 +999,16 @@
         renderTasks();
       };
     });
+    host.querySelectorAll('[data-addphoto]').forEach(function (btn) {
+      btn.onclick = function () {
+        var parts = btn.getAttribute('data-addphoto').split('|');
+        openPhotoPicker(parts[0], Number(parts[1]), Number(parts[2]));
+      };
+    });
     host.querySelectorAll('[data-cam]').forEach(function (inp) {
       inp.onchange = function () {
         var parts = inp.getAttribute('data-cam').split('|');
-        onCameraFiles(parts[0], Number(parts[1]), Number(parts[2]), inp.files);
+        onPhotoFiles(parts[0], Number(parts[1]), Number(parts[2]), inp.files, inp.getAttribute('data-source') || 'camera');
         inp.value = '';
       };
     });

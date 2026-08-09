@@ -24,7 +24,7 @@ var WORKER_PUSH_SHEET = 'WorkerPushTokens';
 var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
-var SCRIPT_VERSION = '2026-07-29-photo-dedupe-v8';
+var SCRIPT_VERSION = '2026-08-09-photo-source-v9';
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -1551,18 +1551,23 @@ function handleResetTasks(body) {
 }
 
 // ===== Task evidence photos (the "a task is done only when it has a saved photo" system) =====
-// TaskPhotos columns: id, project, freq, task, date, period, image, createdBy, createdAt, lat, lng, accuracy
+// TaskPhotos columns: id, project, freq, task, date, period, image, createdBy, createdAt, lat, lng, accuracy, source
 // period is "YYYY-MM#week" for daily tasks (e.g. "2026-06#2"), or "YYYY-MM" for weekly/biweekly/monthly tasks.
+// source is "camera" or "gallery" (how the supervisor captured the photo).
 function ensureTaskPhotosSheet_(sheet) {
   if (!sheet) return;
   if (sheet.getLastRow() === 0) {
-    sheet.appendRow(['id','project','freq','task','date','period','image','createdBy','createdAt','lat','lng','accuracy']);
+    sheet.appendRow(['id','project','freq','task','date','period','image','createdBy','createdAt','lat','lng','accuracy','source']);
     return;
   }
-  var headers = sheet.getRange(1, 1, 1, Math.max(12, sheet.getLastColumn())).getValues()[0];
+  var headers = sheet.getRange(1, 1, 1, Math.max(13, sheet.getLastColumn())).getValues()[0];
   if (String(headers[9] || '') !== 'lat') sheet.getRange(1, 10).setValue('lat');
   if (String(headers[10] || '') !== 'lng') sheet.getRange(1, 11).setValue('lng');
   if (String(headers[11] || '') !== 'accuracy') sheet.getRange(1, 12).setValue('accuracy');
+  if (String(headers[12] || '') !== 'source') sheet.getRange(1, 13).setValue('source');
+}
+function normalizePhotoSource_(v) {
+  return String(v || 'camera').toLowerCase() === 'gallery' ? 'gallery' : 'camera';
 }
 function photoGpsFromBody_(body, index) {
   var lat = '', lng = '', accuracy = '';
@@ -1594,10 +1599,11 @@ function handleAddTaskPhoto(body) {
   var sheet = ss.getSheetByName(TASK_PHOTOS_SHEET) || ss.insertSheet(TASK_PHOTOS_SHEET);
   ensureTaskPhotosSheet_(sheet);
   var gps = photoGpsFromBody_(body, 0);
+  var source = normalizePhotoSource_(body.source || (body.photoSources && body.photoSources[0]));
   var id = 'tp-' + Utilities.getUuid();
-  sheet.appendRow([id, body.project||'', body.freq||'', body.task||'', body.date||'', body.period||'', body.image||'', body.username||'', new Date().toISOString(), gps.lat, gps.lng, gps.accuracy]);
+  sheet.appendRow([id, body.project||'', body.freq||'', body.task||'', body.date||'', body.period||'', body.image||'', body.username||'', new Date().toISOString(), gps.lat, gps.lng, gps.accuracy, source]);
   invalidateTaskPhotosCache_(String(body.period||'').split('#')[0]);
-  return {ok:true, success:true, id:id};
+  return {ok:true, success:true, id:id, source:source};
 }
 
 function handleAddTaskPhotos(body) {
@@ -1612,6 +1618,7 @@ function handleAddTaskPhotos(body) {
   var project = String(body.project || '').toLowerCase();
   var task = String(body.task || '');
   var period = String(body.period || '');
+  var sources = normalizePhotoSources_(body, images.length);
   var existingUrls = {};
   var existingCount = 0;
   if (sheet.getLastRow() >= 2) {
@@ -1632,18 +1639,19 @@ function handleAddTaskPhotos(body) {
   for (var i = 0; i < images.length; i++) {
     var img = String(images[i] || '');
     if (!img) continue;
+    var source = normalizePhotoSource_(sources[i]);
     // Idempotent: skip exact URL already saved for this task/period (retry safety).
     if (existingUrls[img]) {
-      items.push({id:'existing', image:img, skipped:true, lat:'', lng:'', accuracy:''});
+      items.push({id:'existing', image:img, skipped:true, lat:'', lng:'', accuracy:'', source:source});
       continue;
     }
     if (existingCount + added >= 3) break;
     var id = 'tp-' + Utilities.getUuid();
     var gps = photoGpsFromBody_(body, i);
-    sheet.appendRow([id, body.project||'', body.freq||'', body.task||'', body.date||'', period, img, body.username||'', now, gps.lat, gps.lng, gps.accuracy]);
+    sheet.appendRow([id, body.project||'', body.freq||'', body.task||'', body.date||'', period, img, body.username||'', now, gps.lat, gps.lng, gps.accuracy, source]);
     existingUrls[img] = true;
     added++;
-    items.push({id:id, image:img, lat:gps.lat, lng:gps.lng, accuracy:gps.accuracy});
+    items.push({id:id, image:img, lat:gps.lat, lng:gps.lng, accuracy:gps.accuracy, source:source});
   }
   invalidateTaskPhotosCache_(periodPrefix);
   return {ok:true, success:true, items:items};
@@ -1681,7 +1689,8 @@ function handleGetTaskPhotos(body) {
       createdAt:String(rows[i][8]||''),
       lat: rows[i][9] === '' || rows[i][9] == null ? null : Number(rows[i][9]),
       lng: rows[i][10] === '' || rows[i][10] == null ? null : Number(rows[i][10]),
-      accuracy: rows[i][11] === '' || rows[i][11] == null ? null : Number(rows[i][11])
+      accuracy: rows[i][11] === '' || rows[i][11] == null ? null : Number(rows[i][11]),
+      source: normalizePhotoSource_(rows[i][12])
     });
   }
   try { var js = JSON.stringify(out); if (js.length < 95000) cache.put(ckey, js, 30); } catch(e){}

@@ -38,7 +38,11 @@
       weekComplete: 'Week complete',
       weekUnlockedPush: function (p) { return 'Week ' + (p.n || '') + ' unlocked'; },
       takePhoto: 'Take photo',
+      addPhoto: 'Add photo',
       cameraOnly: 'Camera only — max 3 photos',
+      cameraOrUpload: 'Camera or gallery — max 3 photos',
+      sourceTaken: 'Taken',
+      sourceUploaded: 'Uploaded',
       photosReady: function (p) {
         return (p.count || 0) + ' photo' + ((p.count || 0) === 1 ? '' : 's') + ' ready';
       },
@@ -108,7 +112,11 @@
       weekComplete: 'هەفتە تەواو بوو',
       weekUnlockedPush: function (p) { return 'هەفتەی ' + (p.n || '') + ' کرایەوە'; },
       takePhoto: 'وێنە بگرە',
+      addPhoto: 'وێنە زیادبکە',
       cameraOnly: 'تەنها کامێرا — زۆرترین ٣ وێنە',
+      cameraOrUpload: 'کامێرا یان گالەری — زۆرترین ٣ وێنە',
+      sourceTaken: 'گیراو',
+      sourceUploaded: 'بارکراو',
       photosReady: function (p) {
         return (p.count || 0) + ' وێنە ئامادەیە';
       },
