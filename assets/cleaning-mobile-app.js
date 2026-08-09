@@ -171,11 +171,34 @@
     return state.week[p];
   }
 
-  function pendingKey(p, gi, ti) { return p + '|' + gi + '|' + ti; }
+  function pendingSlot(p, gi) {
+    var g = TASK_MAP[p] && TASK_MAP[p].groups && TASK_MAP[p].groups[gi];
+    if (!g) return 'x';
+    return g.daily ? String(selectedWeek(p)) : 'm';
+  }
+
+  function pendingKey(p, gi, ti, slot) {
+    if (slot == null) slot = pendingSlot(p, gi);
+    return p + '|' + gi + '|' + ti + '|' + slot;
+  }
+
+  function parsePendingKey(key) {
+    var parts = String(key || '').split('|');
+    return {
+      p: parts[0],
+      gi: Number(parts[1]),
+      ti: Number(parts[2]),
+      slot: parts[3] != null ? parts[3] : '1'
+    };
+  }
 
   function ensurePending(key) {
     if (!state.pending[key]) state.pending[key] = [];
     return state.pending[key];
+  }
+
+  function taskGroup(p, gi) {
+    return TASK_MAP[p] && TASK_MAP[p].groups ? TASK_MAP[p].groups[gi] : null;
   }
 
   function setMsg(el, text, isError) {
@@ -688,12 +711,13 @@
   }
 
   async function confirmSave(p, gi, ti) {
+    var g = taskGroup(p, gi);
+    if (!g || !g.tasks || !g.tasks[ti]) return;
     var key = pendingKey(p, gi, ti);
     var items = ensurePending(key);
     if (!items.length || state.saving) return;
-    var g = TASK_MAP[p].groups[gi];
     var task = g.tasks[ti];
-    var freq = g.daily ? 'daily' : g.freq;
+    var freq = g.daily ? 'daily' : (g.freq || 'weekly');
     var wk = selectedWeek(p);
     var period = g.daily ? (curMonth() + '#' + wk) : curMonth();
     var date = todayStr();
@@ -808,9 +832,11 @@
 
   async function onPhotoFiles(p, gi, ti, files, source) {
     if (!files || !files.length) return;
+    var g = taskGroup(p, gi);
+    if (!g || !g.tasks || !g.tasks[ti]) return;
     var key = pendingKey(p, gi, ti);
     var list = ensurePending(key);
-    var existing = photosFor(p, TASK_MAP[p].groups[gi], TASK_MAP[p].groups[gi].tasks[ti], selectedWeek(p)).length;
+    var existing = photosFor(p, g, g.tasks[ti], selectedWeek(p)).length;
     var room = MAX_PHOTOS - existing - list.length;
     if (room <= 0) {
       alert(t('photoMax'));
@@ -831,9 +857,14 @@
     return '<span class="photo-source-badge photo-source-camera">' + t('sourceTaken') + '</span>';
   }
 
+  function photoInputId(kind, p, gi, ti, slot) {
+    return 'cm' + kind + '-' + p + '-' + gi + '-' + ti + '-' + slot;
+  }
+
   function openPhotoPicker(p, gi, ti) {
-    var cam = document.getElementById('cmCam-' + p + '-' + gi + '-' + ti);
-    var gal = document.getElementById('cmGal-' + p + '-' + gi + '-' + ti);
+    var slot = pendingSlot(p, gi);
+    var cam = document.getElementById(photoInputId('Cam', p, gi, ti, slot));
+    var gal = document.getElementById(photoInputId('Gal', p, gi, ti, slot));
     if (typeof empireWorkerShowPhotoChoice === 'function') {
       empireWorkerShowPhotoChoice({
         title: t('addPhoto'),
@@ -905,14 +936,16 @@
   }
 
   function renderTaskCard(p, gi, ti) {
-    var g = TASK_MAP[p].groups[gi];
+    var g = taskGroup(p, gi);
+    if (!g || !g.tasks || !g.tasks[ti]) return '';
     var task = g.tasks[ti];
     var wk = selectedWeek(p);
     var saved = photosFor(p, g, task, wk);
-    var key = pendingKey(p, gi, ti);
+    var slot = pendingSlot(p, gi);
+    var key = pendingKey(p, gi, ti, slot);
     var pending = ensurePending(key);
     var done = saved.length > 0;
-    var html = '<div class="cm-task">' +
+    var html = '<div class="cm-task" data-project="' + p + '" data-gi="' + gi + '" data-ti="' + ti + '" data-slot="' + slot + '">' +
       '<div class="cm-task-top">' +
         '<div><div class="cm-task-title">' + task + '</div>' +
         '<div class="cm-task-meta">' + (done ? ('✓ ' + saved.length + ' photo') : t('noPhotosYet')) + '</div></div>' +
@@ -934,8 +967,8 @@
     var room = MAX_PHOTOS - saved.length - pending.length;
     html += '<div class="cm-actions">';
     if (room > 0) {
-      var camId = 'cmCam-' + p + '-' + gi + '-' + ti;
-      var galId = 'cmGal-' + p + '-' + gi + '-' + ti;
+      var camId = photoInputId('Cam', p, gi, ti, slot);
+      var galId = photoInputId('Gal', p, gi, ti, slot);
       html += '<button type="button" class="cm-btn cm-btn-soft" data-addphoto="' + key + '">' + t('addPhoto') + '</button>';
       html += '<input id="' + camId + '" class="cm-file" type="file" accept="image/*" capture="environment" data-cam="' + key + '" data-source="camera">';
       html += '<input id="' + galId + '" class="cm-file" type="file" accept="image/*" data-cam="' + key + '" data-source="gallery" multiple>';
@@ -1001,27 +1034,27 @@
     });
     host.querySelectorAll('[data-addphoto]').forEach(function (btn) {
       btn.onclick = function () {
-        var parts = btn.getAttribute('data-addphoto').split('|');
-        openPhotoPicker(parts[0], Number(parts[1]), Number(parts[2]));
+        var pk = parsePendingKey(btn.getAttribute('data-addphoto'));
+        openPhotoPicker(pk.p, pk.gi, pk.ti);
       };
     });
     host.querySelectorAll('[data-cam]').forEach(function (inp) {
       inp.onchange = function () {
-        var parts = inp.getAttribute('data-cam').split('|');
-        onPhotoFiles(parts[0], Number(parts[1]), Number(parts[2]), inp.files, inp.getAttribute('data-source') || 'camera');
+        var pk = parsePendingKey(inp.getAttribute('data-cam'));
+        onPhotoFiles(pk.p, pk.gi, pk.ti, inp.files, inp.getAttribute('data-source') || 'camera');
         inp.value = '';
       };
     });
     host.querySelectorAll('[data-confirm]').forEach(function (btn) {
       btn.onclick = function () {
-        var parts = btn.getAttribute('data-confirm').split('|');
-        confirmSave(parts[0], Number(parts[1]), Number(parts[2]));
+        var pk = parsePendingKey(btn.getAttribute('data-confirm'));
+        confirmSave(pk.p, pk.gi, pk.ti);
       };
     });
     host.querySelectorAll('[data-rm]').forEach(function (btn) {
       btn.onclick = function () {
-        var parts = btn.getAttribute('data-rm').split('|');
-        removePending(parts[0], Number(parts[1]), Number(parts[2]), Number(btn.getAttribute('data-idx')));
+        var pk = parsePendingKey(btn.getAttribute('data-rm'));
+        removePending(pk.p, pk.gi, pk.ti, Number(btn.getAttribute('data-idx')));
       };
     });
     host.querySelectorAll('[data-open]').forEach(function (img) {
@@ -1029,11 +1062,21 @@
     });
   }
 
+  function nonDailyCovered(p, g) {
+    if (!g || !g.tasks) return 0;
+    return g.tasks.filter(function (task) { return photosFor(p, g, task, 1).length > 0; }).length;
+  }
+
   function renderAnalytics() {
     var host = document.getElementById('cmAnalytics');
     if (!host) return;
     var list = userProjects();
     var html = '<div class="cm-card"><h2 style="margin:0 0 10px;font-size:1.1rem;">' + t('analytics') + ' — ' + curMonth() + '</h2>';
+    if (!list.length) {
+      html += '<div class="cm-empty">' + t('noProjects') + '</div></div>';
+      host.innerHTML = html;
+      return;
+    }
     list.forEach(function (p) {
       var dg = dailyGroup(p);
       html += '<div style="margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--cm-border);">' +
@@ -1044,10 +1087,34 @@
         html += '<div class="cm-task-meta">' + t('week', { n: w }) + ': ' + t('weekProgress', { done: done, total: total }) +
           (weekAccessible(p, w) ? '' : ' 🔒') + '</div>';
       }
+      (TASK_MAP[p].groups || []).forEach(function (g) {
+        if (g.daily) return;
+        var nDone = nonDailyCovered(p, g);
+        html += '<div class="cm-task-meta">' + (g.label || t('otherTasks')) + ': ' +
+          t('weekProgress', { done: nDone, total: g.tasks.length }) + '</div>';
+      });
       html += '</div>';
     });
     html += '</div>';
     host.innerHTML = html;
+  }
+
+  function renderMonthlyTaskRow(p, g, task, wk) {
+    var ph = photosFor(p, g, task, wk);
+    var html = '<div class="cm-task"><div class="cm-task-title">' + task +
+      (g.daily ? (' <span class="cm-task-meta">· ' + t('week', { n: wk }) + '</span>') : '') +
+      '</div>' +
+      '<div class="cm-task-meta">' + (ph.length ? (ph.length + ' photo') : t('noPhotosYet')) + '</div>';
+    if (ph.length) {
+      html += '<div class="cm-thumbs">';
+      ph.forEach(function (x) {
+        html += '<div class="cm-thumb"><img src="' + x.image + '" data-open="' + encodeURIComponent(x.image) + '" alt="">' +
+          sourceBadgeHtml(x.source) + '</div>';
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+    return html;
   }
 
   function renderMonthly() {
@@ -1055,25 +1122,30 @@
     if (!host) return;
     var list = userProjects();
     var html = '<div class="cm-card"><h2 style="margin:0 0 10px;font-size:1.1rem;">' + t('monthly') + ' — ' + curMonth() + '</h2>';
+    if (!list.length) {
+      html += '<div class="cm-empty">' + t('noProjects') + '</div></div>';
+      host.innerHTML = html;
+      return;
+    }
     list.forEach(function (p) {
       var groups = TASK_MAP[p].groups || [];
       html += '<h3 style="margin:14px 0 8px;">' + (PROJECT_NAMES[p] || p) + '</h3>';
       groups.forEach(function (g) {
-        html += '<div class="cm-task-meta" style="margin-bottom:6px;">' + (g.labelKey ? t(g.labelKey) : g.label) + '</div>';
-        g.tasks.forEach(function (task) {
-          var wk = g.daily ? selectedWeek(p) : 1;
-          var ph = photosFor(p, g, task, wk);
-          html += '<div class="cm-task"><div class="cm-task-title">' + task + '</div>' +
-            '<div class="cm-task-meta">' + (ph.length ? (ph.length + ' photo') : t('noPhotosYet')) + '</div>';
-          if (ph.length) {
-            html += '<div class="cm-thumbs">';
-            ph.forEach(function (x) {
-              html += '<div class="cm-thumb"><img src="' + x.image + '" data-open="' + encodeURIComponent(x.image) + '" alt=""></div>';
+        html += '<div class="cm-task-meta" style="margin-bottom:6px;font-weight:600;">' +
+          (g.labelKey ? t(g.labelKey) : (g.label || t('otherTasks'))) + '</div>';
+        if (g.daily) {
+          for (var w = 1; w <= 4; w++) {
+            html += '<div class="cm-task-meta" style="margin:8px 0 4px;">' + t('week', { n: w }) +
+              ' — ' + t('weekProgress', { done: dailyCovered(p, w), total: g.tasks.length }) + '</div>';
+            g.tasks.forEach(function (task) {
+              html += renderMonthlyTaskRow(p, g, task, w);
             });
-            html += '</div>';
           }
-          html += '</div>';
-        });
+        } else {
+          g.tasks.forEach(function (task) {
+            html += renderMonthlyTaskRow(p, g, task, 1);
+          });
+        }
       });
     });
     html += '</div>';
