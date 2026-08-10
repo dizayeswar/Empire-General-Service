@@ -766,7 +766,7 @@ function workerFieldReportLoadMine_(force) {
   fetchJSONRetry({ action: cfg.actions.get, token: issueToken() || '', username: user }, force ? 2 : 1, 45000)
     .then(function (d) {
       var rows = Array.isArray(d) ? d : [];
-      // Hard client filter: only this logged-in worker (includes transferred history).
+      // Only this worker. API already drops trash + transferred-with-missing-job ghosts.
       _wfrReports = rows.filter(workerFieldReportIsMine_).sort(function (a, b) {
         return String(b.createdAt || b.date || '').localeCompare(String(a.createdAt || a.date || ''));
       });

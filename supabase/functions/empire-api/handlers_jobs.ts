@@ -102,11 +102,52 @@ export async function handleUpdateElectricalJob(body: Record<string, unknown>) {
   return { ok: true, success: true };
 }
 
+async function trashFieldReportsLinkedToJobs_(
+  jobIds: string[],
+  reason: string,
+  username: string,
+) {
+  const ids = [...new Set(jobIds.map((x) => String(x || "")).filter(Boolean))];
+  if (!ids.length) return 0;
+  const reports = await selectAllRows<Record<string, unknown>>("electric_worker_reports");
+  const idSet = new Set(ids);
+  const linked = reports.filter((r) => idSet.has(String(r.transferred_job_id || "")));
+  if (!linked.length) return 0;
+  await trashRows("ElectricWorkerReports", linked, reason, username);
+  for (let i = 0; i < linked.length; i += 100) {
+    const chunk = linked.slice(i, i + 100).map((r) => String(r.id || "")).filter(Boolean);
+    if (chunk.length) await sb().from("electric_worker_reports").delete().in("id", chunk);
+  }
+  return linked.length;
+}
+
+/** Transferred field reports whose monthly job was deleted — remove from live lists. */
+async function purgeOrphanTransferredFieldReports_(username: string) {
+  const [reports, jobs] = await Promise.all([
+    selectAllRows<Record<string, unknown>>("electric_worker_reports"),
+    selectAllRows<{ id?: string }>("electrical_jobs", { columns: "id" }),
+  ]);
+  const jobIds = new Set(jobs.map((j) => String(j.id || "")).filter(Boolean));
+  const orphans = reports.filter((r) => {
+    if (String(r.status || "").toLowerCase() !== "transferred") return false;
+    const tj = String(r.transferred_job_id || "").trim();
+    return !tj || !jobIds.has(tj);
+  });
+  if (!orphans.length) return 0;
+  await trashRows("ElectricWorkerReports", orphans, "orphan_job_missing", username || "system");
+  for (let i = 0; i < orphans.length; i += 100) {
+    const chunk = orphans.slice(i, i + 100).map((r) => String(r.id || "")).filter(Boolean);
+    if (chunk.length) await sb().from("electric_worker_reports").delete().in("id", chunk);
+  }
+  return orphans.length;
+}
+
 export async function handleDeleteElectricalJob(body: Record<string, unknown>) {
   const { data: row } = await sb().from("electrical_jobs").select("*").eq("id", String(body.id)).maybeSingle();
   if (!row) return { ok: false, error: "Job not found" };
   await trashRows("ElectricalJobs", [row], "delete", String(body.username));
   await sb().from("electrical_jobs").delete().eq("id", row.id);
+  await trashFieldReportsLinkedToJobs_([String(row.id)], "job_deleted", String(body.username || ""));
   return { ok: true, success: true };
 }
 
@@ -118,15 +159,19 @@ export async function handleClearElectricalJobs(body: Record<string, unknown>) {
   if (target === "field_reports") target = "fieldreports";
   if (target !== "jobs" && target !== "fieldreports" && target !== "all") target = "all";
   if (target === "jobs" || target === "all") {
-    const { data } = await sb().from("electrical_jobs").select("*");
-    if (data?.length) {
+    const data = await selectAllRows("electrical_jobs");
+    if (data.length) {
+      const jobIds = data.map((j) => String(j.id || "")).filter(Boolean);
       await trashRows("ElectricalJobs", data, "reset", String(body.username));
       await sb().from("electrical_jobs").delete().gte("id", "");
+      // Jobs gone → transferred field reports become ghosts; remove them too.
+      await trashFieldReportsLinkedToJobs_(jobIds, "jobs_reset", String(body.username || ""));
+      await purgeOrphanTransferredFieldReports_(String(body.username || ""));
     }
   }
   if (target === "fieldreports" || target === "all") {
-    const { data } = await sb().from("electric_worker_reports").select("*");
-    if (data?.length) {
+    const data = await selectAllRows("electric_worker_reports");
+    if (data.length) {
       await trashRows("ElectricWorkerReports", data, "reset", String(body.username));
       await sb().from("electric_worker_reports").delete().gte("id", "");
     }
@@ -345,14 +390,35 @@ export async function handleGetElectricWorkerReports(_body: Record<string, unkno
     dept === "electric issue" ||
     isElectricWorkerId(auth.username);
   const workerUser = normalizeWorkerId(auth.username);
+
+  // Remove transferred reports whose job no longer exists (ghosts on phones).
+  await purgeOrphanTransferredFieldReports_(workerUser || String(auth.username || "system"));
+
   let data = await selectAllRows<Record<string, unknown>>("electric_worker_reports");
+  const jobIds = new Set(
+    (await selectAllRows<{ id?: string }>("electrical_jobs", { columns: "id" }))
+      .map((j) => String(j.id || ""))
+      .filter(Boolean),
+  );
+  const trashed = await trashedElectricWorkerReportIds_();
+
+  data = data.filter((r) => {
+    const id = String(r.id || "");
+    if (id && trashed.has(id)) return false;
+    const st = String(r.status || "").trim().toLowerCase();
+    if (st === "transferred") {
+      const tj = String(r.transferred_job_id || "").trim();
+      // Only keep transferred reports that still exist as a live job.
+      return !!tj && jobIds.has(tj);
+    }
+    // pending / empty = still in Field Reports review queue
+    return true;
+  });
+
   if (scopeToSelf) {
     data = data.filter((r) => normalizeWorkerId(r.reported_by) === workerUser);
-    const trashed = await trashedElectricWorkerReportIds_();
-    if (trashed.size) {
-      data = data.filter((r) => !trashed.has(String(r.id || "")));
-    }
   }
+
   const out = data.map(electricWorkerReportToApi);
   out.sort((a, b) =>
     String(b.createdAt || b.date || "").localeCompare(String(a.createdAt || a.date || ""))
