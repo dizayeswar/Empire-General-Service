@@ -298,21 +298,40 @@ async function main() {
   }).filter(Boolean);
   report.imported.tasks = (await upsert('tasks', tasks, 'key')).inserted;
 
-  const tphotos = sheetRows(data, 'TaskPhotos').map((r) => ({
-    id: s(r.id),
-    project: s(r.project),
-    freq: s(r.freq),
-    task: s(r.task),
-    date: fmtDate(r.date),
-    period: s(r.period),
-    image: s(r.image),
-    created_by: s(r.createdBy || r.created_by),
-    created_at: s(r.createdAt || r.created_at),
-    lat: n(r.lat),
-    lng: n(r.lng),
-    accuracy: n(r.accuracy),
-    source: s(r.source || 'camera') || 'camera'
-  })).filter((r) => r.id);
+  const tphotos = sheetRows(data, 'TaskPhotos').map((r) => {
+    const id = s(r.id);
+    if (!id) return null;
+    let period = s(r.period);
+    let image = s(r.image);
+    let created_by = s(r.createdBy || r.created_by);
+    let created_at = s(r.createdAt || r.created_at);
+    // Shifted sheet headers: image/createdBy/ts/col8 = period/url/user/createdAt
+    const imageLooksPeriod = /^\d{4}-\d{2}/.test(image) && image.indexOf('http') !== 0;
+    const createdByLooksUrl = created_by.indexOf('http') === 0;
+    if (imageLooksPeriod && createdByLooksUrl) {
+      period = period || image;
+      image = created_by;
+      created_by = s(r.ts);
+      created_at = s(r.col8 || r.created_at || r.createdAt);
+    }
+    if (!period && /^\d{4}-\d{2}/.test(fmtDate(r.date))) period = fmtDate(r.date).slice(0, 7);
+    if (image.indexOf('http') !== 0) return null;
+    return {
+      id,
+      project: s(r.project),
+      freq: s(r.freq),
+      task: s(r.task),
+      date: fmtDate(r.date),
+      period,
+      image,
+      created_by,
+      created_at,
+      lat: n(r.lat),
+      lng: n(r.lng),
+      accuracy: n(r.accuracy),
+      source: s(r.source || 'camera') || 'camera'
+    };
+  }).filter(Boolean);
   report.imported.task_photos = (await upsert('task_photos', tphotos, 'id')).inserted;
 
   const week = sheetRows(data, 'WeekCoverage').map((r) => ({

@@ -11,6 +11,30 @@ export function sb(): SupabaseClient {
   return _sb;
 }
 
+/** PostgREST caps each response at ~1000 rows; page until exhausted. */
+export async function selectAllRows<T = Record<string, unknown>>(
+  table: string,
+  opts?: {
+    columns?: string;
+    filter?: (q: any) => any;
+  },
+): Promise<T[]> {
+  const pageSize = 1000;
+  const rows: T[] = [];
+  let from = 0;
+  for (;;) {
+    let q: any = sb().from(table).select(opts?.columns || "*");
+    if (opts?.filter) q = opts.filter(q);
+    const { data, error } = await q.range(from, from + pageSize - 1);
+    if (error) throw error;
+    const batch = (data || []) as T[];
+    rows.push(...batch);
+    if (batch.length < pageSize) break;
+    from += pageSize;
+  }
+  return rows;
+}
+
 export async function nextCounter(key: string): Promise<number> {
   const client = sb();
   const { data, error } = await client.rpc("next_id_counter", { p_key: key });

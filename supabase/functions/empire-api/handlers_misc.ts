@@ -1,6 +1,6 @@
 import { AuthOk, getUser, projectsForUser } from "./auth.ts";
 import { SHEET_TO_TABLE } from "./config.ts";
-import { dtIssue, fmtDate, isoNow, nextCounter, sb } from "./db.ts";
+import { dtIssue, fmtDate, isoNow, nextCounter, sb, selectAllRows } from "./db.ts";
 import {
   isCleaningSupervisorRole,
   normalizeTrade,
@@ -159,10 +159,12 @@ export async function handleClearAsaasItems() {
 }
 
 export async function handleGetApplicationCheckMeta() {
-  const { data } = await sb().from("application_checks").select("project,status");
+  const data = await selectAllRows<{ project?: string; status?: string }>("application_checks", {
+    columns: "project,status",
+  });
   const projects = new Set<string>();
   const statuses = new Set<string>();
-  for (const r of data || []) {
+  for (const r of data) {
     if (r.project) projects.add(String(r.project));
     if (r.status) statuses.add(String(r.status));
   }
@@ -170,12 +172,14 @@ export async function handleGetApplicationCheckMeta() {
 }
 
 export async function handleGetApplicationChecks(body: Record<string, unknown>) {
-  let q = sb().from("application_checks").select("*");
-  if (body.project) q = q.eq("project", String(body.project));
-  if (body.status) q = q.eq("status", String(body.status));
-  const { data, error } = await q;
-  if (error) throw error;
-  return (data || []).map((r) => ({
+  const data = await selectAllRows<Record<string, unknown>>("application_checks", {
+    filter: (q) => {
+      if (body.project) q = q.eq("project", String(body.project));
+      if (body.status) q = q.eq("status", String(body.status));
+      return q;
+    },
+  });
+  return data.map((r) => ({
     id: r.id,
     project: r.project,
     propertyId: r.property_id,
@@ -301,10 +305,9 @@ export async function handleClearApplicationChecks(body: Record<string, unknown>
 
 export async function handleGetTrash(body: Record<string, unknown>) {
   const filter = body.sheets as string[] | null;
-  const { data, error } = await sb().from("trash").select("*");
-  if (error) throw error;
+  const data = await selectAllRows("trash");
   const out = [];
-  for (const row of data || []) {
+  for (const row of data) {
     const src = String(row.source_sheet);
     if (filter && filter.indexOf(src) === -1) continue;
     let preview = "";
@@ -352,10 +355,10 @@ export async function handleRestoreTrash(body: Record<string, unknown>) {
   const ids = (body.trashIds as string[]) || (body.trashId ? [String(body.trashId)] : null);
   const batchId = body.batchId ? String(body.batchId) : null;
   const sheets = body.sheets as string[] | null;
-  const { data } = await sb().from("trash").select("*");
+  const data = await selectAllRows("trash");
   let restored = 0;
   const toDelete: string[] = [];
-  for (const row of data || []) {
+  for (const row of data) {
     const src = String(row.source_sheet);
     let match = false;
     if (ids) match = ids.indexOf(String(row.trash_id)) !== -1;
@@ -418,9 +421,9 @@ export async function handlePurgeTrash(body: Record<string, unknown>) {
   const ids = (body.trashIds as string[]) || (body.trashId ? [String(body.trashId)] : null);
   const batchId = body.batchId ? String(body.batchId) : null;
   const sheets = body.sheets as string[] | null;
-  const { data } = await sb().from("trash").select("*");
+  const data = await selectAllRows("trash");
   const toDelete: string[] = [];
-  for (const row of data || []) {
+  for (const row of data) {
     const src = String(row.source_sheet);
     let match = false;
     if (ids) match = ids.indexOf(String(row.trash_id)) !== -1;
