@@ -1,7 +1,19 @@
 /** Empire World EGS — shared config (Phase 2) */
-const GOOGLE_SCRIPT_URL =
+const GOOGLE_SCRIPT_URL_LEGACY =
   'https://script.google.com/macros/s/AKfycbz-qxaEXcGH_b8g-k7RmwIV3f16MDHZV-VMUxoYS5YFeGaWlKyURfLwfOoVXQ1ONyYO/exec';
-const APP_VERSION = '2026-07-16-voice-v1';
+
+/**
+ * After Supabase cutover, set this to the Edge Function URL, e.g.
+ * 'https://nobcitpaudeopzfymgzi.supabase.co/functions/v1/empire-api'
+ * Leave empty to keep using Google Apps Script (safe default).
+ */
+const EMPIRE_API_URL = 'https://nobcitpaudeopzfymgzi.supabase.co/functions/v1/empire-api';
+
+/** Active API — used by all pages (legacy name kept for compatibility). */
+const GOOGLE_SCRIPT_URL = EMPIRE_API_URL || GOOGLE_SCRIPT_URL_LEGACY;
+const EMPIRE_API_ENDPOINT = GOOGLE_SCRIPT_URL;
+
+const APP_VERSION = '2026-08-10-supabase-cutover';
 
 /** Firebase Cloud Messaging — fill in after creating a Firebase project (see DEPLOY.md) */
 const FIREBASE_CONFIG = {

@@ -25,6 +25,19 @@ var RESET_PASSWORD = 'empire2026';
 var TOKEN_TTL = 30 * 24 * 60 * 60 * 1000;
 
 var SCRIPT_VERSION = '2026-08-09-photo-source-v9';
+/** Set true during Supabase cutover to reject mutations (reads/login still work). */
+var FREEZE_WRITES = true;
+var FREEZE_READ_ACTIONS = {
+  login:1, verifyLogin:1, verifyPassword:1, getPerms:1, getSummary:1,
+  getReports:1, getTasks:1, getWeekCoverage:1, getRangeCoverage:1,
+  getTaskPhotos:1, getTaskLog:1, getCivilIssues:1, getElectricIssues:1,
+  getFireIssues:1, getHseInspections:1, getElectricalJobs:1,
+  getElectricalSummary:1, getElectricWorkerReports:1, getCivilJobs:1,
+  getCivilSummary:1, getAsaasItems:1, getApplicationChecks:1,
+  getApplicationCheckMeta:1, getApplicationCheckDetail:1, getTrash:1,
+  getUiSettings:1, getWorkerLocations:1, saveWorkerPushToken:1,
+  testWorkerPush:1, debugWorkerPush:1
+};
 var CIVIL_ASSIGNED_COL = 17;
 var CIVIL_WORKERS_REQUIRED_COL = 18;
 var CIVIL_WORKER_COMPLETIONS_COL = 19;
@@ -370,6 +383,9 @@ function doPost(e) {
   try {
     var body = JSON.parse(e.postData.contents);
     var action = body.action;
+    if (FREEZE_WRITES && !FREEZE_READ_ACTIONS[action]) {
+      return respond({ok:false,success:false,error:'frozen',message:'Sheet writes frozen for Supabase cutover.'});
+    }
     // Fast path: push actions must not wait on spreadsheet locks / password rechecks.
     if (action === 'saveWorkerPushToken') return respond(handleSaveWorkerPushToken_(body));
     if (action === 'testWorkerPush') return respond(handleTestWorkerPush_(body));

@@ -3,3 +3,11 @@ docs/ASAAS-*
 
 # Node dependencies (installed locally only)
 node_modules/
+scripts/node_modules/
+
+# Supabase migration exports (may contain passwords — never commit)
+migration-data/
+!migration-data/.gitkeep
+
+# Supabase CLI local cache
+supabase/.temp/

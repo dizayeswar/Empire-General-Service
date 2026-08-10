@@ -24,7 +24,10 @@ function fetchWithTimeout(url, options, timeoutMs) {
 function fetchJSONRetry(body, tries, timeoutMs) {
   tries = tries || 2;
   timeoutMs = timeoutMs || 90000;
-  return fetchWithTimeout(GOOGLE_SCRIPT_URL, { method: 'POST', body: JSON.stringify(body) }, timeoutMs)
+  var apiUrl = (typeof EMPIRE_API_ENDPOINT !== 'undefined' && EMPIRE_API_ENDPOINT)
+    ? EMPIRE_API_ENDPOINT
+    : GOOGLE_SCRIPT_URL;
+  return fetchWithTimeout(apiUrl, { method: 'POST', body: JSON.stringify(body) }, timeoutMs)
     .then(function (r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.text();

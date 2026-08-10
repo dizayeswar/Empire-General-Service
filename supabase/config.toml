@@ -1,0 +1,5 @@
+# Supabase CLI — Empire EGS
+project_id = "nobcitpaudeopzfymgzi"
+
+[functions.empire-api]
+verify_jwt = false

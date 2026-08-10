@@ -36,9 +36,9 @@ Web dashboards for Empire World departments: cleaning, civil, electrical, HSE, a
 
 ## Data storage
 
-All reports, issues, task photos, and checklists are saved to a **Google Sheet** through Google Apps Script. The browser keeps short-term caches for speed; the sheet is the source of truth.
+**Today (default):** reports, issues, jobs, and users are saved to a **Google Sheet** through Google Apps Script. Photos go to **Supabase Storage**; URLs are stored with the rows.
 
-Photos are uploaded to **Supabase Storage** from the browser, then the image URL is stored in the sheet. See **[SUPABASE-MIGRATION.md](SUPABASE-MIGRATION.md)** to migrate existing ImgBB photos.
+**Supabase database migration:** schema, import tooling, and Edge Function `empire-api` are in this repo. Production keeps using Apps Script until you set `EMPIRE_API_URL` in `config.js`. Full runbook: **[SUPABASE-DATABASE-MIGRATION.md](SUPABASE-DATABASE-MIGRATION.md)**. ImgBB → Storage only: **[SUPABASE-MIGRATION.md](SUPABASE-MIGRATION.md)**.
 
 ---
 
@@ -75,10 +75,13 @@ See **[DEPLOY.md](DEPLOY.md)** for:
 ```
 assets/           Shared CSS, JS (auth, API, core, issue tracker, PWA, offline queue)
 icons/            PWA home-screen icons
-config.js         Backend URL and app version
-empire-all-in-one.gs   Backend API (deploy to Google Apps Script, not GitHub Pages)
+config.js         Backend URL and app version (EMPIRE_API_URL for Supabase cutover)
+empire-all-in-one.gs   Legacy backend API (Apps Script; freeze during cutover)
+supabase/         Postgres migration SQL + Edge Function empire-api
+scripts/          Sheet export, import-to-supabase, smoke tests
 *.html            Department dashboards
 DEPLOY.md         Full deployment guide
+SUPABASE-DATABASE-MIGRATION.md   Sheets → Postgres cutover runbook
 ```
 
 ---

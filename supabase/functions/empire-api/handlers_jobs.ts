@@ -1,0 +1,395 @@
+import { AuthOk } from "./auth.ts";
+import { RESET_PASSWORD } from "./config.ts";
+import { fmtDate, isoNow, nextCounter, sb, trashRows } from "./db.ts";
+import {
+  formatFixedPhotosForStorage,
+  normalizeWorkerId,
+  parseAssignVoiceNote,
+  parseFixedPhotosFromCell,
+} from "./helpers.ts";
+
+function jobFromRow(row: Record<string, unknown>) {
+  return {
+    id: String(row.id || ""),
+    num: Number(row.num || 0) || 0,
+    date: fmtDate(row.date),
+    job: String(row.job || ""),
+    location: String(row.location || ""),
+    materials: String(row.materials || ""),
+    staff: String(row.staff || ""),
+    type: String(row.type || ""),
+    photo: String(row.photo || ""),
+    notes: String(row.notes || ""),
+    createdBy: String(row.created_by || ""),
+    createdAt: row.created_at,
+    amount: row.amount || "",
+  };
+}
+
+export async function handleAddElectricalJob(body: Record<string, unknown>) {
+  const id = String(body.id || "") || `job-${Date.now()}`;
+  if (body.id) {
+    const { data: ex } = await sb().from("electrical_jobs").select("*").eq("id", id).maybeSingle();
+    if (ex) return { ok: true, success: true, id, num: ex.num, job: Object.assign(jobFromRow(ex), { deduped: true }) };
+  }
+  const num = await nextCounter("jobnum_ElectricalJobs");
+  const row = {
+    id,
+    date: String(body.date || ""),
+    job: String(body.job || ""),
+    location: String(body.location || ""),
+    materials: String(body.materials || ""),
+    staff: String(body.staff || ""),
+    type: String(body.type || ""),
+    photo: String(body.photo || ""),
+    notes: String(body.notes || ""),
+    created_by: String(body.username || ""),
+    created_at: isoNow(),
+    amount: String(body.amount || ""),
+    num,
+  };
+  const { error } = await sb().from("electrical_jobs").insert(row);
+  if (error) throw error;
+  return { ok: true, success: true, id, num, job: jobFromRow(row) };
+}
+
+export async function handleGetElectricalJobs() {
+  const { data, error } = await sb().from("electrical_jobs").select("*");
+  if (error) throw error;
+  return (data || []).map(jobFromRow);
+}
+
+export async function handleUpdateElectricalJob(body: Record<string, unknown>) {
+  const { data, error } = await sb().from("electrical_jobs").update({
+    date: String(body.date || ""),
+    job: String(body.job || ""),
+    location: String(body.location || ""),
+    materials: String(body.materials || ""),
+    staff: String(body.staff || ""),
+    type: String(body.type || ""),
+    photo: String(body.photo || ""),
+    notes: String(body.notes || ""),
+    amount: String(body.amount || ""),
+  }).eq("id", String(body.id)).select("id");
+  if (error) throw error;
+  if (!data?.length) return { ok: false, error: "Job not found" };
+  return { ok: true, success: true };
+}
+
+export async function handleDeleteElectricalJob(body: Record<string, unknown>) {
+  const { data: row } = await sb().from("electrical_jobs").select("*").eq("id", String(body.id)).maybeSingle();
+  if (!row) return { ok: false, error: "Job not found" };
+  await trashRows("ElectricalJobs", [row], "delete", String(body.username));
+  await sb().from("electrical_jobs").delete().eq("id", row.id);
+  return { ok: true, success: true };
+}
+
+export async function handleClearElectricalJobs(body: Record<string, unknown>) {
+  if (String(body.resetPassword || "") !== RESET_PASSWORD) {
+    return { ok: false, success: false, error: "bad_password" };
+  }
+  let target = String(body.target || "all").trim().toLowerCase();
+  if (target === "field_reports") target = "fieldreports";
+  if (target !== "jobs" && target !== "fieldreports" && target !== "all") target = "all";
+  if (target === "jobs" || target === "all") {
+    const { data } = await sb().from("electrical_jobs").select("*");
+    if (data?.length) {
+      await trashRows("ElectricalJobs", data, "reset", String(body.username));
+      await sb().from("electrical_jobs").delete().gte("id", "");
+    }
+  }
+  if (target === "fieldreports" || target === "all") {
+    const { data } = await sb().from("electric_worker_reports").select("*");
+    if (data?.length) {
+      await trashRows("ElectricWorkerReports", data, "reset", String(body.username));
+      await sb().from("electric_worker_reports").delete().gte("id", "");
+    }
+  }
+  return { ok: true, success: true, target };
+}
+
+export async function handleGetElectricalSummary(body: Record<string, unknown>) {
+  const { data } = await sb().from("electrical_summaries").select("*").eq("month", String(body.month)).maybeSingle();
+  return { ok: true, text: data ? String(data.text || "") : "" };
+}
+
+export async function handleSaveElectricalSummary(body: Record<string, unknown>) {
+  const { error } = await sb().from("electrical_summaries").upsert({
+    month: String(body.month),
+    text: String(body.text || ""),
+    saved_by: String(body.username || ""),
+    saved_at: isoNow(),
+  });
+  if (error) throw error;
+  return { ok: true, success: true };
+}
+
+export async function handleAddCivilJob(body: Record<string, unknown>) {
+  const id = String(body.id || "") || `job-${Date.now()}`;
+  const row = {
+    id,
+    date: String(body.date || ""),
+    job: String(body.job || ""),
+    location: String(body.location || ""),
+    materials: String(body.materials || ""),
+    staff: String(body.staff || ""),
+    type: String(body.type || ""),
+    photo: String(body.photo || ""),
+    notes: String(body.notes || ""),
+    created_by: String(body.username || ""),
+    created_at: isoNow(),
+    amount: String(body.amount || ""),
+  };
+  const { error } = await sb().from("civil_jobs").upsert(row);
+  if (error) throw error;
+  return { ok: true, success: true, id };
+}
+
+export async function handleGetCivilJobs() {
+  const { data, error } = await sb().from("civil_jobs").select("*");
+  if (error) throw error;
+  return (data || []).map((row) => ({
+    id: row.id,
+    date: fmtDate(row.date),
+    job: row.job,
+    location: row.location,
+    materials: row.materials,
+    staff: row.staff,
+    type: row.type,
+    photo: row.photo,
+    notes: row.notes,
+    createdBy: row.created_by,
+    createdAt: row.created_at,
+    amount: row.amount || "",
+  }));
+}
+
+export async function handleUpdateCivilJob(body: Record<string, unknown>) {
+  const { data, error } = await sb().from("civil_jobs").update({
+    date: String(body.date || ""),
+    job: String(body.job || ""),
+    location: String(body.location || ""),
+    materials: String(body.materials || ""),
+    staff: String(body.staff || ""),
+    type: String(body.type || ""),
+    photo: String(body.photo || ""),
+    notes: String(body.notes || ""),
+    amount: String(body.amount || ""),
+  }).eq("id", String(body.id)).select("id");
+  if (error) throw error;
+  if (!data?.length) return { ok: false, error: "Job not found" };
+  return { ok: true, success: true };
+}
+
+export async function handleDeleteCivilJob(body: Record<string, unknown>) {
+  const { data: row } = await sb().from("civil_jobs").select("*").eq("id", String(body.id)).maybeSingle();
+  if (!row) return { ok: false, error: "Job not found" };
+  await trashRows("CivilJobs", [row], "delete", String(body.username));
+  await sb().from("civil_jobs").delete().eq("id", row.id);
+  return { ok: true, success: true };
+}
+
+export async function handleClearCivilJobs(body: Record<string, unknown>) {
+  if (String(body.resetPassword || "") !== RESET_PASSWORD) {
+    return { ok: false, success: false, error: "bad_password" };
+  }
+  const { data } = await sb().from("civil_jobs").select("*");
+  if (data?.length) {
+    await trashRows("CivilJobs", data, "reset", String(body.username));
+    await sb().from("civil_jobs").delete().gte("id", "");
+  }
+  return { ok: true, success: true };
+}
+
+export async function handleGetCivilSummary(body: Record<string, unknown>) {
+  const { data } = await sb().from("civil_summaries").select("*").eq("month", String(body.month)).maybeSingle();
+  return { ok: true, text: data ? String(data.text || "") : "" };
+}
+
+export async function handleSaveCivilSummary(body: Record<string, unknown>) {
+  const { error } = await sb().from("civil_summaries").upsert({
+    month: String(body.month),
+    text: String(body.text || ""),
+    saved_by: String(body.username || ""),
+    saved_at: isoNow(),
+  });
+  if (error) throw error;
+  return { ok: true, success: true };
+}
+
+function parseAmount(body: Record<string, unknown>): number {
+  const raw = body.amount;
+  if (raw == null || raw === "") return 0;
+  const n = parseFloat(String(raw).replace(/[^\d.-]/g, ""));
+  if (isNaN(n) || n <= 0) return 0;
+  return Math.round(n);
+}
+
+export async function handleAddElectricWorkerReport(body: Record<string, unknown>, auth: AuthOk) {
+  const place = String(body.place || body.location || "").trim();
+  const note = String(body.note || body.notes || "").trim();
+  let photos = (body.photos as string[]) || [];
+  if (!photos.length) photos = parseFixedPhotosFromCell(String(body.photo || ""));
+  if (photos.length > 3) photos = photos.slice(0, 3);
+  const photo = photos.length ? formatFixedPhotosForStorage(photos) : "";
+  let voiceNote = body.voiceNote;
+  if (voiceNote && typeof voiceNote === "object") voiceNote = JSON.stringify(parseAssignVoiceNote(voiceNote));
+  else voiceNote = String(voiceNote || "").trim();
+  if (!place && !note && !photos.length && !voiceNote) {
+    return { ok: false, success: false, error: "empty_report", message: "Add a place, note, photo, or voice recording before submitting." };
+  }
+  const username = normalizeWorkerId(auth.username);
+  const amount = parseAmount(body);
+  let reportType = String(body.reportType || "").trim().toLowerCase();
+  if (reportType !== "refundable" && reportType !== "maintenance") {
+    reportType = amount > 0 ? "refundable" : "maintenance";
+  }
+  const id = String(body.id || "") || `fr-${Date.now()}`;
+  const num = await nextCounter("frnum_ElectricWorkerReports");
+  const dateStr = String(body.date || "").trim() || isoNow().slice(0, 10);
+  const row = {
+    id,
+    date: dateStr,
+    place,
+    note,
+    photo,
+    voice_note: String(voiceNote || ""),
+    reported_by: username,
+    worker_name: String(body.workerName || body.displayName || username || "").trim(),
+    created_at: isoNow(),
+    amount,
+    report_type: reportType,
+    status: "",
+    transferred_job_id: "",
+    edited_note: "",
+    transferred_at: "",
+    transferred_by: "",
+    materials: String(body.materials || ""),
+    invoice_photo: String(body.invoicePhoto || "").trim(),
+    num,
+  };
+  const { error } = await sb().from("electric_worker_reports").insert(row);
+  if (error) throw error;
+  return { ok: true, success: true, id, num };
+}
+
+export async function handleUpdateElectricWorkerReportInvoice(body: Record<string, unknown>, _auth: AuthOk) {
+  const id = String(body.id || "");
+  const invoicePhoto = String(body.invoicePhoto || "").trim();
+  if (!invoicePhoto) return { ok: false, success: false, error: "missing_photo" };
+  const { data, error } = await sb().from("electric_worker_reports")
+    .update({ invoice_photo: invoicePhoto }).eq("id", id).select("id");
+  if (error) throw error;
+  if (!data?.length) return { ok: false, error: "not_found" };
+  return { ok: true, success: true, id };
+}
+
+export async function handleGetElectricWorkerReports(_body: Record<string, unknown>, _auth: AuthOk) {
+  const { data, error } = await sb().from("electric_worker_reports").select("*");
+  if (error) throw error;
+  return (data || []).map((r) => ({
+    id: r.id,
+    date: fmtDate(r.date),
+    place: r.place,
+    note: r.note,
+    photo: r.photo,
+    voiceNote: parseAssignVoiceNote(r.voice_note),
+    reportedBy: r.reported_by,
+    workerName: r.worker_name,
+    createdAt: r.created_at,
+    amount: r.amount,
+    reportType: r.report_type,
+    status: r.status,
+    transferredJobId: r.transferred_job_id,
+    editedNote: r.edited_note,
+    transferredAt: r.transferred_at,
+    transferredBy: r.transferred_by,
+    materials: r.materials,
+    invoicePhoto: r.invoice_photo,
+    num: r.num,
+  }));
+}
+
+export async function handleTransferElectricWorkerReport(body: Record<string, unknown>, auth: AuthOk) {
+  const id = String(body.id || "");
+  const note = String(body.note || body.job || "").trim();
+  if (!note) return { ok: false, success: false, error: "missing_note", message: "Job note is required." };
+  const { data: report } = await sb().from("electric_worker_reports").select("*").eq("id", id).maybeSingle();
+  if (!report) return { ok: false, error: "not_found" };
+  if (String(report.status) === "transferred") {
+    return { ok: false, success: false, error: "already_transferred" };
+  }
+  const amount = body.amount != null ? parseAmount(body) : Number(report.amount || 0);
+  if (String(report.report_type) === "refundable" && amount <= 0) {
+    return { ok: false, success: false, error: "amount_required" };
+  }
+  const jobId = `job-${Date.now()}`;
+  const num = await nextCounter("jobnum_ElectricalJobs");
+  const jobRow = {
+    id: jobId,
+    date: fmtDate(report.date),
+    job: note,
+    location: String(body.place || report.place || ""),
+    materials: String(body.materials || report.materials || ""),
+    staff: String(report.worker_name || report.reported_by || ""),
+    type: String(report.report_type) === "refundable" ? "refundable" : "general",
+    photo: String(report.photo || ""),
+    notes: "",
+    created_by: String(body.username || auth.username || ""),
+    created_at: isoNow(),
+    amount: String(amount || ""),
+    num,
+  };
+  await sb().from("electrical_jobs").insert(jobRow);
+  await sb().from("electric_worker_reports").update({
+    place: String(body.place || report.place || ""),
+    amount,
+    status: "transferred",
+    transferred_job_id: jobId,
+    edited_note: note,
+    transferred_at: isoNow(),
+    transferred_by: String(auth.username || ""),
+    materials: String(body.materials || report.materials || ""),
+  }).eq("id", id);
+  return { ok: true, success: true, id, jobId, job: jobFromRow(jobRow) };
+}
+
+export async function handleTransferElectricIssueCompletion(body: Record<string, unknown>, auth: AuthOk) {
+  const id = String(body.id || "");
+  const jobNote = String(body.job || body.note || "").trim();
+  if (!jobNote) return { ok: false, success: false, error: "missing_note", message: "Job note is required." };
+  const { data: issue } = await sb().from("electric_issues").select("*").eq("id", id).maybeSingle();
+  if (!issue) return { ok: false, error: "not_found" };
+  if (String(issue.status) !== "fixed") {
+    return { ok: false, success: false, error: "not_fixed" };
+  }
+  if (String(issue.monthly_transfer_status) === "transferred" || issue.transferred_job_id) {
+    return { ok: false, success: false, error: "already_transferred" };
+  }
+  const jobId = `job-${Date.now()}`;
+  const num = await nextCounter("jobnum_ElectricalJobs");
+  const jobRow = {
+    id: jobId,
+    date: String(body.date || issue.date || ""),
+    job: jobNote,
+    location: String(body.location || `${issue.building}-${issue.floor}-${issue.spot}`),
+    materials: String(body.materials || ""),
+    staff: String(body.staff || issue.fixed_by || ""),
+    type: "general",
+    photo: String(body.photo || issue.fixed_photo || ""),
+    notes: "",
+    created_by: String(body.username || auth.username || ""),
+    created_at: isoNow(),
+    amount: String(body.amount || ""),
+    num,
+  };
+  await sb().from("electrical_jobs").insert(jobRow);
+  await sb().from("electric_issues").update({
+    monthly_transfer_status: "transferred",
+    transferred_job_id: jobId,
+    edited_job_note: jobNote,
+    transferred_at: isoNow(),
+    transferred_by: String(auth.username || ""),
+  }).eq("id", id);
+  return { ok: true, success: true, id, jobId, job: jobFromRow(jobRow) };
+}
