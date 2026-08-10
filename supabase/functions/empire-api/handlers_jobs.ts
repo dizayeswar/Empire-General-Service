@@ -45,6 +45,7 @@ function jobFromRow(row: Record<string, unknown>) {
     staff: String(row.staff || ""),
     type: String(row.type || ""),
     photo: String(row.photo || ""),
+    invoicePhoto: String(row.invoice_photo || row.invoicePhoto || ""),
     notes: String(row.notes || ""),
     createdBy: String(row.created_by || ""),
     createdAt: row.created_at,
@@ -68,6 +69,7 @@ export async function handleAddElectricalJob(body: Record<string, unknown>) {
     staff: String(body.staff || ""),
     type: String(body.type || ""),
     photo: String(body.photo || ""),
+    invoice_photo: String(body.invoicePhoto || body.invoice_photo || ""),
     notes: String(body.notes || ""),
     created_by: String(body.username || ""),
     created_at: isoNow(),
@@ -80,9 +82,28 @@ export async function handleAddElectricalJob(body: Record<string, unknown>) {
 }
 
 export async function handleGetElectricalJobs() {
-  const { data, error } = await sb().from("electrical_jobs").select("*");
-  if (error) throw error;
-  return (data || []).map(jobFromRow);
+  const data = await selectAllRows<Record<string, unknown>>("electrical_jobs");
+  // Backfill invoice photos from transferred field reports (older jobs before invoice_photo column).
+  const reports = await selectAllRows<Record<string, unknown>>("electric_worker_reports", {
+    columns: "transferred_job_id,invoice_photo,status",
+  });
+  const invoiceByJob: Record<string, string> = {};
+  for (const r of reports) {
+    if (String(r.status || "").toLowerCase() !== "transferred") continue;
+    const jid = String(r.transferred_job_id || "").trim();
+    const inv = String(r.invoice_photo || "").trim();
+    if (jid && inv && !invoiceByJob[jid]) invoiceByJob[jid] = inv;
+  }
+  return data.map((row) => {
+    const id = String(row.id || "");
+    const existing = String(row.invoice_photo || "").trim();
+    if (!existing && invoiceByJob[id]) {
+      row = { ...row, invoice_photo: invoiceByJob[id] };
+      // Persist quietly so next loads are fast.
+      void sb().from("electrical_jobs").update({ invoice_photo: invoiceByJob[id] }).eq("id", id);
+    }
+    return jobFromRow(row);
+  });
 }
 
 export async function handleUpdateElectricalJob(body: Record<string, unknown>) {
@@ -94,6 +115,7 @@ export async function handleUpdateElectricalJob(body: Record<string, unknown>) {
     staff: String(body.staff || ""),
     type: String(body.type || ""),
     photo: String(body.photo || ""),
+    invoice_photo: String(body.invoicePhoto || body.invoice_photo || ""),
     notes: String(body.notes || ""),
     amount: String(body.amount || ""),
   }).eq("id", String(body.id)).select("id");
@@ -451,6 +473,7 @@ export async function handleTransferElectricWorkerReport(body: Record<string, un
   }
   const jobId = `job-${Date.now()}`;
   const num = await nextCounter("jobnum_ElectricalJobs");
+  const jobPhotos = parseFixedPhotosFromCell(String(report.photo || ""));
   const jobRow = {
     id: jobId,
     date: fmtDate(report.date),
@@ -459,7 +482,8 @@ export async function handleTransferElectricWorkerReport(body: Record<string, un
     materials: String(body.materials || report.materials || ""),
     staff: String(report.worker_name || report.reported_by || ""),
     type: String(report.report_type) === "refundable" ? "refundable" : "general",
-    photo: String(report.photo || ""),
+    photo: jobPhotos.length ? formatFixedPhotosForStorage(jobPhotos) : String(report.photo || ""),
+    invoice_photo: String(report.invoice_photo || "").trim(),
     notes: "",
     created_by: String(body.username || auth.username || ""),
     created_at: isoNow(),
@@ -503,6 +527,7 @@ export async function handleTransferElectricIssueCompletion(body: Record<string,
     staff: String(body.staff || issue.fixed_by || ""),
     type: "general",
     photo: String(body.photo || issue.fixed_photo || ""),
+    invoice_photo: String(body.invoicePhoto || ""),
     notes: "",
     created_by: String(body.username || auth.username || ""),
     created_at: isoNow(),

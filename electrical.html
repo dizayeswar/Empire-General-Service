@@ -133,14 +133,27 @@
           <div class="form-group"><label>Staff</label><input type="text" id="j-staff" placeholder="e.g. Jasim, Ibrahim"></div>
         </div>
         <div class="form-group" style="margin-bottom:18px;"><label>Notes (optional)</label><input type="text" id="j-notes" placeholder="Any extra detail"></div>
-        <h3><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/></svg></span> Photo (optional)</h3>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
-          <button type="button" onclick="document.getElementById('j-file').click()"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/><circle cx="14" cy="15" r="1"/></svg></span> Upload / Camera</button>
-          <span style="color:var(--text-soft);font-size:13px;">— or paste below ⤵</span>
-          <input type="file" id="j-file" accept="image/*" style="display:none" onchange="handleJobFile(event)">
+        <div class="job-photos-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:8px;">
+          <div>
+            <h3 style="margin-top:0;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/></svg></span> Job photo</h3>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+              <button type="button" onclick="document.getElementById('j-file').click()"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/><circle cx="14" cy="15" r="1"/></svg></span> Upload / Camera</button>
+              <input type="file" id="j-file" accept="image/*" style="display:none" onchange="handleJobFile(event)">
+            </div>
+            <div class="image-upload" id="j-imageArea" onpaste="handleJobPaste(event)">Click here and paste (Ctrl+V)</div>
+            <img id="j-image" style="display:none;max-width:200px;margin-top:10px;border-radius:8px;border:2px solid var(--card-border);">
+          </div>
+          <div>
+            <h3 style="margin-top:0;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg></span> Invoice photo</h3>
+            <p style="margin:0 0 8px;font-size:12px;color:var(--text-soft);">For refundable work (copied from field report when you save to monthly).</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+              <button type="button" onclick="document.getElementById('j-invoice-file').click()"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/><circle cx="14" cy="15" r="1"/></svg></span> Upload / Camera</button>
+              <input type="file" id="j-invoice-file" accept="image/*" style="display:none" onchange="handleJobInvoiceFile(event)">
+            </div>
+            <div class="image-upload" id="j-invoiceArea" onpaste="handleJobInvoicePaste(event)">Click here and paste (Ctrl+V)</div>
+            <img id="j-invoice-image" style="display:none;max-width:200px;margin-top:10px;border-radius:8px;border:2px solid var(--card-border);">
+          </div>
         </div>
-        <div class="image-upload" id="j-imageArea" onpaste="handleJobPaste(event)">Click here and paste (Ctrl+V)</div>
-        <img id="j-image" style="display:none;max-width:200px;margin-top:10px;border-radius:8px;border:2px solid var(--card-border);">
       </div>
       <div id="ccFields" style="display:none;">
         <div class="form-row">
@@ -339,7 +352,7 @@
 </div>
 <script>
 const JOB_PHOTO_FOLDER = 'jobs/electrical';
-let allJobs = [], allFieldReports = [], currentPhoto = '', uploading = false, currentFormType = 'maintenance', _fieldReportEditingId = '', _fieldReportTransferring = false, _issueMonthlySaving = false;
+let allJobs = [], allFieldReports = [], currentPhoto = '', currentInvoicePhoto = '', uploading = false, uploadingInvoice = false, currentFormType = 'maintenance', _fieldReportEditingId = '', _fieldReportTransferring = false, _issueMonthlySaving = false;
 function tok(){ return empireGetToken(); }
 function currentUser(){ return empireGetUser(); }
 function PERMS(){ return typeof empireGetElectricalPerms==='function' ? empireGetElectricalPerms() : empireGetPerms(); }
@@ -364,6 +377,15 @@ var _lastPermFetch=0;
 window.addEventListener('load',()=>{ empireAuthPageBoot({ dept: 'electrical department', onEnter: enterApp }); });
 function compressImage(file,cb){ empireCompressImage(file, JOB_PHOTO_FOLDER, cb, { maxSize: 1400, quality: 0.7 }); }
 function processPhoto(file){ if(!file)return; document.getElementById('j-imageArea').innerHTML='⏳ Uploading…'; uploading=true; compressImage(file,url=>{ uploading=false; if(url){ currentPhoto=url; document.getElementById('j-image').src=url; document.getElementById('j-image').style.display='block'; document.getElementById('j-imageArea').innerHTML='✅ Photo uploaded'; } else { document.getElementById('j-imageArea').innerHTML='❌ Upload failed, try again'; } }); }
+function processInvoicePhoto(file){ if(!file)return; var area=document.getElementById('j-invoiceArea'); if(area) area.innerHTML='⏳ Uploading…'; uploadingInvoice=true; compressImage(file,url=>{ uploadingInvoice=false; if(url){ currentInvoicePhoto=url; var img=document.getElementById('j-invoice-image'); if(img){ img.src=url; img.style.display='block'; } if(area) area.innerHTML='✅ Invoice photo uploaded'; } else if(area){ area.innerHTML='❌ Upload failed, try again'; } }); }
+function handleJobInvoiceFile(e){ var f=e.target.files&&e.target.files[0]; if(f) processInvoicePhoto(f); e.target.value=''; }
+function handleJobInvoicePaste(e){ var items=e.clipboardData&&e.clipboardData.items; if(!items)return; for(var i=0;i<items.length;i++){ if(items[i].type.indexOf('image')!==-1){ e.preventDefault(); processInvoicePhoto(items[i].getAsFile()); return; } } }
+function jobPhotoCell_(url, label){
+  if(!url) return '<span style="color:var(--text-faint);font-size:11px;">—</span>';
+  return '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">'
+    + '<img class="thumb" src="'+url+'" onclick="bigImg(this.src)" loading="lazy" alt="'+_esc(label||'Photo')+'">'
+    + '<span style="font-size:10px;color:var(--text-faint);">'+_esc(label||'')+'</span></div>';
+}
 function handleJobFile(e){ var f=e.target.files&&e.target.files[0]; if(f)processPhoto(f); e.target.value=''; }
 function handleJobPaste(e){ var items=e.clipboardData.items; for(var i=0;i<items.length;i++){ if(items[i].type.indexOf('image')!==-1){ e.preventDefault(); processPhoto(items[i].getAsFile()); return; } } }
 function toggleAmount(){
@@ -390,17 +412,22 @@ function clearForm(){
   document.getElementById('j-amountwrap').style.display='none';
   document.getElementById('j-image').style.display='none';
   document.getElementById('j-imageArea').innerHTML='Click here and paste (Ctrl+V)';
+  var invImg=document.getElementById('j-invoice-image');
+  var invArea=document.getElementById('j-invoiceArea');
+  if(invImg){ invImg.style.display='none'; invImg.removeAttribute('src'); }
+  if(invArea) invArea.innerHTML='Click here and paste (Ctrl+V)';
   document.getElementById('cc-date').value=new Date().toISOString().split('T')[0];
   document.getElementById('cc-shift').value='Call Center (08:00)-To-(16:00)';
   document.getElementById('cc-staff').value='';
   currentPhoto='';
+  currentInvoicePhoto='';
   document.getElementById('addFormTitle').innerHTML='<span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span> Add Job / Shift';
   document.getElementById('cancelEditBtn').style.display='none';
   setFormType('maintenance');
 }
 function cancelJobEdit(){ clearForm(); switchDeptTabTo('jobs'); }
 function saveJob(){
-  if(uploading){ alert('Please wait for photo to finish uploading.'); return; }
+  if(uploading||uploadingInvoice){ alert('Please wait for photo to finish uploading.'); return; }
   var editId=document.getElementById('editId').value;
   var P=PERMS(); if(editId? P.edit===false : P.add===false){ alert('You do not have permission to do that.'); return; }
   var rec;
@@ -410,7 +437,7 @@ function saveJob(){
       job:'Call Center ('+document.getElementById('cc-shift').value+')',
       location:'Empire project', materials:'0',
       staff:document.getElementById('cc-staff').value,
-      type:'callcenter', photo:'', notes:'', token:tok() };
+      type:'callcenter', photo:'', invoicePhoto:'', notes:'', token:tok() };
   } else {
     var job=document.getElementById('j-job').value.trim();
     if(!job){ alert('Please enter a job description.'); return; }
@@ -420,7 +447,7 @@ function saveJob(){
       materials:materialsDisplay_(document.getElementById('j-materials').value),
       staff:document.getElementById('j-staff').value,
       type:document.getElementById('j-type').value,
-      photo:currentPhoto, notes:document.getElementById('j-notes').value,
+      photo:currentPhoto, invoicePhoto:currentInvoicePhoto, notes:document.getElementById('j-notes').value,
       amount:document.getElementById('j-amount').value||'', token:tok() };
   }
   fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify(rec)}).then(r=>r.json()).then(d=>{
@@ -429,7 +456,7 @@ function saveJob(){
     clearForm(); loadJobs(); switchDeptTabTo('jobs');
   }).catch(e=>alert('❌ Error: '+e.message));
 }
-var JOBS_CACHE_KEY='eldept_jobs_cache';
+var JOBS_CACHE_KEY='eldept_jobs_cache_v2_invoice';
 function readJobsCache(){ try{ var s=localStorage.getItem(JOBS_CACHE_KEY); if(!s) return null; var a=JSON.parse(s); return Array.isArray(a)?a:null; }catch(e){ return null; } }
 function writeJobsCache(a){ try{ localStorage.setItem(JOBS_CACHE_KEY, JSON.stringify(a)); }catch(e){} }
 function loadJobs(force){
@@ -1100,17 +1127,19 @@ function renderJobs(){
   var h='';
   var showActions=(P.edit!==false || P.del!==false);
   var monthIndexMap=buildJobMonthIndexMap_(allJobs);
-  h+='<div style="overflow-x:auto;"><table><thead><tr><th>#</th><th>Ref</th><th>Date</th><th>Type</th><th>Job</th><th>Location</th><th>Materials</th><th>Staff</th><th>Amount</th><th>Photo</th>'+(showActions?'<th>Actions</th>':'')+'</tr></thead><tbody>';
-  if(rows.length===0) h+='<tr><td colspan="11" style="color:var(--text-faint);">No records match.</td></tr>';
+  h+='<div style="overflow-x:auto;"><table><thead><tr><th>#</th><th>Ref</th><th>Date</th><th>Type</th><th>Job</th><th>Location</th><th>Materials</th><th>Staff</th><th>Amount</th><th>Job photo</th><th>Invoice</th>'+(showActions?'<th>Actions</th>':'')+'</tr></thead><tbody>';
+  if(rows.length===0) h+='<tr><td colspan="12" style="color:var(--text-faint);">No records match.</td></tr>';
   rows.forEach(r=>{
     var monthNo=jobMonthIndex_(r, monthIndexMap);
     var typeBadge='<span class="badge '+r.type+'">'+(r.type==='general'?'General':r.type==='refundable'?'Refundable':'Call Center')+'</span>';
-    var photo=r.photo?'<img class="thumb" src="'+r.photo+'" onclick="bigImg(this.src)" loading="lazy">':'—';
+    var jobPhotoUrl=String(r.photo||'').split('|')[0]||'';
+    var photo=jobPhotoCell_(jobPhotoUrl, 'Job');
+    var invoice=jobPhotoCell_(r.invoicePhoto||'', 'Invoice');
     var amountCell=r.type==='refundable'&&r.amount?'<span style="color:var(--c-money);font-weight:600;">'+fmtMoney(parseFloat(r.amount))+' IQD</span>':'—';
     var acts='';
     if(P.edit!==false) acts+='<button class="act-btn" onclick="editJob(\''+r.id+'\')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/></svg></span> Edit</button>';
     if(P.del!==false) acts+='<button class="act-btn" onclick="deleteJob(\''+r.id+'\')" style="color:#fff;background:#C5504F;border-color:#C5504F;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span></button>';
-    h+='<tr class="job-row"><td><span class="job-month-no">'+monthNo+'</span></td><td><span class="job-ref">'+jobRef_(r)+'</span></td><td>'+r.date+'</td><td>'+typeBadge+'</td><td>'+_esc(r.job)+'</td><td>'+_esc(r.location||'')+'</td><td style="max-width:160px;word-break:break-word;">'+_esc(materialsDisplay_(r.materials)||'—')+'</td><td>'+_esc(r.staff||'')+'</td><td>'+amountCell+'</td><td>'+photo+'</td>'+(showActions?('<td>'+(acts||'—')+'</td>'):'')+'</tr>';
+    h+='<tr class="job-row"><td><span class="job-month-no">'+monthNo+'</span></td><td><span class="job-ref">'+jobRef_(r)+'</span></td><td>'+r.date+'</td><td>'+typeBadge+'</td><td>'+_esc(r.job)+'</td><td>'+_esc(r.location||'')+'</td><td style="max-width:160px;word-break:break-word;">'+_esc(materialsDisplay_(r.materials)||'—')+'</td><td>'+_esc(r.staff||'')+'</td><td>'+amountCell+'</td><td>'+photo+'</td><td>'+invoice+'</td>'+(showActions?('<td>'+(acts||'—')+'</td>'):'')+'</tr>';
   });
   h+='</tbody></table></div>';
   document.getElementById('jobsTable').innerHTML=h;
@@ -1138,9 +1167,14 @@ function editJob(id){
     document.getElementById('j-notes').value=r.notes||'';
     document.getElementById('j-amount').value=r.amount||'';
     toggleAmount();
-    currentPhoto=r.photo||'';
-    if(r.photo){ document.getElementById('j-image').src=r.photo; document.getElementById('j-image').style.display='block'; document.getElementById('j-imageArea').innerHTML='✅ Photo loaded'; }
+    currentPhoto=String(r.photo||'').split('|')[0]||'';
+    currentInvoicePhoto=r.invoicePhoto||'';
+    if(currentPhoto){ document.getElementById('j-image').src=currentPhoto; document.getElementById('j-image').style.display='block'; document.getElementById('j-imageArea').innerHTML='✅ Photo loaded'; }
     else { document.getElementById('j-image').style.display='none'; document.getElementById('j-imageArea').innerHTML='Click here and paste (Ctrl+V)'; }
+    var invImg=document.getElementById('j-invoice-image');
+    var invArea=document.getElementById('j-invoiceArea');
+    if(currentInvoicePhoto && invImg){ invImg.src=currentInvoicePhoto; invImg.style.display='block'; if(invArea) invArea.innerHTML='✅ Invoice photo loaded'; }
+    else { if(invImg){ invImg.style.display='none'; invImg.removeAttribute('src'); } if(invArea) invArea.innerHTML='Click here and paste (Ctrl+V)'; }
   }
 }
 function deleteJob(id){
