@@ -746,6 +746,17 @@ function workerFieldReportProcessInvoiceModalPhoto_(file) {
   }, { maxSize: 1400, quality: 0.7 });
 }
 
+function workerFieldReportMineUser_() {
+  return String(typeof empireGetUser === 'function' ? empireGetUser() : '').trim().toLowerCase();
+}
+
+function workerFieldReportIsMine_(r) {
+  var user = workerFieldReportMineUser_();
+  if (!user) return false;
+  var by = String((r && r.reportedBy) || '').trim().toLowerCase();
+  return !!by && by === user;
+}
+
 function workerFieldReportLoadMine_(force) {
   var cfg = workerFieldReportCfg_();
   if (!cfg || !cfg.actions || !cfg.actions.get || typeof fetchJSONRetry !== 'function') return;
@@ -753,7 +764,11 @@ function workerFieldReportLoadMine_(force) {
   if (!host) return;
   fetchJSONRetry({ action: cfg.actions.get, token: issueToken() || '' }, force ? 2 : 1, 45000)
     .then(function (d) {
-      _wfrReports = Array.isArray(d) ? d : [];
+      var rows = Array.isArray(d) ? d : [];
+      // Only this worker's live reports (never other users / deleted trash rows).
+      _wfrReports = rows.filter(workerFieldReportIsMine_).sort(function (a, b) {
+        return String(b.createdAt || b.date || '').localeCompare(String(a.createdAt || a.date || ''));
+      });
       workerFieldReportRenderMine_();
     })
     .catch(function () {

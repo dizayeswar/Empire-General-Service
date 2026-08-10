@@ -1,12 +1,36 @@
 import { AuthOk } from "./auth.ts";
 import { RESET_PASSWORD } from "./config.ts";
-import { fmtDate, isoNow, nextCounter, sb, trashRows } from "./db.ts";
+import { fmtDate, isoNow, nextCounter, sb, selectAllRows, trashRows } from "./db.ts";
 import {
   formatFixedPhotosForStorage,
   normalizeWorkerId,
   parseAssignVoiceNote,
   parseFixedPhotosFromCell,
 } from "./helpers.ts";
+
+function electricWorkerReportToApi(r: Record<string, unknown>) {
+  return {
+    id: r.id,
+    date: fmtDate(r.date),
+    place: r.place,
+    note: r.note,
+    photo: r.photo,
+    voiceNote: parseAssignVoiceNote(r.voice_note),
+    reportedBy: r.reported_by,
+    workerName: r.worker_name,
+    createdAt: r.created_at,
+    amount: r.amount,
+    reportType: r.report_type,
+    status: r.status,
+    transferredJobId: r.transferred_job_id,
+    editedNote: r.edited_note,
+    transferredAt: r.transferred_at,
+    transferredBy: r.transferred_by,
+    materials: r.materials,
+    invoicePhoto: r.invoice_photo,
+    num: r.num,
+  };
+}
 
 function jobFromRow(row: Record<string, unknown>) {
   return {
@@ -273,10 +297,20 @@ export async function handleAddElectricWorkerReport(body: Record<string, unknown
   return { ok: true, success: true, id, num };
 }
 
-export async function handleUpdateElectricWorkerReportInvoice(body: Record<string, unknown>, _auth: AuthOk) {
+export async function handleUpdateElectricWorkerReportInvoice(body: Record<string, unknown>, auth: AuthOk) {
   const id = String(body.id || "");
   const invoicePhoto = String(body.invoicePhoto || "").trim();
   if (!invoicePhoto) return { ok: false, success: false, error: "missing_photo" };
+  const { data: row } = await sb().from("electric_worker_reports").select("*").eq("id", id).maybeSingle();
+  if (!row) return { ok: false, error: "not_found" };
+  const reportedBy = normalizeWorkerId(row.reported_by);
+  const workerUser = normalizeWorkerId(auth.username);
+  if (reportedBy !== workerUser) {
+    return { ok: false, success: false, error: "not_allowed", message: "You can only add an invoice photo to your own report." };
+  }
+  if (String(row.status || "").toLowerCase() === "transferred") {
+    return { ok: false, success: false, error: "already_transferred" };
+  }
   const { data, error } = await sb().from("electric_worker_reports")
     .update({ invoice_photo: invoicePhoto }).eq("id", id).select("id");
   if (error) throw error;
@@ -284,30 +318,18 @@ export async function handleUpdateElectricWorkerReportInvoice(body: Record<strin
   return { ok: true, success: true, id };
 }
 
-export async function handleGetElectricWorkerReports(_body: Record<string, unknown>, _auth: AuthOk) {
-  const { data, error } = await sb().from("electric_worker_reports").select("*");
-  if (error) throw error;
-  return (data || []).map((r) => ({
-    id: r.id,
-    date: fmtDate(r.date),
-    place: r.place,
-    note: r.note,
-    photo: r.photo,
-    voiceNote: parseAssignVoiceNote(r.voice_note),
-    reportedBy: r.reported_by,
-    workerName: r.worker_name,
-    createdAt: r.created_at,
-    amount: r.amount,
-    reportType: r.report_type,
-    status: r.status,
-    transferredJobId: r.transferred_job_id,
-    editedNote: r.edited_note,
-    transferredAt: r.transferred_at,
-    transferredBy: r.transferred_by,
-    materials: r.materials,
-    invoicePhoto: r.invoice_photo,
-    num: r.num,
-  }));
+export async function handleGetElectricWorkerReports(_body: Record<string, unknown>, auth: AuthOk) {
+  const workerOnly = String(auth.role || "").toLowerCase() === "worker";
+  const workerUser = workerOnly ? normalizeWorkerId(auth.username) : "";
+  let data = await selectAllRows<Record<string, unknown>>("electric_worker_reports");
+  if (workerOnly) {
+    data = data.filter((r) => normalizeWorkerId(r.reported_by) === workerUser);
+  }
+  const out = data.map(electricWorkerReportToApi);
+  out.sort((a, b) =>
+    String(b.createdAt || b.date || "").localeCompare(String(a.createdAt || a.date || ""))
+  );
+  return out;
 }
 
 export async function handleTransferElectricWorkerReport(body: Record<string, unknown>, auth: AuthOk) {
