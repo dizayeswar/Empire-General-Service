@@ -765,8 +765,10 @@ function workerFieldReportLoadMine_(force) {
   fetchJSONRetry({ action: cfg.actions.get, token: issueToken() || '' }, force ? 2 : 1, 45000)
     .then(function (d) {
       var rows = Array.isArray(d) ? d : [];
-      // Only this worker's live reports (never other users / deleted trash rows).
-      _wfrReports = rows.filter(workerFieldReportIsMine_).sort(function (a, b) {
+      // Only this worker's active reports (not other users, not transferred, not deleted).
+      _wfrReports = rows.filter(workerFieldReportIsMine_).filter(function (r) {
+        return String((r && r.status) || '').toLowerCase() !== 'transferred';
+      }).sort(function (a, b) {
         return String(b.createdAt || b.date || '').localeCompare(String(a.createdAt || a.date || ''));
       });
       workerFieldReportRenderMine_();

@@ -318,18 +318,50 @@ export async function handleUpdateElectricWorkerReportInvoice(body: Record<strin
   return { ok: true, success: true, id };
 }
 
+async function trashedElectricWorkerReportIds_(): Promise<Set<string>> {
+  const trash = await selectAllRows<Record<string, unknown>>("trash", {
+    filter: (q) => q.eq("source_sheet", "ElectricWorkerReports"),
+  });
+  const ids = new Set<string>();
+  for (const t of trash) {
+    const rj = t.row_json;
+    if (Array.isArray(rj) && rj[0]) ids.add(String(rj[0]));
+    else if (rj && typeof rj === "object" && (rj as Record<string, unknown>).id) {
+      ids.add(String((rj as Record<string, unknown>).id));
+    }
+  }
+  return ids;
+}
+
 export async function handleGetElectricWorkerReports(_body: Record<string, unknown>, auth: AuthOk) {
   const workerOnly = String(auth.role || "").toLowerCase() === "worker";
   const workerUser = workerOnly ? normalizeWorkerId(auth.username) : "";
   let data = await selectAllRows<Record<string, unknown>>("electric_worker_reports");
   if (workerOnly) {
     data = data.filter((r) => normalizeWorkerId(r.reported_by) === workerUser);
+    // Never show rows that were deleted into Trash (or transferred out of the active queue).
+    const trashed = await trashedElectricWorkerReportIds_();
+    data = data.filter((r) => {
+      const id = String(r.id || "");
+      if (id && trashed.has(id)) return false;
+      return String(r.status || "").toLowerCase() !== "transferred";
+    });
   }
   const out = data.map(electricWorkerReportToApi);
   out.sort((a, b) =>
     String(b.createdAt || b.date || "").localeCompare(String(a.createdAt || a.date || ""))
   );
   return out;
+}
+
+export async function handleDeleteElectricWorkerReport(body: Record<string, unknown>, auth: AuthOk) {
+  const id = String(body.id || "").trim();
+  if (!id) return { ok: false, success: false, error: "missing_id" };
+  const { data: row } = await sb().from("electric_worker_reports").select("*").eq("id", id).maybeSingle();
+  if (!row) return { ok: false, success: false, error: "not_found" };
+  await trashRows("ElectricWorkerReports", [row], "delete", String(body.username || auth.username || ""));
+  await sb().from("electric_worker_reports").delete().eq("id", id);
+  return { ok: true, success: true, id };
 }
 
 export async function handleTransferElectricWorkerReport(body: Record<string, unknown>, auth: AuthOk) {

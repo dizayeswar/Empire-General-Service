@@ -84,7 +84,8 @@ Deno.serve(async (req) => {
         assignCivilIssue: 1, markCivilNotDept: 1, restoreCivilIssue: 1, setCivilFixDelay: 1,
         getWorkerLocations: 1, addElectricIssue: 1, updateElectricIssue: 1, deleteElectricIssue: 1,
         clearElectricIssues: 1, assignElectricIssue: 1, markElectricNotDept: 1, restoreElectricIssue: 1,
-        setElectricFixDelay: 1, addFireIssue: 1, updateFireIssue: 1, deleteFireIssue: 1, clearFireIssues: 1,
+        setElectricFixDelay: 1, deleteElectricWorkerReport: 1,
+        addFireIssue: 1, updateFireIssue: 1, deleteFireIssue: 1, clearFireIssues: 1,
       };
       if (workerBlocked[action]) {
         return json({ ok: false, success: false, error: "not_allowed", message: "Not allowed for worker accounts." });
@@ -202,6 +203,7 @@ Deno.serve(async (req) => {
       case "getElectricWorkerReports": return json(await jobs.handleGetElectricWorkerReports(body, a));
       case "addElectricWorkerReport": return json(await jobs.handleAddElectricWorkerReport(body, a));
       case "updateElectricWorkerReportInvoice": return json(await jobs.handleUpdateElectricWorkerReportInvoice(body, a));
+      case "deleteElectricWorkerReport": return json(await jobs.handleDeleteElectricWorkerReport(body, a));
       case "transferElectricWorkerReport": return json(await jobs.handleTransferElectricWorkerReport(body, a));
       case "transferElectricIssueCompletion": return json(await jobs.handleTransferElectricIssueCompletion(body, a));
 

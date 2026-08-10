@@ -611,6 +611,9 @@ function fieldReportActionBtns_(r) {
   if (fieldReportIsPending_(r) && PERMS().edit !== false) {
     h += '<button type="button" class="act-btn field-report-review-btn" onclick="openFieldReportEditor(\'' + String(r.id || '').replace(/'/g, "\\'") + '\')">Review</button>';
   }
+  if (PERMS().del !== false) {
+    h += '<button type="button" class="act-btn" onclick="deleteFieldReport(\'' + String(r.id || '').replace(/'/g, "\\'") + '\')" style="color:#fff;background:#C5504F;border-color:#C5504F;" title="Delete">Delete</button>';
+  }
   h += '</div>';
   return h;
 }
@@ -686,6 +689,22 @@ function openFieldReportCard(id){
   if(!r) return;
   if(fieldReportIsPending_(r) && PERMS().edit!==false) openFieldReportEditor(id);
   else openFieldReportView(id);
+}
+function deleteFieldReport(id){
+  if(PERMS().del===false){ alert('You do not have permission to delete.'); return; }
+  uiConfirm('Delete this field report? It will leave the worker phone list and move to the Recycle Bin.').then(function(ok){
+    if(!ok) return;
+    fetchJSONRetry({action:'deleteElectricWorkerReport',id:id,token:tok()},1,30000)
+      .then(function(d){
+        if(d&&d.ok===false){
+          if(typeof forceSessionLogout==='function'&&forceSessionLogout(d)) return;
+          throw new Error(d.message||d.error||'Delete failed');
+        }
+        allFieldReports=allFieldReports.filter(function(r){ return String(r.id)!==String(id); });
+        renderFieldReports();
+      })
+      .catch(function(e){ alert('❌ '+String((e&&e.message)||e||'Delete failed')); });
+  });
 }
 function openFieldReportEditor(id){
   var r=allFieldReports.find(function(x){ return String(x.id)===String(id); });
@@ -785,6 +804,9 @@ function openFieldReportView(id){
   h+='<span class="close-x" onclick="closeFieldReportModal()" aria-label="Close">&times;</span>';
   h+='<div class="field-report-modal-head"><span class="field-report-ref">'+fieldReportRef_(r)+'</span>'+fieldReportStatusBadge_(r)+'</div>';
   h+='<p class="field-report-modal-worker">'+_esc(who)+'</p>';
+  if(PERMS().del!==false){
+    h+='<p style="margin:0 0 12px;"><button type="button" class="act-btn" onclick="deleteFieldReport(\''+String(r.id||'').replace(/'/g,"\\'")+'\');closeFieldReportModal();" style="color:#fff;background:#C5504F;border-color:#C5504F;">Delete report</button></p>';
+  }
   h+='<div class="field-report-modal-body'+(hasMedia?' has-media':'')+'">';
   h+='<div class="field-report-modal-main">';
   h+='<div class="field-report-modal-meta">';

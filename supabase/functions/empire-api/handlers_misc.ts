@@ -423,13 +423,35 @@ export async function handlePurgeTrash(body: Record<string, unknown>) {
   const sheets = body.sheets as string[] | null;
   const data = await selectAllRows("trash");
   const toDelete: string[] = [];
+  const liveIdsByTable: Record<string, string[]> = {};
   for (const row of data) {
     const src = String(row.source_sheet);
     let match = false;
     if (ids) match = ids.indexOf(String(row.trash_id)) !== -1;
     else if (batchId) match = String(row.batch_id) === batchId;
     else if (sheets) match = sheets.indexOf(src) !== -1;
-    if (match) toDelete.push(row.trash_id);
+    if (!match) continue;
+    toDelete.push(row.trash_id);
+    // If a "deleted" row somehow still exists in the live table, remove it too.
+    const table = SHEET_TO_TABLE[src];
+    if (!table || table === "trash") continue;
+    const rj = row.row_json;
+    let liveId = "";
+    if (Array.isArray(rj) && rj[0]) liveId = String(rj[0]);
+    else if (rj && typeof rj === "object" && !Array.isArray(rj)) {
+      liveId = String((rj as Record<string, unknown>).id || "");
+    }
+    if (liveId) {
+      if (!liveIdsByTable[table]) liveIdsByTable[table] = [];
+      liveIdsByTable[table].push(liveId);
+    }
+  }
+  for (const table of Object.keys(liveIdsByTable)) {
+    const liveIds = [...new Set(liveIdsByTable[table])];
+    for (let i = 0; i < liveIds.length; i += 100) {
+      const chunk = liveIds.slice(i, i + 100);
+      await sb().from(table).delete().in("id", chunk);
+    }
   }
   if (toDelete.length) await sb().from("trash").delete().in("trash_id", toDelete);
   return { ok: true, success: true, purged: toDelete.length };
