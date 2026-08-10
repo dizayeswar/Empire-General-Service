@@ -3,6 +3,8 @@ import { RESET_PASSWORD } from "./config.ts";
 import { fmtDate, isoNow, nextCounter, sb, selectAllRows, trashRows } from "./db.ts";
 import {
   formatFixedPhotosForStorage,
+  isElectricWorkerId,
+  normalizeDeptField,
   normalizeWorkerId,
   parseAssignVoiceNote,
   parseFixedPhotosFromCell,
@@ -334,18 +336,22 @@ async function trashedElectricWorkerReportIds_(): Promise<Set<string>> {
 }
 
 export async function handleGetElectricWorkerReports(_body: Record<string, unknown>, auth: AuthOk) {
-  const workerOnly = String(auth.role || "").toLowerCase() === "worker";
-  const workerUser = workerOnly ? normalizeWorkerId(auth.username) : "";
+  // Mobile / electric-issue logins must only ever see their own reports.
+  // Department desk (electrical department, non-worker) still sees everyone.
+  const dept = normalizeDeptField(auth.dept);
+  const role = String(auth.role || "").toLowerCase();
+  const scopeToSelf =
+    role === "worker" ||
+    dept === "electric issue" ||
+    isElectricWorkerId(auth.username);
+  const workerUser = normalizeWorkerId(auth.username);
   let data = await selectAllRows<Record<string, unknown>>("electric_worker_reports");
-  if (workerOnly) {
+  if (scopeToSelf) {
     data = data.filter((r) => normalizeWorkerId(r.reported_by) === workerUser);
-    // Never show rows that were deleted into Trash (or transferred out of the active queue).
     const trashed = await trashedElectricWorkerReportIds_();
-    data = data.filter((r) => {
-      const id = String(r.id || "");
-      if (id && trashed.has(id)) return false;
-      return String(r.status || "").toLowerCase() !== "transferred";
-    });
+    if (trashed.size) {
+      data = data.filter((r) => !trashed.has(String(r.id || "")));
+    }
   }
   const out = data.map(electricWorkerReportToApi);
   out.sort((a, b) =>

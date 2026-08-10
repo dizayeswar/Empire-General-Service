@@ -753,7 +753,7 @@ function workerFieldReportMineUser_() {
 function workerFieldReportIsMine_(r) {
   var user = workerFieldReportMineUser_();
   if (!user) return false;
-  var by = String((r && r.reportedBy) || '').trim().toLowerCase();
+  var by = String((r && (r.reportedBy || r.reported_by)) || '').trim().toLowerCase();
   return !!by && by === user;
 }
 
@@ -762,13 +762,12 @@ function workerFieldReportLoadMine_(force) {
   if (!cfg || !cfg.actions || !cfg.actions.get || typeof fetchJSONRetry !== 'function') return;
   var host = document.getElementById('workerFieldMyReports');
   if (!host) return;
-  fetchJSONRetry({ action: cfg.actions.get, token: issueToken() || '' }, force ? 2 : 1, 45000)
+  var user = workerFieldReportMineUser_();
+  fetchJSONRetry({ action: cfg.actions.get, token: issueToken() || '', username: user }, force ? 2 : 1, 45000)
     .then(function (d) {
       var rows = Array.isArray(d) ? d : [];
-      // Only this worker's active reports (not other users, not transferred, not deleted).
-      _wfrReports = rows.filter(workerFieldReportIsMine_).filter(function (r) {
-        return String((r && r.status) || '').toLowerCase() !== 'transferred';
-      }).sort(function (a, b) {
+      // Hard client filter: only this logged-in worker (includes transferred history).
+      _wfrReports = rows.filter(workerFieldReportIsMine_).sort(function (a, b) {
         return String(b.createdAt || b.date || '').localeCompare(String(a.createdAt || a.date || ''));
       });
       workerFieldReportRenderMine_();
