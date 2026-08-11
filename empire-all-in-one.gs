@@ -410,6 +410,7 @@ function doPost(e) {
       'getElectricalSummary':'electrical department','saveElectricalSummary':'electrical department',
       'getElectricWorkerReports':'electrical department','transferElectricWorkerReport':'electrical department',
       'transferElectricIssueCompletion':'electrical department',
+      'transferCivilIssueCompletion':'civil department',
       'addElectricWorkerReport':'electric issue','updateElectricWorkerReportInvoice':'electric issue',
       'addCivilJob':'civil department','getCivilJobs':'civil department','updateCivilJob':'civil department',
       'deleteCivilJob':'civil department','clearCivilJobs':'civil department',
@@ -427,17 +428,29 @@ function doPost(e) {
       clearElectricIssues:1, deleteElectricIssue:1, assignElectricIssue:1, markElectricNotDept:1,
       restoreElectricIssue:1, setElectricFixDelay:1
     };
+    var civilIssueActions = {
+      addCivilIssue:1, updateCivilIssue:1, getCivilIssues:1, markCivilFixed:1,
+      clearCivilIssues:1, deleteCivilIssue:1, assignCivilIssue:1, markCivilNotDept:1,
+      restoreCivilIssue:1, setCivilFixDelay:1
+    };
     if (action === 'getWorkerLocations' || action === 'reportWorkerLocation') {
       auth = verifyToken(body.token, 'civil issue');
+      if (!auth.ok) auth = verifyToken(body.token, 'civil department');
       if (!auth.ok) auth = verifyToken(body.token, 'electric issue');
       if (!auth.ok) auth = verifyToken(body.token, 'electrical department');
       if (!auth.ok) auth = verifyToken(body.token, 'cleaning');
     } else if (action === 'getElectricWorkerReports' || action === 'transferElectricIssueCompletion') {
       auth = verifyToken(body.token, 'electrical department');
       if (!auth.ok) auth = verifyToken(body.token, 'electric issue');
+    } else if (action === 'transferCivilIssueCompletion') {
+      auth = verifyToken(body.token, 'civil department');
+      if (!auth.ok) auth = verifyToken(body.token, 'civil issue');
     } else if (electricIssueActions[action]) {
       auth = verifyToken(body.token, 'electric issue');
       if (!auth.ok) auth = verifyToken(body.token, 'electrical department');
+    } else if (civilIssueActions[action]) {
+      auth = verifyToken(body.token, 'civil issue');
+      if (!auth.ok) auth = verifyToken(body.token, 'civil department');
     } else {
       auth = verifyToken(body.token, requiredDept);
     }
@@ -533,6 +546,7 @@ function doPost(e) {
     if (action==='updateElectricWorkerReportInvoice') return respond(handleUpdateElectricWorkerReportInvoice(body, auth));
     if (action==='transferElectricWorkerReport') return respond(handleTransferElectricWorkerReport(body, auth));
     if (action==='transferElectricIssueCompletion') return respond(handleTransferElectricIssueCompletion(body, auth));
+    if (action==='transferCivilIssueCompletion') return respond(handleTransferCivilIssueCompletion(body, auth));
     if (action==='addCivilJob') return respond(handleAddCivilJob(body));
     if (action==='getCivilJobs') return respond(handleGetCivilJobs(body));
     if (action==='updateCivilJob') return respond(handleUpdateCivilJob(body));
@@ -3784,6 +3798,81 @@ function handleTransferElectricIssueCompletion(body, auth) {
     jobId: jobId,
     reportMonth: reportMonth,
     job: job
+  };
+}
+
+function handleTransferCivilIssueCompletion(body, auth) {
+  var id = String(body.id || '').trim();
+  if (!id) return {ok:false,success:false,error:'missing_id',message:'Issue id is required.'};
+  var editedJob = String(body.job || body.note || '').trim();
+  if (!editedJob) return {ok:false,success:false,error:'empty_note',message:'Enter a job description before saving to the monthly report.'};
+
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(CIVIL_SHEET);
+  if (!sheet || sheet.getLastRow() < 2) return {ok:false,success:false,error:'not_found',message:'Issue not found.'};
+  ensureExtendedIssueHeaders_(sheet);
+
+  var rows = sheet.getDataRange().getValues();
+  var tz = ss.getSpreadsheetTimeZone();
+  var foundIdx = -1;
+  var row = null;
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === id) {
+      foundIdx = i + 1;
+      row = rows[i];
+      break;
+    }
+  }
+  if (!row) return {ok:false,success:false,error:'not_found',message:'Issue not found.'};
+  if (String(row[10] || '') !== 'fixed') {
+    return {ok:false,success:false,error:'not_fixed',message:'This issue is not marked fixed yet.'};
+  }
+  var transferStatus = String(row[CIVIL_MONTHLY_TRANSFER_STATUS_COL - 1] || '').trim().toLowerCase();
+  if (transferStatus === 'transferred' || String(row[CIVIL_TRANSFERRED_JOB_COL - 1] || '').trim()) {
+    return {ok:false,success:false,error:'already_transferred',message:'This issue was already added to the monthly report.'};
+  }
+
+  var completions = parseWorkerCompletions_(row[CIVIL_WORKER_COMPLETIONS_COL - 1]);
+  var fixedAtRaw = row[14];
+  var defaultDateStr = '';
+  if (fixedAtRaw instanceof Date) defaultDateStr = Utilities.formatDate(fixedAtRaw, tz, 'yyyy-MM-dd');
+  else {
+    var s = String(fixedAtRaw || row[7] || '');
+    defaultDateStr = /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  }
+  var dateStr = String(body.date || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}/.test(dateStr)) dateStr = defaultDateStr;
+  var location = String(body.location || '').trim() || issueLocationLabelGs_(row[2], row[3], row[4]);
+  var defaultStaff = String(row[13] || '');
+  if (!defaultStaff && completions.length) {
+    var names = [];
+    for (var c = 0; c < completions.length; c++) {
+      var nm = String((completions[c] && completions[c].user) || '').trim();
+      if (nm && names.indexOf(nm) === -1) names.push(nm);
+    }
+    defaultStaff = names.join(', ');
+  }
+  var staff = String(body.staff || '').trim() || defaultStaff;
+  var materials = String(body.materials || '').trim() || '0';
+  var photo = String(body.photo || '').trim() || firstIssueFixedPhotoGs_(row, completions);
+  var amount = String(body.amount || '').trim();
+  var now = new Date();
+  var reportMonth = electricReportMonthOfDate_(dateStr);
+  var createdAt = now.toISOString();
+  var createdBy = body.username || '';
+  var jobId = 'cjob-' + now.getTime();
+  var jobsSheet = ss.getSheetByName(CIVIL_JOBS_SHEET) || ss.insertSheet(CIVIL_JOBS_SHEET);
+  if (jobsSheet.getLastRow()===0) jobsSheet.appendRow(['id','date','job','location','materials','staff','type','photo','notes','createdBy','createdAt','amount']);
+  jobsSheet.appendRow([jobId, dateStr, editedJob, location, materials, staff, 'general', photo, '', createdBy, createdAt, amount]);
+  sheet.getRange(foundIdx, CIVIL_MONTHLY_TRANSFER_STATUS_COL, 1, 5).setValues([['transferred', jobId, editedJob, createdAt, createdBy]]);
+  invalidateIssuesCache_(CIVIL_SHEET);
+  return {
+    ok: true,
+    success: true,
+    id: id,
+    jobId: jobId,
+    reportMonth: reportMonth,
+    job: {id:jobId,date:dateStr,job:editedJob,location:location,materials:materials,staff:staff,type:'general',photo:photo,notes:'',createdBy:createdBy,createdAt:createdAt,amount:amount}
   };
 }
 

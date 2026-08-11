@@ -13,8 +13,8 @@ Web dashboards for Empire World departments: cleaning, civil, electrical, HSE, a
 | **Hub** | `index.html` — login, live stats, department tiles |
 | **Cleaning** | `cleaning-dashboard.html` — daily reports, task checklists, monthly report |
 | **Cleaning issues** | `civil-issue.html`, `fire-issue.html`, `electric-issue.html` |
-| **Civil** | `civil-department.html` — maintenance jobs |
-| **Electrical** | `electrical.html` — electrical jobs |
+| **Civil** | `civil-department.html` — jobs, monthly reports & civil issues (merged desk like Electrical); workers use `civil-issue.html` |
+| **Electrical** | `electrical.html` — electrical jobs, field reports & electric issues |
 | **HSE** | `hse-inspection.html` — fire safety equipment inspections |
 
 ---

@@ -544,3 +544,60 @@ export async function handleTransferElectricIssueCompletion(body: Record<string,
   }).eq("id", id);
   return { ok: true, success: true, id, jobId, job: jobFromRow(jobRow) };
 }
+
+export async function handleTransferCivilIssueCompletion(body: Record<string, unknown>, auth: AuthOk) {
+  const id = String(body.id || "");
+  const jobNote = String(body.job || body.note || "").trim();
+  if (!jobNote) return { ok: false, success: false, error: "missing_note", message: "Job note is required." };
+  const { data: issue } = await sb().from("civil_issues").select("*").eq("id", id).maybeSingle();
+  if (!issue) return { ok: false, error: "not_found" };
+  if (String(issue.status) !== "fixed") {
+    return { ok: false, success: false, error: "not_fixed" };
+  }
+  if (String(issue.monthly_transfer_status) === "transferred" || issue.transferred_job_id) {
+    return { ok: false, success: false, error: "already_transferred" };
+  }
+  const jobId = `job-${Date.now()}`;
+  const jobRow = {
+    id: jobId,
+    date: String(body.date || issue.date || ""),
+    job: jobNote,
+    location: String(body.location || `${issue.building}-${issue.floor}-${issue.spot}`),
+    materials: String(body.materials || ""),
+    staff: String(body.staff || issue.fixed_by || ""),
+    type: "general",
+    photo: String(body.photo || issue.fixed_photo || ""),
+    notes: "",
+    created_by: String(body.username || auth.username || ""),
+    created_at: isoNow(),
+    amount: String(body.amount || ""),
+  };
+  await sb().from("civil_jobs").insert(jobRow);
+  await sb().from("civil_issues").update({
+    monthly_transfer_status: "transferred",
+    transferred_job_id: jobId,
+    edited_job_note: jobNote,
+    transferred_at: isoNow(),
+    transferred_by: String(auth.username || ""),
+  }).eq("id", id);
+  return {
+    ok: true,
+    success: true,
+    id,
+    jobId,
+    job: {
+      id: jobRow.id,
+      date: fmtDate(jobRow.date),
+      job: jobRow.job,
+      location: jobRow.location,
+      materials: jobRow.materials,
+      staff: jobRow.staff,
+      type: jobRow.type,
+      photo: jobRow.photo,
+      notes: jobRow.notes,
+      createdBy: jobRow.created_by,
+      createdAt: jobRow.created_at,
+      amount: jobRow.amount || "",
+    },
+  };
+}

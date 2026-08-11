@@ -172,6 +172,8 @@ function empireCanAccessDept(requiredDept) {
     if (list.indexOf(r) !== -1) return true;
     if (r === 'electrical department' && list.indexOf('electric issue') !== -1) return true;
     if (r === 'electric issue' && list.indexOf('electrical department') !== -1) return true;
+    if (r === 'civil department' && list.indexOf('civil issue') !== -1) return true;
+    if (r === 'civil issue' && list.indexOf('civil department') !== -1) return true;
   }
   return false;
 }
@@ -260,10 +262,16 @@ function empireIsCleaningSupervisor() {
 }
 
 function empireHomeForDept(dept) {
-  if (empireIsCleaningSupervisor() && empireNormDept(dept) === 'cleaning') {
+  dept = empireNormDept(dept);
+  if (empireIsCleaningSupervisor() && dept === 'cleaning') {
     return 'cleaning-mobile.html';
   }
-  return EMPIRE_DEPT_HOME[empireNormDept(dept)] || EMPIRE_LOGIN_PAGE;
+  // Civil is merged like Electrical: workers → mobile issue page; desk → department.
+  if (dept === 'civil issue' || dept === 'civil department') {
+    if (String(empireGetRole() || '').toLowerCase() === 'worker') return 'civil-issue.html';
+    return 'civil-department.html';
+  }
+  return EMPIRE_DEPT_HOME[dept] || EMPIRE_LOGIN_PAGE;
 }
 
 function empireRedirectToUserHome() {

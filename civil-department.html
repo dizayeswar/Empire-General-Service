@@ -15,6 +15,7 @@
 <title>Civil Department — Empire World</title>
 <link rel="stylesheet" href="assets/empire.css">
 <link rel="stylesheet" href="assets/empire-dept.css">
+<link rel="stylesheet" href="assets/empire-civil-worker.css">
 </head>
 <body>
 <div class="login-page show" id="loginPage">
@@ -40,18 +41,26 @@
       </div>
       <div class="side-title">
         <h1>🏗️ Civil Department</h1>
-        <p>Daily maintenance jobs &amp; monthly reports</p>
+        <p>Daily maintenance jobs, monthly reports &amp; civil issues</p>
       </div>
       <p id="whoLabel"></p>
-      <nav class="side-nav">
-        <button class="tab-btn active" onclick="switchTab(event,'list')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span> <span class="lbl">Jobs</span></button>
-        <button class="tab-btn" id="tab-add" onclick="switchTab(event,'add')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span> <span class="lbl">Add</span></button>
-        <button class="tab-btn" id="tab-report" onclick="switchTab(event,'report')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg></span> <span class="lbl">Report</span></button>
-        <button class="tab-btn" id="tab-analytics" onclick="switchTab(event,'analytics')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 11h8"/><path d="M7 16h12"/><path d="M7 6h3"/></svg></span> <span class="lbl">Analytics</span></button>
+      <nav class="side-nav side-nav-dept">
+        <button class="tab-btn dept-tab-btn active" id="tab-jobs" onclick="switchDeptTab(event,'jobs')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span> <span class="lbl">Jobs</span></button>
+        <button class="tab-btn dept-tab-btn" id="tab-add" onclick="switchDeptTab(event,'jobadd')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span> <span class="lbl">Add</span></button>
+        <button class="tab-btn dept-tab-btn" id="tab-report" onclick="switchDeptTab(event,'report')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg></span> <span class="lbl">Report</span></button>
+        <button class="tab-btn dept-tab-btn" id="tab-analytics" onclick="switchDeptTab(event,'jobanalytics')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 11h8"/><path d="M7 16h12"/><path d="M7 6h3"/></svg></span> <span class="lbl">Analytics</span></button>
+      </nav>
+      <nav class="side-nav-issue" aria-label="Civil issues">
+        <button class="tab-btn issue-tab-btn" id="tab-issues" onclick="switchTab(event,'list')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span> <span class="lbl">Issues</span></button>
+        <button class="tab-btn issue-tab-btn" id="tab-issue-add" onclick="switchTab(event,'add')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span> <span class="lbl">Add Issue</span></button>
+        <button class="tab-btn issue-tab-btn" id="tab-issue-analytics" onclick="switchTab(event,'analytics')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 11h8"/><path d="M7 16h12"/><path d="M7 6h3"/></svg></span> <span class="lbl">Issue Analytics</span></button>
+        <button class="tab-btn issue-tab-btn tab-btn-not-civil" id="tabBtnNotCivil" onclick="switchTab(event,'notcivil')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></span> <span class="lbl">Not Civil Dept</span> <span class="side-nav-badge" id="notCivilNavBadge" style="display:none;"></span></button>
+        <button class="tab-btn issue-tab-btn tab-btn-fix-delay" id="tabBtnFixDelay" onclick="switchTab(event,'fixdelay')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span> <span class="lbl">Needs 1+ Month</span> <span class="side-nav-badge side-nav-badge-silver" id="fixDelayNavBadge" style="display:none;"></span></button>
+        <button class="tab-btn issue-tab-btn tab-btn-gps" id="tabBtnGps" onclick="switchTab(event,'gps')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg></span> <span class="lbl">GPS</span></button>
       </nav>
       <div class="side-actions">
         <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span> <span class="lbl">Theme</span></button>
-        <button onclick="loadJobs()"><span class="nav-icon spin-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> <span class="lbl">Refresh</span></button>
+        <button onclick="refreshAllData()"><span class="nav-icon spin-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> <span class="lbl">Refresh</span></button>
         <button onclick="location.href='index.html'"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg></span> <span class="lbl">Portal</span></button>
         <button id="btnReset" onclick="openResetModal()" style="color:#fff;background:#C5734F;border-color:#C5734F;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5H3"/><path d="M7 12H3"/><path d="M7 19H3"/><path d="M12 18a5 5 0 0 0 9-3 4.5 4.5 0 0 0-4.5-4.5c-1.33 0-2.54.54-3.41 1.41L11 14"/><path d="M11 10v4h4"/></svg></span> <span class="lbl">Reset Data</span></button>
         <button id="btnTrash" onclick="rbOpen()" style="color:#fff;background:#1d9e75;border-color:#1d9e75;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 19H4.815a1.83 1.83 0 0 1-1.57-.881 1.785 1.785 0 0 1-.004-1.784L7.196 9.5"/><path d="M11 19h8.203a1.83 1.83 0 0 0 1.556-.89 1.784 1.784 0 0 0 0-1.775l-1.226-2.12"/><path d="m14 16-3 3 3 3"/><path d="M8.293 13.596 7.196 9.5 3.1 10.598"/><path d="m9.344 5.811 1.093-1.892A1.83 1.83 0 0 1 11.985 3a1.784 1.784 0 0 1 1.546.888l3.943 6.843"/><path d="m13.378 9.633 4.096 1.098 1.097-4.096"/></svg></span> <span class="lbl">Recycle Bin</span></button>
@@ -59,18 +68,18 @@
       </div>
     </aside>
     <div class="main-area">
-  <div id="list" class="tab-content active">
+  <div id="jobs" class="tab-content dept-tab-content active">
     <div class="form-section">
       <h2><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span> All Jobs</h2>
       <div class="form-row">
         <div class="form-group">
           <label>Date</label>
-          <input type="date" id="f-month" onchange="renderJobs()">
-          <span onclick="document.getElementById('f-month').value='';renderJobs();" style="font-size:11px;color:var(--text-faint);cursor:pointer;margin-top:4px;">clear</span>
+          <input type="date" id="jf-month" onchange="renderJobs()">
+          <span onclick="document.getElementById('jf-month').value='';renderJobs();" style="font-size:11px;color:var(--text-faint);cursor:pointer;margin-top:4px;">clear</span>
         </div>
         <div class="form-group">
           <label>Type</label>
-          <select id="f-type" onchange="renderJobs()">
+          <select id="jf-type" onchange="renderJobs()">
             <option value="">All Types</option>
             <option value="general">General Maintenance</option>
             <option value="refundable">Refundable Work</option>
@@ -78,14 +87,14 @@
         </div>
         <div class="form-group">
           <label>Search</label>
-          <input type="text" id="f-search" oninput="renderJobs()" placeholder="job, location, staff…">
+          <input type="text" id="jf-search" oninput="renderJobs()" placeholder="job, location, staff…">
         </div>
         <div class="form-group" style="justify-content:flex-end;"><button onclick="loadJobs()"><span class="nav-icon spin-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> Refresh</button></div>
       </div>
       <div id="jobsTable"><p>Loading…</p></div>
     </div>
   </div>
-  <div id="add" class="tab-content">
+  <div id="jobadd" class="tab-content dept-tab-content">
     <div class="form-section">
       <h2 id="addFormTitle"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span> Add Job</h2>
       <input type="hidden" id="editId">
@@ -116,18 +125,18 @@
       <div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap;">
         <button onclick="saveJob()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg></span> Save</button>
         <button onclick="clearForm()"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span> Clear</button>
-        <button id="cancelEditBtn" onclick="cancelEdit()" style="display:none;color:#fff;background:#C5504F;border-color:#C5504F;">✕ Cancel Edit</button>
+        <button id="cancelEditBtn" onclick="cancelJobEdit()" style="display:none;color:#fff;background:#C5504F;border-color:#C5504F;">✕ Cancel Edit</button>
       </div>
     </div>
   </div>
-  <div id="report" class="tab-content">
+  <div id="report" class="tab-content dept-tab-content">
     <div class="form-section">
       <h2><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg></span> Monthly Report</h2>
       <div class="form-row" style="align-items:flex-end;">
         <div class="form-group">
           <label>Select Month</label>
           <div class="month-input-wrap">
-            <input type="month" id="rep-month" onchange="onRepMonthChange()">
+            <input type="month" id="job-rep-month" onchange="onRepMonthChange()">
             <span class="month-ph">Select month</span>
           </div>
         </div>
@@ -149,21 +158,111 @@
       <div id="reportPreview"><p style="color:var(--text-faint);">Select a month above to see the preview.</p></div>
     </div>
   </div>
-  <div id="analytics" class="tab-content">
+  <div id="jobanalytics" class="tab-content dept-tab-content">
     <div class="form-section">
       <h2><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 11h8"/><path d="M7 16h12"/><path d="M7 6h3"/></svg></span> Analytics</h2>
       <div class="form-row" style="align-items:flex-end;">
         <div class="form-group">
           <label>Month (optional)</label>
           <div class="month-input-wrap">
-            <input type="month" id="an-month" onchange="renderAnalytics()">
+            <input type="month" id="an-month" onchange="renderJobAnalytics()">
             <span class="month-ph">All time</span>
           </div>
-          <span onclick="document.getElementById('an-month').value='';renderAnalytics();" style="font-size:11px;color:var(--text-faint);cursor:pointer;margin-top:4px;">all time</span>
+          <span onclick="document.getElementById('an-month').value='';renderJobAnalytics();" style="font-size:11px;color:var(--text-faint);cursor:pointer;margin-top:4px;">all time</span>
         </div>
       </div>
-      <div id="analyticsContent"><p>Loading…</p></div>
+      <div id="jobAnalyticsContent"><p>Loading…</p></div>
     </div>
+  </div>
+<div id="issueMain">
+<div id="add" class="tab-content issue-tab-content">
+    <div class="form-section"><h2><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span> Report a New Issue</h2><div id="editBanner" style="display:none;background:var(--accent2);color:#fff;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:14px;">✏️ Editing <strong id="editBannerRef"></strong> — the reference number stays the same. <span onclick="cancelEdit()" style="text-decoration:underline;cursor:pointer;margin-left:8px;font-weight:600;">Cancel</span></div>
+      <div class="form-row">
+        <div class="form-group"><label>Project</label><select id="ci-project" onchange="updateCIBuildings()"></select></div>
+        <div class="form-group"><label>Building</label><select id="ci-building" onchange="updateCIFloors()"></select></div>
+        <div class="form-group"><label>Floor</label><select id="ci-floor"></select></div>
+        <div class="form-group"><label>Spot</label><select id="ci-spot"></select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Issue Type</label><select id="ci-issuetype" onchange="toggleOther()"></select></div>
+        <div class="form-group" id="ci-otherwrap" style="display:none;"><label>Describe (Other)</label><input type="text" id="ci-other" placeholder="Type the issue"></div>
+        <div class="form-group"><label>Date</label><input type="date" id="ci-date"></div>
+        <div class="form-group"><label>Supervisor</label><select id="ci-supervisor"><option value="">Select supervisor</option><option>Ibrahim</option><option>Rawa</option><option>Muhamad</option><option>Emad</option></select></div>
+      </div>
+      <div class="form-group" style="margin-bottom:18px;"><label>Note (optional)</label><input type="text" id="ci-note" placeholder="Any extra detail"></div>
+      <h3><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/></svg></span> Photo of the problem</h3>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+        <button type="button" onclick="document.getElementById('ci-file').click()"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/><circle cx="14" cy="15" r="1"/></svg></span> Upload / Camera</button>
+        <span style="color:var(--text-soft); font-size:13px;">— or paste in the box below ⤵</span>
+        <input type="file" id="ci-file" accept="image/*" style="display:none" onchange="handleIssueFile(event)">
+      </div>
+      <div class="image-upload" id="ci-imageArea" onpaste="handlePaste(event,'ci')">Click here and paste (Ctrl+V)</div>
+      <img id="ci-image" style="display:none;max-width:220px;margin-top:12px;border-radius:8px;border:2px solid var(--card-border);">
+      <div style="margin-top:18px;"><button id="saveIssueBtn" onclick="saveIssue()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg></span> Save Issue</button> <button onclick="clearIssueForm()"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span> Clear</button></div>
+    </div>
+  </div>
+  <div id="list" class="tab-content issue-tab-content">
+    <div class="form-section"><h2><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span> Reported Issues</h2>
+      <div class="form-row">
+        <div class="form-group"><label>Project</label><select id="f-project" onchange="selectProjectFilter(this.value)"><option value="">All</option></select></div>
+        <div class="form-group"><label>Team</label><select id="f-group" onchange="renderIssues();if(window._issueFilterState)window._issueFilterState.save();"><option value="">All teams</option><option value="unassigned">Unassigned</option></select></div>
+        <div class="form-group"><label>Status</label><select id="f-status" onchange="renderIssues()"><option value="">All</option><option value="open">Open</option><option value="fixed">Fixed</option></select></div>
+        <div class="form-group"><label>Date</label><input type="date" id="f-month" onchange="renderIssues()"><span onclick="document.getElementById('f-month').value='';renderIssues();" style="font-size:11px;color:var(--text-faint);cursor:pointer;margin-top:4px;">clear date</span></div>
+        <div class="form-group"><label>Search building/floor/spot</label><input type="text" id="f-search" oninput="renderIssues()" placeholder="e.g. A12, #A12, or stairs"></div>
+        <div class="form-group"><label>&nbsp;</label><button onclick="loadIssues(true)"><span class="nav-icon spin-icon" id="listRefreshIcon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> Refresh</button></div>
+      </div>
+      <div id="issuesTable"><p>Loading…</p></div>
+    </div>
+  </div>
+  <div id="gps" class="tab-content issue-tab-content">
+    <div class="form-section gps-page">
+      <div id="workerLocationsPanel" class="worker-locations-panel">
+        <div class="worker-locations-head">
+          <h2><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg></span> Worker GPS — live on site</h2>
+          <button type="button" class="worker-loc-refresh-btn" onclick="loadWorkerLocations(true)"><span class="nav-icon spin-icon" id="workerLocRefreshIcon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> Refresh</button>
+        </div>
+        <p class="worker-locations-hint">Shows each worker’s last reported GPS while they are logged in on their phone. Location refreshes every ~30 seconds in the app and when they return to it. Updates every 30 seconds on this page. When a worker marks a job fixed, that GPS snapshot also appears on the issue card.</p>
+        <div id="workerLocationsBody"><p class="worker-loc-empty">Loading…</p></div>
+      </div>
+    </div>
+  </div>
+  <div id="notcivil" class="tab-content issue-tab-content">
+    <div class="form-section not-civil-page">
+      <h2><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></span> Not Civil Department</h2>
+      <p class="routed-away-hint">Issues that were reviewed and do not belong in Civil. Re-create them in Electric, Fire, or the correct department.</p>
+      <div class="form-row">
+        <div class="form-group"><label>Project</label><select id="f-nc-project" onchange="renderRoutedIssues()"><option value="">All</option></select></div>
+        <div class="form-group"><label>Search building/floor/spot</label><input type="text" id="f-nc-search" oninput="renderRoutedIssues()" placeholder="e.g. A12, #A12, or stairs"></div>
+        <div class="form-group"><label>&nbsp;</label><button onclick="loadIssues(true)"><span class="nav-icon spin-icon" id="notCivilRefreshIcon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> Refresh</button></div>
+      </div>
+      <div id="issuesNotCivilTable"><p>Loading…</p></div>
+    </div>
+  </div>
+  <div id="fixdelay" class="tab-content issue-tab-content">
+    <div class="form-section fix-delay-page">
+      <h2><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span> Needs 1+ Month</h2>
+      <p class="fix-delay-page-hint">Issues that cannot be fixed soon and need at least one month. Cards appear silver in the main list too.</p>
+      <div class="form-row">
+        <div class="form-group"><label>Project</label><select id="f-fd-project" onchange="renderFixDelayIssues()"><option value="">All</option></select></div>
+        <div class="form-group"><label>Search building/floor/spot</label><input type="text" id="f-fd-search" oninput="renderFixDelayIssues()" placeholder="e.g. A12, #A12, or stairs"></div>
+        <div class="form-group"><label>&nbsp;</label><button onclick="loadIssues(true)"><span class="nav-icon spin-icon" id="fixDelayRefreshIcon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> Refresh</button></div>
+      </div>
+      <div id="issuesFixDelayTable"><p>Loading…</p></div>
+    </div>
+  </div>
+  <div id="analytics" class="tab-content issue-tab-content">
+    <div class="form-section"><h2><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 11h8"/><path d="M7 16h12"/><path d="M7 6h3"/></svg></span> Analytics</h2>
+      <div class="form-row" style="align-items:flex-end;">
+        <div class="form-group"><label>Report month (optional)</label><div style="display:flex;gap:8px;flex-wrap:wrap;"><select id="rep-month-m" onchange="syncRepMonth()"><option value="">Month</option></select><select id="rep-month-y" onchange="syncRepMonth()"><option value="">Year</option></select></div><input type="hidden" id="rep-month"></div>
+        <div class="form-group issue-export-actions" style="justify-content:flex-end;">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;">
+            <button id="xlCivilBtn" onclick="downloadIssueExcel()"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/><path d="M8 9h2"/></svg></span> Export to Excel</button>
+            <button id="dlCivilBtn" onclick="downloadIssueReport()"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg></span> Download Report (offline HTML, with photos)</button>
+          </div>
+        </div>
+      </div>
+      <div id="analyticsContent"><p>Loading…</p></div></div>
+  </div>
   </div>
   <footer>Prepared by <strong>Swar Dizayee</strong></footer>
     </div>
@@ -177,13 +276,14 @@
 <div class="modal" id="imgModal" onclick="closeImg()"><img id="imgBig" style="max-width:92%;max-height:92%;border-radius:10px;"></div>
 <script>
 const JOB_PHOTO_FOLDER = 'jobs/civil';
-let allJobs = [], currentPhoto = '', uploading = false;
+let allJobs = [], currentPhoto = '', uploading = false, _issueMonthlySaving = false;
 function tok(){ return empireGetToken(); }
 function currentUser(){ return empireGetUser(); }
 function PERMS(){ return empireGetPerms(); }
-function applyPerms(){ if(window.tsPerm) window.tsPerm(); if(window.tsLoadGlobal&&empireGetToken()) window.tsLoadGlobal();
+function applyDeptPerms(){ if(window.tsPerm) window.tsPerm(); if(window.tsLoadGlobal&&empireGetToken()) window.tsLoadGlobal();
   var p=PERMS();
   function show(id,ok){ var el=document.getElementById(id); if(el) el.style.display = ok ? '' : 'none'; }
+  show('tab-jobs', p.jobsTab!==false);
   show('tab-add', p.add!==false);
   show('tab-report', p.report!==false);
   show('tab-analytics', p.analytics!==false);
@@ -194,8 +294,8 @@ function applyPerms(){ if(window.tsPerm) window.tsPerm(); if(window.tsLoadGlobal
 function handleLogin(e){ empireAuthLogin(e, 'civil department', { onSuccess: function(){ enterApp(); } }); }
 function logout(){ empireAuthLogout({ extraKeys: ['civdept_jobs_cache'], redirect: 'index.html', reload: false }); }
 function forceSessionLogout(d){ empireAuthHandleInvalidSession_(d, { extraKeys: ['civdept_jobs_cache'], redirect: 'index.html', reload: false }); }
-function enterApp(){ document.getElementById('loginPage').classList.remove('show'); document.getElementById('mainContainer').classList.add('show'); applyPerms(); refreshPerms(); document.getElementById('j-date').value=new Date().toISOString().split('T')[0]; empireBindFilterPersistence({ key:'civdept_list_filters', fields:['f-month','f-type','f-search'], onApply:renderJobs }); loadJobs(); }
-function refreshPerms(){ var now=Date.now(); if(now-(_lastPermFetch||0)<300000) return; _lastPermFetch=Date.now(); empireAuthRefreshPerms(function(){ applyPerms(); }); }
+function enterDeptApp(){ if(String(empireGetRole()||'').toLowerCase()==='worker'){ location.replace('civil-issue.html'); return; } document.getElementById('loginPage').classList.remove('show'); if(typeof empireAuthMarkLoginVisible==='function') empireAuthMarkLoginVisible(false); document.getElementById('mainContainer').classList.add('show'); applyDeptPerms(); refreshPerms(); document.getElementById('j-date').value=new Date().toISOString().split('T')[0]; empireBindFilterPersistence({ key:'civdept_list_filters', fields:['jf-month','jf-type','jf-search'], onApply:renderJobs }); loadJobs(); }
+function refreshPerms(){ var now=Date.now(); if(now-(_lastPermFetch||0)<300000) return; _lastPermFetch=Date.now(); empireAuthRefreshPerms(function(){ applyDeptPerms(); if(window._applyIssuePerms) window._applyIssuePerms(); }); }
 var _lastPermFetch=0;
 window.addEventListener('load',()=>{ empireAuthPageBoot({ dept: 'civil department', onEnter: enterApp }); });
 function compressImage(file,cb){ empireCompressImage(file, JOB_PHOTO_FOLDER, cb, { maxSize: 1400, quality: 0.7 }); }
@@ -223,7 +323,7 @@ function clearForm(){
   document.getElementById('addFormTitle').innerHTML='<span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span> Add Job';
   document.getElementById('cancelEditBtn').style.display='none';
 }
-function cancelEdit(){ clearForm(); switchTabTo('list'); }
+function cancelJobEdit(){ clearForm(); switchDeptTabTo('jobs'); }
 function saveJob(){
   if(uploading){ alert('Please wait for photo to finish uploading.'); return; }
   var editId=document.getElementById('editId').value;
@@ -240,7 +340,7 @@ function saveJob(){
     amount:document.getElementById('j-amount').value||'', token:tok() };
   fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify(rec)}).then(r=>r.json()).then(()=>{
     alert(editId?'✅ Job updated!':'✅ Job saved!');
-    clearForm(); loadJobs(); switchTabTo('list');
+    clearForm(); loadJobs(); switchDeptTabTo('jobs');
   }).catch(e=>alert('❌ Error: '+e.message));
 }
 var JOBS_CACHE_KEY='civdept_jobs_cache';
@@ -248,11 +348,11 @@ function readJobsCache(){ try{ var s=localStorage.getItem(JOBS_CACHE_KEY); if(!s
 function writeJobsCache(a){ try{ localStorage.setItem(JOBS_CACHE_KEY, JSON.stringify(a)); }catch(e){} }
 function loadJobs(){
   var cached=readJobsCache();
-  if(cached){ allJobs=cached; renderJobs(); renderAnalytics(); renderReportPreview(); }
+  if(cached){ allJobs=cached; renderJobs(); renderJobAnalytics(); renderReportPreview(); }
   else { document.getElementById('jobsTable').innerHTML=LOADING_HTML; }
   fetchJSONRetry({action:'getCivilJobs',token:tok()})
     .then(d=>{
-      if(Array.isArray(d)){ allJobs=d; writeJobsCache(d); renderJobs(); renderAnalytics(); renderReportPreview(); }
+      if(Array.isArray(d)){ allJobs=d; writeJobsCache(d); renderJobs(); renderJobAnalytics(); renderReportPreview(); }
       else if(d&&d.ok===false){ forceSessionLogout(d); }
       else if(!cached){ document.getElementById('jobsTable').innerHTML='<p style="color:var(--c-error);">⚠️ Could not load jobs — make sure the Apps Script is updated and redeployed, then refresh.</p>'; }
     }).catch(e=>{ if(!cached) document.getElementById('jobsTable').innerHTML='<p style="color:var(--c-error);">❌ Error: '+e.message+'</p>'; });
@@ -267,9 +367,9 @@ function monthOf(r){
 }
 function renderJobs(){
   var P=PERMS();
-  var fm=document.getElementById('f-month').value||'';
-  var ft=document.getElementById('f-type').value||'';
-  var fq=(document.getElementById('f-search').value||'').toLowerCase();
+  var fm=document.getElementById('jf-month').value||'';
+  var ft=document.getElementById('jf-type').value||'';
+  var fq=(document.getElementById('jf-search').value||'').toLowerCase();
   var rows=allJobs.filter(r=>{
     if(fm&&dayOf(r)!==fm)return false;
     if(ft&&r.type!==ft)return false;
@@ -300,7 +400,7 @@ function renderJobs(){
 function editJob(id){
   if(PERMS().edit===false){ alert('You do not have permission to edit.'); return; }
   var r=allJobs.find(x=>x.id===id); if(!r)return;
-  switchTabTo('add');
+  switchDeptTabTo('jobadd');
   document.getElementById('editId').value=id;
   document.getElementById('addFormTitle').innerHTML='<span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/></svg></span> Edit Job';
   document.getElementById('cancelEditBtn').style.display='inline-block';
@@ -327,19 +427,19 @@ function deleteJob(id){
 }
 function onRepMonthChange(){ loadSummary(); renderReportPreview(); }
 function loadSummary(){
-  var m=document.getElementById('rep-month').value; if(!m)return;
+  var m=document.getElementById('job-rep-month').value; if(!m)return;
   fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'getCivilSummary',month:m,token:tok()})})
     .then(r=>r.json()).then(d=>{ if(d&&d.text!==undefined) document.getElementById('rep-summary').value=d.text; });
 }
 function saveSummary(){
-  var m=document.getElementById('rep-month').value; if(!m){ alert('Please select a month first.'); return; }
+  var m=document.getElementById('job-rep-month').value; if(!m){ alert('Please select a month first.'); return; }
   var text=document.getElementById('rep-summary').value;
   fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'saveCivilSummary',month:m,text:text,token:tok()})})
     .then(r=>r.json()).then(()=>{ document.getElementById('summaryMsg').textContent='✅ Summary saved!'; setTimeout(()=>{ document.getElementById('summaryMsg').textContent=''; },3000); })
     .catch(e=>alert('❌ '+e.message));
 }
 function renderReportPreview(){
-  var m=document.getElementById('rep-month').value||''; if(!m){ document.getElementById('reportPreview').innerHTML='<p style="color:var(--text-faint);">Select a month above.</p>'; return; }
+  var m=document.getElementById('job-rep-month').value||''; if(!m){ document.getElementById('reportPreview').innerHTML='<p style="color:var(--text-faint);">Select a month above.</p>'; return; }
   var jobs=allJobs.filter(r=>monthOf(r)===m);
   var total=jobs.length;
   var h='<div class="stats"><div class="stat-box"><div class="stat-value">'+jobs.length+'</div><div class="stat-label">Maintenance Jobs</div></div><div class="stat-box"><div class="stat-value" style="color:var(--c-refundable);">'+jobs.filter(r=>r.type==='refundable').length+'</div><div class="stat-label">Refundable</div></div><div class="stat-box"><div class="stat-value">'+total+'</div><div class="stat-label">Total Records</div></div></div>';
@@ -353,7 +453,7 @@ function renderReportPreview(){
 function _esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function urlToDataURI(url){ return fetch(url,{mode:'cors'}).then(r=>r.blob()).then(blob=>new Promise(res=>{ var fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=()=>res(url); fr.readAsDataURL(blob); })).catch(()=>url); }
 async function downloadReport(){
-  var m=document.getElementById('rep-month').value; if(!m){ alert('Please select a month first.'); return; }
+  var m=document.getElementById('job-rep-month').value; if(!m){ alert('Please select a month first.'); return; }
   var jobs=allJobs.filter(r=>monthOf(r)===m);
   if(jobs.length===0){ alert('No records for '+m+'.'); return; }
   var summary=document.getElementById('rep-summary').value||'';
@@ -385,7 +485,7 @@ function buildReportHtml(jobs,summary,map,logo,monthLabel,gen){
   return b;
 }
 function fmtMoney(n){ return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,','); }
-function renderAnalytics(){
+function renderJobAnalytics(){
   var m=document.getElementById('an-month').value||'';
   var jobs=m?allJobs.filter(r=>monthOf(r)===m):allJobs;
   var gen=jobs.filter(r=>r.type==='general').length;
@@ -428,26 +528,259 @@ function renderAnalytics(){
     topJobs.forEach(j=>{ h+='<tr><td>'+_esc(j)+'</td><td>'+jobTypes[j]+'</td></tr>'; });
     h+='</tbody></table>';
   }
-  document.getElementById('analyticsContent').innerHTML=h;
+  document.getElementById('jobAnalyticsContent').innerHTML=h;
 }
-function switchTab(e,t){ document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); e.target.classList.add('active'); if(t==='list')renderJobs(); if(t==='analytics')renderAnalytics(); if(t==='report')renderReportPreview(); }
-function switchTabTo(t){ document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); document.querySelectorAll('.tab-btn').forEach(b=>{ if(b.getAttribute('onclick')&&b.getAttribute('onclick').indexOf("'"+t+"'")!==-1)b.classList.add('active'); }); }
+function issueMonthlyPending_(r){
+  if(!r || r.status!=='fixed') return false;
+  if(String(r.monthlyTransferStatus||'').toLowerCase()==='transferred') return false;
+  if(r.transferredJobId) return false;
+  return true;
+}
+function issueMonthlyLoc_(r){
+  if(typeof locStr==='function') return locStr(r);
+  return [r.building,r.floor,r.spot].filter(Boolean).join(' ');
+}
+function issueMonthlyDate_(r){
+  var s=String((r&&r.fixedAt)||'').slice(0,10);
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s;
+  s=String((r&&r.date)||'').slice(0,10);
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s;
+  return new Date().toISOString().slice(0,10);
+}
+function issueMonthlyJobDefault_(r){
+  var parts=[r.issueType, issueMonthlyLoc_(r)];
+  if(r.note) parts.push(r.note);
+  (r.workerCompletions||[]).forEach(function(c){
+    if(c.note) parts.push('Fix ('+(c.user||'worker')+'): '+c.note);
+  });
+  return parts.filter(Boolean).join(' — ');
+}
+function issueMonthlyStaffDefault_(r){
+  if(r.fixedBy) return r.fixedBy;
+  var names=[];
+  (r.workerCompletions||[]).forEach(function(c){
+    var nm=String((c&&c.user)||'').trim();
+    if(nm && names.indexOf(nm)===-1) names.push(nm);
+  });
+  return names.join(', ');
+}
+function issueMonthlyMaterialsDefault_(r){
+  var parts=[];
+  (r.workerCompletions||[]).forEach(function(c){
+    var m=String((c&&c.materials)||'').trim();
+    if(m && parts.indexOf(m)===-1) parts.push(m);
+  });
+  return parts.join('; ');
+}
+function issueMonthlyPhoto_(r){
+  if(r.fixedPhotos&&r.fixedPhotos.length) return r.fixedPhotos[0];
+  if(r.fixedPhoto){
+    try{
+      var p=JSON.parse(r.fixedPhoto);
+      if(Array.isArray(p)&&p.length) return p[0];
+      if(String(r.fixedPhoto).indexOf('http')===0) return r.fixedPhoto;
+    }catch(e){
+      if(String(r.fixedPhoto).indexOf('http')===0) return r.fixedPhoto;
+    }
+  }
+  var comps=r.workerCompletions||[];
+  for(var i=0;i<comps.length;i++){
+    if(comps[i].photos&&comps[i].photos.length) return comps[i].photos[0];
+  }
+  return '';
+}
+function issueMonthlyMonthLabel_(r){
+  var fake={date:issueMonthlyDate_(r)};
+  if(typeof monthOf==='function'){ var m=monthOf(fake); if(m) return m; }
+  return fake.date||'';
+}
+function issueMonthlyTransferBlockHtml_(r){
+  if(!r || r.status!=='fixed') return '';
+  if(!issueMonthlyPending_(r)){
+    if(r.transferredJobId || String(r.monthlyTransferStatus||'').toLowerCase()==='transferred'){
+      return '<div class="issue-monthly-transfer issue-monthly-done"><p class="issue-monthly-title">Monthly report</p><p style="margin:0;color:var(--text-soft);">Saved to monthly report'+(r.editedJobNote?(' · '+_esc(r.editedJobNote)):'.')+'</p></div>';
+    }
+    return '';
+  }
+  if(PERMS().edit===false) return '';
+  var photo=issueMonthlyPhoto_(r);
+  var h='<div class="issue-monthly-transfer" onclick="event.stopPropagation()">';
+  h+='<p class="issue-monthly-title">Save to monthly report</p>';
+  h+='<p class="issue-monthly-sub">Billing month: <strong>'+_esc(issueMonthlyMonthLabel_(r))+'</strong> (26th–25th) · Type: General Maintenance</p>';
+  h+='<div class="issue-monthly-grid">';
+  h+='<label><span>Date</span><input type="date" id="imt-date" value="'+_esc(issueMonthlyDate_(r))+'"></label>';
+  h+='<label><span>Staff</span><input type="text" id="imt-staff" value="'+_esc(issueMonthlyStaffDefault_(r))+'" placeholder="Who did the job"></label>';
+  h+='<label class="issue-monthly-wide"><span>Job description</span><textarea id="imt-job" rows="3">'+_esc(r.editedJobNote||issueMonthlyJobDefault_(r))+'</textarea></label>';
+  h+='<label><span>Location</span><input type="text" id="imt-location" value="'+_esc(issueMonthlyLoc_(r))+'"></label>';
+  h+='<label><span>Materials / quantity</span><input type="text" id="imt-materials" value="'+_esc(issueMonthlyMaterialsDefault_(r))+'" placeholder="e.g. cement, sand"></label>';
+  h+='<label><span>Amount (IQD, optional)</span><input type="text" id="imt-amount" value="" placeholder="Leave empty for maintenance"></label>';
+  h+='</div>';
+  if(photo) h+='<div class="issue-monthly-photo"><span>Photo</span><img src="'+photo+'" onclick="bigImg(this.src)" alt="Completion photo"></div>';
+  h+='<input type="hidden" id="imt-photo" value="'+_esc(photo)+'">';
+  h+='<button type="button" class="issue-monthly-save" id="imt-save-btn" onclick="saveIssueToMonthlyReport(\''+r.id+'\')">Save to monthly report</button>';
+  h+='</div>';
+  return h;
+}
+function issueMonthlyApplyTransfer_(id, fields, resp){
+  if(typeof getAllIssues!=='function') return;
+  var issues=getAllIssues();
+  var idx=issues.findIndex(function(x){ return String(x.id)===String(id); });
+  if(idx>=0){
+    issues[idx]=Object.assign({}, issues[idx], {
+      monthlyTransferStatus:'transferred',
+      editedJobNote:fields.job,
+      transferredJobId:(resp&&resp.jobId)||'',
+      transferredAt:new Date().toISOString(),
+      transferredBy:currentUser()||''
+    });
+  }
+  if(resp&&resp.job){
+    allJobs.push(resp.job);
+    writeJobsCache(allJobs);
+  } else loadJobs();
+  renderJobs();
+  renderJobAnalytics();
+  renderReportPreview();
+  if(typeof renderIssues==='function') renderIssues();
+  if(typeof openIssue==='function') openIssue(id);
+}
+function saveIssueToMonthlyReport(id){
+  if(_issueMonthlySaving) return;
+  var jobEl=document.getElementById('imt-job');
+  var job=jobEl?String(jobEl.value||'').trim():'';
+  if(!job){ alert('Please enter the job description.'); if(jobEl) jobEl.focus(); return; }
+  var fields={
+    job:job,
+    date:(document.getElementById('imt-date')||{}).value||'',
+    location:String((document.getElementById('imt-location')||{}).value||'').trim(),
+    materials:String((document.getElementById('imt-materials')||{}).value||'').trim(),
+    staff:String((document.getElementById('imt-staff')||{}).value||'').trim(),
+    amount:String((document.getElementById('imt-amount')||{}).value||'').trim().replace(/\D/g,''),
+    photo:String((document.getElementById('imt-photo')||{}).value||'').trim()
+  };
+  _issueMonthlySaving=true;
+  var btn=document.getElementById('imt-save-btn');
+  if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
+  fetchJSONRetry({action:'transferCivilIssueCompletion',id:id,job:fields.job,date:fields.date,location:fields.location,materials:fields.materials,staff:fields.staff,amount:fields.amount,photo:fields.photo,token:tok()},1,30000)
+    .then(function(d){
+      if(d&&d.ok===false){ if(typeof forceSessionLogout==='function'&&forceSessionLogout(d)) return; throw new Error(d.message||d.error||'Could not save issue'); }
+      if(!d||(!d.ok&&!d.success)) throw new Error('Unexpected server response');
+      issueMonthlyApplyTransfer_(id, fields, d);
+      alert('Saved to monthly report'+(d.reportMonth?(' · '+issueMonthlyMonthLabel_({date:d.reportMonth+'-01'})):'.'));
+    })
+    .catch(function(e){ alert('❌ '+String((e&&e.message)||e||'Failed')); })
+    .finally(function(){
+      _issueMonthlySaving=false;
+      if(btn){ btn.disabled=false; btn.textContent='Save to monthly report'; }
+    });
+}
+window.issueMonthlyPending_=issueMonthlyPending_;
+window.issueMonthlyTransferBlockHtml=issueMonthlyTransferBlockHtml_;
+window.saveIssueToMonthlyReport=saveIssueToMonthlyReport;
+function switchDeptTab(e,t){ document.querySelectorAll('.dept-tab-content').forEach(x=>x.classList.remove('active')); document.querySelectorAll('.side-nav-dept .tab-btn').forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); e.target.classList.add('active'); if(t==='jobs')renderJobs(); if(t==='jobanalytics')renderJobAnalytics(); if(t==='report')renderReportPreview(); }
+function switchDeptTabTo(t){ document.querySelectorAll('.dept-tab-content').forEach(x=>x.classList.remove('active')); document.querySelectorAll('.side-nav-dept .tab-btn').forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); document.querySelectorAll('.side-nav-dept .tab-btn').forEach(b=>{ if(b.getAttribute('onclick')&&b.getAttribute('onclick').indexOf("'"+t+"'")!==-1)b.classList.add('active'); }); }
 function bigImg(src){ document.getElementById('imgBig').src=src; document.getElementById('imgModal').classList.add('show'); }
 function closeImg(){ document.getElementById('imgModal').classList.remove('show'); }
-function openResetModal(){ document.getElementById('resetPwInput').value=''; document.getElementById('resetMsg2').textContent=''; document.getElementById('resetModal').style.display='flex'; setTimeout(()=>document.getElementById('resetPwInput').focus(),30); }
-function closeResetModal(){ document.getElementById('resetModal').style.display='none'; }
-function doReset(){ var pw=document.getElementById('resetPwInput').value; var msg=document.getElementById('resetMsg2'); if(!pw){ msg.style.color='var(--c-error)'; msg.textContent='Please enter the password.'; return; } msg.style.color='var(--text-soft)'; msg.textContent='⏳ Deleting…'; fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'clearCivilJobs',resetPassword:pw,token:tok()})}).then(r=>r.json()).then(d=>{ if(d&&d.success){ closeResetModal(); allJobs=[]; renderJobs(); renderAnalytics(); uiAlert('✅ All civil data deleted.'); } else if(d&&d.error==='bad_password'){ msg.style.color='var(--c-error)'; msg.textContent='❌ Wrong password.'; } else if(d&&d.error==='not_allowed'){ msg.style.color='var(--c-error)'; msg.textContent='❌ Only an admin can reset data.'; } else{ msg.style.color='var(--c-error)'; msg.textContent='❌ Could not reset.'; } }).catch(e=>{ msg.style.color='var(--c-error)'; msg.textContent='❌ '+e.message; }); }
+function openResetModal(){
+  _resetTarget='';
+  var pw=document.getElementById('resetPwInput');
+  var msg=document.getElementById('resetMsg2');
+  var choices=document.getElementById('resetChoicePanel');
+  var confirm=document.getElementById('resetConfirmPanel');
+  if(pw) pw.value='';
+  if(msg) msg.textContent='';
+  if(choices) choices.style.display='';
+  if(confirm) confirm.style.display='none';
+  document.getElementById('resetModal').style.display='flex';
+}
+function closeResetModal(){ document.getElementById('resetModal').style.display='none'; _resetTarget=''; }
+var _resetTarget='';
+var _resetTargetMeta={
+  jobs:{title:'Reset Jobs',desc:'Permanently deletes <strong>all civil jobs</strong>. Issues are not affected.',action:'clearCivilJobs',payload:{},success:'All civil jobs deleted.',after:function(){ allJobs=[]; renderJobs(); renderJobAnalytics(); renderReportPreview(); }},
+  issues:{title:'Reset Issues',desc:'Permanently deletes <strong>all civil issues</strong> — reports, photos and fixed history. Jobs are not affected.',action:'clearCivilIssues',payload:{},success:'All civil issues deleted.',after:function(){ if(window.loadIssues) loadIssues(true); }}
+};
+function selectResetTarget(key){
+  var meta=_resetTargetMeta[key];
+  if(!meta) return;
+  _resetTarget=key;
+  var choices=document.getElementById('resetChoicePanel');
+  var confirm=document.getElementById('resetConfirmPanel');
+  var title=document.getElementById('resetConfirmTitle');
+  var desc=document.getElementById('resetConfirmDesc');
+  var btn=document.getElementById('resetConfirmBtn');
+  var pw=document.getElementById('resetPwInput');
+  var msg=document.getElementById('resetMsg2');
+  if(choices) choices.style.display='none';
+  if(confirm) confirm.style.display='';
+  if(title) title.textContent=meta.title;
+  if(desc) desc.innerHTML=meta.desc;
+  if(btn) btn.textContent='Delete';
+  if(pw){ pw.value=''; setTimeout(function(){ pw.focus(); },30); }
+  if(msg) msg.textContent='';
+}
+function resetBackToChoices(){
+  _resetTarget='';
+  var choices=document.getElementById('resetChoicePanel');
+  var confirm=document.getElementById('resetConfirmPanel');
+  var msg=document.getElementById('resetMsg2');
+  if(choices) choices.style.display='';
+  if(confirm) confirm.style.display='none';
+  if(msg) msg.textContent='';
+}
+function doReset(){
+  var meta=_resetTargetMeta[_resetTarget];
+  var pw=document.getElementById('resetPwInput').value;
+  var msg=document.getElementById('resetMsg2');
+  if(!meta){ resetBackToChoices(); return; }
+  if(!pw){ msg.style.color='var(--c-error)'; msg.textContent='Please enter the password.'; return; }
+  msg.style.color='var(--text-soft)'; msg.textContent='⏳ Deleting…';
+  var body=Object.assign({action:meta.action,resetPassword:pw,token:tok()}, meta.payload||{});
+  fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify(body)}).then(r=>r.json()).then(function(d){
+    if(d&&d.success){
+      closeResetModal();
+      if(typeof meta.after==='function') meta.after();
+      uiAlert('✅ '+meta.success);
+    } else if(d&&d.error==='bad_password'){
+      msg.style.color='var(--c-error)'; msg.textContent='❌ Wrong password.';
+    } else if(d&&d.error==='not_allowed'){
+      msg.style.color='var(--c-error)'; msg.textContent='❌ Only an admin can reset data.';
+    } else if(d&&d.ok===false && typeof forceSessionLogout==='function' && forceSessionLogout(d)){
+    } else {
+      msg.style.color='var(--c-error)'; msg.textContent='❌ Could not reset.';
+    }
+  }).catch(function(e){ msg.style.color='var(--c-error)'; msg.textContent='❌ '+e.message; });
+}
 </script>
 <div id="resetModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1600;align-items:center;justify-content:center;">
-  <div style="background:var(--panel);border:2px solid var(--card-border);border-radius:14px;max-width:440px;width:92%;padding:28px;box-shadow:0 10px 40px var(--shadow);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-    <h2 style="margin:0 0 10px;color:var(--text);">⚠️ Reset Civil Data</h2>
-    <p style="color:var(--text-soft);font-size:14px;margin-bottom:16px;line-height:1.5;">This permanently deletes <strong>all civil jobs</strong>. This cannot be undone.</p>
-    <label style="color:var(--text);font-weight:600;font-size:14px;">Reset password</label>
-    <input type="password" id="resetPwInput" placeholder="Enter password" onkeydown="if(event.key==='Enter')doReset()" style="width:100%;margin-top:6px;padding:12px;border:2px solid var(--input-border);border-radius:6px;background:var(--input-bg);color:var(--text);font-size:14px;box-sizing:border-box;">
-    <div id="resetMsg2" style="min-height:18px;margin-top:10px;font-size:13px;font-weight:600;"></div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
-      <button onclick="closeResetModal()">Cancel</button>
-      <button onclick="doReset()" style="color:#fff;background:#C5504F;border-color:#C5504F;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span> Delete Everything</button>
+  <div class="reset-modal-box">
+    <h2 style="margin:0 0 10px;color:var(--text);">⚠️ Reset Data</h2>
+    <div id="resetChoicePanel">
+      <p class="reset-modal-lead">Choose what to permanently delete. Deleted items are kept in the Recycle Bin until you empty it.</p>
+      <div class="reset-choice-list">
+        <button type="button" class="reset-choice-btn" onclick="selectResetTarget('jobs')">
+          <strong>Reset Jobs</strong>
+          <span>All civil maintenance jobs</span>
+        </button>
+        <button type="button" class="reset-choice-btn" onclick="selectResetTarget('issues')">
+          <strong>Reset Issues</strong>
+          <span>All civil issues and fix history</span>
+        </button>
+      </div>
+      <div class="reset-modal-actions">
+        <button type="button" onclick="closeResetModal()">Cancel</button>
+      </div>
+    </div>
+    <div id="resetConfirmPanel" style="display:none;">
+      <h3 id="resetConfirmTitle" class="reset-confirm-title"></h3>
+      <p id="resetConfirmDesc" class="reset-modal-lead"></p>
+      <label class="reset-modal-label" for="resetPwInput">Reset password</label>
+      <input type="password" id="resetPwInput" placeholder="Enter password" onkeydown="if(event.key==='Enter')doReset()">
+      <div id="resetMsg2" class="reset-modal-msg"></div>
+      <div class="reset-modal-actions">
+        <button type="button" onclick="resetBackToChoices()">Back</button>
+        <button type="button" onclick="closeResetModal()">Cancel</button>
+        <button type="button" id="resetConfirmBtn" onclick="doReset()" style="color:#fff;background:#C5504F;border-color:#C5504F;">Delete</button>
+      </div>
     </div>
   </div>
 </div>
@@ -467,9 +800,9 @@ function doReset(){ var pw=document.getElementById('resetPwInput').value; var ms
 </div>
 <script>
 (function(){
-  var RB_DEPT='civil department', RB_SHEETS=['CivilJobs'], RB_TOKKEY='civdept_token', RB_RELOAD='loadJobs';
+  var RB_DEPT='civil department', RB_SHEETS=['CivilJobs','CivilIssues'], RB_TOKKEY='civdept_token', RB_RELOAD='refreshAllData';
   function RBTOK(){ return empireGetToken(); }
-  function rbReload(){ try{ if(typeof window[RB_RELOAD]==='function') window[RB_RELOAD](); }catch(e){} }
+  function rbReload(){ try{ if(typeof window[RB_RELOAD]==='function') window[RB_RELOAD](true); else { loadJobs(); if(window.loadIssues) loadIssues(true); } }catch(e){} }
   window.rbOpen=function(){ document.getElementById('rbModal').style.display='flex'; window.rbLoad(); };
   window.rbClose=function(){ document.getElementById('rbModal').style.display='none'; };
   window.rbLoad=function(){
@@ -522,6 +855,42 @@ function doReset(){ var pw=document.getElementById('resetPwInput').value; var ms
 })();
 </script>
 
+
+
+<div class="modal" id="issueModal" onclick="if(event.target===this)closeIssueModal()"><div class="modal-box" id="issueBox"></div></div>
+<script src="assets/empire-offline-queue.js"></script>
+<script src="assets/empire-assign-voice.js"></script>
+<script src="assets/issue-configs.js"></script>
+<script>ISSUE_CFG=Object.assign({},ISSUE_CONFIGS.civil,{embeddedInDept:true,tabNavScope:'.side-nav-issue',tabPaneScope:'#issueMain',analyticsContentId:'analyticsContent',supervisorPage:'civil-department.html'});</script>
+<script src="assets/issue-tracker.js"></script>
+<script src="assets/issue-excel-export.js"></script>
+<script src="assets/issue-recycle-bin.js"></script>
+<script>
+(function(){
+  window._applyIssuePerms = applyPerms;
+  window.applyPerms = function(){
+    applyDeptPerms();
+    if(window._applyIssuePerms) window._applyIssuePerms();
+    var p=PERMS();
+    function showTab(id,ok){ var el=document.getElementById(id); if(el) el.style.display = ok ? '' : 'none'; }
+    showTab('tab-issues', p.issuesTab!==false);
+    showTab('tab-issue-add', p.add!==false);
+    showTab('tab-issue-analytics', p.analytics!==false);
+    if(p.notCivilTab===false) showTab('tabBtnNotCivil', false);
+    if(p.fixDelayTab===false) showTab('tabBtnFixDelay', false);
+    if(p.liveLocation===false) showTab('tabBtnGps', false);
+  };
+  window.enterApp = function(){ enterDeptApp(); if(window.issueEnterApp) window.issueEnterApp(); };
+  window.refreshAllData = function(forceIssues){ loadJobs(); if(window.loadIssues) window.loadIssues(forceIssues!==false); };
+  var deptSwitch = switchDeptTab, deptSwitchTo = switchDeptTabTo, issueSwitch = switchTab, issueSwitchTo = switchTabTo;
+  function clearIssueTabs(){ document.querySelectorAll('#issueMain .issue-tab-content').forEach(function(x){ x.classList.remove('active'); }); document.querySelectorAll('.side-nav-issue .tab-btn').forEach(function(x){ x.classList.remove('active'); }); if(typeof stopEngineerLocationPoll==='function') stopEngineerLocationPoll(); }
+  function clearDeptTabs(){ document.querySelectorAll('.dept-tab-content').forEach(function(x){ x.classList.remove('active'); }); document.querySelectorAll('.side-nav-dept .tab-btn').forEach(function(x){ x.classList.remove('active'); }); }
+  window.switchDeptTab = function(e,t){ clearIssueTabs(); deptSwitch(e,t); };
+  window.switchDeptTabTo = function(t){ clearIssueTabs(); deptSwitchTo(t); };
+  window.switchTab = function(e,t){ clearDeptTabs(); issueSwitch(e,t); };
+  window.switchTabTo = function(t){ clearDeptTabs(); issueSwitchTo(t); };
+})();
+</script>
 
 <!-- ===== Text Settings panel ===== -->
 <button id="txtSetBtn" title="Text settings" onclick="document.getElementById('txtSetPanel').style.display=(document.getElementById('txtSetPanel').style.display==='block'?'none':'block')" style="position:fixed;bottom:20px;right:20px;z-index:3000;width:52px;height:52px;border-radius:50%;padding:0;font-size:19px;font-weight:700;display:none;align-items:center;justify-content:center;">Aa</button>

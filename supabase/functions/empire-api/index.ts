@@ -55,19 +55,31 @@ Deno.serve(async (req) => {
       clearElectricIssues: 1, deleteElectricIssue: 1, assignElectricIssue: 1, markElectricNotDept: 1,
       restoreElectricIssue: 1, setElectricFixDelay: 1,
     };
+    const civilIssueActions: Record<string, number> = {
+      addCivilIssue: 1, updateCivilIssue: 1, getCivilIssues: 1, markCivilFixed: 1,
+      clearCivilIssues: 1, deleteCivilIssue: 1, assignCivilIssue: 1, markCivilNotDept: 1,
+      restoreCivilIssue: 1, setCivilFixDelay: 1,
+    };
 
     let auth;
     if (action === "getWorkerLocations" || action === "reportWorkerLocation") {
       auth = await verifyToken(String(body.token || ""), "civil issue");
+      if (!auth.ok) auth = await verifyToken(String(body.token || ""), "civil department");
       if (!auth.ok) auth = await verifyToken(String(body.token || ""), "electric issue");
       if (!auth.ok) auth = await verifyToken(String(body.token || ""), "electrical department");
       if (!auth.ok) auth = await verifyToken(String(body.token || ""), "cleaning");
     } else if (action === "getElectricWorkerReports" || action === "transferElectricIssueCompletion") {
       auth = await verifyToken(String(body.token || ""), "electrical department");
       if (!auth.ok) auth = await verifyToken(String(body.token || ""), "electric issue");
+    } else if (action === "transferCivilIssueCompletion") {
+      auth = await verifyToken(String(body.token || ""), "civil department");
+      if (!auth.ok) auth = await verifyToken(String(body.token || ""), "civil issue");
     } else if (electricIssueActions[action]) {
       auth = await verifyToken(String(body.token || ""), "electric issue");
       if (!auth.ok) auth = await verifyToken(String(body.token || ""), "electrical department");
+    } else if (civilIssueActions[action]) {
+      auth = await verifyToken(String(body.token || ""), "civil issue");
+      if (!auth.ok) auth = await verifyToken(String(body.token || ""), "civil department");
     } else {
       auth = await verifyToken(String(body.token || ""), requiredDept);
     }
@@ -206,6 +218,7 @@ Deno.serve(async (req) => {
       case "deleteElectricWorkerReport": return json(await jobs.handleDeleteElectricWorkerReport(body, a));
       case "transferElectricWorkerReport": return json(await jobs.handleTransferElectricWorkerReport(body, a));
       case "transferElectricIssueCompletion": return json(await jobs.handleTransferElectricIssueCompletion(body, a));
+      case "transferCivilIssueCompletion": return json(await jobs.handleTransferCivilIssueCompletion(body, a));
 
       case "addCivilJob": return json(await jobs.handleAddCivilJob(body));
       case "getCivilJobs": return json(await jobs.handleGetCivilJobs());

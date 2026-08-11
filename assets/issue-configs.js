@@ -17,6 +17,11 @@ var ISSUE_CONFIGS = {
     maxAssignWorkers: 4,
     gpsTrades: ['wood', 'tiles', 'plumber', 'painting'],
     jobPage: 'civil-issue.html',
+    supervisorPage: 'civil-department.html',
+    embeddedInDept: false,
+    tabNavScope: '',
+    tabPaneScope: '',
+    analyticsContentId: 'analyticsContent',
     routedDisposition: 'not_civil',
     ui: {
       routedBadge: 'Not Civil Dept',
