@@ -300,7 +300,7 @@ function workerFieldReportUpdateSubmitBtnLabel_() {
   if (!navigator.onLine) {
     btn.textContent = workerFieldReportT_('wfrSubmitOffline', 'Save on device — retry later');
   } else {
-    btn.textContent = workerFieldReportT_('wfrSubmit', 'Send to Electrical Department');
+    btn.textContent = workerFieldReportUi_('submitBtn', workerFieldReportT_('wfrSubmit', 'Send report'));
   }
 }
 
