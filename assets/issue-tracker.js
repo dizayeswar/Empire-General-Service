@@ -428,7 +428,7 @@ function issueStatusBadgeHtml(r) {
   if (issueIsRoutedAway(r)) parts.push('<span class="badge routed-away">' + issueUi_('routedBadge', 'Not Civil Dept') + '</span>');
   else if (r.status === 'fixed') {
     parts.push('<span class="badge fixed">' + checkIconHtml('currentColor') + ' Fixed</span>');
-    if (ISSUE_CFG.embeddedInDept && typeof window.issueMonthlyPending_ === 'function' && window.issueMonthlyPending_(r)) {
+    if (ISSUE_CFG.embeddedInDept && issueIsReportPending_(r)) {
       parts.push('<span class="badge open">Report pending</span>');
     }
   } else {
@@ -2530,9 +2530,20 @@ function refreshAllIssueTabs() {
   var fd = document.getElementById('fixdelay');
   if (fd && fd.classList.contains('active')) renderFixDelayIssues();
 }
+function issueIsReportPending_(r) {
+  if (!r || r.status !== 'fixed' || issueIsRoutedAway(r)) return false;
+  if (typeof window.issueMonthlyPending_ === 'function') return !!window.issueMonthlyPending_(r);
+  if (String(r.monthlyTransferStatus || '').toLowerCase() === 'transferred') return false;
+  if (r.transferredJobId) return false;
+  return !!(ISSUE_CFG && ISSUE_CFG.embeddedInDept);
+}
 function issueMatchesIssueFilters(r, fp, fs, fm, fg, q) {
   if (fp && r.project !== fp) return false;
-  if (fs && r.status !== fs) return false;
+  if (fs === 'report_pending' || fs === 'report-pending') {
+    if (!issueIsReportPending_(r)) return false;
+  } else if (fs && r.status !== fs) {
+    return false;
+  }
   if (fm && dayOf(r) !== fm) return false;
   if (fg && !issueMatchesTeamFilter(r, fg)) return false;
   if (q) {
