@@ -90,7 +90,30 @@ var ISSUE_CONFIGS = {
       debugPush: 'debugWorkerPush'
     },
     spots: ['Service stairs','Main stairs','Service door','Rooftop door','Exit door','Elevator','Wall','Ceiling','Corridor','Basement','Rooftop','Garden','Parking','Other'],
-    issueTypes: ['Water leakage','Broken tiles','Door is broken','Door handle is broken','Wall needs repainting','No rooftop door','No service door','Mold / damp','Cracked wall','Other']
+    issueTypes: ['Water leakage','Broken tiles','Door is broken','Door handle is broken','Wall needs repainting','No rooftop door','No service door','Mold / damp','Cracked wall','Other'],
+    workerJobPhotoMax: 3,
+    workerFieldReport: {
+      enabled: true,
+      jobPhotoMax: 3,
+      photoFolder: 'issues/civil-field',
+      voiceDraftId: 'civil-field-report',
+      actions: {
+        add: 'addCivilWorkerReport',
+        get: 'getCivilWorkerReports',
+        updateInvoice: 'updateCivilWorkerReportInvoice'
+      },
+      ui: {
+        jobsTab: 'Assigned jobs',
+        reportTab: 'Add report',
+        deptTabLabel: 'Field Reports',
+        deptTabHint: 'Reports submitted by civil field workers from their phones (photo, place, note, voice).',
+        submitSuccess: 'Report sent to Civil Department.',
+        placePlaceholder: 'Where? e.g. WW-12 corridor, ES-4 parking…',
+        notePlaceholder: 'What did you find or do?',
+        amountPlaceholder: 'IQD — leave empty for maintenance',
+        amountHint: 'Leave empty for maintenance. Enter an amount for refundable work.'
+      }
+    }
   },
   fire: {
     prefix: 'fire',

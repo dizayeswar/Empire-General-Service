@@ -46,6 +46,7 @@
       <p id="whoLabel"></p>
       <nav class="side-nav side-nav-dept">
         <button class="tab-btn dept-tab-btn active" id="tab-jobs" onclick="switchDeptTab(event,'jobs')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span> <span class="lbl">Jobs</span></button>
+        <button class="tab-btn dept-tab-btn" id="tab-fieldreports" onclick="switchDeptTab(event,'fieldreports')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 18V5"/><path d="M8 21h8"/><path d="M6 8h12"/><path d="M9 5h6"/></svg></span> <span class="lbl">Field Reports</span></button>
         <button class="tab-btn dept-tab-btn" id="tab-add" onclick="switchDeptTab(event,'jobadd')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span> <span class="lbl">Add</span></button>
         <button class="tab-btn dept-tab-btn" id="tab-report" onclick="switchDeptTab(event,'report')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg></span> <span class="lbl">Report</span></button>
         <button class="tab-btn dept-tab-btn" id="tab-analytics" onclick="switchDeptTab(event,'jobanalytics')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 11h8"/><path d="M7 16h12"/><path d="M7 6h3"/></svg></span> <span class="lbl">Analytics</span></button>
@@ -94,6 +95,37 @@
       <div id="jobsTable"><p>Loading…</p></div>
     </div>
   </div>
+  <div id="fieldreports" class="tab-content dept-tab-content">
+    <div class="form-section">
+      <h2><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 18V5"/><path d="M8 21h8"/><path d="M6 8h12"/><path d="M9 5h6"/></svg></span> Field Reports</h2>
+      <p style="color:var(--text-soft);font-size:14px;margin:-6px 0 16px;line-height:1.5;">Review worker submissions one by one. Edit the note, then save to move the report into the monthly jobs list (billing month runs 26th–25th). Voice notes stay here for review only.</p>
+      <div class="form-row filter-toolbar">
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" id="fr-date" onchange="renderFieldReports()">
+          <span onclick="document.getElementById('fr-date').value='';renderFieldReports();" style="font-size:11px;color:var(--text-faint);cursor:pointer;margin-top:4px;">clear</span>
+        </div>
+        <div class="form-group filter-grow">
+          <label>Search</label>
+          <input type="text" id="fr-search" oninput="renderFieldReports()" placeholder="worker, place, note…">
+        </div>
+        <div class="form-group filter-toggle">
+          <label>&nbsp;</label>
+          <label class="filter-toggle-pill" for="fr-show-transferred">
+            <input type="checkbox" id="fr-show-transferred" onchange="renderFieldReports()">
+            <span class="filter-toggle-ui" aria-hidden="true"></span>
+            Show transferred
+          </label>
+        </div>
+        <div class="form-group filter-actions">
+          <label>&nbsp;</label>
+          <button type="button" class="refresh-btn" onclick="loadFieldReports(true)"><span class="nav-icon spin-icon" id="fieldReportsRefreshIcon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> Refresh</button>
+        </div>
+      </div>
+      <div id="fieldReportsTable"><p>Loading…</p></div>
+    </div>
+  </div>
+
   <div id="jobadd" class="tab-content dept-tab-content">
     <div class="form-section">
       <h2 id="addFormTitle"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span> Add Job</h2>
@@ -274,9 +306,12 @@
 <script src="assets/empire-auth.js"></script>
 <script src="assets/empire-core.js"></script>
 <div class="modal" id="imgModal" onclick="closeImg()"><img id="imgBig" style="max-width:92%;max-height:92%;border-radius:10px;"></div>
+<div class="modal" id="fieldReportModal" onclick="if(event.target===this)closeFieldReportModal()">
+  <div class="modal-box field-report-modal-box" id="fieldReportModalBody" onclick="event.stopPropagation()"></div>
+</div>
 <script>
 const JOB_PHOTO_FOLDER = 'jobs/civil';
-let allJobs = [], currentPhoto = '', uploading = false, _issueMonthlySaving = false;
+let allJobs = [], allFieldReports = [], currentPhoto = '', uploading = false, _fieldReportEditingId = '', _fieldReportTransferring = false, _issueMonthlySaving = false;
 function tok(){ return empireGetToken(); }
 function currentUser(){ return empireGetUser(); }
 function PERMS(){ return empireGetPerms(); }
@@ -284,6 +319,7 @@ function applyDeptPerms(){ if(window.tsPerm) window.tsPerm(); if(window.tsLoadGl
   var p=PERMS();
   function show(id,ok){ var el=document.getElementById(id); if(el) el.style.display = ok ? '' : 'none'; }
   show('tab-jobs', p.jobsTab!==false);
+  show('tab-fieldreports', p.fieldReports!==false);
   show('tab-add', p.add!==false);
   show('tab-report', p.report!==false);
   show('tab-analytics', p.analytics!==false);
@@ -294,7 +330,7 @@ function applyDeptPerms(){ if(window.tsPerm) window.tsPerm(); if(window.tsLoadGl
 function handleLogin(e){ empireAuthLogin(e, 'civil department', { onSuccess: function(){ enterApp(); } }); }
 function logout(){ empireAuthLogout({ extraKeys: ['civdept_jobs_cache'], redirect: 'index.html', reload: false }); }
 function forceSessionLogout(d){ empireAuthHandleInvalidSession_(d, { extraKeys: ['civdept_jobs_cache'], redirect: 'index.html', reload: false }); }
-function enterDeptApp(){ if(String(empireGetRole()||'').toLowerCase()==='worker'){ location.replace('civil-issue.html'); return; } document.getElementById('loginPage').classList.remove('show'); if(typeof empireAuthMarkLoginVisible==='function') empireAuthMarkLoginVisible(false); document.getElementById('mainContainer').classList.add('show'); applyDeptPerms(); refreshPerms(); document.getElementById('j-date').value=new Date().toISOString().split('T')[0]; empireBindFilterPersistence({ key:'civdept_list_filters', fields:['jf-month','jf-type','jf-search'], onApply:renderJobs }); loadJobs(); }
+function enterDeptApp(){ if(String(empireGetRole()||'').toLowerCase()==='worker'){ location.replace('civil-issue.html'); return; } document.getElementById('loginPage').classList.remove('show'); if(typeof empireAuthMarkLoginVisible==='function') empireAuthMarkLoginVisible(false); document.getElementById('mainContainer').classList.add('show'); applyDeptPerms(); refreshPerms(); document.getElementById('j-date').value=new Date().toISOString().split('T')[0]; empireBindFilterPersistence({ key:'civdept_list_filters', fields:['jf-month','jf-type','jf-search'], onApply:renderJobs }); loadJobs(); loadFieldReports(); }
 function refreshPerms(){ var now=Date.now(); if(now-(_lastPermFetch||0)<300000) return; _lastPermFetch=Date.now(); empireAuthRefreshPerms(function(){ applyDeptPerms(); if(window._applyIssuePerms) window._applyIssuePerms(); }); }
 var _lastPermFetch=0;
 window.addEventListener('load',()=>{ empireAuthPageBoot({ dept: 'civil department', onEnter: enterApp }); });
@@ -381,18 +417,20 @@ function renderJobs(){
   var refTotal=rows.filter(r=>r.type==='refundable').reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
   var h='<p style="color:var(--text-soft);margin-bottom:12px;">'+total+' record(s)'+(fm?' in '+fm:'')+' &nbsp;—&nbsp; <span style="color:var(--c-general);">🔧 '+gen+' general</span> &nbsp;·&nbsp; <span style="color:var(--c-refundable);">📦 '+ref+' refundable</span>'+(refTotal>0?' &nbsp;·&nbsp; <span style="color:var(--c-money);">💰 '+fmtMoney(refTotal)+' IQD refundable total</span>':'')+'</p>';
   var showActions=(P.edit!==false || P.del!==false);
-  h+='<div style="overflow-x:auto;"><table><thead><tr><th>#</th><th>Date</th><th>Type</th><th>Job</th><th>Location</th><th>Materials</th><th>Staff</th><th>Amount</th><th>Photo</th>'+(showActions?'<th>Actions</th>':'')+'</tr></thead><tbody>';
-  if(rows.length===0) h+='<tr><td colspan="10" style="color:var(--text-faint);">No records match.</td></tr>';
+  h+='<div style="overflow-x:auto;"><table><thead><tr><th>#</th><th>Date</th><th>Type</th><th>Job</th><th>Location</th><th>Materials</th><th>Staff</th><th>Amount</th><th>Job photo</th><th>Invoice</th>'+(showActions?'<th>Actions</th>':'')+'</tr></thead><tbody>';
+  if(rows.length===0) h+='<tr><td colspan="11" style="color:var(--text-faint);">No records match.</td></tr>';
   var num=0;
   rows.forEach(r=>{
     num++;
     var typeBadge='<span class="badge '+(r.type==='refundable'?'refundable':'general')+'">'+(r.type==='refundable'?'Refundable':'General')+'</span>';
-    var photo=r.photo?'<img class="thumb" src="'+r.photo+'" onclick="bigImg(this.src)" loading="lazy">':'—';
+    var jobPhotoUrl=String(r.photo||'').split('|')[0]||'';
+    var photo=jobPhotoUrl?'<img class="thumb" src="'+jobPhotoUrl+'" onclick="bigImg(this.src)" loading="lazy">':'—';
+    var invoice=r.invoicePhoto?'<img class="thumb" src="'+r.invoicePhoto+'" onclick="bigImg(this.src)" loading="lazy">':'—';
     var amountCell=r.type==='refundable'&&r.amount?'<span style="color:var(--c-money);font-weight:600;">'+fmtMoney(parseFloat(r.amount))+' IQD</span>':'—';
     var acts='';
     if(P.edit!==false) acts+='<button class="act-btn" onclick="editJob(\''+r.id+'\')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/></svg></span> Edit</button>';
     if(P.del!==false) acts+='<button class="act-btn" onclick="deleteJob(\''+r.id+'\')" style="color:#fff;background:#C5504F;border-color:#C5504F;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span></button>';
-    h+='<tr class="job-row"><td>'+num+'</td><td>'+r.date+'</td><td>'+typeBadge+'</td><td>'+_esc(r.job)+'</td><td>'+_esc(r.location||'')+'</td><td style="max-width:160px;word-break:break-word;">'+_esc(r.materials||'—')+'</td><td>'+_esc(r.staff||'')+'</td><td>'+amountCell+'</td><td>'+photo+'</td>'+(showActions?('<td>'+(acts||'—')+'</td>'):'')+'</tr>';
+    h+='<tr class="job-row"><td>'+num+'</td><td>'+r.date+'</td><td>'+typeBadge+'</td><td>'+_esc(r.job)+'</td><td>'+_esc(r.location||'')+'</td><td style="max-width:160px;word-break:break-word;">'+_esc(r.materials||'—')+'</td><td>'+_esc(r.staff||'')+'</td><td>'+amountCell+'</td><td>'+photo+'</td><td>'+invoice+'</td>'+(showActions?('<td>'+(acts||'—')+'</td>'):'')+'</tr>';
   });
   h+='</tbody></table></div>';
   document.getElementById('jobsTable').innerHTML=h;
@@ -677,7 +715,486 @@ function saveIssueToMonthlyReport(id){
 window.issueMonthlyPending_=issueMonthlyPending_;
 window.issueMonthlyTransferBlockHtml=issueMonthlyTransferBlockHtml_;
 window.saveIssueToMonthlyReport=saveIssueToMonthlyReport;
-function switchDeptTab(e,t){ document.querySelectorAll('.dept-tab-content').forEach(x=>x.classList.remove('active')); document.querySelectorAll('.side-nav-dept .tab-btn').forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); e.target.classList.add('active'); if(t==='jobs')renderJobs(); if(t==='jobanalytics')renderJobAnalytics(); if(t==='report')renderReportPreview(); }
+function materialsDisplay_(s){ return String(s||'').trim(); }
+function loadFieldReports(force){
+  var spin=document.getElementById('fieldReportsRefreshIcon');
+  if(spin) spin.classList.add('spinning');
+  var host=document.getElementById('fieldReportsTable');
+  if(host && (force || !allFieldReports.length)) host.innerHTML=LOADING_HTML;
+  fetchJSONRetry({action:'getCivilWorkerReports',token:tok()}, 2, 45000)
+    .then(function(d){
+      if(Array.isArray(d)){ allFieldReports=d; renderFieldReports(); }
+      else if(d&&d.ok===false){ forceSessionLogout(d); }
+      else if(host){ host.innerHTML='<p style="color:var(--c-error);">⚠️ Could not load field reports — redeploy Apps Script, then refresh.</p>'; }
+    })
+    .catch(function(e){ if(host) host.innerHTML='<p style="color:var(--c-error);">❌ Error: '+e.message+'</p>'; })
+    .finally(function(){ if(spin) spin.classList.remove('spinning'); });
+}
+function fieldReportRef_(r) {
+  var n = Number(r && r.num);
+  if (n > 0) return 'R#' + n;
+  return 'R#—';
+}
+function jobRef_(r) {
+  var n = Number(r && r.num);
+  if (n > 0) return 'J#' + n;
+  return 'J#—';
+}
+function buildJobMonthIndexMap_(jobs) {
+  var byMonth = {};
+  (jobs || []).forEach(function (r) {
+    var m = monthOf(r);
+    if (!m) return;
+    if (!byMonth[m]) byMonth[m] = [];
+    byMonth[m].push(r);
+  });
+  var map = {};
+  Object.keys(byMonth).forEach(function (m) {
+    byMonth[m].sort(function (a, b) {
+      var da = String(a.date || ''), db = String(b.date || '');
+      if (da !== db) return da.localeCompare(db);
+      return String(a.createdAt || a.id || '').localeCompare(String(b.createdAt || b.id || ''));
+    });
+    byMonth[m].forEach(function (r, i) {
+      map[String(r.id)] = i + 1;
+    });
+  });
+  return map;
+}
+function jobMonthIndex_(r, map) {
+  if (!r) return '';
+  map = map || buildJobMonthIndexMap_(allJobs);
+  return map[String(r.id)] || '';
+}
+function fieldReportType_(r) {
+  if (r && r.reportType === 'refundable') return 'refundable';
+  if (r && r.reportType === 'maintenance') return 'maintenance';
+  var amt = parseFloat(r && r.amount);
+  return (!isNaN(amt) && amt > 0) ? 'refundable' : 'maintenance';
+}
+function fieldReportJobPhotos_(r) {
+  if (r && r.photos && r.photos.length) return r.photos.slice();
+  var raw = String((r && r.photo) || '').trim();
+  if (!raw) return [];
+  if (raw.charAt(0) === '[') {
+    try {
+      var arr = JSON.parse(raw);
+      if (Array.isArray(arr)) return arr.filter(function (u) { return String(u || '').trim(); });
+    } catch (e) {}
+  }
+  if (raw.indexOf('|') !== -1) {
+    return raw.split('|').map(function (p) { return String(p || '').trim(); }).filter(Boolean);
+  }
+  return [raw];
+}
+function fieldReportJobPhotosHtml_(photos, label) {
+  if (!photos || !photos.length) return '';
+  var h = '<div class="field-report-modal-section field-report-modal-photo-wrap">';
+  h += '<span class="field-report-modal-label">' + _esc(label || 'Job photos') + '</span>';
+  if (photos.length === 1) {
+    h += '<div class="field-report-modal-photo-frame">';
+    h += '<img class="field-report-modal-photo" src="' + photos[0] + '" onclick="bigImg(this.src)" alt="Report photo">';
+    h += '</div>';
+  } else {
+    h += '<div class="field-report-modal-photo-grid">';
+    photos.forEach(function (url, i) {
+      h += '<div class="field-report-modal-photo-frame"><img class="field-report-modal-photo" src="' + url + '" onclick="bigImg(this.src)" alt="Report photo ' + (i + 1) + '"></div>';
+    });
+    h += '</div>';
+  }
+  h += '</div>';
+  return h;
+}
+function fieldReportNeedsInvoice_(r) {
+  return fieldReportType_(r) === 'refundable' && fieldReportIsPending_(r) && !String(r.invoicePhoto || '').trim();
+}
+function fieldReportTypeBadge_(r) {
+  return fieldReportType_(r) === 'refundable'
+    ? '<span class="badge refundable">Refundable</span>'
+    : '<span class="badge maintenance">Maintenance</span>';
+}
+function fieldReportAmountLabel_(r) {
+  var amt = parseFloat(r && r.amount);
+  if (isNaN(amt) || amt <= 0) return '';
+  return fmtMoney(amt) + ' IQD';
+}
+function fieldReportParseAmount_(raw) {
+  if (raw == null || raw === '') return 0;
+  var digits = String(raw).replace(/\D/g, '');
+  if (!digits) return 0;
+  var n = parseInt(digits, 10);
+  return isNaN(n) || n <= 0 ? 0 : n;
+}
+function fieldReportFormatAmountDigits_(digits) {
+  digits = String(digits || '').replace(/\D/g, '');
+  if (!digits) return '';
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+function fieldReportAmountInputValue_(r) {
+  var amt = parseFloat(r && r.amount);
+  if (isNaN(amt) || amt <= 0) return '';
+  return fieldReportFormatAmountDigits_(Math.round(amt));
+}
+function fieldReportHandleAmountInput_(e) {
+  var el = (e && e.target) ? e.target : document.getElementById('frEditAmount');
+  if (!el) return;
+  var digits = String(el.value || '').replace(/\D/g, '');
+  var formatted = fieldReportFormatAmountDigits_(digits);
+  if (el.value !== formatted) el.value = formatted;
+}
+function fieldReportIsPending_(r) {
+  return String((r && r.status) || 'pending').toLowerCase() !== 'transferred';
+}
+function fieldReportStatusBadge_(r) {
+  if (fieldReportIsPending_(r)) return '<span class="badge open">Pending review</span>';
+  return '<span class="badge general">Transferred</span>';
+}
+function fieldReportMonthLabel_(r) {
+  var m = (r && (r.reportMonth || monthOf(r))) || '';
+  if (!m) return '';
+  var names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var yr = parseInt(m.slice(0, 4), 10);
+  var mo = parseInt(m.slice(5, 7), 10);
+  var prevMo = mo - 1, prevYr = yr;
+  if (prevMo < 1) { prevMo = 12; prevYr -= 1; }
+  return names[mo - 1] + ' ' + yr + ' (26 ' + names[prevMo - 1] + ' – 25 ' + names[mo - 1] + ')';
+}
+function fieldReportFilteredRows_() {
+  var fd = document.getElementById('fr-date') ? document.getElementById('fr-date').value : '';
+  var fq = (document.getElementById('fr-search') ? document.getElementById('fr-search').value : '').toLowerCase();
+  var showDone = document.getElementById('fr-show-transferred') && document.getElementById('fr-show-transferred').checked;
+  return allFieldReports.filter(function(r) {
+    if (!showDone && !fieldReportIsPending_(r)) return false;
+    if (fd && String(r.date || '') !== fd) return false;
+    if (fq) {
+      var hay = (String(r.workerName || '') + ' ' + String(r.reportedBy || '') + ' ' + String(r.place || '') + ' ' + String(r.note || '') + ' ' + String(r.editedNote || '') + ' ' + String(r.amount || '')).toLowerCase();
+      if (hay.indexOf(fq) === -1) return false;
+    }
+    return true;
+  });
+}
+function fieldReportPendingQueue_() {
+  return fieldReportFilteredRows_().filter(fieldReportIsPending_);
+}
+function fieldReportActionBtns_(r) {
+  var h = '<div class="field-report-actions" onclick="event.stopPropagation()">';
+  if (fieldReportIsPending_(r) && PERMS().edit !== false) {
+    h += '<button type="button" class="act-btn field-report-review-btn" onclick="openFieldReportEditor(\'' + String(r.id || '').replace(/'/g, "\\'") + '\')">Review</button>';
+  }
+  if (PERMS().del !== false) {
+    h += '<button type="button" class="act-btn" onclick="deleteFieldReport(\'' + String(r.id || '').replace(/'/g, "\\'") + '\')" style="color:#fff;background:#C5504F;border-color:#C5504F;" title="Delete">Delete</button>';
+  }
+  h += '</div>';
+  return h;
+}
+function fieldReportVoiceBadge_(note) {
+  if (!note || !note.url) return '';
+  var dur = (note.durationSec && typeof assignVoiceFormatSec === 'function')
+    ? assignVoiceFormatSec(note.durationSec) : '';
+  return '<div class="field-report-voice-badge">Voice note' + (dur ? (' · ' + dur) : '') + '</div>';
+}
+function fieldReportModalVoiceHtml_(note) {
+  if (!note || !note.url) return '';
+  var player = (typeof assignVoiceInlinePlayerHtml_ === 'function')
+    ? assignVoiceInlinePlayerHtml_(note.url, note.durationSec || 0)
+    : ((typeof assignVoiceNoteDisplayHtml === 'function') ? assignVoiceNoteDisplayHtml(note) : '');
+  if (!player) return '';
+  var meta = [];
+  if (note.by) meta.push(note.by);
+  if (note.at && typeof dateOnly === 'function') meta.push(dateOnly(note.at));
+  else if (note.at) meta.push(String(note.at).slice(0, 10));
+  if (note.durationSec && typeof assignVoiceFormatSec === 'function') meta.push(assignVoiceFormatSec(note.durationSec));
+  var h = '<div class="field-report-modal-section field-report-modal-voice">';
+  h += '<span class="field-report-modal-label">Voice note</span>';
+  if (meta.length) h += '<span class="field-report-modal-voice-meta">' + _esc(meta.join(' · ')) + '</span>';
+  h += player;
+  h += '</div>';
+  return h;
+}
+function renderFieldReports(){
+  var host=document.getElementById('fieldReportsTable');
+  if(!host) return;
+  var rows=fieldReportFilteredRows_();
+  var pendingAll=allFieldReports.filter(fieldReportIsPending_).length;
+  if(!rows.length){
+    host.innerHTML='<p style="color:var(--text-faint);">'+(pendingAll?'No field reports match your filters.':'All field reports have been transferred to monthly reports.')+'</p>';
+    return;
+  }
+  var h='<p style="color:var(--text-soft);margin-bottom:8px;">'+rows.length+' shown'+(pendingAll?(' · <strong>'+pendingAll+'</strong> pending review'):'')+'</p>';
+  if(pendingAll>0 && PERMS().edit!==false){
+    h+='<p style="margin:0 0 12px;"><button type="button" class="act-btn field-report-start-btn" onclick="openFieldReportEditor(fieldReportPendingQueue_()[0].id)">Start review ('+pendingAll+')</button></p>';
+  }
+  h+='<div class="issue-grid field-reports-grid">';
+  rows.forEach(function(r){
+    var who=r.workerName||r.reportedBy||'Worker';
+    var ref=fieldReportRef_(r);
+    var jobPhotos = fieldReportJobPhotos_(r);
+    var photoHtml = jobPhotos.length
+      ? ('<div class="field-report-card-photo-wrap"><img class="issue-card-photo" src="'+jobPhotos[0]+'" loading="lazy" alt="" onclick="event.stopPropagation();bigImg(this.src)">'
+        + (jobPhotos.length > 1 ? ('<span class="field-report-card-photo-count">+' + (jobPhotos.length - 1) + '</span>') : '')
+        + '</div>')
+      : '<div class="issue-card-photo issue-card-nophoto">No photo</div>';
+    var voice=fieldReportIsPending_(r)?fieldReportVoiceBadge_(r.voiceNote):'';
+    var cardClass='issue-card field-report-card'+(fieldReportIsPending_(r)?'':' field-report-card-done');
+    h+='<div class="'+cardClass+'" data-id="'+_esc(String(r.id||''))+'" onclick="openFieldReportCard(\''+String(r.id||'').replace(/'/g,"\\'")+'\')">';
+    h+=photoHtml;
+    h+='<div class="issue-card-body">';
+    h+='<div class="field-report-top"><span class="field-report-ref">'+ref+'</span>'+fieldReportTypeBadge_(r)+'</div>';
+    h+='<div class="field-report-top" style="margin-top:-2px;margin-bottom:4px;">'+fieldReportStatusBadge_(r)+'<span class="field-report-date">'+_esc(r.date||'')+'</span></div>';
+    h+='<div class="field-report-title">'+_esc(who)+'</div>';
+    if(fieldReportAmountLabel_(r)) h+='<div class="field-report-amount">'+fieldReportAmountLabel_(r)+'</div>';
+    if(fieldReportNeedsInvoice_(r)) h+='<div class="field-report-invoice-missing">Invoice photo missing</div>';
+    if(r.place) h+='<div class="field-report-loc">'+_esc(r.place)+'</div>';
+    h+='<div class="field-report-note">'+_esc(fieldReportIsPending_(r)?(r.note||''):(r.editedNote||r.note||''))+'</div>';
+    if(!fieldReportIsPending_(r) && r.reportMonth) h+='<div class="field-report-date">Month: '+_esc(fieldReportMonthLabel_(r))+'</div>';
+    h+=voice;
+    h+=fieldReportActionBtns_(r);
+    h+='</div></div>';
+  });
+  h+='</div>';
+  host.innerHTML=h;
+}
+function openFieldReportCard(id){
+  var r=allFieldReports.find(function(x){ return String(x.id)===String(id); });
+  if(!r) return;
+  if(fieldReportIsPending_(r) && PERMS().edit!==false) openFieldReportEditor(id);
+  else openFieldReportView(id);
+}
+function deleteFieldReport(id){
+  if(PERMS().del===false){ alert('You do not have permission to delete.'); return; }
+  uiConfirm('Delete this field report? It will leave the worker phone list and move to the Recycle Bin.').then(function(ok){
+    if(!ok) return;
+    fetchJSONRetry({action:'deleteCivilWorkerReport',id:id,token:tok()},1,30000)
+      .then(function(d){
+        if(d&&d.ok===false){
+          if(typeof forceSessionLogout==='function'&&forceSessionLogout(d)) return;
+          throw new Error(d.message||d.error||'Delete failed');
+        }
+        allFieldReports=allFieldReports.filter(function(r){ return String(r.id)!==String(id); });
+        renderFieldReports();
+      })
+      .catch(function(e){ alert('❌ '+String((e&&e.message)||e||'Delete failed')); });
+  });
+}
+function openFieldReportEditor(id){
+  var r=allFieldReports.find(function(x){ return String(x.id)===String(id); });
+  if(!r || !fieldReportIsPending_(r)) return;
+  if(PERMS().edit===false){ alert('You do not have permission to review field reports.'); return; }
+  _fieldReportEditingId=String(id);
+  var body=document.getElementById('fieldReportModalBody');
+  if(!body) return;
+  var who=r.workerName||r.reportedBy||'Worker';
+  var queue=fieldReportPendingQueue_();
+  var pos=queue.findIndex(function(x){ return String(x.id)===String(id); });
+  var jobPhotos = fieldReportJobPhotos_(r);
+  var hasPhoto = jobPhotos.length > 0;
+  var hasInvoice=!!r.invoicePhoto;
+  var hasVoice=!!(r.voiceNote&&r.voiceNote.url);
+  var h='<div class="field-report-modal field-report-editor">';
+  h+='<span class="close-x" onclick="closeFieldReportModal()" aria-label="Close">&times;</span>';
+  h+='<div class="field-report-modal-head"><span class="field-report-ref">'+fieldReportRef_(r)+'</span>'+fieldReportTypeBadge_(r)+'</div>';
+  h+='<p class="field-report-modal-worker">'+_esc(who)+'</p>';
+  if(queue.length>1) h+='<p class="field-report-queue-hint">Pending report '+(pos+1)+' of '+queue.length+'</p>';
+  h+='<div class="field-report-month-target"><span class="field-report-modal-label">Monthly report</span><strong>'+_esc(fieldReportMonthLabel_(r))+'</strong><span class="field-report-month-note">Billing month runs 26th to 25th</span></div>';
+  h+='<div class="field-report-editor-grid">';
+  h+='<div class="field-report-editor-main">';
+  h+='<label class="field-report-modal-label" for="frEditPlace">Place / location</label>';
+  h+='<input type="text" id="frEditPlace" class="field-report-editor-place" value="'+_esc(r.place||'')+'" placeholder="Where? e.g. WW-12 corridor, ES-4 parking…">';
+  h+='<p class="field-report-editor-hint">Saved to the Location column in the monthly report.</p>';
+  h+='<div class="field-report-modal-row"><span class="field-report-modal-label">Date</span><span class="field-report-modal-value">'+_esc(r.date||'')+'</span></div>';
+  if(fieldReportType_(r)==='refundable'){
+    h+='<label class="field-report-modal-label" for="frEditAmount">Amount (IQD)</label>';
+    h+='<input type="text" id="frEditAmount" class="field-report-editor-amount" value="'+_esc(fieldReportAmountInputValue_(r))+'" placeholder="e.g. 25,000" inputmode="numeric" autocomplete="off">';
+    h+='<p class="field-report-editor-hint">Required for refundable work. Saved to the Amount column in the monthly report.</p>';
+  } else if(fieldReportAmountLabel_(r)){
+    h+='<div class="field-report-modal-row"><span class="field-report-modal-label">Amount</span><span class="field-report-modal-value field-report-modal-amount">'+fieldReportAmountLabel_(r)+'</span></div>';
+  }
+  h+='<label class="field-report-modal-label" for="frEditNote">Job description (edit note)</label>';
+  h+='<textarea id="frEditNote" class="field-report-editor-note" rows="4">'+_esc(r.note||'')+'</textarea>';
+  h+='<p class="field-report-editor-hint">This text becomes the job line in the monthly report. Voice notes are not copied.</p>';
+  h+='<label class="field-report-modal-label" for="frEditMaterials" style="margin-top:14px;display:block;">Materials / quantity</label>';
+  h+='<textarea id="frEditMaterials" class="field-report-editor-materials" rows="5" placeholder="e.g. 2 × Main Sensor 40a, 3 × Cable Single 2x2.5">'+_esc(materialsDisplay_(r.materials))+'</textarea>';
+  h+='<p class="field-report-editor-hint">Separate each material with a comma, e.g. <strong>2 × Main Sensor 40a, 3 × Cable Single 2x2.5</strong>. Saved to Jobs and counted in Analytics.</p>';
+  h+='</div>';
+  if(hasPhoto || hasInvoice || hasVoice || fieldReportType_(r)==='refundable'){
+    h+='<div class="field-report-editor-side">';
+    if(hasPhoto){
+      h+=fieldReportJobPhotosHtml_(jobPhotos, 'Job photos');
+    }
+    if(fieldReportType_(r)==='refundable'){
+      h+='<div class="field-report-modal-section field-report-modal-photo-wrap">';
+      h+='<span class="field-report-modal-label">Invoice photo</span>';
+      if(hasInvoice){
+        h+='<div class="field-report-modal-photo-frame">';
+        h+='<img class="field-report-modal-photo" src="'+r.invoicePhoto+'" onclick="bigImg(this.src)" alt="Invoice photo">';
+        h+='</div>';
+      } else {
+        h+='<p class="field-report-invoice-missing-note">Worker has not added the invoice photo yet.</p>';
+      }
+      h+='</div>';
+    }
+    if(hasVoice){
+      h+='<div class="field-report-modal-section field-report-modal-voice field-report-voice-review">';
+      h+='<span class="field-report-modal-label">Voice note (review only)</span>';
+      h+='<p class="field-report-voice-skip-note">Not added to the monthly report.</p>';
+      h+=fieldReportModalVoiceHtml_(r.voiceNote);
+      h+='</div>';
+    }
+    h+='</div>';
+  }
+  h+='</div>';
+  h+='<div class="field-report-editor-actions">';
+  h+='<button type="button" id="frTransferBtn" class="field-report-save-btn" onclick="transferFieldReport_(false)">Save to monthly report</button>';
+  if(queue.length>1) h+='<button type="button" id="frTransferNextBtn" class="field-report-save-next-btn" onclick="transferFieldReport_(true)">Save &amp; next</button>';
+  h+='<button type="button" class="field-report-cancel-btn" onclick="closeFieldReportModal()">Cancel</button>';
+  h+='</div></div>';
+  body.innerHTML=h;
+  if(typeof assignVoiceBindPlayers==='function') assignVoiceBindPlayers(body);
+  if(typeof empireMaterialsPickerMount==='function') empireMaterialsPickerMount('frEditMaterials', { autoOpen: true });
+  var amtEl=document.getElementById('frEditAmount');
+  if(amtEl) amtEl.addEventListener('input', fieldReportHandleAmountInput_);
+  document.getElementById('fieldReportModal').classList.add('show');
+  var noteEl=document.getElementById('frEditNote');
+  if(noteEl) noteEl.focus();
+}
+function openFieldReportView(id){
+  var r=allFieldReports.find(function(x){ return String(x.id)===String(id); });
+  if(!r) return;
+  _fieldReportEditingId='';
+  var who=r.workerName||r.reportedBy||'Worker';
+  var body=document.getElementById('fieldReportModalBody');
+  if(!body) return;
+  var jobPhotos = fieldReportJobPhotos_(r);
+  var hasPhoto = jobPhotos.length > 0;
+  var hasInvoice=!!r.invoicePhoto;
+  var hasVoice=!!(r.voiceNote&&r.voiceNote.url);
+  var hasMedia=hasPhoto||hasInvoice||hasVoice||fieldReportType_(r)==='refundable';
+  var noteText=fieldReportIsPending_(r)?(r.note||''):(r.editedNote||r.note||'');
+  var h='<div class="field-report-modal">';
+  h+='<span class="close-x" onclick="closeFieldReportModal()" aria-label="Close">&times;</span>';
+  h+='<div class="field-report-modal-head"><span class="field-report-ref">'+fieldReportRef_(r)+'</span>'+fieldReportStatusBadge_(r)+'</div>';
+  h+='<p class="field-report-modal-worker">'+_esc(who)+'</p>';
+  if(PERMS().del!==false){
+    h+='<p style="margin:0 0 12px;"><button type="button" class="act-btn" onclick="deleteFieldReport(\''+String(r.id||'').replace(/'/g,"\\'")+'\');closeFieldReportModal();" style="color:#fff;background:#C5504F;border-color:#C5504F;">Delete report</button></p>';
+  }
+  h+='<div class="field-report-modal-body'+(hasMedia?' has-media':'')+'">';
+  h+='<div class="field-report-modal-main">';
+  h+='<div class="field-report-modal-meta">';
+  h+='<div class="field-report-modal-row"><span class="field-report-modal-label">Type</span><span class="field-report-modal-value">'+_esc(fieldReportType_(r)==='refundable'?'Refundable':'Maintenance')+'</span></div>';
+  if(fieldReportAmountLabel_(r)) h+='<div class="field-report-modal-row"><span class="field-report-modal-label">Amount</span><span class="field-report-modal-value field-report-modal-amount">'+fieldReportAmountLabel_(r)+'</span></div>';
+  if(r.place) h+='<div class="field-report-modal-row"><span class="field-report-modal-label">Place</span><span class="field-report-modal-value">'+_esc(r.place)+'</span></div>';
+  if(noteText) h+='<div class="field-report-modal-row"><span class="field-report-modal-label">'+(fieldReportIsPending_(r)?'Note':'Saved job text')+'</span><span class="field-report-modal-value">'+_esc(noteText)+'</span></div>';
+  if(r.materials) h+='<div class="field-report-modal-row"><span class="field-report-modal-label">Materials</span><span class="field-report-modal-value">'+_esc(materialsDisplay_(r.materials))+'</span></div>';
+  h+='<div class="field-report-modal-row"><span class="field-report-modal-label">Date</span><span class="field-report-modal-value">'+_esc(r.date||'')+'</span></div>';
+  if(!fieldReportIsPending_(r) && r.reportMonth) h+='<div class="field-report-modal-row"><span class="field-report-modal-label">Monthly report</span><span class="field-report-modal-value">'+_esc(fieldReportMonthLabel_(r))+'</span></div>';
+  h+='</div></div>';
+  if(hasMedia){
+    h+='<div class="field-report-modal-side">';
+    if(hasPhoto){
+      h+=fieldReportJobPhotosHtml_(jobPhotos, 'Job photos');
+      h+='<p class="field-report-modal-photo-hint">Tap photo to enlarge</p>';
+    }
+    if(fieldReportType_(r)==='refundable'){
+      h+='<div class="field-report-modal-section field-report-modal-photo-wrap">';
+      h+='<span class="field-report-modal-label">Invoice photo</span>';
+      if(hasInvoice){
+        h+='<div class="field-report-modal-photo-frame">';
+        h+='<img class="field-report-modal-photo" src="'+r.invoicePhoto+'" onclick="bigImg(this.src)" alt="Invoice photo">';
+        h+='</div><p class="field-report-modal-photo-hint">Tap photo to enlarge</p>';
+      } else {
+        h+='<p class="field-report-invoice-missing-note">Invoice photo not added yet.</p>';
+      }
+      h+='</div>';
+    }
+    if(hasVoice) h+=fieldReportModalVoiceHtml_(r.voiceNote);
+    h+='</div>';
+  }
+  h+='</div></div>';
+  body.innerHTML=h;
+  if(typeof assignVoiceBindPlayers==='function') assignVoiceBindPlayers(body);
+  document.getElementById('fieldReportModal').classList.add('show');
+}
+function fieldReportApplyTransfer_(id, note, resp, materials, place, amount) {
+  var now = new Date().toISOString();
+  var user = currentUser() || '';
+  var idx = allFieldReports.findIndex(function(r) { return String(r.id) === String(id); });
+  if (idx >= 0) {
+    allFieldReports[idx] = Object.assign({}, allFieldReports[idx], {
+      status: 'transferred',
+      editedNote: note,
+      place: place != null ? place : (allFieldReports[idx].place || ''),
+      materials: materials || allFieldReports[idx].materials || '',
+      amount: amount > 0 ? amount : ((resp && resp.job && resp.job.amount) || allFieldReports[idx].amount || ''),
+      transferredJobId: (resp && resp.jobId) || '',
+      transferredAt: now,
+      transferredBy: user
+    });
+  }
+  if (resp && resp.job) {
+    allJobs.push(resp.job);
+    writeJobsCache(allJobs);
+  } else {
+    loadJobs();
+  }
+  renderFieldReports();
+  renderJobs();
+  renderJobAnalytics();
+  renderReportPreview();
+}
+function transferFieldReport_(openNext){
+  if(_fieldReportTransferring) return;
+  var id=_fieldReportEditingId;
+  if(!id) return;
+  var r=allFieldReports.find(function(x){ return String(x.id)===String(id); });
+  var noteEl=document.getElementById('frEditNote');
+  var materialsEl=document.getElementById('frEditMaterials');
+  var placeEl=document.getElementById('frEditPlace');
+  var amountEl=document.getElementById('frEditAmount');
+  var note=noteEl?String(noteEl.value||'').trim():'';
+  var materials=materialsEl?materialsDisplay_(materialsEl.value):'';
+  var place=placeEl?String(placeEl.value||'').trim():'';
+  var amount=amountEl?fieldReportParseAmount_(amountEl.value):0;
+  if(!note){ alert('Please enter the job description before saving.'); if(noteEl) noteEl.focus(); return; }
+  if(r && fieldReportType_(r)==='refundable' && amount<=0){
+    alert('Please enter the refundable amount (IQD) before saving.');
+    if(amountEl) amountEl.focus();
+    return;
+  }
+  _fieldReportTransferring=true;
+  var btn=document.getElementById('frTransferBtn');
+  var btnNext=document.getElementById('frTransferNextBtn');
+  var btnLabels=btn?[btn.textContent,'']:['',''];
+  var nextLabels=btnNext?[btnNext.textContent,'']:['',''];
+  if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
+  if(btnNext){ btnNext.disabled=true; btnNext.textContent='Saving…'; }
+  fetchJSONRetry({action:'transferCivilWorkerReport',id:id,note:note,materials:materials,place:place,amount:amount||'',token:tok()},1,30000)
+    .then(function(d){
+      if(d&&d.ok===false){
+        if(typeof forceSessionLogout==='function'&&forceSessionLogout(d)) return;
+        throw new Error(d.message||d.error||'Could not save report');
+      }
+      if(!d||(!d.ok&&!d.success)) throw new Error('Unexpected server response');
+      fieldReportApplyTransfer_(id, note, d, materials, place, amount);
+      closeFieldReportModal();
+      if(openNext){
+        var queue=fieldReportPendingQueue_();
+        if(queue.length){ openFieldReportEditor(queue[0].id); return; }
+      }
+      alert('Saved to monthly report'+(d.reportMonth?(' · '+fieldReportMonthLabel_({reportMonth:d.reportMonth})):'.'));
+    })
+    .catch(function(e){ alert('❌ '+String((e&&e.message)||e||'Failed')); })
+    .finally(function(){
+      _fieldReportTransferring=false;
+      if(btn){ btn.disabled=false; btn.textContent=btnLabels[0]||'Save to monthly report'; }
+      if(btnNext){ btnNext.disabled=false; btnNext.textContent=nextLabels[0]||'Save & next'; }
+    });
+}
+function closeFieldReportModal(){
+  _fieldReportEditingId='';
+  var m=document.getElementById('fieldReportModal');
+  if(m) m.classList.remove('show');
+}
+function switchDeptTab(e,t){ document.querySelectorAll('.dept-tab-content').forEach(x=>x.classList.remove('active')); document.querySelectorAll('.side-nav-dept .tab-btn').forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); e.target.classList.add('active'); if(t==='jobs')renderJobs(); if(t==='jobanalytics')renderJobAnalytics(); if(t==='report')renderReportPreview(); if(t==='fieldreports'){ loadFieldReports(); renderFieldReports(); } }
 function switchDeptTabTo(t){ document.querySelectorAll('.dept-tab-content').forEach(x=>x.classList.remove('active')); document.querySelectorAll('.side-nav-dept .tab-btn').forEach(x=>x.classList.remove('active')); document.getElementById(t).classList.add('active'); document.querySelectorAll('.side-nav-dept .tab-btn').forEach(b=>{ if(b.getAttribute('onclick')&&b.getAttribute('onclick').indexOf("'"+t+"'")!==-1)b.classList.add('active'); }); }
 function bigImg(src){ document.getElementById('imgBig').src=src; document.getElementById('imgModal').classList.add('show'); }
 function closeImg(){ document.getElementById('imgModal').classList.remove('show'); }
@@ -696,7 +1213,8 @@ function openResetModal(){
 function closeResetModal(){ document.getElementById('resetModal').style.display='none'; _resetTarget=''; }
 var _resetTarget='';
 var _resetTargetMeta={
-  jobs:{title:'Reset Jobs',desc:'Permanently deletes <strong>all civil jobs</strong>. Issues are not affected.',action:'clearCivilJobs',payload:{},success:'All civil jobs deleted.',after:function(){ allJobs=[]; renderJobs(); renderJobAnalytics(); renderReportPreview(); }},
+  jobs:{title:'Reset Jobs',desc:'Permanently deletes <strong>all civil jobs</strong>. Field reports and issues are not affected.',action:'clearCivilJobs',payload:{target:'jobs'},success:'All civil jobs deleted.',after:function(){ allJobs=[]; renderJobs(); renderJobAnalytics(); renderReportPreview(); }},
+  fieldReports:{title:'Reset Field Reports',desc:'Permanently deletes <strong>all worker field reports</strong> (including what workers see under &ldquo;Your recent reports&rdquo; on their phones). Jobs and issues are not affected.',action:'clearCivilJobs',payload:{target:'fieldReports'},success:'All field reports deleted.',after:function(){ allFieldReports=[]; renderFieldReports(); }},
   issues:{title:'Reset Issues',desc:'Permanently deletes <strong>all civil issues</strong> — reports, photos and fixed history. Jobs are not affected.',action:'clearCivilIssues',payload:{},success:'All civil issues deleted.',after:function(){ if(window.loadIssues) loadIssues(true); }}
 };
 function selectResetTarget(key){
@@ -761,6 +1279,10 @@ function doReset(){
           <strong>Reset Jobs</strong>
           <span>All civil maintenance jobs</span>
         </button>
+        <button type="button" class="reset-choice-btn" onclick="selectResetTarget('fieldReports')">
+          <strong>Reset Field Reports</strong>
+          <span>All worker mobile field reports</span>
+        </button>
         <button type="button" class="reset-choice-btn" onclick="selectResetTarget('issues')">
           <strong>Reset Issues</strong>
           <span>All civil issues and fix history</span>
@@ -800,7 +1322,7 @@ function doReset(){
 </div>
 <script>
 (function(){
-  var RB_DEPT='civil department', RB_SHEETS=['CivilJobs','CivilIssues'], RB_TOKKEY='civdept_token', RB_RELOAD='refreshAllData';
+  var RB_DEPT='civil department', RB_SHEETS=['CivilJobs','CivilWorkerReports','CivilIssues'], RB_TOKKEY='civdept_token', RB_RELOAD='refreshAllData';
   function RBTOK(){ return empireGetToken(); }
   function rbReload(){ try{ if(typeof window[RB_RELOAD]==='function') window[RB_RELOAD](true); else { loadJobs(); if(window.loadIssues) loadIssues(true); } }catch(e){} }
   window.rbOpen=function(){ document.getElementById('rbModal').style.display='flex'; window.rbLoad(); };
@@ -881,7 +1403,7 @@ function doReset(){
     if(p.liveLocation===false) showTab('tabBtnGps', false);
   };
   window.enterApp = function(){ enterDeptApp(); if(window.issueEnterApp) window.issueEnterApp(); };
-  window.refreshAllData = function(forceIssues){ loadJobs(); if(window.loadIssues) window.loadIssues(forceIssues!==false); };
+  window.refreshAllData = function(forceIssues){ loadJobs(); loadFieldReports(); if(window.loadIssues) window.loadIssues(forceIssues!==false); };
   var deptSwitch = switchDeptTab, deptSwitchTo = switchDeptTabTo, issueSwitch = switchTab, issueSwitchTo = switchTabTo;
   function clearIssueTabs(){ document.querySelectorAll('#issueMain .issue-tab-content').forEach(function(x){ x.classList.remove('active'); }); document.querySelectorAll('.side-nav-issue .tab-btn').forEach(function(x){ x.classList.remove('active'); }); if(typeof stopEngineerLocationPoll==='function') stopEngineerLocationPoll(); }
   function clearDeptTabs(){ document.querySelectorAll('.dept-tab-content').forEach(function(x){ x.classList.remove('active'); }); document.querySelectorAll('.side-nav-dept .tab-btn').forEach(function(x){ x.classList.remove('active'); }); }

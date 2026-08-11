@@ -13,6 +13,7 @@ var HSE_SHEET = 'HseInspections';
 var ELECTRICAL_JOBS_SHEET = 'ElectricalJobs';
 var ELECTRICAL_SUMMARY_SHEET = 'ElectricalSummary';
 var ELECTRIC_WORKER_REPORTS_SHEET = 'ElectricWorkerReports';
+var CIVIL_WORKER_REPORTS_SHEET = 'CivilWorkerReports';
 var ASAAS_SHEET = 'AsaasItems';
 var APPLICATION_CHECKS_SHEET = 'ApplicationChecks';
 var APPLICATION_CHECK_HISTORY_SHEET = 'ApplicationCheckHistory';
@@ -32,7 +33,7 @@ var FREEZE_READ_ACTIONS = {
   getReports:1, getTasks:1, getWeekCoverage:1, getRangeCoverage:1,
   getTaskPhotos:1, getTaskLog:1, getCivilIssues:1, getElectricIssues:1,
   getFireIssues:1, getHseInspections:1, getElectricalJobs:1,
-  getElectricalSummary:1, getElectricWorkerReports:1, getCivilJobs:1,
+  getElectricalSummary:1, getElectricWorkerReports:1, getCivilWorkerReports:1, getCivilJobs:1,
   getCivilSummary:1, getAsaasItems:1, getApplicationChecks:1,
   getApplicationCheckMeta:1, getApplicationCheckDetail:1, getTrash:1,
   getUiSettings:1, getWorkerLocations:1, saveWorkerPushToken:1,
@@ -411,7 +412,9 @@ function doPost(e) {
       'getElectricWorkerReports':'electrical department','transferElectricWorkerReport':'electrical department',
       'transferElectricIssueCompletion':'electrical department',
       'transferCivilIssueCompletion':'civil department',
+      'getCivilWorkerReports':'civil department','transferCivilWorkerReport':'civil department','deleteCivilWorkerReport':'civil department',
       'addElectricWorkerReport':'electric issue','updateElectricWorkerReportInvoice':'electric issue',
+      'addCivilWorkerReport':'civil issue','updateCivilWorkerReportInvoice':'civil issue',
       'addCivilJob':'civil department','getCivilJobs':'civil department','updateCivilJob':'civil department',
       'deleteCivilJob':'civil department','clearCivilJobs':'civil department',
       'getCivilSummary':'civil department','saveCivilSummary':'civil department',
@@ -442,7 +445,7 @@ function doPost(e) {
     } else if (action === 'getElectricWorkerReports' || action === 'transferElectricIssueCompletion') {
       auth = verifyToken(body.token, 'electrical department');
       if (!auth.ok) auth = verifyToken(body.token, 'electric issue');
-    } else if (action === 'transferCivilIssueCompletion') {
+    } else if (action === 'getCivilWorkerReports' || action === 'transferCivilWorkerReport' || action === 'transferCivilIssueCompletion') {
       auth = verifyToken(body.token, 'civil department');
       if (!auth.ok) auth = verifyToken(body.token, 'civil issue');
     } else if (electricIssueActions[action]) {
@@ -476,6 +479,14 @@ function doPost(e) {
     if (action === 'updateElectricWorkerReportInvoice') {
       if (body._authRole !== 'worker') return respond({ok:false,success:false,error:'not_allowed',message:'Only electric workers can add invoice photos.'});
       if (!isElectricWorkerId_(body.username)) return respond({ok:false,success:false,error:'not_allowed',message:'This account is not an electric field worker.'});
+    }
+    if (action === 'addCivilWorkerReport') {
+      if (body._authRole !== 'worker') return respond({ok:false,success:false,error:'not_allowed',message:'Only civil workers can submit field reports.'});
+      if (!isCivilWorkerId_(body.username)) return respond({ok:false,success:false,error:'not_allowed',message:'This account is not a civil field worker.'});
+    }
+    if (action === 'updateCivilWorkerReportInvoice') {
+      if (body._authRole !== 'worker') return respond({ok:false,success:false,error:'not_allowed',message:'Only civil workers can add invoice photos.'});
+      if (!isCivilWorkerId_(body.username)) return respond({ok:false,success:false,error:'not_allowed',message:'This account is not a civil field worker.'});
     }
     var adminOnly = {saveUiSettings:1, clearElectricalJobs:1, clearCivilJobs:1, clearCivilIssues:1, clearElectricIssues:1, clearFireIssues:1, clearHseInspections:1, clearAll:1, getTrash:1, restoreTrash:1, purgeTrash:1};
     if (adminOnly[action] && String(auth.role||'').toLowerCase()!=='admin') return respond({ok:false,success:false,error:'not_allowed',message:'Only an admin can do that.'});
@@ -547,6 +558,11 @@ function doPost(e) {
     if (action==='transferElectricWorkerReport') return respond(handleTransferElectricWorkerReport(body, auth));
     if (action==='transferElectricIssueCompletion') return respond(handleTransferElectricIssueCompletion(body, auth));
     if (action==='transferCivilIssueCompletion') return respond(handleTransferCivilIssueCompletion(body, auth));
+    if (action==='getCivilWorkerReports') return respond(handleGetCivilWorkerReports(body, auth));
+    if (action==='addCivilWorkerReport') return respond(handleAddCivilWorkerReport(body, auth));
+    if (action==='updateCivilWorkerReportInvoice') return respond(handleUpdateCivilWorkerReportInvoice(body, auth));
+    if (action==='transferCivilWorkerReport') return respond(handleTransferCivilWorkerReport(body, auth));
+    if (action==='deleteCivilWorkerReport') return respond(handleDeleteCivilWorkerReport(body, auth));
     if (action==='addCivilJob') return respond(handleAddCivilJob(body));
     if (action==='getCivilJobs') return respond(handleGetCivilJobs(body));
     if (action==='updateCivilJob') return respond(handleUpdateCivilJob(body));
@@ -787,6 +803,10 @@ function isKnownWorkerId_(id) {
 function isElectricWorkerId_(id) {
   id = normalizeWorkerId_(id);
   return !!(id && ELECTRIC_WORKER_TEAM[id]);
+}
+function isCivilWorkerId_(id) {
+  id = normalizeWorkerId_(id);
+  return !!(id && CIVIL_WORKER_TEAM[id]);
 }
 function isKnownCivilWorkerId_(id) {
   return isKnownWorkerId_(id);
@@ -3896,7 +3916,7 @@ function handleGetCivilJobs(body) {
   for (var i=1;i<rows.length;i++) {
     var dv = rows[i][1];
     var ds = (dv instanceof Date) ? Utilities.formatDate(dv, tz, 'yyyy-MM-dd') : String(dv);
-    jobs.push({id:rows[i][0],date:ds,job:rows[i][2],location:rows[i][3],materials:rows[i][4],staff:rows[i][5],type:rows[i][6],photo:rows[i][7],notes:rows[i][8],createdBy:rows[i][9],createdAt:rows[i][10],amount:rows[i][11]||''});
+    jobs.push({id:rows[i][0],date:ds,job:rows[i][2],location:rows[i][3],materials:rows[i][4],staff:rows[i][5],type:rows[i][6],photo:rows[i][7],notes:rows[i][8],createdBy:rows[i][9],createdAt:rows[i][10],amount:rows[i][11]||'',invoicePhoto:rows[i][12]||''});
   }
   return jobs;
 }
@@ -3928,10 +3948,241 @@ function handleDeleteCivilJob(body) {
 
 function handleClearCivilJobs(body) {
   if (String((body && body.resetPassword) || '') !== RESET_PASSWORD) return {ok:false,success:false,error:'bad_password'};
+  var target = String(body.target || 'all').trim().toLowerCase();
+  if (target === 'field_reports') target = 'fieldreports';
+  if (target !== 'jobs' && target !== 'fieldreports' && target !== 'all') target = 'all';
   var ss = getSS_();
-  var sheet = ss.getSheetByName(CIVIL_JOBS_SHEET);
-  if (sheet && sheet.getLastRow()>1) { var _r=sheet.getDataRange().getValues(); trashRows_(CIVIL_JOBS_SHEET,_r.slice(1),'reset',body.username); sheet.deleteRows(2,sheet.getLastRow()-1); }
-  return {ok:true,success:true};
+  if (target === 'jobs' || target === 'all') {
+    var sheet = ss.getSheetByName(CIVIL_JOBS_SHEET);
+    if (sheet && sheet.getLastRow()>1) { var _r=sheet.getDataRange().getValues(); trashRows_(CIVIL_JOBS_SHEET,_r.slice(1),'reset',body.username); sheet.deleteRows(2,sheet.getLastRow()-1); }
+  }
+  if (target === 'fieldreports' || target === 'all') {
+    var frSheet = ss.getSheetByName(CIVIL_WORKER_REPORTS_SHEET);
+    if (frSheet && frSheet.getLastRow()>1) {
+      var _fr = frSheet.getDataRange().getValues();
+      trashRows_(CIVIL_WORKER_REPORTS_SHEET, _fr.slice(1), 'reset', body.username);
+      frSheet.deleteRows(2, frSheet.getLastRow() - 1);
+    }
+  }
+  return {ok:true,success:true,target:target};
+}
+
+function ensureCivilWorkerReportsSheet_(sheet) {
+  ensureElectricWorkerReportsSheet_(sheet);
+}
+
+function handleAddCivilWorkerReport(body, auth) {
+  var place = String(body.place || body.location || '').trim();
+  var note = String(body.note || body.notes || '').trim();
+  var jobPhotos = normalizeElectricReportPhotos_(body);
+  var photo = jobPhotos.length ? formatFixedPhotosForStorage_(jobPhotos) : '';
+  var invoicePhoto = String(body.invoicePhoto || '').trim();
+  var voiceNote = body.voiceNote || null;
+  if (voiceNote && typeof voiceNote === 'object') voiceNote = formatAssignVoiceNote_(voiceNote);
+  else voiceNote = String(voiceNote || '').trim();
+  if (!place && !note && !jobPhotos.length && !voiceNote) {
+    return {ok:false,success:false,error:'empty_report',message:'Add a place, note, photo, or voice recording before submitting.'};
+  }
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(CIVIL_WORKER_REPORTS_SHEET) || ss.insertSheet(CIVIL_WORKER_REPORTS_SHEET);
+  ensureCivilWorkerReportsSheet_(sheet);
+  var tz = ss.getSpreadsheetTimeZone();
+  var now = new Date();
+  var dateStr = String(body.date || '').trim();
+  if (!dateStr) dateStr = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
+  var username = normalizeWorkerId_(auth && auth.username);
+  var workerName = String(body.workerName || body.displayName || username || '').trim();
+  var amount = parseElectricWorkerReportAmount_(body);
+  var reportType = String(body.reportType || '').trim().toLowerCase();
+  if (reportType !== 'refundable' && reportType !== 'maintenance') {
+    reportType = electricWorkerReportTypeFromAmount_(amount);
+  }
+  if (reportType === 'refundable' && !jobPhotos.length) {
+    return {ok:false,success:false,error:'missing_job_photo',message:'Refundable reports need a job photo before sending.'};
+  }
+  var materials = String(body.materials || '').trim();
+  var id = String(body.id || '') || ('cwr-' + now.getTime());
+  var rows = sheet.getDataRange().getValues();
+  if (body.id) {
+    for (var k = 1; k < rows.length; k++) {
+      if (String(rows[k][0]) === id) {
+        var existingNum = Number(rows[k][FIELD_REPORT_NUM_COL - 1] || 0);
+        return {ok:true,success:true,id:id,num:existingNum > 0 ? existingNum : null,deduped:true};
+      }
+    }
+  }
+  var num = nextFieldReportNum_(sheet);
+  sheet.appendRow([
+    id, dateStr, place, note, photo, voiceNote, username, workerName, now.toISOString(),
+    amount || '', reportType, 'pending', '', '', '', '', materials, invoicePhoto, num
+  ]);
+  return {ok:true,success:true,id:id,num:num};
+}
+
+function handleUpdateCivilWorkerReportInvoice(body, auth) {
+  var id = String(body.id || '').trim();
+  var invoicePhoto = String(body.invoicePhoto || '').trim();
+  if (!id) return {ok:false,success:false,error:'missing_id',message:'Report id is required.'};
+  if (!invoicePhoto) return {ok:false,success:false,error:'missing_invoice',message:'Choose an invoice photo before saving.'};
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(CIVIL_WORKER_REPORTS_SHEET);
+  if (!sheet || sheet.getLastRow() < 2) return {ok:false,success:false,error:'not_found',message:'Report not found.'};
+  ensureCivilWorkerReportsSheet_(sheet);
+  var found = findElectricWorkerReportRow_(sheet, id);
+  if (!found) return {ok:false,success:false,error:'not_found',message:'Report not found.'};
+  var row = found.row;
+  var reportedBy = normalizeWorkerId_(row[6]);
+  var workerUser = normalizeWorkerId_(auth && auth.username);
+  if (reportedBy !== workerUser) {
+    return {ok:false,success:false,error:'not_allowed',message:'You can only add an invoice photo to your own report.'};
+  }
+  var amountNum = parseFloat(row[9]);
+  if (isNaN(amountNum) || amountNum < 0) amountNum = 0;
+  var reportType = String(row[10] || '').trim().toLowerCase();
+  if (reportType !== 'refundable' && reportType !== 'maintenance') {
+    reportType = electricWorkerReportTypeFromAmount_(amountNum);
+  }
+  if (reportType !== 'refundable') {
+    return {ok:false,success:false,error:'not_refundable',message:'Invoice photos are only for refundable reports.'};
+  }
+  var status = String(row[11] || 'pending').trim().toLowerCase();
+  if (status === 'transferred') {
+    return {ok:false,success:false,error:'already_transferred',message:'This report was already added to the monthly report.'};
+  }
+  sheet.getRange(found.rowIdx, 18).setValue(invoicePhoto);
+  return {ok:true,success:true,id:id,invoicePhoto:invoicePhoto};
+}
+
+function handleGetCivilWorkerReports(body, auth) {
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(CIVIL_WORKER_REPORTS_SHEET);
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  ensureCivilWorkerReportsSheet_(sheet);
+  var tz = ss.getSpreadsheetTimeZone();
+  var rows = sheet.getDataRange().getValues();
+  ensureFieldReportNums_(sheet, rows);
+  var workerOnly = auth && String(auth.role || '').toLowerCase() === 'worker';
+  var workerUser = workerOnly ? normalizeWorkerId_(auth.username) : '';
+  var out = [];
+  for (var i = 1; i < rows.length; i++) {
+    var reportedBy = normalizeWorkerId_(rows[i][6]);
+    if (workerOnly && reportedBy !== workerUser) continue;
+    var dv = rows[i][1];
+    var ds = (dv instanceof Date) ? Utilities.formatDate(dv, tz, 'yyyy-MM-dd') : String(dv || '');
+    var amountRaw = rows[i][9];
+    var amountNum = parseFloat(amountRaw);
+    if (isNaN(amountNum) || amountNum < 0) amountNum = 0;
+    var reportType = String(rows[i][10] || '').trim().toLowerCase();
+    if (reportType !== 'refundable' && reportType !== 'maintenance') {
+      reportType = electricWorkerReportTypeFromAmount_(amountNum);
+    }
+    var status = String(rows[i][11] || 'pending').trim().toLowerCase();
+    if (!status) status = 'pending';
+    var jobPhotos = parseFixedPhotosFromCell_(String(rows[i][4] || ''));
+    out.push({
+      id: String(rows[i][0] || ''),
+      num: Number(rows[i][FIELD_REPORT_NUM_COL - 1] || 0) || 0,
+      date: ds,
+      place: String(rows[i][2] || ''),
+      note: String(rows[i][3] || ''),
+      photo: jobPhotos.length ? jobPhotos[0] : '',
+      photos: jobPhotos,
+      voiceNote: parseAssignVoiceNote_(rows[i][5]),
+      reportedBy: String(rows[i][6] || ''),
+      workerName: String(rows[i][7] || ''),
+      createdAt: dtIssue_(rows[i][8]),
+      amount: amountNum > 0 ? amountNum : '',
+      reportType: reportType,
+      status: status,
+      transferredJobId: String(rows[i][12] || ''),
+      editedNote: String(rows[i][13] || ''),
+      transferredAt: dtIssue_(rows[i][14]),
+      transferredBy: String(rows[i][15] || ''),
+      materials: String(rows[i][16] || ''),
+      invoicePhoto: String(rows[i][17] || ''),
+      reportMonth: electricReportMonthOfDate_(ds)
+    });
+  }
+  out.sort(function (a, b) {
+    return String(b.createdAt || b.date || '').localeCompare(String(a.createdAt || a.date || ''));
+  });
+  return out;
+}
+
+function handleDeleteCivilWorkerReport(body, auth) {
+  var id = String(body.id || '').trim();
+  if (!id) return {ok:false,success:false,error:'missing_id',message:'Report id is required.'};
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(CIVIL_WORKER_REPORTS_SHEET);
+  if (!sheet || sheet.getLastRow() < 2) return {ok:false,success:false,error:'not_found',message:'Report not found.'};
+  var found = findElectricWorkerReportRow_(sheet, id);
+  if (!found) return {ok:false,success:false,error:'not_found',message:'Report not found.'};
+  trashRows_(CIVIL_WORKER_REPORTS_SHEET, [found.row], 'delete', body.username || (auth && auth.username) || '');
+  sheet.deleteRow(found.rowIdx);
+  return {ok:true,success:true,id:id};
+}
+
+function handleTransferCivilWorkerReport(body, auth) {
+  var id = String(body.id || '').trim();
+  if (!id) return {ok:false,success:false,error:'missing_id',message:'Report id is required.'};
+  var editedNote = String(body.note || body.job || '').trim();
+  if (!editedNote) return {ok:false,success:false,error:'empty_note',message:'Enter a job description before saving to the monthly report.'};
+  var ss = getSS_();
+  var sheet = ss.getSheetByName(CIVIL_WORKER_REPORTS_SHEET);
+  if (!sheet || sheet.getLastRow() < 2) return {ok:false,success:false,error:'not_found',message:'Report not found.'};
+  ensureCivilWorkerReportsSheet_(sheet);
+  var found = findElectricWorkerReportRow_(sheet, id);
+  if (!found) return {ok:false,success:false,error:'not_found',message:'Report not found.'};
+  var rowIdx = found.rowIdx;
+  var row = found.row;
+  var status = String(row[11] || 'pending').trim().toLowerCase();
+  if (status === 'transferred') {
+    return {ok:false,success:false,error:'already_transferred',message:'This report was already added to the monthly report.'};
+  }
+  var tz = ss.getSpreadsheetTimeZone();
+  var dv = row[1];
+  var dateStr = (dv instanceof Date) ? Utilities.formatDate(dv, tz, 'yyyy-MM-dd') : String(dv || '');
+  var place = String(body.place != null ? body.place : row[2] || '').trim();
+  var amountNum = parseFloat(row[9]);
+  if (isNaN(amountNum) || amountNum < 0) amountNum = 0;
+  var amountFromBody = parseElectricWorkerReportAmount_(body);
+  if (amountFromBody > 0) amountNum = amountFromBody;
+  var reportType = String(row[10] || '').trim().toLowerCase();
+  if (reportType !== 'refundable' && reportType !== 'maintenance') {
+    reportType = electricWorkerReportTypeFromAmount_(amountNum);
+  }
+  if (reportType === 'refundable' && amountNum <= 0) {
+    return {ok:false,success:false,error:'missing_amount',message:'Enter the refundable amount (IQD) before saving to the monthly report.'};
+  }
+  var jobType = reportType === 'refundable' ? 'refundable' : 'general';
+  var workerName = String(row[7] || row[6] || '');
+  var jobPhotos = parseFixedPhotosFromCell_(String(row[4] || ''));
+  var photo = jobPhotos.length ? jobPhotos[0] : '';
+  var invoicePhoto = String(row[17] || '').trim();
+  var materials = String(body.materials || row[16] || '').trim() || '0';
+  var now = new Date();
+  var reportMonth = electricReportMonthOfDate_(dateStr);
+  var createdAt = now.toISOString();
+  var createdBy = body.username || '';
+  var jobId = 'cjob-' + now.getTime();
+  var jobsSheet = ss.getSheetByName(CIVIL_JOBS_SHEET) || ss.insertSheet(CIVIL_JOBS_SHEET);
+  if (jobsSheet.getLastRow()===0) jobsSheet.appendRow(['id','date','job','location','materials','staff','type','photo','notes','createdBy','createdAt','amount','invoicePhoto']);
+  else if (String(jobsSheet.getRange(1, 13).getValue() || '') !== 'invoicePhoto') {
+    jobsSheet.getRange(1, 13).setValue('invoicePhoto');
+  }
+  jobsSheet.appendRow([jobId, dateStr, editedNote, place, materials, workerName, jobType, photo, '', createdBy, createdAt, amountNum > 0 ? amountNum : '', invoicePhoto]);
+  sheet.getRange(rowIdx, 3).setValue(place);
+  sheet.getRange(rowIdx, 10).setValue(amountNum > 0 ? amountNum : '');
+  sheet.getRange(rowIdx, 12, 1, 5).setValues([['transferred', jobId, editedNote, createdAt, createdBy]]);
+  if (sheet.getLastColumn() >= 17) sheet.getRange(rowIdx, 17).setValue(materials);
+  return {
+    ok: true,
+    success: true,
+    id: id,
+    jobId: jobId,
+    reportMonth: reportMonth,
+    job: {id:jobId,date:dateStr,job:editedNote,location:place,materials:materials,staff:workerName,type:jobType,photo:photo,notes:'',createdBy:createdBy,createdAt:createdAt,amount:amountNum > 0 ? amountNum : '',invoicePhoto:invoicePhoto}
+  };
 }
 
 function handleGetCivilSummary(body) {

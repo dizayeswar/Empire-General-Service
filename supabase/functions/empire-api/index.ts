@@ -8,7 +8,7 @@ import {
   verifyToken,
   verifyTokenSession,
 } from "./auth.ts";
-import { isCleaningSupervisorRole, isElectricWorkerId, normalizeWorkerId } from "./helpers.ts";
+import { isCivilWorkerId, isCleaningSupervisorRole, isElectricWorkerId, normalizeWorkerId } from "./helpers.ts";
 import * as cleaning from "./handlers_cleaning.ts";
 import * as issues from "./handlers_issues.ts";
 import * as jobs from "./handlers_jobs.ts";
@@ -71,7 +71,11 @@ Deno.serve(async (req) => {
     } else if (action === "getElectricWorkerReports" || action === "transferElectricIssueCompletion") {
       auth = await verifyToken(String(body.token || ""), "electrical department");
       if (!auth.ok) auth = await verifyToken(String(body.token || ""), "electric issue");
-    } else if (action === "transferCivilIssueCompletion") {
+    } else if (
+      action === "getCivilWorkerReports" ||
+      action === "transferCivilIssueCompletion" ||
+      action === "transferCivilWorkerReport"
+    ) {
       auth = await verifyToken(String(body.token || ""), "civil department");
       if (!auth.ok) auth = await verifyToken(String(body.token || ""), "civil issue");
     } else if (electricIssueActions[action]) {
@@ -96,7 +100,7 @@ Deno.serve(async (req) => {
         assignCivilIssue: 1, markCivilNotDept: 1, restoreCivilIssue: 1, setCivilFixDelay: 1,
         getWorkerLocations: 1, addElectricIssue: 1, updateElectricIssue: 1, deleteElectricIssue: 1,
         clearElectricIssues: 1, assignElectricIssue: 1, markElectricNotDept: 1, restoreElectricIssue: 1,
-        setElectricFixDelay: 1, deleteElectricWorkerReport: 1,
+        setElectricFixDelay: 1, deleteElectricWorkerReport: 1, deleteCivilWorkerReport: 1,
         addFireIssue: 1, updateFireIssue: 1, deleteFireIssue: 1, clearFireIssues: 1,
       };
       if (workerBlocked[action]) {
@@ -131,6 +135,14 @@ Deno.serve(async (req) => {
       }
       if (!isElectricWorkerId(String(body.username))) {
         return json({ ok: false, success: false, error: "not_allowed", message: "This account is not an electric field worker." });
+      }
+    }
+    if (action === "addCivilWorkerReport" || action === "updateCivilWorkerReportInvoice") {
+      if (body._authRole !== "worker") {
+        return json({ ok: false, success: false, error: "not_allowed", message: "Only civil workers can submit field reports." });
+      }
+      if (!isCivilWorkerId(String(body.username))) {
+        return json({ ok: false, success: false, error: "not_allowed", message: "This account is not a civil field worker." });
       }
     }
 
@@ -219,6 +231,11 @@ Deno.serve(async (req) => {
       case "transferElectricWorkerReport": return json(await jobs.handleTransferElectricWorkerReport(body, a));
       case "transferElectricIssueCompletion": return json(await jobs.handleTransferElectricIssueCompletion(body, a));
       case "transferCivilIssueCompletion": return json(await jobs.handleTransferCivilIssueCompletion(body, a));
+      case "getCivilWorkerReports": return json(await jobs.handleGetCivilWorkerReports(body, a));
+      case "addCivilWorkerReport": return json(await jobs.handleAddCivilWorkerReport(body, a));
+      case "updateCivilWorkerReportInvoice": return json(await jobs.handleUpdateCivilWorkerReportInvoice(body, a));
+      case "deleteCivilWorkerReport": return json(await jobs.handleDeleteCivilWorkerReport(body, a));
+      case "transferCivilWorkerReport": return json(await jobs.handleTransferCivilWorkerReport(body, a));
 
       case "addCivilJob": return json(await jobs.handleAddCivilJob(body));
       case "getCivilJobs": return json(await jobs.handleGetCivilJobs());
