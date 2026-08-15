@@ -387,6 +387,20 @@ header p {
   color: var(--text-faint);
 }
 
+.hub-back-link {
+  display: inline-flex;
+  align-items: center;
+  color: var(--header-accent);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 8px 4px;
+}
+.hub-back-link:hover { text-decoration: underline; }
+.tile-admin {
+  border-color: #e6d6df;
+}
+
 .hub-dashboard footer {
   margin-top: auto;
   padding: 20px;

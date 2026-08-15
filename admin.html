@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#8d015d">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Empire Admin">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="icon" href="logo-light.png" type="image/png">
+  <title>Admin — Empire General Service</title>
+  <link rel="stylesheet" href="assets/empire-hub.css?v=2026-08-15-admin1">
+</head>
+<body class="hub-dashboard">
+  <header class="hub-toolbar">
+    <div class="hub-toolbar-side hub-toolbar-side-left">
+      <a href="index.html" class="hub-back-link">← Hub</a>
+    </div>
+    <div class="hub-toolbar-brand">
+      <div class="hub-toolbar-text">
+        <div class="hub-toolbar-title">Admin</div>
+        <div class="hub-toolbar-sub">Accounts &amp; system tools</div>
+      </div>
+    </div>
+    <div class="hub-toolbar-actions">
+      <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span> <span class="lbl">Theme</span></button>
+      <div id="hubAuth" class="hub-user-menu"></div>
+    </div>
+  </header>
+  <main class="hub-main">
+    <div class="hub-page-head">
+      <h2>Admin tools</h2>
+      <p>Only admin accounts can open this section.</p>
+    </div>
+    <div class="grid" id="grid"></div>
+    <p id="adminDenied" class="hub-empty" style="display:none;">You need an <strong>admin</strong> role to use this section.</p>
+  </main>
+  <footer>Prepared by <strong>Swar Dizayee</strong></footer>
+
+  <script src="config.js"></script>
+  <script src="assets/empire-api.js?v=2026-08-15-ux1"></script>
+  <script src="assets/empire-auth.js?v=2026-08-15-admin1"></script>
+  <script src="assets/empire-core.js"></script>
+  <script src="assets/empire-sw-update.js?v=2026-08-15-admin1"></script>
+  <script>
+    var ADMIN_TOOLS = [
+      {
+        icon: '👤',
+        name: 'Users',
+        desc: 'Create accounts, set department, role, trade, and reset passwords.',
+        link: 'admin-users.html'
+      }
+    ];
+
+    function renderAuthBar() {
+      var box = document.getElementById('hubAuth');
+      var u = empireGetUser();
+      var role = empireGetRole();
+      var initial = (u || 'U').charAt(0).toUpperCase();
+      box.innerHTML =
+        '<div class="hub-user-dropdown-wrap" id="hubUserDropdown">' +
+          '<button type="button" class="hub-user-chip" onclick="toggleUserMenu(event)" id="hubUserMenuBtn">' +
+            '<span class="hub-user-avatar">' + initial + '</span>' +
+            '<span class="hub-user-meta">' +
+              '<span class="hub-user-name">' + (u || 'user') + '</span>' +
+              (role ? ('<span class="hub-user-role">' + role + '</span>') : '') +
+            '</span>' +
+            '<span class="hub-user-caret">▾</span>' +
+          '</button>' +
+          '<div class="hub-user-menu-panel" id="hubUserMenuPanel">' +
+            '<button type="button" class="hub-user-menu-item" onclick="hubLogout()">Logout</button>' +
+          '</div>' +
+        '</div>';
+    }
+
+    function toggleUserMenu(e) {
+      if (e && e.stopPropagation) e.stopPropagation();
+      var wrap = document.getElementById('hubUserDropdown');
+      if (wrap) wrap.classList.toggle('open');
+    }
+    function closeUserMenu() {
+      var wrap = document.getElementById('hubUserDropdown');
+      if (wrap) wrap.classList.remove('open');
+    }
+    document.addEventListener('click', function (e) {
+      var wrap = document.getElementById('hubUserDropdown');
+      if (!wrap || !wrap.classList.contains('open')) return;
+      if (!wrap.contains(e.target)) closeUserMenu();
+    });
+
+    function hubLogout() {
+      uiConfirm('Log out?').then(function (ok) {
+        if (!ok) return;
+        empireAuthLogout({ redirect: 'index.html', reload: false });
+      });
+    }
+
+    function renderGrid() {
+      var grid = document.getElementById('grid');
+      grid.innerHTML = '';
+      ADMIN_TOOLS.forEach(function (c) {
+        var el = document.createElement('a');
+        el.href = c.link;
+        el.className = 'tile active';
+        el.innerHTML =
+          '<div class="tile-top">' +
+            '<div class="tile-icon-wrap"><span class="tile-icon">' + c.icon + '</span></div>' +
+            '<div class="tile-top-right"><span class="tile-arrow" aria-hidden="true">→</span></div>' +
+          '</div>' +
+          '<h2>' + c.name + '</h2>' +
+          '<p>' + c.desc + '</p>';
+        grid.appendChild(el);
+      });
+    }
+
+    function boot() {
+      empireMigrateSession();
+      if (!empireGetToken()) {
+        location.replace('index.html');
+        return;
+      }
+      if (!empireIsAdminRole()) {
+        document.getElementById('grid').style.display = 'none';
+        document.getElementById('adminDenied').style.display = '';
+        renderAuthBar();
+        return;
+      }
+      renderAuthBar();
+      renderGrid();
+    }
+    boot();
+  </script>
+</body>
+</html>

@@ -13,6 +13,7 @@ import * as cleaning from "./handlers_cleaning.ts";
 import * as issues from "./handlers_issues.ts";
 import * as jobs from "./handlers_jobs.ts";
 import * as misc from "./handlers_misc.ts";
+import * as users from "./handlers_users.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -46,6 +47,23 @@ Deno.serve(async (req) => {
     if (action === "verifyPassword") return json(await verifyPassword(body));
     if (action === "getPerms") return json(await handleGetPerms(body));
     if (action === "getSummary") return json(await misc.handleGetSummary(body));
+
+    const adminUserActions: Record<string, number> = {
+      listUsers: 1,
+      createUser: 1,
+      updateUser: 1,
+      deleteUser: 1,
+    };
+    if (adminUserActions[action]) {
+      let adminAuth = await verifyTokenSession(String(body.token || ""));
+      if (!adminAuth.ok) return json(adminAuth);
+      adminAuth = await enrichAuthRole(adminAuth as AuthOk);
+      const a = adminAuth as AuthOk;
+      if (action === "listUsers") return json(await users.handleListUsers(a));
+      if (action === "createUser") return json(await users.handleCreateUser(body, a));
+      if (action === "updateUser") return json(await users.handleUpdateUser(body, a));
+      if (action === "deleteUser") return json(await users.handleDeleteUser(body, a));
+    }
 
     const requiredDept = TRASH_ACTIONS[action] ? String(body.dept || "") : DEPT_BY_ACTION[action];
     if (!requiredDept) return json({ ok: false, error: "Unknown action" });

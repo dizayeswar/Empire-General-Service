@@ -237,6 +237,11 @@ function empireIsAdminSession() {
   return empireGetToken() && empireNormDept(empireGetTokenDept()) === 'all';
 }
 
+/** True when the signed-in account has role admin (user management / Admin section). */
+function empireIsAdminRole() {
+  return !!empireGetToken() && String(empireGetRole() || '').toLowerCase() === 'admin';
+}
+
 function empireIsMultiDeptSession() {
   return empireParseDeptList(empireGetTokenDept()).length > 1;
 }

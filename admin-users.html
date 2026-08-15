@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#8d015d">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Empire Users">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="icon" href="logo-light.png" type="image/png">
+  <title>Users — Admin — Empire EGS</title>
+  <link rel="stylesheet" href="assets/empire.css?v=2026-08-15-admin1">
+  <style>
+    .admin-users-wrap { max-width: 1100px; margin: 0 auto; padding: 16px 18px 40px; }
+    .admin-users-head { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; justify-content:space-between; margin-bottom:18px; }
+    .admin-users-head h1 { font-size:22px; margin:0 0 4px; }
+    .admin-users-head p { margin:0; color:var(--text-soft); font-size:13px; }
+    .admin-toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:14px; }
+    .admin-toolbar input[type="search"] { flex:1; min-width:180px; padding:10px 12px; border:1px solid var(--card-border); border-radius:10px; background:var(--panel); color:var(--text); }
+    .admin-user-table { width:100%; border-collapse:collapse; font-size:13px; }
+    .admin-user-table th, .admin-user-table td { text-align:left; padding:10px 8px; border-bottom:1px solid var(--card-border); vertical-align:top; }
+    .admin-user-table th { color:var(--text-soft); font-weight:600; font-size:12px; }
+    .admin-user-table tr:hover td { background:var(--wait-bg, rgba(141,1,93,.04)); }
+    .admin-badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; background:var(--panel); border:1px solid var(--card-border); }
+    .admin-badge.admin { color:#8d015d; border-color:#e6d6df; }
+    .admin-badge.worker { color:#185fa5; }
+    .admin-form-card { background:var(--card); border:1px solid var(--card-border); border-radius:16px; padding:16px; margin-bottom:18px; }
+    .admin-form-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; }
+    .admin-form-grid label { display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--text-soft); font-weight:600; }
+    .admin-form-grid input, .admin-form-grid select { padding:9px 10px; border:1px solid var(--card-border); border-radius:10px; background:var(--panel); color:var(--text); font-weight:500; }
+    .admin-form-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
+    .admin-form-hint { font-size:12px; color:var(--text-faint); margin-top:8px; }
+    .admin-msg { min-height:18px; font-size:13px; margin:8px 0; }
+    .admin-msg.err { color:var(--c-error,#C5504F); }
+    .admin-msg.ok { color:#1d9e75; }
+    .admin-acts { display:flex; flex-wrap:wrap; gap:6px; }
+    .admin-acts .act-btn { font-size:12px; padding:6px 10px; }
+    @media (max-width:720px) {
+      .admin-user-table { display:block; overflow-x:auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar" style="padding:12px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <a href="admin.html" style="color:var(--header-accent);text-decoration:none;font-weight:600;font-size:13px;">← Admin</a>
+      <img src="logo-light.png" alt="" class="empire-logo" style="height:36px;width:auto;">
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle theme"><span class="nav-icon theme-icon"></span></button>
+      <span id="whoLabel" style="font-size:12px;color:var(--text-soft);"></span>
+      <button type="button" class="act-btn" onclick="doLogout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="admin-users-wrap">
+    <div class="admin-users-head">
+      <div>
+        <h1>Users</h1>
+        <p>Create and edit login accounts. Passwords are stored hashed.</p>
+      </div>
+      <button type="button" class="act-btn" id="btnNewUser" onclick="openCreateForm()">+ New user</button>
+    </div>
+
+    <div id="userFormCard" class="admin-form-card" style="display:none;">
+      <h2 id="formTitle" style="font-size:16px;margin:0 0 12px;">New user</h2>
+      <div class="admin-form-grid">
+        <label>Username<input id="f-username" autocomplete="off" placeholder="e.g. ahmed_ali"></label>
+        <label>Password<input id="f-password" type="password" autocomplete="new-password" placeholder="min 4 characters"></label>
+        <label>Role
+          <select id="f-role">
+            <option value="editor">editor</option>
+            <option value="admin">admin</option>
+            <option value="viewer">viewer</option>
+            <option value="worker">worker</option>
+            <option value="cleaning_supervisor">cleaning_supervisor</option>
+          </select>
+        </label>
+        <label>Department<input id="f-dept" list="deptHints" placeholder="civil issue / electrical / all"></label>
+        <label>Trade (workers)
+          <select id="f-trade">
+            <option value="">—</option>
+            <option value="plumber">plumber</option>
+            <option value="painting">painting</option>
+            <option value="tiles">tiles</option>
+            <option value="wood">wood</option>
+            <option value="electric">electric</option>
+          </select>
+        </label>
+        <label>Projects (cleaning)<input id="f-projects" placeholder="ec,es or blank = all"></label>
+        <label>Hide tabs<input id="f-hide" placeholder="optional e.g. Analytics"></label>
+        <label>Hide electrical<input id="f-hide-electrical" placeholder="optional"></label>
+      </div>
+      <datalist id="deptHints">
+        <option value="all"></option>
+        <option value="cleaning"></option>
+        <option value="civil issue"></option>
+        <option value="civil department"></option>
+        <option value="electrical department"></option>
+        <option value="electric issue"></option>
+        <option value="hse"></option>
+        <option value="fire"></option>
+        <option value="asaas"></option>
+        <option value="application"></option>
+      </datalist>
+      <p class="admin-form-hint" id="formHint">Leave password blank when editing to keep the current password.</p>
+      <div class="admin-form-actions">
+        <button type="button" class="act-btn" onclick="saveUserForm()" id="btnSaveUser">Save</button>
+        <button type="button" class="act-btn" onclick="closeUserForm()">Cancel</button>
+      </div>
+      <div class="admin-msg" id="formMsg"></div>
+    </div>
+
+    <div class="admin-toolbar">
+      <input type="search" id="userSearch" placeholder="Search username, dept, role…" oninput="renderUsers()">
+      <button type="button" class="act-btn" onclick="loadUsers(true)">Refresh</button>
+    </div>
+    <div class="admin-msg" id="listMsg"></div>
+    <div id="usersTableHost"></div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="assets/empire-api.js?v=2026-08-15-ux1"></script>
+  <script src="assets/empire-auth.js?v=2026-08-15-admin1"></script>
+  <script src="assets/empire-core.js"></script>
+  <script src="assets/empire-sw-update.js?v=2026-08-15-admin1"></script>
+  <script>
+    var allUsers = [];
+    var editingUsername = null;
+
+    function doLogout() {
+      uiConfirm('Log out?').then(function (ok) {
+        if (!ok) return;
+        empireAuthLogout({ redirect: 'index.html', reload: false });
+      });
+    }
+
+    function setMsg(el, text, ok) {
+      var n = document.getElementById(el);
+      if (!n) return;
+      n.className = 'admin-msg' + (text ? (ok ? ' ok' : ' err') : '');
+      n.textContent = text || '';
+    }
+
+    function openCreateForm() {
+      editingUsername = null;
+      document.getElementById('formTitle').textContent = 'New user';
+      document.getElementById('f-username').disabled = false;
+      document.getElementById('f-username').value = '';
+      document.getElementById('f-password').value = '';
+      document.getElementById('f-password').placeholder = 'min 4 characters';
+      document.getElementById('f-role').value = 'editor';
+      document.getElementById('f-dept').value = '';
+      document.getElementById('f-trade').value = '';
+      document.getElementById('f-projects').value = '';
+      document.getElementById('f-hide').value = '';
+      document.getElementById('f-hide-electrical').value = '';
+      document.getElementById('formHint').textContent = 'Password is required for new users.';
+      setMsg('formMsg', '', true);
+      document.getElementById('userFormCard').style.display = '';
+      document.getElementById('f-username').focus();
+    }
+
+    function openEditForm(username) {
+      var u = allUsers.find(function (x) { return x.username === username; });
+      if (!u) return;
+      editingUsername = username;
+      document.getElementById('formTitle').textContent = 'Edit user';
+      document.getElementById('f-username').disabled = true;
+      document.getElementById('f-username').value = u.username;
+      document.getElementById('f-password').value = '';
+      document.getElementById('f-password').placeholder = 'leave blank to keep';
+      document.getElementById('f-role').value = u.role || 'editor';
+      document.getElementById('f-dept').value = u.dept || '';
+      document.getElementById('f-trade').value = u.trade || '';
+      document.getElementById('f-projects').value = u.projects || '';
+      document.getElementById('f-hide').value = u.hide || '';
+      document.getElementById('f-hide-electrical').value = u.hideElectrical || '';
+      document.getElementById('formHint').textContent = 'Leave password blank to keep the current password. Changing password signs them out.';
+      setMsg('formMsg', '', true);
+      document.getElementById('userFormCard').style.display = '';
+    }
+
+    function closeUserForm() {
+      document.getElementById('userFormCard').style.display = 'none';
+      editingUsername = null;
+    }
+
+    function formPayload() {
+      return {
+        username: document.getElementById('f-username').value.trim(),
+        password: document.getElementById('f-password').value,
+        role: document.getElementById('f-role').value,
+        dept: document.getElementById('f-dept').value.trim(),
+        trade: document.getElementById('f-trade').value,
+        projects: document.getElementById('f-projects').value.trim(),
+        hide: document.getElementById('f-hide').value.trim(),
+        hideElectrical: document.getElementById('f-hide-electrical').value.trim()
+      };
+    }
+
+    function saveUserForm() {
+      var p = formPayload();
+      var btn = document.getElementById('btnSaveUser');
+      if (btn) btn.disabled = true;
+      setMsg('formMsg', 'Saving…', true);
+      var action = editingUsername ? 'updateUser' : 'createUser';
+      var body = Object.assign({ action: action, token: empireGetToken() }, p);
+      if (editingUsername) body.username = editingUsername;
+      fetchJSONRetry(body, 1, 30000)
+        .then(function (d) {
+          if (!d || d.ok === false) {
+            if (typeof forceSessionLogout === 'function' && forceSessionLogout(d)) return;
+            throw new Error((d && (d.message || d.error)) || 'Save failed');
+          }
+          setMsg('formMsg', d.message || 'Saved.', true);
+          closeUserForm();
+          return loadUsers(true);
+        })
+        .catch(function (e) {
+          setMsg('formMsg', String((e && e.message) || e || 'Save failed'), false);
+        })
+        .finally(function () { if (btn) btn.disabled = false; });
+    }
+
+    function deleteUser(username) {
+      if (username === empireGetUser()) {
+        alert('You cannot delete your own account.');
+        return;
+      }
+      uiConfirm('Delete user “‘ + username + '”? They will lose access immediately.')
+        .then(function (ok) {
+          if (!ok) return;
+          return fetchJSONRetry({ action: 'deleteUser', token: empireGetToken(), username: username }, 1, 30000)
+            .then(function (d) {
+              if (!d || d.ok === false) {
+                if (typeof forceSessionLogout === 'function' && forceSessionLogout(d)) return;
+                throw new Error((d && (d.message || d.error)) || 'Delete failed');
+              }
+              return loadUsers(true);
+            })
+            .catch(function (e) { alert(String((e && e.message) || e)); });
+        });
+    }
+
+    function renderUsers() {
+      var host = document.getElementById('usersTableHost');
+      var q = (document.getElementById('userSearch').value || '').toLowerCase().trim();
+      var rows = allUsers.filter(function (u) {
+        if (!q) return true;
+        var hay = [u.username, u.dept, u.role, u.trade, u.projects, u.hide].join(' ').toLowerCase();
+        return hay.indexOf(q) !== -1;
+      });
+      if (!rows.length) {
+        host.innerHTML = typeof empireEmptyHtml === 'function'
+          ? empireEmptyHtml(q ? 'No users match' : 'No users yet', q ? 'Try another search.' : 'Create the first account above.')
+          : '<p>No users.</p>';
+        return;
+      }
+      var h = '<div style="overflow-x:auto;"><table class="admin-user-table"><thead><tr>' +
+        '<th>Username</th><th>Role</th><th>Department</th><th>Trade</th><th>Projects</th><th>Actions</th>' +
+        '</tr></thead><tbody>';
+      rows.forEach(function (u) {
+        h += '<tr>';
+        h += '<td><strong>' + esc(u.username) + '</strong></td>';
+        h += '<td><span class="admin-badge ' + esc(u.role) + '">' + esc(u.role) + '</span></td>';
+        h += '<td>' + esc(u.dept || '—') + '</td>';
+        h += '<td>' + esc(u.trade || '—') + '</td>';
+        h += '<td>' + esc(u.projects || '—') + '</td>';
+        h += '<td class="admin-acts">' +
+          '<button type="button" class="act-btn" onclick="openEditForm(\'' + escAttr(u.username) + '\')">Edit</button>' +
+          '<button type="button" class="act-btn" style="background:#C5504F;color:#fff;border-color:#C5504F;" onclick="deleteUser(\'' + escAttr(u.username) + '\')">Delete</button>' +
+          '</td>';
+        h += '</tr>';
+      });
+      h += '</tbody></table></div>';
+      host.innerHTML = h;
+    }
+
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function escAttr(s) {
+      return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    }
+
+    function loadUsers(force) {
+      setMsg('listMsg', force ? 'Loading…' : '', true);
+      var host = document.getElementById('usersTableHost');
+      if (force && host && typeof empireLoadingHtml === 'function') host.innerHTML = empireLoadingHtml('Loading users…');
+      return fetchJSONRetry({ action: 'listUsers', token: empireGetToken() }, 2, 30000)
+        .then(function (d) {
+          if (!d || d.ok === false) {
+            if (typeof forceSessionLogout === 'function' && forceSessionLogout(d)) return;
+            throw new Error((d && (d.message || d.error)) || 'Could not load users');
+          }
+          allUsers = Array.isArray(d.users) ? d.users : [];
+          setMsg('listMsg', allUsers.length + ' user(s)', true);
+          renderUsers();
+        })
+        .catch(function (e) {
+          setMsg('listMsg', String((e && e.message) || e), false);
+          if (host && typeof empireErrorHtml === 'function') {
+            host.innerHTML = empireErrorHtml(String((e && e.message) || e), 'Refresh or check that you are an admin.');
+          }
+        });
+    }
+
+    function boot() {
+      empireMigrateSession();
+      if (!empireGetToken()) {
+        location.replace('index.html');
+        return;
+      }
+      if (!empireIsAdminRole()) {
+        location.replace('admin.html');
+        return;
+      }
+      var wl = document.getElementById('whoLabel');
+      if (wl) wl.textContent = (empireGetUser() || '') + ' (admin)';
+      loadUsers(true);
+    }
+    boot();
+  </script>
+</body>
+</html>

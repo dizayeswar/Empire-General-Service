@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://script.google.com">
     <link rel="preconnect" href="https://api.imgbb.com">
     <title>Empire General Service — Login</title>
-    <link rel="stylesheet" href="assets/empire-hub.css?v=2026-08-15-ux1">
+    <link rel="stylesheet" href="assets/empire-hub.css?v=2026-08-15-admin1">
 </head>
 <body class="login-landing">
     <div class="topbar">
@@ -66,9 +66,9 @@
 
     <script src="config.js"></script>
     <script src="assets/empire-api.js?v=2026-08-15-ux1"></script>
-    <script src="assets/empire-auth.js?v=2026-07-21-hub-dept-fix"></script>
+    <script src="assets/empire-auth.js?v=2026-08-15-admin1"></script>
     <script src="assets/empire-core.js"></script>
-    <script src="assets/empire-sw-update.js?v=2026-08-15-ux1"></script>
+    <script src="assets/empire-sw-update.js?v=2026-08-15-admin1"></script>
     <script src="assets/empire-hub-stats.js?v=2026-08-15-perf2"></script>
     <script>
         const categories = [
@@ -77,7 +77,8 @@
             { icon:'⛑️', name:'HSE Inspections', desc:'Fire safety equipment checks.', link:'hse-inspection.html', active:true, accessDept:'hse' },
             { icon:'⚡', name:'Electrical Department', desc:'Jobs, field reports, monthly reports & electric issues.', link:'electrical.html', active:true, accessDept:'electrical department,electric issue' },
             { icon:'🛡️', name:'A.S.A.A.S', desc:'West Wing corridor storage — log items, track returns & warehouse.', link:'asaas.html', active:true, accessDept:'asaas' },
-            { icon:'📱', name:'Application', desc:'Door-to-door resident app registration — RA, WW, WD, ES properties.', link:'application.html', active:true, accessDept:'application' }
+            { icon:'📱', name:'Application', desc:'Door-to-door resident app registration — RA, WW, WD, ES properties.', link:'application.html', active:true, accessDept:'application' },
+            { icon:'⚙️', name:'Admin', desc:'Create users, set roles & departments, and other system tools.', link:'admin.html', active:true, accessDept:'__admin__', adminOnly:true }
         ];
 
         const CLEANING_SECTIONS = [
@@ -199,7 +200,8 @@
 
         var CLEANING_CHILD_DEPTS = ['cleaning', 'civil issue', 'fire'];
 
-        function canSeeHubTile(accessDept) {
+        function canSeeHubTile(accessDept, tile) {
+            if (tile && tile.adminOnly) return typeof empireIsAdminRole === 'function' && empireIsAdminRole();
             if (empireIsAdminSession()) return true;
             if (empireCanAccessDept(accessDept)) return true;
             if (accessDept === 'cleaning') {
@@ -289,7 +291,7 @@
             grid.innerHTML = '';
             var count = 0;
             categories.forEach(function (c) {
-                if (!canSeeHubTile(c.accessDept)) return;
+                if (!canSeeHubTile(c.accessDept, c)) return;
                 count++;
                 if (c.expandable) {
                     var expandable = buildCleaningExpandable(c);
@@ -298,9 +300,21 @@
                 }
                 var el = document.createElement('a');
                 el.href = c.link;
-                el.className = 'tile active';
-                el.setAttribute('data-dept', c.accessDept);
-                el.innerHTML = hubTileHtml(c);
+                el.className = 'tile active' + (c.adminOnly ? ' tile-admin' : '');
+                if (!c.adminOnly) el.setAttribute('data-dept', c.accessDept);
+                else el.setAttribute('data-admin', '1');
+                if (c.adminOnly) {
+                  el.innerHTML =
+                    '<div class="tile-top">' +
+                      '<div class="tile-icon-wrap"><span class="tile-icon">' + c.icon + '</span></div>' +
+                      '<div class="tile-top-right"><span class="tile-arrow" aria-hidden="true">→</span></div>' +
+                    '</div>' +
+                    '<h2>' + c.name + '</h2>' +
+                    '<p>' + c.desc + '</p>' +
+                    '<div class="tile-footer"><div class="tile-stat muted">Admin only</div></div>';
+                } else {
+                  el.innerHTML = hubTileHtml(c);
+                }
                 grid.appendChild(el);
             });
             if (!count) {
