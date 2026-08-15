@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="manifest" href="manifest.webmanifest?v=2026-08-15-v2">
   <meta name="theme-color" content="#8d015d">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="icon" href="logo-light.png" type="image/png">
   <title>Users — Admin — Empire EGS</title>
-  <link rel="stylesheet" href="assets/empire.css?v=2026-08-15-admin2">
+  <link rel="stylesheet" href="assets/empire.css?v=2026-08-15-v2">
   <style>
     .admin-users-wrap { max-width: 1100px; margin: 0 auto; padding: 16px 18px 40px; }
     .admin-users-head { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; justify-content:space-between; margin-bottom:18px; }
@@ -31,12 +31,20 @@
     .admin-form-grid label { display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--text-soft); font-weight:600; }
     .admin-form-grid input, .admin-form-grid select { padding:9px 10px; border:1px solid var(--card-border); border-radius:10px; background:var(--panel); color:var(--text); font-weight:500; }
     .admin-form-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
-    .admin-form-hint { font-size:12px; color:var(--text-faint); margin-top:8px; }
+    .admin-form-hint { font-size:12px; color:var(--text-faint); margin-top:8px; line-height:1.45; }
+    .admin-role-help { font-size:12px; color:var(--text-soft); margin:0 0 12px; padding:10px 12px; background:var(--panel); border:1px solid var(--card-border); border-radius:10px; line-height:1.45; }
+    .admin-recipes { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+    .admin-recipes button { font-size:12px; padding:7px 11px; border-radius:10px; border:1px solid var(--card-border); background:var(--panel); color:var(--text); cursor:pointer; }
+    .admin-recipes button:hover { border-color:var(--header-accent); color:var(--header-accent); }
     .admin-msg { min-height:18px; font-size:13px; margin:8px 0; }
     .admin-msg.err { color:var(--c-error,#C5504F); }
     .admin-msg.ok { color:#1d9e75; }
     .admin-acts { display:flex; flex-wrap:wrap; gap:6px; }
     .admin-acts .act-btn { font-size:12px; padding:6px 10px; }
+    .admin-badge.editor { color:#5b5b5b; }
+    .admin-badge.viewer { color:#6b7280; }
+    .admin-badge.cleaning_supervisor { color:#0f766e; }
+    .admin-updated { font-size:11px; color:var(--text-faint); white-space:nowrap; }
     @media (max-width:720px) {
       .admin-user-table { display:block; overflow-x:auto; }
     }
@@ -59,29 +67,37 @@
     <div class="admin-users-head">
       <div>
         <h1>Users</h1>
-        <p>Create and edit login accounts. Passwords are stored hashed.</p>
+        <p>Create and edit login accounts. Passwords are stored hashed — you never see the old password.</p>
       </div>
       <button type="button" class="act-btn" id="btnNewUser" onclick="openCreateForm()">+ New user</button>
     </div>
 
+    <div class="admin-recipes" aria-label="Quick recipes">
+      <button type="button" onclick="applyRecipe('civil_worker')">Civil worker</button>
+      <button type="button" onclick="applyRecipe('electric_worker')">Electric worker</button>
+      <button type="button" onclick="applyRecipe('cleaning_sup')">Cleaning supervisor</button>
+      <button type="button" onclick="applyRecipe('desk_editor')">Desk editor</button>
+    </div>
+
     <div id="userFormCard" class="admin-form-card" style="display:none;">
       <h2 id="formTitle" style="font-size:16px;margin:0 0 12px;">New user</h2>
+      <p class="admin-role-help" id="roleHelp"></p>
       <div class="admin-form-grid">
         <label>Username<input id="f-username" autocomplete="off" placeholder="e.g. ahmed_ali"></label>
         <label>Password<input id="f-password" type="password" autocomplete="new-password" placeholder="min 4 characters"></label>
         <label>Role
-          <select id="f-role">
-            <option value="editor">editor</option>
-            <option value="admin">admin</option>
-            <option value="viewer">viewer</option>
-            <option value="worker">worker</option>
-            <option value="cleaning_supervisor">cleaning_supervisor</option>
+          <select id="f-role" onchange="onRoleOrDeptChange()">
+            <option value="editor">Editor — desk access</option>
+            <option value="admin">Admin — manage users</option>
+            <option value="viewer">Viewer — read only</option>
+            <option value="worker">Worker — mobile app</option>
+            <option value="cleaning_supervisor">Cleaning supervisor</option>
           </select>
         </label>
-        <label>Department<input id="f-dept" list="deptHints" placeholder="civil issue / electrical / all"></label>
-        <label>Trade (workers)
+        <label>Department<input id="f-dept" list="deptHints" placeholder="civil issue / electrical / all" oninput="onRoleOrDeptChange()"></label>
+        <label id="tradeField">Trade (workers only)
           <select id="f-trade">
-            <option value="">—</option>
+            <option value="">— choose trade —</option>
             <option value="plumber">plumber</option>
             <option value="painting">painting</option>
             <option value="tiles">tiles</option>
@@ -89,9 +105,11 @@
             <option value="electric">electric</option>
           </select>
         </label>
-        <label>Projects (cleaning)<input id="f-projects" placeholder="ec,es or blank = all"></label>
-        <label>Hide tabs<input id="f-hide" placeholder="optional e.g. Analytics"></label>
-        <label>Hide electrical<input id="f-hide-electrical" placeholder="optional"></label>
+        <label id="projectsField">Projects (cleaning)
+          <input id="f-projects" placeholder="ec,es or blank = all projects">
+        </label>
+        <label id="hideField">Hide tabs<input id="f-hide" placeholder="optional e.g. Analytics"></label>
+        <label id="hideElecField">Hide electrical tabs<input id="f-hide-electrical" placeholder="optional"></label>
       </div>
       <datalist id="deptHints">
         <option value="all"></option>
@@ -105,7 +123,7 @@
         <option value="asaas"></option>
         <option value="application"></option>
       </datalist>
-      <p class="admin-form-hint" id="formHint">Leave password blank when editing to keep the current password.</p>
+      <p class="admin-form-hint" id="formHint">Leave password blank when editing to keep the current password. Setting a new password signs them out on all devices.</p>
       <div class="admin-form-actions">
         <button type="button" class="act-btn" onclick="saveUserForm()" id="btnSaveUser">Save</button>
         <button type="button" class="act-btn" onclick="closeUserForm()">Cancel</button>
@@ -121,14 +139,85 @@
     <div id="usersTableHost"></div>
   </div>
 
-  <script src="config.js"></script>
-  <script src="assets/empire-api.js?v=2026-08-15-admin2"></script>
-  <script src="assets/empire-auth.js?v=2026-08-15-admin2"></script>
-  <script src="assets/empire-core.js"></script>
-  <script src="assets/empire-sw-update.js?v=2026-08-15-admin2"></script>
+  <script src="config.js?v=2026-08-15-v2"></script>
+  <script src="assets/empire-api.js?v=2026-08-15-v2"></script>
+  <script src="assets/empire-auth.js?v=2026-08-15-v2"></script>
+  <script src="assets/empire-core.js?v=2026-08-15-v2"></script>
+  <script src="assets/empire-sw-update.js?v=2026-08-15-v2"></script>
   <script>
     var allUsers = [];
     var editingUsername = null;
+
+    var ROLE_LABELS = {
+      admin: 'Admin',
+      editor: 'Editor',
+      viewer: 'Viewer',
+      worker: 'Worker',
+      cleaning_supervisor: 'Cleaning supervisor'
+    };
+
+    function roleLabel(role) {
+      var r = String(role || '').toLowerCase();
+      return ROLE_LABELS[r] || role || '—';
+    }
+
+    function roleHelpText(role) {
+      switch (String(role || '').toLowerCase()) {
+        case 'admin':
+          return 'Full access including Admin → Users. Use sparingly.';
+        case 'viewer':
+          return 'Can view allowed departments but not edit or create records.';
+        case 'worker':
+          return 'Mobile field app. Set Department to civil issue or electric issue, and pick a Trade.';
+        case 'cleaning_supervisor':
+          return 'Cleaning desk + mobile. Leave Projects blank for all sites, or use codes like ec,es.';
+        case 'editor':
+        default:
+          return 'Desk login for the Department you set (or all). Hide tabs to hide specific screens.';
+      }
+    }
+
+    function onRoleOrDeptChange() {
+      var role = (document.getElementById('f-role').value || '').toLowerCase();
+      var dept = (document.getElementById('f-dept').value || '').toLowerCase();
+      var isWorker = role === 'worker';
+      var isCleaning = role === 'cleaning_supervisor' || dept.indexOf('cleaning') !== -1;
+      var isElec = dept.indexOf('electric') !== -1;
+      var tradeEl = document.getElementById('tradeField');
+      var projEl = document.getElementById('projectsField');
+      var hideEl = document.getElementById('hideField');
+      var hideElecEl = document.getElementById('hideElecField');
+      if (tradeEl) tradeEl.style.display = isWorker ? '' : 'none';
+      if (projEl) projEl.style.display = isCleaning ? '' : 'none';
+      if (hideEl) hideEl.style.display = (isWorker ? 'none' : '');
+      if (hideElecEl) hideElecEl.style.display = (!isWorker && isElec) ? '' : 'none';
+      if (!isWorker) document.getElementById('f-trade').value = '';
+      if (!isCleaning) document.getElementById('f-projects').value = '';
+      var help = document.getElementById('roleHelp');
+      if (help) help.textContent = roleHelpText(role);
+    }
+
+    function applyRecipe(kind) {
+      openCreateForm();
+      if (kind === 'civil_worker') {
+        document.getElementById('f-role').value = 'worker';
+        document.getElementById('f-dept').value = 'civil issue';
+        document.getElementById('f-trade').value = 'plumber';
+      } else if (kind === 'electric_worker') {
+        document.getElementById('f-role').value = 'worker';
+        document.getElementById('f-dept').value = 'electric issue';
+        document.getElementById('f-trade').value = 'electric';
+      } else if (kind === 'cleaning_sup') {
+        document.getElementById('f-role').value = 'cleaning_supervisor';
+        document.getElementById('f-dept').value = 'cleaning';
+        document.getElementById('f-projects').value = '';
+      } else if (kind === 'desk_editor') {
+        document.getElementById('f-role').value = 'editor';
+        document.getElementById('f-dept').value = 'civil department';
+      }
+      onRoleOrDeptChange();
+      document.getElementById('f-username').focus();
+    }
 
     function doLogout() {
       uiConfirm('Log out?').then(function (ok) {
@@ -157,9 +246,10 @@
       document.getElementById('f-projects').value = '';
       document.getElementById('f-hide').value = '';
       document.getElementById('f-hide-electrical').value = '';
-      document.getElementById('formHint').textContent = 'Password is required for new users.';
+      document.getElementById('formHint').textContent = 'Password is required for new users. Tip: after save, tell them the username + password once — you cannot look it up later.';
       setMsg('formMsg', '', true);
       document.getElementById('userFormCard').style.display = '';
+      onRoleOrDeptChange();
       document.getElementById('f-username').focus();
     }
 
@@ -178,9 +268,13 @@
       document.getElementById('f-projects').value = u.projects || '';
       document.getElementById('f-hide').value = u.hide || '';
       document.getElementById('f-hide-electrical').value = u.hideElectrical || '';
-      document.getElementById('formHint').textContent = 'Leave password blank to keep the current password. Changing password signs them out.';
+      document.getElementById('formHint').textContent = 'Leave password blank to keep the current one. Enter a new password to reset it (signs them out everywhere).';
       setMsg('formMsg', '', true);
       document.getElementById('userFormCard').style.display = '';
+      onRoleOrDeptChange();
+      // restore trade/projects after role toggle cleared non-matching fields
+      document.getElementById('f-trade').value = u.trade || '';
+      document.getElementById('f-projects').value = u.projects || '';
     }
 
     function closeUserForm() {
@@ -189,12 +283,14 @@
     }
 
     function formPayload() {
+      var role = document.getElementById('f-role').value;
+      var isWorker = String(role).toLowerCase() === 'worker';
       return {
         username: document.getElementById('f-username').value.trim(),
         password: document.getElementById('f-password').value,
-        role: document.getElementById('f-role').value,
+        role: role,
         dept: document.getElementById('f-dept').value.trim(),
-        trade: document.getElementById('f-trade').value,
+        trade: isWorker ? document.getElementById('f-trade').value : '',
         projects: document.getElementById('f-projects').value.trim(),
         hide: document.getElementById('f-hide').value.trim(),
         hideElectrical: document.getElementById('f-hide-electrical').value.trim()
@@ -203,6 +299,14 @@
 
     function saveUserForm() {
       var p = formPayload();
+      if (!editingUsername && (!p.password || p.password.length < 4)) {
+        setMsg('formMsg', 'Password must be at least 4 characters.', false);
+        return;
+      }
+      if (String(p.role).toLowerCase() === 'worker' && !p.trade) {
+        setMsg('formMsg', 'Workers need a Trade (plumber, wood, electric…).', false);
+        return;
+      }
       var btn = document.getElementById('btnSaveUser');
       if (btn) btn.disabled = true;
       setMsg('formMsg', 'Saving…', true);
@@ -245,13 +349,26 @@
         });
     }
 
+    function formatUpdated(iso) {
+      if (!iso) return '—';
+      try {
+        var d = new Date(iso);
+        if (isNaN(d.getTime())) return String(iso).slice(0, 16);
+        return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      } catch (e) {
+        return String(iso).slice(0, 16);
+      }
+    }
+
     function renderUsers() {
       var host = document.getElementById('usersTableHost');
       var q = (document.getElementById('userSearch').value || '').toLowerCase().trim();
       var rows = allUsers.filter(function (u) {
         if (!q) return true;
-        var hay = [u.username, u.dept, u.role, u.trade, u.projects, u.hide].join(' ').toLowerCase();
+        var hay = [u.username, u.dept, u.role, roleLabel(u.role), u.trade, u.projects, u.hide].join(' ').toLowerCase();
         return hay.indexOf(q) !== -1;
+      }).slice().sort(function (a, b) {
+        return String(a.username || '').localeCompare(String(b.username || ''));
       });
       if (!rows.length) {
         host.innerHTML = typeof empireEmptyHtml === 'function'
@@ -260,15 +377,17 @@
         return;
       }
       var h = '<div style="overflow-x:auto;"><table class="admin-user-table"><thead><tr>' +
-        '<th>Username</th><th>Role</th><th>Department</th><th>Trade</th><th>Projects</th><th>Actions</th>' +
+        '<th>Username</th><th>Role</th><th>Department</th><th>Trade</th><th>Projects</th><th>Updated</th><th>Actions</th>' +
         '</tr></thead><tbody>';
       rows.forEach(function (u) {
+        var badgeClass = String(u.role || '').replace(/[^a-z0-9_]/gi, '');
         h += '<tr>';
         h += '<td><strong>' + esc(u.username) + '</strong></td>';
-        h += '<td><span class="admin-badge ' + esc(u.role) + '">' + esc(u.role) + '</span></td>';
+        h += '<td><span class="admin-badge ' + esc(badgeClass) + '" title="' + esc(u.role) + '">' + esc(roleLabel(u.role)) + '</span></td>';
         h += '<td>' + esc(u.dept || '—') + '</td>';
         h += '<td>' + esc(u.trade || '—') + '</td>';
         h += '<td>' + esc(u.projects || '—') + '</td>';
+        h += '<td class="admin-updated">' + esc(formatUpdated(u.updatedAt)) + '</td>';
         h += '<td class="admin-acts">' +
           '<button type="button" class="act-btn" onclick="openEditForm(\'' + escAttr(u.username) + '\')">Edit</button>' +
           '<button type="button" class="act-btn" style="background:#C5504F;color:#fff;border-color:#C5504F;" onclick="deleteUser(\'' + escAttr(u.username) + '\')">Delete</button>' +
