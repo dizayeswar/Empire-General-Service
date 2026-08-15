@@ -1,4 +1,4 @@
-import { CIVIL_WORKER_TEAM, ELECTRIC_WORKER_TEAM, HSE_INSPECTOR, RESET_PASSWORD } from "./config.ts";
+import { CIVIL_WORKER_TEAM, ELECTRIC_WORKER_TEAM, HSE_INSPECTOR, resetPasswordOk } from "./config.ts";
 import { AuthOk } from "./auth.ts";
 import { dtIssue, fmtDate, isoNow, nextCounter, sb, selectAllRows, trashRows } from "./db.ts";
 import {
@@ -228,7 +228,7 @@ export async function handleDeleteIssue(body: Record<string, unknown>, table: Is
 }
 
 export async function handleClearIssues(body: Record<string, unknown>, table: IssueTable) {
-  if (String(body.resetPassword || "") !== RESET_PASSWORD) {
+  if (!resetPasswordOk(body)) {
     return { ok: false, success: false, error: "bad_password" };
   }
   const { data } = await sb().from(table).select("*");

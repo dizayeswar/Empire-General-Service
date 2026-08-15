@@ -1,6 +1,13 @@
 export const TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-export const RESET_PASSWORD = Deno.env.get("RESET_PASSWORD") || "empire2026";
+/** Destructive wipe/clear password — must be set via `supabase secrets set RESET_PASSWORD=...` (no default). */
+export const RESET_PASSWORD = String(Deno.env.get("RESET_PASSWORD") || "").trim();
 export const HSE_INSPECTOR = "Evan Mansour";
+
+/** True only when a non-empty secret is configured and the client sent the matching value. */
+export function resetPasswordOk(body: Record<string, unknown>): boolean {
+  if (!RESET_PASSWORD) return false;
+  return String(body.resetPassword || "") === RESET_PASSWORD;
+}
 
 export const CIVIL_WORKER_TEAM: Record<string, string> = {
   mohammed_luqman: "wood",

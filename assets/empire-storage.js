@@ -129,7 +129,7 @@ function empireStorageAudioPath(folder, blob) {
 function empireStorageFriendlyError_(raw) {
   var msg = String(raw || '');
   if (/row-level security/i.test(msg)) {
-    return 'Voice note blocked by Supabase storage policy. In Supabase SQL Editor, update the upload policy to allow audio (webm, ogg, m4a). See SUPABASE-MIGRATION.md — Troubleshooting.';
+    return 'Upload blocked by storage policy. Hard refresh after the latest update (signed uploads require login). If it still fails, ask admin to apply the storage harden SQL.';
   }
   return msg;
 }
@@ -142,9 +142,27 @@ function empireUploadBlob(blob, folder, path, cb) {
     cb(null);
     return;
   }
-  var uploadPath = path || empireStorageFilePath(folder, blob);
-  var url = String(SUPABASE_CONFIG.url || '').replace(/\/$/, '') +
-    '/storage/v1/object/' + SUPABASE_CONFIG.bucket + '/' + uploadPath;
+  var token = (typeof empireGetToken === 'function' && empireGetToken()) || '';
+  if (!token) {
+    _lastEmpireUploadError = 'Login required to upload files.';
+    cb(null);
+    return;
+  }
+  var mime = (blob && blob.type) || '';
+  var extHint = '';
+  if (path) {
+    var m = String(path).match(/\.([a-z0-9]+)$/i);
+    if (m) extHint = m[1];
+  }
+  var apiUrl = (typeof GOOGLE_SCRIPT_URL !== 'undefined' && GOOGLE_SCRIPT_URL)
+    ? GOOGLE_SCRIPT_URL
+    : (typeof EMPIRE_API_ENDPOINT !== 'undefined' ? EMPIRE_API_ENDPOINT : '');
+  if (!apiUrl) {
+    _lastEmpireUploadError = 'API URL not configured';
+    cb(null);
+    return;
+  }
+
   var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
   var finished = false;
   function finish(result) {
@@ -157,31 +175,55 @@ function empireUploadBlob(blob, folder, path, cb) {
     if (controller) controller.abort();
     else finish(null);
     if (!finished) _lastEmpireUploadError = 'Upload timed out — check your connection and try again.';
-  }, 30000);
-  var fetchOpts = {
-    method: 'POST',
-    headers: {
-      apikey: SUPABASE_CONFIG.anonKey,
-      Authorization: 'Bearer ' + SUPABASE_CONFIG.anonKey,
-      'Content-Type': blob.type || (String(uploadPath || path || '').slice(-4) === '.wav' ? 'audio/wav' : 'application/octet-stream'),
-      'x-upsert': 'true'
-    },
-    body: blob
+  }, 45000);
+
+  var signBody = {
+    action: 'getSignedUpload',
+    token: token,
+    folder: folder || 'misc',
+    contentType: mime,
+    ext: extHint
   };
-  if (controller) fetchOpts.signal = controller.signal;
-  fetch(url, fetchOpts).then(function (res) {
-    return res.text().then(function (txt) {
-      if (res.ok) {
-        finish(empireStoragePublicUrl(uploadPath));
-        return;
+
+  fetch(apiUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(signBody),
+    signal: controller ? controller.signal : undefined
+  }).then(function (res) {
+    return res.json().then(function (d) {
+      if (!d || d.ok === false || !d.signedUrl) {
+        _lastEmpireUploadError = (d && (d.message || d.error)) || ('Could not get upload URL (' + res.status + ')');
+        finish(null);
+        return null;
       }
-      try {
-        var err = JSON.parse(txt);
-        _lastEmpireUploadError = empireStorageFriendlyError_(err.message || err.error || ('Upload failed (' + res.status + ')'));
-      } catch (e) {
-        _lastEmpireUploadError = empireStorageFriendlyError_(txt || ('Upload failed (' + res.status + ')'));
-      }
-      finish(null);
+      return d;
+    });
+  }).then(function (signed) {
+    if (!signed) return;
+    var putHeaders = {
+      'Content-Type': mime || 'application/octet-stream'
+    };
+    if (signed.token) putHeaders['x-upsert'] = 'true';
+    return fetch(signed.signedUrl, {
+      method: 'PUT',
+      headers: putHeaders,
+      body: blob,
+      signal: controller ? controller.signal : undefined
+    }).then(function (putRes) {
+      return putRes.text().then(function (txt) {
+        if (putRes.ok) {
+          finish(signed.publicUrl || empireStoragePublicUrl(signed.path));
+          return;
+        }
+        try {
+          var err = JSON.parse(txt);
+          _lastEmpireUploadError = empireStorageFriendlyError_(err.message || err.error || ('Upload failed (' + putRes.status + ')'));
+        } catch (e) {
+          _lastEmpireUploadError = empireStorageFriendlyError_(txt || ('Upload failed (' + putRes.status + ')'));
+        }
+        finish(null);
+      });
     });
   }).catch(function (err) {
     if (err && err.name === 'AbortError') {

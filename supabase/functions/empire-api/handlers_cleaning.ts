@@ -1,6 +1,6 @@
 import { projectAllowedForUser, projectsForUser, getUser } from "./auth.ts";
 import { fmtDate, isoNow, sb, selectAllRows, trashRows } from "./db.ts";
-import { RESET_PASSWORD } from "./config.ts";
+import { resetPasswordOk } from "./config.ts";
 
 function normalizePhotoSource(v: unknown): string {
   return String(v || "camera").toLowerCase() === "gallery" ? "gallery" : "camera";
@@ -343,7 +343,7 @@ export async function handleGetTaskLog(body: Record<string, unknown>) {
 }
 
 export async function handleClearAll(body: Record<string, unknown>) {
-  if (String(body.resetPassword || "") !== RESET_PASSWORD) {
+  if (!resetPasswordOk(body)) {
     return { ok: false, success: false, error: "bad_password" };
   }
   const { data: reports } = await sb().from("cleaning_reports").select("*");

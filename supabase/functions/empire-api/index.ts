@@ -13,6 +13,7 @@ import * as cleaning from "./handlers_cleaning.ts";
 import * as issues from "./handlers_issues.ts";
 import * as jobs from "./handlers_jobs.ts";
 import * as misc from "./handlers_misc.ts";
+import * as storage from "./handlers_storage.ts";
 import * as users from "./handlers_users.ts";
 
 const CORS = {
@@ -47,6 +48,12 @@ Deno.serve(async (req) => {
     if (action === "verifyPassword") return json(await verifyPassword(body));
     if (action === "getPerms") return json(await handleGetPerms(body));
     if (action === "getSummary") return json(await misc.handleGetSummary(body));
+    if (action === "getSignedUpload") {
+      let upAuth = await verifyTokenSession(String(body.token || ""));
+      if (!upAuth.ok) return json(upAuth);
+      upAuth = await enrichAuthRole(upAuth as AuthOk);
+      return json(await storage.handleGetSignedUpload(body, upAuth as AuthOk));
+    }
 
     const adminUserActions: Record<string, number> = {
       listUsers: 1,

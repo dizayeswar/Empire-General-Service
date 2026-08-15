@@ -1,5 +1,5 @@
 import { AuthOk } from "./auth.ts";
-import { RESET_PASSWORD } from "./config.ts";
+import { resetPasswordOk } from "./config.ts";
 import { fmtDate, isoNow, nextCounter, sb, selectAllRows, trashRows } from "./db.ts";
 import {
   formatFixedPhotosForStorage,
@@ -213,7 +213,7 @@ export async function handleDeleteElectricalJob(body: Record<string, unknown>) {
 }
 
 export async function handleClearElectricalJobs(body: Record<string, unknown>) {
-  if (String(body.resetPassword || "") !== RESET_PASSWORD) {
+  if (!resetPasswordOk(body)) {
     return { ok: false, success: false, error: "bad_password" };
   }
   let target = String(body.target || "all").trim().toLowerCase();
@@ -402,7 +402,7 @@ export async function handleDeleteCivilJob(body: Record<string, unknown>) {
 }
 
 export async function handleClearCivilJobs(body: Record<string, unknown>) {
-  if (String(body.resetPassword || "") !== RESET_PASSWORD) {
+  if (!resetPasswordOk(body)) {
     return { ok: false, success: false, error: "bad_password" };
   }
   let target = String(body.target || "all").trim().toLowerCase();

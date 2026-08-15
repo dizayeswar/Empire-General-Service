@@ -39,38 +39,23 @@ When the project is ready, open **Project Settings → API** and note:
 2. Name: `empire-photos`
 3. Enable **Public bucket** (photos must load in dashboards without login)
 
-### Storage policies (SQL Editor)
+### Storage policies (SQL Editor) — current recommended
 
-Run this in **SQL Editor → New query**:
+Photos stay **publicly readable**. Uploads are **not** done with the anon key anymore (signed upload via `empire-api`).
 
 ```sql
--- Public read
+-- Public read only
+drop policy if exists "Anon upload empire photos" on storage.objects;
+drop policy if exists "Anon update empire photos" on storage.objects;
+drop policy if exists "Public read empire photos" on storage.objects;
+
 create policy "Public read empire photos"
 on storage.objects for select
 to public
 using ( bucket_id = 'empire-photos' );
-
--- Website uploads (anon key in config.js) — photos + assignment voice notes
-create policy "Anon upload empire photos"
-on storage.objects for insert
-to anon
-with check (
-  bucket_id = 'empire-photos'
-  and (
-    storage.extension(name) in ('jpg', 'jpeg', 'png', 'webp', 'gif')
-    or storage.extension(name) in ('webm', 'ogg', 'm4a', 'mp3', 'wav', 'aac')
-  )
-);
-
--- Allow upsert overwrite during migration retries
-create policy "Anon update empire photos"
-on storage.objects for update
-to anon
-using ( bucket_id = 'empire-photos' )
-with check ( bucket_id = 'empire-photos' );
 ```
 
-If policies already exist, adjust names or drop duplicates first.
+> Legacy note: older setup guides used anon INSERT policies. Those are unsafe once `config.js` is public — remove them after signed uploads are live.
 
 ---
 
@@ -205,31 +190,10 @@ Fill in `SUPABASE_CONFIG.url` and `SUPABASE_CONFIG.anonKey`, push to GitHub, har
 
 ### Upload fails with 401 / 403
 
-- Check storage policies (Step 2).  
-- Confirm bucket name is `empire-photos` and bucket is **public**.
-
-### Voice note: “new row violates row-level security policy”
-
-Your Supabase **insert** policy only allows image files. Assignment voice notes use `.webm` / `.ogg` audio.
-
-In Supabase **SQL Editor**, run:
-
-```sql
-drop policy if exists "Anon upload empire photos" on storage.objects;
-
-create policy "Anon upload empire photos"
-on storage.objects for insert
-to anon
-with check (
-  bucket_id = 'empire-photos'
-  and (
-    storage.extension(name) in ('jpg', 'jpeg', 'png', 'webp', 'gif')
-    or storage.extension(name) in ('webm', 'ogg', 'm4a', 'mp3', 'wav', 'aac')
-  )
-);
-```
-
-Then try **Save assignment** again (hard refresh the civil issues page first).
+- Confirm you are **logged in** (uploads need a session + signed URL).  
+- Confirm `empire-api` is deployed with `getSignedUpload`.  
+- Confirm bucket is **public** (for reading) and anon INSERT policies were dropped after cutover.  
+- Hard refresh so `empire-storage.js` is the latest version.
 
 ### Migration: “Set SUPABASE_URL and SUPABASE_SERVICE_KEY”
 
@@ -249,9 +213,17 @@ That ImgBB link may be dead or rate-limited. Note the URL from the error, open i
 
 ## Security notes
 
-- **anon key** in `config.js` is public (same as ImgBB key was). Storage policies limit what it can do.  
-- **service_role key** stays in Apps Script Script Properties only.  
-- Do not put the service role key in GitHub, `config.js`, or chat.
+- **anon key** in `config.js` is public (same as ImgBB key was). It must **not** be allowed to INSERT into Storage.
+- New uploads use **signed URLs** from `empire-api` (`getSignedUpload`) after login — see `assets/empire-storage.js`.
+- After deploying that API + frontend, run [`supabase/migrations/20260815_storage_signed_uploads_only.sql`](supabase/migrations/20260815_storage_signed_uploads_only.sql) in the SQL Editor to drop anon upload/update policies (keep public read).
+- **RESET_PASSWORD** (wipe/clear confirm) must be set as an Edge Function secret — there is **no** default in code:
+
+```bash
+npx supabase secrets set RESET_PASSWORD="your-long-random-secret" --project-ref nobcitpaudeopzfymgzi
+npx supabase functions deploy empire-api --no-verify-jwt --project-ref nobcitpaudeopzfymgzi
+```
+
+- **service_role key** stays in Edge Function / Apps Script Script Properties only. Never commit it or put it in `config.js` / chat. Rotate it in Supabase → Project Settings → API if it was ever shared.
 
 ---
 
