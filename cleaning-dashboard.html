@@ -65,7 +65,7 @@
         </aside>
         <div class="main-area">
         <div id="all" class="tab-content active"><div id="connectionCheckSection" class="form-section" style="display:none;border-color:#e6b800;"><h2>🔍 Connection Check</h2><p id="debugStatus" style="font-size:14px;">Checking…</p><button onclick="debugTestReports()">Test Now</button> <button onclick="debugTestTaskPhotos()">Test Task Photos</button><pre id="debugOutput" style="white-space:pre-wrap;word-break:break-all;margin-top:10px;font-size:11px;color:var(--text-faint);max-height:220px;overflow:auto;background:var(--input-bg);padding:8px;border-radius:12px;"></pre></div><div class="form-section"><h2><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg></span> Filter by Date</h2><div class="form-row"><div class="form-group"><label>Select Date:</label><input type="date" id="filterDate" onchange="loadReports()"></div><div class="form-group" style="justify-content:flex-end;gap:8px;flex-direction:row;"><button onclick="filterByDate()">Show Reports for This Date</button><button type="button" id="dashRefreshBtn" onclick="manualRefreshDashboard()" title="Refresh"><span id="dashRefreshIcon" class="nav-icon spin-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span></button></div></div><div style="margin-top:14px;"><label style="display:block;margin-bottom:8px;">Project:</label><div id="projectFilterBoxes" style="display:flex;gap:8px;flex-wrap:wrap;"></div></div></div><div id="dashboardContent"><p>Select a date to view reports or click a project tab to add new data.</p></div></div>
-        <div id="analytics" class="tab-content"><div class="form-section"><div id="monthCompletionContent"><p>Loading…</p></div></div><div class="form-section"><h2><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 11h8"/><path d="M7 16h12"/><path d="M7 6h3"/></svg></span> Complete Project Analytics</h2><div class="form-row"><div class="form-group"><label>From Date:</label><input type="date" id="analyticsFromDate"></div><div class="form-group"><label>To Date:</label><input type="date" id="analyticsToDate"></div></div><div class="button-group"><button onclick="spinRefreshBtn(this); generateAnalytics()" style="flex:1;"><span class="nav-icon spin-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> Refresh Analytics (Date Range)</button><button onclick="generateAllTimeAnalytics()" style="flex:1;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 11h8"/><path d="M7 16h12"/><path d="M7 6h3"/></svg></span> All-Time Analytics</button><button onclick="downloadAnalyticsReport()" style="flex:1;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg></span> Download Report</button></div></div><div id="analyticsContent"><p>Select dates and click "Refresh Analytics" or view "All-Time Analytics".</p></div></div>
+        <div id="analytics" class="tab-content"><div class="form-section"><div id="monthCompletionContent"><p style="color:var(--text-soft);">Open Analytics to load monthly completion charts.</p></div></div><div class="form-section"><h2><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 11h8"/><path d="M7 16h12"/><path d="M7 6h3"/></svg></span> Complete Project Analytics</h2><div class="form-row"><div class="form-group"><label>From Date:</label><input type="date" id="analyticsFromDate"></div><div class="form-group"><label>To Date:</label><input type="date" id="analyticsToDate"></div></div><div class="button-group"><button onclick="spinRefreshBtn(this); generateAnalytics()" style="flex:1;"><span class="nav-icon spin-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> Refresh Analytics (Date Range)</button><button onclick="generateAllTimeAnalytics()" style="flex:1;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 11h8"/><path d="M7 16h12"/><path d="M7 6h3"/></svg></span> All-Time Analytics</button><button onclick="downloadAnalyticsReport()" style="flex:1;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg></span> Download Report</button></div></div><div id="analyticsContent"><p>Select dates and click "Refresh Analytics" or view "All-Time Analytics".</p></div></div>
         <div id="monthly" class="tab-content"><div class="form-section"><h2><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span> Monthly Report</h2><div class="form-row"><div class="form-group"><label>Month:</label><input type="month" id="monthlyMonth"></div><div class="form-group" style="justify-content:flex-end;"><button onclick="generateMonthlyReport()"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span> Generate Monthly Report</button></div></div></div><div id="monthlyContent"><p>Pick a month and click Generate.</p></div></div>
         <div id="empire-complex" class="tab-content"><div class="form-section"><h2>Empire Complex</h2><div class="form-row"><div class="form-group"><label>Building:</label><select id="ec-building" onchange="updateFloors('ec')"><option>EC1</option><option>EC2</option><option>EC3</option><option>EC4</option><option>EC5</option><option>EC6</option></select></div><div class="form-group"><label>Supervisor:</label><input type="text" value="Ibrahim" readonly></div><div class="form-group"><label>Date:</label><input type="date" id="ec-date"></div><div class="form-group"><label>Daily Employees:</label><input type="number" id="ec-employees" min="1" value="1"></div></div><h3>Floors to Clean</h3><div class="form-row"><div class="form-group"><label class="selectall-wrap"><input type="checkbox" id="ec-selectall" onchange="toggleAllFloors('ec'); updateCbIcon(this);"><span class="nav-icon cb-icon" style="color:#C5504F;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/></svg></span> Select All</label></div></div><div id="ec-floors" class="checkbox-group"></div><div class="form-row"><div class="form-group"><label>Cleaning Level:</label><select id="ec-level"><option>High</option><option>Mid</option><option>Low</option></select></div></div><h3><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/></svg></span> Photo (Paste Image)</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px;"><button type="button" onclick="document.getElementById('ec-file').click()"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/><circle cx="14" cy="15" r="1"/></svg></span> Upload / Camera</button><span style="color:var(--text-soft);font-size:13px;">— or paste below ⤵</span><input type="file" id="ec-file" accept="image/*" style="display:none" onchange="handleProjectFile(event,'ec')"></div><div class="image-upload" id="ec-imageArea" onpaste="handlePaste(event, 'ec')">Click here and paste (Ctrl+V)</div><img id="ec-image" style="display:none;"><div class="button-group"><button onclick="saveReport('ec')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg></span> Save</button><button onclick="clearForm('ec')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 21H8a2 2 0 0 1-1.42-.587l-3.994-3.999a2 2 0 0 1 0-2.828l10-10a2 2 0 0 1 2.829 0l5.999 6a2 2 0 0 1 0 2.828L12.834 21"/><path d="m5.082 11.09 8.828 8.828"/></svg></span> Clear</button></div></div></div>
         <div id="empire-square" class="tab-content"><div class="form-section"><h2>Empire Square</h2><div class="form-row"><div class="form-group"><label>Building:</label><select id="es-building" onchange="updateFloors('es')"><option>ES1</option><option>ES2</option><option>ES3</option><option>ES4</option><option>ES6</option></select></div><div class="form-group"><label>Supervisor:</label><input type="text" value="Ibrahim" readonly></div><div class="form-group"><label>Date:</label><input type="date" id="es-date"></div><div class="form-group"><label>Daily Employees:</label><input type="number" id="es-employees" min="1" value="1"></div></div><h3>Floors to Clean</h3><div class="form-row"><div class="form-group"><label class="selectall-wrap"><input type="checkbox" id="es-selectall" onchange="toggleAllFloors('es'); updateCbIcon(this);"><span class="nav-icon cb-icon" style="color:#C5504F;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/></svg></span> Select All</label></div></div><div id="es-floors" class="checkbox-group"></div><div class="form-row"><div class="form-group"><label>Cleaning Level:</label><select id="es-level"><option>High</option><option>Mid</option><option>Low</option></select></div></div><h3><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"/><circle cx="12" cy="13" r="3"/></svg></span> Photo (Paste Image)</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px;"><button type="button" onclick="document.getElementById('es-file').click()"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/><circle cx="14" cy="15" r="1"/></svg></span> Upload / Camera</button><span style="color:var(--text-soft);font-size:13px;">— or paste below ⤵</span><input type="file" id="es-file" accept="image/*" style="display:none" onchange="handleProjectFile(event,'es')"></div><div class="image-upload" id="es-imageArea" onpaste="handlePaste(event, 'es')">Click here and paste (Ctrl+V)</div><img id="es-image" style="display:none;"><div class="button-group"><button onclick="saveReport('es')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg></span> Save</button><button onclick="clearForm('es')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 21H8a2 2 0 0 1-1.42-.587l-3.994-3.999a2 2 0 0 1 0-2.828l10-10a2 2 0 0 1 2.829 0l5.999 6a2 2 0 0 1 0 2.828L12.834 21"/><path d="m5.082 11.09 8.828 8.828"/></svg></span> Clear</button></div></div></div>
@@ -81,11 +81,11 @@
       </div>
     </div>
     <script src="config.js"></script>
-    <script src="assets/empire-storage.js?v=2026-08-15-ux1"></script>
-    <script src="assets/empire-api.js?v=2026-08-15-ux1"></script>
+    <script src="assets/empire-storage.js?v=2026-08-15-lazy1"></script>
+    <script src="assets/empire-api.js?v=2026-08-15-lazy1"></script>
     <script src="assets/empire-auth.js?v=2026-08-15-perf2"></script>
     <script src="assets/empire-core.js?v=2026-08-15-perf2"></script>
-    <script src="assets/empire-sw-update.js?v=2026-08-15-ux1"></script>
+    <script src="assets/empire-sw-update.js?v=2026-08-15-lazy1"></script>
     <script src="assets/empire-offline-queue.js?v=2026-08-15-perf2"></script>
     <script>
         /* ===== Themed dialogs (checkmark icons; shared theme/sidebar come from empire-core.js) ===== */
@@ -175,8 +175,21 @@
         function handleLogin(e) {
           empireAuthLogin(e, 'cleaning', { onSuccess: function(){ enterDashboard(); } });
         }
-        function readReportsCache(){ try{ var s=localStorage.getItem('cleaning_reports_cache'); if(!s) return null; var a=JSON.parse(s); return Array.isArray(a)?a:null; }catch(e){ return null; } }
-        function writeReportsCache(a){ try{ localStorage.setItem('cleaning_reports_cache', JSON.stringify(a)); }catch(e){} }
+        function readReportsCache(scope){
+          try{
+            var key = (!scope || scope==='full') ? 'cleaning_reports_cache' : ('cleaning_reports_day_'+scope);
+            var s=localStorage.getItem(key); if(!s) return null; var a=JSON.parse(s); return Array.isArray(a)?a:null;
+          }catch(e){ return null; }
+        }
+        function writeReportsCache(a, scope){
+          try{
+            var key = (!scope || scope==='full') ? 'cleaning_reports_cache' : ('cleaning_reports_day_'+scope);
+            localStorage.setItem(key, JSON.stringify(a));
+          }catch(e){}
+        }
+        var _reportsScope = '';
+        var _monthCompletionLoadedFor = '';
+        var _analyticsTabReady = false;
         function readTasksCache(){ try{ var s=localStorage.getItem('cleaning_tasks_cache'); if(!s) return null; var o=JSON.parse(s); return (o&&typeof o==='object'&&!Array.isArray(o))?o:null; }catch(e){ return null; } }
         function writeTasksCache(o){ try{ localStorage.setItem('cleaning_tasks_cache', JSON.stringify(o)); }catch(e){} }
         function readWeekCovCache(){ try{ var s=localStorage.getItem('cleaning_weekcov_cache'); if(!s) return null; var o=JSON.parse(s); return (o&&typeof o==='object'&&!Array.isArray(o))?o:null; }catch(e){ return null; } }
@@ -217,11 +230,12 @@
           try { return await _photosFetchPromises[mv]; } finally { delete _photosFetchPromises[mv]; }
         }
         async function loadReports() {
-          const cached=readReportsCache();
-          if(cached){ allReports=reportsForUser(cached); refreshDashboardView(); }
-          var lastErr=null;
           var fdEl=document.getElementById('filterDate');
           var dateFilter=(fdEl&&fdEl.value)||'';
+          var scope = dateFilter || 'full';
+          const cached=readReportsCache(scope);
+          if(cached){ allReports=reportsForUser(cached); _reportsScope=scope; refreshDashboardView(); }
+          var lastErr=null;
           var dc=document.getElementById('dashboardContent');
           if(!cached && dc && !dc.querySelector('.form-section') && typeof empireLoadingHtml==='function'){
             dc.innerHTML=empireLoadingHtml('Loading cleaning reports…');
@@ -236,7 +250,8 @@
               if(Array.isArray(data)) {
                 data.forEach(r=>{ r.image = r.photo; });
                 allReports = reportsForUser(data);
-                writeReportsCache(allReports);
+                _reportsScope = scope;
+                writeReportsCache(allReports, scope);
                 refreshDashboardView();
                 updateDebugStatus('✅ Loaded '+allReports.length+' report(s) from the server just now.');
               } else if(data && data.ok===false) {
@@ -262,6 +277,43 @@
           if(!cached && dc && typeof empireErrorHtml==='function'){
             dc.innerHTML=empireErrorHtml((lastErr&&lastErr.message)||'Could not reach the server','Check your connection, then refresh.');
           }
+        }
+        /** Full report history — only when Analytics / Monthly need it. */
+        async function ensureFullReportsForAnalytics_(force) {
+          if (!force && _reportsScope === 'full' && allReports.length) return allReports;
+          var cached = readReportsCache('full');
+          if (!force && cached && cached.length) {
+            allReports = reportsForUser(cached);
+            _reportsScope = 'full';
+            return allReports;
+          }
+          var lastErr = null;
+          for (var attempt = 0; attempt < 3; attempt++) {
+            try {
+              var response = await fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'getReports', token: empireGetToken() || '' })
+              });
+              if (!response.ok) throw new Error('Failed to fetch: ' + response.status);
+              var data = await response.json();
+              if (Array.isArray(data)) {
+                data.forEach(function (r) { r.image = r.photo; });
+                allReports = reportsForUser(data);
+                _reportsScope = 'full';
+                writeReportsCache(allReports, 'full');
+                return allReports;
+              }
+              if (data && data.ok === false) {
+                forceSessionLogout(data);
+                throw new Error(data.message || data.error || 'Request rejected');
+              }
+              throw new Error('Unexpected server reply');
+            } catch (e) {
+              lastErr = e;
+              await new Promise(function (res) { setTimeout(res, 400); });
+            }
+          }
+          throw lastErr || new Error('Could not load reports');
         }
         function updateDebugStatus(msg){ var el=document.getElementById('debugStatus'); if(el) el.textContent=msg; }
         async function debugTestReports(){
@@ -332,7 +384,7 @@
               var d = await fetchJSONRetry({action:'deleteReport', id:id, token:empireGetToken()||''});
               if(d && d.ok===false){ uiAlert('❌ Could not delete: '+(d.message||d.error||'unknown error')); return; }
               allReports=allReports.filter(function(r){ return r.id!==id; });
-              writeReportsCache(allReports);
+              writeReportsCache(allReports, _reportsScope || 'full');
               if(btn){ const card=btn.closest('.form-section'); if(card) card.remove(); }
               refreshDashboardView();
             } catch(e){ uiAlert('❌ Error: '+e.message); }
@@ -357,8 +409,18 @@
               if(oc.indexOf("'"+t+"'")!==-1) b.classList.add('active');
             });
           }
-          if(t==='analytics'){ generateMonthCompletion(); generateAnalytics(); }
-          else if(t==='monthly'){ const mm=document.getElementById('monthlyMonth'); if(mm && !mm.value){ mm.value=curMonth(); } }
+          if(t==='analytics'){
+            openAnalyticsTab_();
+          }
+          else if(t==='monthly'){
+            const mm=document.getElementById('monthlyMonth');
+            if(mm && !mm.value){ mm.value=curMonth(); }
+            var mc=document.getElementById('monthlyContent');
+            if(mc && !mc.dataset.ready){
+              mc.innerHTML='<p style="color:var(--text-soft);">Pick a month and click <strong>Generate Monthly Report</strong>. Heavy data loads only when you generate.</p>';
+              mc.dataset.ready='1';
+            }
+          }
           else if(!['all','analytics','monthly'].includes(t)){
             var proj=projectKeyFromTab(t);
             if(proj){
@@ -505,9 +567,30 @@
             +'<div style="height:100%;width:'+p+'%;background:'+col+';border-radius:20px;transition:width .4s;"></div>'
           +'</div>';
         }
-        async function generateMonthCompletion(){
+        function openAnalyticsTab_(){
+          var host=document.getElementById('monthCompletionContent');
+          var ac=document.getElementById('analyticsContent');
+          if(host && !_analyticsTabReady){
+            host.innerHTML=(typeof empireLoadingHtml==='function'?empireLoadingHtml('Loading monthly completion…'):'<p>Loading…</p>');
+          }
+          ensureFullReportsForAnalytics_(false).then(function(){
+            _analyticsTabReady=true;
+            var bounds=reportPeriodBounds(curMonth());
+            var fromEl=document.getElementById('analyticsFromDate');
+            var toEl=document.getElementById('analyticsToDate');
+            if(fromEl && !fromEl.value && bounds) fromEl.value=bounds.from;
+            if(toEl && !toEl.value && bounds) toEl.value=bounds.to;
+            generateMonthCompletion(false);
+            generateAnalytics();
+          }).catch(function(e){
+            if(host) host.innerHTML=(typeof empireErrorHtml==='function'?empireErrorHtml(String((e&&e.message)||e),'Open Analytics again to retry.'):('<p>'+String((e&&e.message)||e)+'</p>'));
+            if(ac) ac.innerHTML='<p style="color:var(--c-error);">Could not load analytics reports.</p>';
+          });
+        }
+        async function generateMonthCompletion(force){
           const host=document.getElementById('monthCompletionContent'); if(!host) return;
           const mv=curMonth();
+          if(!force && _monthCompletionLoadedFor===mv && host.querySelector('.form-section')) return;
           host.innerHTML=LOADING_HTML;
           let mphotos=[];
           try {
@@ -540,13 +623,28 @@
           });
           h+='</div>';
           host.innerHTML=h;
+          _monthCompletionLoadedFor=mv;
         }
-        function generateAnalytics() { const fromDate=document.getElementById('analyticsFromDate').value; const toDate=document.getElementById('analyticsToDate').value; if(!fromDate || !toDate) return; const filtered=allReports.filter(r=>{const rd=normalizeDate(r.date); return rd>=fromDate && rd<=toDate;}); analyticsReports=filtered; let h='<h2>'+summaryIconHtml()+' Summary ('+fromDate+' to '+toDate+')</h2><div class="stats"><div class="stat-box"><div class="stat-value">'+filtered.length+'</div><div class="stat-label">Total Reports</div></div>'; const imgs=filtered.filter(r=>r.image&&r.image.length>0).length; h+='<div class="stat-box"><div class="stat-value">'+imgs+'</div><div class="stat-label">Photos</div></div><div class="stat-box"><div class="stat-value">'+new Set(filtered.map(r=>r.building)).size+'</div><div class="stat-label">Buildings</div></div><div class="stat-box"><div class="stat-value">'+filtered.reduce((s,r)=>s+parseInt(r.employees),0)+'</div><div class="stat-label">Employees</div></div></div><h3 style="margin-top:30px;">'+chartIconHtml()+' By Project</h3>'; userProjectList().forEach(p=>{const pr=filtered.filter(r=>r.project===p); const pi=pr.filter(r=>r.image&&r.image.length>0).length; const bi=new Set(pr.map(r=>r.building)).size; const te=pr.reduce((s,r)=>s+parseInt(r.employees),0); const tf=pr.reduce((s,r)=>s+normalizeFloors(r.floors).length,0); h+='<div class="form-section"><h3>'+{ec:'Empire Complex',es:'Empire Square',wd:'West Diamond',ww:'West Wing',ww2:'(New) West Wing',ra:'Royal Apartment'}[p]+'</h3><div class="stats"><div class="stat-box"><div class="stat-value">'+pr.length+'</div><div class="stat-label">Reports</div></div><div class="stat-box"><div class="stat-value">'+pi+'</div><div class="stat-label">Photos</div></div><div class="stat-box"><div class="stat-value">'+bi+'/'+buildingInfo[p].count+'</div><div class="stat-label">Buildings</div></div><div class="stat-box"><div class="stat-value">'+tf+'</div><div class="stat-label">Floors</div></div><div class="stat-box"><div class="stat-value">'+te+'</div><div class="stat-label">Employees</div></div></div><p><strong>Supervisor:</strong> '+supervisors[p]+'</p><p><strong>Buildings:</strong> '+buildingInfo[p].buildings+'</p><p><strong>Floors:</strong> '+buildingInfo[p].avgFloors+'</p></div>';}); document.getElementById('analyticsContent').innerHTML=h; attachStatHandlers('analyticsContent'); }
-        function generateAllTimeAnalytics() { analyticsReports=allReports; let h='<h2>'+summaryIconHtml()+' All-Time Summary (All Data)</h2><div class="stats"><div class="stat-box"><div class="stat-value">'+allReports.length+'</div><div class="stat-label">Total Reports</div></div>'; const imgs=allReports.filter(r=>r.image&&r.image.length>0).length; h+='<div class="stat-box"><div class="stat-value">'+imgs+'</div><div class="stat-label">Photos</div></div><div class="stat-box"><div class="stat-value">'+new Set(allReports.map(r=>r.building)).size+'</div><div class="stat-label">Buildings</div></div><div class="stat-box"><div class="stat-value">'+allReports.reduce((s,r)=>s+parseInt(r.employees),0)+'</div><div class="stat-label">Employees</div></div></div><h3 style="margin-top:30px;">'+chartIconHtml()+' By Project</h3>'; userProjectList().forEach(p=>{const pr=allReports.filter(r=>r.project===p); const pi=pr.filter(r=>r.image&&r.image.length>0).length; const bi=new Set(pr.map(r=>r.building)).size; const te=pr.reduce((s,r)=>s+parseInt(r.employees),0); const tf=pr.reduce((s,r)=>s+normalizeFloors(r.floors).length,0); h+='<div class="form-section"><h3>'+{ec:'Empire Complex',es:'Empire Square',wd:'West Diamond',ww:'West Wing',ww2:'(New) West Wing',ra:'Royal Apartment'}[p]+'</h3><div class="stats"><div class="stat-box"><div class="stat-value">'+pr.length+'</div><div class="stat-label">Reports</div></div><div class="stat-box"><div class="stat-value">'+pi+'</div><div class="stat-label">Photos</div></div><div class="stat-box"><div class="stat-value">'+bi+'/'+buildingInfo[p].count+'</div><div class="stat-label">Buildings</div></div><div class="stat-box"><div class="stat-value">'+tf+'</div><div class="stat-label">Floors</div></div><div class="stat-box"><div class="stat-value">'+te+'</div><div class="stat-label">Employees</div></div></div><p><strong>Supervisor:</strong> '+supervisors[p]+'</p><p><strong>Buildings:</strong> '+buildingInfo[p].buildings+'</p><p><strong>Floors:</strong> '+buildingInfo[p].avgFloors+'</p></div>';}); document.getElementById('analyticsContent').innerHTML=h; attachStatHandlers('analyticsContent'); }
+        function generateAnalytics() {
+          ensureFullReportsForAnalytics_(false).then(function(){
+            const fromDate=document.getElementById('analyticsFromDate').value; const toDate=document.getElementById('analyticsToDate').value; if(!fromDate || !toDate) return; const filtered=allReports.filter(r=>{const rd=normalizeDate(r.date); return rd>=fromDate && rd<=toDate;}); analyticsReports=filtered; let h='<h2>'+summaryIconHtml()+' Summary ('+fromDate+' to '+toDate+')</h2><div class="stats"><div class="stat-box"><div class="stat-value">'+filtered.length+'</div><div class="stat-label">Total Reports</div></div>'; const imgs=filtered.filter(r=>r.image&&r.image.length>0).length; h+='<div class="stat-box"><div class="stat-value">'+imgs+'</div><div class="stat-label">Photos</div></div><div class="stat-box"><div class="stat-value">'+new Set(filtered.map(r=>r.building)).size+'</div><div class="stat-label">Buildings</div></div><div class="stat-box"><div class="stat-value">'+filtered.reduce((s,r)=>s+parseInt(r.employees),0)+'</div><div class="stat-label">Employees</div></div></div><h3 style="margin-top:30px;">'+chartIconHtml()+' By Project</h3>'; userProjectList().forEach(p=>{const pr=filtered.filter(r=>r.project===p); const pi=pr.filter(r=>r.image&&r.image.length>0).length; const bi=new Set(pr.map(r=>r.building)).size; const te=pr.reduce((s,r)=>s+parseInt(r.employees),0); const tf=pr.reduce((s,r)=>s+normalizeFloors(r.floors).length,0); h+='<div class="form-section"><h3>'+{ec:'Empire Complex',es:'Empire Square',wd:'West Diamond',ww:'West Wing',ww2:'(New) West Wing',ra:'Royal Apartment'}[p]+'</h3><div class="stats"><div class="stat-box"><div class="stat-value">'+pr.length+'</div><div class="stat-label">Reports</div></div><div class="stat-box"><div class="stat-value">'+pi+'</div><div class="stat-label">Photos</div></div><div class="stat-box"><div class="stat-value">'+bi+'/'+buildingInfo[p].count+'</div><div class="stat-label">Buildings</div></div><div class="stat-box"><div class="stat-value">'+tf+'</div><div class="stat-label">Floors</div></div><div class="stat-box"><div class="stat-value">'+te+'</div><div class="stat-label">Employees</div></div></div><p><strong>Supervisor:</strong> '+supervisors[p]+'</p><p><strong>Buildings:</strong> '+buildingInfo[p].buildings+'</p><p><strong>Floors:</strong> '+buildingInfo[p].avgFloors+'</p></div>';}); document.getElementById('analyticsContent').innerHTML=h; attachStatHandlers('analyticsContent');
+          }).catch(function(e){
+            var ac=document.getElementById('analyticsContent');
+            if(ac) ac.innerHTML='<p style="color:var(--c-error);">'+String((e&&e.message)||e)+'</p>';
+          });
+        }
+        function generateAllTimeAnalytics() {
+          ensureFullReportsForAnalytics_(false).then(function(){
+            analyticsReports=allReports; let h='<h2>'+summaryIconHtml()+' All-Time Summary (All Data)</h2><div class="stats"><div class="stat-box"><div class="stat-value">'+allReports.length+'</div><div class="stat-label">Total Reports</div></div>'; const imgs=allReports.filter(r=>r.image&&r.image.length>0).length; h+='<div class="stat-box"><div class="stat-value">'+imgs+'</div><div class="stat-label">Photos</div></div><div class="stat-box"><div class="stat-value">'+new Set(allReports.map(r=>r.building)).size+'</div><div class="stat-label">Buildings</div></div><div class="stat-box"><div class="stat-value">'+allReports.reduce((s,r)=>s+parseInt(r.employees),0)+'</div><div class="stat-label">Employees</div></div></div><h3 style="margin-top:30px;">'+chartIconHtml()+' By Project</h3>'; userProjectList().forEach(p=>{const pr=allReports.filter(r=>r.project===p); const pi=pr.filter(r=>r.image&&r.image.length>0).length; const bi=new Set(pr.map(r=>r.building)).size; const te=pr.reduce((s,r)=>s+parseInt(r.employees),0); const tf=pr.reduce((s,r)=>s+normalizeFloors(r.floors).length,0); h+='<div class="form-section"><h3>'+{ec:'Empire Complex',es:'Empire Square',wd:'West Diamond',ww:'West Wing',ww2:'(New) West Wing',ra:'Royal Apartment'}[p]+'</h3><div class="stats"><div class="stat-box"><div class="stat-value">'+pr.length+'</div><div class="stat-label">Reports</div></div><div class="stat-box"><div class="stat-value">'+pi+'</div><div class="stat-label">Photos</div></div><div class="stat-box"><div class="stat-value">'+bi+'/'+buildingInfo[p].count+'</div><div class="stat-label">Buildings</div></div><div class="stat-box"><div class="stat-value">'+tf+'</div><div class="stat-label">Floors</div></div><div class="stat-box"><div class="stat-value">'+te+'</div><div class="stat-label">Employees</div></div></div><p><strong>Supervisor:</strong> '+supervisors[p]+'</p><p><strong>Buildings:</strong> '+buildingInfo[p].buildings+'</p><p><strong>Floors:</strong> '+buildingInfo[p].avgFloors+'</p></div>';}); document.getElementById('analyticsContent').innerHTML=h; attachStatHandlers('analyticsContent');
+          }).catch(function(e){
+            var ac=document.getElementById('analyticsContent');
+            if(ac) ac.innerHTML='<p style="color:var(--c-error);">'+String((e&&e.message)||e)+'</p>';
+          });
+        }
         function downloadAnalyticsReport() { const dashHTML=`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Empire World Dashboard - Analytics Report</title><style>* { margin: 0; padding: 0; box-sizing: border-box; }body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #0f5a9e 0%, #8d015d 100%); color: #fff; min-height: 100vh; padding-bottom: 40px; }.container { max-width: 1400px; margin: 0 auto; padding: 20px; }header { background: #0d4a85; padding: 20px; border-radius: 0 0 24px 24px; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border-bottom: 3px solid #a0327d; }.header-top { display: flex; justify-content: space-between; align-items: center; }.header-title h1 { font-size: 28px; margin-bottom: 5px; color: #fff; }.header-title p { font-size: 13px; color: #ccc; }.form-section { background: rgba(13,50,100,0.6); padding: 25px; border-radius: 18px; margin-bottom: 25px; border: 2px solid #a0327d; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }h2 { margin-bottom: 20px; font-size: 20px; color: #fff; }h3 { margin-top: 25px; margin-bottom: 15px; font-size: 16px; color: #ccc; }.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin: 20px 0; }.stat-box { background: rgba(13,50,100,0.8); padding: 15px; border-radius: 16px; text-align: center; border: 2px solid #a0327d; }.stat-value { font-size: 24px; font-weight: bold; color: #a0327d; }.stat-label { font-size: 12px; color: #ccc; margin-top: 5px; }p { color: #fff; }img { max-width: 150px; margin-top: 10px; border-radius: 12px; margin-right: 15px; }</style></head><body><div class="container"><header><div class="header-top"><div class="header-title"><h1>Empire World Dashboard</h1><p>Analytics Report - Downloaded on ${new Date().toLocaleString()}</p></div></div></header><div id="analyticsContent"></div></div><script>const supervisors = {ec:'Ibrahim',es:'Ibrahim',wd:'Rawa',ww:'Emad',ww2:'Muhamad',ra:'Rawa'};const buildingInfo = {ec:{count:6,buildings:'EC1-EC6',avgFloors:'5-6'},es:{count:5,buildings:'ES1-ES6',avgFloors:'23-28'},wd:{count:3,buildings:'WD-A, WD-B, WD-C',avgFloors:'25-27'},ww:{count:11,buildings:'WW1-WW11',avgFloors:'10-26'},ww2:{count:4,buildings:'WW12-WW15',avgFloors:'32'},ra:{count:32,buildings:'RA-A1-A12, RA-B1-B12, RA-C1-C8',avgFloors:'11-14'}};function normalizeFloors(f){if(Array.isArray(f))return f;if(typeof f==='string')return f.split(',').map(s=>s.trim()).filter(s=>s.length);return [];}const projects = ${JSON.stringify(userProjectList())};const reps = ${JSON.stringify(allReports)};let h='<h2>📋 Summary</h2><div class="stats"><div class="stat-box"><div class="stat-value">'+reps.length+'</div><div class="stat-label">Total Reports</div></div>';const imgs=reps.filter(r=>r.image&&r.image.length>0).length;h+='<div class="stat-box"><div class="stat-value">'+imgs+'</div><div class="stat-label">Photos</div></div><div class="stat-box"><div class="stat-value">'+new Set(reps.map(r=>r.building)).size+'</div><div class="stat-label">Buildings</div></div><div class="stat-box"><div class="stat-value">'+reps.reduce((s,r)=>s+parseInt(r.employees),0)+'</div><div class="stat-label">Employees</div></div></div><h3 style="margin-top:30px;">📊 By Project</h3>';projects.forEach(p=>{const pr=reps.filter(r=>r.project===p);const pi=pr.filter(r=>r.image&&r.image.length>0).length;const bi=new Set(pr.map(r=>r.building)).size;const te=pr.reduce((s,r)=>s+parseInt(r.employees),0);const tf=pr.reduce((s,r)=>s+normalizeFloors(r.floors).length,0);h+='<div class="form-section"><h3>'+{ec:'Empire Complex',es:'Empire Square',wd:'West Diamond',ww:'West Wing',ww2:'(New) West Wing',ra:'Royal Apartment'}[p]+'</h3><div class="stats"><div class="stat-box"><div class="stat-value">'+pr.length+'</div><div class="stat-label">Reports</div></div><div class="stat-box"><div class="stat-value">'+pi+'</div><div class="stat-label">Photos</div></div><div class="stat-box"><div class="stat-value">'+bi+'/'+buildingInfo[p].count+'</div><div class="stat-label">Buildings</div></div><div class="stat-box"><div class="stat-value">'+tf+'</div><div class="stat-label">Floors</div></div><div class="stat-box"><div class="stat-value">'+te+'</div><div class="stat-label">Employees</div></div></div><p><strong>Supervisor:</strong> '+supervisors[p]+'</p><p><strong>Buildings:</strong> '+buildingInfo[p].buildings+'</p><p><strong>Floors:</strong> '+buildingInfo[p].avgFloors+'</p></div>'});document.getElementById('analyticsContent').innerHTML=h;<\/script></body></html>`; const blob=new Blob([dashHTML],{type:'text/html'}); const url=window.URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='empire_dashboard_analytics_'+new Date().toISOString().split('T')[0]+'.html'; a.click(); }
         function resetAllData(){ var i=document.getElementById('resetPwInput'); if(i)i.value=''; var m=document.getElementById('resetMsg'); if(m)m.textContent=''; document.getElementById('resetModal').classList.add('show'); if(i) setTimeout(function(){ i.focus(); },50); }
         function closeResetModal(){ document.getElementById('resetModal').classList.remove('show'); }
-        function doReset(){ var pw=document.getElementById('resetPwInput').value; var msg=document.getElementById('resetMsg'); msg.style.color='var(--c-error)'; msg.textContent='Deleting…'; fetch(GOOGLE_SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'clearAll', resetPassword:pw, token:empireGetToken()||''})}).then(r=>r.json()).then(d=>{ if(d && d.error==='bad_password'){ msg.style.color='var(--c-error)'; msg.textContent='❌ Wrong password — nothing was deleted.'; return; } allReports=[]; writeReportsCache([]); taskPhotos=[]; pendingPhotos=[]; _photosByMonth={}; try{ Object.keys(localStorage).forEach(function(k){ if(k.indexOf('cleaning_tphotos_')===0) localStorage.removeItem(k); }); }catch(e){} weekCov={}; taskState={}; taskEditOpen={}; pendingTaskUpload={}; renderTaskChecklists(); var dc=document.getElementById('dashboardContent'); if(dc) dc.innerHTML='<p>Select a date to view reports or click a project tab to add new data.</p>'; var mc=document.getElementById('monthlyContent'); if(mc) mc.innerHTML='<p>Pick a month and click Generate.</p>'; var ac=document.getElementById('analyticsContent'); if(ac) ac.innerHTML='<p>Select dates and click \'Refresh Analytics\' or view \'All-Time Analytics\'.</p>'; msg.style.color='var(--ok-text)'; msg.textContent='✅ All cleaning data deleted.'; setTimeout(closeResetModal, 1300); }).catch(err=>{ msg.style.color='var(--c-error)'; msg.textContent='❌ Error: '+err.message; }); }
+        function doReset(){ var pw=document.getElementById('resetPwInput').value; var msg=document.getElementById('resetMsg'); msg.style.color='var(--c-error)'; msg.textContent='Deleting…'; fetch(GOOGLE_SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'clearAll', resetPassword:pw, token:empireGetToken()||''})}).then(r=>r.json()).then(d=>{ if(d && d.error==='bad_password'){ msg.style.color='var(--c-error)'; msg.textContent='❌ Wrong password — nothing was deleted.'; return; } allReports=[]; writeReportsCache([], 'full'); _reportsScope=''; _monthCompletionLoadedFor=''; _analyticsTabReady=false; try{ Object.keys(localStorage).forEach(function(k){ if(k.indexOf('cleaning_reports_day_')===0) localStorage.removeItem(k); }); }catch(e){} taskPhotos=[]; pendingPhotos=[]; _photosByMonth={}; try{ Object.keys(localStorage).forEach(function(k){ if(k.indexOf('cleaning_tphotos_')===0) localStorage.removeItem(k); }); }catch(e){} weekCov={}; taskState={}; taskEditOpen={}; pendingTaskUpload={}; renderTaskChecklists(); var dc=document.getElementById('dashboardContent'); if(dc) dc.innerHTML='<p>Select a date to view reports or click a project tab to add new data.</p>'; var mc=document.getElementById('monthlyContent'); if(mc) mc.innerHTML='<p>Pick a month and click Generate.</p>'; var ac=document.getElementById('analyticsContent'); if(ac) ac.innerHTML='<p>Select dates and click \'Refresh Analytics\' or view \'All-Time Analytics\'.</p>'; msg.style.color='var(--ok-text)'; msg.textContent='✅ All cleaning data deleted.'; setTimeout(closeResetModal, 1300); }).catch(err=>{ msg.style.color='var(--c-error)'; msg.textContent='❌ Error: '+err.message; }); }
         const taskMap = {
           ec: { tab:'empire-complex', groups:[
             { label:'Daily Tasks', daily:true, freq:'daily', tasks:['Cleaning area','Cleaning road','Floor mopping','Elevator mopping','Cleaning basement','Ground mopping','Around building cleaning (ride-on scrubber dryer)'] },
@@ -1125,13 +1223,17 @@
         async function generateMonthlyReport(){
           const mv=document.getElementById('monthlyMonth').value;
           if(!mv){ alert('Please pick a month first.'); return; }
+          document.getElementById('monthlyContent').innerHTML=LOADING_HTML;
+          try { await ensureFullReportsForAnalytics_(false); } catch(e){
+            document.getElementById('monthlyContent').innerHTML='<p style="color:var(--c-error);">'+String((e&&e.message)||e)+'</p>';
+            return;
+          }
           const parts=mv.split('-'); const y=Number(parts[0]); const m=Number(parts[1]);
           const bounds=reportPeriodBounds(mv);
           const from=bounds.from; const to=bounds.to;
           const monthName=new Date(y, m-1, 1).toLocaleString('en-US',{month:'long',year:'numeric'});
           const monthReports=allReports.filter(r=>{ const rd=normalizeDate(r.date); return rd>=from && rd<=to; });
           analyticsReports=monthReports;
-          document.getElementById('monthlyContent').innerHTML=LOADING_HTML;
           let log=[];
           try {
             const resp=await fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'getTaskLog', from:from, to:to, token:empireGetToken()||''})});

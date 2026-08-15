@@ -337,9 +337,19 @@ export async function handleAddCivilJob(body: Record<string, unknown>) {
 
 export async function handleGetCivilJobs(body: Record<string, unknown> = {}) {
   const dateRaw = String(body.date || body.day || "").trim();
+  const monthRaw = String(body.month || body.reportMonth || "").trim();
   const date = /^\d{4}-\d{2}-\d{2}/.test(dateRaw) ? dateRaw.slice(0, 10) : "";
+  const month = /^\d{4}-\d{2}$/.test(monthRaw)
+    ? monthRaw
+    : (/^\d{4}-\d{2}$/.test(dateRaw) ? dateRaw : "");
+  const range = !date && month ? billingMonthDateRange_(month) : null;
+
   const data = await selectAllRows<Record<string, unknown>>("civil_jobs", {
-    filter: (q) => (date ? q.eq("date", date) : q),
+    filter: (q) => {
+      if (date) return q.eq("date", date);
+      if (range) return q.gte("date", range.start).lte("date", range.end);
+      return q;
+    },
   });
   const needBackfill = data.some((r) => !String(r.invoice_photo || "").trim());
   if (!needBackfill) return data.map((row) => civilJobFromRow(row));

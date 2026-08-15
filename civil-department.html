@@ -13,8 +13,8 @@
 <link rel="preconnect" href="https://script.google.com">
 <link rel="preconnect" href="https://api.imgbb.com">
 <title>Civil Department — Empire World</title>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-15-ux1">
-<link rel="stylesheet" href="assets/empire-dept.css">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-15-lazy1">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-15-lazy1">
 <link rel="stylesheet" href="assets/empire-civil-worker.css">
 </head>
 <body>
@@ -72,11 +72,20 @@
   <div id="jobs" class="tab-content dept-tab-content active">
     <div class="form-section">
       <h2><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span> All Jobs</h2>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Date</label>
-          <input type="date" id="jf-month" onchange="loadJobs()">
-          <span onclick="document.getElementById('jf-month').value='';loadJobs();" style="font-size:11px;color:var(--text-faint);cursor:pointer;margin-top:4px;">clear</span>
+      <div class="form-row filter-toolbar">
+        <div class="form-group filter-month-group">
+          <label>Month</label>
+          <div class="filter-month-row">
+            <div class="month-input-wrap">
+              <input type="month" id="jf-month" onchange="loadJobs(true)">
+              <span class="month-ph">All months</span>
+            </div>
+            <div class="filter-month-meta">
+              <button type="button" class="filter-month-link" onclick="var el=document.getElementById('jf-month'); if(el){el.value=''; if(typeof syncMonthInput==='function')syncMonthInput(el);} loadJobs(true);">all months</button>
+              <span class="filter-billing-hint">Billing month: 26th – 25th</span>
+              <span id="jobsFilterSummary" class="jobs-filter-summary"></span>
+            </div>
+          </div>
         </div>
         <div class="form-group">
           <label>Type</label>
@@ -86,11 +95,14 @@
             <option value="refundable">Refundable Work</option>
           </select>
         </div>
-        <div class="form-group">
+        <div class="form-group filter-grow">
           <label>Search</label>
           <input type="text" id="jf-search" oninput="renderJobs()" placeholder="job, location, staff…">
         </div>
-        <div class="form-group" style="justify-content:flex-end;"><button onclick="loadJobs()"><span class="nav-icon spin-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> Refresh</button></div>
+        <div class="form-group filter-actions">
+          <label>&nbsp;</label>
+          <button type="button" class="refresh-btn" onclick="loadJobs(true)"><span class="nav-icon spin-icon" id="jobsRefreshIcon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> Refresh</button>
+        </div>
       </div>
       <div id="jobsTable"><p>Loading…</p></div>
     </div>
@@ -301,11 +313,11 @@
   </div>
 </div>
 <script src="config.js"></script>
-<script src="assets/empire-storage.js?v=2026-08-15-ux1"></script>
-<script src="assets/empire-api.js?v=2026-08-15-ux1"></script>
+<script src="assets/empire-storage.js?v=2026-08-15-lazy1"></script>
+<script src="assets/empire-api.js?v=2026-08-15-lazy1"></script>
 <script src="assets/empire-auth.js"></script>
 <script src="assets/empire-core.js"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-15-ux1"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-15-lazy1"></script>
 <div class="modal" id="imgModal" onclick="closeImg()"><img id="imgBig" style="max-width:92%;max-height:92%;border-radius:10px;"></div>
 <div class="modal" id="fieldReportModal" onclick="if(event.target===this)closeFieldReportModal()">
   <div class="modal-box field-report-modal-box" id="fieldReportModalBody" onclick="event.stopPropagation()"></div>
@@ -331,7 +343,7 @@ function applyDeptPerms(){ if(window.tsPerm) window.tsPerm(); if(window.tsLoadGl
 function handleLogin(e){ empireAuthLogin(e, 'civil department', { onSuccess: function(){ enterApp(); } }); }
 function logout(){ empireAuthLogout({ extraKeys: ['civdept_jobs_cache'], redirect: 'index.html', reload: false }); }
 function forceSessionLogout(d){ empireAuthHandleInvalidSession_(d, { extraKeys: ['civdept_jobs_cache'], redirect: 'index.html', reload: false }); }
-function enterDeptApp(){ if(String(empireGetRole()||'').toLowerCase()==='worker'){ location.replace('civil-issue.html'); return; } document.getElementById('loginPage').classList.remove('show'); if(typeof empireAuthMarkLoginVisible==='function') empireAuthMarkLoginVisible(false); document.getElementById('mainContainer').classList.add('show'); applyDeptPerms(); refreshPerms(); document.getElementById('j-date').value=new Date().toISOString().split('T')[0]; empireBindFilterPersistence({ key:'civdept_list_filters', fields:['jf-month','jf-type','jf-search'], onApply:function(){ loadJobs(); } }); loadJobs(); loadFieldReports(); }
+function enterDeptApp(){ if(String(empireGetRole()||'').toLowerCase()==='worker'){ location.replace('civil-issue.html'); return; } document.getElementById('loginPage').classList.remove('show'); if(typeof empireAuthMarkLoginVisible==='function') empireAuthMarkLoginVisible(false); document.getElementById('mainContainer').classList.add('show'); applyDeptPerms(); refreshPerms(); document.getElementById('j-date').value=new Date().toISOString().split('T')[0]; empireBindFilterPersistence({ key:'civdept_list_filters_v2_month', fields:['jf-month','jf-type','jf-search'], onApply:function(){ loadJobs(true); } }); var jm=document.getElementById('jf-month'); if(jm&&!jm.value){ jm.value=currentBillingMonth_(); if(typeof syncMonthInput==='function') syncMonthInput(jm); } loadJobs(); loadFieldReports(); }
 function refreshPerms(){ var now=Date.now(); if(now-(_lastPermFetch||0)<300000) return; _lastPermFetch=Date.now(); empireAuthRefreshPerms(function(){ applyDeptPerms(); if(window._applyIssuePerms) window._applyIssuePerms(); }); }
 var _lastPermFetch=0;
 window.addEventListener('load',()=>{ empireAuthPageBoot({ dept: 'civil department', onEnter: enterApp }); });
@@ -380,21 +392,34 @@ function saveJob(){
     clearForm(); loadJobs(); switchDeptTabTo('jobs');
   }).catch(e=>alert('❌ Error: '+e.message));
 }
-var JOBS_CACHE_KEY='civdept_jobs_cache';
-function readJobsCache(){ try{ var s=localStorage.getItem(JOBS_CACHE_KEY); if(!s) return null; var a=JSON.parse(s); return Array.isArray(a)?a:null; }catch(e){ return null; } }
-function writeJobsCache(a){ try{ localStorage.setItem(JOBS_CACHE_KEY, JSON.stringify(a)); }catch(e){} }
-function loadJobs(){
+var JOBS_CACHE_KEY='civdept_jobs_cache_v2_month';
+function currentBillingMonth_(){
+  var d=new Date();
+  var yr=d.getFullYear(), mo=d.getMonth()+1, dy=d.getDate();
+  if(dy>=26){ mo+=1; if(mo>12){ mo=1; yr+=1; } }
+  return yr+'-'+String(mo).padStart(2,'0');
+}
+function jobsCacheStorageKey_(){
+  var m=(document.getElementById('jf-month')||{}).value||'';
+  return JOBS_CACHE_KEY+(m?('::'+m):'');
+}
+function readJobsCache(){ try{ var s=localStorage.getItem(jobsCacheStorageKey_()); if(!s) return null; var a=JSON.parse(s); return Array.isArray(a)?a:null; }catch(e){ return null; } }
+function writeJobsCache(a){ try{ localStorage.setItem(jobsCacheStorageKey_(), JSON.stringify(a)); }catch(e){} }
+function loadJobs(force){
+  var spin=document.getElementById('jobsRefreshIcon');
+  if(spin) spin.classList.add('spinning');
   var cached=readJobsCache();
-  if(cached){ allJobs=cached; renderJobs(); renderJobAnalytics(); renderReportPreview(); }
-  else { document.getElementById('jobsTable').innerHTML=LOADING_HTML; }
+  if(cached && !force){ allJobs=cached; renderJobs(); renderJobAnalytics(); renderReportPreview(); }
+  else if(!cached || force){ document.getElementById('jobsTable').innerHTML=LOADING_HTML; }
   var body={action:'getCivilJobs',token:tok()};
-  var jd=document.getElementById('jf-month'); if(jd&&jd.value) body.date=jd.value;
+  var jm=document.getElementById('jf-month'); if(jm&&jm.value) body.month=jm.value;
   fetchJSONRetry(body)
     .then(d=>{
       if(Array.isArray(d)){ allJobs=d; writeJobsCache(d); renderJobs(); renderJobAnalytics(); renderReportPreview(); }
       else if(d&&d.ok===false){ forceSessionLogout(d); }
-      else if(!cached){ document.getElementById('jobsTable').innerHTML=empireErrorHtml('Could not load jobs.','Refresh the page or try again in a moment.'); }
-    }).catch(e=>{ if(!cached) document.getElementById('jobsTable').innerHTML=empireErrorHtml(e.message||'Network error','Check your connection, then refresh.'); });
+      else if(!cached||force){ document.getElementById('jobsTable').innerHTML=empireErrorHtml('Could not load jobs.','Refresh the page or try again in a moment.'); }
+    }).catch(e=>{ if(!cached||force) document.getElementById('jobsTable').innerHTML=empireErrorHtml(e.message||'Network error','Check your connection, then refresh.'); })
+    .finally(function(){ if(spin) spin.classList.remove('spinning'); });
 }
 function dayOf(r){ var d=String(r.date||r.createdAt||''); if(/^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0,10); var dt=new Date(d.replace(' ','T')); if(!isNaN(dt.getTime())){ var z=function(n){return String(n).padStart(2,'0');}; return dt.getFullYear()+'-'+z(dt.getMonth()+1)+'-'+z(dt.getDate()); } return ''; }
 function monthOf(r){
@@ -410,7 +435,7 @@ function renderJobs(){
   var ft=document.getElementById('jf-type').value||'';
   var fq=(document.getElementById('jf-search').value||'').toLowerCase();
   var rows=allJobs.filter(r=>{
-    if(fm&&dayOf(r)!==fm)return false;
+    if(fm&&monthOf(r)!==fm)return false;
     if(ft&&r.type!==ft)return false;
     if(fq){ var hay=(r.job+' '+r.location+' '+r.staff+' '+r.materials).toLowerCase(); if(hay.indexOf(fq)===-1)return false; }
     return true;
@@ -418,10 +443,14 @@ function renderJobs(){
   rows.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
   var total=rows.length, gen=rows.filter(r=>r.type==='general').length, ref=rows.filter(r=>r.type==='refundable').length;
   var refTotal=rows.filter(r=>r.type==='refundable').reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
-  var h='<p style="color:var(--text-soft);margin-bottom:12px;">'+total+' record(s)'+(fm?' in '+fm:'')+' &nbsp;—&nbsp; <span style="color:var(--c-general);">🔧 '+gen+' general</span> &nbsp;·&nbsp; <span style="color:var(--c-refundable);">📦 '+ref+' refundable</span>'+(refTotal>0?' &nbsp;·&nbsp; <span style="color:var(--c-money);">💰 '+fmtMoney(refTotal)+' IQD refundable total</span>':'')+'</p>';
+  var summaryEl=document.getElementById('jobsFilterSummary');
+  if(summaryEl){
+    summaryEl.innerHTML=total+' record(s)'+(fm?' in '+fm:'')+' <span class="jobs-filter-sep">—</span> <span style="color:var(--c-general);">🔧 '+gen+' general</span> <span class="jobs-filter-sep">·</span> <span style="color:var(--c-refundable);">📦 '+ref+' refundable</span>'+(refTotal>0?' <span class="jobs-filter-sep">·</span> <span style="color:var(--c-money);">💰 '+fmtMoney(refTotal)+' IQD refundable total</span>':'');
+  }
+  var h='';
   var showActions=(P.edit!==false || P.del!==false);
   h+='<div style="overflow-x:auto;"><table><thead><tr><th>#</th><th>Date</th><th>Type</th><th>Job</th><th>Location</th><th>Materials</th><th>Staff</th><th>Amount</th><th>Job photo</th><th>Invoice</th>'+(showActions?'<th>Actions</th>':'')+'</tr></thead><tbody>';
-  if(rows.length===0) h+='<tr><td colspan="11">'+empireEmptyHtml('No jobs match','Try another date, clear type/search, or add a job.')+'</td></tr>';
+  if(rows.length===0) h+='<tr><td colspan="11">'+empireEmptyHtml('No jobs match','Try another month, clear type/search, or add a job.')+'</td></tr>';
   var num=0;
   rows.forEach(r=>{
     num++;
