@@ -1,5 +1,5 @@
 /* Empire EGS — service worker (cache + Firebase background push) */
-var CACHE_VERSION = '2026-07-29-cleaning-login-v3c';
+var CACHE_VERSION = '2026-08-15-shell-v1';
 var CACHE_NAME = 'empire-egs-' + CACHE_VERSION;
 var NOTIFY_ICON = 'https://dizayeswar.github.io/Empire-General-Service/icons/icon-192.png';
 var NOTIFY_BASE = 'https://dizayeswar.github.io/Empire-General-Service/civil-issue.html';
@@ -46,21 +46,41 @@ var PRECACHE = [
   './index.html',
   './civil-issue.html',
   './electric-issue.html',
+  './electrical.html',
+  './civil-department.html',
+  './cleaning-dashboard.html',
   './cleaning-mobile.html',
   './asaas.html',
   './config.js',
+  './manifest.webmanifest',
+  './logo.png',
+  './logo-light.png',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
   './firebase-messaging-sw.js',
   './service-worker.js',
   './assets/firebase-sw-config.js',
+  './assets/empire.css',
+  './assets/empire-hub.css',
+  './assets/empire-dept.css',
+  './assets/empire-civil-worker.css',
+  './assets/empire-cleaning.css',
   './assets/cleaning-mobile.css',
-  './assets/cleaning-mobile-app.js',
-  './assets/cleaning-mobile-i18n.js',
-  './manifest.webmanifest',
-  './icons/icon-192.png',
+  './assets/empire-core.js',
+  './assets/empire-api.js',
+  './assets/empire-auth.js',
+  './assets/empire-storage.js',
+  './assets/empire-hub-stats.js',
+  './assets/empire-pwa.js',
   './assets/empire-sw-update.js',
   './assets/empire-push.js',
+  './assets/empire-offline-queue.js',
   './assets/issue-tracker.js',
-  './assets/issue-configs.js'
+  './assets/issue-configs.js',
+  './assets/empire-worker-field-report.js',
+  './assets/empire-worker-i18n.js',
+  './assets/cleaning-mobile-app.js',
+  './assets/cleaning-mobile-i18n.js'
 ];
 
 self.addEventListener('notificationclick', function (event) {
@@ -132,7 +152,8 @@ self.addEventListener('activate', function (event) {
 function isApiRequest(url) {
   return url.hostname.indexOf('script.google.com') !== -1 ||
     url.hostname.indexOf('googleusercontent.com') !== -1 ||
-    url.hostname.indexOf('api.imgbb.com') !== -1;
+    url.hostname.indexOf('api.imgbb.com') !== -1 ||
+    url.hostname.indexOf('supabase.co') !== -1;
 }
 
 function isLiveConfigAsset(pathname) {
@@ -154,6 +175,9 @@ function offlineNavigateFallback_(request) {
     var path = new URL(request.url).pathname;
     if (path.indexOf('electric-issue') !== -1) return caches.match('./electric-issue.html');
     if (path.indexOf('civil-issue') !== -1) return caches.match('./civil-issue.html');
+    if (path.indexOf('civil-department') !== -1) return caches.match('./civil-department.html');
+    if (path.indexOf('cleaning-dashboard') !== -1) return caches.match('./cleaning-dashboard.html');
+    if (path.indexOf('cleaning-mobile') !== -1) return caches.match('./cleaning-mobile.html');
     if (path.indexOf('asaas') !== -1) return caches.match('./asaas.html');
     if (path.indexOf('electrical') !== -1) return caches.match('./electrical.html');
     return caches.match('./index.html');

@@ -79,11 +79,11 @@
           <label>Month</label>
           <div class="filter-month-row">
             <div class="month-input-wrap">
-              <input type="month" id="jf-month" onchange="renderJobs()">
+              <input type="month" id="jf-month" onchange="loadJobs(true)">
               <span class="month-ph">All months</span>
             </div>
             <div class="filter-month-meta">
-              <button type="button" class="filter-month-link" onclick="var el=document.getElementById('jf-month'); if(el){el.value=''; if(typeof syncMonthInput==='function')syncMonthInput(el);} renderJobs();">all months</button>
+              <button type="button" class="filter-month-link" onclick="var el=document.getElementById('jf-month'); if(el){el.value=''; if(typeof syncMonthInput==='function')syncMonthInput(el);} loadJobs(true);">all months</button>
               <span class="filter-billing-hint">Billing month: 26th – 25th</span>
               <span id="jobsFilterSummary" class="jobs-filter-summary"></span>
             </div>
@@ -338,7 +338,7 @@
     </div>
   </div>
 </div>
-<script src="assets/empire-sw-update.js?v=2026-07-19-android-stable-v3"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-15-shell-v1"></script>
 <script src="config.js"></script>
 <script src="assets/empire-storage.js?v=2026-08-15-perf"></script>
 <script src="assets/empire-api.js"></script>
@@ -371,7 +371,7 @@ function applyDeptPerms(){ if(window.tsPerm) window.tsPerm(); if(window.tsLoadGl
 function handleLogin(e){ empireAuthLogin(e, 'electrical department', { onSuccess: function(){ enterApp(); } }); }
 function logout(){ empireAuthLogout({ extraKeys: ['eldept_jobs_cache'], redirect: 'index.html', reload: false }); }
 function forceSessionLogout(d){ empireAuthHandleInvalidSession_(d, { extraKeys: ['eldept_jobs_cache'], redirect: 'index.html', reload: false }); }
-function enterDeptApp(){ document.getElementById('loginPage').classList.remove('show'); if(typeof empireAuthMarkLoginVisible==='function') empireAuthMarkLoginVisible(false); document.getElementById('mainContainer').classList.add('show'); applyDeptPerms(); refreshPerms(); document.getElementById('j-date').value=new Date().toISOString().split('T')[0]; document.getElementById('cc-date').value=new Date().toISOString().split('T')[0]; if(typeof empireMaterialsPickerMount==='function') empireMaterialsPickerMount('j-materials'); empireBindFilterPersistence({ key:'eldept_list_filters', fields:['jf-month','jf-type','jf-search'], onApply:renderJobs }); loadJobs(); loadFieldReports(); }
+function enterDeptApp(){ document.getElementById('loginPage').classList.remove('show'); if(typeof empireAuthMarkLoginVisible==='function') empireAuthMarkLoginVisible(false); document.getElementById('mainContainer').classList.add('show'); applyDeptPerms(); refreshPerms(); document.getElementById('j-date').value=new Date().toISOString().split('T')[0]; document.getElementById('cc-date').value=new Date().toISOString().split('T')[0]; if(typeof empireMaterialsPickerMount==='function') empireMaterialsPickerMount('j-materials'); empireBindFilterPersistence({ key:'eldept_list_filters', fields:['jf-month','jf-type','jf-search'], onApply:function(){ loadJobs(true); } }); var jm=document.getElementById('jf-month'); if(jm&&!jm.value){ jm.value=currentBillingMonth_(); if(typeof syncMonthInput==='function') syncMonthInput(jm); } loadJobs(); loadFieldReports(); }
 function refreshPerms(){ var now=Date.now(); if(now-(_lastPermFetch||0)<300000) return; _lastPermFetch=Date.now(); empireAuthRefreshPerms(function(){ applyDeptPerms(); if(window._applyIssuePerms) window._applyIssuePerms(); }); }
 var _lastPermFetch=0;
 window.addEventListener('load',()=>{ empireAuthPageBoot({ dept: 'electrical department', onEnter: enterApp }); });
@@ -459,16 +459,28 @@ function saveJob(){
     clearForm(); loadJobs(); switchDeptTabTo('jobs');
   }).catch(e=>alert('❌ Error: '+e.message));
 }
-var JOBS_CACHE_KEY='eldept_jobs_cache_v2_invoice';
-function readJobsCache(){ try{ var s=localStorage.getItem(JOBS_CACHE_KEY); if(!s) return null; var a=JSON.parse(s); return Array.isArray(a)?a:null; }catch(e){ return null; } }
-function writeJobsCache(a){ try{ localStorage.setItem(JOBS_CACHE_KEY, JSON.stringify(a)); }catch(e){} }
+var JOBS_CACHE_KEY='eldept_jobs_cache_v3_month';
+function currentBillingMonth_(){
+  var d=new Date();
+  var yr=d.getFullYear(), mo=d.getMonth()+1, dy=d.getDate();
+  if(dy>=26){ mo+=1; if(mo>12){ mo=1; yr+=1; } }
+  return yr+'-'+String(mo).padStart(2,'0');
+}
+function jobsCacheStorageKey_(){
+  var m=(document.getElementById('jf-month')||{}).value||'';
+  return JOBS_CACHE_KEY+(m?('::'+m):'');
+}
+function readJobsCache(){ try{ var s=localStorage.getItem(jobsCacheStorageKey_()); if(!s) return null; var a=JSON.parse(s); return Array.isArray(a)?a:null; }catch(e){ return null; } }
+function writeJobsCache(a){ try{ localStorage.setItem(jobsCacheStorageKey_(), JSON.stringify(a)); }catch(e){} }
 function loadJobs(force){
   var spin=document.getElementById('jobsRefreshIcon');
   if(spin) spin.classList.add('spinning');
   var cached=readJobsCache();
   if(cached && !force){ allJobs=cached; renderJobs(); renderJobAnalytics(); renderReportPreview(); }
   else if(!cached || force){ document.getElementById('jobsTable').innerHTML=LOADING_HTML; }
-  fetchJSONRetry({action:'getElectricalJobs',token:tok()})
+  var body={action:'getElectricalJobs',token:tok()};
+  var jm=document.getElementById('jf-month'); if(jm&&jm.value) body.month=jm.value;
+  fetchJSONRetry(body)
     .then(d=>{
       if(Array.isArray(d)){ allJobs=d; writeJobsCache(d); renderJobs(); renderJobAnalytics(); renderReportPreview(); }
       else if(d&&d.ok===false){ forceSessionLogout(d); }

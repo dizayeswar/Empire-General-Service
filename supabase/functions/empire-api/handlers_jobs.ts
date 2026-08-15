@@ -86,11 +86,39 @@ export async function handleAddElectricalJob(body: Record<string, unknown>) {
   return { ok: true, success: true, id, num, job: jobFromRow(row) };
 }
 
+function billingMonthDateRange_(ym: string): { start: string; end: string } | null {
+  if (!/^\d{4}-\d{2}$/.test(ym)) return null;
+  const yr = parseInt(ym.slice(0, 4), 10);
+  const mo = parseInt(ym.slice(5, 7), 10);
+  if (!yr || !mo || mo < 1 || mo > 12) return null;
+  let prevMo = mo - 1;
+  let prevYr = yr;
+  if (prevMo < 1) {
+    prevMo = 12;
+    prevYr -= 1;
+  }
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return {
+    start: `${prevYr}-${pad(prevMo)}-26`,
+    end: `${yr}-${pad(mo)}-25`,
+  };
+}
+
 export async function handleGetElectricalJobs(body: Record<string, unknown> = {}) {
   const dateRaw = String(body.date || body.day || "").trim();
+  const monthRaw = String(body.month || body.reportMonth || "").trim();
   const date = /^\d{4}-\d{2}-\d{2}/.test(dateRaw) ? dateRaw.slice(0, 10) : "";
+  const month = /^\d{4}-\d{2}$/.test(monthRaw)
+    ? monthRaw
+    : (/^\d{4}-\d{2}$/.test(dateRaw) ? dateRaw : "");
+  const range = !date && month ? billingMonthDateRange_(month) : null;
+
   const data = await selectAllRows<Record<string, unknown>>("electrical_jobs", {
-    filter: (q) => (date ? q.eq("date", date) : q),
+    filter: (q) => {
+      if (date) return q.eq("date", date);
+      if (range) return q.gte("date", range.start).lte("date", range.end);
+      return q;
+    },
   });
   const needBackfill = data.some((r) => !String(r.invoice_photo || "").trim());
   if (!needBackfill) return data.map((row) => jobFromRow(row));
