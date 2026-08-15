@@ -75,8 +75,8 @@
       <div class="form-row">
         <div class="form-group">
           <label>Date</label>
-          <input type="date" id="jf-month" onchange="renderJobs()">
-          <span onclick="document.getElementById('jf-month').value='';renderJobs();" style="font-size:11px;color:var(--text-faint);cursor:pointer;margin-top:4px;">clear</span>
+          <input type="date" id="jf-month" onchange="loadJobs()">
+          <span onclick="document.getElementById('jf-month').value='';loadJobs();" style="font-size:11px;color:var(--text-faint);cursor:pointer;margin-top:4px;">clear</span>
         </div>
         <div class="form-group">
           <label>Type</label>
@@ -112,7 +112,7 @@
         <div class="form-group filter-toggle">
           <label>&nbsp;</label>
           <label class="filter-toggle-pill" for="fr-show-transferred">
-            <input type="checkbox" id="fr-show-transferred" onchange="renderFieldReports()">
+            <input type="checkbox" id="fr-show-transferred" onchange="loadFieldReports(true)">
             <span class="filter-toggle-ui" aria-hidden="true"></span>
             Show transferred
           </label>
@@ -330,7 +330,7 @@ function applyDeptPerms(){ if(window.tsPerm) window.tsPerm(); if(window.tsLoadGl
 function handleLogin(e){ empireAuthLogin(e, 'civil department', { onSuccess: function(){ enterApp(); } }); }
 function logout(){ empireAuthLogout({ extraKeys: ['civdept_jobs_cache'], redirect: 'index.html', reload: false }); }
 function forceSessionLogout(d){ empireAuthHandleInvalidSession_(d, { extraKeys: ['civdept_jobs_cache'], redirect: 'index.html', reload: false }); }
-function enterDeptApp(){ if(String(empireGetRole()||'').toLowerCase()==='worker'){ location.replace('civil-issue.html'); return; } document.getElementById('loginPage').classList.remove('show'); if(typeof empireAuthMarkLoginVisible==='function') empireAuthMarkLoginVisible(false); document.getElementById('mainContainer').classList.add('show'); applyDeptPerms(); refreshPerms(); document.getElementById('j-date').value=new Date().toISOString().split('T')[0]; empireBindFilterPersistence({ key:'civdept_list_filters', fields:['jf-month','jf-type','jf-search'], onApply:renderJobs }); loadJobs(); loadFieldReports(); }
+function enterDeptApp(){ if(String(empireGetRole()||'').toLowerCase()==='worker'){ location.replace('civil-issue.html'); return; } document.getElementById('loginPage').classList.remove('show'); if(typeof empireAuthMarkLoginVisible==='function') empireAuthMarkLoginVisible(false); document.getElementById('mainContainer').classList.add('show'); applyDeptPerms(); refreshPerms(); document.getElementById('j-date').value=new Date().toISOString().split('T')[0]; empireBindFilterPersistence({ key:'civdept_list_filters', fields:['jf-month','jf-type','jf-search'], onApply:function(){ loadJobs(); } }); loadJobs(); loadFieldReports(); }
 function refreshPerms(){ var now=Date.now(); if(now-(_lastPermFetch||0)<300000) return; _lastPermFetch=Date.now(); empireAuthRefreshPerms(function(){ applyDeptPerms(); if(window._applyIssuePerms) window._applyIssuePerms(); }); }
 var _lastPermFetch=0;
 window.addEventListener('load',()=>{ empireAuthPageBoot({ dept: 'civil department', onEnter: enterApp }); });
@@ -386,7 +386,9 @@ function loadJobs(){
   var cached=readJobsCache();
   if(cached){ allJobs=cached; renderJobs(); renderJobAnalytics(); renderReportPreview(); }
   else { document.getElementById('jobsTable').innerHTML=LOADING_HTML; }
-  fetchJSONRetry({action:'getCivilJobs',token:tok()})
+  var body={action:'getCivilJobs',token:tok()};
+  var jd=document.getElementById('jf-month'); if(jd&&jd.value) body.date=jd.value;
+  fetchJSONRetry(body)
     .then(d=>{
       if(Array.isArray(d)){ allJobs=d; writeJobsCache(d); renderJobs(); renderJobAnalytics(); renderReportPreview(); }
       else if(d&&d.ok===false){ forceSessionLogout(d); }
@@ -424,8 +426,16 @@ function renderJobs(){
     num++;
     var typeBadge='<span class="badge '+(r.type==='refundable'?'refundable':'general')+'">'+(r.type==='refundable'?'Refundable':'General')+'</span>';
     var jobPhotoUrl=String(r.photo||'').split('|')[0]||'';
-    var photo=jobPhotoUrl?'<img class="thumb" src="'+jobPhotoUrl+'" onclick="bigImg(this.src)" loading="lazy">':'—';
-    var invoice=r.invoicePhoto?'<img class="thumb" src="'+r.invoicePhoto+'" onclick="bigImg(this.src)" loading="lazy">':'—';
+    var photo = jobPhotoUrl
+      ? ((typeof empireThumbImgHtml === 'function')
+          ? empireThumbImgHtml(jobPhotoUrl, 'thumb', '', 120).replace('class="thumb"', 'class="thumb" onclick="bigImg(this.dataset.full||this.src)"')
+          : '<img class="thumb" src="'+jobPhotoUrl+'" onclick="bigImg(this.src)" loading="lazy" decoding="async">')
+      : '—';
+    var invoice = r.invoicePhoto
+      ? ((typeof empireThumbImgHtml === 'function')
+          ? empireThumbImgHtml(r.invoicePhoto, 'thumb', '', 120).replace('class="thumb"', 'class="thumb" onclick="bigImg(this.dataset.full||this.src)"')
+          : '<img class="thumb" src="'+r.invoicePhoto+'" onclick="bigImg(this.src)" loading="lazy" decoding="async">')
+      : '—';
     var amountCell=r.type==='refundable'&&r.amount?'<span style="color:var(--c-money);font-weight:600;">'+fmtMoney(parseFloat(r.amount))+' IQD</span>':'—';
     var acts='';
     if(P.edit!==false) acts+='<button class="act-btn" onclick="editJob(\''+r.id+'\')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/></svg></span> Edit</button>';
@@ -721,7 +731,8 @@ function loadFieldReports(force){
   if(spin) spin.classList.add('spinning');
   var host=document.getElementById('fieldReportsTable');
   if(host && (force || !allFieldReports.length)) host.innerHTML=LOADING_HTML;
-  fetchJSONRetry({action:'getCivilWorkerReports',token:tok()}, 2, 45000)
+  var showDone=document.getElementById('fr-show-transferred') && document.getElementById('fr-show-transferred').checked;
+  fetchJSONRetry({action:'getCivilWorkerReports',token:tok(),pendingOnly:!showDone}, 2, 45000)
     .then(function(d){
       if(Array.isArray(d)){ allFieldReports=d; renderFieldReports(); }
       else if(d&&d.ok===false){ forceSessionLogout(d); }

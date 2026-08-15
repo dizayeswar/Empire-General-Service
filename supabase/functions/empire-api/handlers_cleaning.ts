@@ -1,5 +1,5 @@
 import { projectAllowedForUser, projectsForUser, getUser } from "./auth.ts";
-import { fmtDate, isoNow, sb, trashRows } from "./db.ts";
+import { fmtDate, isoNow, sb, selectAllRows, trashRows } from "./db.ts";
 import { RESET_PASSWORD } from "./config.ts";
 
 function normalizePhotoSource(v: unknown): string {
@@ -48,10 +48,13 @@ export async function handleSaveReport(body: Record<string, unknown>) {
 }
 
 export async function handleGetReports(body: Record<string, unknown>) {
-  const { data, error } = await sb().from("cleaning_reports").select("*");
-  if (error) throw error;
+  const dateRaw = String(body.date || body.day || "").trim();
+  const date = /^\d{4}-\d{2}-\d{2}/.test(dateRaw) ? dateRaw.slice(0, 10) : "";
+  const rows = await selectAllRows<Record<string, unknown>>("cleaning_reports", {
+    filter: (q) => (date ? q.eq("date", date) : q),
+  });
   const allowed = projectsForUser(await getUser(String(body.username || "")));
-  const reports = (data || [])
+  const reports = rows
     .filter((row) => {
       const proj = String(row.project || "").trim().toLowerCase();
       if (allowed.length && allowed.indexOf(proj) === -1) return false;

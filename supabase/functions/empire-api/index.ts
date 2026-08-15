@@ -218,7 +218,7 @@ Deno.serve(async (req) => {
       case "deleteHseInspection": return json(await issues.handleDeleteIssue(body, "hse_inspections"));
 
       case "addElectricalJob": return json(await jobs.handleAddElectricalJob(body));
-      case "getElectricalJobs": return json(await jobs.handleGetElectricalJobs());
+      case "getElectricalJobs": return json(await jobs.handleGetElectricalJobs(body));
       case "updateElectricalJob": return json(await jobs.handleUpdateElectricalJob(body));
       case "deleteElectricalJob": return json(await jobs.handleDeleteElectricalJob(body));
       case "clearElectricalJobs": return json(await jobs.handleClearElectricalJobs(body));
@@ -238,7 +238,7 @@ Deno.serve(async (req) => {
       case "transferCivilWorkerReport": return json(await jobs.handleTransferCivilWorkerReport(body, a));
 
       case "addCivilJob": return json(await jobs.handleAddCivilJob(body));
-      case "getCivilJobs": return json(await jobs.handleGetCivilJobs());
+      case "getCivilJobs": return json(await jobs.handleGetCivilJobs(body));
       case "updateCivilJob": return json(await jobs.handleUpdateCivilJob(body));
       case "deleteCivilJob": return json(await jobs.handleDeleteCivilJob(body));
       case "clearCivilJobs": return json(await jobs.handleClearCivilJobs(body));

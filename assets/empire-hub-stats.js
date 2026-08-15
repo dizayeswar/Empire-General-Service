@@ -38,9 +38,22 @@ function loadHubSummary(opts) {
   opts = opts || {};
   var tk = empireGetToken();
   if (!tk) return;
-  return fetchJSONRetry({ action: 'getSummary', token: tk }, 2, 90000)
+  var cacheKey = 'empire_hub_summary_v1';
+  try {
+    var cached = sessionStorage.getItem(cacheKey);
+    if (cached) {
+      var parsed = JSON.parse(cached);
+      if (parsed && parsed.at && (Date.now() - parsed.at) < 120000 && parsed.summary) {
+        if (typeof opts.onData === 'function') opts.onData(parsed.summary);
+      }
+    }
+  } catch (e) {}
+  return fetchJSONRetry({ action: 'getSummary', token: tk }, 2, 45000)
     .then(function (d) {
-      if (d && d.ok && d.summary && typeof opts.onData === 'function') opts.onData(d.summary);
+      if (d && d.ok && d.summary && typeof opts.onData === 'function') {
+        try { sessionStorage.setItem(cacheKey, JSON.stringify({ at: Date.now(), summary: d.summary })); } catch (e2) {}
+        opts.onData(d.summary);
+      }
     })
     .catch(function () {
       if (typeof opts.onError === 'function') opts.onError();

@@ -86,8 +86,12 @@ export async function handleAddElectricalJob(body: Record<string, unknown>) {
   return { ok: true, success: true, id, num, job: jobFromRow(row) };
 }
 
-export async function handleGetElectricalJobs() {
-  const data = await selectAllRows<Record<string, unknown>>("electrical_jobs");
+export async function handleGetElectricalJobs(body: Record<string, unknown> = {}) {
+  const dateRaw = String(body.date || body.day || "").trim();
+  const date = /^\d{4}-\d{2}-\d{2}/.test(dateRaw) ? dateRaw.slice(0, 10) : "";
+  const data = await selectAllRows<Record<string, unknown>>("electrical_jobs", {
+    filter: (q) => (date ? q.eq("date", date) : q),
+  });
   const needBackfill = data.some((r) => !String(r.invoice_photo || "").trim());
   if (!needBackfill) return data.map((row) => jobFromRow(row));
   // Backfill invoice photos from transferred field reports (older jobs before invoice_photo column).
@@ -303,8 +307,12 @@ export async function handleAddCivilJob(body: Record<string, unknown>) {
   return { ok: true, success: true, id, job: civilJobFromRow(row) };
 }
 
-export async function handleGetCivilJobs() {
-  const data = await selectAllRows<Record<string, unknown>>("civil_jobs");
+export async function handleGetCivilJobs(body: Record<string, unknown> = {}) {
+  const dateRaw = String(body.date || body.day || "").trim();
+  const date = /^\d{4}-\d{2}-\d{2}/.test(dateRaw) ? dateRaw.slice(0, 10) : "";
+  const data = await selectAllRows<Record<string, unknown>>("civil_jobs", {
+    filter: (q) => (date ? q.eq("date", date) : q),
+  });
   const needBackfill = data.some((r) => !String(r.invoice_photo || "").trim());
   if (!needBackfill) return data.map((row) => civilJobFromRow(row));
   const reports = await selectAllRows<Record<string, unknown>>("civil_worker_reports", {
@@ -504,26 +512,34 @@ export async function handleGetElectricWorkerReports(_body: Record<string, unkno
   // Remove transferred reports whose job no longer exists (ghosts on phones).
   await purgeOrphanTransferredFieldReports_(workerUser || String(auth.username || "system"));
 
-  let data = await selectAllRows<Record<string, unknown>>("electric_worker_reports");
-  const jobIds = new Set(
-    (await selectAllRows<{ id?: string }>("electrical_jobs", { columns: "id" }))
-      .map((j) => String(j.id || ""))
-      .filter(Boolean),
-  );
+  const pendingOnly = _body.pendingOnly === true || String(_body.status || "").toLowerCase() === "pending";
+  let data = await selectAllRows<Record<string, unknown>>("electric_worker_reports", {
+    filter: (q) => (pendingOnly ? q.neq("status", "transferred") : q),
+  });
   const trashed = await trashedElectricWorkerReportIds_();
 
-  data = data.filter((r) => {
-    const id = String(r.id || "");
-    if (id && trashed.has(id)) return false;
-    const st = String(r.status || "").trim().toLowerCase();
-    if (st === "transferred") {
-      const tj = String(r.transferred_job_id || "").trim();
-      // Only keep transferred reports that still exist as a live job.
-      return !!tj && jobIds.has(tj);
-    }
-    // pending / empty = still in Field Reports review queue
-    return true;
-  });
+  if (!pendingOnly) {
+    const jobIds = new Set(
+      (await selectAllRows<{ id?: string }>("electrical_jobs", { columns: "id" }))
+        .map((j) => String(j.id || ""))
+        .filter(Boolean),
+    );
+    data = data.filter((r) => {
+      const id = String(r.id || "");
+      if (id && trashed.has(id)) return false;
+      const st = String(r.status || "").trim().toLowerCase();
+      if (st === "transferred") {
+        const tj = String(r.transferred_job_id || "").trim();
+        return !!tj && jobIds.has(tj);
+      }
+      return true;
+    });
+  } else {
+    data = data.filter((r) => {
+      const id = String(r.id || "");
+      return !(id && trashed.has(id));
+    });
+  }
 
   if (scopeToSelf) {
     data = data.filter((r) => normalizeWorkerId(r.reported_by) === workerUser);
@@ -687,24 +703,34 @@ export async function handleGetCivilWorkerReports(_body: Record<string, unknown>
 
   await purgeOrphanTransferredCivilFieldReports_(workerUser || String(auth.username || "system"));
 
-  let data = await selectAllRows<Record<string, unknown>>("civil_worker_reports");
-  const jobIds = new Set(
-    (await selectAllRows<{ id?: string }>("civil_jobs", { columns: "id" }))
-      .map((j) => String(j.id || ""))
-      .filter(Boolean),
-  );
+  const pendingOnly = _body.pendingOnly === true || String(_body.status || "").toLowerCase() === "pending";
+  let data = await selectAllRows<Record<string, unknown>>("civil_worker_reports", {
+    filter: (q) => (pendingOnly ? q.neq("status", "transferred") : q),
+  });
   const trashed = await trashedCivilWorkerReportIds_();
 
-  data = data.filter((r) => {
-    const id = String(r.id || "");
-    if (id && trashed.has(id)) return false;
-    const st = String(r.status || "").trim().toLowerCase();
-    if (st === "transferred") {
-      const tj = String(r.transferred_job_id || "").trim();
-      return !!tj && jobIds.has(tj);
-    }
-    return true;
-  });
+  if (!pendingOnly) {
+    const jobIds = new Set(
+      (await selectAllRows<{ id?: string }>("civil_jobs", { columns: "id" }))
+        .map((j) => String(j.id || ""))
+        .filter(Boolean),
+    );
+    data = data.filter((r) => {
+      const id = String(r.id || "");
+      if (id && trashed.has(id)) return false;
+      const st = String(r.status || "").trim().toLowerCase();
+      if (st === "transferred") {
+        const tj = String(r.transferred_job_id || "").trim();
+        return !!tj && jobIds.has(tj);
+      }
+      return true;
+    });
+  } else {
+    data = data.filter((r) => {
+      const id = String(r.id || "");
+      return !(id && trashed.has(id));
+    });
+  }
 
   if (scopeToSelf) {
     data = data.filter((r) => normalizeWorkerId(r.reported_by) === workerUser);

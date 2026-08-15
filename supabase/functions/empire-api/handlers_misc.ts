@@ -528,15 +528,15 @@ export async function handleSaveUiSettings(body: Record<string, unknown>) {
 }
 
 async function issueStats(table: string) {
-  const { data } = await sb().from(table).select("status,created_at,fixed_at");
-  let open = 0, total = 0, last = "";
-  for (const r of data || []) {
-    total++;
-    if (String(r.status || "open") !== "fixed") open++;
-    const ca = String(r.fixed_at || r.created_at || "");
-    if (ca && (!last || ca.localeCompare(last) > 0)) last = ca;
-  }
-  return { open, total, lastActivity: last };
+  const openRes = await sb().from(table).select("*", { count: "exact", head: true }).neq("status", "fixed");
+  const { data: recent } = await sb()
+    .from(table)
+    .select("created_at,fixed_at")
+    .order("created_at", { ascending: false })
+    .limit(1);
+  const row = recent && recent[0];
+  const last = row ? String(row.fixed_at || row.created_at || "") : "";
+  return { open: openRes.count || 0, total: 0, lastActivity: last };
 }
 
 export async function handleGetSummary(body: Record<string, unknown>) {
@@ -547,14 +547,22 @@ export async function handleGetSummary(body: Record<string, unknown>) {
   const allow = (section: string) => summaryAllowedForToken(sess.dept, section);
 
   if (allow("cleaning")) {
-    const { data } = await sb().from("cleaning_reports").select("id,created_at,project");
     const allowed = projectsForUser(await getUser(sess.username));
-    let n = 0, last = "";
-    for (const r of data || []) {
-      const proj = String(r.project || "").toLowerCase();
-      if (allowed.length && allowed.indexOf(proj) === -1) continue;
-      n++;
-      if (r.created_at && (!last || String(r.created_at).localeCompare(last) > 0)) last = String(r.created_at);
+    let n = 0;
+    let last = "";
+    if (!allowed.length) {
+      const countRes = await sb().from("cleaning_reports").select("*", { count: "exact", head: true });
+      n = countRes.count || 0;
+      const { data } = await sb().from("cleaning_reports").select("created_at").order("created_at", { ascending: false }).limit(1);
+      if (data && data[0] && data[0].created_at) last = String(data[0].created_at);
+    } else {
+      const { data } = await sb().from("cleaning_reports").select("created_at,project").order("created_at", { ascending: false });
+      for (const r of data || []) {
+        const proj = String(r.project || "").toLowerCase();
+        if (allowed.indexOf(proj) === -1) continue;
+        n++;
+        if (!last && r.created_at) last = String(r.created_at);
+      }
     }
     summary.cleaning = { open: n, level: n ? "ok" : "muted", label: n + " reports", lastActivity: last };
   }
@@ -575,12 +583,10 @@ export async function handleGetSummary(body: Record<string, unknown>) {
     summary.hse = { open: s.open, level: s.open ? "warn" : "muted", label: s.open + " open", lastActivity: s.lastActivity };
   }
   if (allow("asaas")) {
-    const { data } = await sb().from("asaas_items").select("status,created_at");
-    let inWarehouse = 0, last = "";
-    for (const r of data || []) {
-      if (String(r.status).toLowerCase() !== "returned") inWarehouse++;
-      if (r.created_at && (!last || String(r.created_at).localeCompare(last) > 0)) last = String(r.created_at);
-    }
+    const { count } = await sb().from("asaas_items").select("*", { count: "exact", head: true }).neq("status", "returned");
+    const { data } = await sb().from("asaas_items").select("created_at").order("created_at", { ascending: false }).limit(1);
+    const last = data && data[0] && data[0].created_at ? String(data[0].created_at) : "";
+    const inWarehouse = count || 0;
     summary.asaas = { open: inWarehouse, level: inWarehouse ? "warn" : "muted", label: inWarehouse + " in warehouse", lastActivity: last };
   }
   if (allow("application")) {

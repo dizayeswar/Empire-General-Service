@@ -218,7 +218,7 @@
         <div class="form-group filter-toggle">
           <label>&nbsp;</label>
           <label class="filter-toggle-pill" for="fr-show-transferred">
-            <input type="checkbox" id="fr-show-transferred" onchange="renderFieldReports()">
+            <input type="checkbox" id="fr-show-transferred" onchange="loadFieldReports(true)">
             <span class="filter-toggle-ui" aria-hidden="true"></span>
             Show transferred
           </label>
@@ -382,8 +382,11 @@ function handleJobInvoiceFile(e){ var f=e.target.files&&e.target.files[0]; if(f)
 function handleJobInvoicePaste(e){ var items=e.clipboardData&&e.clipboardData.items; if(!items)return; for(var i=0;i<items.length;i++){ if(items[i].type.indexOf('image')!==-1){ e.preventDefault(); processInvoicePhoto(items[i].getAsFile()); return; } } }
 function jobPhotoCell_(url, label){
   if(!url) return '<span style="color:var(--text-faint);font-size:11px;">—</span>';
+  var img = (typeof empireThumbImgHtml === 'function')
+    ? empireThumbImgHtml(url, 'thumb', label || 'Photo', 120).replace('class="thumb"', 'class="thumb" onclick="bigImg(this.dataset.full||this.src)"')
+    : '<img class="thumb" src="'+url+'" onclick="bigImg(this.src)" loading="lazy" decoding="async" alt="'+_esc(label||'Photo')+'">';
   return '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">'
-    + '<img class="thumb" src="'+url+'" onclick="bigImg(this.src)" loading="lazy" alt="'+_esc(label||'Photo')+'">'
+    + img
     + '<span style="font-size:10px;color:var(--text-faint);">'+_esc(label||'')+'</span></div>';
 }
 function handleJobFile(e){ var f=e.target.files&&e.target.files[0]; if(f)processPhoto(f); e.target.value=''; }
@@ -478,7 +481,8 @@ function loadFieldReports(force){
   if(spin) spin.classList.add('spinning');
   var host=document.getElementById('fieldReportsTable');
   if(host && (force || !allFieldReports.length)) host.innerHTML=LOADING_HTML;
-  fetchJSONRetry({action:'getElectricWorkerReports',token:tok()}, 2, 45000)
+  var showDone=document.getElementById('fr-show-transferred') && document.getElementById('fr-show-transferred').checked;
+  fetchJSONRetry({action:'getElectricWorkerReports',token:tok(),pendingOnly:!showDone}, 2, 45000)
     .then(function(d){
       if(Array.isArray(d)){ allFieldReports=d; renderFieldReports(); }
       else if(d&&d.ok===false){ forceSessionLogout(d); }
