@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="icon" href="logo-light.png" type="image/png">
   <title>Users — Admin — Empire EGS</title>
-  <link rel="stylesheet" href="assets/empire.css?v=2026-08-15-admin1">
+  <link rel="stylesheet" href="assets/empire.css?v=2026-08-15-admin2">
   <style>
     .admin-users-wrap { max-width: 1100px; margin: 0 auto; padding: 16px 18px 40px; }
     .admin-users-head { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; justify-content:space-between; margin-bottom:18px; }
@@ -122,10 +122,10 @@
   </div>
 
   <script src="config.js"></script>
-  <script src="assets/empire-api.js?v=2026-08-15-ux1"></script>
-  <script src="assets/empire-auth.js?v=2026-08-15-admin1"></script>
+  <script src="assets/empire-api.js?v=2026-08-15-admin2"></script>
+  <script src="assets/empire-auth.js?v=2026-08-15-admin2"></script>
   <script src="assets/empire-core.js"></script>
-  <script src="assets/empire-sw-update.js?v=2026-08-15-admin1"></script>
+  <script src="assets/empire-sw-update.js?v=2026-08-15-admin2"></script>
   <script>
     var allUsers = [];
     var editingUsername = null;
@@ -230,7 +230,7 @@
         alert('You cannot delete your own account.');
         return;
       }
-      uiConfirm('Delete user “‘ + username + '”? They will lose access immediately.')
+      uiConfirm('Delete user "' + username + '"? They will lose access immediately.')
         .then(function (ok) {
           if (!ok) return;
           return fetchJSONRetry({ action: 'deleteUser', token: empireGetToken(), username: username }, 1, 30000)
