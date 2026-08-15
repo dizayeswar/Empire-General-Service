@@ -306,3 +306,8 @@ select option:checked { background:rgba(141,1,93,0.14); }
 .rb-actions { display:flex; flex-direction:column; gap:6px; flex-shrink:0; }
 .rb-restore { padding:6px 10px; font-size:12px; color:#fff; background:#1d9e75; border:none; border-radius:8px; cursor:pointer; white-space:nowrap; }
 .rb-purge { padding:6px 10px; font-size:12px; color:#fff; background:#C5504F; border:none; border-radius:8px; cursor:pointer; }
+
+/* Faster scrolling lists */
+.issue-card { content-visibility: auto; contain-intrinsic-size: 280px; }
+img.thumb, img.issue-card-photo, img.worker-job-thumb { background: var(--panel); }
+

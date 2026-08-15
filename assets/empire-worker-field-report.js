@@ -26,13 +26,13 @@ function workerFieldReportCompressToBlob_(file, cb) {
   r.onload = function (e) {
     var img = new Image();
     img.onload = function () {
-      var mx = 1400;
+      var mx = 1200;
       var s = Math.min(1, mx / Math.max(img.width, img.height));
       var c = document.createElement('canvas');
       c.width = Math.round(img.width * s);
       c.height = Math.round(img.height * s);
       c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-      c.toBlob(function (b) { cb(b); }, 'image/jpeg', 0.7);
+      c.toBlob(function (b) { cb(b); }, 'image/jpeg', 0.65);
     };
     img.onerror = function () { cb(null); };
     img.src = e.target.result;

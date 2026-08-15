@@ -88,6 +88,8 @@ export async function handleAddElectricalJob(body: Record<string, unknown>) {
 
 export async function handleGetElectricalJobs() {
   const data = await selectAllRows<Record<string, unknown>>("electrical_jobs");
+  const needBackfill = data.some((r) => !String(r.invoice_photo || "").trim());
+  if (!needBackfill) return data.map((row) => jobFromRow(row));
   // Backfill invoice photos from transferred field reports (older jobs before invoice_photo column).
   const reports = await selectAllRows<Record<string, unknown>>("electric_worker_reports", {
     columns: "transferred_job_id,invoice_photo,status",
@@ -303,6 +305,8 @@ export async function handleAddCivilJob(body: Record<string, unknown>) {
 
 export async function handleGetCivilJobs() {
   const data = await selectAllRows<Record<string, unknown>>("civil_jobs");
+  const needBackfill = data.some((r) => !String(r.invoice_photo || "").trim());
+  if (!needBackfill) return data.map((row) => civilJobFromRow(row));
   const reports = await selectAllRows<Record<string, unknown>>("civil_worker_reports", {
     columns: "transferred_job_id,invoice_photo,status",
   });

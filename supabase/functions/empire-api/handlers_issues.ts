@@ -1,6 +1,6 @@
 import { CIVIL_WORKER_TEAM, ELECTRIC_WORKER_TEAM, HSE_INSPECTOR, RESET_PASSWORD } from "./config.ts";
 import { AuthOk } from "./auth.ts";
-import { dtIssue, fmtDate, isoNow, nextCounter, sb, trashRows } from "./db.ts";
+import { dtIssue, fmtDate, isoNow, nextCounter, sb, selectAllRows, trashRows } from "./db.ts";
 import {
   formatFixedPhotosForStorage,
   issueStatusFromCondition,
@@ -185,14 +185,34 @@ export async function handleUpdateIssue(body: Record<string, unknown>, table: Is
 }
 
 export async function handleGetIssues(body: Record<string, unknown>, table: IssueTable, auth?: AuthOk) {
-  const { data, error } = await sb().from(table).select("*");
-  if (error) throw error;
   const isWorker = auth && String(auth.role || "").toLowerCase() === "worker" && isWorkerIssue(table);
-  let rows = data || [];
+  const status = String(body.status || "").trim().toLowerCase();
+  const project = String(body.project || "").trim().toLowerCase();
+  const dateRaw = String(body.date || body.day || "").trim();
+  const date = /^\d{4}-\d{2}-\d{2}/.test(dateRaw) ? dateRaw.slice(0, 10) : "";
+
+  const rows = await selectAllRows<Record<string, unknown>>(table, {
+    filter: (q) => {
+      let qq = q;
+      // Workers need their full assigned set; desk can filter server-side for speed.
+      if (!isWorker) {
+        if (status === "open" || status === "fixed") {
+          qq = qq.eq("status", status);
+        } else if ((status === "report_pending" || status === "report-pending") && isWorkerIssue(table)) {
+          qq = qq.eq("status", "fixed").neq("monthly_transfer_status", "transferred").eq("transferred_job_id", "");
+        }
+        if (project) qq = qq.eq("project", project);
+        if (date) qq = qq.eq("date", date);
+      }
+      return qq;
+    },
+  });
+
+  let out = rows;
   if (isWorker && auth) {
-    rows = rows.filter((r) => workerFilter(r, table, auth));
+    out = rows.filter((r) => workerFilter(r, table, auth));
   }
-  return rows.map((r) => rowToApi(r, table, auth));
+  return out.map((r) => rowToApi(r, table, auth));
 }
 
 export async function handleDeleteIssue(body: Record<string, unknown>, table: IssueTable) {

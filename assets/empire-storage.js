@@ -30,6 +30,31 @@ function empireStoragePublicUrl(path) {
   return base + '/storage/v1/object/public/' + bucket + '/' + String(path || '').replace(/^\/+/, '');
 }
 
+/** Smaller image URL for list cards (falls back to original if transform unavailable). */
+function empireThumbUrl(url, width) {
+  var u = String(url || '').trim();
+  if (!u || !empireStorageConfigured()) return u;
+  width = width || 240;
+  var base = String(SUPABASE_CONFIG.url || '').replace(/\/$/, '');
+  var marker = '/storage/v1/object/public/';
+  var idx = u.indexOf(marker);
+  if (idx === -1) return u;
+  var rest = u.slice(idx + marker.length);
+  if (!rest) return u;
+  return base + '/storage/v1/render/image/public/' + rest +
+    (rest.indexOf('?') === -1 ? '?' : '&') + 'width=' + width + '&resize=contain';
+}
+
+function empireThumbImgHtml(url, cls, alt, width) {
+  var full = String(url || '').trim();
+  if (!full) return '';
+  var thumb = empireThumbUrl(full, width || 240);
+  var a = alt != null ? String(alt) : '';
+  return '<img class="' + (cls || 'thumb') + '" src="' + thumb + '" data-full="' + full.replace(/"/g, '&quot;') +
+    '" loading="lazy" decoding="async" alt="' + a.replace(/"/g, '&quot;') +
+    '" onerror="if(this.dataset.full&&this.src!==this.dataset.full){this.src=this.dataset.full;}">';
+}
+
 function empireStorageSafeFolder(folder) {
   return String(folder || 'misc')
     .replace(/\\/g, '/')
