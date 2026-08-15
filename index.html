@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://script.google.com">
     <link rel="preconnect" href="https://api.imgbb.com">
     <title>Empire General Service — Login</title>
-    <link rel="stylesheet" href="assets/empire-hub.css">
+    <link rel="stylesheet" href="assets/empire-hub.css?v=2026-08-15-ux1">
 </head>
 <body class="login-landing">
     <div class="topbar">
@@ -65,10 +65,10 @@
     </div>
 
     <script src="config.js"></script>
-    <script src="assets/empire-api.js"></script>
+    <script src="assets/empire-api.js?v=2026-08-15-ux1"></script>
     <script src="assets/empire-auth.js?v=2026-07-21-hub-dept-fix"></script>
     <script src="assets/empire-core.js"></script>
-    <script src="assets/empire-sw-update.js?v=2026-08-15-shell-v1"></script>
+    <script src="assets/empire-sw-update.js?v=2026-08-15-ux1"></script>
     <script src="assets/empire-hub-stats.js?v=2026-08-15-perf2"></script>
     <script>
         const categories = [
@@ -278,7 +278,7 @@
                 onError: function () {
                     applyHubSummary({});
                     document.querySelectorAll('#grid .tile-footer').forEach(function (el) {
-                        el.innerHTML = '<div class="tile-stat muted">Stats unavailable</div>';
+                        el.innerHTML = '<div class="tile-stat muted">Stats unavailable — check connection</div>';
                     });
                 }
             });
@@ -304,7 +304,9 @@
                 grid.appendChild(el);
             });
             if (!count) {
-                grid.innerHTML = '<div class="hub-empty">No departments are assigned to this account.</div>';
+                grid.innerHTML = '<div class="hub-empty">' + (typeof empireEmptyHtml === 'function'
+                    ? empireEmptyHtml('No departments assigned', 'Ask an admin to give this account access to a department.')
+                    : 'No departments are assigned to this account.') + '</div>';
             }
             if (location.hash === '#cleaning') {
                 var tile = document.getElementById('hubCleaningTile');

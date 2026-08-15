@@ -1496,7 +1496,9 @@ function renderWorkerJobs(force) {
   host.removeAttribute('data-i18n-loading');
   host.innerHTML = filtered.map(function (r) {
     var thumb = r.photo
-      ? '<img class="worker-job-thumb" src="' + (typeof empireThumbUrl === 'function' ? empireThumbUrl(r.photo, 200) : r.photo) + '" data-full="' + String(r.photo).replace(/"/g, '&quot;') + '" loading="lazy" decoding="async" alt="" onerror="if(this.dataset.full&&this.src!==this.dataset.full)this.src=this.dataset.full;">'
+      ? ((typeof empireThumbImgHtml === 'function')
+          ? empireThumbImgHtml(r.photo, 'worker-job-thumb', '', 200)
+          : '<img class="worker-job-thumb" src="' + r.photo + '" loading="lazy" decoding="async" alt="">')
       : '<div class="worker-job-thumb worker-job-thumb-empty">' + workerTxt_('jobsNoPhoto', 'No photo') + '</div>';
     var need = issueWorkersRequired(r);
     var twoBadge = need > 1 ? '<span class="workers-badge">' + issueWorkerDone(r) + '/' + need + ' workers</span>' : '';
@@ -2824,7 +2826,9 @@ function renderIssues() {
     var emptyHint = (f.status || f.project || f.date || q)
       ? 'No issues match these filters. Try Status = All, or clear date/search.'
       : issueUi_('emptyIssues', 'No issues match.');
-    h += '<p style="color:var(--text-faint);">' + emptyHint + '</p>';
+    h += (typeof empireEmptyHtml === 'function')
+      ? empireEmptyHtml(emptyHint, (f.status || f.project || f.date || q) ? 'Try Status = All, or clear date/search.' : '')
+      : '<p style="color:var(--text-faint);">' + emptyHint + '</p>';
   }
   else h += renderIssueListHtml(rows, 'civil');
   document.getElementById('issuesTable').innerHTML = h;

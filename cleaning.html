@@ -86,7 +86,7 @@
                 onError: function () {
                     applyHubTileStats('#grid .tile[data-dept]', {});
                     document.querySelectorAll('#grid .tile-footer').forEach(function (el) {
-                        el.innerHTML = '<div class="tile-stat muted">Stats unavailable</div>';
+                        el.innerHTML = '<div class="tile-stat muted">Stats unavailable — check connection</div>';
                     });
                 }
             });

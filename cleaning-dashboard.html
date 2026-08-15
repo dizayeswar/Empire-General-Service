@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://script.google.com">
     <link rel="preconnect" href="https://api.imgbb.com">
     <title>Empire World Dashboard</title>
-    <link rel="stylesheet" href="assets/empire.css">
+    <link rel="stylesheet" href="assets/empire.css?v=2026-08-15-ux1">
 <link rel="stylesheet" href="assets/empire-cleaning.css">
 </head>
 <body>
@@ -81,11 +81,11 @@
       </div>
     </div>
     <script src="config.js"></script>
-    <script src="assets/empire-storage.js?v=2026-08-15-perf2"></script>
-    <script src="assets/empire-api.js?v=2026-08-15-perf2"></script>
+    <script src="assets/empire-storage.js?v=2026-08-15-ux1"></script>
+    <script src="assets/empire-api.js?v=2026-08-15-ux1"></script>
     <script src="assets/empire-auth.js?v=2026-08-15-perf2"></script>
     <script src="assets/empire-core.js?v=2026-08-15-perf2"></script>
-    <script src="assets/empire-sw-update.js?v=2026-08-15-shell-v1"></script>
+    <script src="assets/empire-sw-update.js?v=2026-08-15-ux1"></script>
     <script src="assets/empire-offline-queue.js?v=2026-08-15-perf2"></script>
     <script>
         /* ===== Themed dialogs (checkmark icons; shared theme/sidebar come from empire-core.js) ===== */
@@ -216,7 +216,53 @@
           })();
           try { return await _photosFetchPromises[mv]; } finally { delete _photosFetchPromises[mv]; }
         }
-        async function loadReports() { const cached=readReportsCache(); if(cached){ allReports=reportsForUser(cached); refreshDashboardView(); } var lastErr=null; var fdEl=document.getElementById('filterDate'); var dateFilter=(fdEl&&fdEl.value)||''; for(var attempt=0; attempt<3; attempt++){ try { const payload={action:'getReports', token:empireGetToken()||''}; if(dateFilter) payload.date=dateFilter; const response = await fetch(GOOGLE_SCRIPT_URL, {method:'POST', body:JSON.stringify(payload)}); if(!response.ok) throw new Error('Failed to fetch: ' + response.status); const data = await response.json(); if(Array.isArray(data)) { data.forEach(r=>{ r.image = r.photo; }); allReports = reportsForUser(data); writeReportsCache(allReports); refreshDashboardView(); updateDebugStatus('✅ Loaded '+allReports.length+' report(s) from the server just now.'); } else if(data && data.ok===false) { updateDebugStatus('⚠️ Server rejected the request: '+(data.message||data.error||'unknown reason')); forceSessionLogout(data); } else { updateDebugStatus('⚠️ Server responded but not with a list. Click "Test Now" above to see the raw reply.'); } return; } catch(e) { lastErr=e; await new Promise(function(res){ setTimeout(res, 400); }); } } console.error('Load error:', lastErr && lastErr.message); updateDebugStatus('❌ Could not reach the server: '+(lastErr && lastErr.message)); }
+        async function loadReports() {
+          const cached=readReportsCache();
+          if(cached){ allReports=reportsForUser(cached); refreshDashboardView(); }
+          var lastErr=null;
+          var fdEl=document.getElementById('filterDate');
+          var dateFilter=(fdEl&&fdEl.value)||'';
+          var dc=document.getElementById('dashboardContent');
+          if(!cached && dc && !dc.querySelector('.form-section') && typeof empireLoadingHtml==='function'){
+            dc.innerHTML=empireLoadingHtml('Loading cleaning reports…');
+          }
+          for(var attempt=0; attempt<3; attempt++){
+            try {
+              const payload={action:'getReports', token:empireGetToken()||''};
+              if(dateFilter) payload.date=dateFilter;
+              const response = await fetch(GOOGLE_SCRIPT_URL, {method:'POST', body:JSON.stringify(payload)});
+              if(!response.ok) throw new Error('Failed to fetch: ' + response.status);
+              const data = await response.json();
+              if(Array.isArray(data)) {
+                data.forEach(r=>{ r.image = r.photo; });
+                allReports = reportsForUser(data);
+                writeReportsCache(allReports);
+                refreshDashboardView();
+                updateDebugStatus('✅ Loaded '+allReports.length+' report(s) from the server just now.');
+              } else if(data && data.ok===false) {
+                updateDebugStatus('⚠️ Server rejected the request: '+(data.message||data.error||'unknown reason'));
+                forceSessionLogout(data);
+                if(!cached && dc && typeof empireErrorHtml==='function'){
+                  dc.innerHTML=empireErrorHtml(data.message||data.error||'Request rejected','Sign in again if needed, then refresh.');
+                }
+              } else {
+                updateDebugStatus('⚠️ Server responded but not with a list. Click "Test Now" above to see the raw reply.');
+                if(!cached && dc && typeof empireErrorHtml==='function'){
+                  dc.innerHTML=empireErrorHtml('Unexpected server reply.','Use Refresh, or check the debug panel.');
+                }
+              }
+              return;
+            } catch(e) {
+              lastErr=e;
+              await new Promise(function(res){ setTimeout(res, 400); });
+            }
+          }
+          console.error('Load error:', lastErr && lastErr.message);
+          updateDebugStatus('❌ Could not reach the server: '+(lastErr && lastErr.message));
+          if(!cached && dc && typeof empireErrorHtml==='function'){
+            dc.innerHTML=empireErrorHtml((lastErr&&lastErr.message)||'Could not reach the server','Check your connection, then refresh.');
+          }
+        }
         function updateDebugStatus(msg){ var el=document.getElementById('debugStatus'); if(el) el.textContent=msg; }
         async function debugTestReports(){
           updateDebugStatus('⏳ Testing…');
@@ -372,7 +418,11 @@
         }
         function renderDashTaskRow(taskName, photos){
           var done=photos.length>0;
-          var thumbs=photos.map(function(x){ return '<img src="'+x.image+'" onclick="openModal(this.src)" style="height:64px;width:64px;object-fit:cover;border-radius:10px;border:1px solid var(--card-border);cursor:pointer;margin:0 6px 6px 0;" loading="lazy">'; }).join('');
+          var thumbs=photos.map(function(x){
+            var src = (typeof empireThumbUrl==='function') ? empireThumbUrl(x.image, 128) : x.image;
+            var full = String(x.image||'').replace(/"/g,'&quot;');
+            return '<img src="'+src+'" data-full="'+full+'" onclick="openModal(this.dataset.full||this.src)" style="height:64px;width:64px;object-fit:cover;border-radius:10px;border:1px solid var(--card-border);cursor:pointer;margin:0 6px 6px 0;" loading="lazy" onerror="if(window.empireMarkThumbTransformFailed)empireMarkThumbTransformFailed();if(this.dataset.full&&this.src!==this.dataset.full)this.src=this.dataset.full;">';
+          }).join('');
           return '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 10px;background:var(--task-bg);border-radius:12px;margin-bottom:6px;">'
             +'<div style="flex-shrink:0;padding-top:2px;">'+(done?checkIconHtml():squareIconHtml())+'</div>'
             +'<div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:13px;'+(done?'':'color:var(--text-soft);')+'">'+taskName+'</div>'
@@ -1037,7 +1087,7 @@
           }
           const box=document.getElementById('detailBox');
           let h='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;"><h2 style="margin:0;">'+projName(p)+' — '+metricTitle(metric)+'</h2><span style="cursor:pointer;font-size:30px;line-height:1;" onclick="closeDetailModal()">&times;</span></div>';
-          if(reps.length===0){ h+='<p>No reports in the current view. (Pick a date range and Refresh, or use All-Time Analytics.)</p>'; }
+          if(reps.length===0){ h+=(typeof empireEmptyHtml==='function'?empireEmptyHtml('No reports in this view','Pick a date range and Refresh, or use All-Time Analytics.'):'<p>No reports in the current view. (Pick a date range and Refresh, or use All-Time Analytics.)</p>'); }
           else {
             if(metric==='buildings'){
               const all=allBuildingsFor(p); const covered=[...new Set(reps.map(r=>r.building))]; const missing=all.filter(b=>covered.indexOf(b)===-1);

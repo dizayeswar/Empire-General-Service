@@ -374,6 +374,18 @@ header p {
   border: 1px dashed var(--card-border);
   border-radius: var(--radius-md);
 }
+.hub-empty .empire-empty-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 8px;
+}
+.hub-empty .empire-empty-hint {
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0;
+  color: var(--text-faint);
+}
 
 .hub-dashboard footer {
   margin-top: auto;

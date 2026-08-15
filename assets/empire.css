@@ -311,3 +311,9 @@ select option:checked { background:rgba(141,1,93,0.14); }
 .issue-card { content-visibility: auto; contain-intrinsic-size: 280px; }
 img.thumb, img.issue-card-photo, img.worker-job-thumb { background: var(--panel); }
 
+.empire-state { text-align: center; padding: 28px 16px; color: var(--text-soft); }
+.empire-empty-title, .empire-error-title { font-size: 16px; font-weight: 700; color: var(--text); margin: 0 0 8px; }
+.empire-empty-hint, .empire-error-hint { font-size: 13px; line-height: 1.45; margin: 0; color: var(--text-faint); max-width: 420px; margin-left: auto; margin-right: auto; }
+.empire-error-title { color: var(--c-error, #C5504F); }
+.load-wrap.empire-state p { margin-top: 10px; color: var(--text-soft); }
+

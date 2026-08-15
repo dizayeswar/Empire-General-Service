@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://script.google.com">
 <link rel="preconnect" href="https://api.imgbb.com">
 <title>Civil Department — Empire World</title>
-<link rel="stylesheet" href="assets/empire.css">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-15-ux1">
 <link rel="stylesheet" href="assets/empire-dept.css">
 <link rel="stylesheet" href="assets/empire-civil-worker.css">
 </head>
@@ -301,11 +301,11 @@
   </div>
 </div>
 <script src="config.js"></script>
-<script src="assets/empire-storage.js?v=2026-08-15-perf"></script>
-<script src="assets/empire-api.js"></script>
+<script src="assets/empire-storage.js?v=2026-08-15-ux1"></script>
+<script src="assets/empire-api.js?v=2026-08-15-ux1"></script>
 <script src="assets/empire-auth.js"></script>
 <script src="assets/empire-core.js"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-15-shell-v1"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-15-ux1"></script>
 <div class="modal" id="imgModal" onclick="closeImg()"><img id="imgBig" style="max-width:92%;max-height:92%;border-radius:10px;"></div>
 <div class="modal" id="fieldReportModal" onclick="if(event.target===this)closeFieldReportModal()">
   <div class="modal-box field-report-modal-box" id="fieldReportModalBody" onclick="event.stopPropagation()"></div>
@@ -393,8 +393,8 @@ function loadJobs(){
     .then(d=>{
       if(Array.isArray(d)){ allJobs=d; writeJobsCache(d); renderJobs(); renderJobAnalytics(); renderReportPreview(); }
       else if(d&&d.ok===false){ forceSessionLogout(d); }
-      else if(!cached){ document.getElementById('jobsTable').innerHTML='<p style="color:var(--c-error);">⚠️ Could not load jobs — make sure the Apps Script is updated and redeployed, then refresh.</p>'; }
-    }).catch(e=>{ if(!cached) document.getElementById('jobsTable').innerHTML='<p style="color:var(--c-error);">❌ Error: '+e.message+'</p>'; });
+      else if(!cached){ document.getElementById('jobsTable').innerHTML=empireErrorHtml('Could not load jobs.','Refresh the page or try again in a moment.'); }
+    }).catch(e=>{ if(!cached) document.getElementById('jobsTable').innerHTML=empireErrorHtml(e.message||'Network error','Check your connection, then refresh.'); });
 }
 function dayOf(r){ var d=String(r.date||r.createdAt||''); if(/^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0,10); var dt=new Date(d.replace(' ','T')); if(!isNaN(dt.getTime())){ var z=function(n){return String(n).padStart(2,'0');}; return dt.getFullYear()+'-'+z(dt.getMonth()+1)+'-'+z(dt.getDate()); } return ''; }
 function monthOf(r){
@@ -421,7 +421,7 @@ function renderJobs(){
   var h='<p style="color:var(--text-soft);margin-bottom:12px;">'+total+' record(s)'+(fm?' in '+fm:'')+' &nbsp;—&nbsp; <span style="color:var(--c-general);">🔧 '+gen+' general</span> &nbsp;·&nbsp; <span style="color:var(--c-refundable);">📦 '+ref+' refundable</span>'+(refTotal>0?' &nbsp;·&nbsp; <span style="color:var(--c-money);">💰 '+fmtMoney(refTotal)+' IQD refundable total</span>':'')+'</p>';
   var showActions=(P.edit!==false || P.del!==false);
   h+='<div style="overflow-x:auto;"><table><thead><tr><th>#</th><th>Date</th><th>Type</th><th>Job</th><th>Location</th><th>Materials</th><th>Staff</th><th>Amount</th><th>Job photo</th><th>Invoice</th>'+(showActions?'<th>Actions</th>':'')+'</tr></thead><tbody>';
-  if(rows.length===0) h+='<tr><td colspan="11" style="color:var(--text-faint);">No records match.</td></tr>';
+  if(rows.length===0) h+='<tr><td colspan="11">'+empireEmptyHtml('No jobs match','Try another date, clear type/search, or add a job.')+'</td></tr>';
   var num=0;
   rows.forEach(r=>{
     num++;
@@ -737,7 +737,7 @@ function loadFieldReports(force){
     .then(function(d){
       if(Array.isArray(d)){ allFieldReports=d; renderFieldReports(); }
       else if(d&&d.ok===false){ forceSessionLogout(d); }
-      else if(host){ host.innerHTML='<p style="color:var(--c-error);">⚠️ Could not load field reports — redeploy Apps Script, then refresh.</p>'; }
+      else if(host){ host.innerHTML=empireErrorHtml('Could not load field reports.','Refresh the page or try again in a moment.'); }
     })
     .catch(function(e){ if(host) host.innerHTML='<p style="color:var(--c-error);">❌ Error: '+e.message+'</p>'; })
     .finally(function(){ if(spin) spin.classList.remove('spinning'); });
@@ -929,7 +929,10 @@ function renderFieldReports(){
   var rows=fieldReportFilteredRows_();
   var pendingAll=allFieldReports.filter(fieldReportIsPending_).length;
   if(!rows.length){
-    host.innerHTML='<p style="color:var(--text-faint);">'+(pendingAll?'No field reports match your filters.':'All field reports have been transferred to monthly reports.')+'</p>';
+    host.innerHTML=empireEmptyHtml(
+      pendingAll?'No field reports match your filters.':'Nothing pending',
+      pendingAll?'Try clearing date or search.':'All field reports have been transferred to monthly reports.'
+    );
     return;
   }
   var h='<p style="color:var(--text-soft);margin-bottom:8px;">'+rows.length+' shown'+(pendingAll?(' · <strong>'+pendingAll+'</strong> pending review'):'')+'</p>';
@@ -942,7 +945,10 @@ function renderFieldReports(){
     var ref=fieldReportRef_(r);
     var jobPhotos = fieldReportJobPhotos_(r);
     var photoHtml = jobPhotos.length
-      ? ('<div class="field-report-card-photo-wrap"><img class="issue-card-photo" src="'+jobPhotos[0]+'" loading="lazy" alt="" onclick="event.stopPropagation();bigImg(this.src)">'
+      ? ('<div class="field-report-card-photo-wrap">' +
+        ((typeof empireThumbImgHtml === 'function')
+          ? empireThumbImgHtml(jobPhotos[0], 'issue-card-photo', '', 320).replace('class="issue-card-photo"', 'class="issue-card-photo" onclick="event.stopPropagation();bigImg(this.dataset.full||this.src)"')
+          : '<img class="issue-card-photo" src="'+jobPhotos[0]+'" loading="lazy" alt="" onclick="event.stopPropagation();bigImg(this.src)">')
         + (jobPhotos.length > 1 ? ('<span class="field-report-card-photo-count">+' + (jobPhotos.length - 1) + '</span>') : '')
         + '</div>')
       : '<div class="issue-card-photo issue-card-nophoto">No photo</div>';
@@ -1396,7 +1402,7 @@ function doReset(){
 <script src="assets/empire-assign-voice.js"></script>
 <script src="assets/issue-configs.js"></script>
 <script>ISSUE_CFG=Object.assign({},ISSUE_CONFIGS.civil,{embeddedInDept:true,tabNavScope:'.side-nav-issue',tabPaneScope:'#issueMain',analyticsContentId:'analyticsContent',supervisorPage:'civil-department.html'});</script>
-<script src="assets/issue-tracker.js?v=2026-08-15-perf"></script>
+<script src="assets/issue-tracker.js?v=2026-08-15-ux1"></script>
 <script src="assets/issue-excel-export.js"></script>
 <script src="assets/issue-recycle-bin.js"></script>
 <script>

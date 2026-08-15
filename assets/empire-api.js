@@ -1,7 +1,39 @@
 /* Empire World EGS - shared API helpers (Phase 2) */
 
 const LOADING_HTML =
-  '<div class="load-wrap"><div class="load-ring"></div><p>Loading requests, please wait.</p></div>';
+  '<div class="load-wrap empire-state"><div class="load-ring"></div><p>Loading… please wait.</p></div>';
+
+function empireEscHtml_(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function empireLoadingHtml(msg) {
+  return '<div class="load-wrap empire-state"><div class="load-ring"></div><p>' +
+    empireEscHtml_(msg || 'Loading… please wait.') + '</p></div>';
+}
+
+function empireEmptyHtml(title, hint) {
+  var h = '<div class="empire-state empire-empty">';
+  h += '<p class="empire-empty-title">' + empireEscHtml_(title || 'Nothing here yet') + '</p>';
+  if (hint) h += '<p class="empire-empty-hint">' + empireEscHtml_(hint) + '</p>';
+  h += '</div>';
+  return h;
+}
+
+function empireErrorHtml(msg, retryLabel) {
+  var h = '<div class="empire-state empire-error">';
+  h += '<p class="empire-error-title">Couldn’t load</p>';
+  h += '<p class="empire-error-hint">' + empireEscHtml_(msg || 'Check your connection and try again.') + '</p>';
+  if (retryLabel) {
+    h += '<p class="empire-error-hint">' + empireEscHtml_(retryLabel) + '</p>';
+  }
+  h += '</div>';
+  return h;
+}
 
 function fetchWithTimeout(url, options, timeoutMs) {
   timeoutMs = timeoutMs || 90000;
@@ -36,7 +68,7 @@ function fetchJSONRetry(body, tries, timeoutMs) {
       try {
         return JSON.parse(text);
       } catch (e) {
-        throw new Error('Invalid server response. Redeploy the Google Apps Script and try again.');
+        throw new Error('Invalid server response. Refresh and try again. If it keeps failing, redeploy empire-api.');
       }
     })
     .catch(function (e) {
