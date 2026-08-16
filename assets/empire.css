@@ -105,6 +105,10 @@ tr.issue-row { cursor:pointer; } tr.issue-row:hover { background:var(--row-hover
 .issue-row-delayed { background:#e8ebef !important; }
 html[data-theme="dark"] .issue-card-delayed { background:linear-gradient(180deg,#4a5058,#3d434b) !important; border-color:#6b7280 !important; }
 html[data-theme="dark"] .issue-row-delayed { background:#3d434b !important; }
+.issue-card-whatsapp-sent { background:linear-gradient(180deg,#fff9d6,#ffe566) !important; border-color:#e6c200 !important; }
+.issue-row-whatsapp-sent { background:#fff3a0 !important; }
+html[data-theme="dark"] .issue-card-whatsapp-sent { background:linear-gradient(180deg,#5c5420,#4a4318) !important; border-color:#c9a800 !important; }
+html[data-theme="dark"] .issue-row-whatsapp-sent { background:#4a4318 !important; }
 html[data-theme="dark"] .badge.fix-delayed { color:#c5cad3; }
 .fix-delayed-banner { margin:12px 0; padding:12px 14px; border-radius:10px; background:rgba(139,147,158,0.18); border:1px solid rgba(139,147,158,0.45); color:var(--text); font-size:13px; line-height:1.45; }
 .fix-delay-btn { background:#c5cad3; color:#fff; border:none; padding:10px 16px; border-radius:50px; font-weight:600; display:inline-flex; align-items:center; gap:8px; cursor:pointer; box-shadow:none; }

@@ -1938,8 +1938,55 @@ function toggleIssueSelected(id){ if(selectedIssueIds[id]) delete selectedIssueI
 function clearIssueSelection(){ selectedIssueIds={}; renderIssues(); }
 function issueShareBlock(r, idx){ var ref='#'+issueRef(r.num); var status=r.status==='fixed'?'Fixed':'Open'; var lines=[idx+'. '+ref+' \u2014 '+r.issueType, locStr(r), 'Status: '+status, 'Date: '+dateOnly(r.date||r.createdAt)]; if(r.note) lines.push('Note: '+r.note); if(r.photo) lines.push('Photo: '+r.photo); return lines.join('\n'); }
 function buildIssuesShareText(ids){ var rows=ids.map(function(id){ return allIssues.find(function(x){ return x.id===id; }); }).filter(Boolean); if(!rows.length) return ''; if(rows.length===1) return issueShareText(rows[0]); var parts=['Empire World \u2014 '+rows.length+' '+ISSUE_SHARE_DEPT+'s', '']; rows.forEach(function(r,i){ parts.push(issueShareBlock(r, i+1)); if(i<rows.length-1) parts.push(''); }); return parts.join('\n'); }
-function shareIssueWhatsApp(id){ var r=allIssues.find(function(x){ return x.id===id; }); if(!r) return; window.location.href='https://wa.me/?text='+encodeURIComponent(issueShareText(r)); }
-function shareSelectedWhatsApp(){ var ids=Object.keys(selectedIssueIds); if(!ids.length){ alert('Select at least one issue first.'); return; } window.location.href='https://wa.me/?text='+encodeURIComponent(buildIssuesShareText(ids)); }
+function issueWhatsAppSentKey_(){ return ISSUE_CFG.prefix+'_wa_sent_v1'; }
+function readWhatsAppSentMap_(){
+  try{
+    var s=localStorage.getItem(issueWhatsAppSentKey_());
+    if(!s) return {};
+    var o=JSON.parse(s);
+    return (o && typeof o==='object' && !Array.isArray(o)) ? o : {};
+  }catch(e){ return {}; }
+}
+function writeWhatsAppSentMap_(m){
+  try{ localStorage.setItem(issueWhatsAppSentKey_(), JSON.stringify(m||{})); }catch(e){}
+}
+function isIssueWhatsAppSent(id){
+  if(!id) return false;
+  return !!readWhatsAppSentMap_()[id];
+}
+function markIssuesWhatsAppSent(ids){
+  var m=readWhatsAppSentMap_();
+  var changed=false;
+  (ids||[]).forEach(function(id){
+    if(!id || m[id]) return;
+    m[id]=Date.now();
+    changed=true;
+  });
+  if(changed) writeWhatsAppSentMap_(m);
+  return changed;
+}
+function openWhatsAppShare_(text){
+  var url='https://wa.me/?text='+encodeURIComponent(text||'');
+  try{
+    var w=window.open(url,'_blank');
+    if(w) return;
+  }catch(e){}
+  window.location.href=url;
+}
+function shareIssueWhatsApp(id){
+  var r=allIssues.find(function(x){ return x.id===id; });
+  if(!r) return;
+  markIssuesWhatsAppSent([id]);
+  try{ if(typeof refreshAllIssueTabs==='function') refreshAllIssueTabs(); else renderIssues(); }catch(e){}
+  openWhatsAppShare_(issueShareText(r));
+}
+function shareSelectedWhatsApp(){
+  var ids=Object.keys(selectedIssueIds);
+  if(!ids.length){ alert('Select at least one issue first.'); return; }
+  markIssuesWhatsAppSent(ids);
+  try{ if(typeof refreshAllIssueTabs==='function') refreshAllIssueTabs(); else renderIssues(); }catch(e){}
+  openWhatsAppShare_(buildIssuesShareText(ids));
+}
 function canBulkAssignIssues(){ if(isCivilWorker()||!tradeGroups().length||!ISSUE_CFG.actions.assign) return false; var p=PAGEPERMS||{}; if(p.assign===true) return true; if(p.assign===false) return false; return p.edit!==false; }
 function bulkAssignBlockedHint(){ if(canBulkAssignIssues()||!tradeGroups().length||!ISSUE_CFG.actions.assign) return ''; return '<span class="issue-select-hint">Worker assign needs an <strong>editor</strong> or <strong>admin</strong> account. Log out and ask your admin to set your role in the Users sheet.</span>'; }
 function bulkAssignWorkersPickerHtml() {
@@ -2764,7 +2811,13 @@ function renderIssueListHtml(rows, listMode) {
     rows.forEach(function (r) {
       var sel = !!selectedIssueIds[r.id];
       var cardClick = issueSelectMode ? "toggleIssueSelected('" + r.id + "')" : "openIssue('" + r.id + "')";
-      h += '<div class="issue-card' + (sel ? ' selected' : '') + (issueSelectMode ? ' selecting' : '') + (listMode === 'routed' ? ' issue-card-routed' : '') + (isIssueFixDelayed(r) && r.status !== 'fixed' && (listMode === 'civil' || listMode === 'delayed') ? ' issue-card-delayed' : '') + '" onclick="' + cardClick + '">';
+      var cardCls = 'issue-card'
+        + (sel ? ' selected' : '')
+        + (issueSelectMode ? ' selecting' : '')
+        + (listMode === 'routed' ? ' issue-card-routed' : '')
+        + (isIssueFixDelayed(r) && r.status !== 'fixed' && (listMode === 'civil' || listMode === 'delayed') ? ' issue-card-delayed' : '')
+        + (isIssueWhatsAppSent(r.id) ? ' issue-card-whatsapp-sent' : '');
+      h += '<div class="' + cardCls + '" data-issue-id="' + r.id + '" onclick="' + cardClick + '">';
       if (issueSelectMode) {
         h += '<div class="issue-card-check" onclick="event.stopPropagation()"><input type="checkbox"' + (sel ? ' checked' : '') + ' onclick="event.stopPropagation();toggleIssueSelected(\'' + r.id + '\')" aria-label="Select issue"></div>';
       }
@@ -2784,7 +2837,12 @@ function renderIssueListHtml(rows, listMode) {
   rows.forEach(function (r) {
     var sel = !!selectedIssueIds[r.id];
     var rowClick = issueSelectMode ? "toggleIssueSelected('" + r.id + "')" : "openIssue('" + r.id + "')";
-    h += '<tr class="issue-row' + (sel ? ' selected' : '') + (listMode === 'routed' ? ' issue-row-routed' : '') + (isIssueFixDelayed(r) && r.status !== 'fixed' && (listMode === 'civil' || listMode === 'delayed') ? ' issue-row-delayed' : '') + '" onclick="' + rowClick + '"' + (sel ? ' style="background:var(--row-hover);"' : '') + '>';
+    var rowCls = 'issue-row'
+      + (sel ? ' selected' : '')
+      + (listMode === 'routed' ? ' issue-row-routed' : '')
+      + (isIssueFixDelayed(r) && r.status !== 'fixed' && (listMode === 'civil' || listMode === 'delayed') ? ' issue-row-delayed' : '')
+      + (isIssueWhatsAppSent(r.id) ? ' issue-row-whatsapp-sent' : '');
+    h += '<tr class="' + rowCls + '" data-issue-id="' + r.id + '" onclick="' + rowClick + '"' + (sel ? ' style="background:var(--row-hover);"' : '') + '>';
     if (issueSelectMode) h += '<td onclick="event.stopPropagation()"><input type="checkbox"' + (sel ? ' checked' : '') + ' onclick="event.stopPropagation();toggleIssueSelected(\'' + r.id + '\')" aria-label="Select issue"></td>';
     h += '<td style="color:var(--text-faint);font-weight:700;white-space:nowrap;">#' + issueRef(r.num) + '</td><td>' + r.issueType + tradeBadgeHtml(r) + workersBadgeHtml(r) + workersCompletedSummaryHtml(r) + (r.note ? ' <span style="color:var(--text-faint);">(' + r.note + ')</span>' : '') + '</td><td>' + locStr(r) + '</td>';
     if (tradeGroups().length) h += '<td>' + (assignedWorkersDisplay(r) || tradeGroupLabel(r.assignedGroup) || 'Unassigned') + '</td>';
@@ -2820,6 +2878,8 @@ function renderIssues() {
   if (delayedCount && ISSUE_CFG.actions && ISSUE_CFG.actions.setFixDelay) {
     teamBits += ' &nbsp;&mdash;&nbsp; <span style="color:#8b939e;">' + delayedCount + ' need 1+ month</span>';
   }
+  var sentCount = rows.filter(function (r) { return isIssueWhatsAppSent(r.id); }).length;
+  teamBits += ' &nbsp;&mdash;&nbsp; <span style="color:#c9a000;">' + sentCount + ' sent</span>';
   var h = '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;"><p style="color:var(--text-soft);margin:0;">' + rows.length + ' issue(s)' + (fm ? (' in ' + fm) : '') + ' &nbsp;&mdash;&nbsp; <span style="color:var(--open-color);">' + squareIconHtml('var(--open-color)') + ' ' + oc + ' open</span> &nbsp;&mdash;&nbsp; <span style="color:#1d9e75;">' + checkIconHtml('#1d9e75') + ' ' + fc + ' fixed</span>' + teamBits + '</p>' + viewToggleHtml() + '</div>' + issueSelectToolbarHtml();
   if (rows.length === 0) {
     var f = deskIssueFilterSnapshot_();
