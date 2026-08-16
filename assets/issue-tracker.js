@@ -1950,20 +1950,69 @@ function readWhatsAppSentMap_(){
 function writeWhatsAppSentMap_(m){
   try{ localStorage.setItem(issueWhatsAppSentKey_(), JSON.stringify(m||{})); }catch(e){}
 }
-function isIssueWhatsAppSent(id){
-  if(!id) return false;
+function clearLocalWhatsAppSentMap_(){ try{ localStorage.removeItem(issueWhatsAppSentKey_()); }catch(e){} }
+function isIssueWhatsAppSent(idOrRow){
+  var r = idOrRow && typeof idOrRow === 'object' ? idOrRow : allIssues.find(function(x){ return x.id === idOrRow; });
+  if (r && String(r.whatsappSent || r.whatsapp_sent_at || '').trim()) return true;
+  var id = r ? r.id : idOrRow;
+  if (!id) return false;
   return !!readWhatsAppSentMap_()[id];
 }
-function markIssuesWhatsAppSent(ids){
-  var m=readWhatsAppSentMap_();
-  var changed=false;
-  (ids||[]).forEach(function(id){
-    if(!id || m[id]) return;
-    m[id]=Date.now();
-    changed=true;
+function applyWhatsAppSentLocal_(ids, stamp, by){
+  var when = stamp || new Date().toISOString().replace('T', ' ').slice(0, 19);
+  var who = by || empireGetUser() || '';
+  (ids || []).forEach(function(id){
+    var it = allIssues.find(function(x){ return x.id === id; });
+    if (!it) return;
+    if (!String(it.whatsappSent || '').trim()) {
+      it.whatsappSent = when;
+      it.whatsappSentBy = who;
+    }
   });
-  if(changed) writeWhatsAppSentMap_(m);
-  return changed;
+  writeIssuesCacheAsync(allIssues);
+}
+function persistWhatsAppSentServer_(ids){
+  if (!ids || !ids.length) return;
+  if (!(ISSUE_CFG.actions && ISSUE_CFG.actions.markWhatsAppSent)) return;
+  fetchJSONRetry({
+    action: ISSUE_CFG.actions.markWhatsAppSent,
+    ids: ids,
+    token: issueToken() || ''
+  }, 1, 20000).then(function(d){
+    if (!d || d.ok === false) return;
+    applyWhatsAppSentLocal_(ids, d.whatsappSent, d.whatsappSentBy);
+  }).catch(function(){});
+}
+function migrateLocalWhatsAppSentToServer_(){
+  if (!(ISSUE_CFG.actions && ISSUE_CFG.actions.markWhatsAppSent)) return;
+  var local = readWhatsAppSentMap_();
+  var ids = Object.keys(local).filter(function(id){
+    var r = allIssues.find(function(x){ return x.id === id; });
+    return r && !String(r.whatsappSent || '').trim();
+  });
+  if (!ids.length) {
+    if (Object.keys(local).length) clearLocalWhatsAppSentMap_();
+    return;
+  }
+  fetchJSONRetry({
+    action: ISSUE_CFG.actions.markWhatsAppSent,
+    ids: ids,
+    token: issueToken() || ''
+  }, 1, 30000).then(function(d){
+    if (!d || d.ok === false) return;
+    applyWhatsAppSentLocal_(ids, d.whatsappSent, d.whatsappSentBy);
+    clearLocalWhatsAppSentMap_();
+  }).catch(function(){});
+}
+function markIssuesWhatsAppSent(ids){
+  var list = (ids || []).filter(Boolean);
+  if (!list.length) return false;
+  applyWhatsAppSentLocal_(list);
+  var m = readWhatsAppSentMap_();
+  list.forEach(function(id){ m[id] = Date.now(); });
+  writeWhatsAppSentMap_(m);
+  persistWhatsAppSentServer_(list);
+  return true;
 }
 function openWhatsAppShare_(text){
   var url='https://wa.me/?text='+encodeURIComponent(text||'');
@@ -2352,13 +2401,14 @@ function onIssueDeskFilterChange() {
 function fetchIssuesFromServer(signal){ return fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify(issuesFetchBody_()),signal:signal}).then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }); }
 var _issuesListSig='';
 function issueMetaCounts_(arr) {
-  var delayed = 0, routed = 0;
-  if (!arr || !arr.length) return { delayed: 0, routed: 0 };
+  var delayed = 0, routed = 0, sent = 0;
+  if (!arr || !arr.length) return { delayed: 0, routed: 0, sent: 0 };
   for (var i = 0; i < arr.length; i++) {
     if (String(arr[i].fixDelay || '').toLowerCase() === 'month_plus') delayed++;
     if (String(arr[i].disposition || '').toLowerCase() === routedDisposition()) routed++;
+    if (String(arr[i].whatsappSent || arr[i].whatsapp_sent_at || '').trim()) sent++;
   }
-  return { delayed: delayed, routed: routed };
+  return { delayed: delayed, routed: routed, sent: sent };
 }
 function issuesListSig(arr) {
   if (!arr || !arr.length) return '0';
@@ -2369,7 +2419,7 @@ function issuesListSig(arr) {
     if (String(arr[i].status || '') !== 'fixed') open++;
     if (i < 8 || i >= arr.length - 4) idBits.push(String(arr[i].id || '') + ':' + String(arr[i].status || ''));
   }
-  return arr.length + '|o' + open + '|' + idBits.join(',') + '|d' + meta.delayed + '|r' + meta.routed;
+  return arr.length + '|o' + open + '|' + idBits.join(',') + '|d' + meta.delayed + '|r' + meta.routed + '|s' + meta.sent;
 }
 function mergeIssueMetaFromServer(next, prev) {
   if (!prev || !prev.length || !next || !next.length) return next;
@@ -2382,6 +2432,10 @@ function mergeIssueMetaFromServer(next, prev) {
     if (!out.fixDelay && p.fixDelay) out.fixDelay = p.fixDelay;
     if (!out.disposition && p.disposition) out.disposition = p.disposition;
     if (!out.assignVoiceNote && p.assignVoiceNote) out.assignVoiceNote = p.assignVoiceNote;
+    if (!String(out.whatsappSent || '').trim() && String(p.whatsappSent || '').trim()) {
+      out.whatsappSent = p.whatsappSent;
+      out.whatsappSentBy = p.whatsappSentBy || '';
+    }
     return out;
   });
 }
@@ -2449,6 +2503,7 @@ function loadIssues(force){ force=!!force; try {
         if(typeof empirePushOnIssuesLoaded==='function') empirePushOnIssuesLoaded(merged);
       } else {
         requestAnimationFrame(function(){ refreshAllIssueTabs(); });
+        migrateLocalWhatsAppSentToServer_();
       }
     } else if(d&&d.ok===false){
       if(forceSessionLogout(d)) return;

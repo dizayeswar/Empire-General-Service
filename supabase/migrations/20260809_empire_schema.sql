@@ -131,6 +131,8 @@ create table if not exists public.civil_issues (
   assigned_workers jsonb not null default '[]'::jsonb,
   disposition text not null default '',
   fix_delay text not null default '',
+  whatsapp_sent_at text not null default '',
+  whatsapp_sent_by text not null default '',
   assign_voice_note jsonb,
   monthly_transfer_status text not null default '',
   transferred_job_id text not null default '',
@@ -165,6 +167,8 @@ create table if not exists public.electric_issues (
   assigned_workers jsonb not null default '[]'::jsonb,
   disposition text not null default '',
   fix_delay text not null default '',
+  whatsapp_sent_at text not null default '',
+  whatsapp_sent_by text not null default '',
   assign_voice_note jsonb,
   monthly_transfer_status text not null default '',
   transferred_job_id text not null default '',
@@ -191,7 +195,9 @@ create table if not exists public.fire_issues (
   created_at text not null default '',
   fixed_by text not null default '',
   fixed_at text not null default '',
-  num bigint
+  num bigint,
+  whatsapp_sent_at text not null default '',
+  whatsapp_sent_by text not null default ''
 );
 create index if not exists fire_issues_status_idx on public.fire_issues(status);
 

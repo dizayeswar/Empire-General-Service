@@ -76,6 +76,8 @@ function rowToApi(row: Record<string, unknown>, table: IssueTable, auth?: AuthOk
     fixedBy: String(row.fixed_by || ""),
     fixedAt: dtIssue(row.fixed_at),
     assignedGroup,
+    whatsappSent: String(row.whatsapp_sent_at || "").trim(),
+    whatsappSentBy: String(row.whatsapp_sent_by || "").trim(),
   };
 
   if (isWorkerIssue(table)) {
@@ -513,6 +515,54 @@ export const handleSetCivilFixDelay = (b: Record<string, unknown>, a: AuthOk) =>
   setFixDelay(b, "civil_issues", a);
 export const handleSetElectricFixDelay = (b: Record<string, unknown>, a: AuthOk) =>
   setFixDelay(b, "electric_issues", a);
+
+async function markWhatsAppSent(
+  body: Record<string, unknown>,
+  table: IssueTable,
+  auth: AuthOk,
+) {
+  const rawIds = Array.isArray(body.ids) ? body.ids : [body.id];
+  const ids = rawIds.map((x) => String(x || "").trim()).filter(Boolean);
+  if (!ids.length) return { ok: false, success: false, error: "missing_id" };
+
+  const stamp = isoNow();
+  const by = String(auth.username || "");
+
+  const { data: rows, error: selErr } = await sb()
+    .from(table)
+    .select("id,whatsapp_sent_at")
+    .in("id", ids);
+  if (selErr) throw selErr;
+
+  const need = (rows || [])
+    .filter((r) => !String(r.whatsapp_sent_at || "").trim())
+    .map((r) => String(r.id || ""))
+    .filter(Boolean);
+
+  if (need.length) {
+    const { error } = await sb()
+      .from(table)
+      .update({ whatsapp_sent_at: stamp, whatsapp_sent_by: by })
+      .in("id", need);
+    if (error) throw error;
+  }
+
+  return {
+    ok: true,
+    success: true,
+    whatsappSent: stamp,
+    whatsappSentBy: by,
+    updatedIds: need,
+    ids,
+  };
+}
+
+export const handleMarkCivilWhatsAppSent = (b: Record<string, unknown>, a: AuthOk) =>
+  markWhatsAppSent(b, "civil_issues", a);
+export const handleMarkElectricWhatsAppSent = (b: Record<string, unknown>, a: AuthOk) =>
+  markWhatsAppSent(b, "electric_issues", a);
+export const handleMarkFireWhatsAppSent = (b: Record<string, unknown>, a: AuthOk) =>
+  markWhatsAppSent(b, "fire_issues", a);
 
 export async function handleAddHseInspection(body: Record<string, unknown>) {
   const id = String(body.id || "") || crypto.randomUUID();

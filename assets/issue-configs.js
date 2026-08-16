@@ -83,6 +83,7 @@ var ISSUE_CONFIGS = {
       routeNotCivil: 'markCivilNotDept',
       restoreCivil: 'restoreCivilIssue',
       setFixDelay: 'setCivilFixDelay',
+      markWhatsAppSent: 'markCivilWhatsAppSent',
       reportLocation: 'reportWorkerLocation',
       getLocations: 'getWorkerLocations',
       savePushToken: 'saveWorkerPushToken',
@@ -133,7 +134,8 @@ var ISSUE_CONFIGS = {
       add: 'addFireIssue',
       delete: 'deleteFireIssue',
       markFixed: 'markFireFixed',
-      clear: 'clearFireIssues'
+      clear: 'clearFireIssues',
+      markWhatsAppSent: 'markFireWhatsAppSent'
     },
     spots: ['Service stairs','Main stairs','Service door','Rooftop door','Exit door','Elevator','Wall','Ceiling','Corridor','Basement','Rooftop','Garden','Parking','Pump room','Generator room','Other'],
     issueTypes: ['Fire extinguisher expired','Fire extinguisher missing','Fire extinguisher discharged','Fire alarm malfunction','Sprinkler head damaged','Sprinkler pipe leaking','Fire hose reel damaged','Smoke detector missing','Smoke detector malfunction','Fire door damaged','Emergency exit blocked','Pump room issue','HVAC / AC issue','Generator issue','Other']
@@ -209,6 +211,7 @@ var ISSUE_CONFIGS = {
       routeNotCivil: 'markElectricNotDept',
       restoreCivil: 'restoreElectricIssue',
       setFixDelay: 'setElectricFixDelay',
+      markWhatsAppSent: 'markElectricWhatsAppSent',
       reportLocation: 'reportWorkerLocation',
       getLocations: 'getWorkerLocations',
       savePushToken: 'saveWorkerPushToken',

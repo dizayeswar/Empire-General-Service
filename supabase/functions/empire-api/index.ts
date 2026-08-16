@@ -211,6 +211,7 @@ Deno.serve(async (req) => {
       case "markCivilNotDept": return json(await issues.handleRouteCivilNotDept(body, a));
       case "restoreCivilIssue": return json(await issues.handleRestoreCivilIssue(body, a));
       case "setCivilFixDelay": return json(await issues.handleSetCivilFixDelay(body, a));
+      case "markCivilWhatsAppSent": return json(await issues.handleMarkCivilWhatsAppSent(body, a));
       case "reportWorkerLocation": return json(await misc.handleReportWorkerLocation(body, a));
       case "getWorkerLocations": return json(await misc.handleGetWorkerLocations(body, a));
       case "markCivilFixed": return json(await issues.handleMarkFixed(body, "civil_issues", a));
@@ -224,6 +225,7 @@ Deno.serve(async (req) => {
       case "markElectricNotDept": return json(await issues.handleRouteElectricNotDept(body, a));
       case "restoreElectricIssue": return json(await issues.handleRestoreElectricIssue(body, a));
       case "setElectricFixDelay": return json(await issues.handleSetElectricFixDelay(body, a));
+      case "markElectricWhatsAppSent": return json(await issues.handleMarkElectricWhatsAppSent(body, a));
       case "markElectricFixed": return json(await issues.handleMarkFixed(body, "electric_issues", a));
       case "clearElectricIssues": return json(await issues.handleClearIssues(body, "electric_issues"));
       case "deleteElectricIssue": return json(await issues.handleDeleteIssue(body, "electric_issues"));
@@ -231,6 +233,7 @@ Deno.serve(async (req) => {
       case "addFireIssue": return json(await issues.handleAddIssue(body, "fire_issues"));
       case "updateFireIssue": return json(await issues.handleUpdateIssue(body, "fire_issues"));
       case "getFireIssues": return json(await issues.handleGetIssues(body, "fire_issues"));
+      case "markFireWhatsAppSent": return json(await issues.handleMarkFireWhatsAppSent(body, a));
       case "markFireFixed": return json(await issues.handleMarkFixed(body, "fire_issues", a));
       case "clearFireIssues": return json(await issues.handleClearIssues(body, "fire_issues"));
       case "deleteFireIssue": return json(await issues.handleDeleteIssue(body, "fire_issues"));
