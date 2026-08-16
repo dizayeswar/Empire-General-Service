@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-16-civil-staff">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-16-amount-comma">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,9 +13,9 @@
 <link rel="preconnect" href="https://script.google.com">
 <link rel="preconnect" href="https://api.imgbb.com">
 <title>Civil Department — Empire World</title>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-16-civil-staff">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-16-civil-staff">
-<link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-08-16-civil-staff">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-16-amount-comma">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-16-amount-comma">
+<link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-08-16-amount-comma">
 </head>
 <body>
 <div class="login-page show" id="loginPage">
@@ -146,7 +146,7 @@
         <div class="form-row">
           <div class="form-group"><label>Date</label><input type="date" id="j-date"></div>
           <div class="form-group"><label>Job Type</label><select id="j-type" onchange="toggleAmount()"><option value="general">General Maintenance</option><option value="refundable">Refundable Work</option></select></div>
-          <div class="form-group" id="j-amountwrap"><label>Amount (IQD)</label><input type="number" id="j-amount" placeholder="e.g. 50000" min="0" step="500" style="border-color:#e67e22;"></div>
+          <div class="form-group" id="j-amountwrap"><label>Amount (IQD)</label><input type="text" id="j-amount" placeholder="e.g. 50,000" inputmode="numeric" autocomplete="off" oninput="formatJobAmountInput(event)" style="border-color:#e67e22;"></div>
         </div>
         <div class="form-row">
           <div class="form-group" style="grid-column:1/-1"><label>Job / Work</label><input type="text" id="j-job" placeholder="e.g. Wall repair, Concrete pour, Plastering…"></div>
@@ -330,12 +330,12 @@
     </div>
   </div>
 </div>
-<script src="config.js?v=2026-08-16-civil-staff"></script>
-<script src="assets/empire-storage.js?v=2026-08-16-civil-staff"></script>
-<script src="assets/empire-api.js?v=2026-08-16-civil-staff"></script>
-<script src="assets/empire-auth.js?v=2026-08-16-civil-staff"></script>
-<script src="assets/empire-core.js?v=2026-08-16-civil-staff"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-16-civil-staff"></script>
+<script src="config.js?v=2026-08-16-amount-comma"></script>
+<script src="assets/empire-storage.js?v=2026-08-16-amount-comma"></script>
+<script src="assets/empire-api.js?v=2026-08-16-amount-comma"></script>
+<script src="assets/empire-auth.js?v=2026-08-16-amount-comma"></script>
+<script src="assets/empire-core.js?v=2026-08-16-amount-comma"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-16-amount-comma"></script>
 <div class="modal" id="imgModal" onclick="closeImg()"><img id="imgBig" style="max-width:92%;max-height:92%;border-radius:10px;"></div>
 <div class="modal" id="fieldReportModal" onclick="if(event.target===this)closeFieldReportModal()">
   <div class="modal-box field-report-modal-box" id="fieldReportModalBody" onclick="event.stopPropagation()"></div>
@@ -491,7 +491,7 @@ function saveJob(){
     staff:document.getElementById('j-staff').value,
     type:isRef?'refundable':'general',
     photo:currentPhoto, invoicePhoto:isRef?currentInvoicePhoto:'', notes:document.getElementById('j-notes').value,
-    amount:document.getElementById('j-amount').value||'', token:tok() };
+    amount:String(fieldReportParseAmount_(document.getElementById('j-amount').value)||''), token:tok() };
   fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify(rec)}).then(r=>r.json()).then(()=>{
     alert(editId?'✅ Job updated!':'✅ Job saved!');
     clearForm(); loadJobs(); switchDeptTabTo('jobs');
@@ -547,7 +547,7 @@ function renderJobs(){
   });
   rows.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
   var total=rows.length, gen=rows.filter(r=>r.type==='general').length, ref=rows.filter(r=>r.type==='refundable').length;
-  var refTotal=rows.filter(r=>r.type==='refundable').reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
+  var refTotal=rows.filter(r=>r.type==='refundable').reduce((s,r)=>s+(parseAmountValue_(r.amount)||0),0);
   var summaryEl=document.getElementById('jobsFilterSummary');
   if(summaryEl){
     summaryEl.innerHTML=total+' record(s)'+(fm?' in '+fm:'')+' <span class="jobs-filter-sep">—</span> <span style="color:var(--c-general);">🔧 '+gen+' general</span> <span class="jobs-filter-sep">·</span> <span style="color:var(--c-refundable);">📦 '+ref+' refundable</span>'+(refTotal>0?' <span class="jobs-filter-sep">·</span> <span style="color:var(--c-money);">💰 '+fmtMoney(refTotal)+' IQD refundable total</span>':'');
@@ -571,7 +571,7 @@ function renderJobs(){
           ? empireThumbImgHtml(r.invoicePhoto, 'thumb', '', 120).replace('class="thumb"', 'class="thumb" onclick="bigImg(this.dataset.full||this.src)"')
           : '<img class="thumb" src="'+r.invoicePhoto+'" onclick="bigImg(this.src)" loading="lazy" decoding="async">')
       : '—';
-    var amountCell=r.amount?'<span style="color:var(--c-money);font-weight:600;">'+fmtMoney(parseFloat(r.amount))+' IQD</span>':'—';
+    var amountCell=jobAmountLabel_(r)||'—';
     var acts='';
     if(P.edit!==false) acts+='<button class="act-btn" onclick="editJob(\''+r.id+'\')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/></svg></span> Edit</button>';
     if(P.del!==false) acts+='<button class="act-btn" onclick="deleteJob(\''+r.id+'\')" style="color:#fff;background:#C5504F;border-color:#C5504F;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span></button>';
@@ -594,7 +594,7 @@ function editJob(id){
   document.getElementById('j-materials').value=r.materials||'';
   setStaffSelection(r.staff||'');
   document.getElementById('j-notes').value=r.notes||'';
-  document.getElementById('j-amount').value=r.amount||'';
+  document.getElementById('j-amount').value=fieldReportAmountInputValue_(r);
   toggleAmount();
   currentPhoto=String(r.photo||'').split('|')[0]||'';
   if(currentPhoto){ document.getElementById('j-image').src=currentPhoto; document.getElementById('j-image').style.display='block'; document.getElementById('j-imageArea').innerHTML='✅ Photo loaded'; }
@@ -676,7 +676,27 @@ function buildReportHtml(jobs,summary,map,logo,monthLabel,gen){
   b+='</body></html>';
   return b;
 }
-function fmtMoney(n){ return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,','); }
+function fmtMoney(n){ n=Number(n); if(!isFinite(n)) return '0'; return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,','); }
+function parseAmountValue_(raw){
+  if(raw==null||raw==='') return 0;
+  if(typeof raw==='number') return isFinite(raw)?raw:0;
+  var digits=String(raw).replace(/[^\d.]/g,'');
+  if(!digits) return 0;
+  var n=parseFloat(digits);
+  return isNaN(n)?0:n;
+}
+function jobAmountLabel_(r){
+  var amt=parseAmountValue_(r&&r.amount);
+  if(amt<=0) return '';
+  return '<span style="color:var(--c-money);font-weight:600;">'+fmtMoney(amt)+' IQD</span>';
+}
+function formatJobAmountInput(e){
+  var el=(e&&e.target)?e.target:document.getElementById('j-amount');
+  if(!el) return;
+  var digits=String(el.value||'').replace(/\D/g,'');
+  var formatted=fieldReportFormatAmountDigits_(digits);
+  if(el.value!==formatted) el.value=formatted;
+}
 function renderJobAnalytics(){
   var m=document.getElementById('an-month').value||'';
   var jobs=m?allJobs.filter(r=>monthOf(r)===m):allJobs;
@@ -1541,13 +1561,13 @@ function doReset(){
 
 
 <div class="modal" id="issueModal" onclick="if(event.target===this)closeIssueModal()"><div class="modal-box" id="issueBox"></div></div>
-<script src="assets/empire-offline-queue.js?v=2026-08-16-civil-staff"></script>
-<script src="assets/empire-assign-voice.js?v=2026-08-16-civil-staff"></script>
-<script src="assets/issue-configs.js?v=2026-08-16-civil-staff"></script>
+<script src="assets/empire-offline-queue.js?v=2026-08-16-amount-comma"></script>
+<script src="assets/empire-assign-voice.js?v=2026-08-16-amount-comma"></script>
+<script src="assets/issue-configs.js?v=2026-08-16-amount-comma"></script>
 <script>ISSUE_CFG=Object.assign({},ISSUE_CONFIGS.civil,{embeddedInDept:true,tabNavScope:'.side-nav-issue',tabPaneScope:'#issueMain',analyticsContentId:'analyticsContent',supervisorPage:'civil-department.html'});</script>
-<script src="assets/issue-tracker.js?v=2026-08-16-civil-staff"></script>
-<script src="assets/issue-excel-export.js?v=2026-08-16-civil-staff"></script>
-<script src="assets/issue-recycle-bin.js?v=2026-08-16-civil-staff"></script>
+<script src="assets/issue-tracker.js?v=2026-08-16-amount-comma"></script>
+<script src="assets/issue-excel-export.js?v=2026-08-16-amount-comma"></script>
+<script src="assets/issue-recycle-bin.js?v=2026-08-16-amount-comma"></script>
 <script>
 (function(){
   window._applyIssuePerms = applyPerms;
