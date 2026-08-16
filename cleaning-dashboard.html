@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="manifest" href="manifest.webmanifest?v=2026-08-16-tasks1">
+    <link rel="manifest" href="manifest.webmanifest?v=2026-08-16-tasks2">
     <meta name="theme-color" content="#8d015d">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,8 +13,8 @@
     <link rel="preconnect" href="https://script.google.com">
     <link rel="preconnect" href="https://api.imgbb.com">
     <title>Empire World Dashboard</title>
-    <link rel="stylesheet" href="assets/empire.css?v=2026-08-16-tasks1">
-<link rel="stylesheet" href="assets/empire-cleaning.css?v=2026-08-16-tasks1">
+    <link rel="stylesheet" href="assets/empire.css?v=2026-08-16-tasks2">
+<link rel="stylesheet" href="assets/empire-cleaning.css?v=2026-08-16-tasks2">
 </head>
 <body>
     <div class="login-page show" id="loginPage">
@@ -80,13 +80,13 @@
         </div>
       </div>
     </div>
-    <script src="config.js?v=2026-08-16-tasks1"></script>
-    <script src="assets/empire-storage.js?v=2026-08-16-tasks1"></script>
-    <script src="assets/empire-api.js?v=2026-08-16-tasks1"></script>
-    <script src="assets/empire-auth.js?v=2026-08-16-tasks1"></script>
-    <script src="assets/empire-core.js?v=2026-08-16-tasks1"></script>
-    <script src="assets/empire-sw-update.js?v=2026-08-16-tasks1"></script>
-    <script src="assets/empire-offline-queue.js?v=2026-08-16-tasks1"></script>
+    <script src="config.js?v=2026-08-16-tasks2"></script>
+    <script src="assets/empire-storage.js?v=2026-08-16-tasks2"></script>
+    <script src="assets/empire-api.js?v=2026-08-16-tasks2"></script>
+    <script src="assets/empire-auth.js?v=2026-08-16-tasks2"></script>
+    <script src="assets/empire-core.js?v=2026-08-16-tasks2"></script>
+    <script src="assets/empire-sw-update.js?v=2026-08-16-tasks2"></script>
+    <script src="assets/empire-offline-queue.js?v=2026-08-16-tasks2"></script>
     <script>
         /* ===== Themed dialogs (checkmark icons; shared theme/sidebar come from empire-core.js) ===== */
         (function(){
@@ -203,6 +203,12 @@
         function applyTaskPhotosList(list, mv){
           mv=mv||curMonth();
           if(!Array.isArray(list)) return;
+          // Never wipe a full checklist with an empty/failed server response.
+          var prevServer=(taskPhotos||[]).filter(function(x){ return x && !x._offline && !x._pending; });
+          if(!list.length && prevServer.length){
+            console.warn('Keeping existing task photos; server returned empty list');
+            return;
+          }
           _photosByMonth[mv]=list;
           writeTaskPhotosCache(mv, list);
           pendingPhotos=pendingPhotos.filter(function(pp){ return (Date.now()-pp._ts<120000) && !list.some(function(s){ return s.image===pp.image && s.task===pp.task && s.period===pp.period; }); });
@@ -220,14 +226,19 @@
           if(!force && _photosFetchPromises[mv]) return _photosFetchPromises[mv];
           var cached=readTaskPhotosCache(mv);
           if(cached && !force){ _photosByMonth[mv]=cached; return cached; }
+          var prev = _photosByMonth[mv] || cached || null;
           _photosFetchPromises[mv]=(async function(){
             try{
               const r=await fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'getTaskPhotos', periodPrefix:mv, force:true, token:empireGetToken()||''})});
               const d=await r.json();
-              if(d && d.ok===false){ forceSessionLogout(d); return []; }
+              if(d && d.ok===false){
+                console.warn('getTaskPhotos rejected', d);
+                // Do not logout + wipe photos on transient API errors.
+                return prev || [];
+              }
               if(Array.isArray(d)){ _photosByMonth[mv]=d; writeTaskPhotosCache(mv,d); return d; }
             }catch(e){ console.error('Task photo fetch error:', e.message); }
-            return _photosByMonth[mv]||(cached||[]);
+            return prev || _photosByMonth[mv] || cached || [];
           })();
           try { return await _photosFetchPromises[mv]; } finally { delete _photosFetchPromises[mv]; }
         }
@@ -751,19 +762,16 @@
         function curMonth(){ return reportMonthOfDate(taskTodayStr()); }
         async function loadTaskPhotos(refresh){
           var mv=curMonth();
-          if(refresh){
-            try{ localStorage.removeItem('cleaning_tphotos_'+mv); }catch(e){}
-            delete _photosByMonth[mv];
-          }
-          var cached=(!refresh) ? readTaskPhotosCache(mv) : null;
-          if(cached){
+          var cached=readTaskPhotosCache(mv);
+          // Show last known photos immediately; never clear cache before a successful fetch.
+          if(cached && cached.length){
             _photosByMonth[mv]=cached;
             applyTaskPhotosList(cached, mv);
           }
           if(!refresh && cached) return;
           try{
             const d=await fetchTaskPhotosForMonth(mv, true);
-            if(Array.isArray(d)) applyTaskPhotosList(d, mv);
+            if(Array.isArray(d) && (d.length || !(cached && cached.length))) applyTaskPhotosList(d, mv);
           }catch(e){ console.error('Task photos load error:', e.message); }
         }
         function syncTaskPhotosCacheAfterLocalChange(){

@@ -227,12 +227,14 @@ export async function handleAddTaskPhotos(body: Record<string, unknown>) {
 
 export async function handleGetTaskPhotos(body: Record<string, unknown>) {
   const prefix = body.periodPrefix ? String(body.periodPrefix) : "";
-  // Page through all rows — PostgREST defaults to ~1000 and was truncating busy months,
-  // so the portal missed completed tasks that mobile still showed from sticky/offline cache.
+  // Page through all rows — PostgREST defaults to ~1000 and was truncating busy months.
+  // Order by id so .range() pages are stable.
   const data = await selectAllRows<Record<string, unknown>>("task_photos", {
-    filter: prefix
-      ? (q) => q.like("period", `${prefix}%`)
-      : undefined,
+    filter: (q) => {
+      let qq = q.order("id", { ascending: true });
+      if (prefix) qq = qq.like("period", `${prefix}%`);
+      return qq;
+    },
   });
   return data.map((row) => ({
     id: String(row.id),
