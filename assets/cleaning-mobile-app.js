@@ -71,6 +71,17 @@
     return typeof cleaningT === 'function' ? cleaningT(key, params) : key;
   }
 
+  function taskLabel(englishName) {
+    return typeof cleaningTaskLabel === 'function' ? cleaningTaskLabel(englishName) : String(englishName || '');
+  }
+
+  function groupLabel(g) {
+    if (!g) return t('otherTasks');
+    if (g.labelKey) return t(g.labelKey);
+    if (g.label && typeof cleaningGroupLabel === 'function') return cleaningGroupLabel(g.label);
+    return g.label || t('otherTasks');
+  }
+
   function todayStr() {
     var d = new Date();
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -947,8 +958,8 @@
     var done = saved.length > 0;
     var html = '<div class="cm-task" data-project="' + p + '" data-gi="' + gi + '" data-ti="' + ti + '" data-slot="' + slot + '">' +
       '<div class="cm-task-top">' +
-        '<div><div class="cm-task-title">' + task + '</div>' +
-        '<div class="cm-task-meta">' + (done ? ('✓ ' + saved.length + ' photo') : t('noPhotosYet')) + '</div></div>' +
+        '<div><div class="cm-task-title">' + taskLabel(task) + '</div>' +
+        '<div class="cm-task-meta">' + (done ? t('photosCount', { count: saved.length }) : t('noPhotosYet')) + '</div></div>' +
         '<div class="cm-done-dot' + (done ? ' on' : '') + '"></div>' +
       '</div>';
     if (saved.length || pending.length) {
@@ -1014,7 +1025,7 @@
         html += '<h3 style="margin:16px 0 8px;font-size:0.95rem;">' + t('dailyTasks') + ' — ' + t('week', { n: wk }) + '</h3>';
         g.tasks.forEach(function (_task, ti) { html += renderTaskCard(p, gi, ti); });
       } else {
-        html += '<h3 style="margin:16px 0 8px;font-size:0.95rem;">' + (g.label || t('otherTasks')) + '</h3>';
+        html += '<h3 style="margin:16px 0 8px;font-size:0.95rem;">' + groupLabel(g) + '</h3>';
         g.tasks.forEach(function (_task, ti) { html += renderTaskCard(p, gi, ti); });
       }
     });
@@ -1090,7 +1101,7 @@
       (TASK_MAP[p].groups || []).forEach(function (g) {
         if (g.daily) return;
         var nDone = nonDailyCovered(p, g);
-        html += '<div class="cm-task-meta">' + (g.label || t('otherTasks')) + ': ' +
+        html += '<div class="cm-task-meta">' + groupLabel(g) + ': ' +
           t('weekProgress', { done: nDone, total: g.tasks.length }) + '</div>';
       });
       html += '</div>';
@@ -1101,10 +1112,10 @@
 
   function renderMonthlyTaskRow(p, g, task, wk) {
     var ph = photosFor(p, g, task, wk);
-    var html = '<div class="cm-task"><div class="cm-task-title">' + task +
+    var html = '<div class="cm-task"><div class="cm-task-title">' + taskLabel(task) +
       (g.daily ? (' <span class="cm-task-meta">· ' + t('week', { n: wk }) + '</span>') : '') +
       '</div>' +
-      '<div class="cm-task-meta">' + (ph.length ? (ph.length + ' photo') : t('noPhotosYet')) + '</div>';
+      '<div class="cm-task-meta">' + (ph.length ? t('photosCount', { count: ph.length }) : t('noPhotosYet')) + '</div>';
     if (ph.length) {
       html += '<div class="cm-thumbs">';
       ph.forEach(function (x) {
@@ -1132,7 +1143,7 @@
       html += '<h3 style="margin:14px 0 8px;">' + (PROJECT_NAMES[p] || p) + '</h3>';
       groups.forEach(function (g) {
         html += '<div class="cm-task-meta" style="margin-bottom:6px;font-weight:600;">' +
-          (g.labelKey ? t(g.labelKey) : (g.label || t('otherTasks'))) + '</div>';
+          groupLabel(g) + '</div>';
         if (g.daily) {
           for (var w = 1; w <= 4; w++) {
             html += '<div class="cm-task-meta" style="margin:8px 0 4px;">' + t('week', { n: w }) +

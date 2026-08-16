@@ -78,7 +78,11 @@
       refresh: 'Refresh',
       installHint: 'Add to Home Screen for the full app',
       notSupervisor: 'This account is not a cleaning supervisor.',
-      needPhotoGps: 'Waiting for GPS…'
+      needPhotoGps: 'Waiting for GPS…',
+      photosCount: function (p) {
+        var n = p.count || 0;
+        return '✓ ' + n + ' photo' + (n === 1 ? '' : 's');
+      }
     },
     ckb: {
       langToggle: 'English',
@@ -152,9 +156,63 @@
       refresh: 'نوێکردنەوە',
       installHint: 'زیادی بکە بۆ سکرینی سەرەکی',
       notSupervisor: 'ئەم هەژمارە سەرپەرشتیاری خاوێنکردنەوە نییە.',
-      needPhotoGps: 'چاوەڕوانی GPS…'
+      needPhotoGps: 'چاوەڕوانی GPS…',
+      photosCount: function (p) {
+        return '✓ ' + (p.count || 0) + ' وێنە';
+      }
     }
   };
+
+  /** English task names stay as storage keys; Kurdish is display-only. */
+  var TASK_CKB = {
+    'Cleaning garden': 'خاوێنکردنەوەی باخچە',
+    'Cleaning area': 'خاوێنکردنەوەی ناوچە',
+    'Cleaning road': 'خاوێنکردنەوەی ڕێگا',
+    'Floor mopping': 'مۆپکردنی نهۆم',
+    'Elevator mopping': 'مۆپکردنی لیفت',
+    'Cleaning basement': 'خاوێنکردنەوەی ژێرزەمین',
+    'Ground mopping': 'مۆپکردنی زەوی',
+    'Around building cleaning (ride-on scrubber dryer)': 'خاوێنکردنەوەی دەوروبەری بینا (ئامێری سواربوون)',
+    'Walk-behind scrubber dryer': 'ئامێری پاککردنەوەی پاشەوەڕۆ',
+    'Rooftops cleaning': 'خاوێنکردنەوەی بان',
+    'Floor cleaning (floor scrubber machine)': 'خاوێنکردنەوەی نهۆم (ئامێری نهۆم)',
+    'Cleaning balcony': 'خاوێنکردنەوەی باڵکۆن',
+    'Ground cleaning (ride-on scrubber dryer)': 'خاوێنکردنەوەی زەوی (ئامێری سواربوون)',
+    'Basement 1 & Basement 2 (ride-on scrubber dryer)': 'ژێرزەمینی ١ و ٢ (ئامێری سواربوون)',
+    'Restaurant floor cleaning (ride-on scrubber dryer)': 'خاوێنکردنەوەی نهۆمی چێشتخانە (ئامێری سواربوون)',
+    'Washing garbage room': 'شوشتنی ژووری زبڵ',
+    'Cleaning glass': 'خاوێنکردنەوەی شووشە',
+    'Washing all floors': 'شوشتنی هەموو نهۆمەکان',
+    'Washing trash container': 'شوشتنی سەبەتەی زبڵ',
+    'Ground mopping and washing': 'مۆپکردن و شوشتنی زەوی',
+    'Basement mopping and washing': 'مۆپکردن و شوشتنی ژێرزەمین',
+    'Cleaning trash can': 'خاوێنکردنەوەی زبڵدان',
+    'Washing stairs': 'شوشتنی پلەکان',
+    'Gates between properties': 'دەروازەکانی نێوان موڵکەکان',
+    'Basement garbage room washing (WW12-WW15)': 'شوشتنی ژووری زبڵی ژێرزەمین (WW12-WW15)',
+    'Area washing': 'شوشتنی ناوچە',
+    'Washing around building': 'شوشتنی دەوروبەری بینا'
+  };
+
+  var FREQ_CKB = {
+    'Once a Week': 'جارێک لە هەفتەیەکدا',
+    'Once Every 2 Weeks': 'جارێک لە هەر ٢ هەفتەیەکدا',
+    'Once or Twice a Week': 'جارێک یان دووجار لە هەفتەیەکدا',
+    'Once or Twice a Month': 'جارێک یان دووجار لە مانگێکدا',
+    'Once a Month': 'جارێک لە مانگێکدا'
+  };
+
+  function cleaningTaskLabel(englishName) {
+    var name = String(englishName || '');
+    if (_lang !== 'ckb') return name;
+    return TASK_CKB[name] || name;
+  }
+
+  function cleaningGroupLabel(englishLabel) {
+    var name = String(englishLabel || '');
+    if (_lang !== 'ckb') return name;
+    return FREQ_CKB[name] || name;
+  }
 
   function detectLang() {
     try {
@@ -203,4 +261,6 @@
   window.cleaningSetLang = cleaningSetLang;
   window.cleaningGetLang = cleaningGetLang;
   window.cleaningApplyI18n = cleaningApplyI18n;
+  window.cleaningTaskLabel = cleaningTaskLabel;
+  window.cleaningGroupLabel = cleaningGroupLabel;
 })();
