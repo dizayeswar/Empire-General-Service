@@ -286,6 +286,66 @@ tr.job-row:hover {
   padding: 16px;
 }
 
+.staff-multi {
+  position: relative;
+  width: 100%;
+}
+.staff-multi-toggle {
+  width: 100%;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 42px;
+}
+.staff-multi-panel {
+  position: absolute;
+  z-index: 40;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--card-border, #d0d8e8);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: 6px;
+}
+.staff-multi-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text, #222);
+}
+.staff-multi-opt:hover {
+  background: var(--accent-soft, rgba(141, 1, 93, 0.08));
+}
+.staff-multi-opt input {
+  width: auto;
+  margin: 0;
+  accent-color: var(--accent2, #8d015d);
+}
+.refundable-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-soft, #555);
+  cursor: pointer;
+  user-select: none;
+  margin-left: 4px;
+}
+.refundable-check input {
+  width: auto;
+  margin: 0;
+  accent-color: var(--c-refundable, #e67e22);
+}
+
 .modal-box {
   max-width: 860px;
 }
