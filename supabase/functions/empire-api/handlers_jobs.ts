@@ -882,11 +882,23 @@ export async function handleTransferCivilIssueCompletion(body: Record<string, un
   if (!jobNote) return { ok: false, success: false, error: "missing_note", message: "Job note is required." };
   const { data: issue } = await sb().from("civil_issues").select("*").eq("id", id).maybeSingle();
   if (!issue) return { ok: false, error: "not_found" };
-  if (String(issue.status) !== "fixed") {
-    return { ok: false, success: false, error: "not_fixed" };
-  }
   if (String(issue.monthly_transfer_status) === "transferred" || issue.transferred_job_id) {
     return { ok: false, success: false, error: "already_transferred" };
+  }
+  const fixedPhoto = String(issue.fixed_photo || "").trim();
+  const problemPhoto = String(issue.photo || "").trim();
+  let photoFromFixed = "";
+  if (fixedPhoto) {
+    if (fixedPhoto.charAt(0) === "[") {
+      try {
+        const arr = JSON.parse(fixedPhoto);
+        if (Array.isArray(arr) && arr.length) photoFromFixed = String(arr[0] || "");
+      } catch {
+        photoFromFixed = fixedPhoto.indexOf("http") === 0 ? fixedPhoto : "";
+      }
+    } else if (fixedPhoto.indexOf("http") === 0) {
+      photoFromFixed = fixedPhoto;
+    }
   }
   const jobId = `job-${Date.now()}`;
   const jobRow = {
@@ -897,7 +909,7 @@ export async function handleTransferCivilIssueCompletion(body: Record<string, un
     materials: String(body.materials || ""),
     staff: String(body.staff || issue.fixed_by || ""),
     type: "general",
-    photo: String(body.photo || issue.fixed_photo || ""),
+    photo: String(body.photo || photoFromFixed || problemPhoto || ""),
     invoice_photo: String(body.invoicePhoto || ""),
     notes: "",
     created_by: String(body.username || auth.username || ""),

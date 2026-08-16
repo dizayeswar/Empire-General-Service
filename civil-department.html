@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-16-wa-shared">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-16-issue-jobs">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,9 +13,9 @@
 <link rel="preconnect" href="https://script.google.com">
 <link rel="preconnect" href="https://api.imgbb.com">
 <title>Civil Department — Empire World</title>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-16-wa-shared">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-16-wa-shared">
-<link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-08-16-wa-shared">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-16-issue-jobs">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-16-issue-jobs">
+<link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-08-16-issue-jobs">
 </head>
 <body>
 <div class="login-page show" id="loginPage">
@@ -330,12 +330,12 @@
     </div>
   </div>
 </div>
-<script src="config.js?v=2026-08-16-wa-shared"></script>
-<script src="assets/empire-storage.js?v=2026-08-16-wa-shared"></script>
-<script src="assets/empire-api.js?v=2026-08-16-wa-shared"></script>
-<script src="assets/empire-auth.js?v=2026-08-16-wa-shared"></script>
-<script src="assets/empire-core.js?v=2026-08-16-wa-shared"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-16-wa-shared"></script>
+<script src="config.js?v=2026-08-16-issue-jobs"></script>
+<script src="assets/empire-storage.js?v=2026-08-16-issue-jobs"></script>
+<script src="assets/empire-api.js?v=2026-08-16-issue-jobs"></script>
+<script src="assets/empire-auth.js?v=2026-08-16-issue-jobs"></script>
+<script src="assets/empire-core.js?v=2026-08-16-issue-jobs"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-16-issue-jobs"></script>
 <div class="modal" id="imgModal" onclick="closeImg()"><img id="imgBig" style="max-width:92%;max-height:92%;border-radius:10px;"></div>
 <div class="modal" id="fieldReportModal" onclick="if(event.target===this)closeFieldReportModal()">
   <div class="modal-box field-report-modal-box" id="fieldReportModalBody" onclick="event.stopPropagation()"></div>
@@ -743,9 +743,10 @@ function renderJobAnalytics(){
   document.getElementById('jobAnalyticsContent').innerHTML=h;
 }
 function issueMonthlyPending_(r){
-  if(!r || r.status!=='fixed') return false;
+  if(!r) return false;
   if(String(r.monthlyTransferStatus||'').toLowerCase()==='transferred') return false;
   if(r.transferredJobId) return false;
+  if(typeof issueIsRoutedAway==='function' && issueIsRoutedAway(r)) return false;
   return true;
 }
 function issueMonthlyLoc_(r){
@@ -760,7 +761,8 @@ function issueMonthlyDate_(r){
   return new Date().toISOString().slice(0,10);
 }
 function issueMonthlyJobDefault_(r){
-  var parts=[r.issueType, issueMonthlyLoc_(r)];
+  if(r.editedJobNote) return r.editedJobNote;
+  var parts=[r.issueType];
   if(r.note) parts.push(r.note);
   (r.workerCompletions||[]).forEach(function(c){
     if(c.note) parts.push('Fix ('+(c.user||'worker')+'): '+c.note);
@@ -769,6 +771,10 @@ function issueMonthlyJobDefault_(r){
 }
 function issueMonthlyStaffDefault_(r){
   if(r.fixedBy) return r.fixedBy;
+  if(typeof assignedWorkersDisplay==='function'){
+    var assigned=assignedWorkersDisplay(r);
+    if(assigned) return assigned;
+  }
   var names=[];
   (r.workerCompletions||[]).forEach(function(c){
     var nm=String((c&&c.user)||'').trim();
@@ -799,39 +805,117 @@ function issueMonthlyPhoto_(r){
   for(var i=0;i<comps.length;i++){
     if(comps[i].photos&&comps[i].photos.length) return comps[i].photos[0];
   }
-  return '';
+  return String(r.photo||'').trim();
 }
 function issueMonthlyMonthLabel_(r){
   var fake={date:issueMonthlyDate_(r)};
   if(typeof monthOf==='function'){ var m=monthOf(fake); if(m) return m; }
   return fake.date||'';
 }
-function issueMonthlyTransferBlockHtml_(r){
-  if(!r || r.status!=='fixed') return '';
-  if(!issueMonthlyPending_(r)){
-    if(r.transferredJobId || String(r.monthlyTransferStatus||'').toLowerCase()==='transferred'){
-      return '<div class="issue-monthly-transfer issue-monthly-done"><p class="issue-monthly-title">Monthly report</p><p style="margin:0;color:var(--text-soft);">Saved to monthly report'+(r.editedJobNote?(' · '+_esc(r.editedJobNote)):'.')+'</p></div>';
-    }
-    return '';
-  }
-  if(PERMS().edit===false) return '';
+function civilIssuePendingQueue_(){
+  var issues=(typeof getAllIssues==='function')?getAllIssues():(allIssues||[]);
+  var rows=issues.filter(function(r){ return issueMonthlyPending_(r); });
+  if(typeof compareIssuesNewestFirst==='function') rows.sort(compareIssuesNewestFirst);
+  return rows;
+}
+function toggleCivilIssueAssignPanel_(){
+  var panel=document.getElementById('civilIssueAssignPanel');
+  if(!panel) return;
+  var open=panel.style.display==='none'||!panel.style.display;
+  panel.style.display=open?'block':'none';
+  var btn=document.getElementById('civilIssueAssignToggle');
+  if(btn) btn.textContent=open?'Hide assign workers':'Assign workers';
+}
+function renderCivilIssueJobEditor(r){
+  if(!r) return false;
+  if(typeof issueIsRoutedAway==='function' && issueIsRoutedAway(r)) return false;
+  var box=document.getElementById('issueBox');
+  var modal=document.getElementById('issueModal');
+  if(!box||!modal) return false;
+  var pending=issueMonthlyPending_(r);
+  var already=!pending && (r.transferredJobId || String(r.monthlyTransferStatus||'').toLowerCase()==='transferred');
+  var queue=civilIssuePendingQueue_();
+  var pos=queue.findIndex(function(x){ return String(x.id)===String(r.id); });
   var photo=issueMonthlyPhoto_(r);
-  var h='<div class="issue-monthly-transfer" onclick="event.stopPropagation()">';
-  h+='<p class="issue-monthly-title">Save to monthly report</p>';
-  h+='<p class="issue-monthly-sub">Billing month: <strong>'+_esc(issueMonthlyMonthLabel_(r))+'</strong> (26th–25th) · Type: General Maintenance</p>';
-  h+='<div class="issue-monthly-grid">';
-  h+='<label><span>Date</span><input type="date" id="imt-date" value="'+_esc(issueMonthlyDate_(r))+'"></label>';
-  h+='<label><span>Staff</span><input type="text" id="imt-staff" value="'+_esc(issueMonthlyStaffDefault_(r))+'" placeholder="Who did the job"></label>';
-  h+='<label class="issue-monthly-wide"><span>Job description</span><textarea id="imt-job" rows="3">'+_esc(r.editedJobNote||issueMonthlyJobDefault_(r))+'</textarea></label>';
-  h+='<label><span>Location</span><input type="text" id="imt-location" value="'+_esc(issueMonthlyLoc_(r))+'"></label>';
-  h+='<label><span>Materials / quantity</span><input type="text" id="imt-materials" value="'+_esc(issueMonthlyMaterialsDefault_(r))+'" placeholder="e.g. cement, sand"></label>';
-  h+='<label><span>Amount (IQD, optional)</span><input type="text" id="imt-amount" value="" placeholder="Leave empty for maintenance"></label>';
+  var canEdit=!(PERMS().edit===false);
+  var h='<div class="field-report-modal field-report-editor civil-issue-job-editor">';
+  h+='<span class="close-x" onclick="closeIssueModal()" aria-label="Close">&times;</span>';
+  h+='<div class="field-report-modal-head"><span class="field-report-ref">#'+(typeof issueRef==='function'?issueRef(r.num):r.num)+'</span>'+(typeof issueStatusBadgeHtml==='function'?issueStatusBadgeHtml(r):'')+'</div>';
+  h+='<p class="field-report-modal-worker">'+_esc(r.issueType||'Issue')+(r.createdBy?(' · '+_esc(r.createdBy)):'')+'</p>';
+  if(pending && queue.length>1 && pos>=0) h+='<p class="field-report-queue-hint">Pending save '+(pos+1)+' of '+queue.length+'</p>';
+  if(typeof isIssueFixDelayed==='function' && isIssueFixDelayed(r) && r.status!=='fixed'){
+    h+='<div class="fix-delayed-banner" style="margin-bottom:12px;"><strong>Needs 1+ month</strong> — marked as delayed.</div>';
+  }
+  h+='<div class="field-report-month-target"><span class="field-report-modal-label">Save to Civil Jobs</span><strong>'+_esc(issueMonthlyMonthLabel_(r))+'</strong><span class="field-report-month-note">Billing month runs 26th to 25th · General Maintenance</span></div>';
+  if(already){
+    h+='<div class="issue-monthly-transfer issue-monthly-done" style="margin:0 0 14px;"><p class="issue-monthly-title" style="margin-top:0;">Already saved to Jobs</p><p style="margin:0;color:var(--text-soft);">'+_esc(r.editedJobNote||'This issue was saved to the monthly Jobs list.')+'</p></div>';
+  } else if(canEdit){
+    h+='<div class="field-report-editor-grid">';
+    h+='<div class="field-report-editor-main">';
+    h+='<label class="field-report-modal-label" for="imt-location">Where? / Location</label>';
+    h+='<input type="text" id="imt-location" class="field-report-editor-place" value="'+_esc(issueMonthlyLoc_(r))+'" placeholder="e.g. WW-12 corridor, Block B…">';
+    h+='<p class="field-report-editor-hint">Saved to the Location column in Jobs.</p>';
+    h+='<label class="field-report-modal-label" for="imt-date">Date</label>';
+    h+='<input type="date" id="imt-date" class="field-report-editor-place" value="'+_esc(issueMonthlyDate_(r))+'">';
+    h+='<label class="field-report-modal-label" for="imt-staff" style="margin-top:12px;display:block;">Staff</label>';
+    h+='<input type="text" id="imt-staff" class="field-report-editor-place" value="'+_esc(issueMonthlyStaffDefault_(r))+'" placeholder="Who worked on this">';
+    h+='<label class="field-report-modal-label" for="imt-job" style="margin-top:12px;display:block;">Job description (edit note)</label>';
+    h+='<textarea id="imt-job" class="field-report-editor-note" rows="4">'+_esc(issueMonthlyJobDefault_(r))+'</textarea>';
+    h+='<p class="field-report-editor-hint">This text becomes the job line in Civil Jobs.</p>';
+    h+='<label class="field-report-modal-label" for="imt-materials" style="margin-top:14px;display:block;">Materials / quantity</label>';
+    h+='<textarea id="imt-materials" class="field-report-editor-materials" rows="4" placeholder="e.g. 5 bags cement, 2m³ sand">'+_esc(issueMonthlyMaterialsDefault_(r))+'</textarea>';
+    h+='<p class="field-report-editor-hint">Type materials here for now. A materials list like Electrical can be added later.</p>';
+    h+='</div>';
+    if(photo){
+      h+='<div class="field-report-editor-side">';
+      h+='<div class="field-report-modal-section field-report-modal-photo-wrap">';
+      h+='<span class="field-report-modal-label">Photo</span>';
+      h+='<div class="field-report-modal-photo-frame">';
+      h+='<img class="field-report-modal-photo" src="'+photo+'" onclick="bigImg(this.src)" alt="Issue photo">';
+      h+='</div></div></div>';
+    }
+    h+='</div>';
+    h+='<input type="hidden" id="imt-photo" value="'+_esc(photo)+'">';
+  }
+  if(r.status!=='fixed' && typeof assignBoxHtml==='function' && canEdit){
+    h+='<div style="margin:14px 0 8px;"><button type="button" id="civilIssueAssignToggle" class="field-report-cancel-btn" onclick="toggleCivilIssueAssignPanel_()">Assign workers</button></div>';
+    h+='<div id="civilIssueAssignPanel" style="display:none;margin-bottom:12px;">'+assignBoxHtml(r)+'</div>';
+  }
+  if(typeof workerCompletionsBlockHtml==='function'){
+    var comps=workerCompletionsBlockHtml(r);
+    if(comps) h+=comps;
+  }
+  h+='<div style="margin:12px 0 4px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;">';
+  h+='<button type="button" onclick="shareIssueWhatsApp(\''+r.id+'\')" style="background:#25D366;color:#fff;border:none;padding:10px 16px;border-radius:50px;font-weight:600;display:inline-flex;align-items:center;gap:8px;cursor:pointer;box-shadow:none;">'+(typeof whatsappIconHtml==='function'?whatsappIconHtml():'')+' Share on WhatsApp</button>';
+  if(typeof canRouteIssueAway==='function' && canRouteIssueAway(r)){
+    h+='<button type="button" onclick="routeIssueNotCivil(\''+r.id+'\')" class="route-not-civil-btn">'+(typeof routeAwayIconHtml==='function'?routeAwayIconHtml():'')+' '+(typeof issueUi_==='function'?issueUi_('routeButton','Not Civil Department'):'Not Civil Department')+'</button>';
+  }
+  if(typeof canToggleFixDelay==='function' && canToggleFixDelay(r)){
+    h+='<button type="button" onclick="toggleIssueFixDelay(\''+r.id+'\')" class="fix-delay-btn'+(typeof isIssueFixDelayed==='function'&&isIssueFixDelayed(r)?' active':'')+'">'+(typeof fixDelayIconHtml==='function'?fixDelayIconHtml():'')+(typeof isIssueFixDelayed==='function'&&isIssueFixDelayed(r)?' Remove 1+ month mark':' Needs 1+ month')+'</button>';
+  }
   h+='</div>';
-  if(photo) h+='<div class="issue-monthly-photo"><span>Photo</span><img src="'+photo+'" onclick="bigImg(this.src)" alt="Completion photo"></div>';
-  h+='<input type="hidden" id="imt-photo" value="'+_esc(photo)+'">';
-  h+='<button type="button" class="issue-monthly-save" id="imt-save-btn" onclick="saveIssueToMonthlyReport(\''+r.id+'\')">Save to monthly report</button>';
+  if(typeof issuePhotosSectionHtml==='function') h+=issuePhotosSectionHtml(r);
+  if(pending && canEdit){
+    h+='<div class="field-report-editor-actions">';
+    h+='<button type="button" id="imt-save-btn" class="field-report-save-btn" onclick="saveIssueToMonthlyReport(\''+r.id+'\',false)">Save to Jobs</button>';
+    if(queue.length>1) h+='<button type="button" id="imt-save-next-btn" class="field-report-save-next-btn" onclick="saveIssueToMonthlyReport(\''+r.id+'\',true)">Save &amp; next</button>';
+    h+='<button type="button" class="field-report-cancel-btn" onclick="closeIssueModal()">Cancel</button>';
+    h+='</div>';
+  } else {
+    h+='<div class="field-report-editor-actions"><button type="button" class="field-report-cancel-btn" onclick="closeIssueModal()">Close</button></div>';
+  }
   h+='</div>';
-  return h;
+  box.innerHTML=h;
+  box.classList.add('field-report-modal-box');
+  if(typeof assignVoiceBindPlayers==='function') assignVoiceBindPlayers(box);
+  modal.classList.add('show');
+  var noteEl=document.getElementById('imt-job');
+  if(noteEl && pending && canEdit) noteEl.focus();
+  return true;
+}
+function issueMonthlyTransferBlockHtml_(r){
+  // Legacy block unused when job editor modal is active; keep for safety.
+  return '';
 }
 function issueMonthlyApplyTransfer_(id, fields, resp){
   if(typeof getAllIssues!=='function') return;
@@ -846,6 +930,7 @@ function issueMonthlyApplyTransfer_(id, fields, resp){
       transferredBy:currentUser()||''
     });
   }
+  if(typeof writeIssuesCacheAsync==='function') writeIssuesCacheAsync(issues);
   if(resp&&resp.job){
     allJobs.push(resp.job);
     writeJobsCache(allJobs);
@@ -854,9 +939,8 @@ function issueMonthlyApplyTransfer_(id, fields, resp){
   renderJobAnalytics();
   renderReportPreview();
   if(typeof renderIssues==='function') renderIssues();
-  if(typeof openIssue==='function') openIssue(id);
 }
-function saveIssueToMonthlyReport(id){
+function saveIssueToMonthlyReport(id, goNext){
   if(_issueMonthlySaving) return;
   var jobEl=document.getElementById('imt-job');
   var job=jobEl?String(jobEl.value||'').trim():'';
@@ -867,28 +951,49 @@ function saveIssueToMonthlyReport(id){
     location:String((document.getElementById('imt-location')||{}).value||'').trim(),
     materials:String((document.getElementById('imt-materials')||{}).value||'').trim(),
     staff:String((document.getElementById('imt-staff')||{}).value||'').trim(),
-    amount:String((document.getElementById('imt-amount')||{}).value||'').trim().replace(/\D/g,''),
+    amount:'',
     photo:String((document.getElementById('imt-photo')||{}).value||'').trim()
   };
   _issueMonthlySaving=true;
   var btn=document.getElementById('imt-save-btn');
+  var btnNext=document.getElementById('imt-save-next-btn');
   if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
+  if(btnNext){ btnNext.disabled=true; }
+  var nextId='';
+  if(goNext){
+    var queue=civilIssuePendingQueue_();
+    var pos=queue.findIndex(function(x){ return String(x.id)===String(id); });
+    if(pos>=0 && pos<queue.length-1) nextId=queue[pos+1].id;
+    else if(pos>0) nextId=queue[0].id;
+    else {
+      var rest=queue.filter(function(x){ return String(x.id)!==String(id); });
+      if(rest.length) nextId=rest[0].id;
+    }
+  }
   fetchJSONRetry({action:'transferCivilIssueCompletion',id:id,job:fields.job,date:fields.date,location:fields.location,materials:fields.materials,staff:fields.staff,amount:fields.amount,photo:fields.photo,token:tok()},1,30000)
     .then(function(d){
       if(d&&d.ok===false){ if(typeof forceSessionLogout==='function'&&forceSessionLogout(d)) return; throw new Error(d.message||d.error||'Could not save issue'); }
       if(!d||(!d.ok&&!d.success)) throw new Error('Unexpected server response');
       issueMonthlyApplyTransfer_(id, fields, d);
-      alert('Saved to monthly report'+(d.reportMonth?(' · '+issueMonthlyMonthLabel_({date:d.reportMonth+'-01'})):'.'));
+      if(goNext && nextId){
+        openIssue(nextId);
+      } else {
+        closeIssueModal();
+        alert('Saved to Civil Jobs.');
+      }
     })
     .catch(function(e){ alert('❌ '+String((e&&e.message)||e||'Failed')); })
     .finally(function(){
       _issueMonthlySaving=false;
-      if(btn){ btn.disabled=false; btn.textContent='Save to monthly report'; }
+      if(btn){ btn.disabled=false; btn.textContent='Save to Jobs'; }
+      if(btnNext){ btnNext.disabled=false; }
     });
 }
 window.issueMonthlyPending_=issueMonthlyPending_;
 window.issueMonthlyTransferBlockHtml=issueMonthlyTransferBlockHtml_;
 window.saveIssueToMonthlyReport=saveIssueToMonthlyReport;
+window.renderCivilIssueJobEditor=renderCivilIssueJobEditor;
+window.toggleCivilIssueAssignPanel_=toggleCivilIssueAssignPanel_;
 function materialsDisplay_(s){ return String(s||'').trim(); }
 function loadFieldReports(force){
   var spin=document.getElementById('fieldReportsRefreshIcon');
@@ -1561,13 +1666,13 @@ function doReset(){
 
 
 <div class="modal" id="issueModal" onclick="if(event.target===this)closeIssueModal()"><div class="modal-box" id="issueBox"></div></div>
-<script src="assets/empire-offline-queue.js?v=2026-08-16-wa-shared"></script>
-<script src="assets/empire-assign-voice.js?v=2026-08-16-wa-shared"></script>
-<script src="assets/issue-configs.js?v=2026-08-16-wa-shared"></script>
+<script src="assets/empire-offline-queue.js?v=2026-08-16-issue-jobs"></script>
+<script src="assets/empire-assign-voice.js?v=2026-08-16-issue-jobs"></script>
+<script src="assets/issue-configs.js?v=2026-08-16-issue-jobs"></script>
 <script>ISSUE_CFG=Object.assign({},ISSUE_CONFIGS.civil,{embeddedInDept:true,tabNavScope:'.side-nav-issue',tabPaneScope:'#issueMain',analyticsContentId:'analyticsContent',supervisorPage:'civil-department.html'});</script>
-<script src="assets/issue-tracker.js?v=2026-08-16-wa-shared"></script>
-<script src="assets/issue-excel-export.js?v=2026-08-16-wa-shared"></script>
-<script src="assets/issue-recycle-bin.js?v=2026-08-16-wa-shared"></script>
+<script src="assets/issue-tracker.js?v=2026-08-16-issue-jobs"></script>
+<script src="assets/issue-excel-export.js?v=2026-08-16-issue-jobs"></script>
+<script src="assets/issue-recycle-bin.js?v=2026-08-16-issue-jobs"></script>
 <script>
 (function(){
   window._applyIssuePerms = applyPerms;

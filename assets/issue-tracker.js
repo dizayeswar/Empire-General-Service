@@ -2682,8 +2682,16 @@ function refreshAllIssueTabs() {
   if (fd && fd.classList.contains('active')) renderFixDelayIssues();
 }
 function issueIsReportPending_(r) {
-  if (!r || r.status !== 'fixed' || issueIsRoutedAway(r)) return false;
-  if (typeof window.issueMonthlyPending_ === 'function') return !!window.issueMonthlyPending_(r);
+  if (!r || issueIsRoutedAway(r)) return false;
+  if (typeof window.issueMonthlyPending_ === 'function') {
+    // Civil: open or fixed issues that still need Save to Jobs
+    if (ISSUE_CFG && ISSUE_CFG.embeddedInDept && ISSUE_CFG.prefix === 'civ') {
+      return !!window.issueMonthlyPending_(r);
+    }
+    if (r.status !== 'fixed') return false;
+    return !!window.issueMonthlyPending_(r);
+  }
+  if (r.status !== 'fixed') return false;
   if (String(r.monthlyTransferStatus || '').toLowerCase() === 'transferred') return false;
   if (r.transferredJobId) return false;
   return !!(ISSUE_CFG && ISSUE_CFG.embeddedInDept);
@@ -3032,6 +3040,11 @@ function openIssue(id) {
   if (!r) return;
   delete _assignEditMode[id];
   if (isCivilWorker() && r.status !== 'fixed') { closeIssueModal(); openWorkerJob(id); return; }
+  if (!isCivilWorker() && typeof window.renderCivilIssueJobEditor === 'function') {
+    try {
+      if (window.renderCivilIssueJobEditor(r)) return;
+    } catch (e) {}
+  }
   let h = '<span class="close-x" onclick="closeIssueModal()">&times;</span>';
   h += issueDetailMetaSectionHtml(r);
   if (issueIsRoutedAway(r)) {
