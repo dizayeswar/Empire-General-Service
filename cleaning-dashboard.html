@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="manifest" href="manifest.webmanifest?v=2026-08-16-ckb1">
+    <link rel="manifest" href="manifest.webmanifest?v=2026-08-16-tasks1">
     <meta name="theme-color" content="#8d015d">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,8 +13,8 @@
     <link rel="preconnect" href="https://script.google.com">
     <link rel="preconnect" href="https://api.imgbb.com">
     <title>Empire World Dashboard</title>
-    <link rel="stylesheet" href="assets/empire.css?v=2026-08-16-ckb1">
-<link rel="stylesheet" href="assets/empire-cleaning.css?v=2026-08-16-ckb1">
+    <link rel="stylesheet" href="assets/empire.css?v=2026-08-16-tasks1">
+<link rel="stylesheet" href="assets/empire-cleaning.css?v=2026-08-16-tasks1">
 </head>
 <body>
     <div class="login-page show" id="loginPage">
@@ -80,13 +80,13 @@
         </div>
       </div>
     </div>
-    <script src="config.js?v=2026-08-16-ckb1"></script>
-    <script src="assets/empire-storage.js?v=2026-08-16-ckb1"></script>
-    <script src="assets/empire-api.js?v=2026-08-16-ckb1"></script>
-    <script src="assets/empire-auth.js?v=2026-08-16-ckb1"></script>
-    <script src="assets/empire-core.js?v=2026-08-16-ckb1"></script>
-    <script src="assets/empire-sw-update.js?v=2026-08-16-ckb1"></script>
-    <script src="assets/empire-offline-queue.js?v=2026-08-16-ckb1"></script>
+    <script src="config.js?v=2026-08-16-tasks1"></script>
+    <script src="assets/empire-storage.js?v=2026-08-16-tasks1"></script>
+    <script src="assets/empire-api.js?v=2026-08-16-tasks1"></script>
+    <script src="assets/empire-auth.js?v=2026-08-16-tasks1"></script>
+    <script src="assets/empire-core.js?v=2026-08-16-tasks1"></script>
+    <script src="assets/empire-sw-update.js?v=2026-08-16-tasks1"></script>
+    <script src="assets/empire-offline-queue.js?v=2026-08-16-tasks1"></script>
     <script>
         /* ===== Themed dialogs (checkmark icons; shared theme/sidebar come from empire-core.js) ===== */
         (function(){
@@ -211,8 +211,10 @@
           taskPhotos.filter(function(x){ return x._offline; }).forEach(function(pp){
             if(!merged.some(function(s){ return s._queueId===pp._queueId && s.image===pp.image && s.task===pp.task && s.period===pp.period; })) merged.push(pp);
           });
-          if(JSON.stringify(merged)!==JSON.stringify(taskPhotos)){ taskPhotos=merged; renderTaskChecklists(); }
+          taskPhotos=merged;
+          renderTaskChecklists();
         }
+        function normTaskName(v){ return String(v||'').trim(); }
         async function fetchTaskPhotosForMonth(mv, force){
           if(!force && _photosByMonth[mv]) return _photosByMonth[mv];
           if(!force && _photosFetchPromises[mv]) return _photosFetchPromises[mv];
@@ -749,7 +751,11 @@
         function curMonth(){ return reportMonthOfDate(taskTodayStr()); }
         async function loadTaskPhotos(refresh){
           var mv=curMonth();
-          var cached=readTaskPhotosCache(mv);
+          if(refresh){
+            try{ localStorage.removeItem('cleaning_tphotos_'+mv); }catch(e){}
+            delete _photosByMonth[mv];
+          }
+          var cached=(!refresh) ? readTaskPhotosCache(mv) : null;
           if(cached){
             _photosByMonth[mv]=cached;
             applyTaskPhotosList(cached, mv);
@@ -766,8 +772,8 @@
           _photosByMonth[mv]=serverish;
           writeTaskPhotosCache(mv, serverish);
         }
-        function dailyPhotos(p, task, wk){ const per=curMonth()+'#'+wk; return taskPhotos.filter(x=>photoMatchesProject(x,p) && x.task===task && x.period===per).sort((a,b)=>String(a.date).localeCompare(String(b.date))); }
-        function monthlyPhotos(p, task){ return taskPhotos.filter(x=>photoMatchesProject(x,p) && x.task===task && x.period===curMonth()).sort((a,b)=>String(a.date).localeCompare(String(b.date))); }
+        function dailyPhotos(p, task, wk){ const per=curMonth()+'#'+wk; const tn=normTaskName(task); return taskPhotos.filter(x=>photoMatchesProject(x,p) && normTaskName(x.task)===tn && x.period===per).sort((a,b)=>String(a.date).localeCompare(String(b.date))); }
+        function monthlyPhotos(p, task){ const tn=normTaskName(task); return taskPhotos.filter(x=>photoMatchesProject(x,p) && normTaskName(x.task)===tn && x.period===curMonth()).sort((a,b)=>String(a.date).localeCompare(String(b.date))); }
         function photosFor(p, g, task){ return g.daily ? dailyPhotos(p, task, selWeek[p]||1) : monthlyPhotos(p, task); }
         function dailyCoveredCount(p, wk){ const dg=dailyGroupOf(p); return dg.tasks.filter(t=>dailyPhotos(p,t,wk).length>0).length; }
         function dailyWeekComplete(p, wk){ const dg=dailyGroupOf(p); return dailyCoveredCount(p,wk)===dg.tasks.length; }

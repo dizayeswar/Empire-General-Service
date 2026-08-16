@@ -227,11 +227,14 @@ export async function handleAddTaskPhotos(body: Record<string, unknown>) {
 
 export async function handleGetTaskPhotos(body: Record<string, unknown>) {
   const prefix = body.periodPrefix ? String(body.periodPrefix) : "";
-  let q = sb().from("task_photos").select("*");
-  if (prefix) q = q.like("period", `${prefix}%`);
-  const { data, error } = await q;
-  if (error) throw error;
-  return (data || []).map((row) => ({
+  // Page through all rows — PostgREST defaults to ~1000 and was truncating busy months,
+  // so the portal missed completed tasks that mobile still showed from sticky/offline cache.
+  const data = await selectAllRows<Record<string, unknown>>("task_photos", {
+    filter: prefix
+      ? (q) => q.like("period", `${prefix}%`)
+      : undefined,
+  });
+  return data.map((row) => ({
     id: String(row.id),
     project: String(row.project),
     freq: String(row.freq),

@@ -119,11 +119,12 @@
 
   function photosFor(p, g, task, wk) {
     var period = g.daily ? (curMonth() + '#' + wk) : curMonth();
+    var taskName = String(task || '').trim();
     var seen = {};
     var out = [];
     state.photos.forEach(function (x) {
       if (String(x.project).toLowerCase() !== String(p).toLowerCase()) return;
-      if (x.task !== task || x.period !== period) return;
+      if (String(x.task || '').trim() !== taskName || x.period !== period) return;
       var img = String(x.image || '');
       var key = x.id ? ('id:' + x.id) : ('img:' + img);
       if (img && seen['img:' + img]) return;
@@ -956,11 +957,16 @@
     var key = pendingKey(p, gi, ti, slot);
     var pending = ensurePending(key);
     var done = saved.length > 0;
+    var offlineOnly = done && saved.every(function (x) {
+      return !!x._offline || String(x.id || '').indexOf('offline-') === 0 || String(x.id || '').indexOf('sticky-') === 0;
+    });
     var html = '<div class="cm-task" data-project="' + p + '" data-gi="' + gi + '" data-ti="' + ti + '" data-slot="' + slot + '">' +
       '<div class="cm-task-top">' +
         '<div><div class="cm-task-title">' + taskLabel(task) + '</div>' +
-        '<div class="cm-task-meta">' + (done ? t('photosCount', { count: saved.length }) : t('noPhotosYet')) + '</div></div>' +
-        '<div class="cm-done-dot' + (done ? ' on' : '') + '"></div>' +
+        '<div class="cm-task-meta">' + (done
+          ? (offlineOnly ? ('⏳ ' + t('photosCount', { count: saved.length }) + ' · sync') : t('photosCount', { count: saved.length }))
+          : t('noPhotosYet')) + '</div></div>' +
+        '<div class="cm-done-dot' + (done ? ' on' : '') + (offlineOnly ? ' pending' : '') + '"></div>' +
       '</div>';
     if (saved.length || pending.length) {
       html += '<div class="cm-thumbs">';
