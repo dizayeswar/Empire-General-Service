@@ -59,6 +59,7 @@ export const SHEET_TO_TABLE: Record<string, string> = {
   ApplicationCheckHistory: "application_check_history",
   CivilJobs: "civil_jobs",
   CivilSummary: "civil_summaries",
+  WarehouseGoodsIssues: "warehouse_goods_issues",
   Trash: "trash",
   WorkerLocations: "worker_locations",
   WorkerPushTokens: "worker_push_tokens",
@@ -159,6 +160,9 @@ export const DEPT_BY_ACTION: Record<string, string> = {
   updateApplicationCheck: "application",
   importApplicationChecks: "application",
   clearApplicationChecks: "application",
+  getWarehouseGins: "warehouse",
+  saveWarehouseGin: "warehouse",
+  deleteWarehouseGin: "warehouse",
 };
 
 export const TRASH_ACTIONS: Record<string, number> = {

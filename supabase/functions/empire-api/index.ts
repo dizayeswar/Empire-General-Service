@@ -13,6 +13,7 @@ import * as cleaning from "./handlers_cleaning.ts";
 import * as issues from "./handlers_issues.ts";
 import * as jobs from "./handlers_jobs.ts";
 import * as misc from "./handlers_misc.ts";
+import * as warehouse from "./handlers_warehouse.ts";
 import * as storage from "./handlers_storage.ts";
 import * as users from "./handlers_users.ts";
 
@@ -286,6 +287,10 @@ Deno.serve(async (req) => {
       case "updateApplicationCheck": return json(await misc.handleUpdateApplicationCheck(body, a));
       case "importApplicationChecks": return json(await misc.handleImportApplicationChecks(body, a));
       case "clearApplicationChecks": return json(await misc.handleClearApplicationChecks(body, a));
+
+      case "getWarehouseGins": return json(await warehouse.handleGetWarehouseGins(body));
+      case "saveWarehouseGin": return json(await warehouse.handleSaveWarehouseGin(body, a));
+      case "deleteWarehouseGin": return json(await warehouse.handleDeleteWarehouseGin(body));
 
       case "getTrash": return json(await misc.handleGetTrash(body));
       case "restoreTrash": return json(await misc.handleRestoreTrash(body));
