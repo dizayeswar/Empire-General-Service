@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-18-imt-fixed-photo">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-18-civil-cai-materials">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,9 +13,10 @@
 <link rel="preconnect" href="https://script.google.com">
 <link rel="preconnect" href="https://api.imgbb.com">
 <title>Civil Department — Empire World</title>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-18-imt-fixed-photo">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-18-imt-fixed-photo">
-<link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-08-18-imt-fixed-photo">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-18-civil-cai-materials">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-18-civil-cai-materials">
+<link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-08-18-civil-cai-materials">
+<link rel="stylesheet" href="assets/empire-electrical-materials.css?v=2026-08-18-civil-cai-materials">
 </head>
 <body>
 <div class="login-page show" id="loginPage">
@@ -153,7 +154,7 @@
         </div>
         <div class="form-row">
           <div class="form-group"><label>Location</label><input type="text" id="j-location" placeholder="e.g. WW-12-3-A, Block B"></div>
-          <div class="form-group"><label>Materials / Quantity</label><input type="text" id="j-materials" placeholder="e.g. 5 bags cement, 2m³ sand"></div>
+          <div class="form-group"><label>Materials / Quantity</label><input type="text" id="j-materials" placeholder="e.g. 2 × SP-0082 Basin mixer"></div>
           <div class="form-group"><label>Staff</label>
             <div class="staff-multi" id="j-staff-wrap">
               <button type="button" class="staff-multi-toggle" id="j-staff-toggle" onclick="toggleStaffDropdown(event,'j')">Select staff…</button>
@@ -330,12 +331,12 @@
     </div>
   </div>
 </div>
-<script src="config.js?v=2026-08-18-imt-fixed-photo"></script>
-<script src="assets/empire-storage.js?v=2026-08-18-imt-fixed-photo"></script>
-<script src="assets/empire-api.js?v=2026-08-18-imt-fixed-photo"></script>
-<script src="assets/empire-auth.js?v=2026-08-18-imt-fixed-photo"></script>
-<script src="assets/empire-core.js?v=2026-08-18-imt-fixed-photo"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-18-imt-fixed-photo"></script>
+<script src="config.js?v=2026-08-18-civil-cai-materials"></script>
+<script src="assets/empire-storage.js?v=2026-08-18-civil-cai-materials"></script>
+<script src="assets/empire-api.js?v=2026-08-18-civil-cai-materials"></script>
+<script src="assets/empire-auth.js?v=2026-08-18-civil-cai-materials"></script>
+<script src="assets/empire-core.js?v=2026-08-18-civil-cai-materials"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-18-civil-cai-materials"></script>
 <div class="modal" id="imgModal" onclick="closeImg()"><img id="imgBig" style="max-width:92%;max-height:92%;border-radius:10px;"></div>
 <div class="modal" id="fieldReportModal" onclick="if(event.target===this)closeFieldReportModal()">
   <div class="modal-box field-report-modal-box" id="fieldReportModalBody" onclick="event.stopPropagation()"></div>
@@ -366,7 +367,7 @@ function applyDeptPerms(){ if(window.tsPerm) window.tsPerm(); if(window.tsLoadGl
 function handleLogin(e){ empireAuthLogin(e, 'civil department', { onSuccess: function(){ enterApp(); } }); }
 function logout(){ empireAuthLogout({ extraKeys: ['civdept_jobs_cache'], redirect: 'index.html', reload: false }); }
 function forceSessionLogout(d){ empireAuthHandleInvalidSession_(d, { extraKeys: ['civdept_jobs_cache'], redirect: 'index.html', reload: false }); }
-function enterDeptApp(){ if(String(empireGetRole()||'').toLowerCase()==='worker'){ location.replace('civil-issue.html'); return; } document.getElementById('loginPage').classList.remove('show'); if(typeof empireAuthMarkLoginVisible==='function') empireAuthMarkLoginVisible(false); document.getElementById('mainContainer').classList.add('show'); applyDeptPerms(); refreshPerms(); initStaffMulti(); document.getElementById('j-date').value=new Date().toISOString().split('T')[0]; empireBindFilterPersistence({ key:'civdept_list_filters_v2_month', fields:['jf-month','jf-type','jf-search'], onApply:function(){ loadJobs(true); } }); var jm=document.getElementById('jf-month'); if(jm&&!jm.value){ jm.value=currentBillingMonth_(); if(typeof syncMonthInput==='function') syncMonthInput(jm); } loadJobs(); loadFieldReports(); }
+function enterDeptApp(){ if(String(empireGetRole()||'').toLowerCase()==='worker'){ location.replace('civil-issue.html'); return; } document.getElementById('loginPage').classList.remove('show'); if(typeof empireAuthMarkLoginVisible==='function') empireAuthMarkLoginVisible(false); document.getElementById('mainContainer').classList.add('show'); applyDeptPerms(); refreshPerms(); initStaffMulti(); document.getElementById('j-date').value=new Date().toISOString().split('T')[0]; if(typeof empireMaterialsPickerMount==='function') empireMaterialsPickerMount('j-materials'); empireBindFilterPersistence({ key:'civdept_list_filters_v2_month', fields:['jf-month','jf-type','jf-search'], onApply:function(){ loadJobs(true); } }); var jm=document.getElementById('jf-month'); if(jm&&!jm.value){ jm.value=currentBillingMonth_(); if(typeof syncMonthInput==='function') syncMonthInput(jm); } loadJobs(); loadFieldReports(); }
 function refreshPerms(){ var now=Date.now(); if(now-(_lastPermFetch||0)<300000) return; _lastPermFetch=Date.now(); empireAuthRefreshPerms(function(){ applyDeptPerms(); if(window._applyIssuePerms) window._applyIssuePerms(); }); }
 var _lastPermFetch=0;
 window.addEventListener('load',()=>{ empireAuthPageBoot({ dept: 'civil department', onEnter: enterApp }); });
@@ -1004,8 +1005,8 @@ function renderCivilIssueJobEditor(r){
     h+='<textarea id="imt-job" class="field-report-editor-note" rows="4">'+_esc(issueMonthlyJobDefault_(r))+'</textarea>';
     h+='<p class="field-report-editor-hint">This text becomes the job line in Civil Jobs.</p>';
     h+='<label class="field-report-modal-label" for="imt-materials" style="margin-top:14px;display:block;">Materials / quantity</label>';
-    h+='<textarea id="imt-materials" class="field-report-editor-materials" rows="4" placeholder="e.g. 5 bags cement, 2m³ sand">'+_esc(issueMonthlyMaterialsDefault_(r))+'</textarea>';
-    h+='<p class="field-report-editor-hint">Type materials here for now. A materials list like Electrical can be added later.</p>';
+    h+='<textarea id="imt-materials" class="field-report-editor-materials" rows="4" placeholder="e.g. 2 × SP-0082 Basin mixer">'+_esc(issueMonthlyMaterialsDefault_(r))+'</textarea>';
+    h+='<p class="field-report-editor-hint">Tap a material from the list, enter quantity, then Save to Jobs.</p>';
     h+='</div></div>';
   }
   if(r.status!=='fixed' && typeof assignBoxHtml==='function' && canEdit){
@@ -1039,6 +1040,7 @@ function renderCivilIssueJobEditor(r){
   box.innerHTML=h;
   box.classList.add('field-report-modal-box');
   if(pending && canEdit) setStaffSelection(issueMonthlyStaffDefault_(r), 'imt');
+  if(pending && canEdit && typeof empireMaterialsPickerMount==='function') empireMaterialsPickerMount('imt-materials', { autoOpen: true });
   if(typeof assignVoiceBindPlayers==='function') assignVoiceBindPlayers(box);
   modal.classList.add('show');
   var noteEl=document.getElementById('imt-job');
@@ -1800,13 +1802,15 @@ function doReset(){
 
 
 <div class="modal" id="issueModal" onclick="if(event.target===this)closeIssueModal()"><div class="modal-box" id="issueBox"></div></div>
-<script src="assets/empire-offline-queue.js?v=2026-08-18-imt-fixed-photo"></script>
-<script src="assets/empire-assign-voice.js?v=2026-08-18-imt-fixed-photo"></script>
-<script src="assets/issue-configs.js?v=2026-08-18-imt-fixed-photo"></script>
+<script src="assets/empire-electrical-materials.js?v=2026-08-18-civil-cai-materials"></script>
+<script src="assets/empire-civil-materials.js?v=2026-08-18-civil-cai-materials"></script>
+<script src="assets/empire-offline-queue.js?v=2026-08-18-civil-cai-materials"></script>
+<script src="assets/empire-assign-voice.js?v=2026-08-18-civil-cai-materials"></script>
+<script src="assets/issue-configs.js?v=2026-08-18-civil-cai-materials"></script>
 <script>ISSUE_CFG=Object.assign({},ISSUE_CONFIGS.civil,{embeddedInDept:true,tabNavScope:'.side-nav-issue',tabPaneScope:'#issueMain',analyticsContentId:'analyticsContent',supervisorPage:'civil-department.html'});</script>
-<script src="assets/issue-tracker.js?v=2026-08-18-imt-fixed-photo"></script>
-<script src="assets/issue-excel-export.js?v=2026-08-18-imt-fixed-photo"></script>
-<script src="assets/issue-recycle-bin.js?v=2026-08-18-imt-fixed-photo"></script>
+<script src="assets/issue-tracker.js?v=2026-08-18-civil-cai-materials"></script>
+<script src="assets/issue-excel-export.js?v=2026-08-18-civil-cai-materials"></script>
+<script src="assets/issue-recycle-bin.js?v=2026-08-18-civil-cai-materials"></script>
 <script>
 (function(){
   window._applyIssuePerms = applyPerms;

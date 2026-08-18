@@ -179,8 +179,9 @@
     }).join(', ');
   }
 
-  function buildPickerHtml() {
-    var rows = CATALOG.map(function (item, idx) {
+  function buildPickerHtml(catalog) {
+    catalog = catalog || CATALOG;
+    var rows = catalog.map(function (item, idx) {
       var hasVar = item.variants && item.variants.length > 0;
       var hint = hasVar ? ('<span class="mat-hint">' + item.variants.join(', ') + '</span>') : '';
       var variantsHtml = hasVar
@@ -188,7 +189,11 @@
           return '<button type="button" class="empire-mat-variant" data-name="' + escAttr(item.name) + '" data-variant="' + escAttr(v) + '">' + escHtml(v) + '</button>';
         }).join('')
         : '';
-      return '<div class="empire-mat-row' + (hasVar ? ' has-variants' : '') + '" data-search="' + escAttr((idx + 1) + ' ' + item.name + ' ' + (item.variants || []).join(' ')) + '">'
+      var rowClass = 'empire-mat-row'
+        + (hasVar ? ' has-variants' : '')
+        + (item.red ? ' empire-mat-red' : '')
+        + (item.priority ? ' empire-mat-priority' : '');
+      return '<div class="' + rowClass + '" data-search="' + escAttr((idx + 1) + ' ' + item.name + ' ' + (item.variants || []).join(' ')) + '">'
         + '<button type="button" class="empire-mat-name"' + (hasVar ? '' : ' data-name="' + escAttr(item.name) + '" data-variant=""') + '>'
         + '<span>' + escHtml((idx + 1) + '. ' + item.name) + '</span>' + hint + '</button>'
         + (hasVar ? ('<div class="empire-mat-variants">' + variantsHtml + '</div>') : '')
@@ -254,6 +259,15 @@
     });
   }
 
+  function resolveCatalog(opts) {
+    opts = opts || {};
+    if (opts.catalog && opts.catalog.length) return opts.catalog;
+    if (window.EMPIRE_MATERIALS_CATALOG && window.EMPIRE_MATERIALS_CATALOG.length) {
+      return window.EMPIRE_MATERIALS_CATALOG;
+    }
+    return CATALOG;
+  }
+
   function mount(inputId, opts) {
     opts = opts || {};
     var input = document.getElementById(inputId);
@@ -261,7 +275,7 @@
     input.dataset.empireMaterialsPicker = '1';
     var picker = document.createElement('div');
     picker.className = 'empire-materials-picker';
-    picker.innerHTML = buildPickerHtml();
+    picker.innerHTML = buildPickerHtml(resolveCatalog(opts));
     if (input.nextSibling) input.parentNode.insertBefore(picker, input.nextSibling);
     else input.parentNode.appendChild(picker);
     bindPicker(picker, input);

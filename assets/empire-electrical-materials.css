@@ -64,6 +64,13 @@
 .empire-mat-row.hidden {
   display: none;
 }
+.empire-mat-row.empire-mat-red .empire-mat-name {
+  background: rgba(255, 199, 206, 0.35);
+}
+.empire-mat-row.empire-mat-red .empire-mat-name:hover,
+.empire-mat-row.empire-mat-red .empire-mat-name:focus-visible {
+  background: rgba(255, 199, 206, 0.55);
+}
 .empire-mat-name {
   display: flex;
   align-items: center;
