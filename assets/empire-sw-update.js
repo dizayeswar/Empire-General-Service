@@ -1,7 +1,7 @@
 /* Empire EGS — register service worker; purge caches only when build id changes.
    BUILD follows config.js APP_VERSION so phones never mix old/new assets. */
 (function () {
-  var BUILD = (typeof APP_VERSION === 'string' && APP_VERSION) ? APP_VERSION : '2026-08-18-warehouse-word-look';
+  var BUILD = (typeof APP_VERSION === 'string' && APP_VERSION) ? APP_VERSION : '2026-08-18-warehouse-print-clean';
   var STORAGE_KEY = 'empire_build_id';
 
   function purgeEmpireCaches() {

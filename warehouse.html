@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-18-warehouse-word-look">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-18-warehouse-print-clean">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-18-warehouse-word-look">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-18-warehouse-word-look">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-18-warehouse-word-look">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-18-warehouse-print-clean">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-18-warehouse-print-clean">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-18-warehouse-print-clean">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -185,17 +185,17 @@
       <button type="button" onclick="whPrint()">Print / Save as PDF</button>
       <button type="button" onclick="whClearForm()">Clear form</button>
     </div>
-    <p class="no-print" style="color:var(--text-soft);font-size:12px;margin-top:10px;">Tip: Print opens a Word-style sheet sized for <strong>one A4 page</strong>. Choose <strong>Save as PDF</strong> if needed. Allow the pop-up.</p>
+    <p class="no-print" style="color:var(--text-soft);font-size:12px;margin-top:10px;">Use <strong>Print / Save as PDF</strong> (or Ctrl+P). Only the Word Goods Issue Note prints — no buttons or sidebar. Prefer <strong>Portrait A4</strong> at 100% scale.</p>
   </main>
 </div>
 
-<script src="config.js?v=2026-08-18-warehouse-word-look"></script>
-<script src="assets/empire-storage.js?v=2026-08-18-warehouse-word-look"></script>
-<script src="assets/empire-api.js?v=2026-08-18-warehouse-word-look"></script>
-<script src="assets/empire-auth.js?v=2026-08-18-warehouse-word-look"></script>
-<script src="assets/empire-core.js?v=2026-08-18-warehouse-word-look"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-18-warehouse-word-look"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-18-warehouse-word-look"></script>
+<script src="config.js?v=2026-08-18-warehouse-print-clean"></script>
+<script src="assets/empire-storage.js?v=2026-08-18-warehouse-print-clean"></script>
+<script src="assets/empire-api.js?v=2026-08-18-warehouse-print-clean"></script>
+<script src="assets/empire-auth.js?v=2026-08-18-warehouse-print-clean"></script>
+<script src="assets/empire-core.js?v=2026-08-18-warehouse-print-clean"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-18-warehouse-print-clean"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-18-warehouse-print-clean"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -480,9 +480,7 @@ function whBuildWordPrintHtml_(){
     +'<td><span class="ttl">Issued by</span><div class="pad">'+whSigHtml('issued')+'</div></td>'
     +'<td><span class="ttl">Received by</span><div class="pad">'+whSigHtml('received')+'</div></td>'
     +'</tr></table>'
-    +'</div>'
-    +'<script>window.onload=function(){setTimeout(function(){window.focus();window.print();},200);}<\\/script>'
-    +'</body></html>';
+    +'</div></body></html>';
 }
 function whPrint(){
   if(!whValidateVoucher()){
@@ -496,15 +494,41 @@ function whPrint(){
   }
   whCloseCombos();
   var html=whBuildWordPrintHtml_();
-  var w=window.open('', '_blank', 'noopener,noreferrer,width=900,height=1100');
-  if(!w){
-    alert('Pop-up blocked. Allow pop-ups for this site to print the Goods Issue Note.');
+  var frame=document.getElementById('whPrintFrame');
+  if(!frame){
+    frame=document.createElement('iframe');
+    frame.id='whPrintFrame';
+    frame.setAttribute('aria-hidden','true');
+    frame.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none;';
+    document.body.appendChild(frame);
+  }
+  var win=frame.contentWindow;
+  var doc=frame.contentDocument || (win && win.document);
+  if(!doc || !win){
+    alert('Could not open print view. Try again.');
     return;
   }
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
+  doc.open();
+  doc.write(html);
+  doc.close();
+  setTimeout(function(){
+    try {
+      win.focus();
+      win.print();
+    } catch (e) {
+      alert('Could not print. Use the Print / Save as PDF button again.');
+    }
+  }, 250);
 }
+document.addEventListener('keydown', function(e){
+  if((e.ctrlKey || e.metaKey) && String(e.key||'').toLowerCase()==='p'){
+    var main=document.getElementById('mainContainer');
+    if(main && main.style.display!=='none' && main.classList.contains('show')){
+      e.preventDefault();
+      whPrint();
+    }
+  }
+});
 function whClearForm(){
   if(!confirm('Clear the whole Goods Issue Note?')) return;
   ['wh-requester','wh-request-no','wh-property','wh-store-keeper','wh-technician','wh-price','wh-voucher'].forEach(function(id){

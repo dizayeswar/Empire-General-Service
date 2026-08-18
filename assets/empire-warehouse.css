@@ -265,3 +265,58 @@
   .wh-note { padding: 12px; }
   .wh-app { background: #fff; }
 }
+
+/* Never print app chrome — Word sheet only */
+@media print {
+  @page { size: A4 portrait; margin: 10mm; }
+  html, body {
+    background: #fff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  body * { visibility: hidden !important; }
+  #whPrintRoot,
+  #whPrintRoot * { visibility: visible !important; }
+  #whPrintRoot {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #fff !important;
+  }
+  .no-print,
+  .wh-toolbar,
+  .wh-actions-print,
+  .wh-sig-actions,
+  .wh-error,
+  .wh-combo-list,
+  .login-page,
+  .side-nav,
+  aside,
+  .app-shell > aside { display: none !important; visibility: hidden !important; }
+  .wh-sig-pad .hint { display: none !important; }
+  .wh-type-btn {
+    all: unset !important;
+    font-weight: 700 !important;
+    font-size: 10.5pt !important;
+    color: #000 !important;
+  }
+  .wh-cell-input {
+    border: none !important;
+    background: transparent !important;
+    color: #000 !important;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  /* date inputs print their value as text-ish; keep compact */
+  input[type="date"],
+  input[type="datetime-local"] {
+    border: none !important;
+    background: transparent !important;
+  }
+}
+
