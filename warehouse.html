@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-18-warehouse-print-word">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-18-warehouse-a4-onepage">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-18-warehouse-print-word">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-18-warehouse-print-word">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-18-warehouse-print-word">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-18-warehouse-a4-onepage">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-18-warehouse-a4-onepage">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-18-warehouse-a4-onepage">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -169,17 +169,17 @@
       <button type="button" onclick="whPrint()">Print / Save as PDF</button>
       <button type="button" onclick="whClearForm()">Clear form</button>
     </div>
-    <p class="no-print" style="color:var(--text-soft);font-size:12px;margin-top:10px;">Tip: In the print dialog choose <strong>Save as PDF</strong> / <strong>Microsoft Print to PDF</strong> to export. Layout matches the Goods Issue Note.</p>
+    <p class="no-print" style="color:var(--text-soft);font-size:12px;margin-top:10px;">Tip: Print opens a Word-style sheet sized for <strong>one A4 page</strong>. Choose <strong>Save as PDF</strong> if needed. Allow the pop-up.</p>
   </main>
 </div>
 
-<script src="config.js?v=2026-08-18-warehouse-print-word"></script>
-<script src="assets/empire-storage.js?v=2026-08-18-warehouse-print-word"></script>
-<script src="assets/empire-api.js?v=2026-08-18-warehouse-print-word"></script>
-<script src="assets/empire-auth.js?v=2026-08-18-warehouse-print-word"></script>
-<script src="assets/empire-core.js?v=2026-08-18-warehouse-print-word"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-18-warehouse-print-word"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-18-warehouse-print-word"></script>
+<script src="config.js?v=2026-08-18-warehouse-a4-onepage"></script>
+<script src="assets/empire-storage.js?v=2026-08-18-warehouse-a4-onepage"></script>
+<script src="assets/empire-api.js?v=2026-08-18-warehouse-a4-onepage"></script>
+<script src="assets/empire-auth.js?v=2026-08-18-warehouse-a4-onepage"></script>
+<script src="assets/empire-core.js?v=2026-08-18-warehouse-a4-onepage"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-18-warehouse-a4-onepage"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-18-warehouse-a4-onepage"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -406,32 +406,42 @@ function whBuildWordPrintHtml_(){
   var store=whVal('wh-store-keeper');
   return '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Goods Issue Note</title>'
     +'<style>'
-    +'@page{size:A4;margin:12mm;}'
+    +'@page{size:A4 portrait;margin:8mm;}'
+    +'html,body{height:100%;margin:0;padding:0;}'
     +'*{box-sizing:border-box;}'
-    +'body{margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;color:#000;font-size:11pt;}'
-    +'h1{margin:0 0 10px;text-align:center;font-size:18pt;font-weight:700;}'
+    +'body{font-family:Arial,Helvetica,sans-serif;color:#000;font-size:9pt;}'
+    +'.sheet{height:281mm;max-height:281mm;display:flex;flex-direction:column;overflow:hidden;page-break-inside:avoid;page-break-after:avoid;}'
+    +'h1{margin:0 0 4px;text-align:center;font-size:14pt;font-weight:700;flex:0 0 auto;}'
     +'table{border-collapse:collapse;width:100%;}'
-    +'.meta td{border:1px solid #000;padding:6px 8px;vertical-align:top;}'
-    +'.meta .lab{font-weight:700;width:18%;white-space:nowrap;}'
-    +'.meta .val{width:32%;}'
-    +'.type{margin-top:6px;}'
-    +'.type span{display:inline-block;margin-right:18px;font-weight:700;}'
-    +'.intro{margin:10px 0 6px;font-weight:700;}'
-    +'.intro .sub{font-weight:400;}'
-    +'.lines th,.lines td{border:1px solid #000;padding:3px 4px;font-size:9.5pt;}'
-    +'.lines th{background:#eee;font-weight:700;text-align:center;}'
+    +'.meta{flex:0 0 auto;}'
+    +'.meta td{border:1px solid #000;padding:3px 5px;vertical-align:top;font-size:8.5pt;line-height:1.25;}'
+    +'.meta .lab{font-weight:700;width:15%;white-space:nowrap;}'
+    +'.meta .val{width:35%;}'
+    +'.type{margin-top:2px;}'
+    +'.type span{display:inline-block;margin-right:12px;font-weight:700;}'
+    +'.intro{margin:4px 0 2px;font-weight:700;font-size:8.5pt;flex:0 0 auto;}'
+    +'.intro.sub{font-weight:400;margin:0 0 3px;}'
+    +'.intro .name{font-weight:400;}'
+    +'.lines-wrap{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;}'
+    +'.lines{flex:1;height:100%;table-layout:fixed;}'
+    +'.lines th,.lines td{border:1px solid #000;padding:0 3px;font-size:7.5pt;line-height:1.1;}'
+    +'.lines th{background:#eee;font-weight:700;text-align:center;height:14px;}'
     +'.lines td.c{text-align:center;}'
-    +'.lines td{height:18px;}'
-    +'.maint{margin-top:10px;border:1px solid #000;}'
-    +'.maint h2{margin:0;padding:6px 8px;font-size:11pt;border-bottom:1px solid #000;background:#eee;}'
-    +'.maint table td{border:1px solid #000;padding:6px 8px;}'
+    +'.lines tbody td{height:calc((100% - 14px) / '+WH_LINE_COUNT+');vertical-align:middle;overflow:hidden;}'
+    +'.maint{flex:0 0 auto;margin-top:4px;border:1px solid #000;}'
+    +'.maint h2{margin:0;padding:3px 5px;font-size:8.5pt;border-bottom:1px solid #000;background:#eee;}'
+    +'.maint table td{border:1px solid #000;padding:2px 5px;font-size:8pt;height:16px;}'
     +'.maint .lab{width:28%;font-weight:700;}'
-    +'.sigs{margin-top:12px;}'
-    +'.sigs td{border:1px solid #000;width:33.33%;height:95px;vertical-align:top;text-align:center;padding:0;}'
-    +'.sigs .ttl{display:block;border-bottom:1px solid #000;padding:5px;font-weight:700;background:#eee;}'
-    +'.sigs .pad{height:70px;display:flex;align-items:center;justify-content:center;}'
-    +'.sigs img{max-width:95%;max-height:64px;}'
+    +'.sigs{flex:0 0 auto;margin-top:4px;}'
+    +'.sigs td{border:1px solid #000;width:33.33%;height:52px;vertical-align:top;text-align:center;padding:0;}'
+    +'.sigs .ttl{display:block;border-bottom:1px solid #000;padding:2px 4px;font-weight:700;background:#eee;font-size:8pt;}'
+    +'.sigs .pad{height:34px;display:flex;align-items:center;justify-content:center;}'
+    +'.sigs img{max-width:95%;max-height:30px;}'
+    +'@media print{html,body{height:auto;}'
+    +'.sheet{height:281mm;max-height:281mm;}'
+    +'*{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}'
     +'</style></head><body>'
+    +'<div class="sheet">'
     +'<h1>Goods Issue Note</h1>'
     +'<table class="meta">'
     +'<tr><td class="lab">Requester:</td><td class="val">'+whEsc(whVal('wh-requester'))+'</td>'
@@ -439,15 +449,15 @@ function whBuildWordPrintHtml_(){
     +'<tr><td class="lab">Company:</td><td class="val">'+whEsc(whVal('wh-company')||'Empire World')
     +'<div class="type"><strong>Good Issue Type</strong>&nbsp;&nbsp;'
     +'<span>'+inn+' Internal</span><span>'+ext+' External</span></div></td>'
-    +'<td class="lab">Request Date:<br><br>Property Code:</td>'
-    +'<td class="val">'+whEsc(whFmtDate(whVal('wh-request-date')))+'<br><br>'+whEsc(whVal('wh-property'))+'</td></tr>'
+    +'<td class="lab">Request Date:<br>Property Code:</td>'
+    +'<td class="val">'+whEsc(whFmtDate(whVal('wh-request-date')))+'<br>'+whEsc(whVal('wh-property'))+'</td></tr>'
     +'</table>'
-    +'<p class="intro">To: Store Keeper: <span class="sub">'+whEsc(store)+'</span></p>'
-    +'<p class="intro sub" style="font-weight:400;margin-top:0;">Kindly issue the materials stated below:</p>'
-    +'<table class="lines"><thead><tr>'
-    +'<th style="width:28px;">#</th><th style="width:14%;">Item Code</th><th>Description</th>'
-    +'<th style="width:10%;">Quantity</th><th style="width:14%;">Project</th><th style="width:14%;">Cost Center</th>'
-    +'</tr></thead><tbody>'+lines+'</tbody></table>'
+    +'<p class="intro">To: Store Keeper: <span class="name">'+whEsc(store)+'</span></p>'
+    +'<p class="intro sub">Kindly issue the materials stated below:</p>'
+    +'<div class="lines-wrap"><table class="lines"><thead><tr>'
+    +'<th style="width:22px;">#</th><th style="width:13%;">Item Code</th><th>Description</th>'
+    +'<th style="width:9%;">Quantity</th><th style="width:13%;">Project</th><th style="width:13%;">Cost Center</th>'
+    +'</tr></thead><tbody>'+lines+'</tbody></table></div>'
     +'<div class="maint"><h2>Maintenance Report (For External type only)</h2>'
     +'<table><tr><td class="lab">Technician Name:</td><td>'+whEsc(whVal('wh-technician'))+'</td></tr>'
     +'<tr><td class="lab">Date &amp; Time</td><td>'+whEsc(whFmtDateTime(whVal('wh-maint-datetime')))+'</td></tr>'
@@ -459,6 +469,7 @@ function whBuildWordPrintHtml_(){
     +'<td><span class="ttl">Issued by</span><div class="pad">'+whSigHtml('issued')+'</div></td>'
     +'<td><span class="ttl">Received by</span><div class="pad">'+whSigHtml('received')+'</div></td>'
     +'</tr></table>'
+    +'</div>'
     +'<script>window.onload=function(){setTimeout(function(){window.focus();window.print();},200);}<\\/script>'
     +'</body></html>';
 }

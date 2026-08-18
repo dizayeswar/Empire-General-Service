@@ -1,0 +1,13 @@
+---
+description: Always commit and push finished work without asking
+alwaysApply: true
+---
+
+# Always push
+
+When shipping finished work for this project:
+
+1. Commit relevant changes (do not commit secrets, `.env`, or `node_modules`).
+2. **Push to `origin` immediately** — do not ask “say push when ready”.
+3. If an API/Edge Function change is part of the fix, deploy `empire-api` as well when that is the usual workflow for the change.
+4. Still follow normal commit-message and git-safety rules (no force-push to main, no config rewrites, no amend unless allowed).
