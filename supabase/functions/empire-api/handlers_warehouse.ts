@@ -38,7 +38,7 @@ export async function handleSaveWarehouseGin(body: Record<string, unknown>, auth
   const requestNo = String(body.requestNo || payload.requestNo || "").trim();
   const requestDate = String(body.requestDate || payload.requestDate || "").trim();
   const requester = String(body.requester || payload.requester || "").trim();
-  const company = String(body.company || payload.company || "Empire World").trim();
+  const company = String(body.company || payload.company || "").trim();
   const issueType = String(body.issueType || payload.issueType || "").trim();
   const propertyCode = String(body.propertyCode || payload.property || "").trim();
   const storeKeeper = String(body.storeKeeper || payload.storeKeeper || "").trim();

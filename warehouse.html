@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-18-warehouse-sidebar-save">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-18-wh-company-blank">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-18-warehouse-sidebar-save">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-18-warehouse-sidebar-save">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-18-warehouse-sidebar-save">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-18-wh-company-blank">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-18-wh-company-blank">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-18-wh-company-blank">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -83,7 +83,7 @@
             <div class="wh-fields">
               <div class="wh-col">
                 <div class="wh-line"><strong>Requester:</strong><input id="wh-requester" class="wh-cell-input" type="text" autocomplete="off"></div>
-                <div class="wh-line"><strong>Company:</strong><input id="wh-company" class="wh-cell-input" type="text" value="Empire World" autocomplete="off"></div>
+                <div class="wh-line"><strong>Company:</strong><input id="wh-company" class="wh-cell-input" type="text" value="" autocomplete="off"></div>
                 <div class="wh-type-inline">
                   <strong>Good Issue Type</strong>
                   <button type="button" class="wh-type-btn" id="wh-type-internal" aria-pressed="false" onclick="whSetIssueType('internal')">□ Internal</button>
@@ -211,13 +211,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-18-warehouse-sidebar-save"></script>
-<script src="assets/empire-storage.js?v=2026-08-18-warehouse-sidebar-save"></script>
-<script src="assets/empire-api.js?v=2026-08-18-warehouse-sidebar-save"></script>
-<script src="assets/empire-auth.js?v=2026-08-18-warehouse-sidebar-save"></script>
-<script src="assets/empire-core.js?v=2026-08-18-warehouse-sidebar-save"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-18-warehouse-sidebar-save"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-18-warehouse-sidebar-save"></script>
+<script src="config.js?v=2026-08-18-wh-company-blank"></script>
+<script src="assets/empire-storage.js?v=2026-08-18-wh-company-blank"></script>
+<script src="assets/empire-api.js?v=2026-08-18-wh-company-blank"></script>
+<script src="assets/empire-auth.js?v=2026-08-18-wh-company-blank"></script>
+<script src="assets/empire-core.js?v=2026-08-18-wh-company-blank"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-18-wh-company-blank"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-18-wh-company-blank"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -296,7 +296,7 @@ function whCollectPayload(){
   }
   return {
     requester: whVal('wh-requester'),
-    company: whVal('wh-company') || 'Empire World',
+    company: whVal('wh-company'),
     issueType: whVal('wh-issue-type'),
     requestNo: whVal('wh-request-no'),
     requestDate: whVal('wh-request-date'),
@@ -315,7 +315,7 @@ function whApplyPayload(p){
   whBuildLines();
   var set=function(id,v){ var el=document.getElementById(id); if(el) el.value=v||''; };
   set('wh-requester', p.requester);
-  set('wh-company', p.company || 'Empire World');
+  set('wh-company', p.company || '');
   set('wh-request-no', p.requestNo);
   set('wh-request-date', p.requestDate || new Date().toISOString().slice(0,10));
   set('wh-property', p.property);
@@ -780,7 +780,7 @@ function whBuildWordPrintHtml_(){
     +'</div>'
     +'<div class="fields"><div>'
     +'<div class="line"><strong>Requester:</strong> <span class="val">'+whEsc(whVal('wh-requester'))+'</span></div>'
-    +'<div class="line"><strong>Company:</strong> <span class="val">'+whEsc(whVal('wh-company')||'Empire World')+'</span></div>'
+    +'<div class="line"><strong>Company:</strong> <span class="val">'+whEsc(whVal('wh-company'))+'</span></div>'
     +'<div class="type"><strong>Good Issue Type</strong>&nbsp;&nbsp;<span>'+inn+'</span><span>'+ext+'</span></div>'
     +'</div><div>'
     +'<div class="line"><strong>Request No.:</strong> <span class="val">'+whEsc(whVal('wh-request-no'))+'</span></div>'
@@ -858,7 +858,7 @@ function whClearForm(skipConfirm){
   ['wh-requester','wh-request-no','wh-property','wh-store-keeper','wh-technician','wh-price','wh-voucher'].forEach(function(id){
     var el=document.getElementById(id); if(el) el.value='';
   });
-  var company=document.getElementById('wh-company'); if(company) company.value='Empire World';
+  var company=document.getElementById('wh-company'); if(company) company.value='';
   var dateEl=document.getElementById('wh-request-date'); if(dateEl) dateEl.value=new Date().toISOString().slice(0,10);
   var dt=document.getElementById('wh-maint-datetime'); if(dt) dt.value='';
   whBuildLines();
