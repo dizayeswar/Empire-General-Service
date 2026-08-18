@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-18-wh-remove-stoke-input">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-18-wh-print-no-underlines">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-18-wh-remove-stoke-input">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-18-wh-remove-stoke-input">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-18-wh-remove-stoke-input">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-18-wh-print-no-underlines">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-18-wh-print-no-underlines">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-18-wh-print-no-underlines">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -211,13 +211,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-18-wh-remove-stoke-input"></script>
-<script src="assets/empire-storage.js?v=2026-08-18-wh-remove-stoke-input"></script>
-<script src="assets/empire-api.js?v=2026-08-18-wh-remove-stoke-input"></script>
-<script src="assets/empire-auth.js?v=2026-08-18-wh-remove-stoke-input"></script>
-<script src="assets/empire-core.js?v=2026-08-18-wh-remove-stoke-input"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-18-wh-remove-stoke-input"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-18-wh-remove-stoke-input"></script>
+<script src="config.js?v=2026-08-18-wh-print-no-underlines"></script>
+<script src="assets/empire-storage.js?v=2026-08-18-wh-print-no-underlines"></script>
+<script src="assets/empire-api.js?v=2026-08-18-wh-print-no-underlines"></script>
+<script src="assets/empire-auth.js?v=2026-08-18-wh-print-no-underlines"></script>
+<script src="assets/empire-core.js?v=2026-08-18-wh-print-no-underlines"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-18-wh-print-no-underlines"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-18-wh-print-no-underlines"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -748,7 +748,7 @@ function whBuildWordPrintHtml_(){
     +'.fields{display:grid;grid-template-columns:1fr 1fr;gap:4pt 28pt;margin:0 0 10pt;}'
     +'.line{margin:0 0 7pt;}'
     +'.line strong{font-weight:700;}'
-    +'.val{display:inline-block;min-width:120pt;border-bottom:1px solid #000;padding:0 3pt;min-height:12pt;}'
+    +'.val{display:inline;padding:0 3pt;min-height:12pt;}'
     +'.type{margin:4pt 0 0;font-weight:700;}'
     +'.type span{margin-right:14pt;}'
     +'.to{margin:8pt 0 2pt;font-weight:700;}'

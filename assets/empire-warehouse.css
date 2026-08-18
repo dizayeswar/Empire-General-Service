@@ -321,4 +321,18 @@
   .sidebar,
   aside.sidebar { display: none !important; visibility: hidden !important; }
   .wh-sig-pad .hint { display: none !important; }
+  /* No field underlines on print — typed values only */
+  .wh-line .wh-cell-input,
+  .wh-note .wh-cell-input {
+    border: none !important;
+    border-bottom: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+    padding: 0 2px !important;
+  }
+  .wh-note input[type=date]::-webkit-calendar-picker-indicator,
+  .wh-note input[type=datetime-local]::-webkit-calendar-picker-indicator {
+    display: none !important;
+  }
 }
