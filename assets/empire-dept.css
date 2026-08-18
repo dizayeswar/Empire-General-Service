@@ -289,6 +289,7 @@ tr.job-row:hover {
 .staff-multi {
   position: relative;
   width: 100%;
+  z-index: 5;
 }
 .staff-multi-toggle {
   width: 100%;
@@ -300,7 +301,7 @@ tr.job-row:hover {
 }
 .staff-multi-panel {
   position: absolute;
-  z-index: 40;
+  z-index: 80;
   left: 0;
   right: 0;
   top: calc(100% + 4px);
@@ -311,6 +312,12 @@ tr.job-row:hover {
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
   padding: 6px;
+}
+.civil-issue-job-editor .staff-multi {
+  z-index: 20;
+}
+.civil-issue-job-editor .staff-multi-panel {
+  z-index: 90;
 }
 .staff-multi-opt {
   display: flex;

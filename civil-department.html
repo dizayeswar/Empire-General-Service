@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-18-wa-chunks">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-18-imt-staff">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,9 +13,9 @@
 <link rel="preconnect" href="https://script.google.com">
 <link rel="preconnect" href="https://api.imgbb.com">
 <title>Civil Department — Empire World</title>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-18-wa-chunks">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-18-wa-chunks">
-<link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-08-18-wa-chunks">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-18-imt-staff">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-18-imt-staff">
+<link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-08-18-imt-staff">
 </head>
 <body>
 <div class="login-page show" id="loginPage">
@@ -156,7 +156,7 @@
           <div class="form-group"><label>Materials / Quantity</label><input type="text" id="j-materials" placeholder="e.g. 5 bags cement, 2m³ sand"></div>
           <div class="form-group"><label>Staff</label>
             <div class="staff-multi" id="j-staff-wrap">
-              <button type="button" class="staff-multi-toggle" id="j-staff-toggle" onclick="toggleStaffDropdown(event)">Select staff…</button>
+              <button type="button" class="staff-multi-toggle" id="j-staff-toggle" onclick="toggleStaffDropdown(event,'j')">Select staff…</button>
               <div class="staff-multi-panel" id="j-staff-panel" hidden></div>
               <input type="hidden" id="j-staff" value="">
             </div>
@@ -330,12 +330,12 @@
     </div>
   </div>
 </div>
-<script src="config.js?v=2026-08-18-wa-chunks"></script>
-<script src="assets/empire-storage.js?v=2026-08-18-wa-chunks"></script>
-<script src="assets/empire-api.js?v=2026-08-18-wa-chunks"></script>
-<script src="assets/empire-auth.js?v=2026-08-18-wa-chunks"></script>
-<script src="assets/empire-core.js?v=2026-08-18-wa-chunks"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-18-wa-chunks"></script>
+<script src="config.js?v=2026-08-18-imt-staff"></script>
+<script src="assets/empire-storage.js?v=2026-08-18-imt-staff"></script>
+<script src="assets/empire-api.js?v=2026-08-18-imt-staff"></script>
+<script src="assets/empire-auth.js?v=2026-08-18-imt-staff"></script>
+<script src="assets/empire-core.js?v=2026-08-18-imt-staff"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-18-imt-staff"></script>
 <div class="modal" id="imgModal" onclick="closeImg()"><img id="imgBig" style="max-width:92%;max-height:92%;border-radius:10px;"></div>
 <div class="modal" id="fieldReportModal" onclick="if(event.target===this)closeFieldReportModal()">
   <div class="modal-box field-report-modal-box" id="fieldReportModalBody" onclick="event.stopPropagation()"></div>
@@ -347,7 +347,7 @@ const CIVIL_STAFF = [
   'Mohammed Qasm','Rayan Hazhar','Farman Ahmed','Sear Samad','Aram Majid',
   'Dlawar Kamal','Shwan Ali','Halmat Abozaid','Sardam Sardar'
 ];
-let allJobs = [], allFieldReports = [], currentPhoto = '', currentInvoicePhoto = '', uploading = false, uploadingInvoice = false, _fieldReportEditingId = '', _fieldReportTransferring = false, _issueMonthlySaving = false, _staffExtra = '';
+let allJobs = [], allFieldReports = [], currentPhoto = '', currentInvoicePhoto = '', uploading = false, uploadingInvoice = false, _fieldReportEditingId = '', _fieldReportTransferring = false, _issueMonthlySaving = false, _staffExtraByScope = { j:'', imt:'' }, _staffOutsideBound = false;
 function tok(){ return empireGetToken(); }
 function currentUser(){ return empireGetUser(); }
 function PERMS(){ return empireGetPerms(); }
@@ -378,62 +378,101 @@ function handleJobPaste(e){ var items=e.clipboardData.items; for(var i=0;i<items
 function handleJobInvoiceFile(e){ var f=e.target.files&&e.target.files[0]; if(f)processInvoicePhoto(f); e.target.value=''; }
 function handleJobInvoicePaste(e){ var items=e.clipboardData.items; for(var i=0;i<items.length;i++){ if(items[i].type.indexOf('image')!==-1){ e.preventDefault(); processInvoicePhoto(items[i].getAsFile()); return; } } }
 function staffNorm_(s){ return String(s||'').toLowerCase().replace(/_/g,' ').replace(/\s+/g,' ').trim(); }
-function initStaffMulti(){
-  var panel=document.getElementById('j-staff-panel');
-  if(!panel||panel.dataset.ready==='1') return;
-  panel.innerHTML=CIVIL_STAFF.map(function(n){
-    return '<label class="staff-multi-opt"><input type="checkbox" value="'+n.replace(/"/g,'&quot;')+'" onchange="syncStaffFromChecks()"> '+n+'</label>';
-  }).join('');
-  panel.dataset.ready='1';
-  document.addEventListener('click', function(e){
-    var wrap=document.getElementById('j-staff-wrap');
-    if(wrap && !wrap.contains(e.target)) closeStaffDropdown();
-  });
+function staffScope_(scope){ return scope==='imt'?'imt':'j'; }
+function staffEls_(scope){
+  scope=staffScope_(scope);
+  return {
+    scope:scope,
+    wrap:document.getElementById(scope+'-staff-wrap'),
+    panel:document.getElementById(scope+'-staff-panel'),
+    toggle:document.getElementById(scope+'-staff-toggle'),
+    hidden:document.getElementById(scope+'-staff')
+  };
 }
-function toggleStaffDropdown(e){
+function initStaffMulti(scope){
+  scope=staffScope_(scope);
+  var els=staffEls_(scope);
+  if(!els.panel) return;
+  if(els.panel.dataset.ready==='1') return;
+  els.panel.innerHTML=CIVIL_STAFF.map(function(n){
+    return '<label class="staff-multi-opt"><input type="checkbox" value="'+n.replace(/"/g,'&quot;')+'" onchange="syncStaffFromChecks(\''+scope+'\')"> '+n+'</label>';
+  }).join('');
+  els.panel.dataset.ready='1';
+  if(!_staffOutsideBound){
+    _staffOutsideBound=true;
+    document.addEventListener('click', function(e){
+      ['j','imt'].forEach(function(sc){
+        var wrap=document.getElementById(sc+'-staff-wrap');
+        var panel=document.getElementById(sc+'-staff-panel');
+        if(wrap && panel && !wrap.contains(e.target)) panel.hidden=true;
+      });
+    });
+  }
+}
+function toggleStaffDropdown(e, scope){
   if(e) e.stopPropagation();
-  initStaffMulti();
-  var panel=document.getElementById('j-staff-panel');
+  scope=staffScope_(scope);
+  initStaffMulti(scope);
+  var panel=document.getElementById(scope+'-staff-panel');
   if(!panel) return;
+  ['j','imt'].forEach(function(sc){
+    var p=document.getElementById(sc+'-staff-panel');
+    if(p && sc!==scope) p.hidden=true;
+  });
   panel.hidden=!panel.hidden;
 }
-function closeStaffDropdown(){
-  var panel=document.getElementById('j-staff-panel');
-  if(panel) panel.hidden=true;
+function closeStaffDropdown(scope){
+  if(scope){
+    var panel=document.getElementById(staffScope_(scope)+'-staff-panel');
+    if(panel) panel.hidden=true;
+    return;
+  }
+  ['j','imt'].forEach(function(sc){
+    var p=document.getElementById(sc+'-staff-panel');
+    if(p) p.hidden=true;
+  });
 }
-function syncStaffFromChecks(){
-  var checks=document.querySelectorAll('#j-staff-panel input:checked');
+function syncStaffFromChecks(scope){
+  scope=staffScope_(scope);
+  var els=staffEls_(scope);
+  if(!els.panel || !els.hidden) return;
+  var checks=els.panel.querySelectorAll('input:checked');
   var names=Array.prototype.map.call(checks, function(c){ return c.value; });
   var all=names.slice();
-  if(_staffExtra) all=all.concat(_staffExtra.split(/,\s*/).filter(Boolean));
+  var extra=_staffExtraByScope[scope]||'';
+  if(extra) all=all.concat(extra.split(/,\s*/).filter(Boolean));
   var uniq=[]; all.forEach(function(n){ if(uniq.indexOf(n)<0) uniq.push(n); });
-  document.getElementById('j-staff').value=uniq.join(', ');
-  var btn=document.getElementById('j-staff-toggle');
-  if(btn) btn.textContent=uniq.length ? uniq.join(', ') : 'Select staff…';
+  els.hidden.value=uniq.join(', ');
+  if(els.toggle) els.toggle.textContent=uniq.length ? uniq.join(', ') : 'Select staff…';
 }
-function setStaffSelection(staffStr){
-  initStaffMulti();
-  _staffExtra='';
+function setStaffSelection(staffStr, scope){
+  scope=staffScope_(scope);
+  initStaffMulti(scope);
+  var els=staffEls_(scope);
+  if(!els.panel) return;
+  _staffExtraByScope[scope]='';
   var parts=String(staffStr||'').split(/[,;]+/).map(function(s){ return s.trim(); }).filter(Boolean);
   var leftover=[];
-  document.querySelectorAll('#j-staff-panel input').forEach(function(c){ c.checked=false; });
+  els.panel.querySelectorAll('input').forEach(function(c){ c.checked=false; });
   parts.forEach(function(p){
     var pl=staffNorm_(p);
     var found=CIVIL_STAFF.find(function(n){ return staffNorm_(n)===pl; });
     if(found){
-      var inp=document.querySelector('#j-staff-panel input[value="'+found+'"]');
+      var inp=els.panel.querySelector('input[value="'+found+'"]');
       if(inp) inp.checked=true;
     } else leftover.push(p);
   });
-  _staffExtra=leftover.join(', ');
-  syncStaffFromChecks();
+  _staffExtraByScope[scope]=leftover.join(', ');
+  syncStaffFromChecks(scope);
 }
-function clearStaffSelection(){
-  _staffExtra='';
-  document.querySelectorAll('#j-staff-panel input').forEach(function(c){ c.checked=false; });
-  var hid=document.getElementById('j-staff'); if(hid) hid.value='';
-  var btn=document.getElementById('j-staff-toggle'); if(btn) btn.textContent='Select staff…';
-  closeStaffDropdown();
+function clearStaffSelection(scope){
+  scope=staffScope_(scope);
+  _staffExtraByScope[scope]='';
+  var els=staffEls_(scope);
+  if(els.panel) els.panel.querySelectorAll('input').forEach(function(c){ c.checked=false; });
+  if(els.hidden) els.hidden.value='';
+  if(els.toggle) els.toggle.textContent='Select staff…';
+  closeStaffDropdown(scope);
 }
 function toggleRefundableUI(){
   var cb=document.getElementById('j-refundable');
@@ -857,8 +896,13 @@ function renderCivilIssueJobEditor(r){
     h+='<p class="field-report-editor-hint">Saved to the Location column in Jobs.</p>';
     h+='<label class="field-report-modal-label" for="imt-date">Date</label>';
     h+='<input type="date" id="imt-date" class="field-report-editor-place" value="'+_esc(issueMonthlyDate_(r))+'">';
-    h+='<label class="field-report-modal-label" for="imt-staff" style="margin-top:12px;display:block;">Staff</label>';
-    h+='<input type="text" id="imt-staff" class="field-report-editor-place" value="'+_esc(issueMonthlyStaffDefault_(r))+'" placeholder="Who worked on this">';
+    h+='<label class="field-report-modal-label" style="margin-top:12px;display:block;">Staff</label>';
+    h+='<div class="staff-multi" id="imt-staff-wrap">';
+    h+='<button type="button" class="staff-multi-toggle" id="imt-staff-toggle" onclick="toggleStaffDropdown(event,\'imt\')">Select staff…</button>';
+    h+='<div class="staff-multi-panel" id="imt-staff-panel" hidden></div>';
+    h+='<input type="hidden" id="imt-staff" value="">';
+    h+='</div>';
+    h+='<p class="field-report-editor-hint">Select one or more workers who worked on this job.</p>';
     h+='<label class="field-report-modal-label" for="imt-job" style="margin-top:12px;display:block;">Job description (edit note)</label>';
     h+='<textarea id="imt-job" class="field-report-editor-note" rows="4">'+_esc(issueMonthlyJobDefault_(r))+'</textarea>';
     h+='<p class="field-report-editor-hint">This text becomes the job line in Civil Jobs.</p>';
@@ -907,6 +951,7 @@ function renderCivilIssueJobEditor(r){
   h+='</div>';
   box.innerHTML=h;
   box.classList.add('field-report-modal-box');
+  if(pending && canEdit) setStaffSelection(issueMonthlyStaffDefault_(r), 'imt');
   if(typeof assignVoiceBindPlayers==='function') assignVoiceBindPlayers(box);
   modal.classList.add('show');
   var noteEl=document.getElementById('imt-job');
@@ -945,6 +990,7 @@ function saveIssueToMonthlyReport(id, goNext){
   var jobEl=document.getElementById('imt-job');
   var job=jobEl?String(jobEl.value||'').trim():'';
   if(!job){ alert('Please enter the job description.'); if(jobEl) jobEl.focus(); return; }
+  syncStaffFromChecks('imt');
   var fields={
     job:job,
     date:(document.getElementById('imt-date')||{}).value||'',
@@ -1666,13 +1712,13 @@ function doReset(){
 
 
 <div class="modal" id="issueModal" onclick="if(event.target===this)closeIssueModal()"><div class="modal-box" id="issueBox"></div></div>
-<script src="assets/empire-offline-queue.js?v=2026-08-18-wa-chunks"></script>
-<script src="assets/empire-assign-voice.js?v=2026-08-18-wa-chunks"></script>
-<script src="assets/issue-configs.js?v=2026-08-18-wa-chunks"></script>
+<script src="assets/empire-offline-queue.js?v=2026-08-18-imt-staff"></script>
+<script src="assets/empire-assign-voice.js?v=2026-08-18-imt-staff"></script>
+<script src="assets/issue-configs.js?v=2026-08-18-imt-staff"></script>
 <script>ISSUE_CFG=Object.assign({},ISSUE_CONFIGS.civil,{embeddedInDept:true,tabNavScope:'.side-nav-issue',tabPaneScope:'#issueMain',analyticsContentId:'analyticsContent',supervisorPage:'civil-department.html'});</script>
-<script src="assets/issue-tracker.js?v=2026-08-18-wa-chunks"></script>
-<script src="assets/issue-excel-export.js?v=2026-08-18-wa-chunks"></script>
-<script src="assets/issue-recycle-bin.js?v=2026-08-18-wa-chunks"></script>
+<script src="assets/issue-tracker.js?v=2026-08-18-imt-staff"></script>
+<script src="assets/issue-excel-export.js?v=2026-08-18-imt-staff"></script>
+<script src="assets/issue-recycle-bin.js?v=2026-08-18-imt-staff"></script>
 <script>
 (function(){
   window._applyIssuePerms = applyPerms;
