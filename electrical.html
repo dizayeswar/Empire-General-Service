@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-18-warehouse-exact-word">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-18-fr-workers">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -14,10 +14,10 @@
 <link rel="preconnect" href="https://api.imgbb.com">
 <title>Electrical Department — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer,body.auth-login-visible .modal{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-18-warehouse-exact-word">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-18-warehouse-exact-word">
-<link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-08-18-warehouse-exact-word">
-<link rel="stylesheet" href="assets/empire-electrical-materials.css?v=2026-08-18-warehouse-exact-word">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-18-fr-workers">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-18-fr-workers">
+<link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-08-18-fr-workers">
+<link rel="stylesheet" href="assets/empire-electrical-materials.css?v=2026-08-18-fr-workers">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -338,21 +338,26 @@
     </div>
   </div>
 </div>
-<script src="assets/empire-sw-update.js?v=2026-08-18-warehouse-exact-word"></script>
-<script src="config.js?v=2026-08-18-warehouse-exact-word"></script>
-<script src="assets/empire-storage.js?v=2026-08-18-warehouse-exact-word"></script>
-<script src="assets/empire-api.js?v=2026-08-18-warehouse-exact-word"></script>
-<script src="assets/empire-auth.js?v=2026-08-18-warehouse-exact-word"></script>
-<script src="assets/empire-core.js?v=2026-08-18-warehouse-exact-word"></script>
-<script src="assets/empire-assign-voice.js?v=2026-08-18-warehouse-exact-word"></script>
-<script src="assets/empire-electrical-materials.js?v=2026-08-18-warehouse-exact-word"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-18-fr-workers"></script>
+<script src="config.js?v=2026-08-18-fr-workers"></script>
+<script src="assets/empire-storage.js?v=2026-08-18-fr-workers"></script>
+<script src="assets/empire-api.js?v=2026-08-18-fr-workers"></script>
+<script src="assets/empire-auth.js?v=2026-08-18-fr-workers"></script>
+<script src="assets/empire-core.js?v=2026-08-18-fr-workers"></script>
+<script src="assets/empire-assign-voice.js?v=2026-08-18-fr-workers"></script>
+<script src="assets/empire-electrical-materials.js?v=2026-08-18-fr-workers"></script>
 <div class="modal" id="imgModal" onclick="closeImg()"><img id="imgBig" style="max-width:92%;max-height:92%;border-radius:10px;"></div>
 <div class="modal" id="fieldReportModal" onclick="if(event.target===this)closeFieldReportModal()">
   <div class="modal-box field-report-modal-box" id="fieldReportModalBody" onclick="event.stopPropagation()"></div>
 </div>
 <script>
 const JOB_PHOTO_FOLDER = 'jobs/electrical';
-let allJobs = [], allFieldReports = [], currentPhoto = '', currentInvoicePhoto = '', uploading = false, uploadingInvoice = false, currentFormType = 'maintenance', _fieldReportEditingId = '', _fieldReportTransferring = false, _issueMonthlySaving = false;
+const ELECTRIC_STAFF = [
+  'Hashim Omar','Ibrahim Sadi','Ahmad Sadullah','Mariwan Saeed',
+  'Soran Ibrahim','Darbaz Majid','Jasim Muhammad','Chia Mustafa',
+  'Wrya Muhammad','Ibrahim Muhammad','Muhammad Hassan','Harim Sarkawt'
+];
+let allJobs = [], allFieldReports = [], currentPhoto = '', currentInvoicePhoto = '', uploading = false, uploadingInvoice = false, currentFormType = 'maintenance', _fieldReportEditingId = '', _fieldReportTransferring = false, _issueMonthlySaving = false, _frStaffOutsideBound = false;
 function tok(){ return empireGetToken(); }
 function currentUser(){ return empireGetUser(); }
 function PERMS(){ return typeof empireGetElectricalPerms==='function' ? empireGetElectricalPerms() : empireGetPerms(); }
@@ -578,6 +583,105 @@ function fieldReportJobPhotosHtml_(photos, label) {
   h += '</div>';
   return h;
 }
+function electricStaffNorm_(s) {
+  return String(s || '').toLowerCase().replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+}
+function electricStaffRoster_() {
+  var names = [];
+  var src = null;
+  try {
+    src = (typeof ISSUE_CONFIGS !== 'undefined' && ISSUE_CONFIGS.electric && ISSUE_CONFIGS.electric.civilWorkers && ISSUE_CONFIGS.electric.civilWorkers.electric)
+      || (typeof ISSUE_CFG !== 'undefined' && ISSUE_CFG.civilWorkers && ISSUE_CFG.civilWorkers.electric);
+  } catch (e) {}
+  if (src && src.length) {
+    src.forEach(function (w) {
+      var n = String((w && (w.name || w.id)) || '').trim();
+      if (n && names.indexOf(n) < 0) names.push(n);
+    });
+  }
+  if (!names.length) names = ELECTRIC_STAFF.slice();
+  return names;
+}
+function fieldReportDefaultStaff_(r) {
+  var who = String((r && (r.workerName || r.reportedBy)) || '').trim();
+  if (typeof civilWorkerName === 'function' && r && r.reportedBy && !r.workerName) {
+    who = civilWorkerName(r.reportedBy) || who;
+  }
+  if (!who) return '';
+  var n = electricStaffNorm_(who);
+  var found = electricStaffRoster_().find(function (name) { return electricStaffNorm_(name) === n; });
+  return found || who;
+}
+function fieldReportWorkersPickerHtml_() {
+  var h = '<div class="field-report-modal-section field-report-workers-wrap">';
+  h += '<span class="field-report-modal-label">Workers</span>';
+  h += '<div class="staff-multi" id="fr-staff-wrap">';
+  h += '<button type="button" class="staff-multi-toggle" id="fr-staff-toggle" onclick="toggleFrStaffDropdown(event)">Select workers…</button>';
+  h += '<div class="staff-multi-panel" id="fr-staff-panel" hidden></div>';
+  h += '<input type="hidden" id="frEditStaff" value="">';
+  h += '</div>';
+  h += '<p class="field-report-editor-hint">Select one or more electricians who worked on this job. Saved to Staff in the monthly report.</p>';
+  h += '</div>';
+  return h;
+}
+function syncFrStaffFromChecks() {
+  var panel = document.getElementById('fr-staff-panel');
+  var hidden = document.getElementById('frEditStaff');
+  var toggle = document.getElementById('fr-staff-toggle');
+  if (!panel || !hidden) return;
+  var names = Array.prototype.map.call(panel.querySelectorAll('input:checked'), function (c) { return c.value; });
+  hidden.value = names.join(', ');
+  if (toggle) toggle.textContent = names.length ? names.join(', ') : 'Select workers…';
+}
+function setFrStaffSelection(staffStr) {
+  var panel = document.getElementById('fr-staff-panel');
+  if (!panel) return;
+  var parts = String(staffStr || '').split(/[,;]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+  panel.querySelectorAll('input').forEach(function (c) {
+    var n = electricStaffNorm_(c.value);
+    c.checked = parts.some(function (p) { return electricStaffNorm_(p) === n; });
+  });
+  syncFrStaffFromChecks();
+  var leftover = [];
+  parts.forEach(function (p) {
+    var n = electricStaffNorm_(p);
+    var matched = false;
+    panel.querySelectorAll('input').forEach(function (c) {
+      if (electricStaffNorm_(c.value) === n) matched = true;
+    });
+    if (!matched) leftover.push(p);
+  });
+  if (!leftover.length) return;
+  var hidden = document.getElementById('frEditStaff');
+  var toggle = document.getElementById('fr-staff-toggle');
+  var all = (hidden && hidden.value ? hidden.value.split(/,\s*/) : []).concat(leftover);
+  var uniq = [];
+  all.forEach(function (n) { if (n && uniq.indexOf(n) < 0) uniq.push(n); });
+  if (hidden) hidden.value = uniq.join(', ');
+  if (toggle) toggle.textContent = uniq.length ? uniq.join(', ') : 'Select workers…';
+}
+function initFrStaffPicker(selected) {
+  var panel = document.getElementById('fr-staff-panel');
+  if (!panel) return;
+  panel.innerHTML = electricStaffRoster_().map(function (n) {
+    return '<label class="staff-multi-opt"><input type="checkbox" value="'+_esc(n)+'" onchange="syncFrStaffFromChecks()"> '+_esc(n)+'</label>';
+  }).join('');
+  if (!_frStaffOutsideBound) {
+    _frStaffOutsideBound = true;
+    document.addEventListener('click', function (e) {
+      var wrap = document.getElementById('fr-staff-wrap');
+      var p = document.getElementById('fr-staff-panel');
+      if (wrap && p && !wrap.contains(e.target)) p.hidden = true;
+    });
+  }
+  setFrStaffSelection(selected || '');
+}
+function toggleFrStaffDropdown(e) {
+  if (e) e.stopPropagation();
+  var panel = document.getElementById('fr-staff-panel');
+  if (!panel) return;
+  panel.hidden = !panel.hidden;
+}
 function fieldReportNeedsInvoice_(r) {
   return fieldReportType_(r) === 'refundable' && fieldReportIsPending_(r) && !String(r.invoicePhoto || '').trim();
 }
@@ -795,12 +899,12 @@ function openFieldReportEditor(id){
   h+='<textarea id="frEditMaterials" class="field-report-editor-materials" rows="5" placeholder="e.g. 2 × SP-0080 Base light, 3 × SP-0008 mcb 1P 16A">'+_esc(materialsDisplay_(r.materials))+'</textarea>';
   h+='<p class="field-report-editor-hint">Separate each material with a comma, e.g. <strong>2 × Main Sensor 40a, 3 × Cable Single 2x2.5</strong>. Saved to Jobs and counted in Analytics.</p>';
   h+='</div>';
-  if(hasPhoto || hasInvoice || hasVoice || fieldReportType_(r)==='refundable'){
-    h+='<div class="field-report-editor-side">';
-    if(hasPhoto){
-      h+=fieldReportJobPhotosHtml_(jobPhotos, 'Job photos');
-    }
-    if(fieldReportType_(r)==='refundable'){
+  h+='<div class="field-report-editor-side">';
+  if(hasPhoto){
+    h+=fieldReportJobPhotosHtml_(jobPhotos, 'Job photos');
+  }
+  h+=fieldReportWorkersPickerHtml_();
+  if(fieldReportType_(r)==='refundable'){
       h+='<div class="field-report-modal-section field-report-modal-photo-wrap">';
       h+='<span class="field-report-modal-label">Invoice photo</span>';
       if(hasInvoice){
@@ -819,8 +923,7 @@ function openFieldReportEditor(id){
       h+=fieldReportModalVoiceHtml_(r.voiceNote);
       h+='</div>';
     }
-    h+='</div>';
-  }
+  h+='</div>';
   h+='</div>';
   h+='<div class="field-report-editor-actions">';
   h+='<button type="button" id="frTransferBtn" class="field-report-save-btn" onclick="transferFieldReport_(false)">Save to monthly report</button>';
@@ -830,6 +933,7 @@ function openFieldReportEditor(id){
   body.innerHTML=h;
   if(typeof assignVoiceBindPlayers==='function') assignVoiceBindPlayers(body);
   if(typeof empireMaterialsPickerMount==='function') empireMaterialsPickerMount('frEditMaterials', { autoOpen: true });
+  initFrStaffPicker(fieldReportDefaultStaff_(r));
   var amtEl=document.getElementById('frEditAmount');
   if(amtEl) amtEl.addEventListener('input', fieldReportHandleAmountInput_);
   document.getElementById('fieldReportModal').classList.add('show');
@@ -929,10 +1033,13 @@ function transferFieldReport_(openNext){
   var materialsEl=document.getElementById('frEditMaterials');
   var placeEl=document.getElementById('frEditPlace');
   var amountEl=document.getElementById('frEditAmount');
+  var staffEl=document.getElementById('frEditStaff');
   var note=noteEl?String(noteEl.value||'').trim():'';
   var materials=materialsEl?materialsDisplay_(materialsEl.value):'';
   var place=placeEl?String(placeEl.value||'').trim():'';
   var amount=amountEl?fieldReportParseAmount_(amountEl.value):0;
+  var staff=staffEl?String(staffEl.value||'').trim():'';
+  if(!staff && r) staff=String(r.workerName||r.reportedBy||'').trim();
   if(!note){ alert('Please enter the job description before saving.'); if(noteEl) noteEl.focus(); return; }
   if(r && fieldReportType_(r)==='refundable' && amount<=0){
     alert('Please enter the refundable amount (IQD) before saving.');
@@ -946,7 +1053,7 @@ function transferFieldReport_(openNext){
   var nextLabels=btnNext?[btnNext.textContent,'']:['',''];
   if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
   if(btnNext){ btnNext.disabled=true; btnNext.textContent='Saving…'; }
-  fetchJSONRetry({action:'transferElectricWorkerReport',id:id,note:note,materials:materials,place:place,amount:amount||'',token:tok()},1,30000)
+  fetchJSONRetry({action:'transferElectricWorkerReport',id:id,note:note,materials:materials,place:place,amount:amount||'',staff:staff,token:tok()},1,30000)
     .then(function(d){
       if(d&&d.ok===false){
         if(typeof forceSessionLogout==='function'&&forceSessionLogout(d)) return;
@@ -1621,12 +1728,12 @@ function doReset(){
 })();
 </script>
 <div class="modal" id="issueModal" onclick="if(event.target===this)closeIssueModal()"><div class="modal-box" id="issueBox"></div></div>
-<script src="assets/empire-offline-queue.js?v=2026-08-18-warehouse-exact-word"></script>
-<script src="assets/issue-configs.js?v=2026-08-18-warehouse-exact-word"></script>
+<script src="assets/empire-offline-queue.js?v=2026-08-18-fr-workers"></script>
+<script src="assets/issue-configs.js?v=2026-08-18-fr-workers"></script>
 <script>ISSUE_CFG=Object.assign({},ISSUE_CONFIGS.electric,{embeddedInDept:true,tabNavScope:'.side-nav-issue',tabPaneScope:'#issueMain',analyticsContentId:'analyticsContent'});</script>
-<script src="assets/issue-tracker.js?v=2026-08-18-warehouse-exact-word"></script>
-<script src="assets/issue-excel-export.js?v=2026-08-18-warehouse-exact-word"></script>
-<script src="assets/issue-recycle-bin.js?v=2026-08-18-warehouse-exact-word"></script>
+<script src="assets/issue-tracker.js?v=2026-08-18-fr-workers"></script>
+<script src="assets/issue-excel-export.js?v=2026-08-18-fr-workers"></script>
+<script src="assets/issue-recycle-bin.js?v=2026-08-18-fr-workers"></script>
 <script>
 (function(){
   window._applyIssuePerms = applyPerms;

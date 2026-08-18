@@ -622,7 +622,7 @@ export async function handleTransferElectricWorkerReport(body: Record<string, un
     job: note,
     location: String(body.place || report.place || ""),
     materials: String(body.materials || report.materials || ""),
-    staff: String(report.worker_name || report.reported_by || ""),
+    staff: String(body.staff || report.worker_name || report.reported_by || "").trim(),
     type: String(report.report_type) === "refundable" ? "refundable" : "general",
     photo: jobPhotos.length ? formatFixedPhotosForStorage(jobPhotos) : String(report.photo || ""),
     invoice_photo: String(report.invoice_photo || "").trim(),

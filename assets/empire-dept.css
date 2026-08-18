@@ -617,7 +617,7 @@ tr.job-row:hover {
 }
 
 .field-report-modal-box {
-  max-width: 640px;
+  max-width: 700px;
   padding: 22px 24px 24px;
 }
 
@@ -855,9 +855,34 @@ tr.job-row:hover {
 @media (min-width: 560px) {
   .field-report-editor-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 220px;
+    grid-template-columns: minmax(0, 1fr) 240px;
     align-items: start;
   }
+}
+
+.field-report-editor-side {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.field-report-workers-wrap .staff-multi-toggle {
+  min-height: 38px;
+  padding: 8px 10px;
+  font-size: 13px;
+  background: var(--input-bg, #fff);
+  border: 2px solid var(--input-border, var(--card-border));
+  border-radius: 10px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.field-report-workers-wrap .staff-multi-panel {
+  position: static;
+  box-shadow: none;
+  width: 100%;
+  max-height: 260px;
 }
 
 .field-report-editor-note {

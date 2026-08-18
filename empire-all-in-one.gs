@@ -3635,7 +3635,7 @@ function handleTransferElectricWorkerReport(body, auth) {
     return {ok:false,success:false,error:'missing_amount',message:'Enter the refundable amount (IQD) before saving to the monthly report.'};
   }
   var jobType = reportType === 'refundable' ? 'refundable' : 'general';
-  var workerName = String(row[7] || row[6] || '');
+  var workerName = String(body.staff || row[7] || row[6] || '').trim();
   var jobPhotos = parseFixedPhotosFromCell_(String(row[4] || ''));
   var photo = jobPhotos.length ? jobPhotos[0] : '';
   var materials = String(body.materials || row[16] || '').trim() || '0';
