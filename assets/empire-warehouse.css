@@ -1,4 +1,4 @@
-/* Empire Warehouse — Goods Issue Note (screen + print) */
+/* Empire Warehouse — Goods Issue Note (screen). Print uses a Word-layout popup. */
 .wh-app {
   max-width: 980px;
   margin: 0 auto;
@@ -28,11 +28,33 @@
   letter-spacing: .02em;
   color: #111;
 }
-.wh-top-grid {
-  display: grid;
-  grid-template-columns: 1.2fr 1fr;
-  gap: 10px 16px;
+.wh-meta {
+  width: 100%;
+  border-collapse: collapse;
   margin-bottom: 10px;
+}
+.wh-meta td {
+  border: 1px solid #111;
+  padding: 8px;
+  vertical-align: top;
+}
+.wh-meta td.lab {
+  font-weight: 800;
+  font-size: 12px;
+  width: 16%;
+  white-space: nowrap;
+  background: #f7f7f7;
+}
+.wh-meta td.top { vertical-align: top; }
+.wh-meta input {
+  width: 100%;
+  border: 1px solid #888;
+  border-radius: 0;
+  padding: 6px 8px;
+  font-size: 13px;
+  font-family: inherit;
+  background: #fff;
+  color: #111;
 }
 .wh-field {
   display: flex;
@@ -59,12 +81,23 @@
   background: #fff;
   color: #111;
 }
+.wh-inline {
+  display: inline-block;
+  width: min(280px, 60%);
+  border: none;
+  border-bottom: 1px solid #333;
+  padding: 2px 6px;
+  font-size: 13px;
+  font-family: inherit;
+  background: transparent;
+  color: #111;
+}
 .wh-type-row {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   align-items: center;
-  margin: 8px 0 12px;
+  margin: 8px 0 0;
 }
 .wh-type-row > strong { font-size: 13px; }
 .wh-type-btn {
@@ -83,7 +116,7 @@
   color: #fff;
 }
 .wh-intro {
-  margin: 8px 0 10px;
+  margin: 8px 0 6px;
   font-size: 13px;
   color: #222;
 }
@@ -225,62 +258,13 @@
   margin-top: 14px;
 }
 @media (max-width: 720px) {
-  .wh-top-grid,
   .wh-maint-body,
   .wh-sigs { grid-template-columns: 1fr; }
-}
-
-/* Print / PDF — Word-like Goods Issue Note surface */
-@media print {
-  @page { size: A4; margin: 12mm; }
-  html, body {
-    background: #fff !important;
-    color: #000 !important;
-  }
-  body * { visibility: hidden; }
-  #whPrintRoot, #whPrintRoot * { visibility: visible; }
-  #whPrintRoot {
-    position: absolute;
-    left: 0;
-    top: 0;
+  .wh-meta,
+  .wh-meta tbody,
+  .wh-meta tr,
+  .wh-meta td {
+    display: block;
     width: 100%;
-    padding: 0;
-    margin: 0;
-    box-shadow: none !important;
-    border-width: 1.5px !important;
   }
-  .wh-toolbar,
-  .wh-actions-print,
-  .login-page,
-  .side-nav,
-  .app-shell > aside,
-  #whoLabel,
-  .no-print { display: none !important; }
-  .wh-type-btn {
-    border: 1.5px solid #000 !important;
-    background: #fff !important;
-    color: #000 !important;
-    box-shadow: none !important;
-  }
-  .wh-type-btn[aria-pressed="true"] {
-    background: #000 !important;
-    color: #fff !important;
-  }
-  .wh-field input,
-  .wh-lines input,
-  .wh-combo input {
-    border: none !important;
-    border-bottom: 1px solid #000 !important;
-    background: transparent !important;
-    padding: 2px 0 !important;
-    border-radius: 0 !important;
-  }
-  .wh-combo-list { display: none !important; }
-  .wh-sig-pad {
-    background: #fff !important;
-    min-height: 80px;
-  }
-  .wh-sig-pad .hint { display: none !important; }
-  .wh-maint.wh-maint-disabled { opacity: 1; }
-  .wh-error { display: none !important; }
 }
