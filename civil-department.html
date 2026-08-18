@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-18-electrical-mep-materials">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-18-civil-fixed-to-jobs-photo">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,10 +13,10 @@
 <link rel="preconnect" href="https://script.google.com">
 <link rel="preconnect" href="https://api.imgbb.com">
 <title>Civil Department — Empire World</title>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-18-electrical-mep-materials">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-18-electrical-mep-materials">
-<link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-08-18-electrical-mep-materials">
-<link rel="stylesheet" href="assets/empire-electrical-materials.css?v=2026-08-18-electrical-mep-materials">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-18-civil-fixed-to-jobs-photo">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-18-civil-fixed-to-jobs-photo">
+<link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-08-18-civil-fixed-to-jobs-photo">
+<link rel="stylesheet" href="assets/empire-electrical-materials.css?v=2026-08-18-civil-fixed-to-jobs-photo">
 </head>
 <body>
 <div class="login-page show" id="loginPage">
@@ -331,12 +331,12 @@
     </div>
   </div>
 </div>
-<script src="config.js?v=2026-08-18-electrical-mep-materials"></script>
-<script src="assets/empire-storage.js?v=2026-08-18-electrical-mep-materials"></script>
-<script src="assets/empire-api.js?v=2026-08-18-electrical-mep-materials"></script>
-<script src="assets/empire-auth.js?v=2026-08-18-electrical-mep-materials"></script>
-<script src="assets/empire-core.js?v=2026-08-18-electrical-mep-materials"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-18-electrical-mep-materials"></script>
+<script src="config.js?v=2026-08-18-civil-fixed-to-jobs-photo"></script>
+<script src="assets/empire-storage.js?v=2026-08-18-civil-fixed-to-jobs-photo"></script>
+<script src="assets/empire-api.js?v=2026-08-18-civil-fixed-to-jobs-photo"></script>
+<script src="assets/empire-auth.js?v=2026-08-18-civil-fixed-to-jobs-photo"></script>
+<script src="assets/empire-core.js?v=2026-08-18-civil-fixed-to-jobs-photo"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-18-civil-fixed-to-jobs-photo"></script>
 <div class="modal" id="imgModal" onclick="closeImg()"><img id="imgBig" style="max-width:92%;max-height:92%;border-radius:10px;"></div>
 <div class="modal" id="fieldReportModal" onclick="if(event.target===this)closeFieldReportModal()">
   <div class="modal-box field-report-modal-box" id="fieldReportModalBody" onclick="event.stopPropagation()"></div>
@@ -600,7 +600,7 @@ function renderJobs(){
   rows.forEach(r=>{
     num++;
     var typeBadge='<span class="badge '+(r.type==='refundable'?'refundable':'general')+'">'+(r.type==='refundable'?'Refundable':'General')+'</span>';
-    var jobPhotoUrl=String(r.photo||'').split('|')[0]||'';
+    var jobPhotoUrl=civilJobPhotoUrl_(r);
     var photo = jobPhotoUrl
       ? ((typeof empireThumbImgHtml === 'function')
           ? empireThumbImgHtml(jobPhotoUrl, 'thumb', '', 120).replace('class="thumb"', 'class="thumb" onclick="bigImg(this.dataset.full||this.src)"')
@@ -636,7 +636,7 @@ function editJob(id){
   document.getElementById('j-notes').value=r.notes||'';
   document.getElementById('j-amount').value=fieldReportAmountInputValue_(r);
   toggleAmount();
-  currentPhoto=String(r.photo||'').split('|')[0]||'';
+  currentPhoto=civilJobPhotoUrl_(r);
   if(currentPhoto){ document.getElementById('j-image').src=currentPhoto; document.getElementById('j-image').style.display='block'; document.getElementById('j-imageArea').innerHTML='✅ Photo loaded'; }
   else { document.getElementById('j-image').style.display='none'; document.getElementById('j-imageArea').innerHTML='Click here and paste (Ctrl+V)'; }
   currentInvoicePhoto=r.invoicePhoto||'';
@@ -845,7 +845,36 @@ function issueMonthlyPhoto_(r){
   for(var i=0;i<comps.length;i++){
     if(comps[i].photos&&comps[i].photos.length) return comps[i].photos[0];
   }
-  return String(r.photo||'').trim();
+  // Do not fall back to the problem photo — Jobs should use the Fixed photo.
+  return '';
+}
+function civilIssueFixedPhotoOnly_(r){
+  return issueMonthlyPhoto_(r);
+}
+function resolveCivilIssueJobPhoto_(id){
+  var hid=document.getElementById('imt-photo');
+  var fromInput=String((hid&&hid.value)||'').trim();
+  var it=null;
+  if(typeof getAllIssues==='function'){
+    it=getAllIssues().find(function(x){ return String(x.id)===String(id); });
+  }
+  var problem=String((it&&it.photo)||'').trim();
+  var fixed=it?civilIssueFixedPhotoOnly_(it):'';
+  // Prefer Fixed (input or issue). Never use the problem photo for Jobs.
+  if(fromInput && fromInput.indexOf('http')===0 && fromInput!==problem) return fromInput;
+  if(fixed && fixed.indexOf('http')===0) return fixed;
+  return '';
+}
+function civilJobPhotoUrl_(r){
+  var raw=String((r&&r.photo)||'').trim();
+  if(!raw) return '';
+  if(raw.charAt(0)==='['){
+    try{
+      var a=JSON.parse(raw);
+      if(Array.isArray(a)&&a.length) return String(a[0]||'').trim();
+    }catch(e){}
+  }
+  return raw.split('|')[0]||'';
 }
 function issueMonthlyMonthLabel_(r){
   var fake={date:issueMonthlyDate_(r)};
@@ -868,26 +897,8 @@ function toggleCivilIssueAssignPanel_(){
 }
 function civilIssueJobPhotosHtml_(r, canEdit){
   var problem=String((r&&r.photo)||'').trim();
-  var fixed=issueMonthlyPhoto_(r);
-  // Prefer a dedicated fixed photo over problem photo for the Fixed column display
-  var fixedOnly='';
-  if(r&&r.fixedPhotos&&r.fixedPhotos.length) fixedOnly=r.fixedPhotos[0];
-  else if(r&&r.fixedPhoto){
-    try{
-      var p=JSON.parse(r.fixedPhoto);
-      if(Array.isArray(p)&&p.length) fixedOnly=p[0];
-      else if(String(r.fixedPhoto).indexOf('http')===0) fixedOnly=r.fixedPhoto;
-    }catch(e){
-      if(String(r.fixedPhoto).indexOf('http')===0) fixedOnly=r.fixedPhoto;
-    }
-  }
-  if(!fixedOnly){
-    var comps=r.workerCompletions||[];
-    for(var i=0;i<comps.length;i++){
-      if(comps[i].photos&&comps[i].photos.length){ fixedOnly=comps[i].photos[0]; break; }
-    }
-  }
-  var jobPhoto=fixedOnly||fixed||problem;
+  var fixedOnly=civilIssueFixedPhotoOnly_(r);
+  var jobPhoto=fixedOnly; // Jobs photo = Fixed only (not the problem photo)
   var h='<div class="beforeafter" style="margin-top:14px;">';
   h+='<div class="beforeafter-problem"><p style="color:var(--text-soft);margin-bottom:6px;">Problem</p>';
   h+=problem?'<img src="'+problem+'" onclick="bigImg(this.src)" alt="Problem photo">':'<p style="color:var(--text-faint);">No photo</p>';
@@ -897,7 +908,7 @@ function civilIssueJobPhotosHtml_(r, canEdit){
   if(fixedOnly){
     h+='<img id="imt-fixed-img" src="'+fixedOnly+'" onclick="bigImg(this.src)" alt="Fixed photo" style="max-width:100%;border-radius:8px;cursor:pointer;">';
   } else {
-    h+='<p id="imt-fixed-empty" style="color:var(--text-faint);margin:0 0 8px;">Not fixed yet</p>';
+    h+='<p id="imt-fixed-empty" style="color:var(--text-faint);margin:0 0 8px;">Not fixed yet — upload below for Jobs photo</p>';
   }
   h+='</div>';
   if(canEdit){
@@ -929,7 +940,8 @@ function processImtFixedPhoto(file){
   var area=document.getElementById('imt-fixed-area');
   if(area) area.innerHTML='⏳ Uploading…';
   uploadingImtFixed=true;
-  compressImage(file, function(url){
+  var folder=(typeof JOB_PHOTO_FOLDER==='string' && JOB_PHOTO_FOLDER) ? JOB_PHOTO_FOLDER : 'jobs/civil';
+  var done=function(url){
     uploadingImtFixed=false;
     if(url){
       showImtFixedPreview_(url);
@@ -943,9 +955,11 @@ function processImtFixedPhoto(file){
         }
       }
     } else if(area){
-      area.innerHTML='❌ Upload failed, try again';
+      area.innerHTML='❌ '+(_lastEmpireUploadError||'Upload failed, try again');
     }
-  });
+  };
+  if(typeof empireCompressImage==='function') empireCompressImage(file, folder, done, { maxSize: 1400, quality: 0.7 });
+  else compressImage(file, done);
 }
 function handleImtFixedFile(e){
   var f=e.target.files&&e.target.files[0];
@@ -1088,7 +1102,7 @@ function saveIssueToMonthlyReport(id, goNext){
     materials:String((document.getElementById('imt-materials')||{}).value||'').trim(),
     staff:String((document.getElementById('imt-staff')||{}).value||'').trim(),
     amount:'',
-    photo:String((document.getElementById('imt-photo')||{}).value||'').trim()
+    photo:resolveCivilIssueJobPhoto_(id)
   };
   _issueMonthlySaving=true;
   var btn=document.getElementById('imt-save-btn');
@@ -1802,15 +1816,15 @@ function doReset(){
 
 
 <div class="modal" id="issueModal" onclick="if(event.target===this)closeIssueModal()"><div class="modal-box" id="issueBox"></div></div>
-<script src="assets/empire-electrical-materials.js?v=2026-08-18-electrical-mep-materials"></script>
-<script src="assets/empire-civil-materials.js?v=2026-08-18-electrical-mep-materials"></script>
-<script src="assets/empire-offline-queue.js?v=2026-08-18-electrical-mep-materials"></script>
-<script src="assets/empire-assign-voice.js?v=2026-08-18-electrical-mep-materials"></script>
-<script src="assets/issue-configs.js?v=2026-08-18-electrical-mep-materials"></script>
+<script src="assets/empire-electrical-materials.js?v=2026-08-18-civil-fixed-to-jobs-photo"></script>
+<script src="assets/empire-civil-materials.js?v=2026-08-18-civil-fixed-to-jobs-photo"></script>
+<script src="assets/empire-offline-queue.js?v=2026-08-18-civil-fixed-to-jobs-photo"></script>
+<script src="assets/empire-assign-voice.js?v=2026-08-18-civil-fixed-to-jobs-photo"></script>
+<script src="assets/issue-configs.js?v=2026-08-18-civil-fixed-to-jobs-photo"></script>
 <script>ISSUE_CFG=Object.assign({},ISSUE_CONFIGS.civil,{embeddedInDept:true,tabNavScope:'.side-nav-issue',tabPaneScope:'#issueMain',analyticsContentId:'analyticsContent',supervisorPage:'civil-department.html'});</script>
-<script src="assets/issue-tracker.js?v=2026-08-18-electrical-mep-materials"></script>
-<script src="assets/issue-excel-export.js?v=2026-08-18-electrical-mep-materials"></script>
-<script src="assets/issue-recycle-bin.js?v=2026-08-18-electrical-mep-materials"></script>
+<script src="assets/issue-tracker.js?v=2026-08-18-civil-fixed-to-jobs-photo"></script>
+<script src="assets/issue-excel-export.js?v=2026-08-18-civil-fixed-to-jobs-photo"></script>
+<script src="assets/issue-recycle-bin.js?v=2026-08-18-civil-fixed-to-jobs-photo"></script>
 <script>
 (function(){
   window._applyIssuePerms = applyPerms;

@@ -885,6 +885,7 @@ export async function handleTransferCivilIssueCompletion(body: Record<string, un
   if (String(issue.monthly_transfer_status) === "transferred" || issue.transferred_job_id) {
     return { ok: false, success: false, error: "already_transferred" };
   }
+  const bodyPhoto = String(body.photo || "").trim();
   const fixedPhoto = String(issue.fixed_photo || "").trim();
   const problemPhoto = String(issue.photo || "").trim();
   let photoFromFixed = "";
@@ -900,6 +901,15 @@ export async function handleTransferCivilIssueCompletion(body: Record<string, un
       photoFromFixed = fixedPhoto;
     }
   }
+  // Jobs photo = Fixed photo. Prefer uploaded body.photo when it is not the problem shot.
+  let jobPhoto = "";
+  if (bodyPhoto.indexOf("http") === 0 && bodyPhoto !== problemPhoto) {
+    jobPhoto = bodyPhoto;
+  } else if (photoFromFixed) {
+    jobPhoto = photoFromFixed;
+  } else if (bodyPhoto.indexOf("http") === 0) {
+    jobPhoto = bodyPhoto !== problemPhoto ? bodyPhoto : "";
+  }
   const jobId = `job-${Date.now()}`;
   const jobRow = {
     id: jobId,
@@ -909,7 +919,7 @@ export async function handleTransferCivilIssueCompletion(body: Record<string, un
     materials: String(body.materials || ""),
     staff: String(body.staff || issue.fixed_by || ""),
     type: "general",
-    photo: String(body.photo || photoFromFixed || problemPhoto || ""),
+    photo: jobPhoto,
     invoice_photo: String(body.invoicePhoto || ""),
     notes: "",
     created_by: String(body.username || auth.username || ""),
@@ -917,13 +927,18 @@ export async function handleTransferCivilIssueCompletion(body: Record<string, un
     amount: String(body.amount || ""),
   };
   await sb().from("civil_jobs").insert(jobRow);
-  await sb().from("civil_issues").update({
+  const issuePatch: Record<string, unknown> = {
     monthly_transfer_status: "transferred",
     transferred_job_id: jobId,
     edited_job_note: jobNote,
     transferred_at: isoNow(),
     transferred_by: String(auth.username || ""),
-  }).eq("id", id);
+  };
+  // Persist Fixed photo on the issue when the desk uploaded one for this save.
+  if (jobPhoto && jobPhoto !== problemPhoto) {
+    issuePatch.fixed_photo = jobPhoto;
+  }
+  await sb().from("civil_issues").update(issuePatch).eq("id", id);
   return {
     ok: true,
     success: true,
