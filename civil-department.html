@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-18-imt-staff">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-18-imt-fixed-photo">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,9 +13,9 @@
 <link rel="preconnect" href="https://script.google.com">
 <link rel="preconnect" href="https://api.imgbb.com">
 <title>Civil Department — Empire World</title>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-18-imt-staff">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-18-imt-staff">
-<link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-08-18-imt-staff">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-18-imt-fixed-photo">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-18-imt-fixed-photo">
+<link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-08-18-imt-fixed-photo">
 </head>
 <body>
 <div class="login-page show" id="loginPage">
@@ -330,12 +330,12 @@
     </div>
   </div>
 </div>
-<script src="config.js?v=2026-08-18-imt-staff"></script>
-<script src="assets/empire-storage.js?v=2026-08-18-imt-staff"></script>
-<script src="assets/empire-api.js?v=2026-08-18-imt-staff"></script>
-<script src="assets/empire-auth.js?v=2026-08-18-imt-staff"></script>
-<script src="assets/empire-core.js?v=2026-08-18-imt-staff"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-18-imt-staff"></script>
+<script src="config.js?v=2026-08-18-imt-fixed-photo"></script>
+<script src="assets/empire-storage.js?v=2026-08-18-imt-fixed-photo"></script>
+<script src="assets/empire-api.js?v=2026-08-18-imt-fixed-photo"></script>
+<script src="assets/empire-auth.js?v=2026-08-18-imt-fixed-photo"></script>
+<script src="assets/empire-core.js?v=2026-08-18-imt-fixed-photo"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-18-imt-fixed-photo"></script>
 <div class="modal" id="imgModal" onclick="closeImg()"><img id="imgBig" style="max-width:92%;max-height:92%;border-radius:10px;"></div>
 <div class="modal" id="fieldReportModal" onclick="if(event.target===this)closeFieldReportModal()">
   <div class="modal-box field-report-modal-box" id="fieldReportModalBody" onclick="event.stopPropagation()"></div>
@@ -347,7 +347,7 @@ const CIVIL_STAFF = [
   'Mohammed Qasm','Rayan Hazhar','Farman Ahmed','Sear Samad','Aram Majid',
   'Dlawar Kamal','Shwan Ali','Halmat Abozaid','Sardam Sardar'
 ];
-let allJobs = [], allFieldReports = [], currentPhoto = '', currentInvoicePhoto = '', uploading = false, uploadingInvoice = false, _fieldReportEditingId = '', _fieldReportTransferring = false, _issueMonthlySaving = false, _staffExtraByScope = { j:'', imt:'' }, _staffOutsideBound = false;
+let allJobs = [], allFieldReports = [], currentPhoto = '', currentInvoicePhoto = '', uploading = false, uploadingInvoice = false, uploadingImtFixed = false, _fieldReportEditingId = '', _fieldReportTransferring = false, _issueMonthlySaving = false, _staffExtraByScope = { j:'', imt:'' }, _staffOutsideBound = false;
 function tok(){ return empireGetToken(); }
 function currentUser(){ return empireGetUser(); }
 function PERMS(){ return empireGetPerms(); }
@@ -865,9 +865,107 @@ function toggleCivilIssueAssignPanel_(){
   var btn=document.getElementById('civilIssueAssignToggle');
   if(btn) btn.textContent=open?'Hide assign workers':'Assign workers';
 }
+function civilIssueJobPhotosHtml_(r, canEdit){
+  var problem=String((r&&r.photo)||'').trim();
+  var fixed=issueMonthlyPhoto_(r);
+  // Prefer a dedicated fixed photo over problem photo for the Fixed column display
+  var fixedOnly='';
+  if(r&&r.fixedPhotos&&r.fixedPhotos.length) fixedOnly=r.fixedPhotos[0];
+  else if(r&&r.fixedPhoto){
+    try{
+      var p=JSON.parse(r.fixedPhoto);
+      if(Array.isArray(p)&&p.length) fixedOnly=p[0];
+      else if(String(r.fixedPhoto).indexOf('http')===0) fixedOnly=r.fixedPhoto;
+    }catch(e){
+      if(String(r.fixedPhoto).indexOf('http')===0) fixedOnly=r.fixedPhoto;
+    }
+  }
+  if(!fixedOnly){
+    var comps=r.workerCompletions||[];
+    for(var i=0;i<comps.length;i++){
+      if(comps[i].photos&&comps[i].photos.length){ fixedOnly=comps[i].photos[0]; break; }
+    }
+  }
+  var jobPhoto=fixedOnly||fixed||problem;
+  var h='<div class="beforeafter" style="margin-top:14px;">';
+  h+='<div class="beforeafter-problem"><p style="color:var(--text-soft);margin-bottom:6px;">Problem</p>';
+  h+=problem?'<img src="'+problem+'" onclick="bigImg(this.src)" alt="Problem photo">':'<p style="color:var(--text-faint);">No photo</p>';
+  h+='</div>';
+  h+='<div class="beforeafter-fixed"><p style="color:var(--text-soft);margin-bottom:6px;">Fixed</p>';
+  h+='<div id="imt-fixed-preview">';
+  if(fixedOnly){
+    h+='<img id="imt-fixed-img" src="'+fixedOnly+'" onclick="bigImg(this.src)" alt="Fixed photo" style="max-width:100%;border-radius:8px;cursor:pointer;">';
+  } else {
+    h+='<p id="imt-fixed-empty" style="color:var(--text-faint);margin:0 0 8px;">Not fixed yet</p>';
+  }
+  h+='</div>';
+  if(canEdit){
+    h+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0 8px;">';
+    h+='<button type="button" onclick="document.getElementById(\'imt-fixed-file\').click()"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/><circle cx="14" cy="15" r="1"/></svg></span> Upload / Camera</button>';
+    h+='<span style="color:var(--text-soft);font-size:12px;">or paste below</span>';
+    h+='<input type="file" id="imt-fixed-file" accept="image/*" style="display:none" onchange="handleImtFixedFile(event)">';
+    h+='</div>';
+    h+='<div class="image-upload" id="imt-fixed-area" onpaste="handleImtFixedPaste(event)" style="min-height:56px;padding:10px;font-size:13px;">Click here and paste (Ctrl+V)</div>';
+  }
+  h+='</div></div>';
+  h+='<input type="hidden" id="imt-photo" value="'+_esc(jobPhoto)+'">';
+  return h;
+}
+function showImtFixedPreview_(url){
+  var preview=document.getElementById('imt-fixed-preview');
+  var area=document.getElementById('imt-fixed-area');
+  var hid=document.getElementById('imt-photo');
+  if(hid) hid.value=url||'';
+  if(preview){
+    preview.innerHTML=url
+      ? '<img id="imt-fixed-img" src="'+url+'" onclick="bigImg(this.src)" alt="Fixed photo" style="max-width:100%;border-radius:8px;cursor:pointer;">'
+      : '<p id="imt-fixed-empty" style="color:var(--text-faint);margin:0 0 8px;">Not fixed yet</p>';
+  }
+  if(area) area.innerHTML=url?'✅ Fixed photo uploaded':'Click here and paste (Ctrl+V)';
+}
+function processImtFixedPhoto(file){
+  if(!file) return;
+  var area=document.getElementById('imt-fixed-area');
+  if(area) area.innerHTML='⏳ Uploading…';
+  uploadingImtFixed=true;
+  compressImage(file, function(url){
+    uploadingImtFixed=false;
+    if(url){
+      showImtFixedPreview_(url);
+      var issueId=(window._civilIssueEditorId||'');
+      if(issueId && typeof getAllIssues==='function'){
+        var it=getAllIssues().find(function(x){ return String(x.id)===String(issueId); });
+        if(it){
+          it.fixedPhoto=url;
+          it.fixedPhotos=[url];
+          if(typeof writeIssuesCacheAsync==='function') writeIssuesCacheAsync(getAllIssues());
+        }
+      }
+    } else if(area){
+      area.innerHTML='❌ Upload failed, try again';
+    }
+  });
+}
+function handleImtFixedFile(e){
+  var f=e.target.files&&e.target.files[0];
+  if(f) processImtFixedPhoto(f);
+  e.target.value='';
+}
+function handleImtFixedPaste(e){
+  var items=e.clipboardData&&e.clipboardData.items;
+  if(!items) return;
+  for(var i=0;i<items.length;i++){
+    if(items[i].type.indexOf('image')!==-1){
+      e.preventDefault();
+      processImtFixedPhoto(items[i].getAsFile());
+      return;
+    }
+  }
+}
 function renderCivilIssueJobEditor(r){
   if(!r) return false;
   if(typeof issueIsRoutedAway==='function' && issueIsRoutedAway(r)) return false;
+  window._civilIssueEditorId=String(r.id||'');
   var box=document.getElementById('issueBox');
   var modal=document.getElementById('issueModal');
   if(!box||!modal) return false;
@@ -875,7 +973,6 @@ function renderCivilIssueJobEditor(r){
   var already=!pending && (r.transferredJobId || String(r.monthlyTransferStatus||'').toLowerCase()==='transferred');
   var queue=civilIssuePendingQueue_();
   var pos=queue.findIndex(function(x){ return String(x.id)===String(r.id); });
-  var photo=issueMonthlyPhoto_(r);
   var canEdit=!(PERMS().edit===false);
   var h='<div class="field-report-modal field-report-editor civil-issue-job-editor">';
   h+='<span class="close-x" onclick="closeIssueModal()" aria-label="Close">&times;</span>';
@@ -909,17 +1006,7 @@ function renderCivilIssueJobEditor(r){
     h+='<label class="field-report-modal-label" for="imt-materials" style="margin-top:14px;display:block;">Materials / quantity</label>';
     h+='<textarea id="imt-materials" class="field-report-editor-materials" rows="4" placeholder="e.g. 5 bags cement, 2m³ sand">'+_esc(issueMonthlyMaterialsDefault_(r))+'</textarea>';
     h+='<p class="field-report-editor-hint">Type materials here for now. A materials list like Electrical can be added later.</p>';
-    h+='</div>';
-    if(photo){
-      h+='<div class="field-report-editor-side">';
-      h+='<div class="field-report-modal-section field-report-modal-photo-wrap">';
-      h+='<span class="field-report-modal-label">Photo</span>';
-      h+='<div class="field-report-modal-photo-frame">';
-      h+='<img class="field-report-modal-photo" src="'+photo+'" onclick="bigImg(this.src)" alt="Issue photo">';
-      h+='</div></div></div>';
-    }
-    h+='</div>';
-    h+='<input type="hidden" id="imt-photo" value="'+_esc(photo)+'">';
+    h+='</div></div>';
   }
   if(r.status!=='fixed' && typeof assignBoxHtml==='function' && canEdit){
     h+='<div style="margin:14px 0 8px;"><button type="button" id="civilIssueAssignToggle" class="field-report-cancel-btn" onclick="toggleCivilIssueAssignPanel_()">Assign workers</button></div>';
@@ -938,7 +1025,7 @@ function renderCivilIssueJobEditor(r){
     h+='<button type="button" onclick="toggleIssueFixDelay(\''+r.id+'\')" class="fix-delay-btn'+(typeof isIssueFixDelayed==='function'&&isIssueFixDelayed(r)?' active':'')+'">'+(typeof fixDelayIconHtml==='function'?fixDelayIconHtml():'')+(typeof isIssueFixDelayed==='function'&&isIssueFixDelayed(r)?' Remove 1+ month mark':' Needs 1+ month')+'</button>';
   }
   h+='</div>';
-  if(typeof issuePhotosSectionHtml==='function') h+=issuePhotosSectionHtml(r);
+  h+=civilIssueJobPhotosHtml_(r, canEdit);
   if(pending && canEdit){
     h+='<div class="field-report-editor-actions">';
     h+='<button type="button" id="imt-save-btn" class="field-report-save-btn" onclick="saveIssueToMonthlyReport(\''+r.id+'\',false)">Save to Jobs</button>';
@@ -987,6 +1074,7 @@ function issueMonthlyApplyTransfer_(id, fields, resp){
 }
 function saveIssueToMonthlyReport(id, goNext){
   if(_issueMonthlySaving) return;
+  if(uploadingImtFixed){ alert('Please wait for the fixed photo to finish uploading.'); return; }
   var jobEl=document.getElementById('imt-job');
   var job=jobEl?String(jobEl.value||'').trim():'';
   if(!job){ alert('Please enter the job description.'); if(jobEl) jobEl.focus(); return; }
@@ -1712,13 +1800,13 @@ function doReset(){
 
 
 <div class="modal" id="issueModal" onclick="if(event.target===this)closeIssueModal()"><div class="modal-box" id="issueBox"></div></div>
-<script src="assets/empire-offline-queue.js?v=2026-08-18-imt-staff"></script>
-<script src="assets/empire-assign-voice.js?v=2026-08-18-imt-staff"></script>
-<script src="assets/issue-configs.js?v=2026-08-18-imt-staff"></script>
+<script src="assets/empire-offline-queue.js?v=2026-08-18-imt-fixed-photo"></script>
+<script src="assets/empire-assign-voice.js?v=2026-08-18-imt-fixed-photo"></script>
+<script src="assets/issue-configs.js?v=2026-08-18-imt-fixed-photo"></script>
 <script>ISSUE_CFG=Object.assign({},ISSUE_CONFIGS.civil,{embeddedInDept:true,tabNavScope:'.side-nav-issue',tabPaneScope:'#issueMain',analyticsContentId:'analyticsContent',supervisorPage:'civil-department.html'});</script>
-<script src="assets/issue-tracker.js?v=2026-08-18-imt-staff"></script>
-<script src="assets/issue-excel-export.js?v=2026-08-18-imt-staff"></script>
-<script src="assets/issue-recycle-bin.js?v=2026-08-18-imt-staff"></script>
+<script src="assets/issue-tracker.js?v=2026-08-18-imt-fixed-photo"></script>
+<script src="assets/issue-excel-export.js?v=2026-08-18-imt-fixed-photo"></script>
+<script src="assets/issue-recycle-bin.js?v=2026-08-18-imt-fixed-photo"></script>
 <script>
 (function(){
   window._applyIssuePerms = applyPerms;
