@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-18-civil-cai-materials">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-18-electrical-mep-materials">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -14,10 +14,10 @@
 <link rel="preconnect" href="https://api.imgbb.com">
 <title>Electrical Department — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer,body.auth-login-visible .modal{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-18-civil-cai-materials">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-18-civil-cai-materials">
-<link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-08-18-civil-cai-materials">
-<link rel="stylesheet" href="assets/empire-electrical-materials.css?v=2026-08-18-civil-cai-materials">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-18-electrical-mep-materials">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-18-electrical-mep-materials">
+<link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-08-18-electrical-mep-materials">
+<link rel="stylesheet" href="assets/empire-electrical-materials.css?v=2026-08-18-electrical-mep-materials">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -129,7 +129,7 @@
         </div>
         <div class="form-row">
           <div class="form-group"><label>Location</label><input type="text" id="j-location" placeholder="e.g. WW-12-3-A, ES-4-Car wash"></div>
-          <div class="form-group"><label>Materials / Quantity</label><input type="text" id="j-materials" placeholder="e.g. 2 Switch plug, 1m Wire 2x2.5"></div>
+          <div class="form-group"><label>Materials / Quantity</label><input type="text" id="j-materials" placeholder="e.g. 2 × SP-0080 Base light"></div>
           <div class="form-group"><label>Staff</label><input type="text" id="j-staff" placeholder="e.g. Jasim, Ibrahim"></div>
         </div>
         <div class="form-group" style="margin-bottom:18px;"><label>Notes (optional)</label><input type="text" id="j-notes" placeholder="Any extra detail"></div>
@@ -338,14 +338,14 @@
     </div>
   </div>
 </div>
-<script src="assets/empire-sw-update.js?v=2026-08-18-civil-cai-materials"></script>
-<script src="config.js?v=2026-08-18-civil-cai-materials"></script>
-<script src="assets/empire-storage.js?v=2026-08-18-civil-cai-materials"></script>
-<script src="assets/empire-api.js?v=2026-08-18-civil-cai-materials"></script>
-<script src="assets/empire-auth.js?v=2026-08-18-civil-cai-materials"></script>
-<script src="assets/empire-core.js?v=2026-08-18-civil-cai-materials"></script>
-<script src="assets/empire-assign-voice.js?v=2026-08-18-civil-cai-materials"></script>
-<script src="assets/empire-electrical-materials.js?v=2026-08-18-civil-cai-materials"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-18-electrical-mep-materials"></script>
+<script src="config.js?v=2026-08-18-electrical-mep-materials"></script>
+<script src="assets/empire-storage.js?v=2026-08-18-electrical-mep-materials"></script>
+<script src="assets/empire-api.js?v=2026-08-18-electrical-mep-materials"></script>
+<script src="assets/empire-auth.js?v=2026-08-18-electrical-mep-materials"></script>
+<script src="assets/empire-core.js?v=2026-08-18-electrical-mep-materials"></script>
+<script src="assets/empire-assign-voice.js?v=2026-08-18-electrical-mep-materials"></script>
+<script src="assets/empire-electrical-materials.js?v=2026-08-18-electrical-mep-materials"></script>
 <div class="modal" id="imgModal" onclick="closeImg()"><img id="imgBig" style="max-width:92%;max-height:92%;border-radius:10px;"></div>
 <div class="modal" id="fieldReportModal" onclick="if(event.target===this)closeFieldReportModal()">
   <div class="modal-box field-report-modal-box" id="fieldReportModalBody" onclick="event.stopPropagation()"></div>
@@ -792,7 +792,7 @@ function openFieldReportEditor(id){
   h+='<textarea id="frEditNote" class="field-report-editor-note" rows="4">'+_esc(r.note||'')+'</textarea>';
   h+='<p class="field-report-editor-hint">This text becomes the job line in the monthly report. Voice notes are not copied.</p>';
   h+='<label class="field-report-modal-label" for="frEditMaterials" style="margin-top:14px;display:block;">Materials / quantity</label>';
-  h+='<textarea id="frEditMaterials" class="field-report-editor-materials" rows="5" placeholder="e.g. 2 × Main Sensor 40a, 3 × Cable Single 2x2.5">'+_esc(materialsDisplay_(r.materials))+'</textarea>';
+  h+='<textarea id="frEditMaterials" class="field-report-editor-materials" rows="5" placeholder="e.g. 2 × SP-0080 Base light, 3 × SP-0008 mcb 1P 16A">'+_esc(materialsDisplay_(r.materials))+'</textarea>';
   h+='<p class="field-report-editor-hint">Separate each material with a comma, e.g. <strong>2 × Main Sensor 40a, 3 × Cable Single 2x2.5</strong>. Saved to Jobs and counted in Analytics.</p>';
   h+='</div>';
   if(hasPhoto || hasInvoice || hasVoice || fieldReportType_(r)==='refundable'){
@@ -1621,12 +1621,12 @@ function doReset(){
 })();
 </script>
 <div class="modal" id="issueModal" onclick="if(event.target===this)closeIssueModal()"><div class="modal-box" id="issueBox"></div></div>
-<script src="assets/empire-offline-queue.js?v=2026-08-18-civil-cai-materials"></script>
-<script src="assets/issue-configs.js?v=2026-08-18-civil-cai-materials"></script>
+<script src="assets/empire-offline-queue.js?v=2026-08-18-electrical-mep-materials"></script>
+<script src="assets/issue-configs.js?v=2026-08-18-electrical-mep-materials"></script>
 <script>ISSUE_CFG=Object.assign({},ISSUE_CONFIGS.electric,{embeddedInDept:true,tabNavScope:'.side-nav-issue',tabPaneScope:'#issueMain',analyticsContentId:'analyticsContent'});</script>
-<script src="assets/issue-tracker.js?v=2026-08-18-civil-cai-materials"></script>
-<script src="assets/issue-excel-export.js?v=2026-08-18-civil-cai-materials"></script>
-<script src="assets/issue-recycle-bin.js?v=2026-08-18-civil-cai-materials"></script>
+<script src="assets/issue-tracker.js?v=2026-08-18-electrical-mep-materials"></script>
+<script src="assets/issue-excel-export.js?v=2026-08-18-electrical-mep-materials"></script>
+<script src="assets/issue-recycle-bin.js?v=2026-08-18-electrical-mep-materials"></script>
 <script>
 (function(){
   window._applyIssuePerms = applyPerms;
