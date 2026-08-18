@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-18-wh-stoke-underline">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-18-wh-remove-stoke-input">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-18-wh-stoke-underline">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-18-wh-stoke-underline">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-18-wh-stoke-underline">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-18-wh-remove-stoke-input">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-18-wh-remove-stoke-input">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-18-wh-remove-stoke-input">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -98,7 +98,7 @@
               </div>
             </div>
 
-            <p class="wh-to-line">To: Stoke Keeper: <input id="wh-store-keeper" class="wh-cell-input" type="text" autocomplete="off"></p>
+            <p class="wh-to-line">To: Stoke Keeper:</p>
             <p class="wh-kindly">Kindly issue the materials stated below:</p>
 
             <div class="wh-lines-wrap">
@@ -211,13 +211,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-18-wh-stoke-underline"></script>
-<script src="assets/empire-storage.js?v=2026-08-18-wh-stoke-underline"></script>
-<script src="assets/empire-api.js?v=2026-08-18-wh-stoke-underline"></script>
-<script src="assets/empire-auth.js?v=2026-08-18-wh-stoke-underline"></script>
-<script src="assets/empire-core.js?v=2026-08-18-wh-stoke-underline"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-18-wh-stoke-underline"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-18-wh-stoke-underline"></script>
+<script src="config.js?v=2026-08-18-wh-remove-stoke-input"></script>
+<script src="assets/empire-storage.js?v=2026-08-18-wh-remove-stoke-input"></script>
+<script src="assets/empire-api.js?v=2026-08-18-wh-remove-stoke-input"></script>
+<script src="assets/empire-auth.js?v=2026-08-18-wh-remove-stoke-input"></script>
+<script src="assets/empire-core.js?v=2026-08-18-wh-remove-stoke-input"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-18-wh-remove-stoke-input"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-18-wh-remove-stoke-input"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -301,7 +301,7 @@ function whCollectPayload(){
     requestNo: whVal('wh-request-no'),
     requestDate: whVal('wh-request-date'),
     property: whVal('wh-property'),
-    storeKeeper: whVal('wh-store-keeper'),
+    storeKeeper: '',
     technician: whVal('wh-technician'),
     maintDatetime: whVal('wh-maint-datetime'),
     price: whVal('wh-price'),
@@ -319,7 +319,6 @@ function whApplyPayload(p){
   set('wh-request-no', p.requestNo);
   set('wh-request-date', p.requestDate || new Date().toISOString().slice(0,10));
   set('wh-property', p.property);
-  set('wh-store-keeper', p.storeKeeper);
   set('wh-technician', p.technician);
   set('wh-maint-datetime', p.maintDatetime);
   set('wh-price', p.price);
@@ -787,7 +786,7 @@ function whBuildWordPrintHtml_(){
     +'<div class="line"><strong>Request Date:</strong> <span class="val">'+whEsc(whFmtDate(whVal('wh-request-date')))+'</span></div>'
     +'<div class="line"><strong>Property Code:</strong> <span class="val">'+whEsc(whVal('wh-property'))+'</span></div>'
     +'</div></div>'
-    +'<p class="to">To: Stoke Keeper: <span style="font-weight:400;border-bottom:1px solid #000;display:inline-block;min-width:160pt;padding:0 4pt;">'+whEsc(whVal('wh-store-keeper'))+'</span></p>'
+    +'<p class="to">To: Stoke Keeper:</p>'
     +'<p class="kindly">Kindly issue the materials stated below:</p>'
     +'<table class="lines"><thead><tr>'
     +'<th class="n">#</th><th class="code">Item Code</th><th>Description</th>'
@@ -855,7 +854,7 @@ document.addEventListener('keydown', function(e){
 });
 function whClearForm(skipConfirm){
   if(!skipConfirm && !confirm('Clear the whole Goods Issue Note?')) return;
-  ['wh-requester','wh-request-no','wh-property','wh-store-keeper','wh-technician','wh-price','wh-voucher'].forEach(function(id){
+  ['wh-requester','wh-request-no','wh-property','wh-technician','wh-price','wh-voucher'].forEach(function(id){
     var el=document.getElementById(id); if(el) el.value='';
   });
   var company=document.getElementById('wh-company'); if(company) company.value='';
