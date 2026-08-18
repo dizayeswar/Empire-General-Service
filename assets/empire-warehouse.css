@@ -132,10 +132,20 @@
   width: min(340px, 55%);
   border: none !important;
   border-bottom: 1px solid #000 !important;
+  border-radius: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
   vertical-align: baseline;
   font-weight: 400;
   background: transparent !important;
   padding: 1px 4px !important;
+  margin: 0;
+  color: #000;
+}
+.wh-to-line .wh-cell-input:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  border-bottom: 1px solid #000 !important;
 }
 .wh-kindly { margin: 0 0 8px; font-weight: 400; }
 
