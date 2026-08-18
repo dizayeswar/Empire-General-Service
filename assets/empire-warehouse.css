@@ -19,22 +19,22 @@
   cursor: pointer;
 }
 
-/* Paper sheet — matches Word surface */
+/* Paper sheet — matches Word surface (Times, Word margins) */
 .wh-note {
   background: #fff;
   color: #000;
   border: 1px solid #999;
-  padding: 14mm 12mm 12mm;
+  padding: 12.7mm 25.4mm;
   box-shadow: 0 2px 10px rgba(0,0,0,.15);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Times New Roman", Times, serif;
   font-size: 11pt;
   line-height: 1.25;
 }
 .wh-note * { box-sizing: border-box; }
 .wh-title {
-  margin: 0 0 12px;
-  text-align: center;
-  font-size: 16pt;
+  margin: 0 0 10px;
+  text-align: left;
+  font-size: 14pt;
   font-weight: 700;
   color: #000;
 }
@@ -49,6 +49,9 @@
   padding: 5px 7px;
   vertical-align: top;
 }
+.wh-meta-word .c1 { width: 42%; }
+.wh-meta-word .c2 { width: 16%; }
+.wh-meta-word .c3 { width: 42%; }
 .wh-meta .lab {
   font-weight: 700;
   white-space: nowrap;
