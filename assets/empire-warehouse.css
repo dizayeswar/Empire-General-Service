@@ -1,6 +1,6 @@
-/* Empire Warehouse — Word-like Goods Issue Note */
+/* Empire Warehouse — matches official Goods Issue Note (first picture) */
 .wh-app {
-  max-width: 860px;
+  max-width: 900px;
   margin: 0 auto;
   padding: 12px 12px 40px;
   background: #e8e8e8;
@@ -11,115 +11,112 @@
   gap: 10px;
   align-items: center;
   margin-bottom: 10px;
-  background: transparent;
 }
 .wh-toolbar .wh-spacer { flex: 1; }
-.wh-toolbar button {
-  font-family: inherit;
-  cursor: pointer;
-}
+.wh-toolbar button { font-family: inherit; cursor: pointer; }
 
-/* Paper sheet — matches Word surface (Times, Word margins) */
 .wh-note {
   background: #fff;
   color: #000;
-  border: 1px solid #999;
-  padding: 12.7mm 25.4mm;
-  box-shadow: 0 2px 10px rgba(0,0,0,.15);
-  font-family: "Times New Roman", Times, serif;
+  border: 1px solid #bbb;
+  padding: 14mm 14mm 12mm;
+  box-shadow: 0 2px 10px rgba(0,0,0,.12);
+  font-family: Arial, Helvetica, sans-serif;
   font-size: 11pt;
-  line-height: 1.25;
+  line-height: 1.3;
 }
 .wh-note * { box-sizing: border-box; }
+
+.wh-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
 .wh-title {
-  margin: 0 0 10px;
-  text-align: left;
-  font-size: 14pt;
+  margin: 0;
+  font-size: 20pt;
   font-weight: 700;
   color: #000;
+  line-height: 1.1;
+}
+.wh-logo {
+  height: 48px;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
-.wh-meta {
-  width: 100%;
-  border-collapse: collapse;
-  margin-bottom: 8px;
+.wh-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 28px;
+  margin-bottom: 12px;
 }
-.wh-meta > tbody > tr > td {
-  border: 1px solid #000;
-  padding: 5px 7px;
-  vertical-align: top;
+.wh-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-height: 26px;
+  margin-bottom: 6px;
 }
-.wh-meta-word .c1 { width: 42%; }
-.wh-meta-word .c2 { width: 16%; }
-.wh-meta-word .c3 { width: 42%; }
-.wh-meta .lab {
+.wh-line strong {
   font-weight: 700;
   white-space: nowrap;
-  width: 1%;
 }
-.wh-meta .fill { width: 34%; }
-.wh-cell-input {
-  display: block;
-  width: 100%;
+.wh-line .wh-cell-input {
+  flex: 1;
   border: none !important;
+  border-bottom: 1px solid #000 !important;
+  border-radius: 0 !important;
   outline: none;
   background: transparent !important;
   box-shadow: none !important;
-  border-radius: 0 !important;
-  padding: 1px 0 !important;
+  padding: 2px 4px !important;
   margin: 0;
   font: inherit;
   color: #000;
-  min-height: 1.2em;
+  min-width: 0;
 }
-.wh-cell-input::placeholder { color: #bbb; font-weight: 400; }
-
 .wh-type-inline {
-  margin-top: 6px;
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 14px;
   align-items: center;
+  gap: 10px 16px;
+  margin-top: 4px;
   font-weight: 700;
-  font-size: 10.5pt;
 }
-.wh-type-inline .wh-type-btn {
+.wh-type-btn {
   all: unset;
   cursor: pointer;
   font-weight: 700;
-  font-size: 10.5pt;
-  padding: 2px 0;
+  font-size: 11pt;
   color: #000;
 }
-.wh-type-inline .wh-type-btn:focus-visible {
-  outline: 1px dotted #000;
-}
+.wh-type-btn:focus-visible { outline: 1px dotted #000; }
 
 .wh-to-line {
-  margin: 10px 0 2px;
+  margin: 8px 0 2px;
   font-weight: 700;
 }
 .wh-to-line .wh-cell-input {
   display: inline-block;
-  width: min(320px, 55%);
+  width: min(340px, 55%);
+  border: none !important;
   border-bottom: 1px solid #000 !important;
-  margin-left: 6px;
   vertical-align: baseline;
   font-weight: 400;
+  background: transparent !important;
+  padding: 1px 4px !important;
 }
-.wh-kindly {
-  margin: 2px 0 8px;
-  font-weight: 400;
-}
+.wh-kindly { margin: 0 0 8px; font-weight: 400; }
 
-.wh-lines-wrap {
-  margin: 0 0 10px;
-}
+.wh-lines-wrap { margin: 0 0 10px; }
 .wh-lines {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  background: #fff;
 }
 .wh-lines th,
 .wh-lines td {
@@ -135,20 +132,26 @@
 }
 .wh-lines td.num {
   width: 28px;
-  text-align: center;
-  font-weight: 400;
+  text-align: left;
   font-size: 10pt;
 }
 .wh-lines .wh-cell-input {
+  width: 100%;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  outline: none;
+  padding: 1px 2px !important;
+  font: inherit;
   font-size: 9.5pt;
-  min-height: 18px;
+  color: #000;
+  min-height: 16px;
 }
 .wh-combo { position: relative; width: 100%; }
 .wh-combo-list {
   position: absolute;
-  left: 0;
-  right: 0;
-  top: 100%;
+  left: 0; right: 0; top: 100%;
   z-index: 50;
   max-height: 200px;
   overflow: auto;
@@ -175,19 +178,16 @@
 
 .wh-maint {
   border: 1px solid #000;
-  margin: 0 0 10px;
+  margin: 0 0 18px;
 }
 .wh-maint-head {
   padding: 5px 8px;
+  text-align: center;
   font-weight: 700;
   font-size: 10.5pt;
   border-bottom: 1px solid #000;
-  background: #fff;
 }
-.wh-maint-table {
-  width: 100%;
-  border-collapse: collapse;
-}
+.wh-maint-table { width: 100%; border-collapse: collapse; }
 .wh-maint-table td {
   border: 1px solid #000;
   padding: 4px 8px;
@@ -195,88 +195,92 @@
 }
 .wh-maint-table td.lab {
   width: 32%;
-  font-weight: 400;
   white-space: nowrap;
 }
 .wh-maint.wh-maint-disabled { opacity: .65; }
-
-.wh-sigs {
+.wh-maint-table .wh-cell-input {
   width: 100%;
-  border-collapse: collapse;
-  margin-top: 4px;
+  border: none !important;
+  background: transparent !important;
+  outline: none;
+  font: inherit;
+  padding: 2px 0 !important;
 }
-.wh-sigs > tbody > tr > td {
-  border: 1px solid #000;
-  width: 33.33%;
-  vertical-align: top;
-  padding: 0;
-  height: 88px;
+
+/* Signature footer like picture 1 — labels at bottom, space above */
+.wh-sigs-wrap {
+  margin-top: 8px;
+  padding-top: 8px;
 }
-.wh-sig-title {
-  padding: 5px 6px;
-  font-size: 10.5pt;
-  font-weight: 700;
-  text-align: left;
-  border-bottom: 1px solid #000;
+.wh-sigs-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+.wh-sig-block {
+  display: flex;
+  flex-direction: column;
+  min-height: 78px;
 }
 .wh-sig-pad {
-  min-height: 58px;
-  padding: 6px;
+  flex: 1;
+  min-height: 52px;
   outline: none;
   cursor: pointer;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
-  background: #fff;
+  padding: 4px;
 }
 .wh-sig-pad img {
-  max-width: 100%;
-  max-height: 52px;
+  max-width: 95%;
+  max-height: 48px;
   object-fit: contain;
 }
 .wh-sig-pad .hint {
-  color: #999;
+  color: #aaa;
   font-size: 10px;
-  text-align: center;
   pointer-events: none;
-  font-weight: 400;
 }
+.wh-sig-label {
+  font-weight: 700;
+  font-size: 11pt;
+  margin-top: 4px;
+}
+.wh-sig-block:nth-child(1) .wh-sig-label { text-align: left; }
+.wh-sig-block:nth-child(2) .wh-sig-label { text-align: center; }
+.wh-sig-block:nth-child(3) .wh-sig-label { text-align: right; }
 .wh-sig-actions {
   display: flex;
   gap: 6px;
-  padding: 0 6px 6px;
+  margin-top: 4px;
 }
+.wh-sig-block:nth-child(2) .wh-sig-actions { justify-content: center; }
+.wh-sig-block:nth-child(3) .wh-sig-actions { justify-content: flex-end; }
 .wh-sig-actions button {
   font-size: 10px;
   font-family: inherit;
   cursor: pointer;
 }
-.wh-error {
-  color: #b42318;
-  font-size: 11px;
-  margin-top: 2px;
-}
+.wh-error { color: #b42318; font-size: 11px; margin-top: 2px; }
 .wh-actions-print {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
   margin-top: 12px;
 }
-.wh-field { display: contents; }
 
 @media (max-width: 720px) {
   .wh-note { padding: 12px; }
   .wh-app { background: #fff; }
+  .wh-fields,
+  .wh-sigs-row { grid-template-columns: 1fr; }
+  .wh-head { flex-direction: column; }
 }
 
-/* Never print app chrome — Word sheet only */
 @media print {
-  @page { size: A4 portrait; margin: 10mm; }
-  html, body {
-    background: #fff !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
+  @page { size: A4 portrait; margin: 12mm; }
+  html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; }
   body * { visibility: hidden !important; }
   #whPrintRoot,
   #whPrintRoot * { visibility: visible !important; }
@@ -289,7 +293,6 @@
     padding: 0 !important;
     border: none !important;
     box-shadow: none !important;
-    background: #fff !important;
   }
   .no-print,
   .wh-toolbar,
@@ -299,27 +302,6 @@
   .wh-combo-list,
   .login-page,
   .side-nav,
-  aside,
-  .app-shell > aside { display: none !important; visibility: hidden !important; }
+  aside { display: none !important; visibility: hidden !important; }
   .wh-sig-pad .hint { display: none !important; }
-  .wh-type-btn {
-    all: unset !important;
-    font-weight: 700 !important;
-    font-size: 10.5pt !important;
-    color: #000 !important;
-  }
-  .wh-cell-input {
-    border: none !important;
-    background: transparent !important;
-    color: #000 !important;
-    -webkit-appearance: none;
-    appearance: none;
-  }
-  /* date inputs print their value as text-ish; keep compact */
-  input[type="date"],
-  input[type="datetime-local"] {
-    border: none !important;
-    background: transparent !important;
-  }
 }
-
