@@ -1927,7 +1927,20 @@ var TRASH_ICON13='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fi
 function trashIconHtml(){ return '<span class="nav-icon" style="width:13px;height:13px;">'+TRASH_ICON13+'</span>'; }
 function pencilIconHtml(){ return '<span class="nav-icon" style="width:13px;height:13px;"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg></span>'; }
 function whatsappIconHtml(){ return '<span class="nav-icon" style="width:13px;height:13px;"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.126 1.529 5.862L0 24l6.335-1.662A11.94 11.94 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 0 1-5.01-1.378l-.36-.214-3.75.984 1.001-3.648-.235-.375A9.818 9.818 0 1 1 12 21.818z"/></svg></span>'; }
-function issueShareText(r){ var ref='#'+issueRef(r.num); var status=r.status==='fixed'?'Fixed':'Open'; var lines=[ISSUE_CFG.sharePrefix+' '+ref, r.issueType, locStr(r), 'Status: '+status, 'Date: '+dateOnly(r.date||r.createdAt)]; if(r.note) lines.push('Note: '+r.note); if(r.photo) lines.push('Photo: '+r.photo); return lines.join('\n'); }
+function issueSharePhotoUrl_(r){
+  var u=String((r&&r.photo)||'').trim().split('|')[0].trim();
+  if(!u || u.indexOf('http')!==0) return '';
+  return u;
+}
+function issueShareText(r){
+  var ref='#'+issueRef(r.num);
+  var status=r.status==='fixed'?'Fixed':'Open';
+  var lines=[ISSUE_CFG.sharePrefix+' '+ref, r.issueType, locStr(r), 'Status: '+status, 'Date: '+dateOnly(r.date||r.createdAt)];
+  if(r.note) lines.push('Note: '+r.note);
+  var photo=issueSharePhotoUrl_(r);
+  if(photo){ lines.push('Photo:'); lines.push(photo); }
+  return lines.join('\n');
+}
 var ISSUE_SHARE_DEPT;
 var ISSUES_CACHE_KEY, ISSUES_CACHE_TS_KEY, ISSUE_VIEW_KEY;
 var issueSelectMode=false;
@@ -1936,8 +1949,120 @@ function selectedIssueCount(){ return Object.keys(selectedIssueIds).length; }
 function toggleIssueSelectMode(){ issueSelectMode=!issueSelectMode; if(!issueSelectMode) selectedIssueIds={}; renderIssues(); }
 function toggleIssueSelected(id){ if(selectedIssueIds[id]) delete selectedIssueIds[id]; else selectedIssueIds[id]=true; renderIssues(); }
 function clearIssueSelection(){ selectedIssueIds={}; renderIssues(); }
-function issueShareBlock(r, idx){ var ref='#'+issueRef(r.num); var status=r.status==='fixed'?'Fixed':'Open'; var lines=[idx+'. '+ref+' \u2014 '+r.issueType, locStr(r), 'Status: '+status, 'Date: '+dateOnly(r.date||r.createdAt)]; if(r.note) lines.push('Note: '+r.note); if(r.photo) lines.push('Photo: '+r.photo); return lines.join('\n'); }
-function buildIssuesShareText(ids){ var rows=ids.map(function(id){ return allIssues.find(function(x){ return x.id===id; }); }).filter(Boolean); if(!rows.length) return ''; if(rows.length===1) return issueShareText(rows[0]); var parts=['Empire World \u2014 '+rows.length+' '+ISSUE_SHARE_DEPT+'s', '']; rows.forEach(function(r,i){ parts.push(issueShareBlock(r, i+1)); if(i<rows.length-1) parts.push(''); }); return parts.join('\n'); }
+function issueShareBlock(r, idx){
+  var ref='#'+issueRef(r.num);
+  var status=r.status==='fixed'?'Fixed':'Open';
+  var lines=[idx+'. '+ref+' \u2014 '+r.issueType, locStr(r), 'Status: '+status, 'Date: '+dateOnly(r.date||r.createdAt)];
+  if(r.note) lines.push('Note: '+r.note);
+  var photo=issueSharePhotoUrl_(r);
+  if(photo){ lines.push('Photo:'); lines.push(photo); }
+  return lines.join('\n');
+}
+/** WhatsApp wa.me text is truncated by browsers; keep chunks short so every photo URL stays a real link. */
+var WA_SHARE_MAX_ENCODED=1800;
+function buildIssuesShareTextBody_(rows, startNum, header){
+  var parts=[header||'', ''];
+  rows.forEach(function(r,i){
+    parts.push(issueShareBlock(r, (startNum||1)+i));
+    if(i<rows.length-1) parts.push('');
+  });
+  return parts.join('\n').replace(/^\n+/, '');
+}
+function buildIssuesShareChunks_(ids){
+  var rows=ids.map(function(id){ return allIssues.find(function(x){ return x.id===id; }); }).filter(Boolean);
+  if(!rows.length) return [];
+  if(rows.length===1) return [{ text:issueShareText(rows[0]), ids:[rows[0].id], count:1 }];
+  var chunks=[];
+  var batch=[];
+  var batchIds=[];
+  var startNum=1;
+  function flush(){
+    if(!batch.length) return;
+    var header='Empire World \u2014 '+batch.length+' '+ISSUE_SHARE_DEPT+(batch.length===1?'':'s');
+    chunks.push({
+      text:buildIssuesShareTextBody_(batch, startNum, header),
+      ids:batchIds.slice(),
+      count:batch.length,
+      startNum:startNum
+    });
+    startNum+=batch.length;
+    batch=[];
+    batchIds=[];
+  }
+  rows.forEach(function(r){
+    var tryRows=batch.concat([r]);
+    var tryIds=batchIds.concat([r.id]);
+    var header='Empire World \u2014 '+tryRows.length+' '+ISSUE_SHARE_DEPT+(tryRows.length===1?'':'s');
+    var tryText=buildIssuesShareTextBody_(tryRows, startNum, header);
+    if(batch.length && encodeURIComponent(tryText).length>WA_SHARE_MAX_ENCODED){
+      flush();
+      batch=[r];
+      batchIds=[r.id];
+    } else {
+      batch=tryRows;
+      batchIds=tryIds;
+    }
+  });
+  flush();
+  if(chunks.length>1){
+    chunks.forEach(function(c,i){
+      var header='Empire World \u2014 '+c.count+' '+ISSUE_SHARE_DEPT+(c.count===1?'':'s')+' (part '+(i+1)+'/'+chunks.length+')';
+      c.text=buildIssuesShareTextBody_(
+        c.ids.map(function(id){ return allIssues.find(function(x){ return x.id===id; }); }).filter(Boolean),
+        c.startNum,
+        header
+      );
+    });
+  }
+  return chunks;
+}
+function buildIssuesShareText(ids){
+  var chunks=buildIssuesShareChunks_(ids);
+  if(!chunks.length) return '';
+  return chunks.map(function(c){ return c.text; }).join('\n\n---\n\n');
+}
+function openWhatsAppShare_(text){
+  var url='https://wa.me/?text='+encodeURIComponent(text||'');
+  try{
+    var w=window.open(url,'_blank');
+    if(w) return true;
+  }catch(e){}
+  window.location.href=url;
+  return true;
+}
+function sendWhatsAppShareChunks_(chunks, index){
+  if(!chunks||!chunks.length||index>=chunks.length) return;
+  openWhatsAppShare_(chunks[index].text);
+  if(index+1>=chunks.length) return;
+  var next=index+1;
+  var ask=function(){
+    var msg='WhatsApp only keeps photo links for short messages, so this was split into '+chunks.length+' parts.\n\nOpen part '+(next+1)+' of '+chunks.length+' now?';
+    var go=typeof uiConfirm==='function'
+      ? uiConfirm(msg)
+      : Promise.resolve(window.confirm(msg));
+    go.then(function(ok){ if(ok) sendWhatsAppShareChunks_(chunks, next); });
+  };
+  setTimeout(ask, 500);
+}
+function shareIssueWhatsApp(id){
+  var r=allIssues.find(function(x){ return x.id===id; });
+  if(!r) return;
+  markIssuesWhatsAppSent([id]);
+  try{ if(typeof refreshAllIssueTabs==='function') refreshAllIssueTabs(); else renderIssues(); }catch(e){}
+  openWhatsAppShare_(issueShareText(r));
+}
+function shareSelectedWhatsApp(){
+  var ids=Object.keys(selectedIssueIds);
+  if(!ids.length){ alert('Select at least one issue first.'); return; }
+  var chunks=buildIssuesShareChunks_(ids);
+  if(!chunks.length) return;
+  markIssuesWhatsAppSent(ids);
+  try{ if(typeof refreshAllIssueTabs==='function') refreshAllIssueTabs(); else renderIssues(); }catch(e){}
+  if(chunks.length>1){
+    alert('Sending '+ids.length+' issues in '+chunks.length+' WhatsApp messages so every photo link stays clickable.');
+  }
+  sendWhatsAppShareChunks_(chunks, 0);
+}
 function issueWhatsAppSentKey_(){ return ISSUE_CFG.prefix+'_wa_sent_v1'; }
 function readWhatsAppSentMap_(){
   try{
@@ -2013,28 +2138,6 @@ function markIssuesWhatsAppSent(ids){
   writeWhatsAppSentMap_(m);
   persistWhatsAppSentServer_(list);
   return true;
-}
-function openWhatsAppShare_(text){
-  var url='https://wa.me/?text='+encodeURIComponent(text||'');
-  try{
-    var w=window.open(url,'_blank');
-    if(w) return;
-  }catch(e){}
-  window.location.href=url;
-}
-function shareIssueWhatsApp(id){
-  var r=allIssues.find(function(x){ return x.id===id; });
-  if(!r) return;
-  markIssuesWhatsAppSent([id]);
-  try{ if(typeof refreshAllIssueTabs==='function') refreshAllIssueTabs(); else renderIssues(); }catch(e){}
-  openWhatsAppShare_(issueShareText(r));
-}
-function shareSelectedWhatsApp(){
-  var ids=Object.keys(selectedIssueIds);
-  if(!ids.length){ alert('Select at least one issue first.'); return; }
-  markIssuesWhatsAppSent(ids);
-  try{ if(typeof refreshAllIssueTabs==='function') refreshAllIssueTabs(); else renderIssues(); }catch(e){}
-  openWhatsAppShare_(buildIssuesShareText(ids));
 }
 function canBulkAssignIssues(){ if(isCivilWorker()||!tradeGroups().length||!ISSUE_CFG.actions.assign) return false; var p=PAGEPERMS||{}; if(p.assign===true) return true; if(p.assign===false) return false; return p.edit!==false; }
 function bulkAssignBlockedHint(){ if(canBulkAssignIssues()||!tradeGroups().length||!ISSUE_CFG.actions.assign) return ''; return '<span class="issue-select-hint">Worker assign needs an <strong>editor</strong> or <strong>admin</strong> account. Log out and ask your admin to set your role in the Users sheet.</span>'; }
