@@ -1,0 +1,286 @@
+/* Empire Warehouse — Goods Issue Note (screen + print) */
+.wh-app {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 16px 16px 48px;
+}
+.wh-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.wh-toolbar .wh-spacer { flex: 1; }
+.wh-note {
+  background: var(--panel, #fff);
+  border: 2px solid #1a1a1a;
+  color: #111;
+  padding: 18px 16px 20px;
+  box-shadow: 0 8px 28px rgba(0,0,0,.08);
+}
+.wh-note * { box-sizing: border-box; }
+.wh-title {
+  margin: 0 0 14px;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: .02em;
+  color: #111;
+}
+.wh-top-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 10px 16px;
+  margin-bottom: 10px;
+}
+.wh-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.wh-field > span,
+.wh-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #222;
+}
+.wh-field input,
+.wh-field textarea,
+.wh-combo input,
+.wh-lines input {
+  width: 100%;
+  border: 1px solid #333;
+  border-radius: 0;
+  padding: 7px 8px;
+  font-size: 13px;
+  font-family: inherit;
+  background: #fff;
+  color: #111;
+}
+.wh-type-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 8px 0 12px;
+}
+.wh-type-row > strong { font-size: 13px; }
+.wh-type-btn {
+  min-width: 110px;
+  padding: 10px 14px;
+  border: 2px solid #333;
+  background: #fff;
+  color: #111;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.wh-type-btn[aria-pressed="true"] {
+  background: #111;
+  color: #fff;
+}
+.wh-intro {
+  margin: 8px 0 10px;
+  font-size: 13px;
+  color: #222;
+}
+.wh-intro strong { font-weight: 800; }
+.wh-lines-wrap {
+  overflow-x: auto;
+  margin: 8px 0 14px;
+  border: 1px solid #111;
+}
+.wh-lines {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 720px;
+  background: #fff;
+}
+.wh-lines th,
+.wh-lines td {
+  border: 1px solid #111;
+  padding: 4px;
+  vertical-align: top;
+}
+.wh-lines th {
+  background: #f3f3f3;
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+}
+.wh-lines td.num {
+  width: 28px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 12px;
+}
+.wh-combo { position: relative; }
+.wh-combo-list {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  z-index: 40;
+  max-height: 220px;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid #333;
+  box-shadow: 0 8px 20px rgba(0,0,0,.15);
+}
+.wh-combo-list button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-bottom: 1px solid #eee;
+  background: #fff;
+  padding: 8px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  color: #111;
+}
+.wh-combo-list button:hover,
+.wh-combo-list button:focus {
+  background: #eef4ff;
+}
+.wh-combo-list .muted {
+  color: #666;
+  font-size: 11px;
+}
+.wh-maint {
+  border: 1px solid #111;
+  margin: 12px 0;
+}
+.wh-maint-head {
+  background: #f3f3f3;
+  padding: 8px 10px;
+  font-weight: 800;
+  font-size: 13px;
+  border-bottom: 1px solid #111;
+}
+.wh-maint-body {
+  padding: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.wh-maint.wh-maint-disabled {
+  opacity: .55;
+}
+.wh-sigs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+}
+.wh-sig {
+  border: 1px solid #111;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+}
+.wh-sig-title {
+  border-bottom: 1px solid #111;
+  padding: 6px 8px;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+  background: #f3f3f3;
+}
+.wh-sig-pad {
+  flex: 1;
+  min-height: 90px;
+  padding: 8px;
+  outline: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fafafa;
+}
+.wh-sig-pad img {
+  max-width: 100%;
+  max-height: 100px;
+  object-fit: contain;
+}
+.wh-sig-pad .hint {
+  color: #777;
+  font-size: 11px;
+  text-align: center;
+  pointer-events: none;
+}
+.wh-error {
+  color: #b42318;
+  font-size: 12px;
+  margin-top: 4px;
+}
+.wh-actions-print {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+@media (max-width: 720px) {
+  .wh-top-grid,
+  .wh-maint-body,
+  .wh-sigs { grid-template-columns: 1fr; }
+}
+
+/* Print / PDF — Word-like Goods Issue Note surface */
+@media print {
+  @page { size: A4; margin: 12mm; }
+  html, body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  body * { visibility: hidden; }
+  #whPrintRoot, #whPrintRoot * { visibility: visible; }
+  #whPrintRoot {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    box-shadow: none !important;
+    border-width: 1.5px !important;
+  }
+  .wh-toolbar,
+  .wh-actions-print,
+  .login-page,
+  .side-nav,
+  .app-shell > aside,
+  #whoLabel,
+  .no-print { display: none !important; }
+  .wh-type-btn {
+    border: 1.5px solid #000 !important;
+    background: #fff !important;
+    color: #000 !important;
+    box-shadow: none !important;
+  }
+  .wh-type-btn[aria-pressed="true"] {
+    background: #000 !important;
+    color: #fff !important;
+  }
+  .wh-field input,
+  .wh-lines input,
+  .wh-combo input {
+    border: none !important;
+    border-bottom: 1px solid #000 !important;
+    background: transparent !important;
+    padding: 2px 0 !important;
+    border-radius: 0 !important;
+  }
+  .wh-combo-list { display: none !important; }
+  .wh-sig-pad {
+    background: #fff !important;
+    min-height: 80px;
+  }
+  .wh-sig-pad .hint { display: none !important; }
+  .wh-maint.wh-maint-disabled { opacity: 1; }
+  .wh-error { display: none !important; }
+}

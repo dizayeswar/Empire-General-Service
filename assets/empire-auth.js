@@ -223,6 +223,7 @@ var EMPIRE_DEPT_HOME = {
   hse: 'hse-inspection.html',
   'civil department': 'civil-department.html',
   'electrical department': 'electrical.html',
+  warehouse: 'warehouse.html',
   asaas: 'asaas.html',
   application: 'application.html'
 };

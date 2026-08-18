@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-18-warehouse-gin">
+<meta name="theme-color" content="#8d015d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Warehouse">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="logo-light.png" type="image/png">
+<title>Warehouse — Goods Issue Note — Empire World</title>
+<style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-18-warehouse-gin">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-18-warehouse-gin">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-18-warehouse-gin">
+</head>
+<body class="auth-login-visible">
+<div class="login-page show" id="loginPage">
+  <div class="login-box">
+    <button class="theme-btn login-theme" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span></button>
+    <img src="logo-light.png" alt="Empire World" style="height:44px;width:auto;display:block;margin:0 auto 16px;">
+    <a class="back" href="index.html">← Back to hub</a>
+    <h1>Warehouse</h1>
+    <p style="text-align:center;color:var(--text-soft);font-size:14px;margin:-8px 0 16px;">Goods Issue Note (WH)</p>
+    <div class="login-message" id="loginMessage"></div>
+    <form class="login-form" onsubmit="handleLogin(event)">
+      <input type="text" id="loginUsername" placeholder="Username" required autocomplete="username">
+      <input type="password" id="loginPassword" placeholder="Password" required autocomplete="current-password">
+      <button type="submit">Login</button>
+    </form>
+  </div>
+</div>
+
+<div id="mainContainer" class="app-shell" style="display:none">
+  <aside class="side-nav no-print">
+    <div class="side-brand">
+      <img src="logo-light.png" alt="Empire World" class="side-logo">
+      <div>
+        <div class="side-title">Warehouse</div>
+        <div class="side-sub" id="whoLabel"></div>
+      </div>
+    </div>
+    <nav class="side-nav-dept">
+      <button type="button" class="active">Goods Issue Note</button>
+    </nav>
+    <div class="side-actions">
+      <button type="button" onclick="toggleTheme()"><span class="nav-icon theme-icon"></span> Theme</button>
+      <a class="side-link" href="index.html">Portal</a>
+      <button type="button" class="danger" onclick="logout()">Logout</button>
+    </div>
+  </aside>
+
+  <main class="wh-app">
+    <div class="wh-toolbar no-print">
+      <strong>Goods Issue Note</strong>
+      <span class="wh-spacer"></span>
+      <button type="button" onclick="whClearForm()">Clear</button>
+      <button type="button" onclick="whPrint()">Print / Save as PDF</button>
+    </div>
+
+    <div class="wh-note" id="whPrintRoot">
+      <h1 class="wh-title">Goods Issue Note</h1>
+
+      <div class="wh-top-grid">
+        <label class="wh-field"><span>Requester</span><input id="wh-requester" type="text" autocomplete="off"></label>
+        <label class="wh-field"><span>Request No.</span><input id="wh-request-no" type="text" autocomplete="off"></label>
+        <label class="wh-field"><span>Company</span><input id="wh-company" type="text" value="Empire World" autocomplete="off"></label>
+        <label class="wh-field"><span>Request Date</span><input id="wh-request-date" type="date"></label>
+        <label class="wh-field"><span>Property Code</span><input id="wh-property" type="text" placeholder="e.g. WW-12 / RA-C2" autocomplete="off"></label>
+        <label class="wh-field"><span>To: Store Keeper</span><input id="wh-store-keeper" type="text" autocomplete="off"></label>
+      </div>
+
+      <div class="wh-type-row">
+        <strong>Good Issue Type</strong>
+        <button type="button" class="wh-type-btn" id="wh-type-internal" aria-pressed="false" onclick="whSetIssueType('internal')">☐ Internal</button>
+        <button type="button" class="wh-type-btn" id="wh-type-external" aria-pressed="false" onclick="whSetIssueType('external')">☐ External</button>
+        <input type="hidden" id="wh-issue-type" value="">
+      </div>
+
+      <p class="wh-intro"><strong>To: Store Keeper:</strong> Kindly issue the materials stated below:</p>
+
+      <div class="wh-lines-wrap">
+        <table class="wh-lines" id="whLinesTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Item Code</th>
+              <th>Description</th>
+              <th>Quantity</th>
+              <th>Project</th>
+              <th>Cost Center</th>
+            </tr>
+          </thead>
+          <tbody id="whLinesBody"></tbody>
+        </table>
+      </div>
+
+      <div class="wh-maint" id="whMaintBlock">
+        <div class="wh-maint-head">Maintenance Report (For External type only)</div>
+        <div class="wh-maint-body">
+          <label class="wh-field">
+            <span>Technician Name</span>
+            <div class="wh-combo" id="wh-tech-combo">
+              <input id="wh-technician" type="text" placeholder="Type 2–3 letters…" autocomplete="off" oninput="whFilterTech(this)" onfocus="whFilterTech(this)">
+              <div class="wh-combo-list" id="wh-tech-list" hidden></div>
+            </div>
+          </label>
+          <label class="wh-field"><span>Date &amp; Time</span><input id="wh-maint-datetime" type="datetime-local"></label>
+          <label class="wh-field">
+            <span>Price</span>
+            <input id="wh-price" type="text" inputmode="numeric" placeholder="e.g. 5,000" autocomplete="off" oninput="whFormatPrice(event)">
+          </label>
+          <label class="wh-field">
+            <span>Receipt Voucher No.</span>
+            <input id="wh-voucher" type="text" inputmode="numeric" placeholder="At least 5 digits" autocomplete="off" oninput="whValidateVoucher()">
+            <div class="wh-error" id="wh-voucher-err" hidden>Must be at least 5 numbers.</div>
+          </label>
+        </div>
+      </div>
+
+      <div class="wh-sigs">
+        <div class="wh-sig">
+          <div class="wh-sig-title">Authorized by</div>
+          <div class="wh-sig-pad" id="wh-sig-auth" tabindex="0" onclick="this.focus()" onpaste="whPasteSig(event,'auth')">
+            <span class="hint">Click here and paste signature (Ctrl+V)</span>
+          </div>
+          <input type="file" id="wh-sig-auth-file" accept="image/*" hidden onchange="whSigFile(event,'auth')">
+          <button type="button" class="no-print" style="margin:6px;font-size:11px;" onclick="document.getElementById('wh-sig-auth-file').click()">Upload</button>
+          <button type="button" class="no-print" style="margin:0 6px 6px;font-size:11px;" onclick="whClearSig('auth')">Clear</button>
+        </div>
+        <div class="wh-sig">
+          <div class="wh-sig-title">Issued by</div>
+          <div class="wh-sig-pad" id="wh-sig-issued" tabindex="0" onclick="this.focus()" onpaste="whPasteSig(event,'issued')">
+            <span class="hint">Click here and paste signature (Ctrl+V)</span>
+          </div>
+          <input type="file" id="wh-sig-issued-file" accept="image/*" hidden onchange="whSigFile(event,'issued')">
+          <button type="button" class="no-print" style="margin:6px;font-size:11px;" onclick="document.getElementById('wh-sig-issued-file').click()">Upload</button>
+          <button type="button" class="no-print" style="margin:0 6px 6px;font-size:11px;" onclick="whClearSig('issued')">Clear</button>
+        </div>
+        <div class="wh-sig">
+          <div class="wh-sig-title">Received by</div>
+          <div class="wh-sig-pad" id="wh-sig-received" tabindex="0" onclick="this.focus()" onpaste="whPasteSig(event,'received')">
+            <span class="hint">Click here and paste signature (Ctrl+V)</span>
+          </div>
+          <input type="file" id="wh-sig-received-file" accept="image/*" hidden onchange="whSigFile(event,'received')">
+          <button type="button" class="no-print" style="margin:6px;font-size:11px;" onclick="document.getElementById('wh-sig-received-file').click()">Upload</button>
+          <button type="button" class="no-print" style="margin:0 6px 6px;font-size:11px;" onclick="whClearSig('received')">Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="wh-actions-print no-print">
+      <button type="button" onclick="whPrint()">Print / Save as PDF</button>
+      <button type="button" onclick="whClearForm()">Clear form</button>
+    </div>
+    <p class="no-print" style="color:var(--text-soft);font-size:12px;margin-top:10px;">Tip: In the print dialog choose <strong>Save as PDF</strong> / <strong>Microsoft Print to PDF</strong> to export. Layout matches the Goods Issue Note.</p>
+  </main>
+</div>
+
+<script src="config.js?v=2026-08-18-warehouse-gin"></script>
+<script src="assets/empire-storage.js?v=2026-08-18-warehouse-gin"></script>
+<script src="assets/empire-api.js?v=2026-08-18-warehouse-gin"></script>
+<script src="assets/empire-auth.js?v=2026-08-18-warehouse-gin"></script>
+<script src="assets/empire-core.js?v=2026-08-18-warehouse-gin"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-18-warehouse-gin"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-18-warehouse-gin"></script>
+<script>
+var WH_LINE_COUNT = 23;
+var WH_TECHNICIANS = [
+  'Mohammed Luqman','Saeed Shahuth','Shakhwan Dilshad','Abdulsamad Sulaiaman',
+  'Mohammed Qasm','Rayan Hazhar','Farman Ahmed','Sear Samad','Aram Majid',
+  'Dlawar Kamal','Shwan Ali','Halmat Abozaid','Sardam Sardar',
+  'Hashim Omar','Ibrahim Sadi','Ahmad Sadullah','Mariwan Saeed','Soran Ibrahim',
+  'Darbaz Majid','Jasim Muhammad','Chia Mustafa','Wrya Muhammad','Ibrahim Muhammad',
+  'Muhammad Hassan','Harim Sarkawt'
+];
+var _whOpenCombo = null;
+var _whSig = { auth:'', issued:'', received:'' };
+
+function handleLogin(e){ empireAuthLogin(e, 'warehouse', { onSuccess: function(){ enterApp(); } }); }
+function logout(){ empireAuthLogout({ redirect: 'index.html', reload: false }); }
+function enterApp(){
+  document.getElementById('loginPage').classList.remove('show');
+  if(typeof empireAuthMarkLoginVisible==='function') empireAuthMarkLoginVisible(false);
+  document.getElementById('mainContainer').style.display = '';
+  document.getElementById('mainContainer').classList.add('show');
+  var wl=document.getElementById('whoLabel');
+  var u=empireGetUser(); var role=empireGetRole()||'';
+  if(wl) wl.textContent = u ? ('Logged in as: '+u+(role?(' ('+role+')'):'')) : '';
+  whInit();
+}
+window.addEventListener('load', function(){
+  empireAuthPageBoot({ dept: 'warehouse', onEnter: enterApp });
+});
+
+function whEsc(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function whInit(){
+  var dateEl=document.getElementById('wh-request-date');
+  if(dateEl && !dateEl.value) dateEl.value = new Date().toISOString().slice(0,10);
+  whBuildLines();
+  whSetIssueType('');
+  document.addEventListener('click', function(e){
+    if(_whOpenCombo && !_whOpenCombo.contains(e.target)) whCloseCombos();
+  });
+}
+function whBuildLines(){
+  var body=document.getElementById('whLinesBody');
+  if(!body) return;
+  var h='';
+  for(var i=1;i<=WH_LINE_COUNT;i++){
+    h+='<tr data-row="'+i+'">';
+    h+='<td class="num">'+i+'</td>';
+    h+='<td><div class="wh-combo" id="wh-code-combo-'+i+'">';
+    h+='<input type="text" id="wh-code-'+i+'" placeholder="SP-…" autocomplete="off" oninput="whFilterSp('+i+')" onfocus="whFilterSp('+i+')">';
+    h+='<div class="wh-combo-list" id="wh-code-list-'+i+'" hidden></div>';
+    h+='</div></td>';
+    h+='<td><input type="text" id="wh-desc-'+i+'" autocomplete="off"></td>';
+    h+='<td><input type="text" id="wh-qty-'+i+'" inputmode="decimal" autocomplete="off"></td>';
+    h+='<td><input type="text" id="wh-project-'+i+'" autocomplete="off"></td>';
+    h+='<td><input type="text" id="wh-cc-'+i+'" autocomplete="off"></td>';
+    h+='</tr>';
+  }
+  body.innerHTML=h;
+}
+function whCloseCombos(){
+  document.querySelectorAll('.wh-combo-list').forEach(function(el){ el.hidden=true; el.innerHTML=''; });
+  _whOpenCombo=null;
+}
+function whFilterSp(row){
+  var input=document.getElementById('wh-code-'+row);
+  var list=document.getElementById('wh-code-list-'+row);
+  var wrap=document.getElementById('wh-code-combo-'+row);
+  if(!input||!list) return;
+  var q=String(input.value||'').trim();
+  if(q.length<1){ list.hidden=true; list.innerHTML=''; return; }
+  var hits=(typeof empireWarehouseFindSp==='function') ? empireWarehouseFindSp(q) : [];
+  if(!hits.length){
+    list.innerHTML='<button type="button" disabled>No SP match</button>';
+    list.hidden=false;
+    _whOpenCombo=wrap;
+    return;
+  }
+  list.innerHTML=hits.map(function(it){
+    return '<button type="button" onclick="whPickSp('+row+','+JSON.stringify(it.code)+')"><strong>'+whEsc(it.code)+'</strong><div class="muted">'+whEsc(it.desc)+'</div></button>';
+  }).join('');
+  list.hidden=false;
+  _whOpenCombo=wrap;
+}
+function whPickSp(row, code){
+  var it=(typeof empireWarehouseSpByCode==='function') ? empireWarehouseSpByCode(code) : null;
+  var codeEl=document.getElementById('wh-code-'+row);
+  var descEl=document.getElementById('wh-desc-'+row);
+  if(codeEl) codeEl.value = it ? it.code : code;
+  if(descEl) descEl.value = it ? it.desc : '';
+  whCloseCombos();
+  var qty=document.getElementById('wh-qty-'+row);
+  if(qty) qty.focus();
+}
+function whFilterTech(el){
+  var list=document.getElementById('wh-tech-list');
+  var wrap=document.getElementById('wh-tech-combo');
+  if(!list||!el) return;
+  var q=String(el.value||'').trim().toLowerCase();
+  if(q.length<2){ list.hidden=true; list.innerHTML=''; return; }
+  var hits=WH_TECHNICIANS.filter(function(n){ return n.toLowerCase().indexOf(q)!==-1; }).slice(0,30);
+  if(!hits.length){
+    list.innerHTML='<button type="button" disabled>No name match</button>';
+    list.hidden=false;
+    _whOpenCombo=wrap;
+    return;
+  }
+  list.innerHTML=hits.map(function(n){
+    return '<button type="button" onclick="whPickTech('+JSON.stringify(n)+')">'+whEsc(n)+'</button>';
+  }).join('');
+  list.hidden=false;
+  _whOpenCombo=wrap;
+}
+function whPickTech(name){
+  var el=document.getElementById('wh-technician');
+  if(el) el.value=name;
+  whCloseCombos();
+}
+function whSetIssueType(type){
+  type=String(type||'');
+  document.getElementById('wh-issue-type').value=type;
+  var inn=document.getElementById('wh-type-internal');
+  var ext=document.getElementById('wh-type-external');
+  if(inn){
+    inn.setAttribute('aria-pressed', type==='internal' ? 'true' : 'false');
+    inn.textContent = (type==='internal' ? '☑' : '☐') + ' Internal';
+  }
+  if(ext){
+    ext.setAttribute('aria-pressed', type==='external' ? 'true' : 'false');
+    ext.textContent = (type==='external' ? '☑' : '☐') + ' External';
+  }
+  var block=document.getElementById('whMaintBlock');
+  if(block) block.classList.toggle('wh-maint-disabled', type!=='external');
+}
+function whFormatPrice(e){
+  var el=e.target;
+  var raw=String(el.value||'').replace(/[^\d]/g,'');
+  if(!raw){ el.value=''; return; }
+  el.value=raw.replace(/\B(?=(\d{3})+(?!\d))/g,',');
+}
+function whValidateVoucher(){
+  var el=document.getElementById('wh-voucher');
+  var err=document.getElementById('wh-voucher-err');
+  if(!el||!err) return true;
+  var digits=String(el.value||'').replace(/\D/g,'');
+  var ok=!digits || digits.length>=5;
+  err.hidden=ok;
+  return ok;
+}
+function whSigPad(which){
+  return document.getElementById('wh-sig-'+which);
+}
+function whSetSig(which, dataUrl){
+  _whSig[which]=dataUrl||'';
+  var pad=whSigPad(which);
+  if(!pad) return;
+  if(dataUrl){
+    pad.innerHTML='<img src="'+dataUrl+'" alt="Signature">';
+  } else {
+    pad.innerHTML='<span class="hint">Click here and paste signature (Ctrl+V)</span>';
+  }
+}
+function whClearSig(which){ whSetSig(which,''); }
+function whPasteSig(e, which){
+  var items=e.clipboardData && e.clipboardData.items;
+  if(!items) return;
+  for(var i=0;i<items.length;i++){
+    if(items[i].type.indexOf('image')!==-1){
+      e.preventDefault();
+      var file=items[i].getAsFile();
+      if(!file) return;
+      var reader=new FileReader();
+      reader.onload=function(){ whSetSig(which, reader.result); };
+      reader.readAsDataURL(file);
+      return;
+    }
+  }
+}
+function whSigFile(e, which){
+  var f=e.target.files && e.target.files[0];
+  if(!f) return;
+  var reader=new FileReader();
+  reader.onload=function(){ whSetSig(which, reader.result); };
+  reader.readAsDataURL(f);
+  e.target.value='';
+}
+function whPrint(){
+  if(!whValidateVoucher()){
+    alert('Receipt Voucher No. must have at least 5 numbers.');
+    document.getElementById('wh-voucher').focus();
+    return;
+  }
+  var type=document.getElementById('wh-issue-type').value;
+  if(!type){
+    if(!confirm('No Internal/External selected. Print anyway?')) return;
+  }
+  whCloseCombos();
+  window.print();
+}
+function whClearForm(){
+  if(!confirm('Clear the whole Goods Issue Note?')) return;
+  ['wh-requester','wh-request-no','wh-property','wh-store-keeper','wh-technician','wh-price','wh-voucher'].forEach(function(id){
+    var el=document.getElementById(id); if(el) el.value='';
+  });
+  var company=document.getElementById('wh-company'); if(company) company.value='Empire World';
+  var dateEl=document.getElementById('wh-request-date'); if(dateEl) dateEl.value=new Date().toISOString().slice(0,10);
+  var dt=document.getElementById('wh-maint-datetime'); if(dt) dt.value='';
+  whBuildLines();
+  whSetIssueType('');
+  whClearSig('auth'); whClearSig('issued'); whClearSig('received');
+  whValidateVoucher();
+}
+</script>
+</body>
+</html>
