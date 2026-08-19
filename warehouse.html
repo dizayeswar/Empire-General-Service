@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-esig-diayee">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-sig-upload">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-esig-diayee">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-esig-diayee">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-esig-diayee">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-sig-upload">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-sig-upload">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-sig-upload">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -100,7 +100,7 @@
               </div>
               <div class="wh-top-right">
                 <div class="wh-logo-wrap" data-wh-layout="logo">
-                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-esig-diayee" alt="Empire">
+                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-sig-upload" alt="Empire">
                 </div>
                 <div class="wh-req-block" data-wh-layout="reqBlock">
                   <div class="wh-line"><strong>Request No.:</strong><input id="wh-request-no" class="wh-cell-input" type="text" autocomplete="off"></div>
@@ -162,36 +162,24 @@
 
             <div class="wh-sigs-row">
               <div class="wh-sig-block" data-wh-layout="sigAuth">
-                <div class="wh-sig-pad" id="wh-sig-auth" tabindex="0" onclick="this.focus()" onpaste="whPasteSig(event,'auth')">
-                  <span class="hint">Paste signature (Ctrl+V)</span>
-                </div>
                 <div class="wh-sig-label">Authorized by</div>
+                <div class="wh-sig-pad" id="wh-sig-auth"></div>
                 <div class="wh-sig-actions no-print">
-                  <input type="file" id="wh-sig-auth-file" accept="image/*" hidden onchange="whSigFile(event,'auth')">
-                  <button type="button" onclick="document.getElementById('wh-sig-auth-file').click()">Upload</button>
-                  <button type="button" onclick="whClearSig('auth')">Clear</button>
+                  <button type="button" onclick="whOpenSigPicker('auth')">Upload</button>
                 </div>
               </div>
               <div class="wh-sig-block" data-wh-layout="sigIssued">
-                <div class="wh-sig-pad" id="wh-sig-issued" tabindex="0" onclick="this.focus()" onpaste="whPasteSig(event,'issued')">
-                  <span class="hint">Paste signature (Ctrl+V)</span>
-                </div>
                 <div class="wh-sig-label">Issued by</div>
+                <div class="wh-sig-pad" id="wh-sig-issued"></div>
                 <div class="wh-sig-actions no-print">
-                  <input type="file" id="wh-sig-issued-file" accept="image/*" hidden onchange="whSigFile(event,'issued')">
-                  <button type="button" onclick="document.getElementById('wh-sig-issued-file').click()">Upload</button>
-                  <button type="button" onclick="whClearSig('issued')">Clear</button>
+                  <button type="button" onclick="whOpenSigPicker('issued')">Upload</button>
                 </div>
               </div>
               <div class="wh-sig-block" data-wh-layout="sigReceived">
-                <div class="wh-sig-pad" id="wh-sig-received" tabindex="0" onclick="this.focus()" onpaste="whPasteSig(event,'received')">
-                  <span class="hint">Paste signature (Ctrl+V)</span>
-                </div>
                 <div class="wh-sig-label">Received by</div>
+                <div class="wh-sig-pad" id="wh-sig-received"></div>
                 <div class="wh-sig-actions no-print">
-                  <input type="file" id="wh-sig-received-file" accept="image/*" hidden onchange="whSigFile(event,'received')">
-                  <button type="button" onclick="document.getElementById('wh-sig-received-file').click()">Upload</button>
-                  <button type="button" onclick="whClearSig('received')">Clear</button>
+                  <button type="button" onclick="whOpenSigPicker('received')">Upload</button>
                 </div>
               </div>
             </div>
@@ -238,7 +226,7 @@
         <div class="wh-app wh-saved-app">
           <div class="form-section">
             <h2>Create Signature</h2>
-            <p class="wh-tab-help">Upload or paste a signature photo. It becomes an electronic signature you can reuse on Goods Issue Notes.</p>
+            <p class="wh-tab-help" id="whEsigHelp">Upload or paste a signature photo. It becomes an electronic signature you can reuse on Goods Issue Notes.</p>
 
             <div class="wh-esig-create">
               <label class="wh-esig-label" for="whEsigName">Signature name</label>
@@ -264,13 +252,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-esig-diayee"></script>
-<script src="assets/empire-storage.js?v=2026-08-19-wh-esig-diayee"></script>
-<script src="assets/empire-api.js?v=2026-08-19-wh-esig-diayee"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-esig-diayee"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-esig-diayee"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-esig-diayee"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-esig-diayee"></script>
+<script src="config.js?v=2026-08-19-wh-sig-upload"></script>
+<script src="assets/empire-storage.js?v=2026-08-19-wh-sig-upload"></script>
+<script src="assets/empire-api.js?v=2026-08-19-wh-sig-upload"></script>
+<script src="assets/empire-auth.js?v=2026-08-19-wh-sig-upload"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-sig-upload"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-sig-upload"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-sig-upload"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -297,6 +285,7 @@ var _whDrag = null;
 var _whDraftTimer = null;
 var _whEsigPreview = '';
 var _whEsigs = [];
+var _whEsigPickFor = '';
 
 function handleLogin(e){ empireAuthLogin(e, 'warehouse', { onSuccess: function(){ enterApp(); } }); }
 function logout(){ empireAuthLogout({ redirect: 'index.html', reload: false }); }
@@ -324,6 +313,10 @@ function whSwitchTab(e, tab){
   var btn=document.getElementById('tab-wh-'+tab);
   if(btn) btn.classList.add('active');
   if(e && e.currentTarget) e.currentTarget.classList.add('active');
+  if(tab!=='sigs' && _whEsigPickFor){
+    _whEsigPickFor='';
+    whEsigUpdatePickHelp_();
+  }
   if(tab==='saved' || tab==='done') whLoadSavedList();
   if(tab==='sigs') whEsigLoad();
 }
@@ -1332,6 +1325,28 @@ function whValidateVoucher(){
 function whSigPad(which){
   return document.getElementById('wh-sig-'+which);
 }
+function whSigRoleLabel_(which){
+  if(which==='auth') return 'Authorized by';
+  if(which==='issued') return 'Issued by';
+  if(which==='received') return 'Received by';
+  return 'signature';
+}
+function whOpenSigPicker(which){
+  if(_whFormLocked){ alert('This note is Done and cannot be edited.'); return; }
+  _whEsigPickFor = which||'';
+  whEsigUpdatePickHelp_();
+  whSwitchTab(null, 'sigs');
+  whEsigRenderList_();
+}
+function whEsigUpdatePickHelp_(){
+  var help=document.getElementById('whEsigHelp');
+  if(!help) return;
+  if(_whEsigPickFor){
+    help.textContent='Choose a signature for '+whSigRoleLabel_(_whEsigPickFor)+', then click Use on that card. You can also create a new one above.';
+  } else {
+    help.textContent='Upload or paste a signature photo. It becomes an electronic signature you can reuse on Goods Issue Notes.';
+  }
+}
 function whSetSig(which, dataUrl){
   _whSig[which]=dataUrl||'';
   var pad=whSigPad(which);
@@ -1339,33 +1354,11 @@ function whSetSig(which, dataUrl){
   if(dataUrl){
     pad.innerHTML='<img src="'+dataUrl+'" alt="Signature">';
   } else {
-    pad.innerHTML='<span class="hint">Paste signature (Ctrl+V)</span>';
+    pad.innerHTML='';
   }
+  if(typeof whDraftSchedule_==='function') whDraftSchedule_();
 }
 function whClearSig(which){ whSetSig(which,''); }
-function whPasteSig(e, which){
-  var items=e.clipboardData && e.clipboardData.items;
-  if(!items) return;
-  for(var i=0;i<items.length;i++){
-    if(items[i].type.indexOf('image')!==-1){
-      e.preventDefault();
-      var file=items[i].getAsFile();
-      if(!file) return;
-      var reader=new FileReader();
-      reader.onload=function(){ whSetSig(which, reader.result); };
-      reader.readAsDataURL(file);
-      return;
-    }
-  }
-}
-function whSigFile(e, which){
-  var f=e.target.files && e.target.files[0];
-  if(!f) return;
-  var reader=new FileReader();
-  reader.onload=function(){ whSetSig(which, reader.result); };
-  reader.readAsDataURL(f);
-  e.target.value='';
-}
 function whEsigLocalRead_(){
   try {
     var raw=localStorage.getItem(WH_SIGS_KEY);
@@ -1558,20 +1551,26 @@ function whEsigLoad(){
 function whEsigRenderList_(){
   var box=document.getElementById('whEsigList');
   if(!box) return;
+  whEsigUpdatePickHelp_();
   if(!_whEsigs.length){
     box.innerHTML='<p class="wh-saved-empty">No electronic signatures yet. Upload or paste one above, then Save.</p>';
     return;
   }
+  var pick=_whEsigPickFor;
   var h='<div class="wh-esig-grid">';
   _whEsigs.forEach(function(it){
     h+='<div class="wh-esig-card" data-wh-esig="'+whEsc(it.id)+'">'
       +'<div class="wh-esig-card-preview"><img src="'+it.image+'" alt=""></div>'
       +'<div class="wh-esig-card-name">'+whEsc(it.name||'Signature')+'</div>'
-      +'<div class="wh-esig-card-actions">'
-      +'<button type="button" data-wh-esig-act="auth" data-wh-esig-id="'+whEsc(it.id)+'">Use Authorized</button>'
-      +'<button type="button" data-wh-esig-act="issued" data-wh-esig-id="'+whEsc(it.id)+'">Use Issued</button>'
-      +'<button type="button" data-wh-esig-act="received" data-wh-esig-id="'+whEsc(it.id)+'">Use Received</button>'
-      +'<button type="button" data-wh-esig-act="delete" data-wh-esig-id="'+whEsc(it.id)+'">Delete</button>'
+      +'<div class="wh-esig-card-actions">';
+    if(pick){
+      h+='<button type="button" data-wh-esig-act="pick" data-wh-esig-id="'+whEsc(it.id)+'">Use for '+whEsc(whSigRoleLabel_(pick))+'</button>';
+    } else {
+      h+='<button type="button" data-wh-esig-act="auth" data-wh-esig-id="'+whEsc(it.id)+'">Use Authorized</button>'
+        +'<button type="button" data-wh-esig-act="issued" data-wh-esig-id="'+whEsc(it.id)+'">Use Issued</button>'
+        +'<button type="button" data-wh-esig-act="received" data-wh-esig-id="'+whEsc(it.id)+'">Use Received</button>';
+    }
+    h+='<button type="button" data-wh-esig-act="delete" data-wh-esig-id="'+whEsc(it.id)+'">Delete</button>'
       +'</div></div>';
   });
   h+='</div>';
@@ -1598,10 +1597,22 @@ function whEsigBindList_(){
       whEsigPublish_(true);
       return;
     }
-    if(act==='auth' || act==='issued' || act==='received'){
-      whSetSig(act, it.image);
+    if(act==='pick'){
+      if(!_whEsigPickFor){ alert('Open Upload from the note first.'); return; }
+      if(_whFormLocked){ alert('This note is Done and cannot be edited.'); return; }
+      var slot=_whEsigPickFor;
+      whSetSig(slot, it.image);
+      _whEsigPickFor='';
+      whEsigUpdatePickHelp_();
       whSwitchTab(null,'note');
-      alert('Applied to '+(act==='auth'?'Authorized by':act==='issued'?'Issued by':'Received by')+'.');
+      return;
+    }
+    if(act==='auth' || act==='issued' || act==='received'){
+      if(_whFormLocked){ alert('This note is Done and cannot be edited.'); return; }
+      whSetSig(act, it.image);
+      _whEsigPickFor='';
+      whEsigUpdatePickHelp_();
+      whSwitchTab(null,'note');
     }
   });
 }
@@ -1627,23 +1638,8 @@ function whEsigSave(){
   if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
   whEsigPublish_(false).finally(function(){
     if(btn){ btn.disabled=false; btn.textContent='Save electronic signature'; }
-    alert('Electronic signature saved. Use Authorized / Issued / Received from the list below.');
+    alert('Electronic signature saved. Click Use on the card below to put it on the note.');
   });
-}
-function whUseSavedSig(which){
-  if(_whFormLocked){ alert('This note is Done and cannot be edited.'); return; }
-  if(!_whEsigs.length){
-    if(!confirm('No saved signatures yet. Open Create Signature now?')) return;
-    whSwitchTab(null,'sigs');
-    return;
-  }
-  var names=_whEsigs.map(function(it,i){ return (i+1)+'. '+(it.name||'Signature'); }).join('\n');
-  var pick=prompt('Choose signature number to use:\n\n'+names, '1');
-  if(pick==null) return;
-  var n=parseInt(pick,10);
-  if(!n || n<1 || n>_whEsigs.length){ alert('Invalid number.'); return; }
-  whSetSig(which, _whEsigs[n-1].image);
-  whDraftSchedule_();
 }
 function whVal(id){
   var el=document.getElementById(id);
@@ -1722,9 +1718,9 @@ function whBuildWordPrintHtml_(){
     +'.maint .lab{width:25%;font-weight:400;}'
     +'.sigs{margin-top:28pt;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12pt;}'
     +'.sig{text-align:center;}'
-    +'.sig .pad{min-height:36pt;}'
-    +'.sig .pad img{max-height:34pt;max-width:95%;}'
-    +'.sig .lbl{font-weight:700;font-size:12pt;}'
+    +'.sig .lbl{font-weight:700;font-size:12pt;margin:0 0 4pt;}'
+    +'.sig .pad{min-height:36pt;display:flex;align-items:center;justify-content:center;}'
+    +'.sig .pad img{max-height:34pt;max-width:95%;object-fit:contain;}'
     +whLayoutCssForPrint_()
     +'</style></head><body><div class="sheet">'
     +'<div class="top"><div class="top-left">'
@@ -1755,9 +1751,9 @@ function whBuildWordPrintHtml_(){
     +'<tr><td class="lab">Receipt Voucher No.</td><td>'+whEsc(whVal('wh-voucher'))+'</td></tr>'
     +'</table>'
     +'<div class="sigs">'
-    +'<div class="sig sig-auth"><div class="pad">'+whSigHtml('auth')+'</div><div class="lbl">Authorized by</div></div>'
-    +'<div class="sig sig-issued"><div class="pad">'+whSigHtml('issued')+'</div><div class="lbl">Issued by</div></div>'
-    +'<div class="sig sig-received"><div class="pad">'+whSigHtml('received')+'</div><div class="lbl">Received by</div></div>'
+    +'<div class="sig sig-auth"><div class="lbl">Authorized by</div><div class="pad">'+whSigHtml('auth')+'</div></div>'
+    +'<div class="sig sig-issued"><div class="lbl">Issued by</div><div class="pad">'+whSigHtml('issued')+'</div></div>'
+    +'<div class="sig sig-received"><div class="lbl">Received by</div><div class="pad">'+whSigHtml('received')+'</div></div>'
     +'</div>'
     +'</div></body></html>';
 }

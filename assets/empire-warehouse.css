@@ -557,31 +557,25 @@ html[data-theme="dark"] .wh-combo-list .muted { color: #c5cad3; }
   min-height: 72px;
   text-align: center;
 }
+.wh-sig-label {
+  font-weight: 700;
+  font-size: 12pt;
+  margin: 0 0 4px;
+  text-align: center;
+}
 .wh-sig-pad {
   flex: 1;
   min-height: 44px;
   outline: none;
-  cursor: pointer;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
-  padding: 4px;
+  padding: 2px 4px 4px;
 }
 .wh-sig-pad img {
   max-width: 95%;
   max-height: 40px;
   object-fit: contain;
-}
-.wh-sig-pad .hint {
-  color: #aaa;
-  font-size: 10px;
-  pointer-events: none;
-}
-.wh-sig-label {
-  font-weight: 700;
-  font-size: 12pt;
-  margin-top: 2px;
-  text-align: center;
 }
 .wh-sig-actions {
   display: flex;
