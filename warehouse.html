@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-layout-edit">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-layout-each">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-layout-edit">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-layout-edit">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-layout-edit">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-layout-each">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-layout-each">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-layout-each">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -78,7 +78,7 @@
             <button type="button" id="whSaveBtn" onclick="whSave()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Save</button>
             <button type="button" onclick="whPrint()">Print / Save as PDF</button>
           </div>
-          <p id="whLayoutHint" class="no-print wh-layout-hint" hidden>Edit layout on: drag the purple-outlined block to move it. Use this for <strong>Request No. / Date / Property</strong> (right side). Click <strong>Done</strong> when finished — position is saved on this browser.</p>
+          <p id="whLayoutHint" class="no-print wh-layout-hint" hidden>Edit layout: click any dashed block (logo, Request No., Request Date, Property Code, etc.), then drag to move. Corner squares resize. Click <strong>Done</strong> when finished.</p>
 
           <div class="wh-note" id="whPrintRoot">
             <div class="wh-top">
@@ -93,11 +93,13 @@
                   <input type="hidden" id="wh-issue-type" value="">
                 </div>
               </div>
-              <div class="wh-top-right" data-wh-layout="topRight">
-                <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-layout-edit" alt="Empire">
-                <div class="wh-line"><strong>Request No.:</strong><input id="wh-request-no" class="wh-cell-input" type="text" autocomplete="off"></div>
-                <div class="wh-line"><strong>Request Date:</strong><input id="wh-request-date" class="wh-cell-input" type="date"></div>
-                <div class="wh-line"><strong>Property Code:</strong><input id="wh-property" class="wh-cell-input" type="text" autocomplete="off"></div>
+              <div class="wh-top-right">
+                <div class="wh-logo-wrap" data-wh-layout="logo">
+                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-layout-each" alt="Empire">
+                </div>
+                <div class="wh-line" data-wh-layout="requestNo"><strong>Request No.:</strong><input id="wh-request-no" class="wh-cell-input" type="text" autocomplete="off"></div>
+                <div class="wh-line" data-wh-layout="requestDate"><strong>Request Date:</strong><input id="wh-request-date" class="wh-cell-input" type="date"></div>
+                <div class="wh-line" data-wh-layout="property"><strong>Property Code:</strong><input id="wh-property" class="wh-cell-input" type="text" autocomplete="off"></div>
               </div>
             </div>
 
@@ -213,13 +215,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-layout-edit"></script>
-<script src="assets/empire-storage.js?v=2026-08-19-wh-layout-edit"></script>
-<script src="assets/empire-api.js?v=2026-08-19-wh-layout-edit"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-layout-edit"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-layout-edit"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-layout-edit"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-layout-edit"></script>
+<script src="config.js?v=2026-08-19-wh-layout-each"></script>
+<script src="assets/empire-storage.js?v=2026-08-19-wh-layout-each"></script>
+<script src="assets/empire-api.js?v=2026-08-19-wh-layout-each"></script>
+<script src="assets/empire-auth.js?v=2026-08-19-wh-layout-each"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-layout-each"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-layout-each"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-layout-each"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -235,7 +237,7 @@ var _whSig = { auth:'', issued:'', received:'' };
 var _whEditingId = '';
 var _whSavedCache = [];
 var WH_LOCAL_KEY = 'empire_wh_gins_v1';
-var WH_LAYOUT_KEY = 'empire_wh_layout_v2';
+var WH_LAYOUT_KEY = 'empire_wh_layout_v3';
 var _whLayoutEdit = false;
 var _whLayoutSel = null;
 var _whLayout = {};
@@ -368,7 +370,8 @@ function whPageScale(dir){
 function whLayoutCssForPrint_(){
   var map={
     title:'.title',
-    topRight:'.top-right',
+    logo:'.logo-wrap',
+    requestNo:'.f-reqno', requestDate:'.f-reqdate', property:'.f-property',
     requester:'.f-requester', company:'.f-company', issueType:'.f-type',
     to:'.to', kindly:'.kindly', lines:'.lines-wrap', maint:'.maint',
     sigAuth:'.sig-auth', sigIssued:'.sig-issued', sigReceived:'.sig-received'
@@ -388,9 +391,13 @@ function whLayoutCssForPrint_(){
     var sc=Number(cfg.scale||0)||0;
     if(!x && !y && !fs && (!sc || sc===1)) return;
     css+=sel+'{transform-origin:top left;';
-    var t=whLayoutTransform_(x,y, sc);
+    var t=whLayoutTransform_(x,y, key==='logo' ? 0 : sc);
     if(t) css+='transform:'+t+';';
     if(fs) css+='font-size:'+fs+'px !important;';
+    if(key==='logo' && sc && sc!==1){
+      css+='}';
+      css+='.logo-wrap .logo{height:'+Math.round(50*sc)+'pt;width:auto;';
+    }
     css+='}';
   });
   return css;
@@ -1027,7 +1034,8 @@ function whBuildWordPrintHtml_(){
     +'.top-left{flex:1;min-width:0;}'
     +'.top-right{width:180pt;flex-shrink:0;}'
     +'.title{margin:0 0 10pt;font-size:20pt;font-weight:700;line-height:1.1;}'
-    +'.logo{height:50pt;width:auto;display:block;margin:0 0 10pt auto;}'
+    +'.logo-wrap{display:block;line-height:0;margin:0 0 10pt;text-align:right;}'
+    +'.logo{height:50pt;width:auto;display:inline-block;}'
     +'.row{margin:0 0 6pt;font-weight:700;font-size:12pt;}'
     +'.row .v{font-weight:400;margin-left:4pt;}'
     +'.type{margin:0;font-weight:700;font-size:12pt;}'
@@ -1059,14 +1067,14 @@ function whBuildWordPrintHtml_(){
     +'</style></head><body><div class="sheet">'
     +'<div class="top"><div class="top-left">'
     +'<div class="title">Goods Issue Note</div>'
-    +'<div class="row">Requester:<span class="v">'+whEsc(whVal('wh-requester'))+'</span></div>'
-    +'<div class="row">Company:<span class="v">'+whEsc(whVal('wh-company'))+'</span></div>'
-    +'<div class="type">Good Issue Type<span class="opt">'+inn+'</span><span class="opt">'+ext+'</span></div>'
+    +'<div class="row f-requester">Requester:<span class="v">'+whEsc(whVal('wh-requester'))+'</span></div>'
+    +'<div class="row f-company">Company:<span class="v">'+whEsc(whVal('wh-company'))+'</span></div>'
+    +'<div class="type f-type">Good Issue Type<span class="opt">'+inn+'</span><span class="opt">'+ext+'</span></div>'
     +'</div><div class="top-right">'
-    +(logo?('<img class="logo" src="'+logo+'" alt="Empire">'):'')
-    +'<div class="row">Request No.:<span class="v">'+whEsc(whVal('wh-request-no'))+'</span></div>'
-    +'<div class="row">Request Date:<span class="v">'+whEsc(whFmtDate(whVal('wh-request-date')))+'</span></div>'
-    +'<div class="row">Property Code:<span class="v">'+whEsc(whVal('wh-property'))+'</span></div>'
+    +(logo?('<div class="logo-wrap"><img class="logo" src="'+logo+'" alt="Empire"></div>'):'')
+    +'<div class="row f-reqno">Request No.:<span class="v">'+whEsc(whVal('wh-request-no'))+'</span></div>'
+    +'<div class="row f-reqdate">Request Date:<span class="v">'+whEsc(whFmtDate(whVal('wh-request-date')))+'</span></div>'
+    +'<div class="row f-property">Property Code:<span class="v">'+whEsc(whVal('wh-property'))+'</span></div>'
     +'</div></div>'
     +'<div class="to">To: Stoke Keeper:</div>'
     +'<div class="kindly">Kindly issue the materials stated below:</div>'

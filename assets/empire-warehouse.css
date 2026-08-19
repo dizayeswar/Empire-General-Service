@@ -118,12 +118,12 @@
   flex-direction: column;
   align-items: stretch;
 }
-.wh-title {
-  margin: 0 0 10pt;
-  font-size: 20pt;
-  font-weight: 700;
-  color: #000;
-  line-height: 1.1;
+.wh-logo-wrap {
+  display: inline-block;
+  line-height: 0;
+  position: relative;
+  margin: 0 0 10px auto;
+  align-self: flex-end;
 }
 .wh-logo {
   height: 50px;
@@ -131,7 +131,14 @@
   max-width: 100%;
   object-fit: contain;
   display: block;
-  margin: 0 0 10px auto;
+  margin: 0;
+}
+.wh-title {
+  margin: 0 0 10pt;
+  font-size: 20pt;
+  font-weight: 700;
+  color: #000;
+  line-height: 1.1;
 }
 .wh-line {
   display: flex;
