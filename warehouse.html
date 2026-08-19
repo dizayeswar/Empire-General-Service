@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-save-blank">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-save-flow2">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-save-blank">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-save-flow2">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -283,7 +283,7 @@
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-19-wh-assign"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-save-blank"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-save-flow2"></script>
 <script src="assets/empire-sw-update.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-assign"></script>
 <script>
@@ -925,9 +925,37 @@ function whSetSaveBusy(busy){
     b.textContent=busy ? 'Saving…' : 'Save';
   });
 }
+function whAfterSaveToSavedNotes_(){
+  whLoadSavedList();
+  whOpenBlankNote_();
+  whSwitchTab(null,'saved');
+}
+function whSyncLocalDone_(id, extra){
+  id=String(id||'');
+  if(!id) return;
+  var it=whFindSaved(id) || whNormalizeListItem({ id:id, payload:{} });
+  if(!it) return;
+  extra=extra||{};
+  var p=Object.assign({}, it.payload||{}, {
+    done:true,
+    status:'done',
+    doneAt: it.doneAt || new Date().toISOString(),
+    doneBy: it.doneBy || (typeof empireGetUser==='function' ? empireGetUser() : '')
+  });
+  if(extra.assignedTo){ p.assignedTo=extra.assignedTo; p.assignedAt=extra.assignedAt||new Date().toISOString(); }
+  it.payload=p;
+  it.done=true;
+  it.doneAt=p.doneAt;
+  it.doneBy=p.doneBy;
+  if(p.assignedTo){ it.assignedTo=p.assignedTo; it.assignedAt=p.assignedAt; }
+  it.localOnly=false;
+  it.updatedAt=new Date().toISOString();
+  whLocalUpsert(it);
+}
 function whSave(){
   if(_whFormLocked){
-    alert('This Goods Issue Note is Done and cannot be edited.');
+    alert('This Goods Issue Note is Done and cannot be edited.\n\nOpen Done Notes to Assign who signs Received by.');
+    whSwitchTab(null,'done');
     return;
   }
   if(!whValidateVoucher()){
@@ -939,6 +967,16 @@ function whSave(){
   if(!payload.requester && !payload.requestNo){
     alert('Enter at least Requester or Request No. before saving.');
     return;
+  }
+  // If this id is already Done in our list, do not call Save — go to Done Notes.
+  if(_whEditingId){
+    var existing=whFindSaved(_whEditingId);
+    if(existing && whIsItemDone(existing)){
+      alert('This note is already Done. Use Done Notes → Assign.');
+      whOpenBlankNote_();
+      whSwitchTab(null,'done');
+      return;
+    }
   }
   whSetSaveBusy(true);
   var token=typeof empireGetToken==='function' ? empireGetToken() : '';
@@ -969,18 +1007,25 @@ function whSave(){
         storeKeeper:payload.storeKeeper,
         createdBy: typeof empireGetUser==='function' ? empireGetUser() : '',
         updatedAt: new Date().toISOString(),
-        payload:payload
+        done:false,
+        payload:payload,
+        localOnly:false
       });
-      whLoadSavedList();
-      whOpenBlankNote_();
-      alert('Saved to Saved Notes. This sheet is ready for a new Goods Issue Note.');
+      whAfterSaveToSavedNotes_();
+      alert('Saved to Saved Notes.\n\nNext: click Done on that note, then Assign in Done Notes.');
       return;
     }
     throw new Error((d && (d.message||d.error)) || 'Save failed');
   }).catch(function(err){
     var msg=String(err && err.message || err || 'Save failed');
-    // Real API rejection (e.g. Done note) — do not pretend it saved.
-    if(/cannot be edited|marked Done|empty|not_allowed|forbidden|unauthorized/i.test(msg)){
+    if(/cannot be edited|marked Done/i.test(msg)){
+      whSyncLocalDone_(_whEditingId);
+      whAfterSaveToSavedNotes_();
+      whSwitchTab(null,'done');
+      alert('This note is already Done (cannot edit).\n\nIt is under Done Notes — click Assign there.');
+      return;
+    }
+    if(/empty|not_allowed|forbidden|unauthorized/i.test(msg)){
       alert(msg);
       return;
     }
@@ -998,12 +1043,12 @@ function whSave(){
       storeKeeper:payload.storeKeeper,
       createdBy: typeof empireGetUser==='function' ? empireGetUser() : '',
       updatedAt: new Date().toISOString(),
+      done:false,
       payload:payload,
       localOnly:true
     });
-    whLoadSavedList();
-    whOpenBlankNote_();
-    alert('Saved on this device to Saved Notes. This sheet is ready for a new Goods Issue Note.\n\n('+msg+')');
+    whAfterSaveToSavedNotes_();
+    alert('Saved on this device to Saved Notes.\n\nNext: click Done, then Assign.\n\n('+msg+')');
   }).finally(function(){ whSetSaveBusy(false); });
 }
 function whNormalizeListItem(it){
@@ -1033,12 +1078,33 @@ function whNormalizeListItem(it){
 }
 function whMergeLists(serverItems, localItems){
   var map={};
-  (localItems||[]).forEach(function(it){
-    var n=whNormalizeListItem(it); if(n && n.id) map[n.id]=n;
-  });
-  (serverItems||[]).forEach(function(it){
-    var n=whNormalizeListItem(it); if(n && n.id) map[n.id]=n;
-  });
+  function put(it){
+    var n=whNormalizeListItem(it);
+    if(!n || !n.id) return;
+    var prev=map[n.id];
+    if(!prev){ map[n.id]=n; return; }
+    // Prefer Done / assignment from either side so a stale local copy cannot reopen a Done note.
+    var done=!!(prev.done || n.done);
+    var newer=(String(n.updatedAt||'')>=String(prev.updatedAt||'')) ? n : prev;
+    var older=(newer===n) ? prev : n;
+    var merged=Object.assign({}, older, newer, {
+      done:done,
+      doneAt: newer.doneAt || older.doneAt || '',
+      doneBy: newer.doneBy || older.doneBy || '',
+      assignedTo: newer.assignedTo || older.assignedTo || '',
+      assignedAt: newer.assignedAt || older.assignedAt || '',
+      payload: Object.assign({}, older.payload||{}, newer.payload||{})
+    });
+    if(done){
+      merged.payload.done=true;
+      merged.payload.status='done';
+      if(merged.assignedTo) merged.payload.assignedTo=merged.assignedTo;
+    }
+    merged.localOnly=!!(prev.localOnly && n.localOnly);
+    map[n.id]=merged;
+  }
+  (localItems||[]).forEach(put);
+  (serverItems||[]).forEach(put);
   return Object.keys(map).map(function(k){ return map[k]; }).sort(function(a,b){
     return String(b.updatedAt||'').localeCompare(String(a.updatedAt||''));
   });
