@@ -125,6 +125,10 @@
   margin: 0 0 10px auto;
   align-self: flex-end;
 }
+.wh-req-block {
+  width: 100%;
+  position: relative;
+}
 .wh-logo {
   height: 50px;
   width: auto;
