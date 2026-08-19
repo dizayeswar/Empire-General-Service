@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-assign">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-ui-dlg">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-assign">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-ui-dlg">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -283,7 +283,7 @@
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-19-wh-assign"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-assign"></script>
+<script src="assets/empire-core.js?v=2026-08-19-ui-dlg"></script>
 <script src="assets/empire-sw-update.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-assign"></script>
 <script>
@@ -317,6 +317,15 @@ var _whSpFilter = 'both';
 var _whReceiverMode = false;
 var _whAssigneesCache = [];
 
+function whUiConfirm_(msg, opts){
+  if(typeof uiConfirm==='function') return uiConfirm(msg, opts);
+  return Promise.resolve(window.confirm(msg));
+}
+function whUiPrompt_(msg, def, opts){
+  if(typeof uiPrompt==='function') return uiPrompt(msg, def, opts);
+  var v=window.prompt(msg, def!=null?def:'');
+  return Promise.resolve(v);
+}
 function whIsReceiverMode_(){
   var role=String(typeof empireGetRole==='function' ? empireGetRole() : '').toLowerCase().replace(/[\s-]+/g,'_');
   return role==='warehouse_receiver' || role==='receiver';
@@ -508,9 +517,11 @@ function whLayoutPublishToServer_(quiet){
   });
 }
 function whLayoutPublish(){
-  if(!confirm('Save this layout for every PC? Screen and print will match on all computers.')) return;
-  whLayoutPublishToServer_(false);
-  whToggleLayoutEdit(false);
+  whUiConfirm_('Save this layout for every PC? Screen and print will match on all computers.').then(function(ok){
+    if(!ok) return;
+    whLayoutPublishToServer_(false);
+    whToggleLayoutEdit(false);
+  });
 }
 function whLayoutStripSigOffsets_(layout){
   layout=layout&&typeof layout==='object' ? layout : {};
@@ -774,24 +785,26 @@ function whLayoutFont(dir){
   whLayoutSave();
 }
 function whLayoutReset(){
-  if(!confirm('Reset layout positions and sizes to default on this PC and for everyone?')) return;
-  _whLayout={};
-  whLayoutSave({ publish:true, quiet:true });
-  document.querySelectorAll('[data-wh-layout]').forEach(function(el){
-    el.style.transform='';
-    el.style.fontSize='';
-    if(el.getAttribute('data-wh-layout')==='logo') whLayoutApplyLogoSize_(el, 0);
+  whUiConfirm_('Reset layout positions and sizes to default on this PC and for everyone?').then(function(ok){
+    if(!ok) return;
+    _whLayout={};
+    whLayoutSave({ publish:true, quiet:true });
+    document.querySelectorAll('[data-wh-layout]').forEach(function(el){
+      el.style.transform='';
+      el.style.fontSize='';
+      if(el.getAttribute('data-wh-layout')==='logo') whLayoutApplyLogoSize_(el, 0);
+    });
+    var root=document.getElementById('whPrintRoot');
+    if(root){
+      root.style.zoom='';
+      root.style.transform='';
+      root.style.transformOrigin='';
+    }
+    var lab=document.getElementById('whPageScaleLabel');
+    if(lab) lab.textContent='100%';
+    whLayoutSelect(null);
+    alert('Layout reset and shared to all PCs.');
   });
-  var root=document.getElementById('whPrintRoot');
-  if(root){
-    root.style.zoom='';
-    root.style.transform='';
-    root.style.transformOrigin='';
-  }
-  var lab=document.getElementById('whPageScaleLabel');
-  if(lab) lab.textContent='100%';
-  whLayoutSelect(null);
-  alert('Layout reset and shared to all PCs.');
 }
 function whUpdateFormTitle(){
   var t=document.getElementById('whFormTitle');
@@ -807,15 +820,21 @@ function whFormHasContent_(){
 }
 function whStartNew(){
   if(_whReceiverMode){ alert('Receiver accounts cannot create new notes.'); return; }
+  var go=function(){
+    _whEditingId='';
+    whClearForm(true);
+    whDraftClear_();
+    whSetFormLocked(false);
+    whUpdateFormTitle();
+    whSwitchTab(null,'note');
+  };
   if(whFormHasContent_() && !_whFormLocked){
-    if(!confirm('Start a new Goods Issue Note?\n\nClick OK only after you have Saved the current one if you still need it under Saved Notes.')) return;
+    whUiConfirm_('Start a new Goods Issue Note?\n\nClick OK only after you have Saved the current one if you still need it under Saved Notes.').then(function(ok){
+      if(ok) go();
+    });
+    return;
   }
-  _whEditingId='';
-  whClearForm(true);
-  whDraftClear_();
-  whSetFormLocked(false);
-  whUpdateFormTitle();
-  whSwitchTab(null,'note');
+  go();
 }
 function whCollectPayload(){
   var lines=[];
@@ -1355,22 +1374,22 @@ function whLoadAssignees_(cb){
 function whPickAssignee_(users){
   if(!users || !users.length){
     alert('No Warehouse receiver accounts found.\n\nCreate users in Admin → Users with role "Warehouse receiver" and department "warehouse".');
-    return null;
+    return Promise.resolve(null);
   }
   var names=users.map(function(u,i){ return (i+1)+'. '+u.username; }).join('\n');
-  var pick=prompt('Assign this Done note to which account? They will sign Received by.\n\n'+names, '1');
-  if(pick==null) return null;
-  var n=parseInt(pick,10);
-  if(!n || n<1 || n>users.length){
-    // allow typing username directly
-    var typed=String(pick||'').trim();
-    for(var i=0;i<users.length;i++){
-      if(String(users[i].username).toLowerCase()===typed.toLowerCase()) return users[i].username;
+  return whUiPrompt_('Assign this Done note to which account? They will sign Received by.\n\n'+names, '1').then(function(pick){
+    if(pick==null) return null;
+    var n=parseInt(pick,10);
+    if(!n || n<1 || n>users.length){
+      var typed=String(pick||'').trim();
+      for(var i=0;i<users.length;i++){
+        if(String(users[i].username).toLowerCase()===typed.toLowerCase()) return users[i].username;
+      }
+      alert('Invalid choice.');
+      return null;
     }
-    alert('Invalid choice.');
-    return null;
-  }
-  return users[n-1].username;
+    return users[n-1].username;
+  });
 }
 function whMarkDone(id){
   if(_whReceiverMode){ alert('Receiver accounts cannot mark notes Done.'); return; }
@@ -1382,44 +1401,47 @@ function whMarkDone(id){
     return;
   }
   whLoadAssignees_(function(users){
-    var assignee=whPickAssignee_(users);
-    if(!assignee) return;
-    if(!confirm('Mark this Goods Issue Note as Done and assign to "'+assignee+'"?\n\nThey will see it when they log in and can only upload Received by.')) return;
-    var p=Object.assign({}, it.payload||{}, {
-      done:true,
-      status:'done',
-      doneAt:new Date().toISOString(),
-      doneBy: typeof empireGetUser==='function' ? empireGetUser() : '',
-      assignedTo:assignee,
-      assignedAt:new Date().toISOString()
-    });
-    if(!p.requester) p.requester=it.requester||'';
-    if(!p.requestNo) p.requestNo=it.requestNo||'';
-    if(!p.requestDate) p.requestDate=it.requestDate||'';
-    if(!p.issueType) p.issueType=it.issueType||'';
-    if(!p.property) p.property=it.propertyCode||'';
-    it.payload=p;
-    it.done=true;
-    it.doneAt=p.doneAt;
-    it.doneBy=p.doneBy;
-    it.assignedTo=assignee;
-    it.assignedAt=p.assignedAt;
-    whLocalUpsert(it);
-    if(_whEditingId===id){
-      whSetFormLocked(true);
-      var t=document.getElementById('whFormTitle');
-      if(t) t.textContent='Goods Issue Note (Done — view only)';
-    }
-    var token=typeof empireGetToken==='function' ? empireGetToken() : '';
-    fetchJSONRetry({ action:'markWarehouseGinDone', token:token, id:id, assignedTo:assignee }, 2, 30000).then(function(d){
-      if(!(d && (d.ok||d.success))) throw new Error((d && (d.message||d.error)) || 'Mark done failed');
-    }).catch(function(err){
-      console.warn('markWarehouseGinDone', err);
-      alert('Could not save Done assignment to server: '+(err && err.message ? err.message : err));
-    }).finally(function(){
-      whLoadSavedList();
-      alert('Moved to Done Notes and assigned to '+assignee+'.');
-      whSwitchTab(null,'done');
+    whPickAssignee_(users).then(function(assignee){
+      if(!assignee) return;
+      return whUiConfirm_('Mark this Goods Issue Note as Done and assign to "'+assignee+'"?\n\nThey will see it when they log in and can only upload Received by.').then(function(ok){
+        if(!ok) return;
+        var p=Object.assign({}, it.payload||{}, {
+          done:true,
+          status:'done',
+          doneAt:new Date().toISOString(),
+          doneBy: typeof empireGetUser==='function' ? empireGetUser() : '',
+          assignedTo:assignee,
+          assignedAt:new Date().toISOString()
+        });
+        if(!p.requester) p.requester=it.requester||'';
+        if(!p.requestNo) p.requestNo=it.requestNo||'';
+        if(!p.requestDate) p.requestDate=it.requestDate||'';
+        if(!p.issueType) p.issueType=it.issueType||'';
+        if(!p.property) p.property=it.propertyCode||'';
+        it.payload=p;
+        it.done=true;
+        it.doneAt=p.doneAt;
+        it.doneBy=p.doneBy;
+        it.assignedTo=assignee;
+        it.assignedAt=p.assignedAt;
+        whLocalUpsert(it);
+        if(_whEditingId===id){
+          whSetFormLocked(true);
+          var t=document.getElementById('whFormTitle');
+          if(t) t.textContent='Goods Issue Note (Done — view only)';
+        }
+        var token=typeof empireGetToken==='function' ? empireGetToken() : '';
+        fetchJSONRetry({ action:'markWarehouseGinDone', token:token, id:id, assignedTo:assignee }, 2, 30000).then(function(d){
+          if(!(d && (d.ok||d.success))) throw new Error((d && (d.message||d.error)) || 'Mark done failed');
+        }).catch(function(err){
+          console.warn('markWarehouseGinDone', err);
+          alert('Could not save Done assignment to server: '+(err && err.message ? err.message : err));
+        }).finally(function(){
+          whLoadSavedList();
+          alert('Moved to Done Notes and assigned to '+assignee+'.');
+          whSwitchTab(null,'done');
+        });
+      });
     });
   });
 }
@@ -1429,13 +1451,15 @@ function whPrintSaved(id){
 }
 function whDeleteSaved(id){
   if(_whReceiverMode){ alert('Receiver accounts cannot delete notes.'); return; }
-  if(!confirm('Delete this saved Goods Issue Note?')) return;
-  id=String(id||'');
-  whLocalDelete(id);
-  var token=typeof empireGetToken==='function' ? empireGetToken() : '';
-  fetchJSONRetry({ action:'deleteWarehouseGin', token:token, id:id }, 1, 30000).catch(function(){});
-  if(_whEditingId===id){ _whEditingId=''; whUpdateFormTitle(); }
-  whLoadSavedList();
+  whUiConfirm_('Delete this saved Goods Issue Note?', { danger:true }).then(function(ok){
+    if(!ok) return;
+    id=String(id||'');
+    whLocalDelete(id);
+    var token=typeof empireGetToken==='function' ? empireGetToken() : '';
+    fetchJSONRetry({ action:'deleteWarehouseGin', token:token, id:id }, 1, 30000).catch(function(){});
+    if(_whEditingId===id){ _whEditingId=''; whUpdateFormTitle(); }
+    whLoadSavedList();
+  });
 }
 function whBuildLines(){
   var body=document.getElementById('whLinesBody');
@@ -1660,38 +1684,40 @@ function whEsigHashPass_(password, salt){
 function whEsigHasPass_(it){
   return !!(it && String(it.passHash||'').trim() && String(it.passSalt||'').trim());
 }
-function whEsigAskPass_(label){
-  var p=prompt(label||'Enter signature password:');
-  if(p==null) return null;
-  return String(p);
+function whEsigAskPass_(label, opts){
+  opts=opts||{};
+  return whUiPrompt_(label||'Enter signature password:', '', { password:!!opts.password || opts.password!==false });
 }
 function whEsigUnlock_(it, thenFn){
   if(!it) return;
   if(whEsigHasPass_(it)){
-    var pass=whEsigAskPass_('Password for "'+(it.name||'Signature')+'":');
-    if(pass==null) return;
-    if(!String(pass).trim()){ alert('Password required.'); return; }
-    whEsigHashPass_(pass, it.passSalt).then(function(hash){
-      if(hash!==String(it.passHash||'')){ alert('Wrong password.'); return; }
-      thenFn();
+    whEsigAskPass_('Password for "'+(it.name||'Signature')+'":', { password:true }).then(function(pass){
+      if(pass==null) return;
+      if(!String(pass).trim()){ alert('Password required.'); return; }
+      whEsigHashPass_(pass, it.passSalt).then(function(hash){
+        if(hash!==String(it.passHash||'')){ alert('Wrong password.'); return; }
+        thenFn();
+      });
     });
     return;
   }
   // Legacy / builtin signatures: set a password before first use.
   alert('"'+(it.name||'Signature')+'" has no password yet. Create one now so others cannot use it.');
-  var p1=whEsigAskPass_('Create password for "'+(it.name||'Signature')+'":');
-  if(p1==null) return;
-  if(String(p1).trim().length<4){ alert('Password must be at least 4 characters.'); return; }
-  var p2=whEsigAskPass_('Confirm password:');
-  if(p2==null) return;
-  if(p1!==p2){ alert('Passwords do not match.'); return; }
-  var salt=whEsigSalt_();
-  whEsigHashPass_(p1, salt).then(function(hash){
-    it.passSalt=salt;
-    it.passHash=hash;
-    whEsigLocalWrite_(_whEsigs);
-    whEsigPublish_(true);
-    thenFn();
+  whEsigAskPass_('Create password for "'+(it.name||'Signature')+'":', { password:true }).then(function(p1){
+    if(p1==null) return;
+    if(String(p1).trim().length<4){ alert('Password must be at least 4 characters.'); return; }
+    return whEsigAskPass_('Confirm password:', { password:true }).then(function(p2){
+      if(p2==null) return;
+      if(p1!==p2){ alert('Passwords do not match.'); return; }
+      var salt=whEsigSalt_();
+      whEsigHashPass_(p1, salt).then(function(hash){
+        it.passSalt=salt;
+        it.passHash=hash;
+        whEsigLocalWrite_(_whEsigs);
+        whEsigPublish_(true);
+        thenFn();
+      });
+    });
   });
 }
 function whEsigLocalRead_(){
@@ -1926,11 +1952,13 @@ function whEsigBindList_(){
     if(!it) return;
     if(act==='delete'){
       whEsigUnlock_(it, function(){
-        if(!confirm('Delete electronic signature "'+(it.name||'')+'"?')) return;
-        _whEsigs=_whEsigs.filter(function(x){ return String(x.id)!==id; });
-        whEsigLocalWrite_(_whEsigs);
-        whEsigRenderList_();
-        whEsigPublish_(true);
+        whUiConfirm_('Delete electronic signature "'+(it.name||'')+'"?', { danger:true }).then(function(ok){
+          if(!ok) return;
+          _whEsigs=_whEsigs.filter(function(x){ return String(x.id)!==id; });
+          whEsigLocalWrite_(_whEsigs);
+          whEsigRenderList_();
+          whEsigPublish_(true);
+        });
       });
       return;
     }
@@ -2133,36 +2161,42 @@ function whPrint(){
     return;
   }
   var type=document.getElementById('wh-issue-type').value;
+  var run=function(){
+    whCloseCombos();
+    var html=whBuildWordPrintHtml_();
+    var frame=document.getElementById('whPrintFrame');
+    if(!frame){
+      frame=document.createElement('iframe');
+      frame.id='whPrintFrame';
+      frame.setAttribute('aria-hidden','true');
+      frame.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none;';
+      document.body.appendChild(frame);
+    }
+    var win=frame.contentWindow;
+    var doc=frame.contentDocument || (win && win.document);
+    if(!doc || !win){
+      alert('Could not open print view. Try again.');
+      return;
+    }
+    doc.open();
+    doc.write(html);
+    doc.close();
+    setTimeout(function(){
+      try {
+        win.focus();
+        win.print();
+      } catch (e) {
+        alert('Could not print. Use the Print / Save as PDF button again.');
+      }
+    }, 250);
+  };
   if(!type){
-    if(!confirm('No Internal/External selected. Print anyway?')) return;
-  }
-  whCloseCombos();
-  var html=whBuildWordPrintHtml_();
-  var frame=document.getElementById('whPrintFrame');
-  if(!frame){
-    frame=document.createElement('iframe');
-    frame.id='whPrintFrame';
-    frame.setAttribute('aria-hidden','true');
-    frame.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none;';
-    document.body.appendChild(frame);
-  }
-  var win=frame.contentWindow;
-  var doc=frame.contentDocument || (win && win.document);
-  if(!doc || !win){
-    alert('Could not open print view. Try again.');
+    whUiConfirm_('No Internal/External selected. Print anyway?').then(function(ok){
+      if(ok) run();
+    });
     return;
   }
-  doc.open();
-  doc.write(html);
-  doc.close();
-  setTimeout(function(){
-    try {
-      win.focus();
-      win.print();
-    } catch (e) {
-      alert('Could not print. Use the Print / Save as PDF button again.');
-    }
-  }, 250);
+  run();
 }
 document.addEventListener('keydown', function(e){
   if((e.ctrlKey || e.metaKey) && String(e.key||'').toLowerCase()==='p'){
@@ -2174,20 +2208,22 @@ document.addEventListener('keydown', function(e){
   }
 });
 function whClearForm(skipConfirm){
-  if(!skipConfirm && !confirm('Clear the whole Goods Issue Note?')) return;
-  whSetFormLocked(false);
-  ['wh-requester','wh-request-no','wh-property','wh-technician','wh-price','wh-voucher'].forEach(function(id){
-    var el=document.getElementById(id); if(el) el.value='';
-  });
-  var company=document.getElementById('wh-company'); if(company) company.value='';
-  var dateEl=document.getElementById('wh-request-date'); if(dateEl) dateEl.value='';
-  var dt=document.getElementById('wh-maint-datetime'); if(dt) dt.value='';
-  whBuildLines();
-  whSetIssueType('');
-  whClearSig('auth'); whClearSig('issued'); whClearSig('received');
-  whValidateVoucher();
-  whDraftClear_();
-  if(!skipConfirm){ _whEditingId=''; whUpdateFormTitle(); }
+  var run=function(){
+    whSetFormLocked(false);
+    _whEditingId='';
+    whUpdateFormTitle();
+    ['wh-requester','wh-company','wh-request-no','wh-request-date','wh-property','wh-technician','wh-maint-datetime','wh-price','wh-voucher'].forEach(function(id){
+      var el=document.getElementById(id); if(el) el.value='';
+    });
+    var dt=document.getElementById('wh-maint-datetime'); if(dt) dt.value='';
+    whSetIssueType('');
+    whBuildLines();
+    whClearSig('auth'); whClearSig('issued'); whClearSig('received');
+    whValidateVoucher();
+    if(!skipConfirm) whDraftClear_();
+  };
+  if(skipConfirm){ run(); return; }
+  whUiConfirm_('Clear the whole Goods Issue Note?').then(function(ok){ if(ok) run(); });
 }
 </script>
 </body>

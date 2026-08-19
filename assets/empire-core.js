@@ -115,65 +115,120 @@ function toggleSidebar() {
     if (!o) {
       o = document.createElement('div');
       o.id = 'uiDlg';
-      o.style.cssText =
-        'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:4000;align-items:center;justify-content:center;';
+      o.className = 'empire-ui-dlg';
       o.innerHTML =
-        '<div style="background:var(--panel);border:2px solid var(--card-border);border-radius:14px;max-width:430px;width:92%;padding:24px;box-shadow:0 10px 40px var(--shadow);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;"><div id="uiDlgMsg" style="font-size:15px;line-height:1.5;margin-bottom:18px;white-space:pre-wrap;"></div><div id="uiDlgBtns" style="display:flex;gap:10px;justify-content:flex-end;"></div></div>';
+        '<div class="empire-ui-dlg-card" role="dialog" aria-modal="true" aria-labelledby="uiDlgMsg">'
+        + '<div id="uiDlgMsg" class="empire-ui-dlg-msg"></div>'
+        + '<div id="uiDlgFieldWrap" class="empire-ui-dlg-field-wrap" hidden>'
+        + '<input id="uiDlgInput" class="empire-ui-dlg-input" type="text" autocomplete="off">'
+        + '</div>'
+        + '<div id="uiDlgBtns" class="empire-ui-dlg-btns"></div>'
+        + '</div>';
       document.body.appendChild(o);
+      o.addEventListener('click', function (ev) {
+        if (ev.target === o && o._empireDlgCancel) o._empireDlgCancel();
+      });
     }
     return o;
   }
-  function mkbtn(t, bg) {
+  function mkbtn(t, kind) {
     var b = document.createElement('button');
+    b.type = 'button';
     b.textContent = t;
-    b.style.cssText =
-      'background:' +
-      bg +
-      ';color:#fff;border:2px solid ' +
-      bg +
-      ';padding:10px 18px;border-radius:6px;font-weight:600;font-size:14px;cursor:pointer;';
+    b.className = 'empire-ui-dlg-btn' + (kind === 'primary' ? ' empire-ui-dlg-btn-primary' : kind === 'danger' ? ' empire-ui-dlg-btn-danger' : ' empire-ui-dlg-btn-secondary');
     return b;
   }
-  window.uiAlert = function (msg) {
+  function showDlg_(opts) {
+    opts = opts || {};
     return new Promise(function (res) {
       var o = ov();
-      document.getElementById('uiDlgMsg').textContent = String(msg);
+      var msgEl = document.getElementById('uiDlgMsg');
+      var fieldWrap = document.getElementById('uiDlgFieldWrap');
+      var input = document.getElementById('uiDlgInput');
       var bw = document.getElementById('uiDlgBtns');
-      bw.innerHTML = '';
-      var ok = mkbtn('OK', '#8d015d');
-      ok.onclick = function () {
+      var settled = false;
+      function finish(val) {
+        if (settled) return;
+        settled = true;
+        o._empireDlgCancel = null;
+        o.classList.remove('show');
         o.style.display = 'none';
-        res();
+        if (fieldWrap) fieldWrap.hidden = true;
+        if (input) {
+          input.value = '';
+          input.onkeydown = null;
+        }
+        res(val);
+      }
+      msgEl.textContent = String(opts.message || '');
+      bw.innerHTML = '';
+      if (opts.prompt) {
+        fieldWrap.hidden = false;
+        input.type = opts.password ? 'password' : 'text';
+        input.value = opts.defaultValue != null ? String(opts.defaultValue) : '';
+        input.placeholder = opts.placeholder || '';
+      } else {
+        fieldWrap.hidden = true;
+      }
+      if (opts.confirm || opts.prompt) {
+        var c = mkbtn(opts.cancelLabel || 'Cancel', 'secondary');
+        c.onclick = function () { finish(opts.prompt ? null : false); };
+        bw.appendChild(c);
+        o._empireDlgCancel = c.onclick;
+      } else {
+        o._empireDlgCancel = function () { finish(); };
+      }
+      var ok = mkbtn(opts.okLabel || 'OK', opts.danger ? 'danger' : 'primary');
+      ok.onclick = function () {
+        if (opts.prompt) finish(input.value);
+        else if (opts.confirm) finish(true);
+        else finish();
       };
       bw.appendChild(ok);
       o.style.display = 'flex';
+      o.classList.add('show');
       setTimeout(function () {
-        ok.focus();
+        if (opts.prompt && input) {
+          input.focus();
+          input.select();
+          input.onkeydown = function (ev) {
+            if (ev.key === 'Enter') {
+              ev.preventDefault();
+              ok.click();
+            } else if (ev.key === 'Escape') {
+              ev.preventDefault();
+              finish(null);
+            }
+          };
+        } else {
+          ok.focus();
+        }
       }, 30);
     });
+  }
+  window.uiAlert = function (msg) {
+    return showDlg_({ message: msg });
   };
-  window.uiConfirm = function (msg) {
-    return new Promise(function (res) {
-      var o = ov();
-      document.getElementById('uiDlgMsg').textContent = String(msg);
-      var bw = document.getElementById('uiDlgBtns');
-      bw.innerHTML = '';
-      var c = mkbtn('Cancel', '#888');
-      c.onclick = function () {
-        o.style.display = 'none';
-        res(false);
-      };
-      var ok = mkbtn('OK', '#C5504F');
-      ok.onclick = function () {
-        o.style.display = 'none';
-        res(true);
-      };
-      bw.appendChild(c);
-      bw.appendChild(ok);
-      o.style.display = 'flex';
-      setTimeout(function () {
-        ok.focus();
-      }, 30);
+  window.uiConfirm = function (msg, opts) {
+    opts = opts || {};
+    return showDlg_({
+      message: msg,
+      confirm: true,
+      okLabel: opts.okLabel || 'OK',
+      cancelLabel: opts.cancelLabel || 'Cancel',
+      danger: !!opts.danger
+    });
+  };
+  window.uiPrompt = function (msg, def, opts) {
+    opts = opts || {};
+    return showDlg_({
+      message: msg,
+      prompt: true,
+      defaultValue: def != null ? def : '',
+      placeholder: opts.placeholder || '',
+      password: !!opts.password,
+      okLabel: opts.okLabel || 'OK',
+      cancelLabel: opts.cancelLabel || 'Cancel'
     });
   };
   window.alert = function (m) {
