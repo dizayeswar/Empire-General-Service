@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-save-flow2">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-autosave">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-save-flow2">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-autosave">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -81,6 +81,7 @@
         <div class="wh-app">
           <div class="wh-toolbar no-print">
             <strong id="whFormTitle">Goods Issue Note</strong>
+            <span id="whAutoSaveStatus" class="wh-autosave-status" aria-live="polite"></span>
             <span id="whDoneBanner" class="wh-done-banner" hidden>Done — view only</span>
             <span class="wh-spacer"></span>
             <button type="button" onclick="whStartNew()">New</button>
@@ -195,7 +196,7 @@
             <button type="button" onclick="whPrint()">Print / Save as PDF</button>
             <button type="button" onclick="whClearForm()">Clear form</button>
           </div>
-          <p class="no-print" style="color:var(--text-soft);font-size:12px;margin-top:10px;">Use <strong>Save</strong> — the note goes to Saved Notes and this sheet clears for the next one. Prefer <strong>Portrait A4</strong> at 100% scale.</p>
+          <p class="no-print" style="color:var(--text-soft);font-size:12px;margin-top:10px;">Changes <strong>auto-save</strong> as you type (also when you leave this tab). Use <strong>Save</strong> when finished to clear the sheet for the next note. Prefer <strong>Portrait A4</strong> at 100% scale.</p>
         </div>
       </div>
 
@@ -283,7 +284,7 @@
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-19-wh-assign"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-save-flow2"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-autosave"></script>
 <script src="assets/empire-sw-update.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-assign"></script>
 <script>
@@ -310,6 +311,9 @@ var _whLayoutSel = null;
 var _whLayout = {};
 var _whDrag = null;
 var _whDraftTimer = null;
+var _whAutoSaveBusy = false;
+var _whAutoSavePending = false;
+var _whAutoSaveLastJson = '';
 var _whEsigPreview = '';
 var _whEsigs = [];
 var _whEsigPickFor = '';
@@ -370,6 +374,16 @@ window.addEventListener('load', function(){
 });
 
 function whSwitchTab(e, tab){
+  var cur=document.querySelector('.dept-tab-content.active');
+  var leavingNote=cur && cur.id==='wh-tab-note' && tab!=='note';
+  if(leavingNote && !_whFormLocked && !_whReceiverMode && !whSwitchTab._flushing){
+    whSwitchTab._flushing=true;
+    whAutoSaveNow_({ force:true, quiet:true }).finally(function(){
+      whSwitchTab._flushing=false;
+      whSwitchTab(e, tab);
+    });
+    return;
+  }
   document.querySelectorAll('.dept-tab-content').forEach(function(x){ x.classList.remove('active'); });
   document.querySelectorAll('.side-nav-dept .tab-btn').forEach(function(x){ x.classList.remove('active'); });
   var pane=document.getElementById('wh-tab-'+tab);
@@ -410,18 +424,31 @@ function whInit(){
   document.addEventListener('click', function(e){
     if(_whOpenCombo && !_whOpenCombo.contains(e.target)) whCloseCombos();
   });
+  window.addEventListener('pagehide', function(){
+    try { whAutoSaveNow_({ force:true, quiet:true }); } catch(e){}
+  });
 }
 function whDraftBind_(){
   var root=document.getElementById('whPrintRoot');
   if(!root || root._whDraftBound) return;
   root._whDraftBound=true;
-  root.addEventListener('input', whDraftSchedule_);
-  root.addEventListener('change', whDraftSchedule_);
+  root.addEventListener('input', whAutoSaveSchedule_);
+  root.addEventListener('change', whAutoSaveSchedule_);
 }
-function whDraftSchedule_(){
+function whAutoSaveSetStatus_(txt){
+  var el=document.getElementById('whAutoSaveStatus');
+  if(el) el.textContent=txt||'';
+}
+function whAutoSaveSchedule_(){
+  if(_whFormLocked || _whReceiverMode) return;
   if(_whDraftTimer) clearTimeout(_whDraftTimer);
-  _whDraftTimer=setTimeout(whDraftSave_, 400);
+  whAutoSaveSetStatus_('Editing…');
+  _whDraftTimer=setTimeout(function(){
+    _whDraftTimer=null;
+    whAutoSaveNow_({ quiet:true });
+  }, 650);
 }
+function whDraftSchedule_(){ whAutoSaveSchedule_(); }
 function whDraftSave_(){
   try {
     localStorage.setItem(WH_DRAFT_KEY, JSON.stringify({
@@ -430,8 +457,125 @@ function whDraftSave_(){
     }));
   } catch(e){}
 }
+function whCacheUpsert_(item){
+  var n=whNormalizeListItem(item);
+  if(!n || !n.id) return;
+  var found=false;
+  for(var i=0;i<_whSavedCache.length;i++){
+    if(String(_whSavedCache[i].id)===String(n.id)){ _whSavedCache[i]=n; found=true; break; }
+  }
+  if(!found) _whSavedCache.unshift(n);
+}
+function whAutoSaveNow_(opts){
+  opts=opts||{};
+  if(_whFormLocked || _whReceiverMode) return Promise.resolve();
+  if(_whAutoSaveBusy){
+    _whAutoSavePending=true;
+    try { whDraftSave_(); } catch(e){}
+    return Promise.resolve();
+  }
+  var payload=whCollectPayload();
+  var has=whFormHasContent_();
+  if(!has && !_whEditingId){
+    whAutoSaveSetStatus_('');
+    return Promise.resolve();
+  }
+  var json=JSON.stringify(payload);
+  if(!opts.force && json===_whAutoSaveLastJson && _whEditingId){
+    whAutoSaveSetStatus_('Saved');
+    return Promise.resolve();
+  }
+  var prev=_whEditingId ? whFindSaved(_whEditingId) : null;
+  if(prev && whIsItemDone(prev)){
+    whAutoSaveSetStatus_('');
+    return Promise.resolve();
+  }
+  var id=_whEditingId || ('local-whgin-'+Date.now());
+  if(!_whEditingId){
+    _whEditingId=id;
+    whUpdateFormTitle();
+  }
+  var item={
+    id:id,
+    num:prev && prev.num ? prev.num : 0,
+    requestNo:payload.requestNo,
+    requestDate:payload.requestDate,
+    requester:payload.requester,
+    company:payload.company,
+    issueType:payload.issueType,
+    propertyCode:payload.property,
+    storeKeeper:payload.storeKeeper,
+    createdBy:(prev && prev.createdBy) || (typeof empireGetUser==='function' ? empireGetUser() : ''),
+    updatedAt:new Date().toISOString(),
+    done:false,
+    payload:payload,
+    localOnly: !!(prev && prev.localOnly) || String(id).indexOf('local-whgin-')===0
+  };
+  whLocalUpsert(item);
+  whCacheUpsert_(item);
+  whDraftSave_();
+  _whAutoSaveLastJson=json;
+  whAutoSaveSetStatus_('Saving…');
+
+  var token=typeof empireGetToken==='function' ? empireGetToken() : '';
+  if(!token || typeof fetchJSONRetry!=='function'){
+    whAutoSaveSetStatus_('Saved on this device');
+    return Promise.resolve();
+  }
+  _whAutoSaveBusy=true;
+  return fetchJSONRetry({
+    action:'saveWarehouseGin',
+    token:token,
+    id:String(id).indexOf('local-whgin-')===0 ? '' : id,
+    requestNo:payload.requestNo,
+    requestDate:payload.requestDate,
+    requester:payload.requester,
+    company:payload.company,
+    issueType:payload.issueType,
+    propertyCode:payload.property,
+    storeKeeper:payload.storeKeeper,
+    payload:payload
+  }, 1, 60000).then(function(d){
+    if(d && (d.ok||d.success) && d.id){
+      var newId=String(d.id);
+      if(newId!==String(id)){
+        whLocalDelete(id);
+        _whEditingId=newId;
+        id=newId;
+        whUpdateFormTitle();
+      }
+      item.id=newId;
+      item.num=d.num||item.num||0;
+      item.localOnly=false;
+      item.updatedAt=new Date().toISOString();
+      whLocalUpsert(item);
+      whCacheUpsert_(item);
+      whDraftSave_();
+      whAutoSaveSetStatus_('Saved');
+      return;
+    }
+    var msg=String((d && (d.message||d.error)) || 'Save failed');
+    if(/cannot be edited|marked Done/i.test(msg)){
+      whSyncLocalDone_(_whEditingId);
+      whSetFormLocked(true);
+      whAutoSaveSetStatus_('Done — locked');
+      return;
+    }
+    whAutoSaveSetStatus_('Saved on this device');
+  }).catch(function(){
+    whAutoSaveSetStatus_('Saved on this device');
+  }).finally(function(){
+    _whAutoSaveBusy=false;
+    if(_whAutoSavePending){
+      _whAutoSavePending=false;
+      whAutoSaveNow_({ force:true, quiet:true });
+    }
+  });
+}
 function whDraftClear_(){
   if(_whDraftTimer){ clearTimeout(_whDraftTimer); _whDraftTimer=null; }
+  _whAutoSaveLastJson='';
+  whAutoSaveSetStatus_('');
   try { localStorage.removeItem(WH_DRAFT_KEY); } catch(e){}
 }
 function whDraftRestore_(){
@@ -449,6 +593,7 @@ function whDraftRestore_(){
     _whEditingId=String(d.editingId||'');
     whApplyPayload(d.payload);
     whUpdateFormTitle();
+    try { _whAutoSaveLastJson=JSON.stringify(d.payload); } catch(e){ _whAutoSaveLastJson=''; }
   } catch(e){}
 }
 
@@ -1439,6 +1584,8 @@ function whOpenSaved(id){
     }
   }
   whDraftSave_();
+  try { _whAutoSaveLastJson=JSON.stringify(whCollectPayload()); } catch(e){ _whAutoSaveLastJson=''; }
+  whAutoSaveSetStatus_(_whFormLocked ? '' : 'Saved');
   whSwitchTab(null,'note');
   try { window.scrollTo(0,0); } catch(e){}
 }
@@ -1686,6 +1833,7 @@ function whSetIssueType(type){
   }
   var block=document.getElementById('whMaintBlock');
   if(block) block.classList.toggle('wh-maint-disabled', type!=='external');
+  whAutoSaveSchedule_();
 }
 function whFormatPrice(e){
   var el=e.target;

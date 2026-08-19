@@ -14,6 +14,12 @@
 }
 .wh-toolbar .wh-spacer { flex: 1; }
 .wh-toolbar button { font-family: inherit; cursor: pointer; }
+.wh-autosave-status {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-soft, #666);
+  min-width: 7em;
+}
 .wh-layout-tools {
   display: inline-flex;
   flex-wrap: wrap;
