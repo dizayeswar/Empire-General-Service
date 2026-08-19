@@ -137,7 +137,7 @@
   line-height: 1.1;
 }
 .wh-logo {
-  height: 48px;
+  height: 46px;
   width: auto;
   object-fit: contain;
   flex-shrink: 0;
@@ -153,17 +153,16 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 24px;
+  gap: 40px;
   margin-bottom: 12px;
 }
 .wh-col-left {
   flex: 1;
   min-width: 0;
-  max-width: 58%;
 }
 .wh-col-right {
-  width: 38%;
-  max-width: 280px;
+  width: 42%;
+  max-width: 260px;
   flex-shrink: 0;
 }
 .wh-line {

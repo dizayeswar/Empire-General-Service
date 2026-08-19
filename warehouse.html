@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-labels-bold">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-match-word-exact">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-labels-bold">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-labels-bold">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-labels-bold">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-match-word-exact">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-match-word-exact">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-match-word-exact">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -105,8 +105,8 @@
                 <div class="wh-line" data-wh-layout="company"><strong>Company:</strong><input id="wh-company" class="wh-cell-input" type="text" value="" autocomplete="off"></div>
                 <div class="wh-type-inline" data-wh-layout="issueType">
                   <strong>Good Issue Type</strong>
-                  <button type="button" class="wh-type-btn" id="wh-type-internal" aria-pressed="false" onclick="whSetIssueType('internal')">□ Internal</button>
-                  <button type="button" class="wh-type-btn" id="wh-type-external" aria-pressed="false" onclick="whSetIssueType('external')">□ External</button>
+                  <button type="button" class="wh-type-btn" id="wh-type-internal" aria-pressed="false" onclick="whSetIssueType('internal')">□Internal</button>
+                  <button type="button" class="wh-type-btn" id="wh-type-external" aria-pressed="false" onclick="whSetIssueType('external')">□External</button>
                   <input type="hidden" id="wh-issue-type" value="">
                 </div>
               </div>
@@ -230,13 +230,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-labels-bold"></script>
-<script src="assets/empire-storage.js?v=2026-08-19-wh-labels-bold"></script>
-<script src="assets/empire-api.js?v=2026-08-19-wh-labels-bold"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-labels-bold"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-labels-bold"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-labels-bold"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-labels-bold"></script>
+<script src="config.js?v=2026-08-19-wh-match-word-exact"></script>
+<script src="assets/empire-storage.js?v=2026-08-19-wh-match-word-exact"></script>
+<script src="assets/empire-api.js?v=2026-08-19-wh-match-word-exact"></script>
+<script src="assets/empire-auth.js?v=2026-08-19-wh-match-word-exact"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-match-word-exact"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-match-word-exact"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-match-word-exact"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -936,11 +936,11 @@ function whSetIssueType(type){
   var ext=document.getElementById('wh-type-external');
   if(inn){
     inn.setAttribute('aria-pressed', type==='internal' ? 'true' : 'false');
-    inn.textContent = (type==='internal' ? '☑' : '□') + ' Internal';
+    inn.textContent = (type==='internal' ? '☑' : '□') + 'Internal';
   }
   if(ext){
     ext.setAttribute('aria-pressed', type==='external' ? 'true' : 'false');
-    ext.textContent = (type==='external' ? '☑' : '□') + ' External';
+    ext.textContent = (type==='external' ? '☑' : '□') + 'External';
   }
   var block=document.getElementById('whMaintBlock');
   if(block) block.classList.toggle('wh-maint-disabled', type!=='external');
@@ -1036,79 +1036,78 @@ function whBuildWordPrintHtml_(){
   }
   var logo='';
   try { logo=new URL('logo-light.png', location.href).href; } catch(e) { logo='logo-light.png'; }
-  // Print layout matches the official Word Goods Issue Note (second picture).
+  // Exact Word Goods Issue Note layout (second screenshot). Print ignores on-screen layout edits.
   return '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Goods Issue Note</title>'
     +'<style>'
-    +'@page{size:A4 portrait;margin:12mm 18mm;}'
+    +'@page{size:A4 portrait;margin:12mm 16mm;}'
     +'html,body{margin:0;padding:0;}'
     +'*{box-sizing:border-box;}'
-    +'body{font-family:Arial,Helvetica,sans-serif;color:#000;font-size:11pt;line-height:1.25;}'
+    +'body{font-family:Arial,Helvetica,sans-serif;color:#000;font-size:11pt;line-height:1.2;}'
     +'.sheet{width:100%;}'
-    +'.head{display:flex;justify-content:space-between;align-items:flex-start;margin:0 0 14pt;}'
-    +'.title{margin:0;font-size:18pt;font-weight:700;}'
-    +'.logo-wrap{display:inline-block;line-height:0;}'
-    +'.logo{height:44pt;width:auto;}'
-    +'.fields{display:flex;justify-content:space-between;align-items:flex-start;gap:24pt;margin:0 0 10pt;}'
-    +'.col-left{flex:1;min-width:0;max-width:58%;}'
-    +'.col-right{width:38%;max-width:210pt;flex-shrink:0;}'
-    +'.line,.f-requester,.f-company,.f-reqno,.f-reqdate,.f-property{display:flex;align-items:baseline;gap:6pt;margin:0 0 9pt;font-weight:700;}'
-    +'.line strong,.f-requester strong,.f-company strong,.f-reqno strong,.f-reqdate strong,.f-property strong{font-weight:700;white-space:nowrap;}'
-    +'.val{flex:1;min-height:14pt;padding:0 2pt;line-height:14pt;font-weight:400;}'
-    +'.type,.f-type{margin:2pt 0 0;font-weight:700;}'
-    +'.type span,.f-type span{margin-left:12pt;font-weight:700;}'
-    +'.to{margin:10pt 0 4pt;font-weight:700;}'
+    +'.head{display:flex;justify-content:space-between;align-items:flex-start;margin:0 0 16pt;}'
+    +'.title{margin:0;padding-top:2pt;font-size:20pt;font-weight:700;letter-spacing:0;}'
+    +'.logo{height:46pt;width:auto;display:block;}'
+    +'.meta{display:flex;justify-content:space-between;align-items:flex-start;gap:40pt;margin:0 0 12pt;}'
+    +'.left{flex:1;min-width:0;}'
+    +'.right{width:42%;max-width:230pt;flex-shrink:0;}'
+    +'.row{margin:0 0 8pt;font-weight:700;}'
+    +'.row .v{font-weight:400;margin-left:4pt;}'
+    +'.type{margin:2pt 0 0;font-weight:700;}'
+    +'.type .opt{margin-left:14pt;font-weight:700;}'
+    +'.to{margin:4pt 0 2pt;font-weight:700;}'
     +'.kindly{margin:0 0 8pt;font-weight:400;}'
     +'table{border-collapse:collapse;width:100%;}'
-    +'.lines{table-layout:fixed;}'
-    +'.lines th,.lines td{border:1px solid #000;padding:1pt 3pt;font-size:9pt;}'
+    +'.lines{table-layout:fixed;margin:0;}'
+    +'.lines th,.lines td{border:1px solid #000;padding:1.5pt 3pt;font-size:9pt;}'
     +'.lines th{font-weight:700;text-align:center;}'
-    +'.lines td{height:14pt;vertical-align:middle;}'
-    +'.lines .n{width:24pt;text-align:left;}'
-    +'.lines .code{width:13%;}.lines .qty{width:11%;}.lines .proj,.lines .cc{width:12%;}'
-    +'.maint{margin-top:10pt;width:100%;}'
-    +'.maint th,.maint td{border:1px solid #000;padding:4pt 6pt;font-size:10pt;}'
-    +'.maint th{font-weight:700;text-align:center;}'
-    +'.maint .lab{width:34%;font-weight:400;}'
-    +'.maint .blank{height:16pt;}'
-    +'.sigs{margin-top:28pt;display:grid;grid-template-columns:1fr 1fr 1fr;gap:16pt;}'
-    +'.sig .space{height:40pt;text-align:center;}'
-    +'.sig .space img{max-height:38pt;max-width:95%;}'
+    +'.lines td{height:13.5pt;vertical-align:middle;}'
+    +'.lines .n{width:22pt;text-align:left;font-weight:400;}'
+    +'.lines .code{width:14%;}'
+    +'.lines .qty{width:11%;}'
+    +'.lines .proj,.lines .cc{width:13%;}'
+    +'.maint{margin-top:10pt;width:100%;border-collapse:collapse;}'
+    +'.maint th{border:1px solid #000;padding:4pt 6pt;font-weight:700;text-align:center;font-size:10.5pt;}'
+    +'.maint td{border:1px solid #000;padding:3.5pt 6pt;font-size:10pt;height:15pt;vertical-align:middle;}'
+    +'.maint .lab{width:32%;font-weight:400;}'
+    +'.sigs{margin-top:36pt;display:flex;justify-content:space-between;align-items:flex-end;}'
+    +'.sig{width:30%;}'
+    +'.sig .pad{min-height:36pt;text-align:center;}'
+    +'.sig .pad img{max-height:34pt;max-width:95%;}'
     +'.sig .lbl{font-weight:700;}'
     +'.sig-auth .lbl{text-align:left;}'
     +'.sig-issued .lbl{text-align:center;}'
     +'.sig-received .lbl{text-align:right;}'
     +'@media print{.sheet{page-break-inside:avoid;}}'
-    +whLayoutCssForPrint_()
     +'</style></head><body><div class="sheet">'
     +'<div class="head"><div class="title">Goods Issue Note</div>'
-    +(logo?('<div class="logo-wrap"><img class="logo" src="'+logo+'" alt="Empire"></div>'):'')
+    +(logo?('<img class="logo" src="'+logo+'" alt="Empire">'):'')
     +'</div>'
-    +'<div class="fields"><div class="col-left">'
-    +'<div class="f-requester"><strong>Requester:</strong><span class="val">'+whEsc(whVal('wh-requester'))+'</span></div>'
-    +'<div class="f-company"><strong>Company:</strong><span class="val">'+whEsc(whVal('wh-company'))+'</span></div>'
-    +'<div class="f-type"><strong>Good Issue Type</strong><span>'+inn+'</span><span>'+ext+'</span></div>'
-    +'</div><div class="col-right">'
-    +'<div class="f-reqno"><strong>Request No.:</strong><span class="val">'+whEsc(whVal('wh-request-no'))+'</span></div>'
-    +'<div class="f-reqdate"><strong>Request Date:</strong><span class="val">'+whEsc(whFmtDate(whVal('wh-request-date')))+'</span></div>'
-    +'<div class="f-property"><strong>Property Code:</strong><span class="val">'+whEsc(whVal('wh-property'))+'</span></div>'
+    +'<div class="meta"><div class="left">'
+    +'<div class="row">Requester:<span class="v">'+whEsc(whVal('wh-requester'))+'</span></div>'
+    +'<div class="row">Company:<span class="v">'+whEsc(whVal('wh-company'))+'</span></div>'
+    +'<div class="type">Good Issue Type<span class="opt">'+inn+'</span><span class="opt">'+ext+'</span></div>'
+    +'</div><div class="right">'
+    +'<div class="row">Request No.:<span class="v">'+whEsc(whVal('wh-request-no'))+'</span></div>'
+    +'<div class="row">Request Date:<span class="v">'+whEsc(whFmtDate(whVal('wh-request-date')))+'</span></div>'
+    +'<div class="row">Property Code:<span class="v">'+whEsc(whVal('wh-property'))+'</span></div>'
     +'</div></div>'
-    +'<p class="to">To: Stoke Keeper:</p>'
-    +'<p class="kindly">Kindly issue the materials stated below:</p>'
+    +'<div class="to">To: Stoke Keeper:</div>'
+    +'<div class="kindly">Kindly issue the materials stated below:</div>'
     +'<table class="lines"><thead><tr>'
     +'<th class="n">#</th><th class="code">Item Code</th><th>Description</th>'
     +'<th class="qty">Quantity</th><th class="proj">Project</th><th class="cc">Cost Center</th>'
     +'</tr></thead><tbody>'+lines+'</tbody></table>'
     +'<table class="maint">'
     +'<tr><th colspan="2">Maintenance Report (For External type only)</th></tr>'
-    +'<tr><td class="lab">Technician Name:</td><td class="blank">'+whEsc(whVal('wh-technician'))+'</td></tr>'
-    +'<tr><td class="lab">Date &amp; Time</td><td class="blank">'+whEsc(whFmtDateTime(whVal('wh-maint-datetime')))+'</td></tr>'
-    +'<tr><td class="lab">Price:</td><td class="blank">'+whEsc(whVal('wh-price'))+'</td></tr>'
-    +'<tr><td class="lab">Receipt Voucher No.</td><td class="blank">'+whEsc(whVal('wh-voucher'))+'</td></tr>'
+    +'<tr><td class="lab">Technician Name:</td><td>'+whEsc(whVal('wh-technician'))+'</td></tr>'
+    +'<tr><td class="lab">Date &amp; Time</td><td>'+whEsc(whFmtDateTime(whVal('wh-maint-datetime')))+'</td></tr>'
+    +'<tr><td class="lab">Price:</td><td>'+whEsc(whVal('wh-price'))+'</td></tr>'
+    +'<tr><td class="lab">Receipt Voucher No.</td><td>'+whEsc(whVal('wh-voucher'))+'</td></tr>'
     +'</table>'
     +'<div class="sigs">'
-    +'<div class="sig sig-auth"><div class="space">'+whSigHtml('auth')+'</div><div class="lbl">Authorized by</div></div>'
-    +'<div class="sig sig-issued"><div class="space">'+whSigHtml('issued')+'</div><div class="lbl">Issued by</div></div>'
-    +'<div class="sig sig-received"><div class="space">'+whSigHtml('received')+'</div><div class="lbl">Received by</div></div>'
+    +'<div class="sig sig-auth"><div class="pad">'+whSigHtml('auth')+'</div><div class="lbl">Authorized by</div></div>'
+    +'<div class="sig sig-issued"><div class="pad">'+whSigHtml('issued')+'</div><div class="lbl">Issued by</div></div>'
+    +'<div class="sig sig-received"><div class="pad">'+whSigHtml('received')+'</div><div class="lbl">Received by</div></div>'
     +'</div>'
     +'</div></body></html>';
 }
