@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-per-field-layout">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-logo-resize-fix">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-per-field-layout">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-per-field-layout">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-per-field-layout">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-logo-resize-fix">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-logo-resize-fix">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-logo-resize-fix">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -230,13 +230,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-per-field-layout"></script>
-<script src="assets/empire-storage.js?v=2026-08-19-wh-per-field-layout"></script>
-<script src="assets/empire-api.js?v=2026-08-19-wh-per-field-layout"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-per-field-layout"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-per-field-layout"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-per-field-layout"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-per-field-layout"></script>
+<script src="config.js?v=2026-08-19-wh-logo-resize-fix"></script>
+<script src="assets/empire-storage.js?v=2026-08-19-wh-logo-resize-fix"></script>
+<script src="assets/empire-api.js?v=2026-08-19-wh-logo-resize-fix"></script>
+<script src="assets/empire-auth.js?v=2026-08-19-wh-logo-resize-fix"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-logo-resize-fix"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-logo-resize-fix"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-logo-resize-fix"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -321,10 +321,13 @@ function whLayoutApply(){
     var y=Number(cfg.y||0)||0;
     var fs=Number(cfg.fs||0)||0;
     var sc=Number(cfg.scale||0)||0;
-    el.style.transform = whLayoutTransform_(x,y,sc);
+    // Logo uses height only (never CSS scale) so click/move won't double-size it.
+    el.style.transform = whLayoutTransform_(x, y, key==='logo' ? 0 : sc);
     el.style.transformOrigin = 'top left';
-    if(fs) el.style.fontSize = fs+'px';
-    else el.style.fontSize = '';
+    if(key!=='logo'){
+      if(fs) el.style.fontSize = fs+'px';
+      else el.style.fontSize = '';
+    }
     if(key==='logo') whLayoutApplyLogoSize_(el, sc);
   });
   whPageScaleApply_();
@@ -333,13 +336,16 @@ function whLayoutApplyLogoSize_(wrap, sc){
   var img=wrap && wrap.querySelector ? wrap.querySelector('img.wh-logo') : null;
   if(!img) return;
   sc=Number(sc||0)||0;
-  if(sc && sc!==1){
-    img.style.height = Math.round(48*sc)+'px';
+  if(!sc || sc===1){
+    img.style.height = '48px';
     img.style.width = 'auto';
-  } else {
-    img.style.height = '';
-    img.style.width = '';
+    img.style.maxWidth = 'none';
+    return;
   }
+  sc=Math.max(0.35, Math.min(3, sc));
+  img.style.height = Math.round(48*sc)+'px';
+  img.style.width = 'auto';
+  img.style.maxWidth = 'none';
 }
 function whLayoutTransform_(x,y,sc){
   x=Number(x||0)||0;
@@ -479,26 +485,29 @@ function whLayoutBind(){
       if(corner==='ne') delta=dx-dy;
       if(corner==='sw') delta=-dx+dy;
       var sc=_whDrag.origScale + delta/180;
-      sc=Math.max(0.5, Math.min(2.5, Math.round(sc*100)/100));
+      sc=Math.max(0.35, Math.min(3, Math.round(sc*100)/100));
       var cfg=Object.assign({}, _whLayout[_whDrag.key]||{}, {
         x:_whDrag.origX, y:_whDrag.origY, scale:sc
       });
-      // Keep text readable with scale: also nudge font if set
-      if(_whDrag.origFs){
+      if(_whDrag.key!=='logo' && _whDrag.origFs){
         cfg.fs=Math.max(8, Math.min(42, Math.round(_whDrag.origFs*sc/_whDrag.origScale)));
       }
       _whLayout[_whDrag.key]=cfg;
       _whDrag.el.style.transformOrigin='top left';
       _whDrag.el.style.transform=whLayoutTransform_(cfg.x,cfg.y, _whDrag.key==='logo' ? 0 : sc);
-      if(cfg.fs) _whDrag.el.style.fontSize=cfg.fs+'px';
-      if(_whDrag.key==='logo') whLayoutApplyLogoSize_(_whDrag.el, sc);
+      if(_whDrag.key==='logo'){
+        whLayoutApplyLogoSize_(_whDrag.el, sc);
+      } else if(cfg.fs){
+        _whDrag.el.style.fontSize=cfg.fs+'px';
+      }
       return;
     }
     var x=_whDrag.origX+dx;
     var y=_whDrag.origY+dy;
     var prev=_whLayout[_whDrag.key]||{};
     _whLayout[_whDrag.key]=Object.assign({}, prev, {x:x,y:y});
-    _whDrag.el.style.transform=whLayoutTransform_(x,y,prev.scale);
+    // Never CSS-scale the logo while moving — size is height-only.
+    _whDrag.el.style.transform=whLayoutTransform_(x,y, _whDrag.key==='logo' ? 0 : prev.scale);
   });
   document.addEventListener('mouseup', function(){
     if(!_whDrag) return;
