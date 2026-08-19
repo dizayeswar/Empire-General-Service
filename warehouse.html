@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-tab-name">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-fixed-date">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-tab-name">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-tab-name">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-tab-name">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-fixed-date">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-fixed-date">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-fixed-date">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -89,7 +89,7 @@
               </div>
               <div class="wh-top-right">
                 <div class="wh-logo-wrap" data-wh-layout="logo">
-                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-tab-name" alt="Empire">
+                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-fixed-date" alt="Empire">
                 </div>
                 <div class="wh-req-block" data-wh-layout="reqBlock">
                   <div class="wh-line"><strong>Request No.:</strong><input id="wh-request-no" class="wh-cell-input" type="text" autocomplete="off"></div>
@@ -211,13 +211,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-tab-name"></script>
-<script src="assets/empire-storage.js?v=2026-08-19-wh-tab-name"></script>
-<script src="assets/empire-api.js?v=2026-08-19-wh-tab-name"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-tab-name"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-tab-name"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-tab-name"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-tab-name"></script>
+<script src="config.js?v=2026-08-19-wh-fixed-date"></script>
+<script src="assets/empire-storage.js?v=2026-08-19-wh-fixed-date"></script>
+<script src="assets/empire-api.js?v=2026-08-19-wh-fixed-date"></script>
+<script src="assets/empire-auth.js?v=2026-08-19-wh-fixed-date"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-fixed-date"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-fixed-date"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-fixed-date"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -233,11 +233,13 @@ var _whSig = { auth:'', issued:'', received:'' };
 var _whEditingId = '';
 var _whSavedCache = [];
 var WH_LOCAL_KEY = 'empire_wh_gins_v1';
+var WH_DRAFT_KEY = 'empire_wh_draft_v1';
 var WH_LAYOUT_KEY = 'empire_wh_layout_v4';
 var _whLayoutEdit = false;
 var _whLayoutSel = null;
 var _whLayout = {};
 var _whDrag = null;
+var _whDraftTimer = null;
 
 function handleLogin(e){ empireAuthLogin(e, 'warehouse', { onSuccess: function(){ enterApp(); } }); }
 function logout(){ empireAuthLogout({ redirect: 'index.html', reload: false }); }
@@ -272,8 +274,6 @@ function whEsc(s){
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 function whInit(){
-  var dateEl=document.getElementById('wh-request-date');
-  if(dateEl && !dateEl.value) dateEl.value = new Date().toISOString().slice(0,10);
   whBuildLines();
   whSetIssueType('');
   whLayoutLoadLocal_();
@@ -281,9 +281,45 @@ function whInit(){
   whLayoutSyncFromServer_();
   // Layout editing UI removed — shared positions still load/apply from server.
   _whLayoutEdit = false;
+  // Restore unfinished draft so Request Date (and the rest) stay as you left them.
+  if(!_whEditingId) whDraftRestore_();
+  whDraftBind_();
   document.addEventListener('click', function(e){
     if(_whOpenCombo && !_whOpenCombo.contains(e.target)) whCloseCombos();
   });
+}
+function whDraftBind_(){
+  var root=document.getElementById('whPrintRoot');
+  if(!root || root._whDraftBound) return;
+  root._whDraftBound=true;
+  root.addEventListener('input', whDraftSchedule_);
+  root.addEventListener('change', whDraftSchedule_);
+}
+function whDraftSchedule_(){
+  if(_whDraftTimer) clearTimeout(_whDraftTimer);
+  _whDraftTimer=setTimeout(whDraftSave_, 400);
+}
+function whDraftSave_(){
+  try {
+    localStorage.setItem(WH_DRAFT_KEY, JSON.stringify({
+      editingId: _whEditingId||'',
+      payload: whCollectPayload()
+    }));
+  } catch(e){}
+}
+function whDraftClear_(){
+  try { localStorage.removeItem(WH_DRAFT_KEY); } catch(e){}
+}
+function whDraftRestore_(){
+  try {
+    var raw=localStorage.getItem(WH_DRAFT_KEY);
+    if(!raw) return;
+    var d=JSON.parse(raw);
+    if(!d || !d.payload) return;
+    _whEditingId=String(d.editingId||'');
+    whApplyPayload(d.payload);
+    whUpdateFormTitle();
+  } catch(e){}
 }
 
 function whLayoutLoadLocal_(){
@@ -666,7 +702,7 @@ function whApplyPayload(p){
   set('wh-requester', p.requester);
   set('wh-company', p.company || '');
   set('wh-request-no', p.requestNo);
-  set('wh-request-date', p.requestDate || new Date().toISOString().slice(0,10));
+  set('wh-request-date', p.requestDate || '');
   set('wh-property', p.property);
   set('wh-technician', p.technician);
   set('wh-maint-datetime', p.maintDatetime);
@@ -759,6 +795,7 @@ function whSave(){
       });
       whUpdateFormTitle();
       whLoadSavedList();
+      whDraftSave_();
       alert('Saved. Open Saved Notes anytime to reopen or print.');
       return;
     }
@@ -884,6 +921,7 @@ function whOpenSaved(id){
   _whEditingId=String(it.id);
   whApplyPayload(it.payload||it);
   whUpdateFormTitle();
+  whDraftSave_();
   whSwitchTab(null,'note');
 }
 function whPrintSaved(id){
@@ -1213,12 +1251,13 @@ function whClearForm(skipConfirm){
     var el=document.getElementById(id); if(el) el.value='';
   });
   var company=document.getElementById('wh-company'); if(company) company.value='';
-  var dateEl=document.getElementById('wh-request-date'); if(dateEl) dateEl.value=new Date().toISOString().slice(0,10);
+  var dateEl=document.getElementById('wh-request-date'); if(dateEl) dateEl.value='';
   var dt=document.getElementById('wh-maint-datetime'); if(dt) dt.value='';
   whBuildLines();
   whSetIssueType('');
   whClearSig('auth'); whClearSig('issued'); whClearSig('received');
   whValidateVoucher();
+  whDraftClear_();
   if(!skipConfirm){ _whEditingId=''; whUpdateFormTitle(); }
 }
 </script>
