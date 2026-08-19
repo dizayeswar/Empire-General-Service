@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-sig-lock">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-esig-pass">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-sig-lock">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-sig-lock">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-sig-lock">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-esig-pass">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-esig-pass">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-esig-pass">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -100,7 +100,7 @@
               </div>
               <div class="wh-top-right">
                 <div class="wh-logo-wrap" data-wh-layout="logo">
-                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-sig-lock" alt="Empire">
+                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-esig-pass" alt="Empire">
                 </div>
                 <div class="wh-req-block" data-wh-layout="reqBlock">
                   <div class="wh-line"><strong>Request No.:</strong><input id="wh-request-no" class="wh-cell-input" type="text" autocomplete="off"></div>
@@ -232,6 +232,11 @@
               <label class="wh-esig-label" for="whEsigName">Signature name</label>
               <input id="whEsigName" type="text" class="wh-esig-input" placeholder="e.g. Ahmed — Authorized" autocomplete="off">
 
+              <label class="wh-esig-label" for="whEsigPass">Password (required to use this signature)</label>
+              <input id="whEsigPass" type="password" class="wh-esig-input" placeholder="Create a password" autocomplete="new-password">
+              <label class="wh-esig-label" for="whEsigPass2">Confirm password</label>
+              <input id="whEsigPass2" type="password" class="wh-esig-input" placeholder="Confirm password" autocomplete="new-password">
+
               <div id="whEsigPad" class="wh-esig-pad" tabindex="0" onclick="this.focus()" onpaste="whEsigPaste(event)">
                 <span class="hint" id="whEsigHint">Paste image here (Ctrl+V) or upload below</span>
               </div>
@@ -252,13 +257,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-sig-lock"></script>
-<script src="assets/empire-storage.js?v=2026-08-19-wh-sig-lock"></script>
-<script src="assets/empire-api.js?v=2026-08-19-wh-sig-lock"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-sig-lock"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-sig-lock"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-sig-lock"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-sig-lock"></script>
+<script src="config.js?v=2026-08-19-wh-esig-pass"></script>
+<script src="assets/empire-storage.js?v=2026-08-19-wh-esig-pass"></script>
+<script src="assets/empire-api.js?v=2026-08-19-wh-esig-pass"></script>
+<script src="assets/empire-auth.js?v=2026-08-19-wh-esig-pass"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-esig-pass"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-esig-pass"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-esig-pass"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -1378,6 +1383,63 @@ function whSetSig(which, dataUrl){
   if(typeof whDraftSchedule_==='function') whDraftSchedule_();
 }
 function whClearSig(which){ whSetSig(which,''); }
+function whEsigSalt_(){
+  var a=new Uint8Array(16);
+  if(window.crypto && crypto.getRandomValues) crypto.getRandomValues(a);
+  else for(var i=0;i<a.length;i++) a[i]=Math.floor(Math.random()*256);
+  return Array.prototype.map.call(a, function(b){ return ('0'+b.toString(16)).slice(-2); }).join('');
+}
+function whEsigHashPass_(password, salt){
+  var text=String(salt||'')+'|'+String(password||'');
+  if(!(window.crypto && crypto.subtle && window.TextEncoder)){
+    // Fallback (older browsers): not as strong, still better than plaintext.
+    var h=0;
+    for(var i=0;i<text.length;i++){ h=((h<<5)-h)+text.charCodeAt(i); h|=0; }
+    return Promise.resolve('fb_'+Math.abs(h).toString(16)+'_'+text.length);
+  }
+  var buf=new TextEncoder().encode(text);
+  return crypto.subtle.digest('SHA-256', buf).then(function(dig){
+    var arr=Array.from(new Uint8Array(dig));
+    return arr.map(function(b){ return ('0'+b.toString(16)).slice(-2); }).join('');
+  });
+}
+function whEsigHasPass_(it){
+  return !!(it && String(it.passHash||'').trim() && String(it.passSalt||'').trim());
+}
+function whEsigAskPass_(label){
+  var p=prompt(label||'Enter signature password:');
+  if(p==null) return null;
+  return String(p);
+}
+function whEsigUnlock_(it, thenFn){
+  if(!it) return;
+  if(whEsigHasPass_(it)){
+    var pass=whEsigAskPass_('Password for "'+(it.name||'Signature')+'":');
+    if(pass==null) return;
+    if(!String(pass).trim()){ alert('Password required.'); return; }
+    whEsigHashPass_(pass, it.passSalt).then(function(hash){
+      if(hash!==String(it.passHash||'')){ alert('Wrong password.'); return; }
+      thenFn();
+    });
+    return;
+  }
+  // Legacy / builtin signatures: set a password before first use.
+  alert('"'+(it.name||'Signature')+'" has no password yet. Create one now so others cannot use it.');
+  var p1=whEsigAskPass_('Create password for "'+(it.name||'Signature')+'":');
+  if(p1==null) return;
+  if(String(p1).trim().length<4){ alert('Password must be at least 4 characters.'); return; }
+  var p2=whEsigAskPass_('Confirm password:');
+  if(p2==null) return;
+  if(p1!==p2){ alert('Passwords do not match.'); return; }
+  var salt=whEsigSalt_();
+  whEsigHashPass_(p1, salt).then(function(hash){
+    it.passSalt=salt;
+    it.passHash=hash;
+    whEsigLocalWrite_(_whEsigs);
+    whEsigPublish_(true);
+    thenFn();
+  });
+}
 function whEsigLocalRead_(){
   try {
     var raw=localStorage.getItem(WH_SIGS_KEY);
@@ -1580,7 +1642,7 @@ function whEsigRenderList_(){
   _whEsigs.forEach(function(it){
     h+='<div class="wh-esig-card" data-wh-esig="'+whEsc(it.id)+'">'
       +'<div class="wh-esig-card-preview"><img src="'+it.image+'" alt=""></div>'
-      +'<div class="wh-esig-card-name">'+whEsc(it.name||'Signature')+'</div>'
+      +'<div class="wh-esig-card-name">'+whEsc(it.name||'Signature')+(whEsigHasPass_(it)?' 🔒':'')+'</div>'
       +'<div class="wh-esig-card-actions">';
     if(pick){
       h+='<button type="button" data-wh-esig-act="pick" data-wh-esig-id="'+whEsc(it.id)+'">Use for '+whEsc(whSigRoleLabel_(pick))+'</button>';
@@ -1609,55 +1671,77 @@ function whEsigBindList_(){
     for(var i=0;i<_whEsigs.length;i++){ if(String(_whEsigs[i].id)===id){ it=_whEsigs[i]; break; } }
     if(!it) return;
     if(act==='delete'){
-      if(!confirm('Delete electronic signature "'+(it.name||'')+'"?')) return;
-      _whEsigs=_whEsigs.filter(function(x){ return String(x.id)!==id; });
-      whEsigLocalWrite_(_whEsigs);
-      whEsigRenderList_();
-      whEsigPublish_(true);
+      whEsigUnlock_(it, function(){
+        if(!confirm('Delete electronic signature "'+(it.name||'')+'"?')) return;
+        _whEsigs=_whEsigs.filter(function(x){ return String(x.id)!==id; });
+        whEsigLocalWrite_(_whEsigs);
+        whEsigRenderList_();
+        whEsigPublish_(true);
+      });
       return;
     }
     if(act==='pick'){
       if(!_whEsigPickFor){ alert('Open Upload from the note first.'); return; }
       if(_whFormLocked){ alert('This note is Done and cannot be edited.'); return; }
       var slot=_whEsigPickFor;
-      whSetSig(slot, it.image);
-      _whEsigPickFor='';
-      whEsigUpdatePickHelp_();
-      whSwitchTab(null,'note');
+      whEsigUnlock_(it, function(){
+        whSetSig(slot, it.image);
+        _whEsigPickFor='';
+        whEsigUpdatePickHelp_();
+        whSwitchTab(null,'note');
+      });
       return;
     }
     if(act==='auth' || act==='issued' || act==='received'){
       if(_whFormLocked){ alert('This note is Done and cannot be edited.'); return; }
-      whSetSig(act, it.image);
-      _whEsigPickFor='';
-      whEsigUpdatePickHelp_();
-      whSwitchTab(null,'note');
+      whEsigUnlock_(it, function(){
+        whSetSig(act, it.image);
+        _whEsigPickFor='';
+        whEsigUpdatePickHelp_();
+        whSwitchTab(null,'note');
+      });
     }
   });
 }
 function whEsigSave(){
   var nameEl=document.getElementById('whEsigName');
   var name=nameEl ? String(nameEl.value||'').trim() : '';
+  var passEl=document.getElementById('whEsigPass');
+  var pass2El=document.getElementById('whEsigPass2');
+  var pass=passEl ? String(passEl.value||'') : '';
+  var pass2=pass2El ? String(pass2El.value||'') : '';
   if(!name){ alert('Enter a signature name.'); if(nameEl) nameEl.focus(); return; }
   if(!_whEsigPreview){ alert('Upload or paste a signature picture first.'); return; }
+  if(pass.trim().length<4){ alert('Password must be at least 4 characters.'); if(passEl) passEl.focus(); return; }
+  if(pass!==pass2){ alert('Passwords do not match.'); if(pass2El) pass2El.focus(); return; }
   if(_whEsigs.length>=40){ alert('Maximum 40 saved signatures.'); return; }
-  var item={
-    id:'whsig-'+Date.now(),
-    name:name,
-    image:_whEsigPreview,
-    createdBy: typeof empireGetUser==='function' ? empireGetUser() : '',
-    createdAt: new Date().toISOString()
-  };
-  _whEsigs.unshift(item);
-  whEsigLocalWrite_(_whEsigs);
-  whEsigRenderList_();
-  whEsigShowPreview_('');
-  if(nameEl) nameEl.value='';
   var btn=document.getElementById('whEsigSaveBtn');
   if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
-  whEsigPublish_(false).finally(function(){
+  var salt=whEsigSalt_();
+  whEsigHashPass_(pass, salt).then(function(hash){
+    var item={
+      id:'whsig-'+Date.now(),
+      name:name,
+      image:_whEsigPreview,
+      passSalt:salt,
+      passHash:hash,
+      createdBy: typeof empireGetUser==='function' ? empireGetUser() : '',
+      createdAt: new Date().toISOString()
+    };
+    _whEsigs.unshift(item);
+    whEsigLocalWrite_(_whEsigs);
+    whEsigRenderList_();
+    whEsigShowPreview_('');
+    if(nameEl) nameEl.value='';
+    if(passEl) passEl.value='';
+    if(pass2El) pass2El.value='';
+    return whEsigPublish_(false).then(function(){
+      alert('Electronic signature saved. A password is required whenever someone uses it.');
+    });
+  }).catch(function(){
+    alert('Could not save signature password. Try again.');
+  }).finally(function(){
     if(btn){ btn.disabled=false; btn.textContent='Save electronic signature'; }
-    alert('Electronic signature saved. Click Use on the card below to put it on the note.');
   });
 }
 function whVal(id){

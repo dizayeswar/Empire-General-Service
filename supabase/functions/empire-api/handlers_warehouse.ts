@@ -191,6 +191,8 @@ type WhSig = {
   image: string;
   createdBy: string;
   createdAt: string;
+  passSalt?: string;
+  passHash?: string;
 };
 
 function normalizeSigList(raw: unknown): WhSig[] {
@@ -198,13 +200,20 @@ function normalizeSigList(raw: unknown): WhSig[] {
   const items = Array.isArray(settings.items) ? settings.items : (Array.isArray(raw) ? raw : []);
   return items.map((it, i) => {
     const row = (it && typeof it === "object") ? it as Record<string, unknown> : {};
-    return {
+    const out: WhSig = {
       id: String(row.id || `whsig-${i}`),
       name: String(row.name || "Signature"),
       image: String(row.image || ""),
       createdBy: String(row.createdBy || ""),
       createdAt: String(row.createdAt || ""),
     };
+    const salt = String(row.passSalt || "").trim();
+    const hash = String(row.passHash || "").trim();
+    if (salt && hash) {
+      out.passSalt = salt;
+      out.passHash = hash;
+    }
+    return out;
   }).filter((s) => !!s.image);
 }
 
