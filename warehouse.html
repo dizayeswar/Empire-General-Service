@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-18-wh-print-match-word">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-print-no-header-underlines">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-18-wh-print-match-word">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-18-wh-print-match-word">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-18-wh-print-match-word">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-print-no-header-underlines">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-print-no-header-underlines">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-print-no-header-underlines">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -211,13 +211,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-18-wh-print-match-word"></script>
-<script src="assets/empire-storage.js?v=2026-08-18-wh-print-match-word"></script>
-<script src="assets/empire-api.js?v=2026-08-18-wh-print-match-word"></script>
-<script src="assets/empire-auth.js?v=2026-08-18-wh-print-match-word"></script>
-<script src="assets/empire-core.js?v=2026-08-18-wh-print-match-word"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-18-wh-print-match-word"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-18-wh-print-match-word"></script>
+<script src="config.js?v=2026-08-19-wh-print-no-header-underlines"></script>
+<script src="assets/empire-storage.js?v=2026-08-19-wh-print-no-header-underlines"></script>
+<script src="assets/empire-api.js?v=2026-08-19-wh-print-no-header-underlines"></script>
+<script src="assets/empire-auth.js?v=2026-08-19-wh-print-no-header-underlines"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-print-no-header-underlines"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-print-no-header-underlines"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-print-no-header-underlines"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -746,13 +746,12 @@ function whBuildWordPrintHtml_(){
     +'.title{margin:0;font-size:18pt;font-weight:700;}'
     +'.logo{height:44pt;width:auto;}'
     +'.fields{display:grid;grid-template-columns:1fr 1fr;column-gap:36pt;row-gap:0;margin:0 0 10pt;}'
-    +'.line{display:flex;align-items:flex-end;gap:6pt;margin:0 0 9pt;}'
+    +'.line{display:flex;align-items:baseline;gap:6pt;margin:0 0 9pt;}'
     +'.line strong{font-weight:700;white-space:nowrap;}'
-    +'.val{flex:1;border-bottom:1px solid #000;min-height:14pt;padding:0 2pt 1pt;line-height:14pt;}'
+    +'.val{flex:1;min-height:14pt;padding:0 2pt;line-height:14pt;}'
     +'.type{margin:2pt 0 0;font-weight:700;}'
     +'.type span{margin-left:12pt;}'
-    +'.to{margin:10pt 0 4pt;font-weight:700;display:flex;align-items:flex-end;gap:6pt;}'
-    +'.to .uline{flex:1;border-bottom:1px solid #000;min-height:14pt;}'
+    +'.to{margin:10pt 0 4pt;font-weight:700;}'
     +'.kindly{margin:0 0 8pt;font-weight:400;}'
     +'table{border-collapse:collapse;width:100%;}'
     +'.lines{table-layout:fixed;}'
@@ -787,7 +786,7 @@ function whBuildWordPrintHtml_(){
     +'<div class="line"><strong>Request Date:</strong><span class="val">'+whEsc(whFmtDate(whVal('wh-request-date')))+'</span></div>'
     +'<div class="line"><strong>Property Code:</strong><span class="val">'+whEsc(whVal('wh-property'))+'</span></div>'
     +'</div></div>'
-    +'<p class="to">To: Stoke Keeper:<span class="uline"></span></p>'
+    +'<p class="to">To: Stoke Keeper:</p>'
     +'<p class="kindly">Kindly issue the materials stated below:</p>'
     +'<table class="lines"><thead><tr>'
     +'<th class="n">#</th><th class="code">Item Code</th><th>Description</th>'
