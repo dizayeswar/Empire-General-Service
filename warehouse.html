@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-layout-restore">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-esig-diayee">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-layout-restore">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-layout-restore">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-layout-restore">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-esig-diayee">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-esig-diayee">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-esig-diayee">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -100,7 +100,7 @@
               </div>
               <div class="wh-top-right">
                 <div class="wh-logo-wrap" data-wh-layout="logo">
-                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-layout-restore" alt="Empire">
+                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-esig-diayee" alt="Empire">
                 </div>
                 <div class="wh-req-block" data-wh-layout="reqBlock">
                   <div class="wh-line"><strong>Request No.:</strong><input id="wh-request-no" class="wh-cell-input" type="text" autocomplete="off"></div>
@@ -264,13 +264,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-layout-restore"></script>
-<script src="assets/empire-storage.js?v=2026-08-19-wh-layout-restore"></script>
-<script src="assets/empire-api.js?v=2026-08-19-wh-layout-restore"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-layout-restore"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-layout-restore"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-layout-restore"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-layout-restore"></script>
+<script src="config.js?v=2026-08-19-wh-esig-diayee"></script>
+<script src="assets/empire-storage.js?v=2026-08-19-wh-esig-diayee"></script>
+<script src="assets/empire-api.js?v=2026-08-19-wh-esig-diayee"></script>
+<script src="assets/empire-auth.js?v=2026-08-19-wh-esig-diayee"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-esig-diayee"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-esig-diayee"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-esig-diayee"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -1499,13 +1499,47 @@ function whEsigPublish_(quiet){
     return false;
   });
 }
+function whEsigSeedDiayee_(){
+  var id='builtin-esig-diayee';
+  for(var i=0;i<_whEsigs.length;i++){
+    if(String(_whEsigs[i].id)===id) return Promise.resolve(false);
+  }
+  var url='assets/wh-esig-diayee.png';
+  try { url=new URL('assets/wh-esig-diayee.png', location.href).href; } catch(e){}
+  return fetch(url, { cache:'force-cache' }).then(function(r){
+    if(!r.ok) throw new Error('missing');
+    return r.blob();
+  }).then(function(blob){
+    return new Promise(function(resolve, reject){
+      var reader=new FileReader();
+      reader.onload=function(){ resolve(String(reader.result||'')); };
+      reader.onerror=reject;
+      reader.readAsDataURL(blob);
+    });
+  }).then(function(dataUrl){
+    if(!dataUrl) return false;
+    _whEsigs.unshift({
+      id:id,
+      name:'Diayee',
+      image:dataUrl,
+      createdBy:'system',
+      createdAt:new Date().toISOString()
+    });
+    whEsigLocalWrite_(_whEsigs);
+    whEsigRenderList_();
+    return whEsigPublish_(true);
+  }).catch(function(){ return false; });
+}
 function whEsigLoad(){
   var box=document.getElementById('whEsigList');
   if(box) box.innerHTML = typeof empireLoadingHtml==='function' ? empireLoadingHtml('Loading signatures…') : 'Loading…';
   _whEsigs=whEsigLocalRead_();
   whEsigRenderList_();
   var token=typeof empireGetToken==='function' ? empireGetToken() : '';
-  if(!token || typeof fetchJSONRetry!=='function') return;
+  if(!token || typeof fetchJSONRetry!=='function'){
+    whEsigSeedDiayee_();
+    return;
+  }
   fetchJSONRetry({ action:'getWarehouseSignatures', token:token }, 2, 30000).then(function(d){
     if(!(d && (d.ok||d.success))) return;
     var items=Array.isArray(d.items) ? d.items : [];
@@ -1513,11 +1547,13 @@ function whEsigLoad(){
       _whEsigs=items;
       whEsigLocalWrite_(_whEsigs);
       whEsigRenderList_();
-      return;
+      return whEsigSeedDiayee_();
     }
-    // Server empty: push local library so other PCs can use it.
-    if(_whEsigs.length) whEsigPublish_(true);
-  }).catch(function(){});
+    // Server empty: seed builtin then push local library so other PCs can use it.
+    return whEsigSeedDiayee_().then(function(){
+      if(_whEsigs.length) whEsigPublish_(true);
+    });
+  }).catch(function(){ whEsigSeedDiayee_(); });
 }
 function whEsigRenderList_(){
   var box=document.getElementById('whEsigList');
