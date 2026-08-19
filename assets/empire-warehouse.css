@@ -189,6 +189,24 @@ html[data-theme="dark"] .wh-saved-actions button[data-wh-act="delete"] {
   background: #6b1c1c;
   border-color: #e57373;
 }
+.wh-sp-filter.active {
+  color: #fff;
+  background: var(--accent2, #8d015d);
+  border-color: var(--accent2, #8d015d);
+}
+.wh-sp-summary {
+  margin: 0 0 12px;
+  color: var(--text-soft, #666);
+  font-size: 13px;
+}
+.wh-sp-usage-table .wh-sp-qty {
+  font-weight: 700;
+  text-align: right;
+  white-space: nowrap;
+}
+html[data-theme="dark"] .wh-sp-summary {
+  color: #cfe0ff;
+}
 html[data-theme="dark"] .wh-done-banner {
   background: rgba(46, 125, 50, 0.35);
   color: #c8e6c9;

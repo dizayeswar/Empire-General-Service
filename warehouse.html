@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-esig-pass2">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-sp-usage">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-esig-pass2">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-esig-pass2">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-esig-pass2">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-sp-usage">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-sp-usage">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-sp-usage">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -60,6 +60,10 @@
           <span class="lbl">Done Notes</span>
           <span class="side-nav-badge" id="whDoneBadge" style="display:none;"></span>
         </button>
+        <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-spusage" onclick="whSwitchTab(event,'spusage')">
+          <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"/><path d="m15 9 6-6"/></svg></span>
+          <span class="lbl">SP Usage</span>
+        </button>
         <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-sigs" onclick="whSwitchTab(event,'sigs')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></span>
           <span class="lbl">Create Signature</span>
@@ -100,7 +104,7 @@
               </div>
               <div class="wh-top-right">
                 <div class="wh-logo-wrap" data-wh-layout="logo">
-                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-esig-pass2" alt="Empire">
+                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-sp-usage" alt="Empire">
                 </div>
                 <div class="wh-req-block" data-wh-layout="reqBlock">
                   <div class="wh-line"><strong>Request No.:</strong><input id="wh-request-no" class="wh-cell-input" type="text" autocomplete="off"></div>
@@ -222,6 +226,24 @@
         </div>
       </div>
 
+      <div id="wh-tab-spusage" class="tab-content dept-tab-content">
+        <div class="wh-app wh-saved-app">
+          <div class="form-section">
+            <h2>SP Usage</h2>
+            <p class="wh-tab-help">Totals from <strong>Done</strong> Goods Issue Notes only. Same item codes are summed (e.g. SP-0562 × 4 + SP-0562 × 4 = 8).</p>
+            <div class="wh-toolbar no-print" style="margin-bottom:12px;">
+              <button type="button" id="whSpFilterBoth" class="wh-sp-filter active" onclick="whSpUsageSetFilter('both')">Both</button>
+              <button type="button" id="whSpFilterInternal" class="wh-sp-filter" onclick="whSpUsageSetFilter('internal')">Internal only</button>
+              <button type="button" id="whSpFilterExternal" class="wh-sp-filter" onclick="whSpUsageSetFilter('external')">External only</button>
+              <span class="wh-spacer"></span>
+              <button type="button" onclick="whSpUsageRefresh()">Refresh</button>
+            </div>
+            <p class="wh-sp-summary" id="whSpUsageSummary"></p>
+            <div id="whSpUsageList">Loading…</div>
+          </div>
+        </div>
+      </div>
+
       <div id="wh-tab-sigs" class="tab-content dept-tab-content">
         <div class="wh-app wh-saved-app">
           <div class="form-section">
@@ -257,13 +279,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-esig-pass2"></script>
-<script src="assets/empire-storage.js?v=2026-08-19-wh-esig-pass2"></script>
-<script src="assets/empire-api.js?v=2026-08-19-wh-esig-pass2"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-esig-pass2"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-esig-pass2"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-esig-pass2"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-esig-pass2"></script>
+<script src="config.js?v=2026-08-19-wh-sp-usage"></script>
+<script src="assets/empire-storage.js?v=2026-08-19-wh-sp-usage"></script>
+<script src="assets/empire-api.js?v=2026-08-19-wh-sp-usage"></script>
+<script src="assets/empire-auth.js?v=2026-08-19-wh-sp-usage"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-sp-usage"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-sp-usage"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-sp-usage"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -291,6 +313,7 @@ var _whDraftTimer = null;
 var _whEsigPreview = '';
 var _whEsigs = [];
 var _whEsigPickFor = '';
+var _whSpFilter = 'both';
 
 function handleLogin(e){ empireAuthLogin(e, 'warehouse', { onSuccess: function(){ enterApp(); } }); }
 function logout(){ empireAuthLogout({ redirect: 'index.html', reload: false }); }
@@ -323,6 +346,7 @@ function whSwitchTab(e, tab){
     whEsigUpdatePickHelp_();
   }
   if(tab==='saved' || tab==='done') whLoadSavedList();
+  if(tab==='spusage') whSpUsageRefresh();
   if(tab==='sigs') whEsigLoad();
 }
 
@@ -1032,6 +1056,95 @@ function whRenderSavedList(){
       doneBox.innerHTML=dh;
     }
   }
+  whRenderSpUsage_();
+}
+function whParseQty_(q){
+  var m=String(q||'').replace(/,/g,'').match(/-?\d+(?:\.\d+)?/);
+  if(!m) return 0;
+  var n=Number(m[0]);
+  return isFinite(n) ? n : 0;
+}
+function whSpUsageSetFilter(filter){
+  _whSpFilter = (filter==='internal' || filter==='external') ? filter : 'both';
+  ['both','internal','external'].forEach(function(f){
+    var id='whSpFilter'+(f==='both'?'Both':f==='internal'?'Internal':'External');
+    var btn=document.getElementById(id);
+    if(btn) btn.classList.toggle('active', f===_whSpFilter);
+  });
+  whRenderSpUsage_();
+}
+function whSpUsageRefresh(){
+  var box=document.getElementById('whSpUsageList');
+  if(box) box.innerHTML = typeof empireLoadingHtml==='function' ? empireLoadingHtml('Loading SP usage…') : 'Loading…';
+  // Reuse the same Done-notes cache as Saved/Done tabs.
+  if(_whSavedCache && _whSavedCache.length){
+    whRenderSpUsage_();
+  }
+  whLoadSavedList();
+}
+function whSpUsageBuild_(filter){
+  filter = (filter==='internal' || filter==='external') ? filter : 'both';
+  var map={};
+  (_whSavedCache||[]).forEach(function(it){
+    if(!it || !it.done) return;
+    var t=String(it.issueType||'').toLowerCase();
+    if(filter==='internal' && t!=='internal') return;
+    if(filter==='external' && t!=='external') return;
+    var lines=(it.payload && Array.isArray(it.payload.lines)) ? it.payload.lines : [];
+    lines.forEach(function(ln){
+      var code=String((ln && ln.code) || '').trim();
+      if(!code) return;
+      var key=code.toUpperCase();
+      var qty=whParseQty_(ln && ln.qty);
+      var desc=String((ln && ln.desc) || '').trim();
+      if(!map[key]){
+        map[key]={ code:code, desc:desc, qty:0, notes:0, noteIds:{} };
+      }
+      map[key].qty += qty;
+      if(desc && desc.length > String(map[key].desc||'').length) map[key].desc=desc;
+      if(it.id && !map[key].noteIds[it.id]){
+        map[key].noteIds[it.id]=true;
+        map[key].notes += 1;
+      }
+    });
+  });
+  return Object.keys(map).map(function(k){ return map[k]; }).sort(function(a,b){
+    return String(a.code).localeCompare(String(b.code), undefined, { numeric:true, sensitivity:'base' });
+  });
+}
+function whRenderSpUsage_(){
+  var box=document.getElementById('whSpUsageList');
+  var sum=document.getElementById('whSpUsageSummary');
+  if(!box) return;
+  var rows=whSpUsageBuild_(_whSpFilter);
+  var filterLabel=_whSpFilter==='internal'?'Internal only':_whSpFilter==='external'?'External only':'Both (Internal + External)';
+  var totalQty=0;
+  rows.forEach(function(r){ totalQty += Number(r.qty)||0; });
+  if(sum){
+    sum.textContent = filterLabel + ' · ' + rows.length + ' item code' + (rows.length===1?'':'s')
+      + ' · total qty ' + (Math.round(totalQty*1000)/1000);
+  }
+  if(!rows.length){
+    box.innerHTML = typeof empireEmptyHtml==='function'
+      ? empireEmptyHtml('No SP usage yet', 'Mark Goods Issue Notes as Done to see summed item quantities here.')
+      : '<p class="wh-saved-empty">No SP usage yet from Done notes.</p>';
+    return;
+  }
+  var h='<div class="wh-saved-table-wrap"><table class="wh-saved-table wh-sp-usage-table"><thead><tr>'
+    +'<th>Item Code</th><th>Description</th><th>Total Qty</th><th>Done notes</th>'
+    +'</tr></thead><tbody>';
+  rows.forEach(function(r){
+    var qty=Number(r.qty)||0;
+    var qtyTxt = Math.abs(qty-Math.round(qty))<1e-9 ? String(Math.round(qty)) : String(Math.round(qty*1000)/1000);
+    h+='<tr>'
+      +'<td><strong>'+whEsc(r.code)+'</strong></td>'
+      +'<td>'+whEsc(r.desc||'')+'</td>'
+      +'<td class="wh-sp-qty">'+whEsc(qtyTxt)+'</td>'
+      +'<td>'+whEsc(String(r.notes||0))+'</td>'
+      +'</tr>';
+  });
+  h+='</tbody></table></div>';
+  box.innerHTML=h;
 }
 function whSavedSectionHtml_(title, items, isDoneSection){
   var h='<div class="wh-saved-section'+(isDoneSection?' wh-saved-section-done':'')+'">'
