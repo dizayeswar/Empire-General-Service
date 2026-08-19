@@ -86,12 +86,14 @@
   pointer-events: none;
   cursor: default;
 }
+.wh-saved-section { margin: 0 0 22px; }
 .wh-saved-section-done .wh-saved-section-title {
-  color: #1b5e20;
+  color: #2e7d32;
 }
 .wh-saved-actions button[data-wh-act="done"] {
   color: #1b5e20;
   border-color: #81c784;
+  background: #e8f5e9;
 }
 .wh-saved-section-title {
   margin: 0 0 10px;
@@ -112,21 +114,91 @@
 .wh-saved-table {
   width: 100%;
   border-collapse: collapse;
-  background: var(--card-bg, #fff);
+  background: var(--panel, var(--card, #fff));
+  color: var(--text, #111);
 }
 .wh-saved-table th,
 .wh-saved-table td {
-  border: 1px solid var(--card-border, #ccc);
+  border: 1px solid var(--table-border, var(--card-border, #ccc));
   padding: 8px 10px;
   text-align: left;
   font-size: 13px;
+  color: var(--text, #111);
+  background: transparent;
 }
-.wh-saved-table th { background: var(--header-bg, #f3f3f3); }
+.wh-saved-table th {
+  background: var(--header-bg, #f3f3f3);
+  color: var(--th-color, var(--text-soft, #5b6478));
+}
+.wh-saved-table tbody tr:hover td {
+  background: var(--row-hover, rgba(0,0,0,.04));
+}
 .wh-saved-actions { white-space: nowrap; }
 .wh-saved-actions button {
   font: inherit;
   cursor: pointer;
   margin: 2px 0;
+  color: var(--btn-text, #185fa5);
+  background: var(--btn-bg, #fff);
+  border: 1px solid var(--btn-border, #e6cddc);
+}
+.wh-saved-actions button[data-wh-act="delete"] {
+  color: #c62828;
+  border-color: #ef9a9a;
+}
+
+/* Dark mode — readable tables & buttons */
+html[data-theme="dark"] .wh-saved-table {
+  background: rgba(13, 50, 100, 0.85);
+  color: #fff;
+}
+html[data-theme="dark"] .wh-saved-table th,
+html[data-theme="dark"] .wh-saved-table td {
+  color: #fff;
+  border-color: #2a5a92;
+  background: transparent;
+}
+html[data-theme="dark"] .wh-saved-table th {
+  background: #0d4a85;
+  color: #e8eef6;
+}
+html[data-theme="dark"] .wh-saved-table tbody tr:hover td {
+  background: rgba(160, 50, 125, 0.22);
+}
+html[data-theme="dark"] .wh-saved-section-title,
+html[data-theme="dark"] .wh-tab-help,
+html[data-theme="dark"] .wh-saved-empty,
+html[data-theme="dark"] .wh-saved-section-count {
+  color: #e0e6ef;
+}
+html[data-theme="dark"] .wh-saved-section-done .wh-saved-section-title {
+  color: #81c784;
+}
+html[data-theme="dark"] .wh-saved-actions button {
+  color: #fff;
+  background: #0d4a85;
+  border-color: #a0327d;
+}
+html[data-theme="dark"] .wh-saved-actions button[data-wh-act="done"] {
+  color: #fff;
+  background: #1b5e20;
+  border-color: #81c784;
+}
+html[data-theme="dark"] .wh-saved-actions button[data-wh-act="delete"] {
+  color: #ffcdd2;
+  background: #6b1c1c;
+  border-color: #e57373;
+}
+html[data-theme="dark"] .wh-done-banner {
+  background: rgba(46, 125, 50, 0.35);
+  color: #c8e6c9;
+}
+html[data-theme="dark"] .wh-local-tag {
+  color: #b0bec5;
+}
+html[data-theme="dark"] .form-section {
+  background: rgba(13, 50, 100, 0.75);
+  color: #fff;
 }
 .wh-local-tag {
   display: inline-block;
