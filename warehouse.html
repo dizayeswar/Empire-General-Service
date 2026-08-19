@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-esig-pass">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-esig-pass2">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-esig-pass">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-esig-pass">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-esig-pass">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-esig-pass2">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-esig-pass2">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-esig-pass2">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -100,7 +100,7 @@
               </div>
               <div class="wh-top-right">
                 <div class="wh-logo-wrap" data-wh-layout="logo">
-                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-esig-pass" alt="Empire">
+                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-esig-pass2" alt="Empire">
                 </div>
                 <div class="wh-req-block" data-wh-layout="reqBlock">
                   <div class="wh-line"><strong>Request No.:</strong><input id="wh-request-no" class="wh-cell-input" type="text" autocomplete="off"></div>
@@ -226,7 +226,7 @@
         <div class="wh-app wh-saved-app">
           <div class="form-section">
             <h2>Create Signature</h2>
-            <p class="wh-tab-help" id="whEsigHelp">Upload or paste a signature photo. It becomes an electronic signature you can reuse on Goods Issue Notes.</p>
+            <p class="wh-tab-help" id="whEsigHelp">Upload or paste a signature photo, set a password, then save. Anyone using that signature must enter its password.</p>
 
             <div class="wh-esig-create">
               <label class="wh-esig-label" for="whEsigName">Signature name</label>
@@ -257,13 +257,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-esig-pass"></script>
-<script src="assets/empire-storage.js?v=2026-08-19-wh-esig-pass"></script>
-<script src="assets/empire-api.js?v=2026-08-19-wh-esig-pass"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-esig-pass"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-esig-pass"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-esig-pass"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-esig-pass"></script>
+<script src="config.js?v=2026-08-19-wh-esig-pass2"></script>
+<script src="assets/empire-storage.js?v=2026-08-19-wh-esig-pass2"></script>
+<script src="assets/empire-api.js?v=2026-08-19-wh-esig-pass2"></script>
+<script src="assets/empire-auth.js?v=2026-08-19-wh-esig-pass2"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-esig-pass2"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-esig-pass2"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-esig-pass2"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -1366,9 +1366,9 @@ function whEsigUpdatePickHelp_(){
   var help=document.getElementById('whEsigHelp');
   if(!help) return;
   if(_whEsigPickFor){
-    help.textContent='Choose a signature for '+whSigRoleLabel_(_whEsigPickFor)+', then click Use on that card. You can also create a new one above.';
+    help.textContent='Choose a signature for '+whSigRoleLabel_(_whEsigPickFor)+', enter its password, then click Use.';
   } else {
-    help.textContent='Upload or paste a signature photo. It becomes an electronic signature you can reuse on Goods Issue Notes.';
+    help.textContent='Upload or paste a signature photo, set a password, then save. Anyone using that signature must enter its password.';
   }
 }
 function whSetSig(which, dataUrl){
