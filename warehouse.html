@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-fixed-date">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-new-sections">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-fixed-date">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-fixed-date">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-fixed-date">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-new-sections">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-new-sections">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-new-sections">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -69,6 +69,7 @@
           <div class="wh-toolbar no-print">
             <strong id="whFormTitle">Goods Issue Note</strong>
             <span class="wh-spacer"></span>
+            <button type="button" onclick="whStartNew()">New</button>
             <button type="button" onclick="whClearForm()">Clear</button>
             <button type="button" id="whSaveBtn" onclick="whSave()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Save</button>
             <button type="button" onclick="whPrint()">Print / Save as PDF</button>
@@ -89,7 +90,7 @@
               </div>
               <div class="wh-top-right">
                 <div class="wh-logo-wrap" data-wh-layout="logo">
-                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-fixed-date" alt="Empire">
+                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-new-sections" alt="Empire">
                 </div>
                 <div class="wh-req-block" data-wh-layout="reqBlock">
                   <div class="wh-line"><strong>Request No.:</strong><input id="wh-request-no" class="wh-cell-input" type="text" autocomplete="off"></div>
@@ -187,11 +188,12 @@
           </div>
 
           <div class="wh-actions-print no-print">
+            <button type="button" onclick="whStartNew()">New</button>
             <button type="button" id="whSaveBtn2" onclick="whSave()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Save</button>
             <button type="button" onclick="whPrint()">Print / Save as PDF</button>
             <button type="button" onclick="whClearForm()">Clear form</button>
           </div>
-          <p class="no-print" style="color:var(--text-soft);font-size:12px;margin-top:10px;">Fill the note, click <strong>Save</strong> to keep it under Saved Notes, then Print if needed. Prefer <strong>Portrait A4</strong> at 100% scale.</p>
+          <p class="no-print" style="color:var(--text-soft);font-size:12px;margin-top:10px;">Use <strong>Save</strong> for each note, then <strong>New</strong> to start the next one (you can keep 6–7 under Saved Notes). Prefer <strong>Portrait A4</strong> at 100% scale.</p>
         </div>
       </div>
 
@@ -201,7 +203,7 @@
             <h2>Saved Goods Issue Notes</h2>
             <div class="wh-toolbar no-print" style="margin-bottom:12px;">
               <button type="button" onclick="whLoadSavedList()">Refresh</button>
-              <button type="button" onclick="whSwitchTab(null,'note'); whStartNew();">New Note</button>
+              <button type="button" onclick="whStartNew()">New</button>
             </div>
             <div id="whSavedList">Loading…</div>
           </div>
@@ -211,13 +213,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-fixed-date"></script>
-<script src="assets/empire-storage.js?v=2026-08-19-wh-fixed-date"></script>
-<script src="assets/empire-api.js?v=2026-08-19-wh-fixed-date"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-fixed-date"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-fixed-date"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-fixed-date"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-fixed-date"></script>
+<script src="config.js?v=2026-08-19-wh-new-sections"></script>
+<script src="assets/empire-storage.js?v=2026-08-19-wh-new-sections"></script>
+<script src="assets/empire-api.js?v=2026-08-19-wh-new-sections"></script>
+<script src="assets/empire-auth.js?v=2026-08-19-wh-new-sections"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-new-sections"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-new-sections"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-new-sections"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -665,10 +667,22 @@ function whUpdateFormTitle(){
   if(!t) return;
   t.textContent = _whEditingId ? 'Goods Issue Note (editing saved)' : 'Goods Issue Note';
 }
+function whFormHasContent_(){
+  var p=whCollectPayload();
+  if(p.requester || p.company || p.requestNo || p.property || p.technician || p.price || p.voucher) return true;
+  if(p.issueType || p.requestDate || p.maintDatetime) return true;
+  if(p.sigs && (p.sigs.auth || p.sigs.issued || p.sigs.received)) return true;
+  return (p.lines||[]).some(function(ln){ return ln.code||ln.desc||ln.qty||ln.project||ln.cc; });
+}
 function whStartNew(){
+  if(whFormHasContent_()){
+    if(!confirm('Start a new Goods Issue Note?\n\nClick OK only after you have Saved the current one if you still need it under Saved Notes.')) return;
+  }
   _whEditingId='';
   whClearForm(true);
+  whDraftClear_();
   whUpdateFormTitle();
+  whSwitchTab(null,'note');
 }
 function whCollectPayload(){
   var lines=[];
@@ -882,21 +896,40 @@ function whRenderSavedList(){
   whSetBadge(_whSavedCache.length);
   if(!_whSavedCache.length){
     box.innerHTML = typeof empireEmptyHtml==='function'
-      ? empireEmptyHtml('No saved notes yet', 'Fill a Goods Issue Note and click Save.')
+      ? empireEmptyHtml('No saved notes yet', 'Fill a Goods Issue Note and click Save. Use New for the next one.')
       : '<p>No saved notes yet.</p>';
     return;
   }
-  var h='<div class="wh-saved-table-wrap"><table class="wh-saved-table"><thead><tr>'
-    +'<th>#</th><th>Date</th><th>Request No.</th><th>Requester</th><th>Type</th><th>Property</th><th></th>'
-    +'</tr></thead><tbody>';
+  var internal=[], external=[], other=[];
   _whSavedCache.forEach(function(it){
-    var type=it.issueType||'—';
+    var t=String(it.issueType||'').toLowerCase();
+    if(t==='internal') internal.push(it);
+    else if(t==='external') external.push(it);
+    else other.push(it);
+  });
+  var h='';
+  h+=whSavedSectionHtml_('Internal', internal);
+  h+=whSavedSectionHtml_('External', external);
+  if(other.length) h+=whSavedSectionHtml_('No type selected', other);
+  box.innerHTML=h;
+}
+function whSavedSectionHtml_(title, items){
+  var h='<div class="wh-saved-section">'
+    +'<h3 class="wh-saved-section-title">'+whEsc(title)
+    +' <span class="wh-saved-section-count">('+items.length+')</span></h3>';
+  if(!items.length){
+    h+='<p class="wh-saved-empty">No '+whEsc(title.toLowerCase())+' notes yet.</p></div>';
+    return h;
+  }
+  h+='<div class="wh-saved-table-wrap"><table class="wh-saved-table"><thead><tr>'
+    +'<th>#</th><th>Date</th><th>Request No.</th><th>Requester</th><th>Property</th><th></th>'
+    +'</tr></thead><tbody>';
+  items.forEach(function(it){
     h+='<tr>'
       +'<td>'+(it.num||'—')+'</td>'
       +'<td>'+whEsc(whFmtDate(it.requestDate)||it.requestDate||'—')+'</td>'
       +'<td>'+whEsc(it.requestNo||'—')+'</td>'
       +'<td>'+whEsc(it.requester||'—')+'</td>'
-      +'<td>'+whEsc(type)+'</td>'
       +'<td>'+whEsc(it.propertyCode||'—')+'</td>'
       +'<td class="wh-saved-actions">'
       +'<button type="button" onclick="whOpenSaved('+JSON.stringify(it.id)+')">Open</button> '
@@ -905,8 +938,8 @@ function whRenderSavedList(){
       +(it.localOnly?' <span class="wh-local-tag">this device</span>':'')
       +'</td></tr>';
   });
-  h+='</tbody></table></div>';
-  box.innerHTML=h;
+  h+='</tbody></table></div></div>';
+  return h;
 }
 function whFindSaved(id){
   id=String(id||'');
