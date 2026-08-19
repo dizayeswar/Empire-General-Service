@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-hide-layout-ui">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-tab-name">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-hide-layout-ui">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-hide-layout-ui">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-hide-layout-ui">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-tab-name">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-tab-name">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-tab-name">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -48,7 +48,7 @@
       <nav class="side-nav side-nav-dept">
         <button type="button" class="tab-btn dept-tab-btn active" id="tab-wh-note" onclick="whSwitchTab(event,'note')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span>
-          <span class="lbl">New Note</span>
+          <span class="lbl">Goods Issue Note</span>
         </button>
         <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-saved" onclick="whSwitchTab(event,'saved')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span>
@@ -89,7 +89,7 @@
               </div>
               <div class="wh-top-right">
                 <div class="wh-logo-wrap" data-wh-layout="logo">
-                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-hide-layout-ui" alt="Empire">
+                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-tab-name" alt="Empire">
                 </div>
                 <div class="wh-req-block" data-wh-layout="reqBlock">
                   <div class="wh-line"><strong>Request No.:</strong><input id="wh-request-no" class="wh-cell-input" type="text" autocomplete="off"></div>
@@ -211,13 +211,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-hide-layout-ui"></script>
-<script src="assets/empire-storage.js?v=2026-08-19-wh-hide-layout-ui"></script>
-<script src="assets/empire-api.js?v=2026-08-19-wh-hide-layout-ui"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-hide-layout-ui"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-hide-layout-ui"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-hide-layout-ui"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-hide-layout-ui"></script>
+<script src="config.js?v=2026-08-19-wh-tab-name"></script>
+<script src="assets/empire-storage.js?v=2026-08-19-wh-tab-name"></script>
+<script src="assets/empire-api.js?v=2026-08-19-wh-tab-name"></script>
+<script src="assets/empire-auth.js?v=2026-08-19-wh-tab-name"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-tab-name"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-tab-name"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-tab-name"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
