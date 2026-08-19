@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-match-word-exact2">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-fields-under-logo">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-match-word-exact2">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-match-word-exact2">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-match-word-exact2">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-fields-under-logo">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-fields-under-logo">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-fields-under-logo">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -92,15 +92,9 @@
           <p id="whLayoutHint" class="no-print wh-layout-hint" hidden>Edit layout: click a block, drag to move, or drag a <strong>corner square</strong> to make it bigger/smaller. Page Smaller/Bigger changes the whole form.</p>
 
           <div class="wh-note" id="whPrintRoot">
-            <div class="wh-head">
-              <h1 class="wh-title" data-wh-layout="title">Goods Issue Note</h1>
-              <div class="wh-logo-wrap" data-wh-layout="logo">
-                <img class="wh-logo" src="logo-light.png" alt="Empire">
-              </div>
-            </div>
-
-            <div class="wh-fields">
-              <div class="wh-col wh-col-left">
+            <div class="wh-top">
+              <div class="wh-top-left">
+                <h1 class="wh-title" data-wh-layout="title">Goods Issue Note</h1>
                 <div class="wh-line" data-wh-layout="requester"><strong>Requester:</strong><input id="wh-requester" class="wh-cell-input" type="text" autocomplete="off"></div>
                 <div class="wh-line" data-wh-layout="company"><strong>Company:</strong><input id="wh-company" class="wh-cell-input" type="text" value="" autocomplete="off"></div>
                 <div class="wh-type-inline" data-wh-layout="issueType">
@@ -110,7 +104,10 @@
                   <input type="hidden" id="wh-issue-type" value="">
                 </div>
               </div>
-              <div class="wh-col wh-col-right">
+              <div class="wh-top-right">
+                <div class="wh-logo-wrap" data-wh-layout="logo">
+                  <img class="wh-logo" src="logo-light.png" alt="Empire">
+                </div>
                 <div class="wh-line" data-wh-layout="requestNo"><strong>Request No.:</strong><input id="wh-request-no" class="wh-cell-input" type="text" autocomplete="off"></div>
                 <div class="wh-line" data-wh-layout="requestDate"><strong>Request Date:</strong><input id="wh-request-date" class="wh-cell-input" type="date"></div>
                 <div class="wh-line" data-wh-layout="property"><strong>Property Code:</strong><input id="wh-property" class="wh-cell-input" type="text" autocomplete="off"></div>
@@ -230,13 +227,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-match-word-exact2"></script>
-<script src="assets/empire-storage.js?v=2026-08-19-wh-match-word-exact2"></script>
-<script src="assets/empire-api.js?v=2026-08-19-wh-match-word-exact2"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-match-word-exact2"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-match-word-exact2"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-match-word-exact2"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-match-word-exact2"></script>
+<script src="config.js?v=2026-08-19-wh-fields-under-logo"></script>
+<script src="assets/empire-storage.js?v=2026-08-19-wh-fields-under-logo"></script>
+<script src="assets/empire-api.js?v=2026-08-19-wh-fields-under-logo"></script>
+<script src="assets/empire-auth.js?v=2026-08-19-wh-fields-under-logo"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-fields-under-logo"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-fields-under-logo"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-fields-under-logo"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -1044,12 +1041,11 @@ function whBuildWordPrintHtml_(){
     +'*{box-sizing:border-box;}'
     +'body{font-family:Arial,Helvetica,sans-serif;color:#000;font-size:11pt;line-height:1.2;}'
     +'.sheet{width:100%;}'
-    +'.head{display:flex;justify-content:space-between;align-items:flex-start;margin:0 0 16pt;}'
-    +'.title{margin:0;padding-top:2pt;font-size:20pt;font-weight:700;letter-spacing:0;}'
-    +'.logo{height:46pt;width:auto;display:block;}'
-    +'.meta{display:flex;justify-content:space-between;align-items:flex-start;gap:40pt;margin:0 0 12pt;}'
-    +'.left{flex:1;min-width:0;}'
-    +'.right{width:42%;max-width:230pt;flex-shrink:0;}'
+    +'.top{display:flex;justify-content:space-between;align-items:flex-start;gap:24pt;margin:0 0 12pt;}'
+    +'.top-left{flex:1;min-width:0;}'
+    +'.top-right{width:42%;max-width:240pt;flex-shrink:0;display:flex;flex-direction:column;}'
+    +'.title{margin:0 0 14pt;font-size:20pt;font-weight:700;}'
+    +'.logo{height:46pt;width:auto;display:block;margin:0 0 10pt auto;}'
     +'.row{margin:0 0 8pt;font-weight:700;}'
     +'.row .v{font-weight:400;margin-left:4pt;}'
     +'.type{margin:2pt 0 0;font-weight:700;}'
@@ -1079,14 +1075,13 @@ function whBuildWordPrintHtml_(){
     +'.sig-received .lbl{text-align:right;}'
     +'@media print{.sheet{page-break-inside:avoid;}}'
     +'</style></head><body><div class="sheet">'
-    +'<div class="head"><div class="title">Goods Issue Note</div>'
-    +(logo?('<img class="logo" src="'+logo+'" alt="Empire">'):'')
-    +'</div>'
-    +'<div class="meta"><div class="left">'
+    +'<div class="top"><div class="top-left">'
+    +'<div class="title">Goods Issue Note</div>'
     +'<div class="row">Requester:<span class="v">'+whEsc(whVal('wh-requester'))+'</span></div>'
     +'<div class="row">Company:<span class="v">'+whEsc(whVal('wh-company'))+'</span></div>'
     +'<div class="type">Good Issue Type<span class="opt">'+inn+'</span><span class="opt">'+ext+'</span></div>'
-    +'</div><div class="right">'
+    +'</div><div class="top-right">'
+    +(logo?('<img class="logo" src="'+logo+'" alt="Empire">'):'')
     +'<div class="row">Request No.:<span class="v">'+whEsc(whVal('wh-request-no'))+'</span></div>'
     +'<div class="row">Request Date:<span class="v">'+whEsc(whFmtDate(whVal('wh-request-date')))+'</span></div>'
     +'<div class="row">Property Code:<span class="v">'+whEsc(whVal('wh-property'))+'</span></div>'
