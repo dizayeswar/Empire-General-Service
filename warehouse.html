@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-print-no-header-underlines">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-right-fields">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-print-no-header-underlines">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-print-no-header-underlines">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-print-no-header-underlines">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-right-fields">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-right-fields">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-right-fields">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -81,7 +81,7 @@
             </div>
 
             <div class="wh-fields">
-              <div class="wh-col">
+              <div class="wh-col wh-col-left">
                 <div class="wh-line"><strong>Requester:</strong><input id="wh-requester" class="wh-cell-input" type="text" autocomplete="off"></div>
                 <div class="wh-line"><strong>Company:</strong><input id="wh-company" class="wh-cell-input" type="text" value="" autocomplete="off"></div>
                 <div class="wh-type-inline">
@@ -91,7 +91,7 @@
                   <input type="hidden" id="wh-issue-type" value="">
                 </div>
               </div>
-              <div class="wh-col">
+              <div class="wh-col wh-col-right">
                 <div class="wh-line"><strong>Request No.:</strong><input id="wh-request-no" class="wh-cell-input" type="text" autocomplete="off"></div>
                 <div class="wh-line"><strong>Request Date:</strong><input id="wh-request-date" class="wh-cell-input" type="date"></div>
                 <div class="wh-line"><strong>Property Code:</strong><input id="wh-property" class="wh-cell-input" type="text" autocomplete="off"></div>
@@ -211,13 +211,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-print-no-header-underlines"></script>
-<script src="assets/empire-storage.js?v=2026-08-19-wh-print-no-header-underlines"></script>
-<script src="assets/empire-api.js?v=2026-08-19-wh-print-no-header-underlines"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-print-no-header-underlines"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-print-no-header-underlines"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-print-no-header-underlines"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-print-no-header-underlines"></script>
+<script src="config.js?v=2026-08-19-wh-right-fields"></script>
+<script src="assets/empire-storage.js?v=2026-08-19-wh-right-fields"></script>
+<script src="assets/empire-api.js?v=2026-08-19-wh-right-fields"></script>
+<script src="assets/empire-auth.js?v=2026-08-19-wh-right-fields"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-right-fields"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-right-fields"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-right-fields"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -745,7 +745,9 @@ function whBuildWordPrintHtml_(){
     +'.head{display:flex;justify-content:space-between;align-items:flex-start;margin:0 0 14pt;}'
     +'.title{margin:0;font-size:18pt;font-weight:700;}'
     +'.logo{height:44pt;width:auto;}'
-    +'.fields{display:grid;grid-template-columns:1fr 1fr;column-gap:36pt;row-gap:0;margin:0 0 10pt;}'
+    +'.fields{display:flex;justify-content:space-between;align-items:flex-start;gap:24pt;margin:0 0 10pt;}'
+    +'.col-left{flex:1;min-width:0;max-width:58%;}'
+    +'.col-right{width:38%;max-width:210pt;flex-shrink:0;}'
     +'.line{display:flex;align-items:baseline;gap:6pt;margin:0 0 9pt;}'
     +'.line strong{font-weight:700;white-space:nowrap;}'
     +'.val{flex:1;min-height:14pt;padding:0 2pt;line-height:14pt;}'
@@ -777,11 +779,11 @@ function whBuildWordPrintHtml_(){
     +'<div class="head"><div class="title">Goods Issue Note</div>'
     +(logo?('<img class="logo" src="'+logo+'" alt="Empire">'):'')
     +'</div>'
-    +'<div class="fields"><div>'
+    +'<div class="fields"><div class="col-left">'
     +'<div class="line"><strong>Requester:</strong><span class="val">'+whEsc(whVal('wh-requester'))+'</span></div>'
     +'<div class="line"><strong>Company:</strong><span class="val">'+whEsc(whVal('wh-company'))+'</span></div>'
     +'<div class="type"><strong>Good Issue Type</strong><span>'+inn+'</span><span>'+ext+'</span></div>'
-    +'</div><div>'
+    +'</div><div class="col-right">'
     +'<div class="line"><strong>Request No.:</strong><span class="val">'+whEsc(whVal('wh-request-no'))+'</span></div>'
     +'<div class="line"><strong>Request Date:</strong><span class="val">'+whEsc(whFmtDate(whVal('wh-request-date')))+'</span></div>'
     +'<div class="line"><strong>Property Code:</strong><span class="val">'+whEsc(whVal('wh-property'))+'</span></div>'
