@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-sig-fix">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-sig-orig">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-sig-fix">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-sig-fix">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-sig-fix">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-sig-orig">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-sig-orig">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-sig-orig">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -100,7 +100,7 @@
               </div>
               <div class="wh-top-right">
                 <div class="wh-logo-wrap" data-wh-layout="logo">
-                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-sig-fix" alt="Empire">
+                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-sig-orig" alt="Empire">
                 </div>
                 <div class="wh-req-block" data-wh-layout="reqBlock">
                   <div class="wh-line"><strong>Request No.:</strong><input id="wh-request-no" class="wh-cell-input" type="text" autocomplete="off"></div>
@@ -169,7 +169,6 @@
                 <div class="wh-sig-actions no-print">
                   <input type="file" id="wh-sig-auth-file" accept="image/*" hidden onchange="whSigFile(event,'auth')">
                   <button type="button" onclick="document.getElementById('wh-sig-auth-file').click()">Upload</button>
-                  <button type="button" onclick="whUseSavedSig('auth')">Use saved</button>
                   <button type="button" onclick="whClearSig('auth')">Clear</button>
                 </div>
               </div>
@@ -181,7 +180,6 @@
                 <div class="wh-sig-actions no-print">
                   <input type="file" id="wh-sig-issued-file" accept="image/*" hidden onchange="whSigFile(event,'issued')">
                   <button type="button" onclick="document.getElementById('wh-sig-issued-file').click()">Upload</button>
-                  <button type="button" onclick="whUseSavedSig('issued')">Use saved</button>
                   <button type="button" onclick="whClearSig('issued')">Clear</button>
                 </div>
               </div>
@@ -193,7 +191,6 @@
                 <div class="wh-sig-actions no-print">
                   <input type="file" id="wh-sig-received-file" accept="image/*" hidden onchange="whSigFile(event,'received')">
                   <button type="button" onclick="document.getElementById('wh-sig-received-file').click()">Upload</button>
-                  <button type="button" onclick="whUseSavedSig('received')">Use saved</button>
                   <button type="button" onclick="whClearSig('received')">Clear</button>
                 </div>
               </div>
@@ -267,13 +264,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-sig-fix"></script>
-<script src="assets/empire-storage.js?v=2026-08-19-wh-sig-fix"></script>
-<script src="assets/empire-api.js?v=2026-08-19-wh-sig-fix"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-sig-fix"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-sig-fix"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-sig-fix"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-sig-fix"></script>
+<script src="config.js?v=2026-08-19-wh-sig-orig"></script>
+<script src="assets/empire-storage.js?v=2026-08-19-wh-sig-orig"></script>
+<script src="assets/empire-api.js?v=2026-08-19-wh-sig-orig"></script>
+<script src="assets/empire-auth.js?v=2026-08-19-wh-sig-orig"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-sig-orig"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-sig-orig"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-sig-orig"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -463,12 +460,6 @@ function whLayoutApply(){
     var y=Number(cfg.y||0)||0;
     var fs=Number(cfg.fs||0)||0;
     var sc=Number(cfg.scale||0)||0;
-    // Signature blocks stay in normal flow so saved offsets cannot overlap the maintenance table.
-    if(key==='sigAuth' || key==='sigIssued' || key==='sigReceived'){
-      el.style.transform = '';
-      el.style.fontSize = '';
-      return;
-    }
     // Logo uses height only (never CSS scale) so click/move won't double-size it.
     el.style.transform = whLayoutTransform_(x, y, key==='logo' ? 0 : sc);
     el.style.transformOrigin = 'top left';
@@ -546,7 +537,6 @@ function whLayoutCssForPrint_(){
   }
   Object.keys(_whLayout||{}).forEach(function(key){
     if(key==='_pageScale') return;
-    if(key==='sigAuth' || key==='sigIssued' || key==='sigReceived') return;
     var sel=map[key]; if(!sel) return;
     var cfg=_whLayout[key]||{};
     var x=Number(cfg.x||0)||0;
@@ -1342,36 +1332,15 @@ function whValidateVoucher(){
 function whSigPad(which){
   return document.getElementById('wh-sig-'+which);
 }
-function whPaintSigPad_(which){
+function whSetSig(which, dataUrl){
+  _whSig[which]=dataUrl||'';
   var pad=whSigPad(which);
   if(!pad) return;
-  var dataUrl=_whSig[which]||'';
   if(dataUrl){
-    pad.innerHTML='<img class="wh-sig-ink" src="'+dataUrl+'" alt="Signature">';
+    pad.innerHTML='<img src="'+dataUrl+'" alt="Signature">';
   } else {
     pad.innerHTML='<span class="hint">Paste signature (Ctrl+V)</span>';
   }
-}
-function whSetSig(which, dataUrl, opts){
-  var raw=dataUrl||'';
-  if(!raw){
-    _whSig[which]='';
-    whPaintSigPad_(which);
-    if(typeof whDraftSchedule_==='function') whDraftSchedule_();
-    return;
-  }
-  // Already ink PNG from library / reopen: skip reprocess when marked.
-  if(opts && opts.skipInk){
-    _whSig[which]=raw;
-    whPaintSigPad_(which);
-    if(typeof whDraftSchedule_==='function') whDraftSchedule_();
-    return;
-  }
-  whEsigProcessImage_(raw, function(out){
-    _whSig[which]=out||raw;
-    whPaintSigPad_(which);
-    if(typeof whDraftSchedule_==='function') whDraftSchedule_();
-  });
 }
 function whClearSig(which){ whSetSig(which,''); }
 function whPasteSig(e, which){
@@ -1383,7 +1352,7 @@ function whPasteSig(e, which){
       var file=items[i].getAsFile();
       if(!file) return;
       var reader=new FileReader();
-      reader.onload=function(){ whSetSig(which, String(reader.result||'')); };
+      reader.onload=function(){ whSetSig(which, reader.result); };
       reader.readAsDataURL(file);
       return;
     }
@@ -1393,7 +1362,7 @@ function whSigFile(e, which){
   var f=e.target.files && e.target.files[0];
   if(!f) return;
   var reader=new FileReader();
-  reader.onload=function(){ whSetSig(which, String(reader.result||'')); };
+  reader.onload=function(){ whSetSig(which, reader.result); };
   reader.readAsDataURL(f);
   e.target.value='';
 }
@@ -1622,7 +1591,7 @@ function whEsigSave(){
   if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
   whEsigPublish_(false).finally(function(){
     if(btn){ btn.disabled=false; btn.textContent='Save electronic signature'; }
-    alert('Electronic signature saved. Use it from here or via Use saved on the note.');
+    alert('Electronic signature saved. Use Authorized / Issued / Received from the list below.');
   });
 }
 function whUseSavedSig(which){
@@ -1717,8 +1686,8 @@ function whBuildWordPrintHtml_(){
     +'.maint .lab{width:25%;font-weight:400;}'
     +'.sigs{margin-top:28pt;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12pt;}'
     +'.sig{text-align:center;}'
-    +'.sig .pad{min-height:36pt;display:flex;align-items:flex-end;justify-content:center;}'
-    +'.sig .pad img{max-height:34pt;max-width:95%;object-fit:contain;}'
+    +'.sig .pad{min-height:36pt;}'
+    +'.sig .pad img{max-height:34pt;max-width:95%;}'
     +'.sig .lbl{font-weight:700;font-size:12pt;}'
     +whLayoutCssForPrint_()
     +'</style></head><body><div class="sheet">'
