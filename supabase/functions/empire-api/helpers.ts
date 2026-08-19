@@ -6,7 +6,10 @@ export function normalizeRole(role: unknown): string {
   if (r === "cleaning supervisor" || r === "cleaning-supervisor" || r === "supervisor") {
     return "cleaning_supervisor";
   }
-  if (["admin", "viewer", "editor", "worker", "cleaning_supervisor"].includes(r)) return r;
+  if (r === "warehouse receiver" || r === "warehouse-receiver" || r === "receiver") {
+    return "warehouse_receiver";
+  }
+  if (["admin", "viewer", "editor", "worker", "cleaning_supervisor", "warehouse_receiver"].includes(r)) return r;
   return "editor";
 }
 
@@ -70,7 +73,7 @@ export function basePermsForRole(role: string) {
       notElectricTab: true, fixDelayTab: true,
     };
   }
-  if (role === "viewer") {
+  if (role === "viewer" || role === "warehouse_receiver") {
     return {
       view: true, add: false, edit: false, del: false, analytics: true, report: true,
       dashboard: true, reset: false, assign: false, fix: false, categories: true,

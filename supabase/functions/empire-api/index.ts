@@ -288,10 +288,12 @@ Deno.serve(async (req) => {
       case "importApplicationChecks": return json(await misc.handleImportApplicationChecks(body, a));
       case "clearApplicationChecks": return json(await misc.handleClearApplicationChecks(body, a));
 
-      case "getWarehouseGins": return json(await warehouse.handleGetWarehouseGins(body));
+      case "getWarehouseGins": return json(await warehouse.handleGetWarehouseGins(body, a));
       case "saveWarehouseGin": return json(await warehouse.handleSaveWarehouseGin(body, a));
-      case "deleteWarehouseGin": return json(await warehouse.handleDeleteWarehouseGin(body));
+      case "deleteWarehouseGin": return json(await warehouse.handleDeleteWarehouseGin(body, a));
       case "markWarehouseGinDone": return json(await warehouse.handleMarkWarehouseGinDone(body, a));
+      case "listWarehouseAssignees": return json(await warehouse.handleListWarehouseAssignees(body, a));
+      case "saveWarehouseGinReceivedSig": return json(await warehouse.handleSaveWarehouseGinReceivedSig(body, a));
       case "getWarehouseLayout": return json(await warehouse.handleGetWarehouseLayout(body));
       case "saveWarehouseLayout": return json(await warehouse.handleSaveWarehouseLayout(body, a));
       case "getWarehouseSignatures": return json(await warehouse.handleGetWarehouseSignatures(body));

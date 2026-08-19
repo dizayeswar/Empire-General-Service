@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-sp-usage">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-assign">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-sp-usage">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-sp-usage">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-sp-usage">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-assign">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-assign">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -104,7 +104,7 @@
               </div>
               <div class="wh-top-right">
                 <div class="wh-logo-wrap" data-wh-layout="logo">
-                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-sp-usage" alt="Empire">
+                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-assign" alt="Empire">
                 </div>
                 <div class="wh-req-block" data-wh-layout="reqBlock">
                   <div class="wh-line"><strong>Request No.:</strong><input id="wh-request-no" class="wh-cell-input" type="text" autocomplete="off"></div>
@@ -217,7 +217,7 @@
         <div class="wh-app wh-saved-app">
           <div class="form-section">
             <h2>Done Notes</h2>
-            <p class="wh-tab-help">Finished Goods Issue Notes. View or print only — editing is locked. More tools for this section can be added later.</p>
+            <p class="wh-tab-help" id="whDoneHelp">Finished Goods Issue Notes. When marking Done, assign an account — they can open it and upload <strong>Received by</strong> only.</p>
             <div class="wh-toolbar no-print" style="margin-bottom:12px;">
               <button type="button" onclick="whLoadSavedList()">Refresh</button>
             </div>
@@ -279,13 +279,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-sp-usage"></script>
-<script src="assets/empire-storage.js?v=2026-08-19-wh-sp-usage"></script>
-<script src="assets/empire-api.js?v=2026-08-19-wh-sp-usage"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-sp-usage"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-sp-usage"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-sp-usage"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-sp-usage"></script>
+<script src="config.js?v=2026-08-19-wh-assign"></script>
+<script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
+<script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
+<script src="assets/empire-auth.js?v=2026-08-19-wh-assign"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-assign"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-assign"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-assign"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -314,6 +314,31 @@ var _whEsigPreview = '';
 var _whEsigs = [];
 var _whEsigPickFor = '';
 var _whSpFilter = 'both';
+var _whReceiverMode = false;
+var _whAssigneesCache = [];
+
+function whIsReceiverMode_(){
+  var role=String(typeof empireGetRole==='function' ? empireGetRole() : '').toLowerCase().replace(/[\s-]+/g,'_');
+  return role==='warehouse_receiver' || role==='receiver';
+}
+function whApplyReceiverShell_(){
+  _whReceiverMode = whIsReceiverMode_();
+  document.body.classList.toggle('wh-receiver-mode', _whReceiverMode);
+  ['tab-wh-note','tab-wh-saved','tab-wh-spusage','tab-wh-sigs'].forEach(function(id){
+    var b=document.getElementById(id);
+    if(b) b.style.display = _whReceiverMode ? 'none' : '';
+  });
+  var doneBtn=document.getElementById('tab-wh-done');
+  if(doneBtn){
+    var lbl=doneBtn.querySelector('.lbl');
+    if(lbl) lbl.textContent = _whReceiverMode ? 'Assigned to me' : 'Done Notes';
+  }
+  if(_whReceiverMode){
+    var help=document.getElementById('whDoneHelp');
+    if(help) help.innerHTML='Notes assigned to you. Open one and use <strong>Upload</strong> under Received by only — everything else is locked.';
+    whSwitchTab(null,'done');
+  }
+}
 
 function handleLogin(e){ empireAuthLogin(e, 'warehouse', { onSuccess: function(){ enterApp(); } }); }
 function logout(){ empireAuthLogout({ redirect: 'index.html', reload: false }); }
@@ -326,7 +351,9 @@ function enterApp(){
   var wl=document.getElementById('whoLabel');
   var u=empireGetUser(); var role=empireGetRole()||'';
   if(wl) wl.textContent = u ? ('Logged in as: '+u+(role?(' ('+role+')'):'')) : '';
+  _whReceiverMode = whIsReceiverMode_();
   whInit();
+  whApplyReceiverShell_();
   whLoadSavedList();
 }
 window.addEventListener('load', function(){
@@ -346,7 +373,13 @@ function whSwitchTab(e, tab){
     whEsigUpdatePickHelp_();
   }
   if(tab==='saved' || tab==='done') whLoadSavedList();
-  if(tab==='spusage') whSpUsageRefresh();
+  if(tab==='spusage'){
+    if(_whReceiverMode){ whSwitchTab(null,'done'); return; }
+    whSpUsageRefresh();
+  }
+  if(tab==='note' && _whReceiverMode){
+    // Receivers only open notes via Assigned list.
+  }
   if(tab==='sigs') whEsigLoad();
 }
 
@@ -773,6 +806,7 @@ function whFormHasContent_(){
   return (p.lines||[]).some(function(ln){ return ln.code||ln.desc||ln.qty||ln.project||ln.cc; });
 }
 function whStartNew(){
+  if(_whReceiverMode){ alert('Receiver accounts cannot create new notes.'); return; }
   if(whFormHasContent_() && !_whFormLocked){
     if(!confirm('Start a new Goods Issue Note?\n\nClick OK only after you have Saved the current one if you still need it under Saved Notes.')) return;
   }
@@ -960,6 +994,8 @@ function whNormalizeListItem(it){
     done:done,
     doneAt:String(it.doneAt||p.doneAt||''),
     doneBy:String(it.doneBy||p.doneBy||''),
+    assignedTo:String(it.assignedTo||p.assignedTo||''),
+    assignedAt:String(it.assignedAt||p.assignedAt||''),
     payload:p,
     localOnly:!!it.localOnly
   };
@@ -1011,24 +1047,31 @@ function whLoadSavedList(){
   whBindSavedListClicks_();
   whBindDoneListClicks_();
   var token=typeof empireGetToken==='function' ? empireGetToken() : '';
-  var local=whLocalRead();
+  var local=_whReceiverMode ? [] : whLocalRead();
   fetchJSONRetry({ action:'getWarehouseGins', token:token }, 2, 60000).then(function(d){
     var server=(d && (d.items||d.data||d.rows)) || [];
     if(!Array.isArray(server)) server=[];
     _whSavedCache=whMergeLists(server, local);
+    if(_whReceiverMode){
+      var me=String(typeof empireGetUser==='function' ? empireGetUser() : '').toLowerCase();
+      _whSavedCache=_whSavedCache.filter(function(it){
+        return it.done && String(it.assignedTo||'').toLowerCase()===me;
+      });
+    }
     whRenderSavedList();
   }).catch(function(){
     _whSavedCache=whMergeLists([], local);
+    if(_whReceiverMode) _whSavedCache=[];
     whRenderSavedList();
   });
 }
 function whRenderSavedList(){
   var parts=whPartitionSaved_();
-  whSetBadge('whSavedBadge', parts.openCount);
+  whSetBadge('whSavedBadge', _whReceiverMode ? 0 : parts.openCount);
   whSetBadge('whDoneBadge', parts.doneCount);
 
   var savedBox=document.getElementById('whSavedList');
-  if(savedBox){
+  if(savedBox && !_whReceiverMode){
     if(!parts.openCount){
       savedBox.innerHTML = typeof empireEmptyHtml==='function'
         ? empireEmptyHtml('No open notes', 'Save a Goods Issue Note here, then click Done when finished.')
@@ -1046,17 +1089,24 @@ function whRenderSavedList(){
   if(doneBox){
     if(!parts.doneCount){
       doneBox.innerHTML = typeof empireEmptyHtml==='function'
-        ? empireEmptyHtml('No done notes yet', 'When a note is finished, click Done in Saved Notes — it moves here.')
+        ? empireEmptyHtml(_whReceiverMode ? 'Nothing assigned yet' : 'No done notes yet',
+            _whReceiverMode
+              ? 'When warehouse marks a note Done and assigns it to you, it appears here.'
+              : 'When a note is finished, click Done in Saved Notes — it moves here.')
         : '<p>No done notes yet.</p>';
     } else {
       var dh='';
-      dh+=whSavedSectionHtml_('Internal', parts.doneInternal, true);
-      dh+=whSavedSectionHtml_('External', parts.doneExternal, true);
-      if(parts.doneOther.length) dh+=whSavedSectionHtml_('No type selected', parts.doneOther, true);
+      if(_whReceiverMode){
+        dh+=whSavedSectionHtml_('Assigned to me', parts.doneInternal.concat(parts.doneExternal, parts.doneOther), true);
+      } else {
+        dh+=whSavedSectionHtml_('Internal', parts.doneInternal, true);
+        dh+=whSavedSectionHtml_('External', parts.doneExternal, true);
+        if(parts.doneOther.length) dh+=whSavedSectionHtml_('No type selected', parts.doneOther, true);
+      }
       doneBox.innerHTML=dh;
     }
   }
-  whRenderSpUsage_();
+  if(!_whReceiverMode) whRenderSpUsage_();
 }
 function whParseQty_(q){
   var m=String(q||'').replace(/,/g,'').match(/-?\d+(?:\.\d+)?/);
@@ -1156,7 +1206,9 @@ function whSavedSectionHtml_(title, items, isDoneSection){
     return h;
   }
   h+='<div class="wh-saved-table-wrap"><table class="wh-saved-table"><thead><tr>'
-    +'<th>#</th><th>Date</th><th>Request No.</th><th>Requester</th><th>Property</th><th></th>'
+    +'<th>#</th><th>Date</th><th>Request No.</th><th>Requester</th><th>Property</th>'
+    +(isDoneSection?'<th>Assigned</th>':'')
+    +'<th></th>'
     +'</tr></thead><tbody>';
   items.forEach(function(it){
     var id=whEsc(String(it.id||''));
@@ -1166,13 +1218,14 @@ function whSavedSectionHtml_(title, items, isDoneSection){
       +'<td>'+whEsc(it.requestNo||'—')+'</td>'
       +'<td>'+whEsc(it.requester||'—')+'</td>'
       +'<td>'+whEsc(it.propertyCode||'—')+'</td>'
+      +(isDoneSection?('<td>'+whEsc(it.assignedTo||'—')+'</td>'):'')
       +'<td class="wh-saved-actions">'
       +(isDoneSection
         ? ('<button type="button" data-wh-act="view" data-wh-id="'+id+'">View</button> ')
         : ('<button type="button" data-wh-act="open" data-wh-id="'+id+'">Open</button> '
           +'<button type="button" data-wh-act="done" data-wh-id="'+id+'">Done</button> '))
       +'<button type="button" data-wh-act="print" data-wh-id="'+id+'">Print</button> '
-      +'<button type="button" data-wh-act="delete" data-wh-id="'+id+'">Delete</button>'
+      +(_whReceiverMode?'':('<button type="button" data-wh-act="delete" data-wh-id="'+id+'">Delete</button>'))
       +(it.localOnly?' <span class="wh-local-tag">this device</span>':'')
       +'</td></tr>';
   });
@@ -1210,16 +1263,20 @@ function whSetFormLocked(locked){
   var root=document.getElementById('whPrintRoot');
   if(root) root.classList.toggle('wh-form-locked', _whFormLocked);
   var banner=document.getElementById('whDoneBanner');
-  if(banner) banner.hidden=!_whFormLocked;
+  if(banner){
+    banner.hidden=!_whFormLocked;
+    if(_whFormLocked && _whReceiverMode) banner.textContent='Assigned to you — Received by signature only';
+    else if(_whFormLocked) banner.textContent='Done — view only';
+  }
   ['whSaveBtn','whSaveBtn2'].forEach(function(id){
     var b=document.getElementById(id);
-    if(b) b.disabled=_whFormLocked;
+    if(b) b.disabled=_whFormLocked || _whReceiverMode;
   });
   if(root){
     root.querySelectorAll('input,button.wh-type-btn,textarea,select').forEach(function(el){
       if(el.closest('.wh-sig-actions')) return;
       if(el.type==='hidden') return;
-      if(_whFormLocked){
+      if(_whFormLocked || _whReceiverMode){
         el.setAttribute('disabled','disabled');
         el.setAttribute('readonly','readonly');
       } else {
@@ -1228,7 +1285,19 @@ function whSetFormLocked(locked){
       }
     });
     root.querySelectorAll('.wh-sig-actions button').forEach(function(b){
-      b.disabled=_whFormLocked;
+      var block=b.closest('.wh-sig-block');
+      var isReceived=block && block.querySelector('#wh-sig-received');
+      if(_whReceiverMode){
+        // Receiver may only use Upload on Received by.
+        b.disabled = !isReceived;
+        b.style.display = isReceived ? '' : 'none';
+      } else if(_whFormLocked){
+        b.disabled=true;
+        b.style.display='';
+      } else {
+        b.disabled=false;
+        b.style.display='';
+      }
     });
   }
 }
@@ -1260,17 +1329,51 @@ function whOpenSaved(id){
   }
   _whEditingId=String(it.id);
   whApplyPayload(payload);
-  whSetFormLocked(whIsItemDone(it));
+  whSetFormLocked(whIsItemDone(it) || _whReceiverMode);
   whUpdateFormTitle();
   if(_whFormLocked){
     var t=document.getElementById('whFormTitle');
-    if(t) t.textContent='Goods Issue Note (Done — view only)';
+    if(t){
+      t.textContent=_whReceiverMode
+        ? 'Goods Issue Note (Assigned — Received by only)'
+        : 'Goods Issue Note (Done — view only)';
+    }
   }
   whDraftSave_();
   whSwitchTab(null,'note');
   try { window.scrollTo(0,0); } catch(e){}
 }
+function whLoadAssignees_(cb){
+  var token=typeof empireGetToken==='function' ? empireGetToken() : '';
+  if(!token || typeof fetchJSONRetry!=='function'){ cb([]); return; }
+  fetchJSONRetry({ action:'listWarehouseAssignees', token:token }, 2, 30000).then(function(d){
+    var users=(d && Array.isArray(d.users)) ? d.users : [];
+    _whAssigneesCache=users;
+    cb(users);
+  }).catch(function(){ cb(_whAssigneesCache||[]); });
+}
+function whPickAssignee_(users){
+  if(!users || !users.length){
+    alert('No Warehouse receiver accounts found.\n\nCreate users in Admin → Users with role "Warehouse receiver" and department "warehouse".');
+    return null;
+  }
+  var names=users.map(function(u,i){ return (i+1)+'. '+u.username; }).join('\n');
+  var pick=prompt('Assign this Done note to which account? They will sign Received by.\n\n'+names, '1');
+  if(pick==null) return null;
+  var n=parseInt(pick,10);
+  if(!n || n<1 || n>users.length){
+    // allow typing username directly
+    var typed=String(pick||'').trim();
+    for(var i=0;i<users.length;i++){
+      if(String(users[i].username).toLowerCase()===typed.toLowerCase()) return users[i].username;
+    }
+    alert('Invalid choice.');
+    return null;
+  }
+  return users[n-1].username;
+}
 function whMarkDone(id){
+  if(_whReceiverMode){ alert('Receiver accounts cannot mark notes Done.'); return; }
   id=String(id||'');
   var it=whFindSaved(id);
   if(!it){ alert('Note not found.'); return; }
@@ -1278,39 +1381,46 @@ function whMarkDone(id){
     alert('This note is already Done.');
     return;
   }
-  if(!confirm('Mark this Goods Issue Note as Done?\n\nIt will move to the Done section and cannot be edited anymore.')) return;
-  var p=Object.assign({}, it.payload||{}, {
-    done:true,
-    status:'done',
-    doneAt:new Date().toISOString(),
-    doneBy: typeof empireGetUser==='function' ? empireGetUser() : ''
-  });
-  // Keep list fields on payload for local-only records.
-  if(!p.requester) p.requester=it.requester||'';
-  if(!p.requestNo) p.requestNo=it.requestNo||'';
-  if(!p.requestDate) p.requestDate=it.requestDate||'';
-  if(!p.issueType) p.issueType=it.issueType||'';
-  if(!p.property) p.property=it.propertyCode||'';
-  it.payload=p;
-  it.done=true;
-  it.doneAt=p.doneAt;
-  it.doneBy=p.doneBy;
-  whLocalUpsert(it);
-  if(_whEditingId===id){
-    whSetFormLocked(true);
-    var t=document.getElementById('whFormTitle');
-    if(t) t.textContent='Goods Issue Note (Done — view only)';
-  }
-  var token=typeof empireGetToken==='function' ? empireGetToken() : '';
-  fetchJSONRetry({ action:'markWarehouseGinDone', token:token, id:id }, 2, 30000).then(function(d){
-    if(!(d && (d.ok||d.success))) throw new Error((d && (d.message||d.error)) || 'Mark done failed');
-  }).catch(function(err){
-    // Local mark already applied; warn if server failed.
-    console.warn('markWarehouseGinDone', err);
-  }).finally(function(){
-    whLoadSavedList();
-    alert('Moved to Done Notes. It can still be viewed or printed, but not edited.');
-    whSwitchTab(null,'done');
+  whLoadAssignees_(function(users){
+    var assignee=whPickAssignee_(users);
+    if(!assignee) return;
+    if(!confirm('Mark this Goods Issue Note as Done and assign to "'+assignee+'"?\n\nThey will see it when they log in and can only upload Received by.')) return;
+    var p=Object.assign({}, it.payload||{}, {
+      done:true,
+      status:'done',
+      doneAt:new Date().toISOString(),
+      doneBy: typeof empireGetUser==='function' ? empireGetUser() : '',
+      assignedTo:assignee,
+      assignedAt:new Date().toISOString()
+    });
+    if(!p.requester) p.requester=it.requester||'';
+    if(!p.requestNo) p.requestNo=it.requestNo||'';
+    if(!p.requestDate) p.requestDate=it.requestDate||'';
+    if(!p.issueType) p.issueType=it.issueType||'';
+    if(!p.property) p.property=it.propertyCode||'';
+    it.payload=p;
+    it.done=true;
+    it.doneAt=p.doneAt;
+    it.doneBy=p.doneBy;
+    it.assignedTo=assignee;
+    it.assignedAt=p.assignedAt;
+    whLocalUpsert(it);
+    if(_whEditingId===id){
+      whSetFormLocked(true);
+      var t=document.getElementById('whFormTitle');
+      if(t) t.textContent='Goods Issue Note (Done — view only)';
+    }
+    var token=typeof empireGetToken==='function' ? empireGetToken() : '';
+    fetchJSONRetry({ action:'markWarehouseGinDone', token:token, id:id, assignedTo:assignee }, 2, 30000).then(function(d){
+      if(!(d && (d.ok||d.success))) throw new Error((d && (d.message||d.error)) || 'Mark done failed');
+    }).catch(function(err){
+      console.warn('markWarehouseGinDone', err);
+      alert('Could not save Done assignment to server: '+(err && err.message ? err.message : err));
+    }).finally(function(){
+      whLoadSavedList();
+      alert('Moved to Done Notes and assigned to '+assignee+'.');
+      whSwitchTab(null,'done');
+    });
   });
 }
 function whPrintSaved(id){
@@ -1318,6 +1428,7 @@ function whPrintSaved(id){
   setTimeout(function(){ whPrint(); }, 50);
 }
 function whDeleteSaved(id){
+  if(_whReceiverMode){ alert('Receiver accounts cannot delete notes.'); return; }
   if(!confirm('Delete this saved Goods Issue Note?')) return;
   id=String(id||'');
   whLocalDelete(id);
@@ -1469,11 +1580,41 @@ function whSigRoleLabel_(which){
   return 'signature';
 }
 function whOpenSigPicker(which){
-  if(_whFormLocked){ alert('This note is Done and cannot be edited.'); return; }
+  if(_whReceiverMode && which!=='received'){
+    alert('You can only upload a signature on Received by.');
+    return;
+  }
+  if(_whFormLocked && !(_whReceiverMode && which==='received')){
+    alert('This note is Done and cannot be edited.');
+    return;
+  }
   _whEsigPickFor = which||'';
   whEsigUpdatePickHelp_();
   whSwitchTab(null, 'sigs');
   whEsigRenderList_();
+}
+function whSaveReceivedSigToServer_(){
+  if(!_whEditingId || !_whSig.received) return;
+  var token=typeof empireGetToken==='function' ? empireGetToken() : '';
+  if(!token || typeof fetchJSONRetry!=='function') return;
+  fetchJSONRetry({
+    action:'saveWarehouseGinReceivedSig',
+    token:token,
+    id:_whEditingId,
+    received:_whSig.received
+  }, 2, 60000).then(function(d){
+    if(!(d && (d.ok||d.success))) throw new Error((d && (d.message||d.error)) || 'Save failed');
+    var it=whFindSaved(_whEditingId);
+    if(it){
+      it.payload=it.payload||{};
+      it.payload.sigs=it.payload.sigs||{};
+      it.payload.sigs.received=_whSig.received;
+      whLocalUpsert(it);
+    }
+    alert('Received by signature saved.');
+  }).catch(function(err){
+    alert('Could not save Received by signature: '+(err && err.message ? err.message : err));
+  });
 }
 function whEsigUpdatePickHelp_(){
   var help=document.getElementById('whEsigHelp');
@@ -1795,23 +1936,35 @@ function whEsigBindList_(){
     }
     if(act==='pick'){
       if(!_whEsigPickFor){ alert('Open Upload from the note first.'); return; }
-      if(_whFormLocked){ alert('This note is Done and cannot be edited.'); return; }
+      if(_whFormLocked && !(_whReceiverMode && _whEsigPickFor==='received')){
+        alert('This note is Done and cannot be edited.'); return;
+      }
+      if(_whReceiverMode && _whEsigPickFor!=='received'){
+        alert('You can only upload a signature on Received by.'); return;
+      }
       var slot=_whEsigPickFor;
       whEsigUnlock_(it, function(){
         whSetSig(slot, it.image);
         _whEsigPickFor='';
         whEsigUpdatePickHelp_();
         whSwitchTab(null,'note');
+        if(slot==='received') whSaveReceivedSigToServer_();
       });
       return;
     }
     if(act==='auth' || act==='issued' || act==='received'){
-      if(_whFormLocked){ alert('This note is Done and cannot be edited.'); return; }
+      if(_whReceiverMode && act!=='received'){
+        alert('You can only upload a signature on Received by.'); return;
+      }
+      if(_whFormLocked && !(_whReceiverMode && act==='received')){
+        alert('This note is Done and cannot be edited.'); return;
+      }
       whEsigUnlock_(it, function(){
         whSetSig(act, it.image);
         _whEsigPickFor='';
         whEsigUpdatePickHelp_();
         whSwitchTab(null,'note');
+        if(act==='received') whSaveReceivedSigToServer_();
       });
     }
   });

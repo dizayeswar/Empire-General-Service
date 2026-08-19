@@ -52,7 +52,7 @@ function validateDept(raw: unknown) {
 
 function validateRole(raw: unknown) {
   const role = normalizeRole(raw);
-  if (!["admin", "editor", "viewer", "worker", "cleaning_supervisor"].includes(role)) {
+  if (!["admin", "editor", "viewer", "worker", "cleaning_supervisor", "warehouse_receiver"].includes(role)) {
     return { ok: false as const, message: "Invalid role." };
   }
   return { ok: true as const, role };

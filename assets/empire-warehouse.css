@@ -207,6 +207,19 @@ html[data-theme="dark"] .wh-saved-actions button[data-wh-act="delete"] {
 html[data-theme="dark"] .wh-sp-summary {
   color: #cfe0ff;
 }
+body.wh-receiver-mode #tab-wh-note,
+body.wh-receiver-mode #tab-wh-saved,
+body.wh-receiver-mode #tab-wh-spusage,
+body.wh-receiver-mode #tab-wh-sigs {
+  display: none !important;
+}
+body.wh-receiver-mode .wh-toolbar button[onclick="whStartNew()"],
+body.wh-receiver-mode .wh-toolbar button[onclick="whClearForm()"],
+body.wh-receiver-mode #whSaveBtn,
+body.wh-receiver-mode #whSaveBtn2,
+body.wh-receiver-mode .wh-actions-print button[onclick="whClearForm()"] {
+  display: none !important;
+}
 html[data-theme="dark"] .wh-done-banner {
   background: rgba(46, 125, 50, 0.35);
   color: #c8e6c9;
