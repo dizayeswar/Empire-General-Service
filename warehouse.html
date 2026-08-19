@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-autosave2">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-autosave3">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-autosave2">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-autosave3">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -280,12 +280,12 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-assign"></script>
+<script src="config.js?v=2026-08-19-wh-autosave3"></script>
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-19-wh-assign"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-autosave2"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-assign"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-autosave3"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-autosave3"></script>
 <script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-assign"></script>
 <script>
 var WH_LINE_COUNT = 23;
@@ -311,6 +311,7 @@ var _whLayoutSel = null;
 var _whLayout = {};
 var _whDrag = null;
 var _whDraftTimer = null;
+var _whServerSaveTimer = null;
 var _whAutoSaveBusy = false;
 var _whAutoSavePending = false;
 var _whAutoSaveLastJson = '';
@@ -376,13 +377,12 @@ window.addEventListener('load', function(){
 function whSwitchTab(e, tab){
   var cur=document.querySelector('.dept-tab-content.active');
   var leavingNote=cur && cur.id==='wh-tab-note' && tab!=='note';
-  // Flush autosave once, then switch — never re-enter flush (that froze the page).
   if(leavingNote && !_whFormLocked && !_whReceiverMode && !whSwitchTab._flushing){
     whSwitchTab._flushing=true;
-    Promise.resolve(whAutoSaveNow_({ force:true, quiet:true })).finally(function(){
-      try { whApplyTab_(e, tab); }
-      finally { whSwitchTab._flushing=false; }
-    });
+    // Local flush only (fast). Server sync in background — never block the tab switch.
+    try { whAutoSaveLocal_(true); } catch (err) {}
+    try { whApplyTab_(e, tab); } finally { whSwitchTab._flushing=false; }
+    whAutoSaveServer_({ quiet:true });
     return;
   }
   whApplyTab_(e, tab);
@@ -426,7 +426,7 @@ function whInit(){
     if(_whOpenCombo && !_whOpenCombo.contains(e.target)) whCloseCombos();
   });
   window.addEventListener('pagehide', function(){
-    try { whAutoSaveNow_({ force:true, quiet:true }); } catch(e){}
+    try { whAutoSaveLocal_(true); } catch(e){}
   });
 }
 function whDraftBind_(){
@@ -440,21 +440,48 @@ function whAutoSaveSetStatus_(txt){
   var el=document.getElementById('whAutoSaveStatus');
   if(el) el.textContent=txt||'';
 }
+function whPayloadFinger_(p){
+  // Fingerprint without huge signature data-URLs (those froze the page).
+  try {
+    var copy=Object.assign({}, p||{});
+    var s=copy.sigs||{};
+    copy.sigs={
+      auth: s.auth ? 1 : 0,
+      issued: s.issued ? 1 : 0,
+      received: s.received ? 1 : 0
+    };
+    return JSON.stringify(copy);
+  } catch(e){ return String(Date.now()); }
+}
 function whAutoSaveSchedule_(){
   if(_whFormLocked || _whReceiverMode) return;
   if(_whDraftTimer) clearTimeout(_whDraftTimer);
   whAutoSaveSetStatus_('Editing…');
   _whDraftTimer=setTimeout(function(){
     _whDraftTimer=null;
-    whAutoSaveNow_({ quiet:true });
-  }, 650);
+    try { whAutoSaveLocal_(false); } catch(e){}
+    if(_whServerSaveTimer) clearTimeout(_whServerSaveTimer);
+    _whServerSaveTimer=setTimeout(function(){
+      _whServerSaveTimer=null;
+      whAutoSaveServer_({ quiet:true });
+    }, 2500);
+  }, 500);
 }
 function whDraftSchedule_(){ whAutoSaveSchedule_(); }
 function whDraftSave_(){
   try {
+    var p=whCollectPayload();
+    // Keep draft small — signatures already live in memory (_whSig).
+    var light=Object.assign({}, p, {
+      sigs:{
+        auth: p.sigs && p.sigs.auth ? '__mem__' : '',
+        issued: p.sigs && p.sigs.issued ? '__mem__' : '',
+        received: p.sigs && p.sigs.received ? '__mem__' : ''
+      }
+    });
     localStorage.setItem(WH_DRAFT_KEY, JSON.stringify({
       editingId: _whEditingId||'',
-      payload: whCollectPayload()
+      payload: light
     }));
   } catch(e){}
 }
@@ -467,34 +494,39 @@ function whCacheUpsert_(item){
   }
   if(!found) _whSavedCache.unshift(n);
 }
-function whAutoSaveNow_(opts){
-  opts=opts||{};
-  if(_whFormLocked || _whReceiverMode) return Promise.resolve();
-  if(_whAutoSaveBusy){
-    _whAutoSavePending=true;
-    try { whDraftSave_(); } catch(e){}
-    return Promise.resolve();
-  }
+/** Fast path: memory + small draft. Optionally touch localStorage list. */
+function whAutoSaveLocal_(persistStorage){
+  if(_whFormLocked || _whReceiverMode) return null;
   var payload=whCollectPayload();
   var has=whFormHasContent_();
   if(!has && !_whEditingId){
     whAutoSaveSetStatus_('');
-    return Promise.resolve();
+    return null;
   }
-  var json=JSON.stringify(payload);
-  if(!opts.force && json===_whAutoSaveLastJson && _whEditingId){
+  var finger=whPayloadFinger_(payload);
+  if(!persistStorage && finger===_whAutoSaveLastJson && _whEditingId){
     whAutoSaveSetStatus_('Saved');
-    return Promise.resolve();
+    return _whEditingId;
   }
   var prev=_whEditingId ? whFindSaved(_whEditingId) : null;
   if(prev && whIsItemDone(prev)){
     whAutoSaveSetStatus_('');
-    return Promise.resolve();
+    return null;
   }
   var id=_whEditingId || ('local-whgin-'+Date.now());
   if(!_whEditingId){
     _whEditingId=id;
     whUpdateFormTitle();
+  }
+  // Reuse previous signature blobs in stored copy when unchanged (avoid rewriting MBs).
+  if(prev && prev.payload && prev.payload.sigs){
+    var ps=prev.payload.sigs;
+    var cs=payload.sigs||{};
+    payload.sigs={
+      auth: cs.auth || ps.auth || '',
+      issued: cs.issued || ps.issued || '',
+      received: cs.received || ps.received || ''
+    };
   }
   var item={
     id:id,
@@ -512,18 +544,31 @@ function whAutoSaveNow_(opts){
     payload:payload,
     localOnly: !!(prev && prev.localOnly) || String(id).indexOf('local-whgin-')===0
   };
-  whLocalUpsert(item);
   whCacheUpsert_(item);
   whDraftSave_();
-  _whAutoSaveLastJson=json;
-  whAutoSaveSetStatus_('Saving…');
-
+  _whAutoSaveLastJson=finger;
+  if(persistStorage){
+    try { whLocalUpsert(item); } catch(e){}
+  }
+  whAutoSaveSetStatus_('Saved');
+  return id;
+}
+function whAutoSaveServer_(opts){
+  opts=opts||{};
+  if(_whFormLocked || _whReceiverMode) return Promise.resolve();
+  if(_whAutoSaveBusy){ _whAutoSavePending=true; return Promise.resolve(); }
+  var id=whAutoSaveLocal_(true);
+  if(!id) return Promise.resolve();
+  var it=whFindSaved(id);
+  if(!it || whIsItemDone(it)) return Promise.resolve();
+  var payload=it.payload||whCollectPayload();
   var token=typeof empireGetToken==='function' ? empireGetToken() : '';
   if(!token || typeof fetchJSONRetry!=='function'){
     whAutoSaveSetStatus_('Saved on this device');
     return Promise.resolve();
   }
   _whAutoSaveBusy=true;
+  whAutoSaveSetStatus_('Saving…');
   return fetchJSONRetry({
     action:'saveWarehouseGin',
     token:token,
@@ -540,22 +585,22 @@ function whAutoSaveNow_(opts){
     if(d && (d.ok||d.success) && d.id){
       var newId=String(d.id);
       if(newId!==String(id)){
-        whLocalDelete(id);
+        try { whLocalDelete(id); } catch(e){}
         _whEditingId=newId;
         id=newId;
         whUpdateFormTitle();
       }
-      item.id=newId;
-      item.num=d.num||item.num||0;
-      item.localOnly=false;
-      item.updatedAt=new Date().toISOString();
-      whLocalUpsert(item);
-      whCacheUpsert_(item);
+      it.id=newId;
+      it.num=d.num||it.num||0;
+      it.localOnly=false;
+      it.updatedAt=new Date().toISOString();
+      try { whLocalUpsert(it); } catch(e){}
+      whCacheUpsert_(it);
       whDraftSave_();
       whAutoSaveSetStatus_('Saved');
       return;
     }
-    var msg=String((d && (d.message||d.error)) || 'Save failed');
+    var msg=String((d && (d.message||d.error)) || '');
     if(/cannot be edited|marked Done/i.test(msg)){
       whSyncLocalDone_(_whEditingId);
       whSetFormLocked(true);
@@ -569,13 +614,22 @@ function whAutoSaveNow_(opts){
     _whAutoSaveBusy=false;
     if(_whAutoSavePending){
       _whAutoSavePending=false;
-      whAutoSaveNow_({ force:true, quiet:true });
+      // One follow-up max — do not chain forever.
+      setTimeout(function(){ whAutoSaveServer_({ quiet:true }); }, 400);
     }
   });
 }
+function whAutoSaveNow_(opts){
+  opts=opts||{};
+  whAutoSaveLocal_(!!opts.force);
+  if(opts.force) return whAutoSaveServer_(opts);
+  return Promise.resolve();
+}
 function whDraftClear_(){
   if(_whDraftTimer){ clearTimeout(_whDraftTimer); _whDraftTimer=null; }
+  if(_whServerSaveTimer){ clearTimeout(_whServerSaveTimer); _whServerSaveTimer=null; }
   _whAutoSaveLastJson='';
+  _whAutoSavePending=false;
   whAutoSaveSetStatus_('');
   try { localStorage.removeItem(WH_DRAFT_KEY); } catch(e){}
 }
@@ -585,16 +639,21 @@ function whDraftRestore_(){
     if(!raw) return;
     var d=JSON.parse(raw);
     if(!d || !d.payload) return;
-    // Ignore empty drafts so Save→blank never gets an old payload back.
     var p=d.payload||{};
     var has=!!(p.requester||p.requestNo||p.company||p.property||p.technician||p.voucher||p.issueType
-      || (p.sigs && (p.sigs.auth||p.sigs.issued||p.sigs.received))
       || ((p.lines||[]).some(function(ln){ return ln && (ln.code||ln.desc||ln.qty||ln.project||ln.cc); })));
     if(!has && !d.editingId){ whDraftClear_(); return; }
     _whEditingId=String(d.editingId||'');
-    whApplyPayload(d.payload);
+    // Restore field data; keep in-memory signatures if draft used placeholders.
+    var sigs=p.sigs||{};
+    p.sigs={
+      auth: sigs.auth==='__mem__' ? (_whSig.auth||'') : (sigs.auth||''),
+      issued: sigs.issued==='__mem__' ? (_whSig.issued||'') : (sigs.issued||''),
+      received: sigs.received==='__mem__' ? (_whSig.received||'') : (sigs.received||'')
+    };
+    whApplyPayload(p);
     whUpdateFormTitle();
-    try { _whAutoSaveLastJson=JSON.stringify(d.payload); } catch(e){ _whAutoSaveLastJson=''; }
+    _whAutoSaveLastJson=whPayloadFinger_(whCollectPayload());
   } catch(e){}
 }
 
