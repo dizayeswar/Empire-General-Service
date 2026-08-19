@@ -172,10 +172,12 @@
   gap: 8px;
   min-height: 26px;
   margin-bottom: 6px;
+  font-weight: 700;
 }
 .wh-line strong {
-  font-weight: 700;
+  font-weight: 700 !important;
   white-space: nowrap;
+  color: #000;
 }
 .wh-line .wh-cell-input {
   flex: 1;
@@ -188,6 +190,7 @@
   padding: 2px 4px !important;
   margin: 0;
   font: inherit;
+  font-weight: 400 !important;
   color: #000;
   min-width: 0;
 }
@@ -197,7 +200,11 @@
   align-items: center;
   gap: 10px 16px;
   margin-top: 4px;
-  font-weight: 700;
+  font-weight: 700 !important;
+  color: #000;
+}
+.wh-type-inline strong {
+  font-weight: 700 !important;
 }
 .wh-type-btn {
   all: unset;
