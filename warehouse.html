@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-layout-editor">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-page-size">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-layout-editor">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-layout-editor">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-layout-editor">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-page-size">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-page-size">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-page-size">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -71,8 +71,17 @@
             <span class="wh-spacer"></span>
             <button type="button" id="whLayoutEditBtn" onclick="whToggleLayoutEdit()">Edit layout</button>
             <span id="whLayoutTools" class="wh-layout-tools" hidden>
-              <button type="button" onclick="whLayoutFont(-1)" title="Smaller">A−</button>
-              <button type="button" onclick="whLayoutFont(1)" title="Bigger">A+</button>
+              <span class="wh-layout-group">
+                <span class="wh-layout-label">Page</span>
+                <button type="button" onclick="whPageScale(-1)">Smaller</button>
+                <strong id="whPageScaleLabel">100%</strong>
+                <button type="button" onclick="whPageScale(1)">Bigger</button>
+              </span>
+              <span class="wh-layout-group">
+                <span class="wh-layout-label">Text</span>
+                <button type="button" onclick="whLayoutFont(-1)">Smaller</button>
+                <button type="button" onclick="whLayoutFont(1)">Bigger</button>
+              </span>
               <button type="button" onclick="whLayoutReset()">Reset layout</button>
               <button type="button" onclick="whToggleLayoutEdit(false)">Done</button>
             </span>
@@ -80,7 +89,7 @@
             <button type="button" id="whSaveBtn" onclick="whSave()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Save</button>
             <button type="button" onclick="whPrint()">Print / Save as PDF</button>
           </div>
-          <p id="whLayoutHint" class="no-print wh-layout-hint" hidden>Edit layout: click a block (title, fields, table…), drag to move, use A− / A+ to resize. Print keeps your layout.</p>
+          <p id="whLayoutHint" class="no-print wh-layout-hint" hidden>Edit layout: drag blocks to move. Use <strong>Page Smaller/Bigger</strong> for the whole form, or click a block then <strong>Text Smaller/Bigger</strong>. Print keeps your layout.</p>
 
           <div class="wh-note" id="whPrintRoot">
             <div class="wh-head" data-wh-layout="head">
@@ -219,13 +228,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-layout-editor"></script>
-<script src="assets/empire-storage.js?v=2026-08-19-wh-layout-editor"></script>
-<script src="assets/empire-api.js?v=2026-08-19-wh-layout-editor"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-layout-editor"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-layout-editor"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-layout-editor"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-layout-editor"></script>
+<script src="config.js?v=2026-08-19-wh-page-size"></script>
+<script src="assets/empire-storage.js?v=2026-08-19-wh-page-size"></script>
+<script src="assets/empire-api.js?v=2026-08-19-wh-page-size"></script>
+<script src="assets/empire-auth.js?v=2026-08-19-wh-page-size"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-page-size"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-page-size"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-page-size"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -313,6 +322,34 @@ function whLayoutApply(){
     if(fs) el.style.fontSize = fs+'px';
     else el.style.fontSize = '';
   });
+  whPageScaleApply_();
+}
+function whPageScaleGet_(){
+  var s=Number(_whLayout._pageScale);
+  if(!isFinite(s) || s<=0) s=1;
+  return Math.max(0.7, Math.min(1.35, s));
+}
+function whPageScaleApply_(){
+  var root=document.getElementById('whPrintRoot');
+  var label=document.getElementById('whPageScaleLabel');
+  var s=whPageScaleGet_();
+  if(root){
+    root.style.zoom = String(s);
+    // Fallback for browsers without zoom
+    if(typeof root.style.zoom==='undefined' || root.style.zoom===''){
+      root.style.transform='scale('+s+')';
+      root.style.transformOrigin='top center';
+    }
+  }
+  if(label) label.textContent=Math.round(s*100)+'%';
+}
+function whPageScale(dir){
+  var s=whPageScaleGet_();
+  s = Math.round((s + (dir>0 ? 0.05 : -0.05))*100)/100;
+  s = Math.max(0.7, Math.min(1.35, s));
+  _whLayout._pageScale=s;
+  whLayoutSave();
+  whPageScaleApply_();
 }
 function whLayoutCssForPrint_(){
   var map={
@@ -321,7 +358,12 @@ function whLayoutCssForPrint_(){
     to:'.to', kindly:'.kindly', lines:'.lines', maint:'.maint', sigs:'.sigs'
   };
   var css='';
+  var page=whPageScaleGet_();
+  if(page!==1){
+    css+='.sheet{zoom:'+page+';}';
+  }
   Object.keys(_whLayout||{}).forEach(function(key){
+    if(key==='_pageScale') return;
     var sel=map[key]; if(!sel) return;
     var cfg=_whLayout[key]||{};
     var x=Number(cfg.x||0)||0;
@@ -416,6 +458,13 @@ function whLayoutReset(){
     el.style.transform='';
     el.style.fontSize='';
   });
+  var root=document.getElementById('whPrintRoot');
+  if(root){
+    root.style.zoom='';
+    root.style.transform='';
+    root.style.transformOrigin='';
+  }
+  whPageScaleApply_();
   whLayoutSelect(null);
 }
 function whUpdateFormTitle(){

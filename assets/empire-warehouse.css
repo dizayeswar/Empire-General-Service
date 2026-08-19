@@ -17,8 +17,29 @@
 .wh-layout-tools {
   display: inline-flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
   align-items: center;
+}
+.wh-layout-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  padding: 4px 8px;
+  border: 1px solid var(--card-border, #ccc);
+  border-radius: 999px;
+  background: var(--card-bg, #fff);
+}
+.wh-layout-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-soft, #666);
+  margin-right: 2px;
+}
+#whPageScaleLabel {
+  min-width: 42px;
+  text-align: center;
+  font-size: 12px;
 }
 .wh-layout-hint {
   margin: 0 0 10px;
