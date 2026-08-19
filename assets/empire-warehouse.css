@@ -55,14 +55,26 @@
 }
 .wh-note * { box-sizing: border-box; }
 
-.wh-head {
+.wh-top {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin: 0 0 10pt;
+  gap: 24px;
+  margin: 0 0 8pt;
+}
+.wh-top-left {
+  flex: 1;
+  min-width: 0;
+}
+.wh-top-right {
+  width: 240px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 }
 .wh-title {
-  margin: 0;
+  margin: 0 0 10pt;
   font-size: 20pt;
   font-weight: 700;
   color: #000;
@@ -71,28 +83,10 @@
 .wh-logo {
   height: 50px;
   width: auto;
+  max-width: 100%;
   object-fit: contain;
   display: block;
-  flex-shrink: 0;
-}
-
-.wh-meta {
-  display: grid;
-  grid-template-columns: 1.15fr 1fr;
-  gap: 8pt 28pt;
-  margin: 0 0 8pt;
-}
-/* Request No / Date / Property sit under the logo (right), label+value together */
-.wh-meta-col:last-child {
-  justify-self: end;
-  width: min(100%, 280px);
-}
-.wh-meta-col:last-child .wh-line {
-  justify-content: flex-start;
-}
-.wh-meta-col:last-child .wh-cell-input {
-  flex: 1 1 auto;
-  max-width: 160px;
+  margin: 0 0 10px auto;
 }
 .wh-line {
   display: flex;
@@ -317,8 +311,9 @@
 
 @media (max-width: 720px) {
   .wh-note { padding: 12px; }
-  .wh-meta { grid-template-columns: 1fr; gap: 4pt; }
-  .wh-head { flex-direction: column; gap: 8px; }
+  .wh-top { flex-direction: column; }
+  .wh-top-right { width: 100%; }
+  .wh-logo { margin-left: 0; }
   .wh-sigs-row { grid-template-columns: 1fr; }
 }
 

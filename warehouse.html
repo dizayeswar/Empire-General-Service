@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-meta-right">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-req-under-logo">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-meta-right">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-meta-right">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-meta-right">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-req-under-logo">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-req-under-logo">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-req-under-logo">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -75,13 +75,9 @@
           </div>
 
           <div class="wh-note" id="whPrintRoot">
-            <div class="wh-head">
-              <h1 class="wh-title">Goods Issue Note</h1>
-              <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-meta-right" alt="Empire">
-            </div>
-
-            <div class="wh-meta">
-              <div class="wh-meta-col">
+            <div class="wh-top">
+              <div class="wh-top-left">
+                <h1 class="wh-title">Goods Issue Note</h1>
                 <div class="wh-line"><strong>Requester:</strong><input id="wh-requester" class="wh-cell-input" type="text" autocomplete="off"></div>
                 <div class="wh-line"><strong>Company:</strong><input id="wh-company" class="wh-cell-input" type="text" value="" autocomplete="off"></div>
                 <div class="wh-type-inline">
@@ -91,7 +87,8 @@
                   <input type="hidden" id="wh-issue-type" value="">
                 </div>
               </div>
-              <div class="wh-meta-col">
+              <div class="wh-top-right">
+                <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-req-under-logo" alt="Empire">
                 <div class="wh-line"><strong>Request No.:</strong><input id="wh-request-no" class="wh-cell-input" type="text" autocomplete="off"></div>
                 <div class="wh-line"><strong>Request Date:</strong><input id="wh-request-date" class="wh-cell-input" type="date"></div>
                 <div class="wh-line"><strong>Property Code:</strong><input id="wh-property" class="wh-cell-input" type="text" autocomplete="off"></div>
@@ -210,13 +207,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-meta-right"></script>
-<script src="assets/empire-storage.js?v=2026-08-19-wh-meta-right"></script>
-<script src="assets/empire-api.js?v=2026-08-19-wh-meta-right"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-meta-right"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-meta-right"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-meta-right"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-meta-right"></script>
+<script src="config.js?v=2026-08-19-wh-req-under-logo"></script>
+<script src="assets/empire-storage.js?v=2026-08-19-wh-req-under-logo"></script>
+<script src="assets/empire-api.js?v=2026-08-19-wh-req-under-logo"></script>
+<script src="assets/empire-auth.js?v=2026-08-19-wh-req-under-logo"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-req-under-logo"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-req-under-logo"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-req-under-logo"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -1023,11 +1020,11 @@ function whBuildWordPrintHtml_(){
     +'*{box-sizing:border-box;}'
     +'body{font-family:Calibri,Arial,Helvetica,sans-serif;color:#000;font-size:12pt;line-height:1.15;}'
     +'.sheet{width:100%;}'
-    +'.head{display:flex;justify-content:space-between;align-items:flex-start;margin:0 0 10pt;}'
-    +'.title{margin:0;font-size:20pt;font-weight:700;line-height:1.1;}'
-    +'.logo{height:50pt;width:auto;display:block;}'
-    +'.meta{display:grid;grid-template-columns:1.15fr 1fr;gap:8pt 28pt;margin:0 0 8pt;}'
-    +'.meta-right{justify-self:end;width:min(100%,280px);}'
+    +'.top{display:flex;justify-content:space-between;align-items:flex-start;gap:18pt;margin:0 0 8pt;}'
+    +'.top-left{flex:1;min-width:0;}'
+    +'.top-right{width:180pt;flex-shrink:0;}'
+    +'.title{margin:0 0 10pt;font-size:20pt;font-weight:700;line-height:1.1;}'
+    +'.logo{height:50pt;width:auto;display:block;margin:0 0 10pt auto;}'
     +'.row{margin:0 0 6pt;font-weight:700;font-size:12pt;}'
     +'.row .v{font-weight:400;margin-left:4pt;}'
     +'.type{margin:0;font-weight:700;font-size:12pt;}'
@@ -1056,14 +1053,13 @@ function whBuildWordPrintHtml_(){
     +'.sig .pad img{max-height:34pt;max-width:95%;}'
     +'.sig .lbl{font-weight:700;font-size:12pt;}'
     +'</style></head><body><div class="sheet">'
-    +'<div class="head"><div class="title">Goods Issue Note</div>'
-    +(logo?('<img class="logo" src="'+logo+'" alt="Empire">'):'')
-    +'</div>'
-    +'<div class="meta"><div>'
+    +'<div class="top"><div class="top-left">'
+    +'<div class="title">Goods Issue Note</div>'
     +'<div class="row">Requester:<span class="v">'+whEsc(whVal('wh-requester'))+'</span></div>'
     +'<div class="row">Company:<span class="v">'+whEsc(whVal('wh-company'))+'</span></div>'
     +'<div class="type">Good Issue Type<span class="opt">'+inn+'</span><span class="opt">'+ext+'</span></div>'
-    +'</div><div class="meta-right">'
+    +'</div><div class="top-right">'
+    +(logo?('<img class="logo" src="'+logo+'" alt="Empire">'):'')
     +'<div class="row">Request No.:<span class="v">'+whEsc(whVal('wh-request-no'))+'</span></div>'
     +'<div class="row">Request Date:<span class="v">'+whEsc(whFmtDate(whVal('wh-request-date')))+'</span></div>'
     +'<div class="row">Property Code:<span class="v">'+whEsc(whVal('wh-property'))+'</span></div>'
