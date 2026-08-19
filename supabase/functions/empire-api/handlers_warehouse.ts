@@ -153,7 +153,43 @@ export async function handleMarkWarehouseGinDone(body: Record<string, unknown>, 
   }
   const id = String(body.id || "").trim();
   if (!id) return { ok: false, success: false, error: "missing_id" };
+  const { data: ex } = await sb().from("warehouse_goods_issues").select("id,payload").eq("id", id).maybeSingle();
+  if (!ex) return { ok: false, success: false, error: "not_found" };
+  const existingPayload = (ex.payload && typeof ex.payload === "object")
+    ? ex.payload as GinPayload
+    : {};
+  if (existingPayload.done === true || existingPayload.status === "done") {
+    return {
+      ok: true,
+      success: true,
+      id,
+      alreadyDone: true,
+      assignedTo: String(existingPayload.assignedTo || ""),
+    };
+  }
+  const now = isoNow();
+  const payload = {
+    ...existingPayload,
+    done: true,
+    status: "done",
+    doneAt: now,
+    doneBy: String(auth.username || ""),
+  };
+  const { error } = await sb().from("warehouse_goods_issues").update({
+    payload,
+    updated_at: now,
+  }).eq("id", id);
+  if (error) throw error;
+  return { ok: true, success: true, id, done: true, doneAt: now };
+}
+
+export async function handleAssignWarehouseGin(body: Record<string, unknown>, auth: AuthOk) {
+  if (isWarehouseReceiver(auth)) {
+    return { ok: false, success: false, error: "forbidden", message: "Receiver accounts cannot assign notes." };
+  }
+  const id = String(body.id || "").trim();
   const assignedTo = String(body.assignedTo || "").trim();
+  if (!id) return { ok: false, success: false, error: "missing_id" };
   if (!assignedTo) {
     return {
       ok: false,
@@ -167,16 +203,17 @@ export async function handleMarkWarehouseGinDone(body: Record<string, unknown>, 
   const existingPayload = (ex.payload && typeof ex.payload === "object")
     ? ex.payload as GinPayload
     : {};
-  if (existingPayload.done === true || existingPayload.status === "done") {
-    return { ok: true, success: true, id, alreadyDone: true, assignedTo: String(existingPayload.assignedTo || "") };
+  if (!(existingPayload.done === true || existingPayload.status === "done")) {
+    return {
+      ok: false,
+      success: false,
+      error: "not_done",
+      message: "Mark the note Done in Saved Notes before assigning.",
+    };
   }
   const now = isoNow();
   const payload = {
     ...existingPayload,
-    done: true,
-    status: "done",
-    doneAt: now,
-    doneBy: String(auth.username || ""),
     assignedTo,
     assignedAt: now,
   };
@@ -185,7 +222,7 @@ export async function handleMarkWarehouseGinDone(body: Record<string, unknown>, 
     updated_at: now,
   }).eq("id", id);
   if (error) throw error;
-  return { ok: true, success: true, id, done: true, doneAt: now, assignedTo };
+  return { ok: true, success: true, id, assignedTo, assignedAt: now };
 }
 
 export async function handleListWarehouseAssignees(_body: Record<string, unknown>, auth: AuthOk) {

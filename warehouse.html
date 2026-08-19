@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-save-new">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-done-assign">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-save-new">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-done-assign">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -203,7 +203,7 @@
         <div class="wh-app wh-saved-app">
           <div class="form-section">
             <h2>Saved Goods Issue Notes</h2>
-            <p class="wh-tab-help">Notes still in progress. Click <strong>Done</strong> when finished — they move to <strong>Done Notes</strong>.</p>
+            <p class="wh-tab-help">Notes still in progress. Click <strong>Done</strong> when finished — they move to <strong>Done Notes</strong>, then you can <strong>Assign</strong>.</p>
             <div class="wh-toolbar no-print" style="margin-bottom:12px;">
               <button type="button" onclick="whLoadSavedList()">Refresh</button>
               <button type="button" onclick="whStartNew()">New</button>
@@ -217,7 +217,7 @@
         <div class="wh-app wh-saved-app">
           <div class="form-section">
             <h2>Done Notes</h2>
-            <p class="wh-tab-help" id="whDoneHelp">Finished Goods Issue Notes. When marking Done, assign an account — they can open it and upload <strong>Received by</strong> only.</p>
+            <p class="wh-tab-help" id="whDoneHelp">Finished Goods Issue Notes. Click <strong>Assign</strong> to choose who uploads <strong>Received by</strong>.</p>
             <div class="wh-toolbar no-print" style="margin-bottom:12px;">
               <button type="button" onclick="whLoadSavedList()">Refresh</button>
             </div>
@@ -283,7 +283,7 @@
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-19-wh-assign"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-save-new"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-done-assign"></script>
 <script src="assets/empire-sw-update.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-assign"></script>
 <script>
@@ -964,7 +964,8 @@ function whSave(){
       });
       whLoadSavedList();
       whOpenBlankNote_();
-      alert('Saved to Saved Notes. A new empty Goods Issue Note is ready.');
+      whSwitchTab(null,'saved');
+      alert('Saved. It is in Saved Notes — click Done when finished, then Assign in Done Notes.');
       return;
     }
     throw new Error((d && (d.message||d.error)) || 'Save failed');
@@ -994,7 +995,8 @@ function whSave(){
     });
     whLoadSavedList();
     whOpenBlankNote_();
-    alert('Saved on this device to Saved Notes. A new empty Goods Issue Note is ready.\n\n('+msg+')');
+    whSwitchTab(null,'saved');
+    alert('Saved on this device to Saved Notes. Click Done when finished, then Assign in Done Notes.\n\n('+msg+')');
   }).finally(function(){ whSetSaveBusy(false); });
 }
 function whNormalizeListItem(it){
@@ -1114,7 +1116,7 @@ function whRenderSavedList(){
         ? empireEmptyHtml(_whReceiverMode ? 'Nothing assigned yet' : 'No done notes yet',
             _whReceiverMode
               ? 'When warehouse marks a note Done and assigns it to you, it appears here.'
-              : 'When a note is finished, click Done in Saved Notes — it moves here.')
+              : 'When a note is finished, click Done in Saved Notes — it moves here. Then click Assign.')
         : '<p>No done notes yet.</p>';
     } else {
       var dh='';
@@ -1243,7 +1245,8 @@ function whSavedSectionHtml_(title, items, isDoneSection){
       +(isDoneSection?('<td>'+whEsc(it.assignedTo||'—')+'</td>'):'')
       +'<td class="wh-saved-actions">'
       +(isDoneSection
-        ? ('<button type="button" data-wh-act="view" data-wh-id="'+id+'">View</button> ')
+        ? ('<button type="button" data-wh-act="view" data-wh-id="'+id+'">View</button> '
+          +(_whReceiverMode?'':('<button type="button" data-wh-act="assign" data-wh-id="'+id+'">'+(it.assignedTo?'Reassign':'Assign')+'</button> ')))
         : ('<button type="button" data-wh-act="open" data-wh-id="'+id+'">Open</button> '
           +'<button type="button" data-wh-act="done" data-wh-id="'+id+'">Done</button> '))
       +'<button type="button" data-wh-act="print" data-wh-id="'+id+'">Print</button> '
@@ -1267,6 +1270,7 @@ function whBindListClicks_(boxId){
     e.preventDefault();
     if(act==='open' || act==='view') whOpenSaved(id);
     else if(act==='done') whMarkDone(id);
+    else if(act==='assign') whAssignDone(id);
     else if(act==='print') whPrintSaved(id);
     else if(act==='delete') whDeleteSaved(id);
   });
@@ -1403,45 +1407,73 @@ function whMarkDone(id){
     alert('This note is already Done.');
     return;
   }
+  whUiConfirm_('Mark this Goods Issue Note as Done?\n\nIt will move to Done Notes. You can Assign who signs Received by next.').then(function(ok){
+    if(!ok) return;
+    var p=Object.assign({}, it.payload||{}, {
+      done:true,
+      status:'done',
+      doneAt:new Date().toISOString(),
+      doneBy: typeof empireGetUser==='function' ? empireGetUser() : ''
+    });
+    if(!p.requester) p.requester=it.requester||'';
+    if(!p.requestNo) p.requestNo=it.requestNo||'';
+    if(!p.requestDate) p.requestDate=it.requestDate||'';
+    if(!p.issueType) p.issueType=it.issueType||'';
+    if(!p.property) p.property=it.propertyCode||'';
+    it.payload=p;
+    it.done=true;
+    it.doneAt=p.doneAt;
+    it.doneBy=p.doneBy;
+    whLocalUpsert(it);
+    if(_whEditingId===id){
+      whSetFormLocked(true);
+      var t=document.getElementById('whFormTitle');
+      if(t) t.textContent='Goods Issue Note (Done — view only)';
+    }
+    var token=typeof empireGetToken==='function' ? empireGetToken() : '';
+    fetchJSONRetry({ action:'markWarehouseGinDone', token:token, id:id }, 2, 30000).then(function(d){
+      if(!(d && (d.ok||d.success))) throw new Error((d && (d.message||d.error)) || 'Mark done failed');
+    }).catch(function(err){
+      console.warn('markWarehouseGinDone', err);
+      alert('Could not save Done to server: '+(err && err.message ? err.message : err));
+    }).finally(function(){
+      whLoadSavedList();
+      alert('Moved to Done Notes. Click Assign to choose who signs Received by.');
+      whSwitchTab(null,'done');
+    });
+  });
+}
+function whAssignDone(id){
+  if(_whReceiverMode){ alert('Receiver accounts cannot assign notes.'); return; }
+  id=String(id||'');
+  var it=whFindSaved(id);
+  if(!it){ alert('Note not found.'); return; }
+  if(!whIsItemDone(it)){
+    alert('Mark the note Done in Saved Notes before assigning.');
+    return;
+  }
   whLoadAssignees_(function(users){
     whPickAssignee_(users).then(function(assignee){
       if(!assignee) return;
-      return whUiConfirm_('Mark this Goods Issue Note as Done and assign to "'+assignee+'"?\n\nThey will see it when they log in and can only upload Received by.').then(function(ok){
+      return whUiConfirm_('Assign this Done note to "'+assignee+'"?\n\nThey will see it when they log in and can only upload Received by.').then(function(ok){
         if(!ok) return;
         var p=Object.assign({}, it.payload||{}, {
-          done:true,
-          status:'done',
-          doneAt:new Date().toISOString(),
-          doneBy: typeof empireGetUser==='function' ? empireGetUser() : '',
           assignedTo:assignee,
           assignedAt:new Date().toISOString()
         });
-        if(!p.requester) p.requester=it.requester||'';
-        if(!p.requestNo) p.requestNo=it.requestNo||'';
-        if(!p.requestDate) p.requestDate=it.requestDate||'';
-        if(!p.issueType) p.issueType=it.issueType||'';
-        if(!p.property) p.property=it.propertyCode||'';
         it.payload=p;
-        it.done=true;
-        it.doneAt=p.doneAt;
-        it.doneBy=p.doneBy;
         it.assignedTo=assignee;
         it.assignedAt=p.assignedAt;
         whLocalUpsert(it);
-        if(_whEditingId===id){
-          whSetFormLocked(true);
-          var t=document.getElementById('whFormTitle');
-          if(t) t.textContent='Goods Issue Note (Done — view only)';
-        }
         var token=typeof empireGetToken==='function' ? empireGetToken() : '';
-        fetchJSONRetry({ action:'markWarehouseGinDone', token:token, id:id, assignedTo:assignee }, 2, 30000).then(function(d){
-          if(!(d && (d.ok||d.success))) throw new Error((d && (d.message||d.error)) || 'Mark done failed');
+        fetchJSONRetry({ action:'assignWarehouseGin', token:token, id:id, assignedTo:assignee }, 2, 30000).then(function(d){
+          if(!(d && (d.ok||d.success))) throw new Error((d && (d.message||d.error)) || 'Assign failed');
         }).catch(function(err){
-          console.warn('markWarehouseGinDone', err);
-          alert('Could not save Done assignment to server: '+(err && err.message ? err.message : err));
+          console.warn('assignWarehouseGin', err);
+          alert('Could not save assignment to server: '+(err && err.message ? err.message : err));
         }).finally(function(){
           whLoadSavedList();
-          alert('Moved to Done Notes and assigned to '+assignee+'.');
+          alert('Assigned to '+assignee+'.');
           whSwitchTab(null,'done');
         });
       });
