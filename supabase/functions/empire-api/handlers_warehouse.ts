@@ -101,3 +101,37 @@ export async function handleDeleteWarehouseGin(body: Record<string, unknown>) {
   if (!data?.length) return { ok: false, success: false, error: "not_found" };
   return { ok: true, success: true, id };
 }
+
+const LAYOUT_KEY = "warehouse_gin_layout";
+
+export async function handleGetWarehouseLayout(_body: Record<string, unknown>) {
+  const { data } = await sb().from("ui_settings").select("settings,updated_at").eq("key", LAYOUT_KEY).maybeSingle();
+  const layout = (data?.settings && typeof data.settings === "object")
+    ? data.settings as Record<string, unknown>
+    : {};
+  return {
+    ok: true,
+    success: true,
+    layout,
+    updatedAt: String(data?.updated_at || ""),
+  };
+}
+
+export async function handleSaveWarehouseLayout(body: Record<string, unknown>, auth: AuthOk) {
+  const layout = (body.layout && typeof body.layout === "object")
+    ? body.layout as Record<string, unknown>
+    : {};
+  const now = isoNow();
+  const { error } = await sb().from("ui_settings").upsert({
+    key: LAYOUT_KEY,
+    settings: layout,
+    updated_at: now,
+  });
+  if (error) throw error;
+  return {
+    ok: true,
+    success: true,
+    updatedAt: now,
+    savedBy: String(auth.username || ""),
+  };
+}

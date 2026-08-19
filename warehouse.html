@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-sig-layout">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-shared-layout">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-sig-layout">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-sig-layout">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-sig-layout">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-shared-layout">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-shared-layout">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-shared-layout">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -72,13 +72,14 @@
             <button type="button" id="whLayoutEditBtn" onclick="whToggleLayoutEdit()">Edit layout</button>
             <span id="whLayoutTools" class="wh-layout-tools" hidden>
               <button type="button" onclick="whLayoutReset()">Reset layout</button>
+              <button type="button" onclick="whLayoutPublish()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Save layout for all PCs</button>
               <button type="button" onclick="whToggleLayoutEdit(false)">Done</button>
             </span>
             <button type="button" onclick="whClearForm()">Clear</button>
             <button type="button" id="whSaveBtn" onclick="whSave()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Save</button>
             <button type="button" onclick="whPrint()">Print / Save as PDF</button>
           </div>
-          <p id="whLayoutHint" class="no-print wh-layout-hint" hidden>Edit layout: logo is one box; <strong>Request No. / Date / Property</strong> is another; each signature (<strong>Authorized / Issued / Received</strong>) is its own box. Click <strong>Done</strong> when finished.</p>
+          <p id="whLayoutHint" class="no-print wh-layout-hint" hidden>Edit layout, then click <strong>Save layout for all PCs</strong> so every computer and print matches yours. Logo is one box; Request fields are one box; each signature is its own box.</p>
 
           <div class="wh-note" id="whPrintRoot">
             <div class="wh-top">
@@ -95,7 +96,7 @@
               </div>
               <div class="wh-top-right">
                 <div class="wh-logo-wrap" data-wh-layout="logo">
-                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-sig-layout" alt="Empire">
+                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-shared-layout" alt="Empire">
                 </div>
                 <div class="wh-req-block" data-wh-layout="reqBlock">
                   <div class="wh-line"><strong>Request No.:</strong><input id="wh-request-no" class="wh-cell-input" type="text" autocomplete="off"></div>
@@ -217,13 +218,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-sig-layout"></script>
-<script src="assets/empire-storage.js?v=2026-08-19-wh-sig-layout"></script>
-<script src="assets/empire-api.js?v=2026-08-19-wh-sig-layout"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-sig-layout"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-sig-layout"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-sig-layout"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-sig-layout"></script>
+<script src="config.js?v=2026-08-19-wh-shared-layout"></script>
+<script src="assets/empire-storage.js?v=2026-08-19-wh-shared-layout"></script>
+<script src="assets/empire-api.js?v=2026-08-19-wh-shared-layout"></script>
+<script src="assets/empire-auth.js?v=2026-08-19-wh-shared-layout"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-shared-layout"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-shared-layout"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-shared-layout"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -282,14 +283,15 @@ function whInit(){
   if(dateEl && !dateEl.value) dateEl.value = new Date().toISOString().slice(0,10);
   whBuildLines();
   whSetIssueType('');
-  whLayoutLoad();
+  whLayoutLoadLocal_();
   whLayoutBind();
+  whLayoutSyncFromServer_();
   document.addEventListener('click', function(e){
     if(_whOpenCombo && !_whOpenCombo.contains(e.target)) whCloseCombos();
   });
 }
 
-function whLayoutLoad(){
+function whLayoutLoadLocal_(){
   try {
     var raw=localStorage.getItem(WH_LAYOUT_KEY);
     _whLayout = raw ? JSON.parse(raw) : {};
@@ -297,8 +299,68 @@ function whLayoutLoad(){
   } catch(e){ _whLayout={}; }
   whLayoutApply();
 }
-function whLayoutSave(){
+function whLayoutLoad(){ whLayoutLoadLocal_(); }
+function whLayoutSave(opts){
+  opts=opts||{};
   try { localStorage.setItem(WH_LAYOUT_KEY, JSON.stringify(_whLayout||{})); } catch(e){}
+  if(opts.publish) whLayoutPublishToServer_(opts.quiet);
+}
+function whLayoutHasMoves_(){
+  var keys=Object.keys(_whLayout||{});
+  for(var i=0;i<keys.length;i++){
+    var k=keys[i];
+    if(k==='_pageScale'){
+      if(Number(_whLayout[k]||1)!==1) return true;
+      continue;
+    }
+    var cfg=_whLayout[k]||{};
+    if(Number(cfg.x||0) || Number(cfg.y||0) || Number(cfg.fs||0)) return true;
+    if(Number(cfg.scale||0) && Number(cfg.scale)!==1) return true;
+  }
+  return false;
+}
+function whLayoutSyncFromServer_(){
+  var token=typeof empireGetToken==='function' ? empireGetToken() : '';
+  if(!token || typeof fetchJSONRetry!=='function') return;
+  fetchJSONRetry({ action:'getWarehouseLayout', token:token }, 2, 30000).then(function(d){
+    if(!d || !(d.ok||d.success)) return;
+    var remote=(d.layout && typeof d.layout==='object') ? d.layout : {};
+    var remoteKeys=Object.keys(remote).filter(function(k){ return k!=='_pageScale' || Number(remote[k]||1)!==1; });
+    if(remoteKeys.length){
+      _whLayout=remote;
+      try { localStorage.setItem(WH_LAYOUT_KEY, JSON.stringify(_whLayout)); } catch(e){}
+      whLayoutApply();
+      return;
+    }
+    // Server empty: push this PC's layout so others can inherit it.
+    if(whLayoutHasMoves_()) whLayoutPublishToServer_(true);
+  }).catch(function(){});
+}
+function whLayoutPublishToServer_(quiet){
+  var token=typeof empireGetToken==='function' ? empireGetToken() : '';
+  if(!token || typeof fetchJSONRetry!=='function'){
+    if(!quiet) alert('Login required to save layout for all PCs.');
+    return;
+  }
+  fetchJSONRetry({
+    action:'saveWarehouseLayout',
+    token:token,
+    layout:_whLayout||{}
+  }, 2, 30000).then(function(d){
+    if(d && (d.ok||d.success)){
+      try { localStorage.setItem(WH_LAYOUT_KEY, JSON.stringify(_whLayout||{})); } catch(e){}
+      if(!quiet) alert('Layout saved for all PCs. Other computers will use this when they open Warehouse.');
+      return;
+    }
+    throw new Error((d && (d.message||d.error)) || 'Save failed');
+  }).catch(function(err){
+    if(!quiet) alert('Could not save shared layout: '+(err && err.message ? err.message : err));
+  });
+}
+function whLayoutPublish(){
+  if(!confirm('Save this layout for every PC? Screen and print will match on all computers.')) return;
+  whLayoutPublishToServer_(false);
+  whToggleLayoutEdit(false);
 }
 function whLayoutApply(){
   document.querySelectorAll('[data-wh-layout]').forEach(function(el){
@@ -548,9 +610,9 @@ function whLayoutFont(dir){
   whLayoutSave();
 }
 function whLayoutReset(){
-  if(!confirm('Reset layout positions and sizes to default?')) return;
+  if(!confirm('Reset layout positions and sizes to default on this PC and for everyone?')) return;
   _whLayout={};
-  whLayoutSave();
+  whLayoutSave({ publish:true, quiet:true });
   document.querySelectorAll('[data-wh-layout]').forEach(function(el){
     el.style.transform='';
     el.style.fontSize='';
@@ -562,8 +624,10 @@ function whLayoutReset(){
     root.style.transform='';
     root.style.transformOrigin='';
   }
-  whPageScaleApply_();
+  var lab=document.getElementById('whPageScaleLabel');
+  if(lab) lab.textContent='100%';
   whLayoutSelect(null);
+  alert('Layout reset and shared to all PCs.');
 }
 function whUpdateFormTitle(){
   var t=document.getElementById('whFormTitle');

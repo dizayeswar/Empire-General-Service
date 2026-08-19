@@ -163,6 +163,8 @@ export const DEPT_BY_ACTION: Record<string, string> = {
   getWarehouseGins: "warehouse",
   saveWarehouseGin: "warehouse",
   deleteWarehouseGin: "warehouse",
+  getWarehouseLayout: "warehouse",
+  saveWarehouseLayout: "warehouse",
 };
 
 export const TRASH_ACTIONS: Record<string, number> = {
