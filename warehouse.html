@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-sig-ink">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-sig-fix">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-sig-ink">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-sig-ink">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-sig-ink">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-sig-fix">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-sig-fix">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-sig-fix">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -100,7 +100,7 @@
               </div>
               <div class="wh-top-right">
                 <div class="wh-logo-wrap" data-wh-layout="logo">
-                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-sig-ink" alt="Empire">
+                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-sig-fix" alt="Empire">
                 </div>
                 <div class="wh-req-block" data-wh-layout="reqBlock">
                   <div class="wh-line"><strong>Request No.:</strong><input id="wh-request-no" class="wh-cell-input" type="text" autocomplete="off"></div>
@@ -162,10 +162,10 @@
 
             <div class="wh-sigs-row">
               <div class="wh-sig-block" data-wh-layout="sigAuth">
-                <div class="wh-sig-label">Authorized by</div>
                 <div class="wh-sig-pad" id="wh-sig-auth" tabindex="0" onclick="this.focus()" onpaste="whPasteSig(event,'auth')">
                   <span class="hint">Paste signature (Ctrl+V)</span>
                 </div>
+                <div class="wh-sig-label">Authorized by</div>
                 <div class="wh-sig-actions no-print">
                   <input type="file" id="wh-sig-auth-file" accept="image/*" hidden onchange="whSigFile(event,'auth')">
                   <button type="button" onclick="document.getElementById('wh-sig-auth-file').click()">Upload</button>
@@ -174,10 +174,10 @@
                 </div>
               </div>
               <div class="wh-sig-block" data-wh-layout="sigIssued">
-                <div class="wh-sig-label">Issued by</div>
                 <div class="wh-sig-pad" id="wh-sig-issued" tabindex="0" onclick="this.focus()" onpaste="whPasteSig(event,'issued')">
                   <span class="hint">Paste signature (Ctrl+V)</span>
                 </div>
+                <div class="wh-sig-label">Issued by</div>
                 <div class="wh-sig-actions no-print">
                   <input type="file" id="wh-sig-issued-file" accept="image/*" hidden onchange="whSigFile(event,'issued')">
                   <button type="button" onclick="document.getElementById('wh-sig-issued-file').click()">Upload</button>
@@ -186,10 +186,10 @@
                 </div>
               </div>
               <div class="wh-sig-block" data-wh-layout="sigReceived">
-                <div class="wh-sig-label">Received by</div>
                 <div class="wh-sig-pad" id="wh-sig-received" tabindex="0" onclick="this.focus()" onpaste="whPasteSig(event,'received')">
                   <span class="hint">Paste signature (Ctrl+V)</span>
                 </div>
+                <div class="wh-sig-label">Received by</div>
                 <div class="wh-sig-actions no-print">
                   <input type="file" id="wh-sig-received-file" accept="image/*" hidden onchange="whSigFile(event,'received')">
                   <button type="button" onclick="document.getElementById('wh-sig-received-file').click()">Upload</button>
@@ -267,13 +267,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-sig-ink"></script>
-<script src="assets/empire-storage.js?v=2026-08-19-wh-sig-ink"></script>
-<script src="assets/empire-api.js?v=2026-08-19-wh-sig-ink"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-sig-ink"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-sig-ink"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-sig-ink"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-sig-ink"></script>
+<script src="config.js?v=2026-08-19-wh-sig-fix"></script>
+<script src="assets/empire-storage.js?v=2026-08-19-wh-sig-fix"></script>
+<script src="assets/empire-api.js?v=2026-08-19-wh-sig-fix"></script>
+<script src="assets/empire-auth.js?v=2026-08-19-wh-sig-fix"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-sig-fix"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-sig-fix"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-sig-fix"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -463,6 +463,12 @@ function whLayoutApply(){
     var y=Number(cfg.y||0)||0;
     var fs=Number(cfg.fs||0)||0;
     var sc=Number(cfg.scale||0)||0;
+    // Signature blocks stay in normal flow so saved offsets cannot overlap the maintenance table.
+    if(key==='sigAuth' || key==='sigIssued' || key==='sigReceived'){
+      el.style.transform = '';
+      el.style.fontSize = '';
+      return;
+    }
     // Logo uses height only (never CSS scale) so click/move won't double-size it.
     el.style.transform = whLayoutTransform_(x, y, key==='logo' ? 0 : sc);
     el.style.transformOrigin = 'top left';
@@ -540,6 +546,7 @@ function whLayoutCssForPrint_(){
   }
   Object.keys(_whLayout||{}).forEach(function(key){
     if(key==='_pageScale') return;
+    if(key==='sigAuth' || key==='sigIssued' || key==='sigReceived') return;
     var sel=map[key]; if(!sel) return;
     var cfg=_whLayout[key]||{};
     var x=Number(cfg.x||0)||0;
@@ -1710,9 +1717,9 @@ function whBuildWordPrintHtml_(){
     +'.maint .lab{width:25%;font-weight:400;}'
     +'.sigs{margin-top:28pt;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12pt;}'
     +'.sig{text-align:center;}'
-    +'.sig .lbl{font-weight:700;font-size:12pt;margin:0 0 4pt;}'
-    +'.sig .pad{min-height:36pt;display:flex;align-items:center;justify-content:center;}'
+    +'.sig .pad{min-height:36pt;display:flex;align-items:flex-end;justify-content:center;}'
     +'.sig .pad img{max-height:34pt;max-width:95%;object-fit:contain;}'
+    +'.sig .lbl{font-weight:700;font-size:12pt;}'
     +whLayoutCssForPrint_()
     +'</style></head><body><div class="sheet">'
     +'<div class="top"><div class="top-left">'
@@ -1743,9 +1750,9 @@ function whBuildWordPrintHtml_(){
     +'<tr><td class="lab">Receipt Voucher No.</td><td>'+whEsc(whVal('wh-voucher'))+'</td></tr>'
     +'</table>'
     +'<div class="sigs">'
-    +'<div class="sig sig-auth"><div class="lbl">Authorized by</div><div class="pad">'+whSigHtml('auth')+'</div></div>'
-    +'<div class="sig sig-issued"><div class="lbl">Issued by</div><div class="pad">'+whSigHtml('issued')+'</div></div>'
-    +'<div class="sig sig-received"><div class="lbl">Received by</div><div class="pad">'+whSigHtml('received')+'</div></div>'
+    +'<div class="sig sig-auth"><div class="pad">'+whSigHtml('auth')+'</div><div class="lbl">Authorized by</div></div>'
+    +'<div class="sig sig-issued"><div class="pad">'+whSigHtml('issued')+'</div><div class="lbl">Issued by</div></div>'
+    +'<div class="sig sig-received"><div class="pad">'+whSigHtml('received')+'</div><div class="lbl">Received by</div></div>'
     +'</div>'
     +'</div></body></html>';
 }
