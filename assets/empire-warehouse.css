@@ -549,13 +549,22 @@ html[data-theme="dark"] .wh-combo-list .muted { color: #c5cad3; }
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 12px;
-  margin-top: 8pt;
+  margin-top: 18pt;
+  position: relative;
+  z-index: 1;
+  clear: both;
+  /* Locked under Maintenance Report — never inherit old drag offsets */
+  transform: none !important;
 }
 .wh-sig-block {
   display: flex;
   flex-direction: column;
   min-height: 72px;
   text-align: center;
+  position: relative;
+  transform: none !important;
+  top: auto !important;
+  left: auto !important;
 }
 .wh-sig-label {
   font-weight: 700;

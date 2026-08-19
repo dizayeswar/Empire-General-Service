@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-sig-upload">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-sig-lock">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-sig-upload">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-sig-upload">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-sig-upload">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-sig-lock">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-sig-lock">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-sig-lock">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -100,7 +100,7 @@
               </div>
               <div class="wh-top-right">
                 <div class="wh-logo-wrap" data-wh-layout="logo">
-                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-sig-upload" alt="Empire">
+                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-sig-lock" alt="Empire">
                 </div>
                 <div class="wh-req-block" data-wh-layout="reqBlock">
                   <div class="wh-line"><strong>Request No.:</strong><input id="wh-request-no" class="wh-cell-input" type="text" autocomplete="off"></div>
@@ -161,21 +161,21 @@
             </table>
 
             <div class="wh-sigs-row">
-              <div class="wh-sig-block" data-wh-layout="sigAuth">
+              <div class="wh-sig-block">
                 <div class="wh-sig-label">Authorized by</div>
                 <div class="wh-sig-pad" id="wh-sig-auth"></div>
                 <div class="wh-sig-actions no-print">
                   <button type="button" onclick="whOpenSigPicker('auth')">Upload</button>
                 </div>
               </div>
-              <div class="wh-sig-block" data-wh-layout="sigIssued">
+              <div class="wh-sig-block">
                 <div class="wh-sig-label">Issued by</div>
                 <div class="wh-sig-pad" id="wh-sig-issued"></div>
                 <div class="wh-sig-actions no-print">
                   <button type="button" onclick="whOpenSigPicker('issued')">Upload</button>
                 </div>
               </div>
-              <div class="wh-sig-block" data-wh-layout="sigReceived">
+              <div class="wh-sig-block">
                 <div class="wh-sig-label">Received by</div>
                 <div class="wh-sig-pad" id="wh-sig-received"></div>
                 <div class="wh-sig-actions no-print">
@@ -252,13 +252,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-sig-upload"></script>
-<script src="assets/empire-storage.js?v=2026-08-19-wh-sig-upload"></script>
-<script src="assets/empire-api.js?v=2026-08-19-wh-sig-upload"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-sig-upload"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-sig-upload"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-sig-upload"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-sig-upload"></script>
+<script src="config.js?v=2026-08-19-wh-sig-lock"></script>
+<script src="assets/empire-storage.js?v=2026-08-19-wh-sig-lock"></script>
+<script src="assets/empire-api.js?v=2026-08-19-wh-sig-lock"></script>
+<script src="assets/empire-auth.js?v=2026-08-19-wh-sig-lock"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-sig-lock"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-sig-lock"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-sig-lock"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -408,11 +408,15 @@ function whLayoutSyncFromServer_(){
   fetchJSONRetry({ action:'getWarehouseLayout', token:token }, 2, 30000).then(function(d){
     if(!d || !(d.ok||d.success)) return;
     var remote=(d.layout && typeof d.layout==='object') ? d.layout : {};
+    var hadSigOffsets = !!(remote.sigAuth || remote.sigIssued || remote.sigReceived);
+    remote = whLayoutStripSigOffsets_(remote);
     var remoteKeys=Object.keys(remote).filter(function(k){ return k!=='_pageScale' || Number(remote[k]||1)!==1; });
     if(remoteKeys.length){
       _whLayout=remote;
       try { localStorage.setItem(WH_LAYOUT_KEY, JSON.stringify(_whLayout)); } catch(e){}
       whLayoutApply();
+      // Drop old signature move offsets from shared layout so they never come back.
+      if(hadSigOffsets) whLayoutPublishToServer_(true);
       return;
     }
     // Server empty: push this PC's layout so others can inherit it.
@@ -425,6 +429,7 @@ function whLayoutPublishToServer_(quiet){
     if(!quiet) alert('Login required to save layout for all PCs.');
     return;
   }
+  _whLayout = whLayoutStripSigOffsets_(_whLayout||{});
   fetchJSONRetry({
     action:'saveWarehouseLayout',
     token:token,
@@ -445,7 +450,15 @@ function whLayoutPublish(){
   whLayoutPublishToServer_(false);
   whToggleLayoutEdit(false);
 }
+function whLayoutStripSigOffsets_(layout){
+  layout=layout&&typeof layout==='object' ? layout : {};
+  delete layout.sigAuth;
+  delete layout.sigIssued;
+  delete layout.sigReceived;
+  return layout;
+}
 function whLayoutApply(){
+  _whLayout = whLayoutStripSigOffsets_(_whLayout||{});
   document.querySelectorAll('[data-wh-layout]').forEach(function(el){
     var key=el.getAttribute('data-wh-layout');
     var cfg=_whLayout[key]||{};
@@ -461,6 +474,12 @@ function whLayoutApply(){
       else el.style.fontSize = '';
     }
     if(key==='logo') whLayoutApplyLogoSize_(el, sc);
+  });
+  // Signature row is fixed under Maintenance Report — never take layout transforms.
+  document.querySelectorAll('.wh-sig-block').forEach(function(el){
+    el.style.transform = '';
+    el.style.transformOrigin = '';
+    el.style.fontSize = '';
   });
   whPageScaleApply_();
 }
@@ -520,16 +539,16 @@ function whLayoutCssForPrint_(){
     logo:'.logo-wrap',
     reqBlock:'.req-block',
     requester:'.f-requester', company:'.f-company', issueType:'.f-type',
-    to:'.to', kindly:'.kindly', lines:'.lines-wrap', maint:'.maint',
-    sigAuth:'.sig-auth', sigIssued:'.sig-issued', sigReceived:'.sig-received'
+    to:'.to', kindly:'.kindly', lines:'.lines-wrap', maint:'.maint'
   };
-  var css='';
+  var css='.sigs,.sig{transform:none !important;}';
   var page=whPageScaleGet_();
   if(page!==1){
     css+='.sheet{zoom:'+page+';}';
   }
   Object.keys(_whLayout||{}).forEach(function(key){
     if(key==='_pageScale') return;
+    if(key==='sigAuth' || key==='sigIssued' || key==='sigReceived') return;
     var sel=map[key]; if(!sel) return;
     var cfg=_whLayout[key]||{};
     var x=Number(cfg.x||0)||0;
