@@ -380,11 +380,11 @@
 @media (max-width: 720px) {
   .wh-note { padding: 12px; }
   .wh-app { background: #fff; }
-  .wh-fields { flex-direction: column; }
-  .wh-col-left,
-  .wh-col-right { max-width: none; width: 100%; }
+  .wh-top { flex-direction: column; }
+  .wh-top-left,
+  .wh-top-right { max-width: none; width: 100%; }
+  .wh-logo-wrap { align-self: flex-start; margin-left: 0; }
   .wh-sigs-row { grid-template-columns: 1fr; }
-  .wh-head { flex-direction: column; }
 }
 
 @media print {
