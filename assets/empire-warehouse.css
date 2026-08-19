@@ -325,12 +325,61 @@ html[data-theme="dark"] .form-section {
   font-size: 12pt;
 }
 
-.wh-lines-wrap { margin: 0 0 10pt; }
+.wh-lines-wrap {
+  margin: 0 0 10pt;
+  overflow: visible;
+  position: relative;
+  z-index: 1;
+}
 .wh-lines {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
 }
+.wh-combo { position: relative; width: 100%; z-index: 1; }
+.wh-combo:focus-within,
+.wh-combo.wh-combo-open { z-index: 80; }
+.wh-combo-list {
+  position: absolute;
+  left: 0; right: 0; top: 100%;
+  z-index: 90;
+  max-height: 220px;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid #333;
+  box-shadow: 0 6px 16px rgba(0,0,0,.18);
+}
+.wh-combo-list button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-bottom: 1px solid #eee;
+  background: #fff;
+  padding: 7px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  color: #111;
+  pointer-events: auto;
+}
+.wh-combo-list button:hover,
+.wh-combo-list button:focus { background: #eef3ff; }
+.wh-combo-list .muted { color: #666; font-size: 11px; }
+html[data-theme="dark"] .wh-combo-list {
+  background: #0d4a85;
+  border-color: #a0327d;
+}
+html[data-theme="dark"] .wh-combo-list button {
+  background: #0d4a85;
+  color: #fff;
+  border-bottom-color: #2a5a92;
+}
+html[data-theme="dark"] .wh-combo-list button:hover,
+html[data-theme="dark"] .wh-combo-list button:focus {
+  background: rgba(160,50,125,.35);
+}
+html[data-theme="dark"] .wh-combo-list .muted { color: #c5cad3; }
 .wh-lines col.c-num { width: 4.8%; }
 .wh-lines col.c-code { width: 16.2%; }
 .wh-lines col.c-desc { width: 33.6%; }
@@ -342,6 +391,8 @@ html[data-theme="dark"] .form-section {
   border: 1px solid #000;
   padding: 1px 4px;
   vertical-align: middle;
+  position: relative;
+  overflow: visible;
 }
 .wh-lines th {
   background: #fff;
@@ -366,34 +417,6 @@ html[data-theme="dark"] .form-section {
   color: #000;
   min-height: 14px;
 }
-
-.wh-combo { position: relative; width: 100%; }
-.wh-combo-list {
-  position: absolute;
-  left: 0; right: 0; top: 100%;
-  z-index: 50;
-  max-height: 200px;
-  overflow: auto;
-  background: #fff;
-  border: 1px solid #333;
-  box-shadow: 0 6px 16px rgba(0,0,0,.18);
-}
-.wh-combo-list button {
-  display: block;
-  width: 100%;
-  text-align: left;
-  border: none;
-  border-bottom: 1px solid #eee;
-  background: #fff;
-  padding: 7px 8px;
-  font-size: 12px;
-  cursor: pointer;
-  font-family: inherit;
-  color: #111;
-}
-.wh-combo-list button:hover,
-.wh-combo-list button:focus { background: #eef3ff; }
-.wh-combo-list .muted { color: #666; font-size: 11px; }
 
 .wh-maint-table {
   width: 100%;

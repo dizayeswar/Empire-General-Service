@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-dark-tables">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-sp-click">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-dark-tables">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-dark-tables">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-dark-tables">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-sp-click">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-sp-click">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-sp-click">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -96,7 +96,7 @@
               </div>
               <div class="wh-top-right">
                 <div class="wh-logo-wrap" data-wh-layout="logo">
-                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-dark-tables" alt="Empire">
+                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-sp-click" alt="Empire">
                 </div>
                 <div class="wh-req-block" data-wh-layout="reqBlock">
                   <div class="wh-line"><strong>Request No.:</strong><input id="wh-request-no" class="wh-cell-input" type="text" autocomplete="off"></div>
@@ -233,13 +233,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-dark-tables"></script>
-<script src="assets/empire-storage.js?v=2026-08-19-wh-dark-tables"></script>
-<script src="assets/empire-api.js?v=2026-08-19-wh-dark-tables"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-dark-tables"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-dark-tables"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-dark-tables"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-dark-tables"></script>
+<script src="config.js?v=2026-08-19-wh-sp-click"></script>
+<script src="assets/empire-storage.js?v=2026-08-19-wh-sp-click"></script>
+<script src="assets/empire-api.js?v=2026-08-19-wh-sp-click"></script>
+<script src="assets/empire-auth.js?v=2026-08-19-wh-sp-click"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-sp-click"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-sp-click"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-sp-click"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -1181,9 +1181,28 @@ function whBuildLines(){
 }
 function whCloseCombos(){
   document.querySelectorAll('.wh-combo-list').forEach(function(el){ el.hidden=true; el.innerHTML=''; });
+  document.querySelectorAll('.wh-combo.wh-combo-open').forEach(function(el){ el.classList.remove('wh-combo-open'); });
   _whOpenCombo=null;
 }
+function whBindComboClicks_(){
+  if(document._whComboBound) return;
+  document._whComboBound=true;
+  // mousedown fires before input blur, so the list stays open long enough to pick.
+  document.addEventListener('mousedown', function(e){
+    var btn=e.target && e.target.closest ? e.target.closest('.wh-combo-list [data-wh-pick]') : null;
+    if(!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    var kind=btn.getAttribute('data-wh-pick');
+    if(kind==='sp'){
+      whPickSp(Number(btn.getAttribute('data-wh-row')||0), btn.getAttribute('data-wh-code')||'');
+    } else if(kind==='tech'){
+      whPickTech(btn.getAttribute('data-wh-name')||'');
+    }
+  }, true);
+}
 function whFilterSp(row){
+  whBindComboClicks_();
   var input=document.getElementById('wh-code-'+row);
   var list=document.getElementById('wh-code-list-'+row);
   var wrap=document.getElementById('wh-code-combo-'+row);
@@ -1198,10 +1217,12 @@ function whFilterSp(row){
     return;
   }
   list.innerHTML=hits.map(function(it){
-    return '<button type="button" onclick="whPickSp('+row+','+JSON.stringify(it.code)+')"><strong>'+whEsc(it.code)+'</strong><div class="muted">'+whEsc(it.desc)+'</div></button>';
+    return '<button type="button" data-wh-pick="sp" data-wh-row="'+row+'" data-wh-code="'+whEsc(it.code)+'">'
+      +'<strong>'+whEsc(it.code)+'</strong><div class="muted">'+whEsc(it.desc)+'</div></button>';
   }).join('');
   list.hidden=false;
   _whOpenCombo=wrap;
+  if(wrap) wrap.classList.add('wh-combo-open');
 }
 function whPickSp(row, code){
   var it=(typeof empireWarehouseSpByCode==='function') ? empireWarehouseSpByCode(code) : null;
@@ -1212,8 +1233,10 @@ function whPickSp(row, code){
   whCloseCombos();
   var qty=document.getElementById('wh-qty-'+row);
   if(qty) qty.focus();
+  whDraftSchedule_();
 }
 function whFilterTech(el){
+  whBindComboClicks_();
   var list=document.getElementById('wh-tech-list');
   var wrap=document.getElementById('wh-tech-combo');
   if(!list||!el) return;
@@ -1227,15 +1250,17 @@ function whFilterTech(el){
     return;
   }
   list.innerHTML=hits.map(function(n){
-    return '<button type="button" onclick="whPickTech('+JSON.stringify(n)+')">'+whEsc(n)+'</button>';
+    return '<button type="button" data-wh-pick="tech" data-wh-name="'+whEsc(n)+'">'+whEsc(n)+'</button>';
   }).join('');
   list.hidden=false;
   _whOpenCombo=wrap;
+  if(wrap) wrap.classList.add('wh-combo-open');
 }
 function whPickTech(name){
   var el=document.getElementById('wh-technician');
   if(el) el.value=name;
   whCloseCombos();
+  whDraftSchedule_();
 }
 function whSetIssueType(type){
   type=String(type||'');
