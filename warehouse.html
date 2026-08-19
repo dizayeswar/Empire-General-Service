@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-sig-orig">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-paper-lock">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-sig-orig">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-sig-orig">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-sig-orig">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-paper-lock">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-paper-lock">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-paper-lock">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -100,7 +100,7 @@
               </div>
               <div class="wh-top-right">
                 <div class="wh-logo-wrap" data-wh-layout="logo">
-                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-sig-orig" alt="Empire">
+                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-paper-lock" alt="Empire">
                 </div>
                 <div class="wh-req-block" data-wh-layout="reqBlock">
                   <div class="wh-line"><strong>Request No.:</strong><input id="wh-request-no" class="wh-cell-input" type="text" autocomplete="off"></div>
@@ -264,13 +264,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-sig-orig"></script>
-<script src="assets/empire-storage.js?v=2026-08-19-wh-sig-orig"></script>
-<script src="assets/empire-api.js?v=2026-08-19-wh-sig-orig"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-sig-orig"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-sig-orig"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-sig-orig"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-sig-orig"></script>
+<script src="config.js?v=2026-08-19-wh-paper-lock"></script>
+<script src="assets/empire-storage.js?v=2026-08-19-wh-paper-lock"></script>
+<script src="assets/empire-api.js?v=2026-08-19-wh-paper-lock"></script>
+<script src="assets/empire-auth.js?v=2026-08-19-wh-paper-lock"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-paper-lock"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-paper-lock"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-paper-lock"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -290,6 +290,7 @@ var WH_LOCAL_KEY = 'empire_wh_gins_v1';
 var WH_DRAFT_KEY = 'empire_wh_draft_v1';
 var WH_SIGS_KEY = 'empire_wh_esigs_v1';
 var WH_LAYOUT_KEY = 'empire_wh_layout_v4';
+var WH_LAYOUT_LOCKED = true; // Goods Issue Note paper is fixed — never apply move/scale offsets.
 var _whLayoutEdit = false;
 var _whLayoutSel = null;
 var _whLayout = {};
@@ -334,11 +335,8 @@ function whEsc(s){
 function whInit(){
   whBuildLines();
   whSetIssueType('');
-  whLayoutLoadLocal_();
-  whLayoutBind();
-  whLayoutSyncFromServer_();
-  // Layout editing UI removed — shared positions still load/apply from server.
-  _whLayoutEdit = false;
+  // Paper layout is locked: clear any old move offsets and never re-apply them.
+  whLayoutLockPaper_();
   // Restore unfinished draft so Request Date (and the rest) stay as you left them.
   if(!_whEditingId) whDraftRestore_();
   whDraftBind_();
@@ -381,7 +379,21 @@ function whDraftRestore_(){
   } catch(e){}
 }
 
+function whLayoutLockPaper_(){
+  _whLayout = {};
+  _whLayoutEdit = false;
+  try { localStorage.removeItem(WH_LAYOUT_KEY); } catch(e){}
+  whLayoutApply();
+  var root=document.getElementById('whPrintRoot');
+  if(root){
+    root.classList.remove('wh-layout-editing');
+    root.style.zoom = '';
+    root.style.transform = '';
+    root.style.transformOrigin = '';
+  }
+}
 function whLayoutLoadLocal_(){
+  if(WH_LAYOUT_LOCKED){ whLayoutLockPaper_(); return; }
   try {
     var raw=localStorage.getItem(WH_LAYOUT_KEY);
     _whLayout = raw ? JSON.parse(raw) : {};
@@ -391,11 +403,13 @@ function whLayoutLoadLocal_(){
 }
 function whLayoutLoad(){ whLayoutLoadLocal_(); }
 function whLayoutSave(opts){
+  if(WH_LAYOUT_LOCKED) return;
   opts=opts||{};
   try { localStorage.setItem(WH_LAYOUT_KEY, JSON.stringify(_whLayout||{})); } catch(e){}
   if(opts.publish) whLayoutPublishToServer_(opts.quiet);
 }
 function whLayoutHasMoves_(){
+  if(WH_LAYOUT_LOCKED) return false;
   var keys=Object.keys(_whLayout||{});
   for(var i=0;i<keys.length;i++){
     var k=keys[i];
@@ -410,6 +424,8 @@ function whLayoutHasMoves_(){
   return false;
 }
 function whLayoutSyncFromServer_(){
+  // Locked: never pull remote move offsets onto the paper.
+  if(WH_LAYOUT_LOCKED) return;
   var token=typeof empireGetToken==='function' ? empireGetToken() : '';
   if(!token || typeof fetchJSONRetry!=='function') return;
   fetchJSONRetry({ action:'getWarehouseLayout', token:token }, 2, 30000).then(function(d){
@@ -427,6 +443,7 @@ function whLayoutSyncFromServer_(){
   }).catch(function(){});
 }
 function whLayoutPublishToServer_(quiet){
+  if(WH_LAYOUT_LOCKED) return;
   var token=typeof empireGetToken==='function' ? empireGetToken() : '';
   if(!token || typeof fetchJSONRetry!=='function'){
     if(!quiet) alert('Login required to save layout for all PCs.');
@@ -448,45 +465,35 @@ function whLayoutPublishToServer_(quiet){
   });
 }
 function whLayoutPublish(){
+  if(WH_LAYOUT_LOCKED){
+    alert('Goods Issue Note layout is locked and cannot be moved.');
+    return;
+  }
   if(!confirm('Save this layout for every PC? Screen and print will match on all computers.')) return;
   whLayoutPublishToServer_(false);
   whToggleLayoutEdit(false);
 }
 function whLayoutApply(){
+  // Fixed paper: strip any old transform/font/scale overrides.
   document.querySelectorAll('[data-wh-layout]').forEach(function(el){
     var key=el.getAttribute('data-wh-layout');
-    var cfg=_whLayout[key]||{};
-    var x=Number(cfg.x||0)||0;
-    var y=Number(cfg.y||0)||0;
-    var fs=Number(cfg.fs||0)||0;
-    var sc=Number(cfg.scale||0)||0;
-    // Logo uses height only (never CSS scale) so click/move won't double-size it.
-    el.style.transform = whLayoutTransform_(x, y, key==='logo' ? 0 : sc);
-    el.style.transformOrigin = 'top left';
-    if(key!=='logo'){
-      if(fs) el.style.fontSize = fs+'px';
-      else el.style.fontSize = '';
-    }
-    if(key==='logo') whLayoutApplyLogoSize_(el, sc);
+    el.style.transform = '';
+    el.style.transformOrigin = '';
+    el.style.fontSize = '';
+    if(key==='logo') whLayoutApplyLogoSize_(el, 1);
   });
+  _whLayout = {};
   whPageScaleApply_();
 }
 function whLayoutApplyLogoSize_(wrap, sc){
   var img=wrap && wrap.querySelector ? wrap.querySelector('img.wh-logo') : null;
   if(!img) return;
-  sc=Number(sc||0)||0;
-  if(!sc || sc===1){
-    img.style.height = '48px';
-    img.style.width = 'auto';
-    img.style.maxWidth = 'none';
-    return;
-  }
-  sc=Math.max(0.35, Math.min(3, sc));
-  img.style.height = Math.round(48*sc)+'px';
+  img.style.height = '48px';
   img.style.width = 'auto';
   img.style.maxWidth = 'none';
 }
 function whLayoutTransform_(x,y,sc){
+  if(WH_LAYOUT_LOCKED) return '';
   x=Number(x||0)||0;
   y=Number(y||0)||0;
   sc=Number(sc||0)||0;
@@ -496,6 +503,7 @@ function whLayoutTransform_(x,y,sc){
   return parts.length ? parts.join(' ') : '';
 }
 function whPageScaleGet_(){
+  if(WH_LAYOUT_LOCKED) return 1;
   var s=Number(_whLayout._pageScale);
   if(!isFinite(s) || s<=0) s=1;
   return Math.max(0.7, Math.min(1.35, s));
@@ -505,15 +513,22 @@ function whPageScaleApply_(){
   var label=document.getElementById('whPageScaleLabel');
   var s=whPageScaleGet_();
   if(root){
-    root.style.zoom = String(s);
-    if(typeof root.style.zoom==='undefined' || root.style.zoom===''){
-      root.style.transform='scale('+s+')';
-      root.style.transformOrigin='top center';
+    if(s===1){
+      root.style.zoom = '';
+      root.style.transform = '';
+      root.style.transformOrigin = '';
+    } else {
+      root.style.zoom = String(s);
+      if(typeof root.style.zoom==='undefined' || root.style.zoom===''){
+        root.style.transform='scale('+s+')';
+        root.style.transformOrigin='top center';
+      }
     }
   }
   if(label) label.textContent=Math.round(s*100)+'%';
 }
 function whPageScale(dir){
+  if(WH_LAYOUT_LOCKED) return;
   var s=whPageScaleGet_();
   s = Math.round((s + (dir>0 ? 0.05 : -0.05))*100)/100;
   s = Math.max(0.7, Math.min(1.35, s));
@@ -522,39 +537,8 @@ function whPageScale(dir){
   whPageScaleApply_();
 }
 function whLayoutCssForPrint_(){
-  var map={
-    title:'.title',
-    logo:'.logo-wrap',
-    reqBlock:'.req-block',
-    requester:'.f-requester', company:'.f-company', issueType:'.f-type',
-    to:'.to', kindly:'.kindly', lines:'.lines-wrap', maint:'.maint',
-    sigAuth:'.sig-auth', sigIssued:'.sig-issued', sigReceived:'.sig-received'
-  };
-  var css='';
-  var page=whPageScaleGet_();
-  if(page!==1){
-    css+='.sheet{zoom:'+page+';}';
-  }
-  Object.keys(_whLayout||{}).forEach(function(key){
-    if(key==='_pageScale') return;
-    var sel=map[key]; if(!sel) return;
-    var cfg=_whLayout[key]||{};
-    var x=Number(cfg.x||0)||0;
-    var y=Number(cfg.y||0)||0;
-    var fs=Number(cfg.fs||0)||0;
-    var sc=Number(cfg.scale||0)||0;
-    if(!x && !y && !fs && (!sc || sc===1)) return;
-    css+=sel+'{transform-origin:top left;';
-    var t=whLayoutTransform_(x,y, key==='logo' ? 0 : sc);
-    if(t) css+='transform:'+t+';';
-    if(fs) css+='font-size:'+fs+'px !important;';
-    if(key==='logo' && sc && sc!==1){
-      css+='}';
-      css+='.logo-wrap .logo{height:'+Math.round(50*sc)+'pt;width:auto;';
-    }
-    css+='}';
-  });
-  return css;
+  // Locked paper: print matches the fixed screen HTML with no move offsets.
+  return '';
 }
 function whLayoutClearHandles_(){
   document.querySelectorAll('.wh-resize-handle').forEach(function(h){ h.remove(); });
@@ -571,6 +555,7 @@ function whLayoutEnsureHandles_(el){
   });
 }
 function whLayoutBind(){
+  if(WH_LAYOUT_LOCKED) return;
   var root=document.getElementById('whPrintRoot');
   if(!root || root._whLayoutBound) return;
   root._whLayoutBound=true;
@@ -668,6 +653,13 @@ function whLayoutSelect(el){
   }
 }
 function whToggleLayoutEdit(force){
+  if(WH_LAYOUT_LOCKED){
+    _whLayoutEdit = false;
+    var rootL=document.getElementById('whPrintRoot');
+    if(rootL) rootL.classList.remove('wh-layout-editing');
+    whLayoutSelect(null);
+    return;
+  }
   _whLayoutEdit = (force===false) ? false : (force===true ? true : !_whLayoutEdit);
   var root=document.getElementById('whPrintRoot');
   var tools=document.getElementById('whLayoutTools');
