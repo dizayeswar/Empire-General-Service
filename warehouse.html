@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-new-sections">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-open-fix">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-new-sections">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-new-sections">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-new-sections">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-open-fix">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-open-fix">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-open-fix">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -90,7 +90,7 @@
               </div>
               <div class="wh-top-right">
                 <div class="wh-logo-wrap" data-wh-layout="logo">
-                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-new-sections" alt="Empire">
+                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-open-fix" alt="Empire">
                 </div>
                 <div class="wh-req-block" data-wh-layout="reqBlock">
                   <div class="wh-line"><strong>Request No.:</strong><input id="wh-request-no" class="wh-cell-input" type="text" autocomplete="off"></div>
@@ -213,13 +213,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-new-sections"></script>
-<script src="assets/empire-storage.js?v=2026-08-19-wh-new-sections"></script>
-<script src="assets/empire-api.js?v=2026-08-19-wh-new-sections"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-new-sections"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-new-sections"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-new-sections"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-new-sections"></script>
+<script src="config.js?v=2026-08-19-wh-open-fix"></script>
+<script src="assets/empire-storage.js?v=2026-08-19-wh-open-fix"></script>
+<script src="assets/empire-api.js?v=2026-08-19-wh-open-fix"></script>
+<script src="assets/empire-auth.js?v=2026-08-19-wh-open-fix"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-open-fix"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-open-fix"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-open-fix"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -878,6 +878,7 @@ function whSetBadge(n){
 function whLoadSavedList(){
   var box=document.getElementById('whSavedList');
   if(box) box.innerHTML = typeof empireLoadingHtml==='function' ? empireLoadingHtml('Loading saved notes…') : 'Loading…';
+  whBindSavedListClicks_();
   var token=typeof empireGetToken==='function' ? empireGetToken() : '';
   var local=whLocalRead();
   fetchJSONRetry({ action:'getWarehouseGins', token:token }, 2, 60000).then(function(d){
@@ -925,6 +926,7 @@ function whSavedSectionHtml_(title, items){
     +'<th>#</th><th>Date</th><th>Request No.</th><th>Requester</th><th>Property</th><th></th>'
     +'</tr></thead><tbody>';
   items.forEach(function(it){
+    var id=whEsc(String(it.id||''));
     h+='<tr>'
       +'<td>'+(it.num||'—')+'</td>'
       +'<td>'+whEsc(whFmtDate(it.requestDate)||it.requestDate||'—')+'</td>'
@@ -932,14 +934,30 @@ function whSavedSectionHtml_(title, items){
       +'<td>'+whEsc(it.requester||'—')+'</td>'
       +'<td>'+whEsc(it.propertyCode||'—')+'</td>'
       +'<td class="wh-saved-actions">'
-      +'<button type="button" onclick="whOpenSaved('+JSON.stringify(it.id)+')">Open</button> '
-      +'<button type="button" onclick="whPrintSaved('+JSON.stringify(it.id)+')">Print</button> '
-      +'<button type="button" onclick="whDeleteSaved('+JSON.stringify(it.id)+')">Delete</button>'
+      +'<button type="button" data-wh-act="open" data-wh-id="'+id+'">Open</button> '
+      +'<button type="button" data-wh-act="print" data-wh-id="'+id+'">Print</button> '
+      +'<button type="button" data-wh-act="delete" data-wh-id="'+id+'">Delete</button>'
       +(it.localOnly?' <span class="wh-local-tag">this device</span>':'')
       +'</td></tr>';
   });
   h+='</tbody></table></div></div>';
   return h;
+}
+function whBindSavedListClicks_(){
+  var box=document.getElementById('whSavedList');
+  if(!box || box._whActsBound) return;
+  box._whActsBound=true;
+  box.addEventListener('click', function(e){
+    var btn=e.target && e.target.closest ? e.target.closest('[data-wh-act]') : null;
+    if(!btn || !box.contains(btn)) return;
+    var act=btn.getAttribute('data-wh-act');
+    var id=btn.getAttribute('data-wh-id')||'';
+    if(!id) return;
+    e.preventDefault();
+    if(act==='open') whOpenSaved(id);
+    else if(act==='print') whPrintSaved(id);
+    else if(act==='delete') whDeleteSaved(id);
+  });
 }
 function whFindSaved(id){
   id=String(id||'');
@@ -951,11 +969,31 @@ function whFindSaved(id){
 function whOpenSaved(id){
   var it=whFindSaved(id);
   if(!it){ alert('Note not found.'); return; }
+  var payload=it.payload;
+  if(!payload || typeof payload!=='object' || !Object.keys(payload).length){
+    // Server list rows may keep fields on the item itself.
+    payload={
+      requester:it.requester||'',
+      company:it.company||'',
+      requestNo:it.requestNo||'',
+      requestDate:it.requestDate||'',
+      property:it.propertyCode||'',
+      issueType:it.issueType||'',
+      storeKeeper:it.storeKeeper||'',
+      technician:'',
+      maintDatetime:'',
+      price:'',
+      voucher:'',
+      lines:[],
+      sigs:{ auth:'', issued:'', received:'' }
+    };
+  }
   _whEditingId=String(it.id);
-  whApplyPayload(it.payload||it);
+  whApplyPayload(payload);
   whUpdateFormTitle();
   whDraftSave_();
   whSwitchTab(null,'note');
+  try { window.scrollTo(0,0); } catch(e){}
 }
 function whPrintSaved(id){
   whOpenSaved(id);
