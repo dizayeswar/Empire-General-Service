@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-right-fields">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-layout-editor">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-right-fields">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-right-fields">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-right-fields">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-layout-editor">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-layout-editor">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-layout-editor">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -69,19 +69,27 @@
           <div class="wh-toolbar no-print">
             <strong id="whFormTitle">Goods Issue Note</strong>
             <span class="wh-spacer"></span>
+            <button type="button" id="whLayoutEditBtn" onclick="whToggleLayoutEdit()">Edit layout</button>
+            <span id="whLayoutTools" class="wh-layout-tools" hidden>
+              <button type="button" onclick="whLayoutFont(-1)" title="Smaller">A−</button>
+              <button type="button" onclick="whLayoutFont(1)" title="Bigger">A+</button>
+              <button type="button" onclick="whLayoutReset()">Reset layout</button>
+              <button type="button" onclick="whToggleLayoutEdit(false)">Done</button>
+            </span>
             <button type="button" onclick="whClearForm()">Clear</button>
             <button type="button" id="whSaveBtn" onclick="whSave()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Save</button>
             <button type="button" onclick="whPrint()">Print / Save as PDF</button>
           </div>
+          <p id="whLayoutHint" class="no-print wh-layout-hint" hidden>Edit layout: click a block (title, fields, table…), drag to move, use A− / A+ to resize. Print keeps your layout.</p>
 
           <div class="wh-note" id="whPrintRoot">
-            <div class="wh-head">
-              <h1 class="wh-title">Goods Issue Note</h1>
-              <img class="wh-logo" src="logo-light.png" alt="Empire">
+            <div class="wh-head" data-wh-layout="head">
+              <h1 class="wh-title" data-wh-layout="title">Goods Issue Note</h1>
+              <img class="wh-logo" data-wh-layout="logo" src="logo-light.png" alt="Empire">
             </div>
 
             <div class="wh-fields">
-              <div class="wh-col wh-col-left">
+              <div class="wh-col wh-col-left" data-wh-layout="fieldsLeft">
                 <div class="wh-line"><strong>Requester:</strong><input id="wh-requester" class="wh-cell-input" type="text" autocomplete="off"></div>
                 <div class="wh-line"><strong>Company:</strong><input id="wh-company" class="wh-cell-input" type="text" value="" autocomplete="off"></div>
                 <div class="wh-type-inline">
@@ -91,17 +99,17 @@
                   <input type="hidden" id="wh-issue-type" value="">
                 </div>
               </div>
-              <div class="wh-col wh-col-right">
+              <div class="wh-col wh-col-right" data-wh-layout="fieldsRight">
                 <div class="wh-line"><strong>Request No.:</strong><input id="wh-request-no" class="wh-cell-input" type="text" autocomplete="off"></div>
                 <div class="wh-line"><strong>Request Date:</strong><input id="wh-request-date" class="wh-cell-input" type="date"></div>
                 <div class="wh-line"><strong>Property Code:</strong><input id="wh-property" class="wh-cell-input" type="text" autocomplete="off"></div>
               </div>
             </div>
 
-            <p class="wh-to-line">To: Stoke Keeper:</p>
-            <p class="wh-kindly">Kindly issue the materials stated below:</p>
+            <p class="wh-to-line" data-wh-layout="to">To: Stoke Keeper:</p>
+            <p class="wh-kindly" data-wh-layout="kindly">Kindly issue the materials stated below:</p>
 
-            <div class="wh-lines-wrap">
+            <div class="wh-lines-wrap" data-wh-layout="lines">
               <table class="wh-lines" id="whLinesTable">
                 <thead>
                   <tr>
@@ -117,7 +125,7 @@
               </table>
             </div>
 
-            <div class="wh-maint" id="whMaintBlock">
+            <div class="wh-maint" id="whMaintBlock" data-wh-layout="maint">
               <div class="wh-maint-head">Maintenance Report (For External type only)</div>
               <table class="wh-maint-table">
                 <tr>
@@ -147,7 +155,7 @@
               </table>
             </div>
 
-            <div class="wh-sigs-wrap">
+            <div class="wh-sigs-wrap" data-wh-layout="sigs">
               <div class="wh-sigs-row">
                 <div class="wh-sig-block">
                   <div class="wh-sig-pad" id="wh-sig-auth" tabindex="0" onclick="this.focus()" onpaste="whPasteSig(event,'auth')">
@@ -211,13 +219,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-right-fields"></script>
-<script src="assets/empire-storage.js?v=2026-08-19-wh-right-fields"></script>
-<script src="assets/empire-api.js?v=2026-08-19-wh-right-fields"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-right-fields"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-right-fields"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-right-fields"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-right-fields"></script>
+<script src="config.js?v=2026-08-19-wh-layout-editor"></script>
+<script src="assets/empire-storage.js?v=2026-08-19-wh-layout-editor"></script>
+<script src="assets/empire-api.js?v=2026-08-19-wh-layout-editor"></script>
+<script src="assets/empire-auth.js?v=2026-08-19-wh-layout-editor"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-layout-editor"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-layout-editor"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-layout-editor"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -233,6 +241,11 @@ var _whSig = { auth:'', issued:'', received:'' };
 var _whEditingId = '';
 var _whSavedCache = [];
 var WH_LOCAL_KEY = 'empire_wh_gins_v1';
+var WH_LAYOUT_KEY = 'empire_wh_layout_v1';
+var _whLayoutEdit = false;
+var _whLayoutSel = null;
+var _whLayout = {};
+var _whDrag = null;
 
 function handleLogin(e){ empireAuthLogin(e, 'warehouse', { onSuccess: function(){ enterApp(); } }); }
 function logout(){ empireAuthLogout({ redirect: 'index.html', reload: false }); }
@@ -271,9 +284,139 @@ function whInit(){
   if(dateEl && !dateEl.value) dateEl.value = new Date().toISOString().slice(0,10);
   whBuildLines();
   whSetIssueType('');
+  whLayoutLoad();
+  whLayoutBind();
   document.addEventListener('click', function(e){
     if(_whOpenCombo && !_whOpenCombo.contains(e.target)) whCloseCombos();
   });
+}
+
+function whLayoutLoad(){
+  try {
+    var raw=localStorage.getItem(WH_LAYOUT_KEY);
+    _whLayout = raw ? JSON.parse(raw) : {};
+    if(!_whLayout || typeof _whLayout!=='object') _whLayout={};
+  } catch(e){ _whLayout={}; }
+  whLayoutApply();
+}
+function whLayoutSave(){
+  try { localStorage.setItem(WH_LAYOUT_KEY, JSON.stringify(_whLayout||{})); } catch(e){}
+}
+function whLayoutApply(){
+  document.querySelectorAll('[data-wh-layout]').forEach(function(el){
+    var key=el.getAttribute('data-wh-layout');
+    var cfg=_whLayout[key]||{};
+    var x=Number(cfg.x||0)||0;
+    var y=Number(cfg.y||0)||0;
+    var fs=Number(cfg.fs||0)||0;
+    el.style.transform = (x||y) ? ('translate('+x+'px,'+y+'px)') : '';
+    if(fs) el.style.fontSize = fs+'px';
+    else el.style.fontSize = '';
+  });
+}
+function whLayoutCssForPrint_(){
+  var map={
+    head:'.head', title:'.title', logo:'.logo',
+    fieldsLeft:'.col-left', fieldsRight:'.col-right',
+    to:'.to', kindly:'.kindly', lines:'.lines', maint:'.maint', sigs:'.sigs'
+  };
+  var css='';
+  Object.keys(_whLayout||{}).forEach(function(key){
+    var sel=map[key]; if(!sel) return;
+    var cfg=_whLayout[key]||{};
+    var x=Number(cfg.x||0)||0;
+    var y=Number(cfg.y||0)||0;
+    var fs=Number(cfg.fs||0)||0;
+    if(!x && !y && !fs) return;
+    css+=sel+'{';
+    if(x||y) css+='transform:translate('+x+'px,'+y+'px);';
+    if(fs) css+='font-size:'+fs+'px !important;';
+    css+='}';
+  });
+  return css;
+}
+function whLayoutBind(){
+  var root=document.getElementById('whPrintRoot');
+  if(!root || root._whLayoutBound) return;
+  root._whLayoutBound=true;
+  root.addEventListener('mousedown', function(e){
+    if(!_whLayoutEdit) return;
+    if(e.target.closest('input,button,textarea,select,.wh-combo-list,.wh-sig-actions')) return;
+    var el=e.target.closest('[data-wh-layout]');
+    if(!el || !root.contains(el)) return;
+    e.preventDefault();
+    whLayoutSelect(el);
+    var key=el.getAttribute('data-wh-layout');
+    var cfg=_whLayout[key]||{x:0,y:0,fs:0};
+    _whDrag={
+      key:key, el:el,
+      startX:e.clientX, startY:e.clientY,
+      origX:Number(cfg.x||0)||0, origY:Number(cfg.y||0)||0
+    };
+  });
+  document.addEventListener('mousemove', function(e){
+    if(!_whDrag) return;
+    var dx=e.clientX-_whDrag.startX;
+    var dy=e.clientY-_whDrag.startY;
+    var x=_whDrag.origX+dx;
+    var y=_whDrag.origY+dy;
+    _whLayout[_whDrag.key]=Object.assign({}, _whLayout[_whDrag.key]||{}, {x:x,y:y});
+    _whDrag.el.style.transform='translate('+x+'px,'+y+'px)';
+  });
+  document.addEventListener('mouseup', function(){
+    if(!_whDrag) return;
+    _whDrag=null;
+    whLayoutSave();
+  });
+}
+function whLayoutSelect(el){
+  document.querySelectorAll('[data-wh-layout].wh-layout-selected').forEach(function(n){
+    n.classList.remove('wh-layout-selected');
+  });
+  _whLayoutSel=el||null;
+  if(_whLayoutSel) _whLayoutSel.classList.add('wh-layout-selected');
+}
+function whToggleLayoutEdit(force){
+  _whLayoutEdit = (force===false) ? false : (force===true ? true : !_whLayoutEdit);
+  var root=document.getElementById('whPrintRoot');
+  var tools=document.getElementById('whLayoutTools');
+  var hint=document.getElementById('whLayoutHint');
+  var btn=document.getElementById('whLayoutEditBtn');
+  if(root) root.classList.toggle('wh-layout-editing', _whLayoutEdit);
+  if(tools) tools.hidden=!_whLayoutEdit;
+  if(hint) hint.hidden=!_whLayoutEdit;
+  if(btn){
+    btn.textContent=_whLayoutEdit ? 'Editing…' : 'Edit layout';
+    btn.setAttribute('aria-pressed', _whLayoutEdit ? 'true' : 'false');
+  }
+  if(!_whLayoutEdit) whLayoutSelect(null);
+}
+function whLayoutFont(dir){
+  if(!_whLayoutSel){
+    alert('Click a block first (title, fields, table…), then use A− / A+.');
+    return;
+  }
+  var key=_whLayoutSel.getAttribute('data-wh-layout');
+  var cfg=_whLayout[key]||{x:0,y:0,fs:0};
+  var current=Number(cfg.fs||0);
+  if(!current){
+    current=parseFloat(window.getComputedStyle(_whLayoutSel).fontSize)||14;
+  }
+  current=Math.max(8, Math.min(42, current + (dir>0?1:-1)));
+  cfg.fs=current;
+  _whLayout[key]=cfg;
+  _whLayoutSel.style.fontSize=current+'px';
+  whLayoutSave();
+}
+function whLayoutReset(){
+  if(!confirm('Reset layout positions and sizes to default?')) return;
+  _whLayout={};
+  whLayoutSave();
+  document.querySelectorAll('[data-wh-layout]').forEach(function(el){
+    el.style.transform='';
+    el.style.fontSize='';
+  });
+  whLayoutSelect(null);
 }
 function whUpdateFormTitle(){
   var t=document.getElementById('whFormTitle');
@@ -775,6 +918,7 @@ function whBuildWordPrintHtml_(){
     +'.sig:nth-child(2) .lbl{text-align:center;}'
     +'.sig:nth-child(3) .lbl{text-align:right;}'
     +'@media print{.sheet{page-break-inside:avoid;}}'
+    +whLayoutCssForPrint_()
     +'</style></head><body><div class="sheet">'
     +'<div class="head"><div class="title">Goods Issue Note</div>'
     +(logo?('<img class="logo" src="'+logo+'" alt="Empire">'):'')

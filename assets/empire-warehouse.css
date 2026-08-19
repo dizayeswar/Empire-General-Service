@@ -14,6 +14,38 @@
 }
 .wh-toolbar .wh-spacer { flex: 1; }
 .wh-toolbar button { font-family: inherit; cursor: pointer; }
+.wh-layout-tools {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.wh-layout-hint {
+  margin: 0 0 10px;
+  color: var(--text-soft, #666);
+  font-size: 12px;
+}
+.wh-note.wh-layout-editing [data-wh-layout] {
+  outline: 1px dashed rgba(141,1,93,.35);
+  cursor: move;
+  position: relative;
+  z-index: 1;
+}
+.wh-note.wh-layout-editing [data-wh-layout].wh-layout-selected {
+  outline: 2px solid #8d015d;
+  background: rgba(141,1,93,.04);
+  z-index: 2;
+}
+.wh-note.wh-layout-editing input,
+.wh-note.wh-layout-editing button.wh-type-btn {
+  cursor: text;
+}
+.wh-note.wh-layout-editing button.wh-type-btn { cursor: pointer; }
+#whLayoutEditBtn[aria-pressed="true"] {
+  background: var(--accent2, #8d015d);
+  color: #fff;
+  border-color: var(--accent2, #8d015d);
+}
 
 .wh-saved-table-wrap { overflow-x: auto; }
 .wh-saved-table {
