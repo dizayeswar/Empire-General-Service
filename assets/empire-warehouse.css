@@ -14,13 +14,6 @@
 }
 .wh-toolbar .wh-spacer { flex: 1; }
 .wh-toolbar button { font-family: inherit; cursor: pointer; }
-/* Locked Goods Issue Note paper — no drag/move transforms */
-.wh-note [data-wh-layout] {
-  transform: none !important;
-}
-.wh-note {
-  position: relative;
-}
 .wh-layout-tools {
   display: inline-flex;
   flex-wrap: wrap;
