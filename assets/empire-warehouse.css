@@ -141,6 +141,12 @@
   width: auto;
   object-fit: contain;
   flex-shrink: 0;
+  display: block;
+}
+.wh-logo-wrap {
+  display: inline-block;
+  line-height: 0;
+  position: relative;
 }
 
 .wh-fields {

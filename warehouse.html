@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-corner-resize">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-per-field-layout">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-corner-resize">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-corner-resize">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-corner-resize">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-per-field-layout">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-per-field-layout">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-per-field-layout">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -92,26 +92,28 @@
           <p id="whLayoutHint" class="no-print wh-layout-hint" hidden>Edit layout: click a block, drag to move, or drag a <strong>corner square</strong> to make it bigger/smaller. Page Smaller/Bigger changes the whole form.</p>
 
           <div class="wh-note" id="whPrintRoot">
-            <div class="wh-head" data-wh-layout="head">
+            <div class="wh-head">
               <h1 class="wh-title" data-wh-layout="title">Goods Issue Note</h1>
-              <img class="wh-logo" data-wh-layout="logo" src="logo-light.png" alt="Empire">
+              <div class="wh-logo-wrap" data-wh-layout="logo">
+                <img class="wh-logo" src="logo-light.png" alt="Empire">
+              </div>
             </div>
 
             <div class="wh-fields">
-              <div class="wh-col wh-col-left" data-wh-layout="fieldsLeft">
-                <div class="wh-line"><strong>Requester:</strong><input id="wh-requester" class="wh-cell-input" type="text" autocomplete="off"></div>
-                <div class="wh-line"><strong>Company:</strong><input id="wh-company" class="wh-cell-input" type="text" value="" autocomplete="off"></div>
-                <div class="wh-type-inline">
+              <div class="wh-col wh-col-left">
+                <div class="wh-line" data-wh-layout="requester"><strong>Requester:</strong><input id="wh-requester" class="wh-cell-input" type="text" autocomplete="off"></div>
+                <div class="wh-line" data-wh-layout="company"><strong>Company:</strong><input id="wh-company" class="wh-cell-input" type="text" value="" autocomplete="off"></div>
+                <div class="wh-type-inline" data-wh-layout="issueType">
                   <strong>Good Issue Type</strong>
                   <button type="button" class="wh-type-btn" id="wh-type-internal" aria-pressed="false" onclick="whSetIssueType('internal')">□ Internal</button>
                   <button type="button" class="wh-type-btn" id="wh-type-external" aria-pressed="false" onclick="whSetIssueType('external')">□ External</button>
                   <input type="hidden" id="wh-issue-type" value="">
                 </div>
               </div>
-              <div class="wh-col wh-col-right" data-wh-layout="fieldsRight">
-                <div class="wh-line"><strong>Request No.:</strong><input id="wh-request-no" class="wh-cell-input" type="text" autocomplete="off"></div>
-                <div class="wh-line"><strong>Request Date:</strong><input id="wh-request-date" class="wh-cell-input" type="date"></div>
-                <div class="wh-line"><strong>Property Code:</strong><input id="wh-property" class="wh-cell-input" type="text" autocomplete="off"></div>
+              <div class="wh-col wh-col-right">
+                <div class="wh-line" data-wh-layout="requestNo"><strong>Request No.:</strong><input id="wh-request-no" class="wh-cell-input" type="text" autocomplete="off"></div>
+                <div class="wh-line" data-wh-layout="requestDate"><strong>Request Date:</strong><input id="wh-request-date" class="wh-cell-input" type="date"></div>
+                <div class="wh-line" data-wh-layout="property"><strong>Property Code:</strong><input id="wh-property" class="wh-cell-input" type="text" autocomplete="off"></div>
               </div>
             </div>
 
@@ -164,9 +166,9 @@
               </table>
             </div>
 
-            <div class="wh-sigs-wrap" data-wh-layout="sigs">
+            <div class="wh-sigs-wrap">
               <div class="wh-sigs-row">
-                <div class="wh-sig-block">
+                <div class="wh-sig-block" data-wh-layout="sigAuth">
                   <div class="wh-sig-pad" id="wh-sig-auth" tabindex="0" onclick="this.focus()" onpaste="whPasteSig(event,'auth')">
                     <span class="hint">Paste signature (Ctrl+V)</span>
                   </div>
@@ -177,7 +179,7 @@
                     <button type="button" onclick="whClearSig('auth')">Clear</button>
                   </div>
                 </div>
-                <div class="wh-sig-block">
+                <div class="wh-sig-block" data-wh-layout="sigIssued">
                   <div class="wh-sig-pad" id="wh-sig-issued" tabindex="0" onclick="this.focus()" onpaste="whPasteSig(event,'issued')">
                     <span class="hint">Paste signature (Ctrl+V)</span>
                   </div>
@@ -188,7 +190,7 @@
                     <button type="button" onclick="whClearSig('issued')">Clear</button>
                   </div>
                 </div>
-                <div class="wh-sig-block">
+                <div class="wh-sig-block" data-wh-layout="sigReceived">
                   <div class="wh-sig-pad" id="wh-sig-received" tabindex="0" onclick="this.focus()" onpaste="whPasteSig(event,'received')">
                     <span class="hint">Paste signature (Ctrl+V)</span>
                   </div>
@@ -228,13 +230,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-corner-resize"></script>
-<script src="assets/empire-storage.js?v=2026-08-19-wh-corner-resize"></script>
-<script src="assets/empire-api.js?v=2026-08-19-wh-corner-resize"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-corner-resize"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-corner-resize"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-corner-resize"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-corner-resize"></script>
+<script src="config.js?v=2026-08-19-wh-per-field-layout"></script>
+<script src="assets/empire-storage.js?v=2026-08-19-wh-per-field-layout"></script>
+<script src="assets/empire-api.js?v=2026-08-19-wh-per-field-layout"></script>
+<script src="assets/empire-auth.js?v=2026-08-19-wh-per-field-layout"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-per-field-layout"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-per-field-layout"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-per-field-layout"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -323,8 +325,21 @@ function whLayoutApply(){
     el.style.transformOrigin = 'top left';
     if(fs) el.style.fontSize = fs+'px';
     else el.style.fontSize = '';
+    if(key==='logo') whLayoutApplyLogoSize_(el, sc);
   });
   whPageScaleApply_();
+}
+function whLayoutApplyLogoSize_(wrap, sc){
+  var img=wrap && wrap.querySelector ? wrap.querySelector('img.wh-logo') : null;
+  if(!img) return;
+  sc=Number(sc||0)||0;
+  if(sc && sc!==1){
+    img.style.height = Math.round(48*sc)+'px';
+    img.style.width = 'auto';
+  } else {
+    img.style.height = '';
+    img.style.width = '';
+  }
 }
 function whLayoutTransform_(x,y,sc){
   x=Number(x||0)||0;
@@ -363,9 +378,11 @@ function whPageScale(dir){
 }
 function whLayoutCssForPrint_(){
   var map={
-    head:'.head', title:'.title', logo:'.logo',
-    fieldsLeft:'.col-left', fieldsRight:'.col-right',
-    to:'.to', kindly:'.kindly', lines:'.lines', maint:'.maint', sigs:'.sigs'
+    title:'.title', logo:'.logo-wrap',
+    requester:'.f-requester', company:'.f-company', issueType:'.f-type',
+    requestNo:'.f-reqno', requestDate:'.f-reqdate', property:'.f-property',
+    to:'.to', kindly:'.kindly', lines:'.lines', maint:'.maint',
+    sigAuth:'.sig-auth', sigIssued:'.sig-issued', sigReceived:'.sig-received'
   };
   var css='';
   var page=whPageScaleGet_();
@@ -382,9 +399,13 @@ function whLayoutCssForPrint_(){
     var sc=Number(cfg.scale||0)||0;
     if(!x && !y && !fs && (!sc || sc===1)) return;
     css+=sel+'{transform-origin:top left;';
-    var t=whLayoutTransform_(x,y,sc);
+    var t=whLayoutTransform_(x,y, key==='logo' ? 0 : sc);
     if(t) css+='transform:'+t+';';
     if(fs) css+='font-size:'+fs+'px !important;';
+    if(key==='logo' && sc && sc!==1){
+      css+='}';
+      css+='.logo-wrap .logo{height:'+Math.round(44*sc)+'pt;width:auto;';
+    }
     css+='}';
   });
   return css;
@@ -468,8 +489,9 @@ function whLayoutBind(){
       }
       _whLayout[_whDrag.key]=cfg;
       _whDrag.el.style.transformOrigin='top left';
-      _whDrag.el.style.transform=whLayoutTransform_(cfg.x,cfg.y,sc);
+      _whDrag.el.style.transform=whLayoutTransform_(cfg.x,cfg.y, _whDrag.key==='logo' ? 0 : sc);
       if(cfg.fs) _whDrag.el.style.fontSize=cfg.fs+'px';
+      if(_whDrag.key==='logo') whLayoutApplyLogoSize_(_whDrag.el, sc);
       return;
     }
     var x=_whDrag.origX+dx;
@@ -535,6 +557,7 @@ function whLayoutReset(){
   document.querySelectorAll('[data-wh-layout]').forEach(function(el){
     el.style.transform='';
     el.style.fontSize='';
+    if(el.getAttribute('data-wh-layout')==='logo') whLayoutApplyLogoSize_(el, 0);
   });
   var root=document.getElementById('whPrintRoot');
   if(root){
@@ -1014,15 +1037,16 @@ function whBuildWordPrintHtml_(){
     +'.sheet{width:100%;}'
     +'.head{display:flex;justify-content:space-between;align-items:flex-start;margin:0 0 14pt;}'
     +'.title{margin:0;font-size:18pt;font-weight:700;}'
+    +'.logo-wrap{display:inline-block;line-height:0;}'
     +'.logo{height:44pt;width:auto;}'
     +'.fields{display:flex;justify-content:space-between;align-items:flex-start;gap:24pt;margin:0 0 10pt;}'
     +'.col-left{flex:1;min-width:0;max-width:58%;}'
     +'.col-right{width:38%;max-width:210pt;flex-shrink:0;}'
-    +'.line{display:flex;align-items:baseline;gap:6pt;margin:0 0 9pt;}'
-    +'.line strong{font-weight:700;white-space:nowrap;}'
+    +'.line,.f-requester,.f-company,.f-reqno,.f-reqdate,.f-property{display:flex;align-items:baseline;gap:6pt;margin:0 0 9pt;}'
+    +'.line strong,.f-requester strong,.f-company strong,.f-reqno strong,.f-reqdate strong,.f-property strong{font-weight:700;white-space:nowrap;}'
     +'.val{flex:1;min-height:14pt;padding:0 2pt;line-height:14pt;}'
-    +'.type{margin:2pt 0 0;font-weight:700;}'
-    +'.type span{margin-left:12pt;}'
+    +'.type,.f-type{margin:2pt 0 0;font-weight:700;}'
+    +'.type span,.f-type span{margin-left:12pt;}'
     +'.to{margin:10pt 0 4pt;font-weight:700;}'
     +'.kindly{margin:0 0 8pt;font-weight:400;}'
     +'table{border-collapse:collapse;width:100%;}'
@@ -1041,23 +1065,23 @@ function whBuildWordPrintHtml_(){
     +'.sig .space{height:40pt;text-align:center;}'
     +'.sig .space img{max-height:38pt;max-width:95%;}'
     +'.sig .lbl{font-weight:700;}'
-    +'.sig:nth-child(1) .lbl{text-align:left;}'
-    +'.sig:nth-child(2) .lbl{text-align:center;}'
-    +'.sig:nth-child(3) .lbl{text-align:right;}'
+    +'.sig-auth .lbl{text-align:left;}'
+    +'.sig-issued .lbl{text-align:center;}'
+    +'.sig-received .lbl{text-align:right;}'
     +'@media print{.sheet{page-break-inside:avoid;}}'
     +whLayoutCssForPrint_()
     +'</style></head><body><div class="sheet">'
     +'<div class="head"><div class="title">Goods Issue Note</div>'
-    +(logo?('<img class="logo" src="'+logo+'" alt="Empire">'):'')
+    +(logo?('<div class="logo-wrap"><img class="logo" src="'+logo+'" alt="Empire"></div>'):'')
     +'</div>'
     +'<div class="fields"><div class="col-left">'
-    +'<div class="line"><strong>Requester:</strong><span class="val">'+whEsc(whVal('wh-requester'))+'</span></div>'
-    +'<div class="line"><strong>Company:</strong><span class="val">'+whEsc(whVal('wh-company'))+'</span></div>'
-    +'<div class="type"><strong>Good Issue Type</strong><span>'+inn+'</span><span>'+ext+'</span></div>'
+    +'<div class="f-requester"><strong>Requester:</strong><span class="val">'+whEsc(whVal('wh-requester'))+'</span></div>'
+    +'<div class="f-company"><strong>Company:</strong><span class="val">'+whEsc(whVal('wh-company'))+'</span></div>'
+    +'<div class="f-type"><strong>Good Issue Type</strong><span>'+inn+'</span><span>'+ext+'</span></div>'
     +'</div><div class="col-right">'
-    +'<div class="line"><strong>Request No.:</strong><span class="val">'+whEsc(whVal('wh-request-no'))+'</span></div>'
-    +'<div class="line"><strong>Request Date:</strong><span class="val">'+whEsc(whFmtDate(whVal('wh-request-date')))+'</span></div>'
-    +'<div class="line"><strong>Property Code:</strong><span class="val">'+whEsc(whVal('wh-property'))+'</span></div>'
+    +'<div class="f-reqno"><strong>Request No.:</strong><span class="val">'+whEsc(whVal('wh-request-no'))+'</span></div>'
+    +'<div class="f-reqdate"><strong>Request Date:</strong><span class="val">'+whEsc(whFmtDate(whVal('wh-request-date')))+'</span></div>'
+    +'<div class="f-property"><strong>Property Code:</strong><span class="val">'+whEsc(whVal('wh-property'))+'</span></div>'
     +'</div></div>'
     +'<p class="to">To: Stoke Keeper:</p>'
     +'<p class="kindly">Kindly issue the materials stated below:</p>'
@@ -1073,9 +1097,9 @@ function whBuildWordPrintHtml_(){
     +'<tr><td class="lab">Receipt Voucher No.</td><td class="blank">'+whEsc(whVal('wh-voucher'))+'</td></tr>'
     +'</table>'
     +'<div class="sigs">'
-    +'<div class="sig"><div class="space">'+whSigHtml('auth')+'</div><div class="lbl">Authorized by</div></div>'
-    +'<div class="sig"><div class="space">'+whSigHtml('issued')+'</div><div class="lbl">Issued by</div></div>'
-    +'<div class="sig"><div class="space">'+whSigHtml('received')+'</div><div class="lbl">Received by</div></div>'
+    +'<div class="sig sig-auth"><div class="space">'+whSigHtml('auth')+'</div><div class="lbl">Authorized by</div></div>'
+    +'<div class="sig sig-issued"><div class="space">'+whSigHtml('issued')+'</div><div class="lbl">Issued by</div></div>'
+    +'<div class="sig sig-received"><div class="space">'+whSigHtml('received')+'</div><div class="lbl">Received by</div></div>'
     +'</div>'
     +'</div></body></html>';
 }
