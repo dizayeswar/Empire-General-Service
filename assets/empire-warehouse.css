@@ -82,6 +82,18 @@
   gap: 8pt 28pt;
   margin: 0 0 8pt;
 }
+/* Request No / Date / Property sit under the logo (right), label+value together */
+.wh-meta-col:last-child {
+  justify-self: end;
+  width: min(100%, 280px);
+}
+.wh-meta-col:last-child .wh-line {
+  justify-content: flex-start;
+}
+.wh-meta-col:last-child .wh-cell-input {
+  flex: 1 1 auto;
+  max-width: 160px;
+}
 .wh-line {
   display: flex;
   align-items: baseline;
