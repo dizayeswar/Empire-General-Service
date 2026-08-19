@@ -61,6 +61,12 @@
 }
 
 .wh-saved-table-wrap { overflow-x: auto; }
+.wh-tab-help {
+  margin: -4px 0 14px;
+  color: var(--text-soft, #666);
+  font-size: 13px;
+  line-height: 1.35;
+}
 .wh-done-banner {
   display: inline-block;
   margin-left: 8px;

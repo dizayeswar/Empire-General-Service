@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-done-section">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-done-tab">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-done-section">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-done-section">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-done-section">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-done-tab">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-done-tab">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-done-tab">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -55,6 +55,11 @@
           <span class="lbl">Saved Notes</span>
           <span class="side-nav-badge" id="whSavedBadge" style="display:none;"></span>
         </button>
+        <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-done" onclick="whSwitchTab(event,'done')">
+          <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg></span>
+          <span class="lbl">Done Notes</span>
+          <span class="side-nav-badge" id="whDoneBadge" style="display:none;"></span>
+        </button>
       </nav>
       <div class="side-actions">
         <button type="button" class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span> <span class="lbl">Theme</span></button>
@@ -91,7 +96,7 @@
               </div>
               <div class="wh-top-right">
                 <div class="wh-logo-wrap" data-wh-layout="logo">
-                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-done-section" alt="Empire">
+                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-done-tab" alt="Empire">
                 </div>
                 <div class="wh-req-block" data-wh-layout="reqBlock">
                   <div class="wh-line"><strong>Request No.:</strong><input id="wh-request-no" class="wh-cell-input" type="text" autocomplete="off"></div>
@@ -202,6 +207,7 @@
         <div class="wh-app wh-saved-app">
           <div class="form-section">
             <h2>Saved Goods Issue Notes</h2>
+            <p class="wh-tab-help">Notes still in progress. Click <strong>Done</strong> when finished — they move to <strong>Done Notes</strong>.</p>
             <div class="wh-toolbar no-print" style="margin-bottom:12px;">
               <button type="button" onclick="whLoadSavedList()">Refresh</button>
               <button type="button" onclick="whStartNew()">New</button>
@@ -210,17 +216,30 @@
           </div>
         </div>
       </div>
+
+      <div id="wh-tab-done" class="tab-content dept-tab-content">
+        <div class="wh-app wh-saved-app">
+          <div class="form-section">
+            <h2>Done Notes</h2>
+            <p class="wh-tab-help">Finished Goods Issue Notes. View or print only — editing is locked. More tools for this section can be added later.</p>
+            <div class="wh-toolbar no-print" style="margin-bottom:12px;">
+              <button type="button" onclick="whLoadSavedList()">Refresh</button>
+            </div>
+            <div id="whDoneList">Loading…</div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-done-section"></script>
-<script src="assets/empire-storage.js?v=2026-08-19-wh-done-section"></script>
-<script src="assets/empire-api.js?v=2026-08-19-wh-done-section"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-done-section"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-done-section"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-done-section"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-done-section"></script>
+<script src="config.js?v=2026-08-19-wh-done-tab"></script>
+<script src="assets/empire-storage.js?v=2026-08-19-wh-done-tab"></script>
+<script src="assets/empire-api.js?v=2026-08-19-wh-done-tab"></script>
+<script src="assets/empire-auth.js?v=2026-08-19-wh-done-tab"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-done-tab"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-done-tab"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-done-tab"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -271,7 +290,7 @@ function whSwitchTab(e, tab){
   var btn=document.getElementById('tab-wh-'+tab);
   if(btn) btn.classList.add('active');
   if(e && e.currentTarget) e.currentTarget.classList.add('active');
-  if(tab==='saved') whLoadSavedList();
+  if(tab==='saved' || tab==='done') whLoadSavedList();
 }
 
 function whEsc(s){
@@ -880,16 +899,40 @@ function whMergeLists(serverItems, localItems){
     return String(b.updatedAt||'').localeCompare(String(a.updatedAt||''));
   });
 }
-function whSetBadge(n){
-  var b=document.getElementById('whSavedBadge');
+function whSetBadge(elId, n){
+  var b=document.getElementById(elId);
   if(!b) return;
   if(n>0){ b.style.display=''; b.textContent=String(n); }
   else { b.style.display='none'; b.textContent=''; }
 }
+function whPartitionSaved_(){
+  var openInternal=[], openExternal=[], openOther=[], doneInternal=[], doneExternal=[], doneOther=[];
+  (_whSavedCache||[]).forEach(function(it){
+    var t=String(it.issueType||'').toLowerCase();
+    if(it.done){
+      if(t==='internal') doneInternal.push(it);
+      else if(t==='external') doneExternal.push(it);
+      else doneOther.push(it);
+      return;
+    }
+    if(t==='internal') openInternal.push(it);
+    else if(t==='external') openExternal.push(it);
+    else openOther.push(it);
+  });
+  return {
+    openInternal:openInternal, openExternal:openExternal, openOther:openOther,
+    doneInternal:doneInternal, doneExternal:doneExternal, doneOther:doneOther,
+    openCount: openInternal.length+openExternal.length+openOther.length,
+    doneCount: doneInternal.length+doneExternal.length+doneOther.length
+  };
+}
 function whLoadSavedList(){
-  var box=document.getElementById('whSavedList');
-  if(box) box.innerHTML = typeof empireLoadingHtml==='function' ? empireLoadingHtml('Loading saved notes…') : 'Loading…';
+  var savedBox=document.getElementById('whSavedList');
+  var doneBox=document.getElementById('whDoneList');
+  if(savedBox) savedBox.innerHTML = typeof empireLoadingHtml==='function' ? empireLoadingHtml('Loading saved notes…') : 'Loading…';
+  if(doneBox) doneBox.innerHTML = typeof empireLoadingHtml==='function' ? empireLoadingHtml('Loading done notes…') : 'Loading…';
   whBindSavedListClicks_();
+  whBindDoneListClicks_();
   var token=typeof empireGetToken==='function' ? empireGetToken() : '';
   var local=whLocalRead();
   fetchJSONRetry({ action:'getWarehouseGins', token:token }, 2, 60000).then(function(d){
@@ -903,43 +946,51 @@ function whLoadSavedList(){
   });
 }
 function whRenderSavedList(){
-  var box=document.getElementById('whSavedList');
-  if(!box) return;
-  whSetBadge(_whSavedCache.length);
-  if(!_whSavedCache.length){
-    box.innerHTML = typeof empireEmptyHtml==='function'
-      ? empireEmptyHtml('No saved notes yet', 'Fill a Goods Issue Note and click Save. Use New for the next one.')
-      : '<p>No saved notes yet.</p>';
-    return;
+  var parts=whPartitionSaved_();
+  whSetBadge('whSavedBadge', parts.openCount);
+  whSetBadge('whDoneBadge', parts.doneCount);
+
+  var savedBox=document.getElementById('whSavedList');
+  if(savedBox){
+    if(!parts.openCount){
+      savedBox.innerHTML = typeof empireEmptyHtml==='function'
+        ? empireEmptyHtml('No open notes', 'Save a Goods Issue Note here, then click Done when finished.')
+        : '<p>No open notes.</p>';
+    } else {
+      var h='';
+      h+=whSavedSectionHtml_('Internal', parts.openInternal, false);
+      h+=whSavedSectionHtml_('External', parts.openExternal, false);
+      if(parts.openOther.length) h+=whSavedSectionHtml_('No type selected', parts.openOther, false);
+      savedBox.innerHTML=h;
+    }
   }
-  var internal=[], external=[], other=[], done=[];
-  _whSavedCache.forEach(function(it){
-    if(it.done){ done.push(it); return; }
-    var t=String(it.issueType||'').toLowerCase();
-    if(t==='internal') internal.push(it);
-    else if(t==='external') external.push(it);
-    else other.push(it);
-  });
-  var h='';
-  h+=whSavedSectionHtml_('Internal', internal, false);
-  h+=whSavedSectionHtml_('External', external, false);
-  if(other.length) h+=whSavedSectionHtml_('No type selected', other, false);
-  h+=whSavedSectionHtml_('Done', done, true);
-  box.innerHTML=h;
+
+  var doneBox=document.getElementById('whDoneList');
+  if(doneBox){
+    if(!parts.doneCount){
+      doneBox.innerHTML = typeof empireEmptyHtml==='function'
+        ? empireEmptyHtml('No done notes yet', 'When a note is finished, click Done in Saved Notes — it moves here.')
+        : '<p>No done notes yet.</p>';
+    } else {
+      var dh='';
+      dh+=whSavedSectionHtml_('Internal', parts.doneInternal, true);
+      dh+=whSavedSectionHtml_('External', parts.doneExternal, true);
+      if(parts.doneOther.length) dh+=whSavedSectionHtml_('No type selected', parts.doneOther, true);
+      doneBox.innerHTML=dh;
+    }
+  }
 }
 function whSavedSectionHtml_(title, items, isDoneSection){
   var h='<div class="wh-saved-section'+(isDoneSection?' wh-saved-section-done':'')+'">'
     +'<h3 class="wh-saved-section-title">'+whEsc(title)
     +' <span class="wh-saved-section-count">('+items.length+')</span></h3>';
   if(!items.length){
-    var emptyLabel = isDoneSection ? 'done' : title.toLowerCase();
+    var emptyLabel = title.toLowerCase();
     h+='<p class="wh-saved-empty">No '+whEsc(emptyLabel)+' notes yet.</p></div>';
     return h;
   }
   h+='<div class="wh-saved-table-wrap"><table class="wh-saved-table"><thead><tr>'
-    +'<th>#</th><th>Date</th><th>Request No.</th><th>Requester</th><th>Property</th>'
-    +(isDoneSection?'<th>Type</th>':'')
-    +'<th></th>'
+    +'<th>#</th><th>Date</th><th>Request No.</th><th>Requester</th><th>Property</th><th></th>'
     +'</tr></thead><tbody>';
   items.forEach(function(it){
     var id=whEsc(String(it.id||''));
@@ -949,7 +1000,6 @@ function whSavedSectionHtml_(title, items, isDoneSection){
       +'<td>'+whEsc(it.requestNo||'—')+'</td>'
       +'<td>'+whEsc(it.requester||'—')+'</td>'
       +'<td>'+whEsc(it.propertyCode||'—')+'</td>'
-      +(isDoneSection?('<td>'+whEsc(it.issueType||'—')+'</td>'):'')
       +'<td class="wh-saved-actions">'
       +(isDoneSection
         ? ('<button type="button" data-wh-act="view" data-wh-id="'+id+'">View</button> ')
@@ -963,8 +1013,8 @@ function whSavedSectionHtml_(title, items, isDoneSection){
   h+='</tbody></table></div></div>';
   return h;
 }
-function whBindSavedListClicks_(){
-  var box=document.getElementById('whSavedList');
+function whBindListClicks_(boxId){
+  var box=document.getElementById(boxId);
   if(!box || box._whActsBound) return;
   box._whActsBound=true;
   box.addEventListener('click', function(e){
@@ -980,6 +1030,8 @@ function whBindSavedListClicks_(){
     else if(act==='delete') whDeleteSaved(id);
   });
 }
+function whBindSavedListClicks_(){ whBindListClicks_('whSavedList'); }
+function whBindDoneListClicks_(){ whBindListClicks_('whDoneList'); }
 function whFindSaved(id){
   id=String(id||'');
   for(var i=0;i<_whSavedCache.length;i++){
@@ -1091,7 +1143,8 @@ function whMarkDone(id){
     console.warn('markWarehouseGinDone', err);
   }).finally(function(){
     whLoadSavedList();
-    alert('Moved to Done. It can still be viewed or printed, but not edited.');
+    alert('Moved to Done Notes. It can still be viewed or printed, but not edited.');
+    whSwitchTab(null,'done');
   });
 }
 function whPrintSaved(id){
