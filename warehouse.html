@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-page-size">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-corner-resize">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-page-size">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-page-size">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-page-size">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-corner-resize">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-corner-resize">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-corner-resize">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -89,7 +89,7 @@
             <button type="button" id="whSaveBtn" onclick="whSave()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Save</button>
             <button type="button" onclick="whPrint()">Print / Save as PDF</button>
           </div>
-          <p id="whLayoutHint" class="no-print wh-layout-hint" hidden>Edit layout: drag blocks to move. Use <strong>Page Smaller/Bigger</strong> for the whole form, or click a block then <strong>Text Smaller/Bigger</strong>. Print keeps your layout.</p>
+          <p id="whLayoutHint" class="no-print wh-layout-hint" hidden>Edit layout: click a block, drag to move, or drag a <strong>corner square</strong> to make it bigger/smaller. Page Smaller/Bigger changes the whole form.</p>
 
           <div class="wh-note" id="whPrintRoot">
             <div class="wh-head" data-wh-layout="head">
@@ -228,13 +228,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-page-size"></script>
-<script src="assets/empire-storage.js?v=2026-08-19-wh-page-size"></script>
-<script src="assets/empire-api.js?v=2026-08-19-wh-page-size"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-page-size"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-page-size"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-page-size"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-page-size"></script>
+<script src="config.js?v=2026-08-19-wh-corner-resize"></script>
+<script src="assets/empire-storage.js?v=2026-08-19-wh-corner-resize"></script>
+<script src="assets/empire-api.js?v=2026-08-19-wh-corner-resize"></script>
+<script src="assets/empire-auth.js?v=2026-08-19-wh-corner-resize"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-corner-resize"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-corner-resize"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-corner-resize"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -318,11 +318,22 @@ function whLayoutApply(){
     var x=Number(cfg.x||0)||0;
     var y=Number(cfg.y||0)||0;
     var fs=Number(cfg.fs||0)||0;
-    el.style.transform = (x||y) ? ('translate('+x+'px,'+y+'px)') : '';
+    var sc=Number(cfg.scale||0)||0;
+    el.style.transform = whLayoutTransform_(x,y,sc);
+    el.style.transformOrigin = 'top left';
     if(fs) el.style.fontSize = fs+'px';
     else el.style.fontSize = '';
   });
   whPageScaleApply_();
+}
+function whLayoutTransform_(x,y,sc){
+  x=Number(x||0)||0;
+  y=Number(y||0)||0;
+  sc=Number(sc||0)||0;
+  var parts=[];
+  if(x||y) parts.push('translate('+x+'px,'+y+'px)');
+  if(sc && sc!==1) parts.push('scale('+sc+')');
+  return parts.length ? parts.join(' ') : '';
 }
 function whPageScaleGet_(){
   var s=Number(_whLayout._pageScale);
@@ -335,7 +346,6 @@ function whPageScaleApply_(){
   var s=whPageScaleGet_();
   if(root){
     root.style.zoom = String(s);
-    // Fallback for browsers without zoom
     if(typeof root.style.zoom==='undefined' || root.style.zoom===''){
       root.style.transform='scale('+s+')';
       root.style.transformOrigin='top center';
@@ -369,13 +379,29 @@ function whLayoutCssForPrint_(){
     var x=Number(cfg.x||0)||0;
     var y=Number(cfg.y||0)||0;
     var fs=Number(cfg.fs||0)||0;
-    if(!x && !y && !fs) return;
-    css+=sel+'{';
-    if(x||y) css+='transform:translate('+x+'px,'+y+'px);';
+    var sc=Number(cfg.scale||0)||0;
+    if(!x && !y && !fs && (!sc || sc===1)) return;
+    css+=sel+'{transform-origin:top left;';
+    var t=whLayoutTransform_(x,y,sc);
+    if(t) css+='transform:'+t+';';
     if(fs) css+='font-size:'+fs+'px !important;';
     css+='}';
   });
   return css;
+}
+function whLayoutClearHandles_(){
+  document.querySelectorAll('.wh-resize-handle').forEach(function(h){ h.remove(); });
+}
+function whLayoutEnsureHandles_(el){
+  whLayoutClearHandles_();
+  if(!el) return;
+  ['nw','ne','sw','se'].forEach(function(pos){
+    var h=document.createElement('span');
+    h.className='wh-resize-handle wh-resize-'+pos;
+    h.setAttribute('data-wh-resize', pos);
+    h.title='Drag corner to resize';
+    el.appendChild(h);
+  });
 }
 function whLayoutBind(){
   var root=document.getElementById('whPrintRoot');
@@ -384,13 +410,39 @@ function whLayoutBind(){
   root.addEventListener('mousedown', function(e){
     if(!_whLayoutEdit) return;
     if(e.target.closest('input,button,textarea,select,.wh-combo-list,.wh-sig-actions')) return;
+    var handle=e.target.closest('.wh-resize-handle');
+    if(handle){
+      e.preventDefault();
+      e.stopPropagation();
+      var el=handle.parentElement;
+      if(!el || !el.getAttribute('data-wh-layout')) return;
+      whLayoutSelect(el);
+      var key=el.getAttribute('data-wh-layout');
+      var cfg=_whLayout[key]||{};
+      var sc=Number(cfg.scale||1)||1;
+      if(sc<=0) sc=1;
+      _whDrag={
+        mode:'resize',
+        key:key,
+        el:el,
+        corner:handle.getAttribute('data-wh-resize')||'se',
+        startX:e.clientX,
+        startY:e.clientY,
+        origScale:sc,
+        origX:Number(cfg.x||0)||0,
+        origY:Number(cfg.y||0)||0,
+        origFs:Number(cfg.fs||0)||0
+      };
+      return;
+    }
     var el=e.target.closest('[data-wh-layout]');
     if(!el || !root.contains(el)) return;
     e.preventDefault();
     whLayoutSelect(el);
     var key=el.getAttribute('data-wh-layout');
-    var cfg=_whLayout[key]||{x:0,y:0,fs:0};
+    var cfg=_whLayout[key]||{x:0,y:0,fs:0,scale:1};
     _whDrag={
+      mode:'move',
       key:key, el:el,
       startX:e.clientX, startY:e.clientY,
       origX:Number(cfg.x||0)||0, origY:Number(cfg.y||0)||0
@@ -400,10 +452,31 @@ function whLayoutBind(){
     if(!_whDrag) return;
     var dx=e.clientX-_whDrag.startX;
     var dy=e.clientY-_whDrag.startY;
+    if(_whDrag.mode==='resize'){
+      var corner=_whDrag.corner||'se';
+      var delta=(corner==='se'||corner==='ne') ? (dx+dy) : (-dx-dy);
+      if(corner==='ne') delta=dx-dy;
+      if(corner==='sw') delta=-dx+dy;
+      var sc=_whDrag.origScale + delta/180;
+      sc=Math.max(0.5, Math.min(2.5, Math.round(sc*100)/100));
+      var cfg=Object.assign({}, _whLayout[_whDrag.key]||{}, {
+        x:_whDrag.origX, y:_whDrag.origY, scale:sc
+      });
+      // Keep text readable with scale: also nudge font if set
+      if(_whDrag.origFs){
+        cfg.fs=Math.max(8, Math.min(42, Math.round(_whDrag.origFs*sc/_whDrag.origScale)));
+      }
+      _whLayout[_whDrag.key]=cfg;
+      _whDrag.el.style.transformOrigin='top left';
+      _whDrag.el.style.transform=whLayoutTransform_(cfg.x,cfg.y,sc);
+      if(cfg.fs) _whDrag.el.style.fontSize=cfg.fs+'px';
+      return;
+    }
     var x=_whDrag.origX+dx;
     var y=_whDrag.origY+dy;
-    _whLayout[_whDrag.key]=Object.assign({}, _whLayout[_whDrag.key]||{}, {x:x,y:y});
-    _whDrag.el.style.transform='translate('+x+'px,'+y+'px)';
+    var prev=_whLayout[_whDrag.key]||{};
+    _whLayout[_whDrag.key]=Object.assign({}, prev, {x:x,y:y});
+    _whDrag.el.style.transform=whLayoutTransform_(x,y,prev.scale);
   });
   document.addEventListener('mouseup', function(){
     if(!_whDrag) return;
@@ -416,7 +489,12 @@ function whLayoutSelect(el){
     n.classList.remove('wh-layout-selected');
   });
   _whLayoutSel=el||null;
-  if(_whLayoutSel) _whLayoutSel.classList.add('wh-layout-selected');
+  if(_whLayoutSel){
+    _whLayoutSel.classList.add('wh-layout-selected');
+    whLayoutEnsureHandles_(_whLayoutSel);
+  } else {
+    whLayoutClearHandles_();
+  }
 }
 function whToggleLayoutEdit(force){
   _whLayoutEdit = (force===false) ? false : (force===true ? true : !_whLayoutEdit);
