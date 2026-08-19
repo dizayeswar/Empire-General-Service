@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-esig">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-sig-ink">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-esig">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-esig">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-esig">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-sig-ink">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-sig-ink">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-sig-ink">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -100,7 +100,7 @@
               </div>
               <div class="wh-top-right">
                 <div class="wh-logo-wrap" data-wh-layout="logo">
-                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-esig" alt="Empire">
+                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-sig-ink" alt="Empire">
                 </div>
                 <div class="wh-req-block" data-wh-layout="reqBlock">
                   <div class="wh-line"><strong>Request No.:</strong><input id="wh-request-no" class="wh-cell-input" type="text" autocomplete="off"></div>
@@ -162,10 +162,10 @@
 
             <div class="wh-sigs-row">
               <div class="wh-sig-block" data-wh-layout="sigAuth">
+                <div class="wh-sig-label">Authorized by</div>
                 <div class="wh-sig-pad" id="wh-sig-auth" tabindex="0" onclick="this.focus()" onpaste="whPasteSig(event,'auth')">
                   <span class="hint">Paste signature (Ctrl+V)</span>
                 </div>
-                <div class="wh-sig-label">Authorized by</div>
                 <div class="wh-sig-actions no-print">
                   <input type="file" id="wh-sig-auth-file" accept="image/*" hidden onchange="whSigFile(event,'auth')">
                   <button type="button" onclick="document.getElementById('wh-sig-auth-file').click()">Upload</button>
@@ -174,10 +174,10 @@
                 </div>
               </div>
               <div class="wh-sig-block" data-wh-layout="sigIssued">
+                <div class="wh-sig-label">Issued by</div>
                 <div class="wh-sig-pad" id="wh-sig-issued" tabindex="0" onclick="this.focus()" onpaste="whPasteSig(event,'issued')">
                   <span class="hint">Paste signature (Ctrl+V)</span>
                 </div>
-                <div class="wh-sig-label">Issued by</div>
                 <div class="wh-sig-actions no-print">
                   <input type="file" id="wh-sig-issued-file" accept="image/*" hidden onchange="whSigFile(event,'issued')">
                   <button type="button" onclick="document.getElementById('wh-sig-issued-file').click()">Upload</button>
@@ -186,10 +186,10 @@
                 </div>
               </div>
               <div class="wh-sig-block" data-wh-layout="sigReceived">
+                <div class="wh-sig-label">Received by</div>
                 <div class="wh-sig-pad" id="wh-sig-received" tabindex="0" onclick="this.focus()" onpaste="whPasteSig(event,'received')">
                   <span class="hint">Paste signature (Ctrl+V)</span>
                 </div>
-                <div class="wh-sig-label">Received by</div>
                 <div class="wh-sig-actions no-print">
                   <input type="file" id="wh-sig-received-file" accept="image/*" hidden onchange="whSigFile(event,'received')">
                   <button type="button" onclick="document.getElementById('wh-sig-received-file').click()">Upload</button>
@@ -267,13 +267,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-esig"></script>
-<script src="assets/empire-storage.js?v=2026-08-19-wh-esig"></script>
-<script src="assets/empire-api.js?v=2026-08-19-wh-esig"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-esig"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-esig"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-esig"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-esig"></script>
+<script src="config.js?v=2026-08-19-wh-sig-ink"></script>
+<script src="assets/empire-storage.js?v=2026-08-19-wh-sig-ink"></script>
+<script src="assets/empire-api.js?v=2026-08-19-wh-sig-ink"></script>
+<script src="assets/empire-auth.js?v=2026-08-19-wh-sig-ink"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-sig-ink"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-sig-ink"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-sig-ink"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -1335,15 +1335,36 @@ function whValidateVoucher(){
 function whSigPad(which){
   return document.getElementById('wh-sig-'+which);
 }
-function whSetSig(which, dataUrl){
-  _whSig[which]=dataUrl||'';
+function whPaintSigPad_(which){
   var pad=whSigPad(which);
   if(!pad) return;
+  var dataUrl=_whSig[which]||'';
   if(dataUrl){
-    pad.innerHTML='<img src="'+dataUrl+'" alt="Signature">';
+    pad.innerHTML='<img class="wh-sig-ink" src="'+dataUrl+'" alt="Signature">';
   } else {
     pad.innerHTML='<span class="hint">Paste signature (Ctrl+V)</span>';
   }
+}
+function whSetSig(which, dataUrl, opts){
+  var raw=dataUrl||'';
+  if(!raw){
+    _whSig[which]='';
+    whPaintSigPad_(which);
+    if(typeof whDraftSchedule_==='function') whDraftSchedule_();
+    return;
+  }
+  // Already ink PNG from library / reopen: skip reprocess when marked.
+  if(opts && opts.skipInk){
+    _whSig[which]=raw;
+    whPaintSigPad_(which);
+    if(typeof whDraftSchedule_==='function') whDraftSchedule_();
+    return;
+  }
+  whEsigProcessImage_(raw, function(out){
+    _whSig[which]=out||raw;
+    whPaintSigPad_(which);
+    if(typeof whDraftSchedule_==='function') whDraftSchedule_();
+  });
 }
 function whClearSig(which){ whSetSig(which,''); }
 function whPasteSig(e, which){
@@ -1355,7 +1376,7 @@ function whPasteSig(e, which){
       var file=items[i].getAsFile();
       if(!file) return;
       var reader=new FileReader();
-      reader.onload=function(){ whSetSig(which, reader.result); };
+      reader.onload=function(){ whSetSig(which, String(reader.result||'')); };
       reader.readAsDataURL(file);
       return;
     }
@@ -1365,7 +1386,7 @@ function whSigFile(e, which){
   var f=e.target.files && e.target.files[0];
   if(!f) return;
   var reader=new FileReader();
-  reader.onload=function(){ whSetSig(which, reader.result); };
+  reader.onload=function(){ whSetSig(which, String(reader.result||'')); };
   reader.readAsDataURL(f);
   e.target.value='';
 }
@@ -1397,25 +1418,55 @@ function whEsigProcessImage_(dataUrl, cb){
   var img=new Image();
   img.onload=function(){
     try {
-      var maxW=700, maxH=280;
+      var maxW=900, maxH=360;
       var w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
       var scale=Math.min(1, maxW/w, maxH/h);
       var cw=Math.max(1, Math.round(w*scale));
       var ch=Math.max(1, Math.round(h*scale));
       var canvas=document.createElement('canvas');
       canvas.width=cw; canvas.height=ch;
-      var ctx=canvas.getContext('2d');
+      var ctx=canvas.getContext('2d', { willReadFrequently:true });
       ctx.clearRect(0,0,cw,ch);
       ctx.drawImage(img,0,0,cw,ch);
-      // Make near-white background transparent for an electronic stamp look.
       var imageData=ctx.getImageData(0,0,cw,ch);
       var d=imageData.data;
+      // Convert photo → ink handwriting: dark strokes black, paper transparent.
+      var minX=cw, minY=ch, maxX=0, maxY=0, found=false;
       for(var i=0;i<d.length;i+=4){
-        var r=d[i], g=d[i+1], b=d[i+2];
-        if(r>235 && g>235 && b>235) d[i+3]=0;
+        var r=d[i], g=d[i+1], b=d[i+2], a=d[i+3];
+        if(a<8){ d[i+3]=0; continue; }
+        var lum=0.299*r + 0.587*g + 0.114*b;
+        // Soft threshold: keep pen darkness as alpha; kill paper/photo background.
+        var ink=Math.max(0, Math.min(1, (205 - lum) / 95));
+        if(ink < 0.12){
+          d[i]=0; d[i+1]=0; d[i+2]=0; d[i+3]=0;
+          continue;
+        }
+        // Pure dark ink (hand signature look), not photo colors.
+        d[i]=18; d[i+1]=18; d[i+2]=22;
+        d[i+3]=Math.round(Math.pow(ink, 0.85) * 255);
+        var px=(i/4)%cw, py=Math.floor((i/4)/cw);
+        if(px<minX) minX=px;
+        if(py<minY) minY=py;
+        if(px>maxX) maxX=px;
+        if(py>maxY) maxY=py;
+        found=true;
       }
       ctx.putImageData(imageData,0,0);
-      cb(canvas.toDataURL('image/png'));
+      if(!found){ cb(canvas.toDataURL('image/png')); return; }
+      var pad=4;
+      minX=Math.max(0, minX-pad);
+      minY=Math.max(0, minY-pad);
+      maxX=Math.min(cw-1, maxX+pad);
+      maxY=Math.min(ch-1, maxY+pad);
+      var tw=Math.max(1, maxX-minX+1);
+      var th=Math.max(1, maxY-minY+1);
+      var out=document.createElement('canvas');
+      out.width=tw; out.height=th;
+      var octx=out.getContext('2d');
+      octx.clearRect(0,0,tw,th);
+      octx.drawImage(canvas, minX, minY, tw, th, 0, 0, tw, th);
+      cb(out.toDataURL('image/png'));
     } catch(err){
       cb(dataUrl);
     }
@@ -1659,9 +1710,9 @@ function whBuildWordPrintHtml_(){
     +'.maint .lab{width:25%;font-weight:400;}'
     +'.sigs{margin-top:28pt;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12pt;}'
     +'.sig{text-align:center;}'
-    +'.sig .pad{min-height:36pt;}'
-    +'.sig .pad img{max-height:34pt;max-width:95%;}'
-    +'.sig .lbl{font-weight:700;font-size:12pt;}'
+    +'.sig .lbl{font-weight:700;font-size:12pt;margin:0 0 4pt;}'
+    +'.sig .pad{min-height:36pt;display:flex;align-items:center;justify-content:center;}'
+    +'.sig .pad img{max-height:34pt;max-width:95%;object-fit:contain;}'
     +whLayoutCssForPrint_()
     +'</style></head><body><div class="sheet">'
     +'<div class="top"><div class="top-left">'
@@ -1692,9 +1743,9 @@ function whBuildWordPrintHtml_(){
     +'<tr><td class="lab">Receipt Voucher No.</td><td>'+whEsc(whVal('wh-voucher'))+'</td></tr>'
     +'</table>'
     +'<div class="sigs">'
-    +'<div class="sig sig-auth"><div class="pad">'+whSigHtml('auth')+'</div><div class="lbl">Authorized by</div></div>'
-    +'<div class="sig sig-issued"><div class="pad">'+whSigHtml('issued')+'</div><div class="lbl">Issued by</div></div>'
-    +'<div class="sig sig-received"><div class="pad">'+whSigHtml('received')+'</div><div class="lbl">Received by</div></div>'
+    +'<div class="sig sig-auth"><div class="lbl">Authorized by</div><div class="pad">'+whSigHtml('auth')+'</div></div>'
+    +'<div class="sig sig-issued"><div class="lbl">Issued by</div><div class="pad">'+whSigHtml('issued')+'</div></div>'
+    +'<div class="sig sig-received"><div class="lbl">Received by</div><div class="pad">'+whSigHtml('received')+'</div></div>'
     +'</div>'
     +'</div></body></html>';
 }
