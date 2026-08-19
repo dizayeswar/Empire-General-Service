@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-autosave">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-autosave2">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-autosave">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-autosave2">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -284,7 +284,7 @@
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-19-wh-assign"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-autosave"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-autosave2"></script>
 <script src="assets/empire-sw-update.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-assign"></script>
 <script>
@@ -376,14 +376,18 @@ window.addEventListener('load', function(){
 function whSwitchTab(e, tab){
   var cur=document.querySelector('.dept-tab-content.active');
   var leavingNote=cur && cur.id==='wh-tab-note' && tab!=='note';
+  // Flush autosave once, then switch — never re-enter flush (that froze the page).
   if(leavingNote && !_whFormLocked && !_whReceiverMode && !whSwitchTab._flushing){
     whSwitchTab._flushing=true;
-    whAutoSaveNow_({ force:true, quiet:true }).finally(function(){
-      whSwitchTab._flushing=false;
-      whSwitchTab(e, tab);
+    Promise.resolve(whAutoSaveNow_({ force:true, quiet:true })).finally(function(){
+      try { whApplyTab_(e, tab); }
+      finally { whSwitchTab._flushing=false; }
     });
     return;
   }
+  whApplyTab_(e, tab);
+}
+function whApplyTab_(e, tab){
   document.querySelectorAll('.dept-tab-content').forEach(function(x){ x.classList.remove('active'); });
   document.querySelectorAll('.side-nav-dept .tab-btn').forEach(function(x){ x.classList.remove('active'); });
   var pane=document.getElementById('wh-tab-'+tab);
@@ -397,11 +401,8 @@ function whSwitchTab(e, tab){
   }
   if(tab==='saved' || tab==='done') whLoadSavedList();
   if(tab==='spusage'){
-    if(_whReceiverMode){ whSwitchTab(null,'done'); return; }
+    if(_whReceiverMode){ whApplyTab_(null,'done'); return; }
     whSpUsageRefresh();
-  }
-  if(tab==='note' && _whReceiverMode){
-    // Receivers only open notes via Assigned list.
   }
   if(tab==='sigs') whEsigLoad();
 }
