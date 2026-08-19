@@ -1644,7 +1644,7 @@ function whOpenSaved(id){
     }
   }
   whDraftSave_();
-  try { _whAutoSaveLastJson=JSON.stringify(whCollectPayload()); } catch(e){ _whAutoSaveLastJson=''; }
+  try { _whAutoSaveLastJson=whPayloadFinger_(whCollectPayload()); } catch(e){ _whAutoSaveLastJson=''; }
   whAutoSaveSetStatus_(_whFormLocked ? '' : 'Saved');
   whSwitchTab(null,'note');
   try { window.scrollTo(0,0); } catch(e){}
