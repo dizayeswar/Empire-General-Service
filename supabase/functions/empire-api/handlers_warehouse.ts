@@ -5,6 +5,7 @@ type GinPayload = Record<string, unknown>;
 
 function rowToApi(r: Record<string, unknown>) {
   const payload = (r.payload && typeof r.payload === "object") ? r.payload as GinPayload : {};
+  const done = payload.done === true || payload.status === "done";
   return {
     id: String(r.id || ""),
     num: Number(r.num || 0) || 0,
@@ -18,6 +19,9 @@ function rowToApi(r: Record<string, unknown>) {
     createdBy: String(r.created_by || ""),
     createdAt: String(r.created_at || ""),
     updatedAt: String(r.updated_at || ""),
+    done,
+    doneAt: String(payload.doneAt || ""),
+    doneBy: String(payload.doneBy || ""),
     payload,
   };
 }
@@ -55,8 +59,25 @@ export async function handleSaveWarehouseGin(body: Record<string, unknown>, auth
   const now = isoNow();
   let id = String(body.id || "").trim();
   if (id) {
-    const { data: ex } = await sb().from("warehouse_goods_issues").select("id,num").eq("id", id).maybeSingle();
+    const { data: ex } = await sb().from("warehouse_goods_issues").select("id,num,payload").eq("id", id).maybeSingle();
     if (ex) {
+      const existingPayload = (ex.payload && typeof ex.payload === "object")
+        ? ex.payload as GinPayload
+        : {};
+      if (existingPayload.done === true || existingPayload.status === "done") {
+        return {
+          ok: false,
+          success: false,
+          error: "done",
+          message: "This Goods Issue Note is marked Done and cannot be edited.",
+        };
+      }
+      // Preserve done flags if client somehow sends them; new saves stay open.
+      const nextPayload = { ...payload };
+      delete nextPayload.done;
+      delete nextPayload.doneAt;
+      delete nextPayload.doneBy;
+      delete nextPayload.status;
       const { error } = await sb().from("warehouse_goods_issues").update({
         request_no: requestNo,
         request_date: requestDate,
@@ -65,7 +86,7 @@ export async function handleSaveWarehouseGin(body: Record<string, unknown>, auth
         issue_type: issueType,
         property_code: propertyCode,
         store_keeper: storeKeeper,
-        payload,
+        payload: nextPayload,
         updated_at: now,
       }).eq("id", id);
       if (error) throw error;
@@ -100,6 +121,33 @@ export async function handleDeleteWarehouseGin(body: Record<string, unknown>) {
   const { data } = await sb().from("warehouse_goods_issues").delete().eq("id", id).select("id");
   if (!data?.length) return { ok: false, success: false, error: "not_found" };
   return { ok: true, success: true, id };
+}
+
+export async function handleMarkWarehouseGinDone(body: Record<string, unknown>, auth: AuthOk) {
+  const id = String(body.id || "").trim();
+  if (!id) return { ok: false, success: false, error: "missing_id" };
+  const { data: ex } = await sb().from("warehouse_goods_issues").select("id,payload").eq("id", id).maybeSingle();
+  if (!ex) return { ok: false, success: false, error: "not_found" };
+  const existingPayload = (ex.payload && typeof ex.payload === "object")
+    ? ex.payload as GinPayload
+    : {};
+  if (existingPayload.done === true || existingPayload.status === "done") {
+    return { ok: true, success: true, id, alreadyDone: true };
+  }
+  const now = isoNow();
+  const payload = {
+    ...existingPayload,
+    done: true,
+    status: "done",
+    doneAt: now,
+    doneBy: String(auth.username || ""),
+  };
+  const { error } = await sb().from("warehouse_goods_issues").update({
+    payload,
+    updated_at: now,
+  }).eq("id", id);
+  if (error) throw error;
+  return { ok: true, success: true, id, done: true, doneAt: now };
 }
 
 const LAYOUT_KEY = "warehouse_gin_layout";

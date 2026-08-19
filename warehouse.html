@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-open-fix">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-done-section">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-open-fix">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-open-fix">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-open-fix">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-done-section">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-done-section">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-done-section">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -68,6 +68,7 @@
         <div class="wh-app">
           <div class="wh-toolbar no-print">
             <strong id="whFormTitle">Goods Issue Note</strong>
+            <span id="whDoneBanner" class="wh-done-banner" hidden>Done — view only</span>
             <span class="wh-spacer"></span>
             <button type="button" onclick="whStartNew()">New</button>
             <button type="button" onclick="whClearForm()">Clear</button>
@@ -90,7 +91,7 @@
               </div>
               <div class="wh-top-right">
                 <div class="wh-logo-wrap" data-wh-layout="logo">
-                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-open-fix" alt="Empire">
+                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-done-section" alt="Empire">
                 </div>
                 <div class="wh-req-block" data-wh-layout="reqBlock">
                   <div class="wh-line"><strong>Request No.:</strong><input id="wh-request-no" class="wh-cell-input" type="text" autocomplete="off"></div>
@@ -213,13 +214,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-open-fix"></script>
-<script src="assets/empire-storage.js?v=2026-08-19-wh-open-fix"></script>
-<script src="assets/empire-api.js?v=2026-08-19-wh-open-fix"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-open-fix"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-open-fix"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-open-fix"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-open-fix"></script>
+<script src="config.js?v=2026-08-19-wh-done-section"></script>
+<script src="assets/empire-storage.js?v=2026-08-19-wh-done-section"></script>
+<script src="assets/empire-api.js?v=2026-08-19-wh-done-section"></script>
+<script src="assets/empire-auth.js?v=2026-08-19-wh-done-section"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-done-section"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-done-section"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-done-section"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -233,6 +234,7 @@ var WH_TECHNICIANS = [
 var _whOpenCombo = null;
 var _whSig = { auth:'', issued:'', received:'' };
 var _whEditingId = '';
+var _whFormLocked = false;
 var _whSavedCache = [];
 var WH_LOCAL_KEY = 'empire_wh_gins_v1';
 var WH_DRAFT_KEY = 'empire_wh_draft_v1';
@@ -675,12 +677,13 @@ function whFormHasContent_(){
   return (p.lines||[]).some(function(ln){ return ln.code||ln.desc||ln.qty||ln.project||ln.cc; });
 }
 function whStartNew(){
-  if(whFormHasContent_()){
+  if(whFormHasContent_() && !_whFormLocked){
     if(!confirm('Start a new Goods Issue Note?\n\nClick OK only after you have Saved the current one if you still need it under Saved Notes.')) return;
   }
   _whEditingId='';
   whClearForm(true);
   whDraftClear_();
+  whSetFormLocked(false);
   whUpdateFormTitle();
   whSwitchTab(null,'note');
 }
@@ -765,6 +768,10 @@ function whSetSaveBusy(busy){
   });
 }
 function whSave(){
+  if(_whFormLocked){
+    alert('This Goods Issue Note is Done and cannot be edited.');
+    return;
+  }
   if(!whValidateVoucher()){
     alert('Receipt Voucher No. must have at least 5 numbers.');
     document.getElementById('wh-voucher').focus();
@@ -841,6 +848,7 @@ function whSave(){
 function whNormalizeListItem(it){
   if(!it) return null;
   var p=it.payload || {};
+  var done = !!(it.done || p.done || p.status==='done');
   return {
     id:String(it.id||''),
     num:Number(it.num||0)||0,
@@ -853,6 +861,9 @@ function whNormalizeListItem(it){
     storeKeeper:String(it.storeKeeper||p.storeKeeper||''),
     createdBy:String(it.createdBy||''),
     updatedAt:String(it.updatedAt||it.createdAt||''),
+    done:done,
+    doneAt:String(it.doneAt||p.doneAt||''),
+    doneBy:String(it.doneBy||p.doneBy||''),
     payload:p,
     localOnly:!!it.localOnly
   };
@@ -901,29 +912,34 @@ function whRenderSavedList(){
       : '<p>No saved notes yet.</p>';
     return;
   }
-  var internal=[], external=[], other=[];
+  var internal=[], external=[], other=[], done=[];
   _whSavedCache.forEach(function(it){
+    if(it.done){ done.push(it); return; }
     var t=String(it.issueType||'').toLowerCase();
     if(t==='internal') internal.push(it);
     else if(t==='external') external.push(it);
     else other.push(it);
   });
   var h='';
-  h+=whSavedSectionHtml_('Internal', internal);
-  h+=whSavedSectionHtml_('External', external);
-  if(other.length) h+=whSavedSectionHtml_('No type selected', other);
+  h+=whSavedSectionHtml_('Internal', internal, false);
+  h+=whSavedSectionHtml_('External', external, false);
+  if(other.length) h+=whSavedSectionHtml_('No type selected', other, false);
+  h+=whSavedSectionHtml_('Done', done, true);
   box.innerHTML=h;
 }
-function whSavedSectionHtml_(title, items){
-  var h='<div class="wh-saved-section">'
+function whSavedSectionHtml_(title, items, isDoneSection){
+  var h='<div class="wh-saved-section'+(isDoneSection?' wh-saved-section-done':'')+'">'
     +'<h3 class="wh-saved-section-title">'+whEsc(title)
     +' <span class="wh-saved-section-count">('+items.length+')</span></h3>';
   if(!items.length){
-    h+='<p class="wh-saved-empty">No '+whEsc(title.toLowerCase())+' notes yet.</p></div>';
+    var emptyLabel = isDoneSection ? 'done' : title.toLowerCase();
+    h+='<p class="wh-saved-empty">No '+whEsc(emptyLabel)+' notes yet.</p></div>';
     return h;
   }
   h+='<div class="wh-saved-table-wrap"><table class="wh-saved-table"><thead><tr>'
-    +'<th>#</th><th>Date</th><th>Request No.</th><th>Requester</th><th>Property</th><th></th>'
+    +'<th>#</th><th>Date</th><th>Request No.</th><th>Requester</th><th>Property</th>'
+    +(isDoneSection?'<th>Type</th>':'')
+    +'<th></th>'
     +'</tr></thead><tbody>';
   items.forEach(function(it){
     var id=whEsc(String(it.id||''));
@@ -933,8 +949,12 @@ function whSavedSectionHtml_(title, items){
       +'<td>'+whEsc(it.requestNo||'—')+'</td>'
       +'<td>'+whEsc(it.requester||'—')+'</td>'
       +'<td>'+whEsc(it.propertyCode||'—')+'</td>'
+      +(isDoneSection?('<td>'+whEsc(it.issueType||'—')+'</td>'):'')
       +'<td class="wh-saved-actions">'
-      +'<button type="button" data-wh-act="open" data-wh-id="'+id+'">Open</button> '
+      +(isDoneSection
+        ? ('<button type="button" data-wh-act="view" data-wh-id="'+id+'">View</button> ')
+        : ('<button type="button" data-wh-act="open" data-wh-id="'+id+'">Open</button> '
+          +'<button type="button" data-wh-act="done" data-wh-id="'+id+'">Done</button> '))
       +'<button type="button" data-wh-act="print" data-wh-id="'+id+'">Print</button> '
       +'<button type="button" data-wh-act="delete" data-wh-id="'+id+'">Delete</button>'
       +(it.localOnly?' <span class="wh-local-tag">this device</span>':'')
@@ -954,7 +974,8 @@ function whBindSavedListClicks_(){
     var id=btn.getAttribute('data-wh-id')||'';
     if(!id) return;
     e.preventDefault();
-    if(act==='open') whOpenSaved(id);
+    if(act==='open' || act==='view') whOpenSaved(id);
+    else if(act==='done') whMarkDone(id);
     else if(act==='print') whPrintSaved(id);
     else if(act==='delete') whDeleteSaved(id);
   });
@@ -966,12 +987,43 @@ function whFindSaved(id){
   }
   return null;
 }
+function whSetFormLocked(locked){
+  _whFormLocked=!!locked;
+  var root=document.getElementById('whPrintRoot');
+  if(root) root.classList.toggle('wh-form-locked', _whFormLocked);
+  var banner=document.getElementById('whDoneBanner');
+  if(banner) banner.hidden=!_whFormLocked;
+  ['whSaveBtn','whSaveBtn2'].forEach(function(id){
+    var b=document.getElementById(id);
+    if(b) b.disabled=_whFormLocked;
+  });
+  if(root){
+    root.querySelectorAll('input,button.wh-type-btn,textarea,select').forEach(function(el){
+      if(el.closest('.wh-sig-actions')) return;
+      if(el.type==='hidden') return;
+      if(_whFormLocked){
+        el.setAttribute('disabled','disabled');
+        el.setAttribute('readonly','readonly');
+      } else {
+        el.removeAttribute('disabled');
+        el.removeAttribute('readonly');
+      }
+    });
+    root.querySelectorAll('.wh-sig-actions button').forEach(function(b){
+      b.disabled=_whFormLocked;
+    });
+  }
+}
+function whIsItemDone(it){
+  if(!it) return false;
+  var p=it.payload||{};
+  return !!(it.done || p.done || p.status==='done');
+}
 function whOpenSaved(id){
   var it=whFindSaved(id);
   if(!it){ alert('Note not found.'); return; }
   var payload=it.payload;
   if(!payload || typeof payload!=='object' || !Object.keys(payload).length){
-    // Server list rows may keep fields on the item itself.
     payload={
       requester:it.requester||'',
       company:it.company||'',
@@ -990,10 +1042,57 @@ function whOpenSaved(id){
   }
   _whEditingId=String(it.id);
   whApplyPayload(payload);
+  whSetFormLocked(whIsItemDone(it));
   whUpdateFormTitle();
+  if(_whFormLocked){
+    var t=document.getElementById('whFormTitle');
+    if(t) t.textContent='Goods Issue Note (Done — view only)';
+  }
   whDraftSave_();
   whSwitchTab(null,'note');
   try { window.scrollTo(0,0); } catch(e){}
+}
+function whMarkDone(id){
+  id=String(id||'');
+  var it=whFindSaved(id);
+  if(!it){ alert('Note not found.'); return; }
+  if(whIsItemDone(it)){
+    alert('This note is already Done.');
+    return;
+  }
+  if(!confirm('Mark this Goods Issue Note as Done?\n\nIt will move to the Done section and cannot be edited anymore.')) return;
+  var p=Object.assign({}, it.payload||{}, {
+    done:true,
+    status:'done',
+    doneAt:new Date().toISOString(),
+    doneBy: typeof empireGetUser==='function' ? empireGetUser() : ''
+  });
+  // Keep list fields on payload for local-only records.
+  if(!p.requester) p.requester=it.requester||'';
+  if(!p.requestNo) p.requestNo=it.requestNo||'';
+  if(!p.requestDate) p.requestDate=it.requestDate||'';
+  if(!p.issueType) p.issueType=it.issueType||'';
+  if(!p.property) p.property=it.propertyCode||'';
+  it.payload=p;
+  it.done=true;
+  it.doneAt=p.doneAt;
+  it.doneBy=p.doneBy;
+  whLocalUpsert(it);
+  if(_whEditingId===id){
+    whSetFormLocked(true);
+    var t=document.getElementById('whFormTitle');
+    if(t) t.textContent='Goods Issue Note (Done — view only)';
+  }
+  var token=typeof empireGetToken==='function' ? empireGetToken() : '';
+  fetchJSONRetry({ action:'markWarehouseGinDone', token:token, id:id }, 2, 30000).then(function(d){
+    if(!(d && (d.ok||d.success))) throw new Error((d && (d.message||d.error)) || 'Mark done failed');
+  }).catch(function(err){
+    // Local mark already applied; warn if server failed.
+    console.warn('markWarehouseGinDone', err);
+  }).finally(function(){
+    whLoadSavedList();
+    alert('Moved to Done. It can still be viewed or printed, but not edited.');
+  });
 }
 function whPrintSaved(id){
   whOpenSaved(id);
@@ -1318,6 +1417,7 @@ document.addEventListener('keydown', function(e){
 });
 function whClearForm(skipConfirm){
   if(!skipConfirm && !confirm('Clear the whole Goods Issue Note?')) return;
+  whSetFormLocked(false);
   ['wh-requester','wh-request-no','wh-property','wh-technician','wh-price','wh-voucher'].forEach(function(id){
     var el=document.getElementById(id); if(el) el.value='';
   });
