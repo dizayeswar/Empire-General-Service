@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-done-assign">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-save-blank">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-done-assign">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-save-blank">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -195,7 +195,7 @@
             <button type="button" onclick="whPrint()">Print / Save as PDF</button>
             <button type="button" onclick="whClearForm()">Clear form</button>
           </div>
-          <p class="no-print" style="color:var(--text-soft);font-size:12px;margin-top:10px;">Use <strong>Save</strong> for each note, then <strong>New</strong> to start the next one (you can keep 6–7 under Saved Notes). Prefer <strong>Portrait A4</strong> at 100% scale.</p>
+          <p class="no-print" style="color:var(--text-soft);font-size:12px;margin-top:10px;">Use <strong>Save</strong> — the note goes to Saved Notes and this sheet clears for the next one. Prefer <strong>Portrait A4</strong> at 100% scale.</p>
         </div>
       </div>
 
@@ -283,7 +283,7 @@
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-19-wh-assign"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-done-assign"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-save-blank"></script>
 <script src="assets/empire-sw-update.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-assign"></script>
 <script>
@@ -431,6 +431,7 @@ function whDraftSave_(){
   } catch(e){}
 }
 function whDraftClear_(){
+  if(_whDraftTimer){ clearTimeout(_whDraftTimer); _whDraftTimer=null; }
   try { localStorage.removeItem(WH_DRAFT_KEY); } catch(e){}
 }
 function whDraftRestore_(){
@@ -439,6 +440,12 @@ function whDraftRestore_(){
     if(!raw) return;
     var d=JSON.parse(raw);
     if(!d || !d.payload) return;
+    // Ignore empty drafts so Save→blank never gets an old payload back.
+    var p=d.payload||{};
+    var has=!!(p.requester||p.requestNo||p.company||p.property||p.technician||p.voucher||p.issueType
+      || (p.sigs && (p.sigs.auth||p.sigs.issued||p.sigs.received))
+      || ((p.lines||[]).some(function(ln){ return ln && (ln.code||ln.desc||ln.qty||ln.project||ln.cc); })));
+    if(!has && !d.editingId){ whDraftClear_(); return; }
     _whEditingId=String(d.editingId||'');
     whApplyPayload(d.payload);
     whUpdateFormTitle();
@@ -819,6 +826,8 @@ function whFormHasContent_(){
   return (p.lines||[]).some(function(ln){ return ln.code||ln.desc||ln.qty||ln.project||ln.cc; });
 }
 function whOpenBlankNote_(){
+  if(_whDraftTimer){ clearTimeout(_whDraftTimer); _whDraftTimer=null; }
+  whDraftClear_();
   _whEditingId='';
   whClearForm(true);
   whDraftClear_();
@@ -964,8 +973,7 @@ function whSave(){
       });
       whLoadSavedList();
       whOpenBlankNote_();
-      whSwitchTab(null,'saved');
-      alert('Saved. It is in Saved Notes — click Done when finished, then Assign in Done Notes.');
+      alert('Saved to Saved Notes. This sheet is ready for a new Goods Issue Note.');
       return;
     }
     throw new Error((d && (d.message||d.error)) || 'Save failed');
@@ -995,8 +1003,7 @@ function whSave(){
     });
     whLoadSavedList();
     whOpenBlankNote_();
-    whSwitchTab(null,'saved');
-    alert('Saved on this device to Saved Notes. Click Done when finished, then Assign in Done Notes.\n\n('+msg+')');
+    alert('Saved on this device to Saved Notes. This sheet is ready for a new Goods Issue Note.\n\n('+msg+')');
   }).finally(function(){ whSetSaveBusy(false); });
 }
 function whNormalizeListItem(it){
@@ -2255,7 +2262,7 @@ function whClearForm(skipConfirm){
     whBuildLines();
     whClearSig('auth'); whClearSig('issued'); whClearSig('received');
     whValidateVoucher();
-    if(!skipConfirm) whDraftClear_();
+    whDraftClear_();
   };
   if(skipConfirm){ run(); return; }
   whUiConfirm_('Clear the whole Goods Issue Note?').then(function(ok){ if(ok) run(); });
