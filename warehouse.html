@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-ui-dlg">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-save-new">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-ui-dlg">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-save-new">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -283,7 +283,7 @@
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-19-wh-assign"></script>
-<script src="assets/empire-core.js?v=2026-08-19-ui-dlg"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-save-new"></script>
 <script src="assets/empire-sw-update.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-assign"></script>
 <script>
@@ -818,23 +818,23 @@ function whFormHasContent_(){
   if(p.sigs && (p.sigs.auth || p.sigs.issued || p.sigs.received)) return true;
   return (p.lines||[]).some(function(ln){ return ln.code||ln.desc||ln.qty||ln.project||ln.cc; });
 }
+function whOpenBlankNote_(){
+  _whEditingId='';
+  whClearForm(true);
+  whDraftClear_();
+  whSetFormLocked(false);
+  whUpdateFormTitle();
+  whSwitchTab(null,'note');
+}
 function whStartNew(){
   if(_whReceiverMode){ alert('Receiver accounts cannot create new notes.'); return; }
-  var go=function(){
-    _whEditingId='';
-    whClearForm(true);
-    whDraftClear_();
-    whSetFormLocked(false);
-    whUpdateFormTitle();
-    whSwitchTab(null,'note');
-  };
   if(whFormHasContent_() && !_whFormLocked){
     whUiConfirm_('Start a new Goods Issue Note?\n\nClick OK only after you have Saved the current one if you still need it under Saved Notes.').then(function(ok){
-      if(ok) go();
+      if(ok) whOpenBlankNote_();
     });
     return;
   }
-  go();
+  whOpenBlankNote_();
 }
 function whCollectPayload(){
   var lines=[];
@@ -948,7 +948,6 @@ function whSave(){
   };
   fetchJSONRetry(body, 2, 90000).then(function(d){
     if(d && (d.ok||d.success) && d.id){
-      _whEditingId=String(d.id);
       whLocalUpsert({
         id:d.id,
         num:d.num||0,
@@ -963,17 +962,21 @@ function whSave(){
         updatedAt: new Date().toISOString(),
         payload:payload
       });
-      whUpdateFormTitle();
       whLoadSavedList();
-      whDraftSave_();
-      alert('Saved. Open Saved Notes anytime to reopen or print.');
+      whOpenBlankNote_();
+      alert('Saved to Saved Notes. A new empty Goods Issue Note is ready.');
       return;
     }
     throw new Error((d && (d.message||d.error)) || 'Save failed');
   }).catch(function(err){
+    var msg=String(err && err.message || err || 'Save failed');
+    // Real API rejection (e.g. Done note) — do not pretend it saved.
+    if(/cannot be edited|marked Done|empty|not_allowed|forbidden|unauthorized/i.test(msg)){
+      alert(msg);
+      return;
+    }
     // Fallback: keep a full copy on this browser if API/table is not ready yet.
     var id=_whEditingId || ('local-whgin-'+Date.now());
-    _whEditingId=id;
     whLocalUpsert({
       id:id,
       num:0,
@@ -989,9 +992,9 @@ function whSave(){
       payload:payload,
       localOnly:true
     });
-    whUpdateFormTitle();
     whLoadSavedList();
-    alert('Saved on this device. (Server save not available yet — run the Warehouse SQL + redeploy API for shared saves.)\n\n'+String(err && err.message || err || ''));
+    whOpenBlankNote_();
+    alert('Saved on this device to Saved Notes. A new empty Goods Issue Note is ready.\n\n('+msg+')');
   }).finally(function(){ whSetSaveBusy(false); });
 }
 function whNormalizeListItem(it){
