@@ -304,6 +304,7 @@
 .wh-maint-table td.lab {
   width: 32%;
   white-space: nowrap;
+  font-weight: 400;
 }
 .wh-maint.wh-maint-disabled { opacity: .65; }
 .wh-maint-table .wh-cell-input {
