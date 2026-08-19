@@ -151,6 +151,7 @@ export async function handleMarkWarehouseGinDone(body: Record<string, unknown>, 
 }
 
 const LAYOUT_KEY = "warehouse_gin_layout";
+const SIGS_KEY = "warehouse_signatures";
 
 export async function handleGetWarehouseLayout(_body: Record<string, unknown>) {
   const { data } = await sb().from("ui_settings").select("settings,updated_at").eq("key", LAYOUT_KEY).maybeSingle();
@@ -182,4 +183,67 @@ export async function handleSaveWarehouseLayout(body: Record<string, unknown>, a
     updatedAt: now,
     savedBy: String(auth.username || ""),
   };
+}
+
+type WhSig = {
+  id: string;
+  name: string;
+  image: string;
+  createdBy: string;
+  createdAt: string;
+};
+
+function normalizeSigList(raw: unknown): WhSig[] {
+  const settings = (raw && typeof raw === "object") ? raw as Record<string, unknown> : {};
+  const items = Array.isArray(settings.items) ? settings.items : (Array.isArray(raw) ? raw : []);
+  return items.map((it, i) => {
+    const row = (it && typeof it === "object") ? it as Record<string, unknown> : {};
+    return {
+      id: String(row.id || `whsig-${i}`),
+      name: String(row.name || "Signature"),
+      image: String(row.image || ""),
+      createdBy: String(row.createdBy || ""),
+      createdAt: String(row.createdAt || ""),
+    };
+  }).filter((s) => !!s.image);
+}
+
+export async function handleGetWarehouseSignatures(_body: Record<string, unknown>) {
+  const { data } = await sb().from("ui_settings").select("settings,updated_at").eq("key", SIGS_KEY).maybeSingle();
+  const items = normalizeSigList(data?.settings);
+  return {
+    ok: true,
+    success: true,
+    items,
+    updatedAt: String(data?.updated_at || ""),
+  };
+}
+
+export async function handleSaveWarehouseSignatures(body: Record<string, unknown>, auth: AuthOk) {
+  const items = normalizeSigList({ items: body.items });
+  // Cap size / count to protect ui_settings row
+  if (items.length > 40) {
+    return { ok: false, success: false, error: "too_many", message: "Maximum 40 saved signatures." };
+  }
+  for (const it of items) {
+    if (it.image.length > 900000) {
+      return {
+        ok: false,
+        success: false,
+        error: "too_large",
+        message: "One signature image is too large. Use a smaller PNG/JPG.",
+      };
+    }
+  }
+  const now = isoNow();
+  const { error } = await sb().from("ui_settings").upsert({
+    key: SIGS_KEY,
+    settings: {
+      items,
+      updatedBy: String(auth.username || ""),
+    },
+    updated_at: now,
+  });
+  if (error) throw error;
+  return { ok: true, success: true, items, updatedAt: now };
 }

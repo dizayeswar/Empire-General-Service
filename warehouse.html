@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-sp-click">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-esig">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-sp-click">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-sp-click">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-sp-click">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-esig">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-esig">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-esig">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -60,6 +60,10 @@
           <span class="lbl">Done Notes</span>
           <span class="side-nav-badge" id="whDoneBadge" style="display:none;"></span>
         </button>
+        <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-sigs" onclick="whSwitchTab(event,'sigs')">
+          <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></span>
+          <span class="lbl">Create Signature</span>
+        </button>
       </nav>
       <div class="side-actions">
         <button type="button" class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span> <span class="lbl">Theme</span></button>
@@ -96,7 +100,7 @@
               </div>
               <div class="wh-top-right">
                 <div class="wh-logo-wrap" data-wh-layout="logo">
-                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-sp-click" alt="Empire">
+                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-08-19-wh-esig" alt="Empire">
                 </div>
                 <div class="wh-req-block" data-wh-layout="reqBlock">
                   <div class="wh-line"><strong>Request No.:</strong><input id="wh-request-no" class="wh-cell-input" type="text" autocomplete="off"></div>
@@ -165,6 +169,7 @@
                 <div class="wh-sig-actions no-print">
                   <input type="file" id="wh-sig-auth-file" accept="image/*" hidden onchange="whSigFile(event,'auth')">
                   <button type="button" onclick="document.getElementById('wh-sig-auth-file').click()">Upload</button>
+                  <button type="button" onclick="whUseSavedSig('auth')">Use saved</button>
                   <button type="button" onclick="whClearSig('auth')">Clear</button>
                 </div>
               </div>
@@ -176,6 +181,7 @@
                 <div class="wh-sig-actions no-print">
                   <input type="file" id="wh-sig-issued-file" accept="image/*" hidden onchange="whSigFile(event,'issued')">
                   <button type="button" onclick="document.getElementById('wh-sig-issued-file').click()">Upload</button>
+                  <button type="button" onclick="whUseSavedSig('issued')">Use saved</button>
                   <button type="button" onclick="whClearSig('issued')">Clear</button>
                 </div>
               </div>
@@ -187,6 +193,7 @@
                 <div class="wh-sig-actions no-print">
                   <input type="file" id="wh-sig-received-file" accept="image/*" hidden onchange="whSigFile(event,'received')">
                   <button type="button" onclick="document.getElementById('wh-sig-received-file').click()">Upload</button>
+                  <button type="button" onclick="whUseSavedSig('received')">Use saved</button>
                   <button type="button" onclick="whClearSig('received')">Clear</button>
                 </div>
               </div>
@@ -229,17 +236,44 @@
           </div>
         </div>
       </div>
+
+      <div id="wh-tab-sigs" class="tab-content dept-tab-content">
+        <div class="wh-app wh-saved-app">
+          <div class="form-section">
+            <h2>Create Signature</h2>
+            <p class="wh-tab-help">Upload or paste a signature photo. It becomes an electronic signature you can reuse on Goods Issue Notes.</p>
+
+            <div class="wh-esig-create">
+              <label class="wh-esig-label" for="whEsigName">Signature name</label>
+              <input id="whEsigName" type="text" class="wh-esig-input" placeholder="e.g. Ahmed — Authorized" autocomplete="off">
+
+              <div id="whEsigPad" class="wh-esig-pad" tabindex="0" onclick="this.focus()" onpaste="whEsigPaste(event)">
+                <span class="hint" id="whEsigHint">Paste image here (Ctrl+V) or upload below</span>
+              </div>
+              <div class="wh-toolbar" style="margin-top:10px;">
+                <input type="file" id="whEsigFile" accept="image/*" hidden onchange="whEsigFile(event)">
+                <button type="button" onclick="document.getElementById('whEsigFile').click()">Upload picture</button>
+                <button type="button" onclick="whEsigClearPreview()">Clear preview</button>
+                <button type="button" id="whEsigSaveBtn" onclick="whEsigSave()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Save electronic signature</button>
+              </div>
+            </div>
+
+            <h3 class="wh-esig-list-title">Saved electronic signatures</h3>
+            <div id="whEsigList">Loading…</div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-sp-click"></script>
-<script src="assets/empire-storage.js?v=2026-08-19-wh-sp-click"></script>
-<script src="assets/empire-api.js?v=2026-08-19-wh-sp-click"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-sp-click"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-sp-click"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-sp-click"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-sp-click"></script>
+<script src="config.js?v=2026-08-19-wh-esig"></script>
+<script src="assets/empire-storage.js?v=2026-08-19-wh-esig"></script>
+<script src="assets/empire-api.js?v=2026-08-19-wh-esig"></script>
+<script src="assets/empire-auth.js?v=2026-08-19-wh-esig"></script>
+<script src="assets/empire-core.js?v=2026-08-19-wh-esig"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-19-wh-esig"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-esig"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_TECHNICIANS = [
@@ -257,12 +291,15 @@ var _whFormLocked = false;
 var _whSavedCache = [];
 var WH_LOCAL_KEY = 'empire_wh_gins_v1';
 var WH_DRAFT_KEY = 'empire_wh_draft_v1';
+var WH_SIGS_KEY = 'empire_wh_esigs_v1';
 var WH_LAYOUT_KEY = 'empire_wh_layout_v4';
 var _whLayoutEdit = false;
 var _whLayoutSel = null;
 var _whLayout = {};
 var _whDrag = null;
 var _whDraftTimer = null;
+var _whEsigPreview = '';
+var _whEsigs = [];
 
 function handleLogin(e){ empireAuthLogin(e, 'warehouse', { onSuccess: function(){ enterApp(); } }); }
 function logout(){ empireAuthLogout({ redirect: 'index.html', reload: false }); }
@@ -291,6 +328,7 @@ function whSwitchTab(e, tab){
   if(btn) btn.classList.add('active');
   if(e && e.currentTarget) e.currentTarget.classList.add('active');
   if(tab==='saved' || tab==='done') whLoadSavedList();
+  if(tab==='sigs') whEsigLoad();
 }
 
 function whEsc(s){
@@ -307,6 +345,7 @@ function whInit(){
   // Restore unfinished draft so Request Date (and the rest) stay as you left them.
   if(!_whEditingId) whDraftRestore_();
   whDraftBind_();
+  whEsigLoad();
   document.addEventListener('click', function(e){
     if(_whOpenCombo && !_whOpenCombo.contains(e.target)) whCloseCombos();
   });
@@ -1329,6 +1368,219 @@ function whSigFile(e, which){
   reader.onload=function(){ whSetSig(which, reader.result); };
   reader.readAsDataURL(f);
   e.target.value='';
+}
+function whEsigLocalRead_(){
+  try {
+    var raw=localStorage.getItem(WH_SIGS_KEY);
+    var arr=raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch(e){ return []; }
+}
+function whEsigLocalWrite_(arr){
+  try { localStorage.setItem(WH_SIGS_KEY, JSON.stringify(arr||[])); } catch(e){}
+}
+function whEsigShowPreview_(dataUrl){
+  _whEsigPreview=dataUrl||'';
+  var pad=document.getElementById('whEsigPad');
+  var hint=document.getElementById('whEsigHint');
+  if(!pad) return;
+  if(_whEsigPreview){
+    pad.innerHTML='<img src="'+_whEsigPreview+'" alt="Signature preview">';
+  } else {
+    pad.innerHTML='<span class="hint" id="whEsigHint">Paste image here (Ctrl+V) or upload below</span>';
+  }
+}
+function whEsigClearPreview(){
+  whEsigShowPreview_('');
+}
+function whEsigProcessImage_(dataUrl, cb){
+  var img=new Image();
+  img.onload=function(){
+    try {
+      var maxW=700, maxH=280;
+      var w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+      var scale=Math.min(1, maxW/w, maxH/h);
+      var cw=Math.max(1, Math.round(w*scale));
+      var ch=Math.max(1, Math.round(h*scale));
+      var canvas=document.createElement('canvas');
+      canvas.width=cw; canvas.height=ch;
+      var ctx=canvas.getContext('2d');
+      ctx.clearRect(0,0,cw,ch);
+      ctx.drawImage(img,0,0,cw,ch);
+      // Make near-white background transparent for an electronic stamp look.
+      var imageData=ctx.getImageData(0,0,cw,ch);
+      var d=imageData.data;
+      for(var i=0;i<d.length;i+=4){
+        var r=d[i], g=d[i+1], b=d[i+2];
+        if(r>235 && g>235 && b>235) d[i+3]=0;
+      }
+      ctx.putImageData(imageData,0,0);
+      cb(canvas.toDataURL('image/png'));
+    } catch(err){
+      cb(dataUrl);
+    }
+  };
+  img.onerror=function(){ cb(dataUrl); };
+  img.src=dataUrl;
+}
+function whEsigPaste(e){
+  var items=e.clipboardData && e.clipboardData.items;
+  if(!items) return;
+  for(var i=0;i<items.length;i++){
+    if(items[i].type.indexOf('image')!==-1){
+      e.preventDefault();
+      var file=items[i].getAsFile();
+      if(!file) return;
+      var reader=new FileReader();
+      reader.onload=function(){
+        whEsigProcessImage_(String(reader.result||''), function(out){ whEsigShowPreview_(out); });
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+  }
+}
+function whEsigFile(e){
+  var f=e.target.files && e.target.files[0];
+  if(!f) return;
+  var reader=new FileReader();
+  reader.onload=function(){
+    whEsigProcessImage_(String(reader.result||''), function(out){ whEsigShowPreview_(out); });
+  };
+  reader.readAsDataURL(f);
+  e.target.value='';
+}
+function whEsigPublish_(quiet){
+  var token=typeof empireGetToken==='function' ? empireGetToken() : '';
+  if(!token || typeof fetchJSONRetry!=='function'){
+    if(!quiet) alert('Login required to share signatures across PCs.');
+    return Promise.resolve(false);
+  }
+  return fetchJSONRetry({
+    action:'saveWarehouseSignatures',
+    token:token,
+    items:_whEsigs||[]
+  }, 2, 60000).then(function(d){
+    if(d && (d.ok||d.success)){
+      if(Array.isArray(d.items)) _whEsigs=d.items;
+      whEsigLocalWrite_(_whEsigs);
+      return true;
+    }
+    throw new Error((d && (d.message||d.error)) || 'Save failed');
+  }).catch(function(err){
+    if(!quiet) alert('Could not sync signatures: '+(err && err.message ? err.message : err));
+    return false;
+  });
+}
+function whEsigLoad(){
+  var box=document.getElementById('whEsigList');
+  if(box) box.innerHTML = typeof empireLoadingHtml==='function' ? empireLoadingHtml('Loading signatures…') : 'Loading…';
+  _whEsigs=whEsigLocalRead_();
+  whEsigRenderList_();
+  var token=typeof empireGetToken==='function' ? empireGetToken() : '';
+  if(!token || typeof fetchJSONRetry!=='function') return;
+  fetchJSONRetry({ action:'getWarehouseSignatures', token:token }, 2, 30000).then(function(d){
+    if(!(d && (d.ok||d.success))) return;
+    var items=Array.isArray(d.items) ? d.items : [];
+    if(items.length){
+      _whEsigs=items;
+      whEsigLocalWrite_(_whEsigs);
+      whEsigRenderList_();
+      return;
+    }
+    // Server empty: push local library so other PCs can use it.
+    if(_whEsigs.length) whEsigPublish_(true);
+  }).catch(function(){});
+}
+function whEsigRenderList_(){
+  var box=document.getElementById('whEsigList');
+  if(!box) return;
+  if(!_whEsigs.length){
+    box.innerHTML='<p class="wh-saved-empty">No electronic signatures yet. Upload or paste one above, then Save.</p>';
+    return;
+  }
+  var h='<div class="wh-esig-grid">';
+  _whEsigs.forEach(function(it){
+    h+='<div class="wh-esig-card" data-wh-esig="'+whEsc(it.id)+'">'
+      +'<div class="wh-esig-card-preview"><img src="'+it.image+'" alt=""></div>'
+      +'<div class="wh-esig-card-name">'+whEsc(it.name||'Signature')+'</div>'
+      +'<div class="wh-esig-card-actions">'
+      +'<button type="button" data-wh-esig-act="auth" data-wh-esig-id="'+whEsc(it.id)+'">Use Authorized</button>'
+      +'<button type="button" data-wh-esig-act="issued" data-wh-esig-id="'+whEsc(it.id)+'">Use Issued</button>'
+      +'<button type="button" data-wh-esig-act="received" data-wh-esig-id="'+whEsc(it.id)+'">Use Received</button>'
+      +'<button type="button" data-wh-esig-act="delete" data-wh-esig-id="'+whEsc(it.id)+'">Delete</button>'
+      +'</div></div>';
+  });
+  h+='</div>';
+  box.innerHTML=h;
+  whEsigBindList_();
+}
+function whEsigBindList_(){
+  var box=document.getElementById('whEsigList');
+  if(!box || box._whEsigBound) return;
+  box._whEsigBound=true;
+  box.addEventListener('click', function(e){
+    var btn=e.target && e.target.closest ? e.target.closest('[data-wh-esig-act]') : null;
+    if(!btn || !box.contains(btn)) return;
+    var act=btn.getAttribute('data-wh-esig-act');
+    var id=btn.getAttribute('data-wh-esig-id')||'';
+    var it=null;
+    for(var i=0;i<_whEsigs.length;i++){ if(String(_whEsigs[i].id)===id){ it=_whEsigs[i]; break; } }
+    if(!it) return;
+    if(act==='delete'){
+      if(!confirm('Delete electronic signature "'+(it.name||'')+'"?')) return;
+      _whEsigs=_whEsigs.filter(function(x){ return String(x.id)!==id; });
+      whEsigLocalWrite_(_whEsigs);
+      whEsigRenderList_();
+      whEsigPublish_(true);
+      return;
+    }
+    if(act==='auth' || act==='issued' || act==='received'){
+      whSetSig(act, it.image);
+      whSwitchTab(null,'note');
+      alert('Applied to '+(act==='auth'?'Authorized by':act==='issued'?'Issued by':'Received by')+'.');
+    }
+  });
+}
+function whEsigSave(){
+  var nameEl=document.getElementById('whEsigName');
+  var name=nameEl ? String(nameEl.value||'').trim() : '';
+  if(!name){ alert('Enter a signature name.'); if(nameEl) nameEl.focus(); return; }
+  if(!_whEsigPreview){ alert('Upload or paste a signature picture first.'); return; }
+  if(_whEsigs.length>=40){ alert('Maximum 40 saved signatures.'); return; }
+  var item={
+    id:'whsig-'+Date.now(),
+    name:name,
+    image:_whEsigPreview,
+    createdBy: typeof empireGetUser==='function' ? empireGetUser() : '',
+    createdAt: new Date().toISOString()
+  };
+  _whEsigs.unshift(item);
+  whEsigLocalWrite_(_whEsigs);
+  whEsigRenderList_();
+  whEsigShowPreview_('');
+  if(nameEl) nameEl.value='';
+  var btn=document.getElementById('whEsigSaveBtn');
+  if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
+  whEsigPublish_(false).finally(function(){
+    if(btn){ btn.disabled=false; btn.textContent='Save electronic signature'; }
+    alert('Electronic signature saved. Use it from here or via Use saved on the note.');
+  });
+}
+function whUseSavedSig(which){
+  if(_whFormLocked){ alert('This note is Done and cannot be edited.'); return; }
+  if(!_whEsigs.length){
+    if(!confirm('No saved signatures yet. Open Create Signature now?')) return;
+    whSwitchTab(null,'sigs');
+    return;
+  }
+  var names=_whEsigs.map(function(it,i){ return (i+1)+'. '+(it.name||'Signature'); }).join('\n');
+  var pick=prompt('Choose signature number to use:\n\n'+names, '1');
+  if(pick==null) return;
+  var n=parseInt(pick,10);
+  if(!n || n<1 || n>_whEsigs.length){ alert('Invalid number.'); return; }
+  whSetSig(which, _whEsigs[n-1].image);
+  whDraftSchedule_();
 }
 function whVal(id){
   var el=document.getElementById(id);

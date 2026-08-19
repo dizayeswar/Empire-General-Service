@@ -200,6 +200,100 @@ html[data-theme="dark"] .form-section {
   background: rgba(13, 50, 100, 0.75);
   color: #fff;
 }
+
+.wh-esig-create { margin: 0 0 22px; }
+.wh-esig-label {
+  display: block;
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+.wh-esig-input {
+  width: 100%;
+  max-width: 420px;
+  padding: 8px 10px;
+  border: 1px solid var(--input-border, #ccc);
+  border-radius: 10px;
+  background: var(--input-bg, #fff);
+  color: var(--text, #111);
+  font: inherit;
+  margin-bottom: 12px;
+}
+.wh-esig-pad {
+  min-height: 140px;
+  border: 1px dashed var(--card-border, #bbb);
+  border-radius: 12px;
+  background: var(--panel, #fff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  outline: none;
+}
+.wh-esig-pad img {
+  max-height: 120px;
+  max-width: 100%;
+  object-fit: contain;
+}
+.wh-esig-pad .hint {
+  color: var(--text-soft, #888);
+  font-size: 13px;
+}
+.wh-esig-list-title {
+  margin: 18px 0 10px;
+  font-size: 16px;
+}
+.wh-esig-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+.wh-esig-card {
+  border: 1px solid var(--card-border, #ddd);
+  border-radius: 12px;
+  background: var(--panel, #fff);
+  padding: 10px;
+}
+.wh-esig-card-preview {
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fafafa;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+.wh-esig-card-preview img {
+  max-height: 64px;
+  max-width: 100%;
+  object-fit: contain;
+}
+.wh-esig-card-name {
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.wh-esig-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.wh-esig-card-actions button {
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+html[data-theme="dark"] .wh-esig-pad,
+html[data-theme="dark"] .wh-esig-card {
+  background: rgba(13,50,100,.85);
+  border-color: #a0327d;
+}
+html[data-theme="dark"] .wh-esig-card-preview {
+  background: rgba(0,0,0,.2);
+}
+html[data-theme="dark"] .wh-esig-input {
+  background: rgba(13,50,100,.8);
+  color: #fff;
+  border-color: #a0327d;
+}
 .wh-local-tag {
   display: inline-block;
   margin-left: 4px;
