@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-20-wh-signer">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-20-wh-combo-float">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-20-wh-combo-float2">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -445,7 +445,11 @@ function whInit(){
   whDraftBind_();
   whEsigLoad();
   document.addEventListener('click', function(e){
-    if(_whOpenCombo && !_whOpenCombo.contains(e.target)) whCloseCombos();
+    if(!_whOpenCombo) return;
+    var t=e.target;
+    if(_whOpenCombo.contains(t)) return;
+    if(t && t.closest && t.closest('#whComboFloatLayer')) return;
+    whCloseCombos();
   });
   window.addEventListener('pagehide', function(){
     try { whAutoSaveLocal_(true); } catch(e){}
@@ -2035,7 +2039,12 @@ function whBindComboClicks_(){
       whPickCompany(btn.getAttribute('data-wh-name')||'');
     }
   }, true);
-  window.addEventListener('scroll', function(){ if(_whOpenCombo) whCloseCombos(); }, true);
+  window.addEventListener('scroll', function(e){
+    if(!_whOpenCombo) return;
+    var t=e && e.target;
+    if(t && t.closest && t.closest('#whComboFloatLayer')) return;
+    whCloseCombos();
+  }, true);
   window.addEventListener('resize', function(){ if(_whOpenCombo) whCloseCombos(); });
 }
 function whFilterSp(row){

@@ -486,10 +486,22 @@ html[data-theme="dark"] .wh-esig-input {
 }
 .wh-combo-float-layer .wh-combo-list,
 .wh-combo-list.wh-combo-list-float {
-  pointer-events: auto;
+  pointer-events: auto !important;
   position: fixed !important;
   background: #fff !important;
   opacity: 1 !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  mix-blend-mode: normal !important;
+  isolation: isolate;
+}
+.wh-combo-float-layer .wh-combo-list button,
+.wh-combo-list.wh-combo-list-float button {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  position: relative;
+  z-index: 1;
+  background-clip: padding-box;
 }
 .wh-combo-list {
   position: absolute;
