@@ -57,7 +57,7 @@
         </button>
         <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-done" onclick="whSwitchTab(event,'done')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg></span>
-          <span class="lbl">Done Notes</span>
+          <span class="lbl">Assignment</span>
           <span class="side-nav-badge" id="whDoneBadge" style="display:none;"></span>
         </button>
         <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-spusage" onclick="whSwitchTab(event,'spusage')">
@@ -217,7 +217,7 @@
         <div class="wh-app wh-saved-app">
           <div class="form-section">
             <h2>Saved Goods Issue Notes</h2>
-            <p class="wh-tab-help">Notes still in progress. Click <strong>Done</strong> when finished — they move to <strong>Done Notes</strong>, then you can <strong>Assign</strong>.</p>
+            <p class="wh-tab-help">Notes still in progress. Click <strong>Done</strong> when finished — they move to <strong>Assignment</strong>, then you can <strong>Assign</strong>.</p>
             <div class="wh-toolbar no-print" style="margin-bottom:12px;">
               <button type="button" onclick="whLoadSavedList()">Refresh</button>
               <button type="button" onclick="whStartNew()">New</button>
@@ -230,8 +230,8 @@
       <div id="wh-tab-done" class="tab-content dept-tab-content">
         <div class="wh-app wh-saved-app">
           <div class="form-section">
-            <h2>Done Notes</h2>
-            <p class="wh-tab-help" id="whDoneHelp">Finished Goods Issue Notes. Click <strong>Assign</strong> to choose who uploads <strong>Received by</strong>.</p>
+            <h2>Assignment</h2>
+            <p class="wh-tab-help" id="whDoneHelp">Finished Goods Issue Notes. Click <strong>Assign</strong> to choose who uploads <strong>Received by</strong>. Badge shows notes still waiting for assignment.</p>
             <div class="wh-toolbar no-print" style="margin-bottom:12px;">
               <button type="button" onclick="whLoadSavedList()">Refresh</button>
             </div>
@@ -407,7 +407,7 @@ function whApplyReceiverShell_(){
   var doneBtn=document.getElementById('tab-wh-done');
   if(doneBtn){
     var lbl=doneBtn.querySelector('.lbl');
-    if(lbl) lbl.textContent = _whReceiverMode ? 'Assigned to me' : 'Done Notes';
+    if(lbl) lbl.textContent = _whReceiverMode ? 'Assigned to me' : 'Assignment';
   }
   var trashBtn=document.getElementById('btnWhTrash');
   var resetBtn=document.getElementById('btnWhReset');
@@ -1310,7 +1310,7 @@ function whSyncLocalDone_(id, extra){
 }
 function whSave(){
   if(_whFormLocked){
-    alert('This Goods Issue Note is Done and cannot be edited.\n\nOpen Done Notes to Assign who signs Received by.');
+    alert('This Goods Issue Note is Done and cannot be edited.\n\nOpen Assignment to Assign who signs Received by.');
     whSwitchTab(null,'done');
     return;
   }
@@ -1328,7 +1328,7 @@ function whSave(){
   if(_whEditingId){
     var existing=whFindSaved(_whEditingId);
     if(existing && whIsItemDone(existing)){
-      alert('This note is already Done. Use Done Notes → Assign.');
+      alert('This note is already Done. Use Assignment → Assign.');
       whOpenBlankNote_();
       whSwitchTab(null,'done');
       return;
@@ -1368,7 +1368,7 @@ function whSave(){
         localOnly:false
       });
       whAfterSaveToSavedNotes_();
-      alert('Saved to Saved Notes.\n\nNext: click Done on that note, then Assign in Done Notes.');
+      alert('Saved to Saved Notes.\n\nNext: click Done on that note, then Assign in Assignment.');
       return;
     }
     throw new Error((d && (d.message||d.error)) || 'Save failed');
@@ -1516,7 +1516,10 @@ function whPartitionSaved_(){
     openInternal:openInternal, openExternal:openExternal, openOther:openOther,
     doneInternal:doneInternal, doneExternal:doneExternal, doneOther:doneOther,
     openCount: openInternal.length+openExternal.length+openOther.length,
-    doneCount: doneInternal.length+doneExternal.length+doneOther.length
+    doneCount: doneInternal.length+doneExternal.length+doneOther.length,
+    unassignedCount: doneInternal.concat(doneExternal, doneOther).filter(function(it){
+      return !String(it.assignedTo||'').trim();
+    }).length
   };
 }
 function whLoadSavedList(){
@@ -1579,7 +1582,7 @@ function whDropDuplicateNoType_(items){
 function whRenderSavedList(){
   var parts=whPartitionSaved_();
   whSetBadge('whSavedBadge', _whReceiverMode ? 0 : parts.openCount);
-  whSetBadge('whDoneBadge', parts.doneCount);
+  whSetBadge('whDoneBadge', _whReceiverMode ? parts.doneCount : parts.unassignedCount);
 
   var savedBox=document.getElementById('whSavedList');
   if(savedBox && !_whReceiverMode){
