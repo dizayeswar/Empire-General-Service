@@ -286,10 +286,10 @@
       <div id="wh-tab-sigs" class="tab-content dept-tab-content">
         <div class="wh-app wh-saved-app">
           <div class="form-section">
-            <h2>Create Signature</h2>
+            <h2 id="whEsigTitle">Create Signature</h2>
             <p class="wh-tab-help" id="whEsigHelp">Upload or paste a signature photo, set a password, then save. Anyone using that signature must enter its password.</p>
 
-            <div class="wh-esig-create">
+            <div class="wh-esig-create" id="whEsigCreateBox">
               <label class="wh-esig-label" for="whEsigName">Signature name</label>
               <input id="whEsigName" type="text" class="wh-esig-input" placeholder="e.g. Ahmed — Authorized" autocomplete="off">
 
@@ -350,7 +350,7 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-20-wh-signer-esig"></script>
+<script src="config.js?v=2026-08-20-wh-signer-sigs-only"></script>
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-20-wh-reset"></script>
@@ -462,7 +462,15 @@ function whApplyReceiverShell_(){
     if(b) b.style.display = _whReceiverMode ? 'none' : '';
   });
   var sigsBtn=document.getElementById('tab-wh-sigs');
-  if(sigsBtn) sigsBtn.style.display = '';
+  if(sigsBtn){
+    sigsBtn.style.display = '';
+    var sigLbl=sigsBtn.querySelector('.lbl');
+    if(sigLbl) sigLbl.textContent = _whReceiverMode ? 'Signatures' : 'Create Signature';
+  }
+  var esigCreate=document.getElementById('whEsigCreateBox');
+  if(esigCreate) esigCreate.style.display = _whReceiverMode ? 'none' : '';
+  var esigTitle=document.getElementById('whEsigTitle');
+  if(esigTitle) esigTitle.textContent = _whReceiverMode ? 'Signatures' : 'Create Signature';
   var doneBtn=document.getElementById('tab-wh-done');
   if(doneBtn){
     var lbl=doneBtn.querySelector('.lbl');
@@ -488,6 +496,10 @@ function whApplyReceiverShell_(){
   if(_whReceiverMode){
     var help=document.getElementById('whDoneHelp');
     if(help) help.innerHTML='Notes assigned to you. Open one, upload <strong>Upload</strong> under: <strong>'+whEsc(whSigSlotsLabel_())+'</strong>, then click <strong>Done</strong>. It moves to Done for you and for warehouse (view only).';
+    var esigHelp=document.getElementById('whEsigHelp');
+    if(esigHelp && !_whEsigPickFor){
+      esigHelp.textContent='Choose a saved signature to use on your assigned notes. Ask warehouse staff if you need a new signature added.';
+    }
     whSwitchTab(null,'done');
   }
 }
@@ -2967,7 +2979,9 @@ function whEsigRenderList_(){
   if(!box) return;
   whEsigUpdatePickHelp_();
   if(!_whEsigs.length){
-    box.innerHTML='<p class="wh-saved-empty">No electronic signatures yet. Upload or paste one above, then Save.</p>';
+    box.innerHTML=_whReceiverMode
+      ? '<p class="wh-saved-empty">No electronic signatures yet. Ask warehouse staff to add one.</p>'
+      : '<p class="wh-saved-empty">No electronic signatures yet. Upload or paste one above, then Save.</p>';
     return;
   }
   var pick=_whEsigPickFor;
@@ -2979,13 +2993,19 @@ function whEsigRenderList_(){
       +'<div class="wh-esig-card-actions">';
     if(pick){
       h+='<button type="button" data-wh-esig-act="pick" data-wh-esig-id="'+whEsc(it.id)+'">Use for '+whEsc(whSigRoleLabel_(pick))+'</button>';
+    } else if(_whReceiverMode){
+      whSigSlots_().forEach(function(slot){
+        h+='<button type="button" data-wh-esig-act="'+whEsc(slot)+'" data-wh-esig-id="'+whEsc(it.id)+'">Use '+whEsc(whSigRoleLabel_(slot))+'</button>';
+      });
     } else {
       h+='<button type="button" data-wh-esig-act="auth" data-wh-esig-id="'+whEsc(it.id)+'">Use Authorized</button>'
         +'<button type="button" data-wh-esig-act="issued" data-wh-esig-id="'+whEsc(it.id)+'">Use Issued</button>'
         +'<button type="button" data-wh-esig-act="received" data-wh-esig-id="'+whEsc(it.id)+'">Use Received</button>';
     }
-    h+='<button type="button" data-wh-esig-act="delete" data-wh-esig-id="'+whEsc(it.id)+'">Delete</button>'
-      +'</div></div>';
+    if(!_whReceiverMode){
+      h+='<button type="button" data-wh-esig-act="delete" data-wh-esig-id="'+whEsc(it.id)+'">Delete</button>';
+    }
+    h+='</div></div>';
   });
   h+='</div>';
   box.innerHTML=h;
@@ -3004,6 +3024,7 @@ function whEsigBindList_(){
     for(var i=0;i<_whEsigs.length;i++){ if(String(_whEsigs[i].id)===id){ it=_whEsigs[i]; break; } }
     if(!it) return;
     if(act==='delete'){
+      if(_whReceiverMode){ alert('Signers cannot delete signatures.'); return; }
       whEsigUnlock_(it, function(){
         whUiConfirm_('Delete electronic signature "'+(it.name||'')+'"?', { danger:true }).then(function(ok){
           if(!ok) return;
@@ -3051,6 +3072,10 @@ function whEsigBindList_(){
   });
 }
 function whEsigSave(){
+  if(_whReceiverMode){
+    alert('Signers cannot create new signatures. Ask warehouse staff to add one.');
+    return;
+  }
   var nameEl=document.getElementById('whEsigName');
   var name=nameEl ? String(nameEl.value||'').trim() : '';
   var passEl=document.getElementById('whEsigPass');
