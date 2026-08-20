@@ -95,7 +95,12 @@
               <div class="wh-top-left">
                 <h1 class="wh-title" data-wh-layout="title">Goods Issue Note</h1>
                 <div class="wh-line" data-wh-layout="requester"><strong>Requester:</strong><input id="wh-requester" class="wh-cell-input" type="text" autocomplete="off"></div>
-                <div class="wh-line" data-wh-layout="company"><strong>Company:</strong><input id="wh-company" class="wh-cell-input" type="text" value="" autocomplete="off"></div>
+                <div class="wh-line" data-wh-layout="company"><strong>Company:</strong>
+                  <div class="wh-combo" id="wh-company-combo">
+                    <input id="wh-company" class="wh-cell-input" type="text" value="" autocomplete="off" oninput="whFilterCompany(this)" onfocus="whFilterCompany(this)">
+                    <div class="wh-combo-list" id="wh-company-list" hidden></div>
+                  </div>
+                </div>
                 <div class="wh-type-inline" data-wh-layout="issueType">
                   <strong>Good Issue Type</strong>
                   <button type="button" class="wh-type-btn" id="wh-type-internal" aria-pressed="false" onclick="whSetIssueType('internal')">□Internal</button>
@@ -289,6 +294,7 @@
 <script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-assign"></script>
 <script>
 var WH_LINE_COUNT = 23;
+var WH_COMPANIES = ['CAI','MEP','AC','MDM','CLEANING','GM','AGRICULTURE'];
 var WH_TECHNICIANS = [
   'Mohammed Luqman','Saeed Shahuth','Shakhwan Dilshad','Abdulsamad Sulaiaman',
   'Mohammed Qasm','Rayan Hazhar','Farman Ahmed','Sear Samad','Aram Majid',
@@ -1976,6 +1982,8 @@ function whBindComboClicks_(){
       whPickSp(Number(btn.getAttribute('data-wh-row')||0), btn.getAttribute('data-wh-code')||'');
     } else if(kind==='tech'){
       whPickTech(btn.getAttribute('data-wh-name')||'');
+    } else if(kind==='company'){
+      whPickCompany(btn.getAttribute('data-wh-name')||'');
     }
   }, true);
 }
@@ -2011,6 +2019,32 @@ function whPickSp(row, code){
   whCloseCombos();
   var qty=document.getElementById('wh-qty-'+row);
   if(qty) qty.focus();
+  whDraftSchedule_();
+}
+function whFilterCompany(el){
+  whBindComboClicks_();
+  var list=document.getElementById('wh-company-list');
+  var wrap=document.getElementById('wh-company-combo');
+  if(!list||!el) return;
+  var q=String(el.value||'').trim().toLowerCase();
+  var hits=!q ? WH_COMPANIES.slice() : WH_COMPANIES.filter(function(n){ return n.toLowerCase().indexOf(q)!==-1; });
+  if(!hits.length){
+    list.innerHTML='<button type="button" disabled>No company match</button>';
+    list.hidden=false;
+    _whOpenCombo=wrap;
+    return;
+  }
+  list.innerHTML=hits.map(function(n){
+    return '<button type="button" data-wh-pick="company" data-wh-name="'+whEsc(n)+'">'+whEsc(n)+'</button>';
+  }).join('');
+  list.hidden=false;
+  _whOpenCombo=wrap;
+  if(wrap) wrap.classList.add('wh-combo-open');
+}
+function whPickCompany(name){
+  var el=document.getElementById('wh-company');
+  if(el) el.value=name||'';
+  whCloseCombos();
   whDraftSchedule_();
 }
 function whFilterTech(el){
