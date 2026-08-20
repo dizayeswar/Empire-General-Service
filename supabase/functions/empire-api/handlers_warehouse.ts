@@ -13,7 +13,7 @@ function authSigSections(auth: AuthOk): WarehouseSigSlot[] {
 }
 
 function isWarehouseSignerAuth(auth: AuthOk): boolean {
-  return isWarehouseSigner(auth.role, auth.warehouseSigSections?.join(",") || "");
+  return isWarehouseSigner(auth.role, auth.warehouseSigSections?.join(",") || "", auth.dept);
 }
 
 function rowToApi(r: Record<string, unknown>) {
@@ -248,7 +248,7 @@ export async function handleListWarehouseAssignees(_body: Record<string, unknown
       const role = String(u.role || "").trim().toLowerCase();
       const dept = String(u.dept || "").trim().toLowerCase();
       const sections = parseWarehouseSigSections(u.warehouse_sig_sections, role);
-      const signer = isWarehouseSigner(role, sections.join(","));
+      const signer = isWarehouseSigner(role, sections.join(","), dept);
       if (!signer) return null;
       if (!dept) return null;
       const deptOk = dept === "all" || dept === "warehouse" ||

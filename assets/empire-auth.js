@@ -89,6 +89,10 @@ function empireGetWarehouseSigSections() {
 function empireIsWarehouseSigner() {
   var role = String(empireGetRole() || '').toLowerCase().replace(/[\s-]+/g, '_');
   if (role === 'warehouse_receiver' || role === 'receiver') return true;
+  // Editor/Admin with warehouse (or all) in Department = full GIN desk.
+  if ((role === 'admin' || role === 'editor') && typeof empireCanAccessDept === 'function' && empireCanAccessDept('warehouse')) {
+    return false;
+  }
   return empireGetWarehouseSigSections().length > 0;
 }
 

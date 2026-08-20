@@ -60,10 +60,30 @@ export function parseWarehouseSigSections(raw: unknown, role?: unknown): Warehou
   return [];
 }
 
-export function isWarehouseSigner(role: unknown, warehouseSigSections: unknown): boolean {
-  const sections = parseWarehouseSigSections(warehouseSigSections, role);
-  if (normalizeRole(role) === "warehouse_receiver") return true;
-  return sections.length > 0;
+/** Editor/Admin with warehouse (or all) in Department = full GIN desk, not assigned-only signer. */
+export function deptHasWarehouseAccess(dept: unknown): boolean {
+  const d = normalizeDeptField(dept);
+  if (!d) return false;
+  if (d === "all") return true;
+  return d.split(",").map((x) => x.trim()).filter(Boolean).includes("warehouse");
+}
+
+export function isWarehouseStaff(role: unknown, dept: unknown): boolean {
+  const r = normalizeRole(role);
+  if (r !== "admin" && r !== "editor") return false;
+  return deptHasWarehouseAccess(dept);
+}
+
+export function isWarehouseSigner(
+  role: unknown,
+  warehouseSigSections: unknown,
+  dept?: unknown,
+): boolean {
+  const r = normalizeRole(role);
+  if (r === "warehouse_receiver") return true;
+  // Full warehouse desk users must never get the locked "Assigned to me" shell.
+  if (dept != null && String(dept).trim() !== "" && isWarehouseStaff(r, dept)) return false;
+  return parseWarehouseSigSections(warehouseSigSections, role).length > 0;
 }
 
 export function warehouseSigSectionsCsv(sections: string[]): string {

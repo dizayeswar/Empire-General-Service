@@ -10,6 +10,7 @@ import {
   warehouseSigSectionsCsv,
   ensureWarehouseInDept,
   isWarehouseSigner,
+  isWarehouseStaff,
 } from "./helpers.ts";
 
 const BCRYPT_ROUNDS = 10;
@@ -107,11 +108,13 @@ export async function handleCreateUser(body: Record<string, unknown>, auth: Auth
     }
   }
 
-  const sections = parseWarehouseSigSections(
+  let sections = parseWarehouseSigSections(
     body.warehouseSigSections != null ? body.warehouseSigSections : body.warehouse_sig_sections,
     role,
   );
-  const signer = isWarehouseSigner(role, sections.join(","));
+  // Editor/Admin + warehouse/all = full desk; ignore signer boxes so they don't get locked UI.
+  if (isWarehouseStaff(role, vd.dept)) sections = [];
+  const signer = isWarehouseSigner(role, sections.join(","), vd.dept);
   const dept = ensureWarehouseInDept(vd.dept, signer);
 
   const existing = await sb().from("users").select("username").eq("username", vu.username).maybeSingle();
@@ -201,13 +204,18 @@ export async function handleUpdateUser(body: Record<string, unknown>, auth: Auth
   }
 
   // Keep warehouse in dept when this account is a warehouse signer.
+  // Clear signer slots for full warehouse desk users (Editor/Admin + warehouse/all).
   {
-    const sections = parseWarehouseSigSections(
+    let sections = parseWarehouseSigSections(
       patch.warehouse_sig_sections != null ? patch.warehouse_sig_sections : existing.warehouse_sig_sections,
       nextRole,
     );
-    const signer = isWarehouseSigner(nextRole, sections.join(","));
     const baseDept = String(patch.dept != null ? patch.dept : existing.dept || "");
+    if (isWarehouseStaff(nextRole, baseDept)) {
+      sections = [];
+      patch.warehouse_sig_sections = "";
+    }
+    const signer = isWarehouseSigner(nextRole, sections.join(","), baseDept);
     patch.dept = ensureWarehouseInDept(baseDept, signer);
   }
 

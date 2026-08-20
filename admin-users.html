@@ -77,6 +77,7 @@
       <button type="button" onclick="applyRecipe('electric_worker')">Electric worker</button>
       <button type="button" onclick="applyRecipe('cleaning_sup')">Cleaning supervisor</button>
       <button type="button" onclick="applyRecipe('desk_editor')">Desk editor</button>
+      <button type="button" onclick="applyRecipe('warehouse_desk')">Warehouse desk</button>
     </div>
 
     <div id="userFormCard" class="admin-form-card" style="display:none;">
@@ -97,8 +98,8 @@
         </label>
         <label>Department<input id="f-dept" list="deptHints" placeholder="civil issue / electrical / all" oninput="onRoleOrDeptChange()"></label>
         <div id="warehouseSigFields" style="grid-column:1/-1;display:none;">
-          <div style="font-size:12px;font-weight:600;color:var(--text-soft);margin-bottom:6px;">Warehouse signer — which signature section(s)?</div>
-          <p style="margin:0 0 8px;font-size:12px;color:var(--text-faint);line-height:1.4;">Keep their normal role (e.g. Editor + electrical). Checking any box also lets them open Warehouse — they only see Done notes assigned to them, and can upload only the sections you allow.</p>
+          <div style="font-size:12px;font-weight:600;color:var(--text-soft);margin-bottom:6px;">Warehouse signer — assigned notes only</div>
+          <p style="margin:0 0 8px;font-size:12px;color:var(--text-faint);line-height:1.4;" id="warehouseSigHelp">For people in <em>other</em> departments who only sign notes assigned to them. Do <strong>not</strong> tick these for a full warehouse desk user (Editor + Department <code>warehouse</code>).</p>
           <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:13px;font-weight:600;color:var(--text);">
             <label style="flex-direction:row;align-items:center;gap:6px;"><input type="checkbox" id="f-whsig-auth" onchange="onWarehouseSigChange()"> Authorized by</label>
             <label style="flex-direction:row;align-items:center;gap:6px;"><input type="checkbox" id="f-whsig-issued" onchange="onWarehouseSigChange()"> Issued by</label>
@@ -150,11 +151,11 @@
     <div id="usersTableHost"></div>
   </div>
 
-  <script src="config.js?v=2026-08-20-wh-signer"></script>
-  <script src="assets/empire-api.js?v=2026-08-20-wh-signer"></script>
-  <script src="assets/empire-auth.js?v=2026-08-20-wh-signer"></script>
-  <script src="assets/empire-core.js?v=2026-08-20-wh-signer"></script>
-  <script src="assets/empire-sw-update.js?v=2026-08-20-wh-signer"></script>
+  <script src="config.js?v=2026-08-20-wh-desk"></script>
+  <script src="assets/empire-api.js?v=2026-08-20-wh-desk"></script>
+  <script src="assets/empire-auth.js?v=2026-08-20-wh-desk"></script>
+  <script src="assets/empire-core.js?v=2026-08-20-wh-desk"></script>
+  <script src="assets/empire-sw-update.js?v=2026-08-20-wh-desk"></script>
   <script>
     var allUsers = [];
     var editingUsername = null;
@@ -187,8 +188,15 @@
           return 'Cleaning desk + mobile. Leave Projects blank for all sites, or use codes like ec,es.';
         case 'editor':
         default:
-          return 'Desk login for their Department. Optional: tick Warehouse signer sections below so they can also open Warehouse and sign only notes assigned to them.';
+          return 'Desk login for their Department. For full Warehouse (create/edit/Done like admin, but not Users/reset): Role Editor + Department warehouse — leave signer boxes unticked.';
       }
+    }
+
+    function deptHasWarehouseDesk_(){
+      var dept=String(document.getElementById('f-dept').value||'').trim().toLowerCase();
+      if(!dept) return false;
+      if(dept==='all') return true;
+      return dept.split(',').map(function(x){ return x.trim(); }).indexOf('warehouse')!==-1;
     }
 
     function readWarehouseSigSections_(){
@@ -239,7 +247,12 @@
       var hideEl = document.getElementById('hideField');
       var hideElecEl = document.getElementById('hideElecField');
       var whBox = document.getElementById('warehouseSigFields');
-      if (whBox) whBox.style.display = '';
+      var warehouseDesk = (role === 'editor' || role === 'admin') && deptHasWarehouseDesk_();
+      if (whBox) {
+        // Full warehouse desk: hide signer boxes (they force assigned-only mode).
+        whBox.style.display = warehouseDesk ? 'none' : '';
+        if (warehouseDesk) setWarehouseSigSections_([]);
+      }
       if (role === 'warehouse_receiver') {
         var secs = readWarehouseSigSections_();
         if (!secs.length) setWarehouseSigSections_(['received']);
@@ -252,7 +265,11 @@
       if (!isWorker) document.getElementById('f-trade').value = '';
       if (!isCleaning) document.getElementById('f-projects').value = '';
       var help = document.getElementById('roleHelp');
-      if (help) help.textContent = roleHelpText(role);
+      if (help) {
+        help.textContent = warehouseDesk
+          ? 'Full Warehouse desk: create notes, Saved Notes, Done/Assign. Not Admin Users, and not reset/recycle later.'
+          : roleHelpText(role);
+      }
     }
 
     function applyRecipe(kind) {
@@ -272,6 +289,10 @@
       } else if (kind === 'desk_editor') {
         document.getElementById('f-role').value = 'editor';
         document.getElementById('f-dept').value = 'civil department';
+      } else if (kind === 'warehouse_desk') {
+        document.getElementById('f-role').value = 'editor';
+        document.getElementById('f-dept').value = 'warehouse';
+        setWarehouseSigSections_([]);
       }
       onRoleOrDeptChange();
       document.getElementById('f-username').focus();
