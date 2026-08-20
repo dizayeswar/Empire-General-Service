@@ -721,6 +721,45 @@ html[data-theme="dark"] .wh-combo-list .muted { color: #aeb4c0; }
   cursor: pointer;
 }
 .wh-error { color: #b42318; font-size: 11px; margin-top: 2px; }
+.wh-settings { gap: 8px; }
+.wh-settings-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 9px;
+  width: 100%;
+  text-align: left;
+  box-sizing: border-box;
+  padding: 11px 12px;
+  border-radius: var(--radius-pill, 999px);
+  border: 1px solid var(--card-border);
+  background: var(--panel, #fff);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+}
+.wh-settings.open .wh-settings-toggle {
+  border-color: var(--header-accent, #8d015d);
+  color: var(--header-accent, #8d015d);
+}
+.wh-settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 0 0;
+}
+.wh-settings-panel[hidden] { display: none !important; }
+.wh-settings-panel button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 9px;
+  width: 100%;
+  text-align: left;
+  box-sizing: border-box;
+  padding: 11px 12px;
+}
 .wh-actions-print {
   display: flex;
   gap: 10px;
