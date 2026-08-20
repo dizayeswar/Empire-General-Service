@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-autosave3">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-20-wh-type">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-19-wh-autosave3">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-20-wh-type">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -1062,7 +1062,7 @@ function whCollectPayload(){
   return {
     requester: whVal('wh-requester'),
     company: whVal('wh-company'),
-    issueType: whVal('wh-issue-type'),
+    issueType: whNormIssueType_(whVal('wh-issue-type')),
     requestNo: whVal('wh-request-no'),
     requestDate: whVal('wh-request-date'),
     property: whVal('wh-property'),
@@ -1256,10 +1256,19 @@ function whSave(){
     alert('Saved on this device to Saved Notes.\n\nNext: click Done, then Assign.\n\n('+msg+')');
   }).finally(function(){ whSetSaveBusy(false); });
 }
+function whNormIssueType_(v){
+  v=String(v||'').trim().toLowerCase().replace(/[^a-z]/g,'');
+  if(v==='internal' || v.indexOf('internal')!==-1) return 'internal';
+  if(v==='external' || v.indexOf('external')!==-1) return 'external';
+  return '';
+}
 function whNormalizeListItem(it){
   if(!it) return null;
   var p=it.payload || {};
+  if(typeof p!=='object' || !p) p={};
   var done = !!(it.done || p.done || p.status==='done');
+  var issueType=whNormIssueType_(it.issueType||p.issueType||p.issue_type||'');
+  if(issueType && !whNormIssueType_(p.issueType)) p.issueType=issueType;
   return {
     id:String(it.id||''),
     num:Number(it.num||0)||0,
@@ -1267,7 +1276,7 @@ function whNormalizeListItem(it){
     requestDate:String(it.requestDate||p.requestDate||''),
     requester:String(it.requester||p.requester||''),
     company:String(it.company||p.company||''),
-    issueType:String(it.issueType||p.issueType||''),
+    issueType:issueType,
     propertyCode:String(it.propertyCode||p.property||''),
     storeKeeper:String(it.storeKeeper||p.storeKeeper||''),
     createdBy:String(it.createdBy||''),
@@ -1283,6 +1292,11 @@ function whNormalizeListItem(it){
 }
 function whMergeLists(serverItems, localItems){
   var map={};
+  function pickText(a,b){
+    a=String(a||'').trim();
+    b=String(b||'').trim();
+    return a || b || '';
+  }
   function put(it){
     var n=whNormalizeListItem(it);
     if(!n || !n.id) return;
@@ -1292,13 +1306,26 @@ function whMergeLists(serverItems, localItems){
     var done=!!(prev.done || n.done);
     var newer=(String(n.updatedAt||'')>=String(prev.updatedAt||'')) ? n : prev;
     var older=(newer===n) ? prev : n;
+    var mergedPayload=Object.assign({}, older.payload||{}, newer.payload||{});
+    var issueType=whNormIssueType_(
+      newer.issueType || older.issueType || mergedPayload.issueType || (older.payload&&older.payload.issueType) || ''
+    );
+    // Never let an empty type overwrite a real Internal/External.
+    if(!issueType) issueType=whNormIssueType_(older.issueType || newer.issueType || '');
+    if(issueType) mergedPayload.issueType=issueType;
     var merged=Object.assign({}, older, newer, {
       done:done,
       doneAt: newer.doneAt || older.doneAt || '',
       doneBy: newer.doneBy || older.doneBy || '',
       assignedTo: newer.assignedTo || older.assignedTo || '',
       assignedAt: newer.assignedAt || older.assignedAt || '',
-      payload: Object.assign({}, older.payload||{}, newer.payload||{})
+      requester: pickText(newer.requester, older.requester),
+      company: pickText(newer.company, older.company),
+      requestNo: pickText(newer.requestNo, older.requestNo),
+      requestDate: pickText(newer.requestDate, older.requestDate),
+      propertyCode: pickText(newer.propertyCode, older.propertyCode),
+      issueType: issueType,
+      payload: mergedPayload
     });
     if(done){
       merged.payload.done=true;
@@ -1323,7 +1350,7 @@ function whSetBadge(elId, n){
 function whPartitionSaved_(){
   var openInternal=[], openExternal=[], openOther=[], doneInternal=[], doneExternal=[], doneOther=[];
   (_whSavedCache||[]).forEach(function(it){
-    var t=String(it.issueType||'').toLowerCase();
+    var t=whNormIssueType_(it.issueType || (it.payload && it.payload.issueType) || '');
     if(it.done){
       if(t==='internal') doneInternal.push(it);
       else if(t==='external') doneExternal.push(it);
@@ -1439,7 +1466,7 @@ function whSpUsageBuild_(filter){
   var map={};
   (_whSavedCache||[]).forEach(function(it){
     if(!it || !it.done) return;
-    var t=String(it.issueType||'').toLowerCase();
+    var t=whNormIssueType_(it.issueType || (it.payload && it.payload.issueType) || '');
     if(filter==='internal' && t!=='internal') return;
     if(filter==='external' && t!=='external') return;
     var lines=(it.payload && Array.isArray(it.payload.lines)) ? it.payload.lines : [];
@@ -1879,8 +1906,9 @@ function whPickTech(name){
   whDraftSchedule_();
 }
 function whSetIssueType(type){
-  type=String(type||'');
-  document.getElementById('wh-issue-type').value=type;
+  type=whNormIssueType_(type);
+  var hidden=document.getElementById('wh-issue-type');
+  if(hidden) hidden.value=type;
   var inn=document.getElementById('wh-type-internal');
   var ext=document.getElementById('wh-type-external');
   if(inn){
@@ -1893,7 +1921,13 @@ function whSetIssueType(type){
   }
   var block=document.getElementById('whMaintBlock');
   if(block) block.classList.toggle('wh-maint-disabled', type!=='external');
-  whAutoSaveSchedule_();
+  // Persist type immediately so Saved Notes does not keep "No type selected".
+  try { whAutoSaveLocal_(true); } catch(e){}
+  if(_whServerSaveTimer) clearTimeout(_whServerSaveTimer);
+  _whServerSaveTimer=setTimeout(function(){
+    _whServerSaveTimer=null;
+    whAutoSaveServer_({ quiet:true });
+  }, 400);
 }
 function whFormatPrice(e){
   var el=e.target;
