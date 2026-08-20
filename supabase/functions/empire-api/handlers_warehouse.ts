@@ -338,14 +338,14 @@ export async function handleMarkWarehouseGinDone(body: Record<string, unknown>, 
   return { ok: true, success: true, id, done: true, doneAt: now };
 }
 
-/** Move an assigned note from Assignment into Done (view-only archive). Staff only. */
+/** Move an assigned note into Done (view-only). Only the assigned signer can do this after signing. */
 export async function handleCloseWarehouseGin(body: Record<string, unknown>, auth: AuthOk) {
-  if (isWarehouseSignerAuth(auth)) {
+  if (!isWarehouseSignerAuth(auth)) {
     return {
       ok: false,
       success: false,
       error: "forbidden",
-      message: "Signer accounts cannot move notes to Done. Ask warehouse staff.",
+      message: "Only the assigned signer can click Done after signing.",
     };
   }
   const id = String(body.id || "").trim();
@@ -360,18 +360,33 @@ export async function handleCloseWarehouseGin(body: Record<string, unknown>, aut
       ok: false,
       success: false,
       error: "not_done",
-      message: "Mark the note Done in Saved Notes first, then Assign, then move to Done.",
+      message: "This note is not ready yet.",
     };
   }
   if (existingPayload.closed === true || existingPayload.status === "closed") {
     return { ok: true, success: true, id, alreadyClosed: true };
   }
-  if (!String(existingPayload.assignedTo || "").trim()) {
+  const assignedTo = String(existingPayload.assignedTo || "").trim().toLowerCase();
+  const me = String(auth.username || "").trim().toLowerCase();
+  if (!assignedTo || assignedTo !== me) {
     return {
       ok: false,
       success: false,
-      error: "not_assigned",
-      message: "Assign this note first, then click Done to archive it.",
+      error: "forbidden",
+      message: "This note is not assigned to you.",
+    };
+  }
+  const sections = authSigSections(auth);
+  const sigs = (existingPayload.sigs && typeof existingPayload.sigs === "object")
+    ? existingPayload.sigs as Record<string, unknown>
+    : {};
+  const missing = sections.filter((slot) => !String(sigs[slot] || "").trim());
+  if (missing.length) {
+    return {
+      ok: false,
+      success: false,
+      error: "missing_sig",
+      message: "Upload your signature (" + missing.join(", ") + ") before clicking Done.",
     };
   }
   const now = isoNow();

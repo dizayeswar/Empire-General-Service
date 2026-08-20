@@ -106,6 +106,7 @@
             <button type="button" onclick="whStartNew()">New</button>
             <button type="button" onclick="whClearForm()">Clear</button>
             <button type="button" id="whSaveBtn" onclick="whSave()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Save</button>
+            <button type="button" id="whSignerDoneBtn" onclick="whCloseAssigned(_whEditingId)" style="display:none;color:#fff;background:#1d9e75;border-color:#1d9e75;">Done</button>
             <button type="button" onclick="whPrint()">Print / Save as PDF</button>
           </div>
 
@@ -242,7 +243,7 @@
         <div class="wh-app wh-saved-app">
           <div class="form-section">
             <h2 id="whAssignTitle">Assignment</h2>
-            <p class="wh-tab-help" id="whDoneHelp">Finished notes waiting for assignment / signature. After they sign, click <strong>Done</strong> to move the note into the Done archive (view only).</p>
+            <p class="wh-tab-help" id="whDoneHelp">Finished notes waiting for assignment / signature. After the signer uploads their signature and clicks <strong>Done</strong>, the note moves to <strong>Done</strong> (view only) for warehouse and for them.</p>
             <div class="wh-toolbar no-print" style="margin-bottom:12px;">
               <button type="button" onclick="whLoadSavedList()">Refresh</button>
             </div>
@@ -349,7 +350,7 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-20-wh-settings"></script>
+<script src="config.js?v=2026-08-20-wh-signer-done"></script>
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-20-wh-reset"></script>
@@ -473,9 +474,9 @@ function whApplyReceiverShell_(){
   if(closedTitle) closedTitle.textContent = 'Done';
   var closedHelp=document.getElementById('whClosedHelp');
   if(closedHelp){
-    closedHelp.innerHTML = _whReceiverMode
-      ? 'Notes assigned to you that warehouse marked Done. View and print only.'
-      : 'Completed notes kept for review. View and print only — no editing.';
+      closedHelp.innerHTML = _whReceiverMode
+      ? 'Notes you signed and marked Done. View and print only.'
+      : 'Notes signers finished (signed + Done). View and print only — no editing.';
   }
   var trashBtn=document.getElementById('btnWhTrash');
   var resetBtn=document.getElementById('btnWhReset');
@@ -484,7 +485,7 @@ function whApplyReceiverShell_(){
   if(resetBtn) resetBtn.style.display = (!_whReceiverMode && isAdmin) ? '' : 'none';
   if(_whReceiverMode){
     var help=document.getElementById('whDoneHelp');
-    if(help) help.innerHTML='Notes assigned to you. Open one and use <strong>Upload</strong> only under: <strong>'+whEsc(whSigSlotsLabel_())+'</strong>. When warehouse clicks Done, it moves to your Done list.';
+    if(help) help.innerHTML='Notes assigned to you. Open one, upload <strong>Upload</strong> under: <strong>'+whEsc(whSigSlotsLabel_())+'</strong>, then click <strong>Done</strong>. It moves to Done for you and for warehouse (view only).';
     whSwitchTab(null,'done');
   }
 }
@@ -1728,8 +1729,8 @@ function whRenderSavedList(){
       closedBox.innerHTML = typeof empireEmptyHtml==='function'
         ? empireEmptyHtml('No done notes yet',
             _whReceiverMode
-              ? 'When warehouse clicks Done on a note assigned to you, it appears here for review.'
-              : 'After assignment and signatures, click Done on a note in Assignment to keep it here (view only).')
+              ? 'After you sign and click Done, notes appear here for review.'
+              : 'When the assigned signer signs and clicks Done, notes appear here (view only).')
         : '<p>No done notes yet.</p>';
     } else {
       var ch='';
@@ -1859,11 +1860,10 @@ function whSavedSectionHtml_(title, items, mode){
         +'<button type="button" data-wh-act="print" data-wh-id="'+id+'">Print</button> ';
     } else if(isAssign){
       acts='<button type="button" data-wh-act="view" data-wh-id="'+id+'">View</button> ';
-      if(!_whReceiverMode){
+      if(_whReceiverMode){
+        acts+='<button type="button" data-wh-act="close" data-wh-id="'+id+'" style="color:#fff;background:#1d9e75;border-color:#1d9e75;">Done</button> ';
+      } else {
         acts+='<button type="button" data-wh-act="assign" data-wh-id="'+id+'">'+(it.assignedTo?'Reassign':'Assign')+'</button> ';
-        if(String(it.assignedTo||'').trim()){
-          acts+='<button type="button" data-wh-act="close" data-wh-id="'+id+'" style="color:#fff;background:#1d9e75;border-color:#1d9e75;">Done</button> ';
-        }
         acts+='<button type="button" data-wh-act="delete" data-wh-id="'+id+'">Delete</button> ';
       }
       acts+='<button type="button" data-wh-act="print" data-wh-id="'+id+'">Print</button> ';
@@ -1932,6 +1932,12 @@ function whSetFormLocked(locked){
     var b=document.getElementById(id);
     if(b) b.disabled=_whFormLocked || _whReceiverMode;
   });
+  var signerDone=document.getElementById('whSignerDoneBtn');
+  if(signerDone){
+    var it=whFindSaved(_whEditingId);
+    var show=_whReceiverMode && it && whIsItemDone(it) && !whIsItemClosed(it);
+    signerDone.style.display = show ? '' : 'none';
+  }
   if(root){
     root.querySelectorAll('input,button.wh-type-btn,textarea,select').forEach(function(el){
       if(el.closest('.wh-sig-actions')) return;
@@ -2132,15 +2138,29 @@ function whAssignDone(id){
           alert('Could not save assignment to server: '+(err && err.message ? err.message : err));
         }).finally(function(){
           whLoadSavedList();
-          alert('Assigned to '+assignee+'. When signatures are finished, click Done to move it to the Done section.');
+          alert('Assigned to '+assignee+'. They sign, then click Done — it moves to Done for warehouse automatically.');
           whSwitchTab(null,'done');
         });
       });
     });
   });
 }
+function whSignerHasRequiredSigs_(it){
+  if(!it) return false;
+  var slots=whSigSlots_();
+  if(!slots.length) return false;
+  var p=it.payload||{};
+  var sigs=(p.sigs && typeof p.sigs==='object') ? p.sigs : {};
+  for(var i=0;i<slots.length;i++){
+    if(!String(sigs[slots[i]]||'').trim()) return false;
+  }
+  return true;
+}
 function whCloseAssigned(id){
-  if(_whReceiverMode){ alert('Only warehouse staff can move notes to Done.'); return; }
+  if(!_whReceiverMode){
+    alert('Only the assigned signer can click Done after signing.');
+    return;
+  }
   id=String(id||'');
   var it=whFindSaved(id);
   if(!it){ alert('Note not found.'); return; }
@@ -2149,15 +2169,17 @@ function whCloseAssigned(id){
     whSwitchTab(null,'closed');
     return;
   }
-  if(!whIsItemDone(it)){
-    alert('Mark the note Done in Saved Notes first.');
+  var me=String(typeof empireGetUser==='function' ? empireGetUser() : '').toLowerCase();
+  if(String(it.assignedTo||'').toLowerCase()!==me){
+    alert('This note is not assigned to you.');
     return;
   }
-  if(!String(it.assignedTo||'').trim()){
-    alert('Assign this note first, then click Done.');
+  if(!whSignerHasRequiredSigs_(it)){
+    alert('Upload your signature ('+whSigSlotsLabel_()+') first, then click Done.');
+    whOpenSaved(id);
     return;
   }
-  whUiConfirm_('Move this note to Done?\n\nIt will leave Assignment and stay view-only for warehouse and for "'+it.assignedTo+'".').then(function(ok){
+  whUiConfirm_('Mark this note Done?\n\nIt will move to Done for you and for warehouse (view only).').then(function(ok){
     if(!ok) return;
     var p=Object.assign({}, it.payload||{}, {
       closed:true,
@@ -2185,7 +2207,7 @@ function whCloseAssigned(id){
       alert('Could not save Done to server: '+(err && err.message ? err.message : err));
     }).finally(function(){
       whLoadSavedList();
-      alert('Moved to Done (view only).');
+      alert('Moved to Done. Warehouse can see it there too.');
       whSwitchTab(null,'closed');
     });
   });
@@ -2662,7 +2684,8 @@ function whSaveSlotSigToServer_(which){
       it.payload.sigs[which]=_whSig[which];
       whLocalUpsert(it);
     }
-    alert(whSigRoleLabel_(which)+' signature saved.');
+    whSetFormLocked(true);
+    alert(whSigRoleLabel_(which)+' signature saved. Click Done when finished.');
   }).catch(function(err){
     alert('Could not save '+whSigRoleLabel_(which)+' signature: '+(err && err.message ? err.message : err));
   });
