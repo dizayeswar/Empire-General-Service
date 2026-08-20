@@ -476,56 +476,60 @@ html[data-theme="dark"] .wh-esig-input {
   z-index: 90;
   max-height: 260px;
   overflow: auto;
-  background: #fff;
-  border: 2px solid #8d015d;
+  background: #8d015d;
+  border: 2px solid #6e0148;
   border-radius: 10px;
-  box-shadow: 0 10px 28px rgba(141, 1, 93, 0.28);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  opacity: 1;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 .wh-combo-list button {
   display: block;
   width: 100%;
   text-align: left;
   border: none;
-  border-bottom: 1px solid #f0d6e5;
-  background: #fff;
-  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.22);
+  background: #8d015d;
+  padding: 11px 12px;
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
   font-family: inherit;
-  color: #8d015d;
+  color: #fff;
   pointer-events: auto;
 }
 .wh-combo-list button:last-child { border-bottom: none; }
 .wh-combo-list button:hover,
 .wh-combo-list button:focus {
-  background: #8d015d;
+  background: #b01875;
   color: #fff;
   outline: none;
 }
 .wh-combo-list button:disabled {
-  color: #999;
+  color: rgba(255, 255, 255, 0.65);
   font-weight: 600;
   cursor: default;
+  background: #8d015d;
 }
-.wh-combo-list .muted { color: #8a4a6e; font-size: 12px; font-weight: 500; }
+.wh-combo-list .muted { color: rgba(255, 255, 255, 0.85); font-size: 12px; font-weight: 500; }
 .wh-combo-list button:hover .muted,
-.wh-combo-list button:focus .muted { color: rgba(255,255,255,.85); }
+.wh-combo-list button:focus .muted { color: #fff; }
 html[data-theme="dark"] .wh-combo-list {
-  background: #1a1020;
+  background: #8d015d;
   border-color: #c43a8a;
 }
 html[data-theme="dark"] .wh-combo-list button {
-  background: #1a1020;
-  color: #ffb3dd;
-  border-bottom-color: #4a2040;
+  background: #8d015d;
+  color: #fff;
+  border-bottom-color: rgba(255, 255, 255, 0.22);
 }
 html[data-theme="dark"] .wh-combo-list button:hover,
 html[data-theme="dark"] .wh-combo-list button:focus {
-  background: #8d015d;
+  background: #b01875;
   color: #fff;
 }
-html[data-theme="dark"] .wh-combo-list .muted { color: #d9a0c0; }
+html[data-theme="dark"] .wh-combo-list .muted { color: rgba(255, 255, 255, 0.85); }
 .wh-lines col.c-num { width: 4.8%; }
 .wh-lines col.c-code { width: 16.2%; }
 .wh-lines col.c-desc { width: 33.6%; }
