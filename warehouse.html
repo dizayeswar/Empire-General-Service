@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-20-wh-dedupe">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-20-wh-signer">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-20-wh-dedupe">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-20-wh-signer">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -280,12 +280,12 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-20-wh-dedupe"></script>
+<script src="config.js?v=2026-08-20-wh-signer"></script>
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-assign"></script>
-<script src="assets/empire-core.js?v=2026-08-20-wh-dedupe"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-20-wh-dedupe"></script>
+<script src="assets/empire-auth.js?v=2026-08-20-wh-signer"></script>
+<script src="assets/empire-core.js?v=2026-08-20-wh-signer"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-20-wh-signer"></script>
 <script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-assign"></script>
 <script>
 var WH_LINE_COUNT = 23;
@@ -333,8 +333,23 @@ function whUiPrompt_(msg, def, opts){
   return Promise.resolve(v);
 }
 function whIsReceiverMode_(){
+  if(typeof empireIsWarehouseSigner==='function') return empireIsWarehouseSigner();
   var role=String(typeof empireGetRole==='function' ? empireGetRole() : '').toLowerCase().replace(/[\s-]+/g,'_');
   return role==='warehouse_receiver' || role==='receiver';
+}
+function whSigSlots_(){
+  if(typeof empireGetWarehouseSigSections==='function'){
+    var s=empireGetWarehouseSigSections();
+    if(s && s.length) return s.slice();
+  }
+  return whIsReceiverMode_() ? ['received'] : [];
+}
+function whCanSignSlot_(which){
+  which=String(which||'');
+  return whSigSlots_().indexOf(which)!==-1;
+}
+function whSigSlotsLabel_(){
+  return whSigSlots_().map(function(s){ return whSigRoleLabel_(s); }).join(', ') || 'signature';
 }
 function whApplyReceiverShell_(){
   _whReceiverMode = whIsReceiverMode_();
@@ -350,7 +365,7 @@ function whApplyReceiverShell_(){
   }
   if(_whReceiverMode){
     var help=document.getElementById('whDoneHelp');
-    if(help) help.innerHTML='Notes assigned to you. Open one and use <strong>Upload</strong> under Received by only — everything else is locked.';
+    if(help) help.innerHTML='Notes assigned to you. Open one and use <strong>Upload</strong> only under: <strong>'+whEsc(whSigSlotsLabel_())+'</strong>. Everything else is locked.';
     whSwitchTab(null,'done');
   }
 }
@@ -1708,7 +1723,7 @@ function whSetFormLocked(locked){
   var banner=document.getElementById('whDoneBanner');
   if(banner){
     banner.hidden=!_whFormLocked;
-    if(_whFormLocked && _whReceiverMode) banner.textContent='Assigned to you — Received by signature only';
+    if(_whFormLocked && _whReceiverMode) banner.textContent='Assigned to you — sign: '+whSigSlotsLabel_();
     else if(_whFormLocked) banner.textContent='Done — view only';
   }
   ['whSaveBtn','whSaveBtn2'].forEach(function(id){
@@ -1729,11 +1744,14 @@ function whSetFormLocked(locked){
     });
     root.querySelectorAll('.wh-sig-actions button').forEach(function(b){
       var block=b.closest('.wh-sig-block');
-      var isReceived=block && block.querySelector('#wh-sig-received');
+      var slot='';
+      if(block && block.querySelector('#wh-sig-auth')) slot='auth';
+      else if(block && block.querySelector('#wh-sig-issued')) slot='issued';
+      else if(block && block.querySelector('#wh-sig-received')) slot='received';
       if(_whReceiverMode){
-        // Receiver may only use Upload on Received by.
-        b.disabled = !isReceived;
-        b.style.display = isReceived ? '' : 'none';
+        var allow=whCanSignSlot_(slot);
+        b.disabled = !allow;
+        b.style.display = allow ? '' : 'none';
       } else if(_whFormLocked){
         b.disabled=true;
         b.style.display='';
@@ -1799,11 +1817,16 @@ function whLoadAssignees_(cb){
 }
 function whPickAssignee_(users){
   if(!users || !users.length){
-    alert('No Warehouse receiver accounts found.\n\nCreate users in Admin → Users with role "Warehouse receiver" and department "warehouse".');
+    alert('No Warehouse signer accounts found.\n\nIn Admin → Users, tick Warehouse signer sections (Authorized / Issued / Received) for the account, or use role Warehouse receiver.');
     return Promise.resolve(null);
   }
-  var names=users.map(function(u,i){ return (i+1)+'. '+u.username; }).join('\n');
-  return whUiPrompt_('Assign this Done note to which account? They will sign Received by.\n\n'+names, '1').then(function(pick){
+  var names=users.map(function(u,i){
+    var secs=Array.isArray(u.warehouseSigSections) && u.warehouseSigSections.length
+      ? u.warehouseSigSections.join(', ')
+      : 'received';
+    return (i+1)+'. '+u.username+' ('+secs+')';
+  }).join('\n');
+  return whUiPrompt_('Assign this Done note to which account?\nThey can sign only their allowed section(s).\n\n'+names, '1').then(function(pick){
     if(pick==null) return null;
     var n=parseInt(pick,10);
     if(!n || n<1 || n>users.length){
@@ -2068,11 +2091,11 @@ function whSigRoleLabel_(which){
   return 'signature';
 }
 function whOpenSigPicker(which){
-  if(_whReceiverMode && which!=='received'){
-    alert('You can only upload a signature on Received by.');
+  if(_whReceiverMode && !whCanSignSlot_(which)){
+    alert('You can only upload a signature on: '+whSigSlotsLabel_()+'.');
     return;
   }
-  if(_whFormLocked && !(_whReceiverMode && which==='received')){
+  if(_whFormLocked && !(_whReceiverMode && whCanSignSlot_(which))){
     alert('This note is Done and cannot be edited.');
     return;
   }
@@ -2081,29 +2104,34 @@ function whOpenSigPicker(which){
   whSwitchTab(null, 'sigs');
   whEsigRenderList_();
 }
-function whSaveReceivedSigToServer_(){
-  if(!_whEditingId || !_whSig.received) return;
+function whSaveSlotSigToServer_(which){
+  which=String(which||'received');
+  if(!_whEditingId || !_whSig[which]) return;
+  if(_whReceiverMode && !whCanSignSlot_(which)) return;
   var token=typeof empireGetToken==='function' ? empireGetToken() : '';
   if(!token || typeof fetchJSONRetry!=='function') return;
-  fetchJSONRetry({
+  var body={
     action:'saveWarehouseGinReceivedSig',
     token:token,
     id:_whEditingId,
-    received:_whSig.received
-  }, 2, 60000).then(function(d){
+    slot:which
+  };
+  body[which]=_whSig[which];
+  fetchJSONRetry(body, 2, 60000).then(function(d){
     if(!(d && (d.ok||d.success))) throw new Error((d && (d.message||d.error)) || 'Save failed');
     var it=whFindSaved(_whEditingId);
     if(it){
       it.payload=it.payload||{};
       it.payload.sigs=it.payload.sigs||{};
-      it.payload.sigs.received=_whSig.received;
+      it.payload.sigs[which]=_whSig[which];
       whLocalUpsert(it);
     }
-    alert('Received by signature saved.');
+    alert(whSigRoleLabel_(which)+' signature saved.');
   }).catch(function(err){
-    alert('Could not save Received by signature: '+(err && err.message ? err.message : err));
+    alert('Could not save '+whSigRoleLabel_(which)+' signature: '+(err && err.message ? err.message : err));
   });
 }
+function whSaveReceivedSigToServer_(){ whSaveSlotSigToServer_('received'); }
 function whEsigUpdatePickHelp_(){
   var help=document.getElementById('whEsigHelp');
   if(!help) return;
@@ -2428,11 +2456,11 @@ function whEsigBindList_(){
     }
     if(act==='pick'){
       if(!_whEsigPickFor){ alert('Open Upload from the note first.'); return; }
-      if(_whFormLocked && !(_whReceiverMode && _whEsigPickFor==='received')){
+      if(_whFormLocked && !(_whReceiverMode && whCanSignSlot_(_whEsigPickFor))){
         alert('This note is Done and cannot be edited.'); return;
       }
-      if(_whReceiverMode && _whEsigPickFor!=='received'){
-        alert('You can only upload a signature on Received by.'); return;
+      if(_whReceiverMode && !whCanSignSlot_(_whEsigPickFor)){
+        alert('You can only upload a signature on: '+whSigSlotsLabel_()+'.'); return;
       }
       var slot=_whEsigPickFor;
       whEsigUnlock_(it, function(){
@@ -2440,15 +2468,15 @@ function whEsigBindList_(){
         _whEsigPickFor='';
         whEsigUpdatePickHelp_();
         whSwitchTab(null,'note');
-        if(slot==='received') whSaveReceivedSigToServer_();
+        if(_whReceiverMode && whCanSignSlot_(slot)) whSaveSlotSigToServer_(slot);
       });
       return;
     }
     if(act==='auth' || act==='issued' || act==='received'){
-      if(_whReceiverMode && act!=='received'){
-        alert('You can only upload a signature on Received by.'); return;
+      if(_whReceiverMode && !whCanSignSlot_(act)){
+        alert('You can only upload a signature on: '+whSigSlotsLabel_()+'.'); return;
       }
-      if(_whFormLocked && !(_whReceiverMode && act==='received')){
+      if(_whFormLocked && !(_whReceiverMode && whCanSignSlot_(act))){
         alert('This note is Done and cannot be edited.'); return;
       }
       whEsigUnlock_(it, function(){
@@ -2456,7 +2484,7 @@ function whEsigBindList_(){
         _whEsigPickFor='';
         whEsigUpdatePickHelp_();
         whSwitchTab(null,'note');
-        if(act==='received') whSaveReceivedSigToServer_();
+        if(_whReceiverMode && whCanSignSlot_(act)) whSaveSlotSigToServer_(act);
       });
     }
   });

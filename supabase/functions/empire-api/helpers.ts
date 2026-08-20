@@ -43,6 +43,45 @@ export function normalizeWorkerId(raw: unknown): string {
   return String(raw || "").trim().toLowerCase();
 }
 
+const WAREHOUSE_SIG_SLOTS = ["auth", "issued", "received"] as const;
+export type WarehouseSigSlot = (typeof WAREHOUSE_SIG_SLOTS)[number];
+
+/** Parse admin-configured warehouse signature slots. warehouse_receiver defaults to received. */
+export function parseWarehouseSigSections(raw: unknown, role?: unknown): WarehouseSigSlot[] {
+  const allowed = new Set<string>(WAREHOUSE_SIG_SLOTS);
+  const parts = String(raw || "")
+    .toLowerCase()
+    .split(/[,+|/\s]+/)
+    .map((s) => s.trim())
+    .filter((s) => allowed.has(s)) as WarehouseSigSlot[];
+  const unique = [...new Set(parts)];
+  if (unique.length) return unique;
+  if (normalizeRole(role) === "warehouse_receiver") return ["received"];
+  return [];
+}
+
+export function isWarehouseSigner(role: unknown, warehouseSigSections: unknown): boolean {
+  const sections = parseWarehouseSigSections(warehouseSigSections, role);
+  if (normalizeRole(role) === "warehouse_receiver") return true;
+  return sections.length > 0;
+}
+
+export function warehouseSigSectionsCsv(sections: string[]): string {
+  const allowed = new Set<string>(WAREHOUSE_SIG_SLOTS);
+  return [...new Set(sections.map((s) => String(s || "").trim().toLowerCase()).filter((s) => allowed.has(s)))]
+    .join(",");
+}
+
+export function ensureWarehouseInDept(dept: string, isSigner: boolean): string {
+  const d = normalizeDeptField(dept);
+  if (!isSigner || !d) return d;
+  if (d === "all") return d;
+  const parts = d.split(",").map((x) => x.trim()).filter(Boolean);
+  if (parts.includes("warehouse")) return parts.join(",");
+  parts.push("warehouse");
+  return parts.join(",");
+}
+
 export function isCleaningSupervisorRole(role: unknown): boolean {
   return normalizeRole(role) === "cleaning_supervisor";
 }

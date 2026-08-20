@@ -6,19 +6,27 @@ import {
   normalizeRole,
   normalizeTrade,
   normalizeWorkerId,
+  parseWarehouseSigSections,
+  warehouseSigSectionsCsv,
+  ensureWarehouseInDept,
+  isWarehouseSigner,
 } from "./helpers.ts";
 
 const BCRYPT_ROUNDS = 10;
 
 function publicUser(row: Record<string, unknown>) {
+  const role = normalizeRole(row.role);
+  const warehouseSigSections = parseWarehouseSigSections(row.warehouse_sig_sections, role);
   return {
     username: String(row.username || ""),
     dept: String(row.dept || ""),
-    role: normalizeRole(row.role),
+    role,
     hide: String(row.hide || ""),
     projects: String(row.projects || ""),
     trade: String(row.trade || ""),
     hideElectrical: String(row.hide_electrical || ""),
+    warehouseSigSections,
+    warehouseSigSectionsRaw: warehouseSigSections.join(","),
     updatedAt: String(row.updated_at || ""),
   };
 }
@@ -63,7 +71,7 @@ export async function handleListUsers(auth: AuthOk) {
   if (denied) return denied;
   const { data, error } = await sb()
     .from("users")
-    .select("username,dept,role,hide,projects,trade,hide_electrical,updated_at")
+    .select("username,dept,role,hide,projects,trade,hide_electrical,warehouse_sig_sections,updated_at")
     .order("username");
   if (error) throw error;
   return { ok: true, users: (data || []).map((r) => publicUser(r as Record<string, unknown>)) };
@@ -99,6 +107,13 @@ export async function handleCreateUser(body: Record<string, unknown>, auth: Auth
     }
   }
 
+  const sections = parseWarehouseSigSections(
+    body.warehouseSigSections != null ? body.warehouseSigSections : body.warehouse_sig_sections,
+    role,
+  );
+  const signer = isWarehouseSigner(role, sections.join(","));
+  const dept = ensureWarehouseInDept(vd.dept, signer);
+
   const existing = await sb().from("users").select("username").eq("username", vu.username).maybeSingle();
   if (existing.error) throw existing.error;
   if (existing.data) {
@@ -108,12 +123,13 @@ export async function handleCreateUser(body: Record<string, unknown>, auth: Auth
   const row = {
     username: vu.username,
     password_hash: bcrypt.hashSync(password, BCRYPT_ROUNDS),
-    dept: vd.dept,
+    dept,
     role,
     hide: String(body.hide || "").trim(),
     projects: String(body.projects || "").trim().toLowerCase(),
     trade,
     hide_electrical: String(body.hideElectrical || body.hide_electrical || "").trim(),
+    warehouse_sig_sections: warehouseSigSectionsCsv(sections),
     updated_at: isoNow(),
   };
   const { error } = await sb().from("users").insert(row);
@@ -153,6 +169,14 @@ export async function handleUpdateUser(body: Record<string, unknown>, auth: Auth
   if (body.hideElectrical != null || body.hide_electrical != null) {
     patch.hide_electrical = String(body.hideElectrical || body.hide_electrical || "").trim();
   }
+  if (body.warehouseSigSections != null || body.warehouse_sig_sections != null) {
+    const nextRole = normalizeRole(patch.role != null ? patch.role : existing.role);
+    const sections = parseWarehouseSigSections(
+      body.warehouseSigSections != null ? body.warehouseSigSections : body.warehouse_sig_sections,
+      nextRole,
+    );
+    patch.warehouse_sig_sections = warehouseSigSectionsCsv(sections);
+  }
 
   const password = String(body.password || "").trim();
   if (password) {
@@ -174,6 +198,17 @@ export async function handleUpdateUser(body: Record<string, unknown>, auth: Auth
         message: "Worker accounts need a trade (plumber, painting, tiles, wood, or electric).",
       };
     }
+  }
+
+  // Keep warehouse in dept when this account is a warehouse signer.
+  {
+    const sections = parseWarehouseSigSections(
+      patch.warehouse_sig_sections != null ? patch.warehouse_sig_sections : existing.warehouse_sig_sections,
+      nextRole,
+    );
+    const signer = isWarehouseSigner(nextRole, sections.join(","));
+    const baseDept = String(patch.dept != null ? patch.dept : existing.dept || "");
+    patch.dept = ensureWarehouseInDept(baseDept, signer);
   }
 
   // Don't demote yourself out of admin (lock-out protection)

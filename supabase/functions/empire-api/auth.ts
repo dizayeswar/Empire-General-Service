@@ -12,6 +12,8 @@ import {
   normalizeTrade,
   normalizeWorkerId,
   tokenDeptAllows,
+  parseWarehouseSigSections,
+  isWarehouseSigner,
 } from "./helpers.ts";
 
 export type AuthOk = {
@@ -21,6 +23,7 @@ export type AuthOk = {
   role: string;
   trade: string;
   perms?: Record<string, boolean>;
+  warehouseSigSections?: string[];
 };
 
 export type AuthFail = { ok: false; error: string; message?: string; success?: false };
@@ -160,6 +163,7 @@ export async function handleLogin(body: Record<string, unknown>) {
     electricalPerms,
     projects,
     trade,
+    warehouseSigSections: parseWarehouseSigSections(user.warehouse_sig_sections, rp.role),
     message: "Login successful",
   };
 }
@@ -182,6 +186,7 @@ export async function handleGetPerms(body: Record<string, unknown>) {
     electricalPerms,
     projects: projectsForUser(user),
     trade: tradeForUser(user),
+    warehouseSigSections: parseWarehouseSigSections(user.warehouse_sig_sections, rp.role),
   };
 }
 
@@ -200,6 +205,7 @@ export async function verifyTokenSession(token: string): Promise<AuthOk | AuthFa
     dept: normalizeDeptField(data.dept),
     role: normalizeRole(data.role || user?.role),
     trade: tradeForUser(user),
+    warehouseSigSections: parseWarehouseSigSections(user?.warehouse_sig_sections, data.role || user?.role),
   };
 }
 
@@ -220,6 +226,7 @@ export async function enrichAuthRole(auth: AuthOk): Promise<AuthOk> {
   if (user) {
     auth.role = normalizeRole(user.role || auth.role);
     auth.trade = tradeForUser(user);
+    auth.warehouseSigSections = parseWarehouseSigSections(user.warehouse_sig_sections, auth.role);
   }
   return auth;
 }

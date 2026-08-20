@@ -1,7 +1,20 @@
 import { AuthOk } from "./auth.ts";
 import { isoNow, nextCounter, sb, selectAllRows } from "./db.ts";
+import {
+  isWarehouseSigner,
+  parseWarehouseSigSections,
+  type WarehouseSigSlot,
+} from "./helpers.ts";
 
 type GinPayload = Record<string, unknown>;
+
+function authSigSections(auth: AuthOk): WarehouseSigSlot[] {
+  return parseWarehouseSigSections(auth.warehouseSigSections?.join(",") || "", auth.role);
+}
+
+function isWarehouseSignerAuth(auth: AuthOk): boolean {
+  return isWarehouseSigner(auth.role, auth.warehouseSigSections?.join(",") || "");
+}
 
 function rowToApi(r: Record<string, unknown>) {
   const payload = (r.payload && typeof r.payload === "object") ? r.payload as GinPayload : {};
@@ -28,14 +41,10 @@ function rowToApi(r: Record<string, unknown>) {
   };
 }
 
-function isWarehouseReceiver(auth: AuthOk): boolean {
-  return String(auth.role || "").toLowerCase() === "warehouse_receiver";
-}
-
 export async function handleGetWarehouseGins(_body: Record<string, unknown>, auth: AuthOk) {
   const data = await selectAllRows<Record<string, unknown>>("warehouse_goods_issues");
   let out = data.map(rowToApi);
-  if (isWarehouseReceiver(auth)) {
+  if (isWarehouseSignerAuth(auth)) {
     const me = String(auth.username || "").trim().toLowerCase();
     out = out.filter((it) => {
       if (!it.done) return false;
@@ -49,12 +58,12 @@ export async function handleGetWarehouseGins(_body: Record<string, unknown>, aut
 }
 
 export async function handleSaveWarehouseGin(body: Record<string, unknown>, auth: AuthOk) {
-  if (isWarehouseReceiver(auth)) {
+  if (isWarehouseSignerAuth(auth)) {
     return {
       ok: false,
       success: false,
       error: "forbidden",
-      message: "Receiver accounts can only add a Received by signature on notes assigned to them.",
+      message: "Warehouse signer accounts can only upload their allowed signature on notes assigned to them.",
     };
   }
   const payload = (body.payload && typeof body.payload === "object")
@@ -137,7 +146,7 @@ export async function handleSaveWarehouseGin(body: Record<string, unknown>, auth
 }
 
 export async function handleDeleteWarehouseGin(body: Record<string, unknown>, auth: AuthOk) {
-  if (isWarehouseReceiver(auth)) {
+  if (isWarehouseSignerAuth(auth)) {
     return { ok: false, success: false, error: "forbidden", message: "Receiver accounts cannot delete notes." };
   }
   const id = String(body.id || "").trim();
@@ -148,7 +157,7 @@ export async function handleDeleteWarehouseGin(body: Record<string, unknown>, au
 }
 
 export async function handleMarkWarehouseGinDone(body: Record<string, unknown>, auth: AuthOk) {
-  if (isWarehouseReceiver(auth)) {
+  if (isWarehouseSignerAuth(auth)) {
     return { ok: false, success: false, error: "forbidden", message: "Receiver accounts cannot mark notes Done." };
   }
   const id = String(body.id || "").trim();
@@ -184,7 +193,7 @@ export async function handleMarkWarehouseGinDone(body: Record<string, unknown>, 
 }
 
 export async function handleAssignWarehouseGin(body: Record<string, unknown>, auth: AuthOk) {
-  if (isWarehouseReceiver(auth)) {
+  if (isWarehouseSignerAuth(auth)) {
     return { ok: false, success: false, error: "forbidden", message: "Receiver accounts cannot assign notes." };
   }
   const id = String(body.id || "").trim();
@@ -226,40 +235,53 @@ export async function handleAssignWarehouseGin(body: Record<string, unknown>, au
 }
 
 export async function handleListWarehouseAssignees(_body: Record<string, unknown>, auth: AuthOk) {
-  if (isWarehouseReceiver(auth)) {
+  if (isWarehouseSignerAuth(auth)) {
     return { ok: true, success: true, users: [] };
   }
   const { data, error } = await sb()
     .from("users")
-    .select("username,dept,role")
+    .select("username,dept,role,warehouse_sig_sections")
     .order("username");
   if (error) throw error;
   const users = (data || [])
-    .filter((u) => {
+    .map((u) => {
       const role = String(u.role || "").trim().toLowerCase();
       const dept = String(u.dept || "").trim().toLowerCase();
-      if (role !== "warehouse_receiver") return false;
-      if (!dept) return false;
-      if (dept === "all" || dept === "warehouse") return true;
-      return dept.split(",").map((x) => x.trim()).includes("warehouse");
+      const sections = parseWarehouseSigSections(u.warehouse_sig_sections, role);
+      const signer = isWarehouseSigner(role, sections.join(","));
+      if (!signer) return null;
+      if (!dept) return null;
+      const deptOk = dept === "all" || dept === "warehouse" ||
+        dept.split(",").map((x) => x.trim()).includes("warehouse");
+      if (!deptOk) return null;
+      return {
+        username: String(u.username || ""),
+        role: String(u.role || ""),
+        dept: String(u.dept || ""),
+        warehouseSigSections: sections,
+      };
     })
-    .map((u) => ({
-      username: String(u.username || ""),
-      role: String(u.role || ""),
-      dept: String(u.dept || ""),
-    }))
-    .filter((u) => !!u.username);
+    .filter((u): u is NonNullable<typeof u> => !!u && !!u.username);
   return { ok: true, success: true, users };
 }
 
 export async function handleSaveWarehouseGinReceivedSig(body: Record<string, unknown>, auth: AuthOk) {
   const id = String(body.id || "").trim();
-  const received = String(body.received || body.image || "").trim();
+  const slotRaw = String(body.slot || body.which || "received").trim().toLowerCase();
+  const slot = (["auth", "issued", "received"].includes(slotRaw) ? slotRaw : "received") as WarehouseSigSlot;
+  const image = String(
+    body[slot] || body.image || body.received || body.auth || body.issued || "",
+  ).trim();
   if (!id) return { ok: false, success: false, error: "missing_id" };
-  if (!received) {
-    return { ok: false, success: false, error: "missing_sig", message: "Choose a Received by signature first." };
+  if (!image) {
+    return {
+      ok: false,
+      success: false,
+      error: "missing_sig",
+      message: "Choose a signature image first.",
+    };
   }
-  if (received.length > 900000) {
+  if (image.length > 900000) {
     return { ok: false, success: false, error: "too_large", message: "Signature image is too large." };
   }
   const { data: ex } = await sb().from("warehouse_goods_issues").select("id,payload").eq("id", id).maybeSingle();
@@ -274,10 +296,20 @@ export async function handleSaveWarehouseGinReceivedSig(body: Record<string, unk
   const assignedTo = String(existingPayload.assignedTo || "").trim().toLowerCase();
   const me = String(auth.username || "").trim().toLowerCase();
   const role = String(auth.role || "").toLowerCase();
-  const canStaff = role === "admin" || role === "editor";
-  if (isWarehouseReceiver(auth)) {
+  const sections = authSigSections(auth);
+  const signer = isWarehouseSignerAuth(auth);
+  const canStaff = (role === "admin" || role === "editor") && !signer;
+  if (signer) {
     if (!assignedTo || assignedTo !== me) {
       return { ok: false, success: false, error: "forbidden", message: "This note is not assigned to you." };
+    }
+    if (!sections.includes(slot)) {
+      return {
+        ok: false,
+        success: false,
+        error: "forbidden",
+        message: "Your account is not allowed to sign \"" + slot + "\".",
+      };
     }
   } else if (!canStaff) {
     return { ok: false, success: false, error: "forbidden", message: "Not allowed." };
@@ -286,22 +318,32 @@ export async function handleSaveWarehouseGinReceivedSig(body: Record<string, unk
     ? existingPayload.sigs as Record<string, unknown>
     : {};
   const now = isoNow();
-  const payload = {
-    ...existingPayload,
-    sigs: {
-      auth: String(prevSigs.auth || ""),
-      issued: String(prevSigs.issued || ""),
-      received,
-    },
-    receivedSignedAt: now,
-    receivedSignedBy: String(auth.username || ""),
+  const nextSigs = {
+    auth: String(prevSigs.auth || ""),
+    issued: String(prevSigs.issued || ""),
+    received: String(prevSigs.received || ""),
   };
+  nextSigs[slot] = image;
+  const payload: GinPayload = {
+    ...existingPayload,
+    sigs: nextSigs,
+  };
+  if (slot === "received") {
+    payload.receivedSignedAt = now;
+    payload.receivedSignedBy = String(auth.username || "");
+  } else if (slot === "auth") {
+    payload.authSignedAt = now;
+    payload.authSignedBy = String(auth.username || "");
+  } else if (slot === "issued") {
+    payload.issuedSignedAt = now;
+    payload.issuedSignedBy = String(auth.username || "");
+  }
   const { error } = await sb().from("warehouse_goods_issues").update({
     payload,
     updated_at: now,
   }).eq("id", id);
   if (error) throw error;
-  return { ok: true, success: true, id, receivedSignedAt: now };
+  return { ok: true, success: true, id, slot, signedAt: now };
 }
 
 const LAYOUT_KEY = "warehouse_gin_layout";

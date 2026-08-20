@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="icon" href="logo-light.png" type="image/png">
   <title>Users — Admin — Empire EGS</title>
-  <link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-assign">
+  <link rel="stylesheet" href="assets/empire.css?v=2026-08-20-wh-signer">
   <style>
     .admin-users-wrap { max-width: 1100px; margin: 0 auto; padding: 16px 18px 40px; }
     .admin-users-head { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; justify-content:space-between; margin-bottom:18px; }
@@ -96,6 +96,15 @@
           </select>
         </label>
         <label>Department<input id="f-dept" list="deptHints" placeholder="civil issue / electrical / all" oninput="onRoleOrDeptChange()"></label>
+        <div id="warehouseSigFields" style="grid-column:1/-1;display:none;">
+          <div style="font-size:12px;font-weight:600;color:var(--text-soft);margin-bottom:6px;">Warehouse signer — which signature section(s)?</div>
+          <p style="margin:0 0 8px;font-size:12px;color:var(--text-faint);line-height:1.4;">Keep their normal role (e.g. Editor + electrical). Checking any box also lets them open Warehouse — they only see Done notes assigned to them, and can upload only the sections you allow.</p>
+          <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:13px;font-weight:600;color:var(--text);">
+            <label style="flex-direction:row;align-items:center;gap:6px;"><input type="checkbox" id="f-whsig-auth" onchange="onWarehouseSigChange()"> Authorized by</label>
+            <label style="flex-direction:row;align-items:center;gap:6px;"><input type="checkbox" id="f-whsig-issued" onchange="onWarehouseSigChange()"> Issued by</label>
+            <label style="flex-direction:row;align-items:center;gap:6px;"><input type="checkbox" id="f-whsig-received" onchange="onWarehouseSigChange()"> Received by</label>
+          </div>
+        </div>
         <label id="tradeField">Trade (workers only)
           <select id="f-trade">
             <option value="">— choose trade —</option>
@@ -141,11 +150,11 @@
     <div id="usersTableHost"></div>
   </div>
 
-  <script src="config.js?v=2026-08-19-wh-assign"></script>
-  <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
-  <script src="assets/empire-auth.js?v=2026-08-19-wh-assign"></script>
-  <script src="assets/empire-core.js?v=2026-08-19-wh-assign"></script>
-  <script src="assets/empire-sw-update.js?v=2026-08-19-wh-assign"></script>
+  <script src="config.js?v=2026-08-20-wh-signer"></script>
+  <script src="assets/empire-api.js?v=2026-08-20-wh-signer"></script>
+  <script src="assets/empire-auth.js?v=2026-08-20-wh-signer"></script>
+  <script src="assets/empire-core.js?v=2026-08-20-wh-signer"></script>
+  <script src="assets/empire-sw-update.js?v=2026-08-20-wh-signer"></script>
   <script>
     var allUsers = [];
     var editingUsername = null;
@@ -171,15 +180,52 @@
         case 'viewer':
           return 'Can view allowed departments but not edit or create records.';
         case 'warehouse_receiver':
-          return 'Warehouse only. Sees Done notes assigned to them. Can upload Received by signature only — nothing else editable. Set Department to warehouse.';
+          return 'Warehouse signer. Sees Done notes assigned to them. Tick which signature section(s) they may upload (defaults to Received by).';
         case 'worker':
           return 'Mobile field app. Set Department to civil issue or electric issue, and pick a Trade.';
         case 'cleaning_supervisor':
           return 'Cleaning desk + mobile. Leave Projects blank for all sites, or use codes like ec,es.';
         case 'editor':
         default:
-          return 'Desk login for the Department you set (or all). Hide tabs to hide specific screens.';
+          return 'Desk login for their Department. Optional: tick Warehouse signer sections below so they can also open Warehouse and sign only notes assigned to them.';
       }
+    }
+
+    function readWarehouseSigSections_(){
+      var out=[];
+      if(document.getElementById('f-whsig-auth') && document.getElementById('f-whsig-auth').checked) out.push('auth');
+      if(document.getElementById('f-whsig-issued') && document.getElementById('f-whsig-issued').checked) out.push('issued');
+      if(document.getElementById('f-whsig-received') && document.getElementById('f-whsig-received').checked) out.push('received');
+      return out;
+    }
+    function setWarehouseSigSections_(list){
+      list = Array.isArray(list) ? list : String(list||'').split(/[,+|/\s]+/);
+      var set={};
+      list.forEach(function(s){ set[String(s||'').trim().toLowerCase()]=true; });
+      var role=(document.getElementById('f-role').value||'').toLowerCase();
+      if(role==='warehouse_receiver' && !set.auth && !set.issued && !set.received) set.received=true;
+      var a=document.getElementById('f-whsig-auth');
+      var i=document.getElementById('f-whsig-issued');
+      var r=document.getElementById('f-whsig-received');
+      if(a) a.checked=!!set.auth;
+      if(i) i.checked=!!set.issued;
+      if(r) r.checked=!!set.received;
+    }
+    function ensureWarehouseInDeptField_(){
+      var sections=readWarehouseSigSections_();
+      var role=(document.getElementById('f-role').value||'').toLowerCase();
+      if(!sections.length && role!=='warehouse_receiver') return;
+      var el=document.getElementById('f-dept');
+      if(!el) return;
+      var raw=String(el.value||'').trim();
+      if(!raw){ el.value='warehouse'; return; }
+      if(raw.toLowerCase()==='all') return;
+      var parts=raw.split(',').map(function(x){ return x.trim(); }).filter(Boolean);
+      var has=parts.some(function(p){ return p.toLowerCase()==='warehouse'; });
+      if(!has){ parts.push('warehouse'); el.value=parts.join(','); }
+    }
+    function onWarehouseSigChange(){
+      ensureWarehouseInDeptField_();
     }
 
     function onRoleOrDeptChange() {
@@ -192,6 +238,13 @@
       var projEl = document.getElementById('projectsField');
       var hideEl = document.getElementById('hideField');
       var hideElecEl = document.getElementById('hideElecField');
+      var whBox = document.getElementById('warehouseSigFields');
+      if (whBox) whBox.style.display = '';
+      if (role === 'warehouse_receiver') {
+        var secs = readWarehouseSigSections_();
+        if (!secs.length) setWarehouseSigSections_(['received']);
+        ensureWarehouseInDeptField_();
+      }
       if (tradeEl) tradeEl.style.display = isWorker ? '' : 'none';
       if (projEl) projEl.style.display = isCleaning ? '' : 'none';
       if (hideEl) hideEl.style.display = (isWorker ? 'none' : '');
@@ -251,6 +304,7 @@
       document.getElementById('f-projects').value = '';
       document.getElementById('f-hide').value = '';
       document.getElementById('f-hide-electrical').value = '';
+      setWarehouseSigSections_([]);
       document.getElementById('formHint').textContent = 'Password is required for new users. Tip: after save, tell them the username + password once — you cannot look it up later.';
       setMsg('formMsg', '', true);
       document.getElementById('userFormCard').style.display = '';
@@ -273,6 +327,7 @@
       document.getElementById('f-projects').value = u.projects || '';
       document.getElementById('f-hide').value = u.hide || '';
       document.getElementById('f-hide-electrical').value = u.hideElectrical || '';
+      setWarehouseSigSections_(u.warehouseSigSections || u.warehouseSigSectionsRaw || []);
       document.getElementById('formHint').textContent = 'Leave password blank to keep the current one. Enter a new password to reset it (signs them out everywhere).';
       setMsg('formMsg', '', true);
       document.getElementById('userFormCard').style.display = '';
@@ -280,6 +335,7 @@
       // restore trade/projects after role toggle cleared non-matching fields
       document.getElementById('f-trade').value = u.trade || '';
       document.getElementById('f-projects').value = u.projects || '';
+      setWarehouseSigSections_(u.warehouseSigSections || u.warehouseSigSectionsRaw || []);
     }
 
     function closeUserForm() {
@@ -290,6 +346,7 @@
     function formPayload() {
       var role = document.getElementById('f-role').value;
       var isWorker = String(role).toLowerCase() === 'worker';
+      ensureWarehouseInDeptField_();
       return {
         username: document.getElementById('f-username').value.trim(),
         password: document.getElementById('f-password').value,
@@ -298,7 +355,8 @@
         trade: isWorker ? document.getElementById('f-trade').value : '',
         projects: document.getElementById('f-projects').value.trim(),
         hide: document.getElementById('f-hide').value.trim(),
-        hideElectrical: document.getElementById('f-hide-electrical').value.trim()
+        hideElectrical: document.getElementById('f-hide-electrical').value.trim(),
+        warehouseSigSections: readWarehouseSigSections_().join(',')
       };
     }
 

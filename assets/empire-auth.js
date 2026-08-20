@@ -72,6 +72,26 @@ function empireGetRole() {
   return empireAuthLs('role');
 }
 
+function empireGetWarehouseSigSections() {
+  empireMigrateSession();
+  try {
+    var list = JSON.parse(empireAuthLs('warehouseSigSections') || '[]');
+    if (!Array.isArray(list)) return [];
+    var allowed = { auth: 1, issued: 1, received: 1 };
+    return list
+      .map(function (s) { return String(s || '').trim().toLowerCase(); })
+      .filter(function (s) { return !!allowed[s]; });
+  } catch (e) {
+    return [];
+  }
+}
+
+function empireIsWarehouseSigner() {
+  var role = String(empireGetRole() || '').toLowerCase().replace(/[\s-]+/g, '_');
+  if (role === 'warehouse_receiver' || role === 'receiver') return true;
+  return empireGetWarehouseSigSections().length > 0;
+}
+
 function empireGetPerms() {
   empireMigrateSession();
   try {
@@ -196,6 +216,12 @@ function empireSetSession(username, data) {
   empireAuthSet('projects', JSON.stringify(data.projects || []));
   empireAuthSet('trade', String(data.trade || '').trim().toLowerCase());
   empireAuthSet('electricalHide', String(data.electricalHide || '').trim());
+  var whSig = data.warehouseSigSections;
+  if (Array.isArray(whSig)) empireAuthSet('warehouseSigSections', JSON.stringify(whSig));
+  else if (typeof whSig === 'string') empireAuthSet('warehouseSigSections', JSON.stringify(
+    whSig.split(/[,+|/\s]+/).map(function (s) { return s.trim(); }).filter(Boolean)
+  ));
+  else empireAuthSet('warehouseSigSections', '[]');
 }
 
 function empireClearLegacyKeys() {
@@ -586,6 +612,12 @@ function empireAuthRefreshPerms(onUpdate) {
         if (d.projects) empireAuthSet('projects', JSON.stringify(d.projects));
         if (d.trade) empireAuthSet('trade', String(d.trade).trim().toLowerCase());
         if (d.electricalHide != null) empireAuthSet('electricalHide', String(d.electricalHide || '').trim());
+        if (d.warehouseSigSections) {
+          empireAuthSet(
+            'warehouseSigSections',
+            JSON.stringify(Array.isArray(d.warehouseSigSections) ? d.warehouseSigSections : [])
+          );
+        }
         if (typeof onUpdate === 'function') onUpdate(d);
       } else if (empireAuthHandleInvalidSession_(d)) {
         return;
