@@ -168,6 +168,7 @@ export const DEPT_BY_ACTION: Record<string, string> = {
   purgeWarehouseTrash: "warehouse",
   clearWarehouseGins: "warehouse",
   markWarehouseGinDone: "warehouse",
+  closeWarehouseGin: "warehouse",
   assignWarehouseGin: "warehouse",
   listWarehouseAssignees: "warehouse",
   saveWarehouseGinReceivedSig: "warehouse",

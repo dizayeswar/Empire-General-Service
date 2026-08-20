@@ -60,6 +60,11 @@
           <span class="lbl">Assignment</span>
           <span class="side-nav-badge" id="whDoneBadge" style="display:none;"></span>
         </button>
+        <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-closed" onclick="whSwitchTab(event,'closed')">
+          <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          <span class="lbl">Done</span>
+          <span class="side-nav-badge" id="whClosedBadge" style="display:none;"></span>
+        </button>
         <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-spusage" onclick="whSwitchTab(event,'spusage')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"/><path d="m15 9 6-6"/></svg></span>
           <span class="lbl">SP Usage</span>
@@ -230,12 +235,25 @@
       <div id="wh-tab-done" class="tab-content dept-tab-content">
         <div class="wh-app wh-saved-app">
           <div class="form-section">
-            <h2>Assignment</h2>
-            <p class="wh-tab-help" id="whDoneHelp">Finished Goods Issue Notes. Click <strong>Assign</strong> to choose who uploads <strong>Received by</strong>. Badge shows notes still waiting for assignment.</p>
+            <h2 id="whAssignTitle">Assignment</h2>
+            <p class="wh-tab-help" id="whDoneHelp">Finished notes waiting for assignment / signature. After they sign, click <strong>Done</strong> to move the note into the Done archive (view only).</p>
             <div class="wh-toolbar no-print" style="margin-bottom:12px;">
               <button type="button" onclick="whLoadSavedList()">Refresh</button>
             </div>
             <div id="whDoneList">Loading…</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="wh-tab-closed" class="tab-content dept-tab-content">
+        <div class="wh-app wh-saved-app">
+          <div class="form-section">
+            <h2 id="whClosedTitle">Done</h2>
+            <p class="wh-tab-help" id="whClosedHelp">Completed notes kept for review. View and print only — no editing.</p>
+            <div class="wh-toolbar no-print" style="margin-bottom:12px;">
+              <button type="button" onclick="whLoadSavedList()">Refresh</button>
+            </div>
+            <div id="whClosedList">Loading…</div>
           </div>
         </div>
       </div>
@@ -325,7 +343,7 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-20-wh-reset"></script>
+<script src="config.js?v=2026-08-20-wh-closed"></script>
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-20-wh-reset"></script>
@@ -409,6 +427,18 @@ function whApplyReceiverShell_(){
     var lbl=doneBtn.querySelector('.lbl');
     if(lbl) lbl.textContent = _whReceiverMode ? 'Assigned to me' : 'Assignment';
   }
+  var closedBtn=document.getElementById('tab-wh-closed');
+  if(closedBtn) closedBtn.style.display = '';
+  var assignTitle=document.getElementById('whAssignTitle');
+  if(assignTitle) assignTitle.textContent = _whReceiverMode ? 'Assigned to me' : 'Assignment';
+  var closedTitle=document.getElementById('whClosedTitle');
+  if(closedTitle) closedTitle.textContent = 'Done';
+  var closedHelp=document.getElementById('whClosedHelp');
+  if(closedHelp){
+    closedHelp.innerHTML = _whReceiverMode
+      ? 'Notes assigned to you that warehouse marked Done. View and print only.'
+      : 'Completed notes kept for review. View and print only — no editing.';
+  }
   var trashBtn=document.getElementById('btnWhTrash');
   var resetBtn=document.getElementById('btnWhReset');
   var isAdmin=typeof empireIsAdminRole==='function' && empireIsAdminRole();
@@ -416,7 +446,7 @@ function whApplyReceiverShell_(){
   if(resetBtn) resetBtn.style.display = (!_whReceiverMode && isAdmin) ? '' : 'none';
   if(_whReceiverMode){
     var help=document.getElementById('whDoneHelp');
-    if(help) help.innerHTML='Notes assigned to you. Open one and use <strong>Upload</strong> only under: <strong>'+whEsc(whSigSlotsLabel_())+'</strong>. Everything else is locked.';
+    if(help) help.innerHTML='Notes assigned to you. Open one and use <strong>Upload</strong> only under: <strong>'+whEsc(whSigSlotsLabel_())+'</strong>. When warehouse clicks Done, it moves to your Done list.';
     whSwitchTab(null,'done');
   }
 }
@@ -466,7 +496,7 @@ function whApplyTab_(e, tab){
     _whEsigPickFor='';
     whEsigUpdatePickHelp_();
   }
-  if(tab==='saved' || tab==='done') whLoadSavedList();
+  if(tab==='saved' || tab==='done' || tab==='closed') whLoadSavedList();
   if(tab==='spusage'){
     if(_whReceiverMode){ whApplyTab_(null,'done'); return; }
     whSpUsageRefresh();
@@ -1378,7 +1408,7 @@ function whSave(){
       whSyncLocalDone_(_whEditingId);
       whAfterSaveToSavedNotes_();
       whSwitchTab(null,'done');
-      alert('This note is already Done (cannot edit).\n\nIt is under Done Notes — click Assign there.');
+      alert('This note is already Done (cannot edit).\n\nIt is under Assignment — click Assign there.');
       return;
     }
     if(/empty|not_allowed|forbidden|unauthorized/i.test(msg)){
@@ -1417,7 +1447,8 @@ function whNormalizeListItem(it){
   if(!it) return null;
   var p=it.payload || {};
   if(typeof p!=='object' || !p) p={};
-  var done = !!(it.done || p.done || p.status==='done');
+  var done = !!(it.done || p.done || p.status==='done' || p.status==='closed' || it.closed || p.closed);
+  var closed = !!(it.closed || p.closed || p.status==='closed');
   var issueType=whNormIssueType_(it.issueType||p.issueType||p.issue_type||'');
   if(issueType && !whNormIssueType_(p.issueType)) p.issueType=issueType;
   return {
@@ -1435,6 +1466,9 @@ function whNormalizeListItem(it){
     done:done,
     doneAt:String(it.doneAt||p.doneAt||''),
     doneBy:String(it.doneBy||p.doneBy||''),
+    closed:closed,
+    closedAt:String(it.closedAt||p.closedAt||''),
+    closedBy:String(it.closedBy||p.closedBy||''),
     assignedTo:String(it.assignedTo||p.assignedTo||''),
     assignedAt:String(it.assignedAt||p.assignedAt||''),
     payload:p,
@@ -1453,8 +1487,10 @@ function whMergeLists(serverItems, localItems){
     if(!n || !n.id) return;
     var prev=map[n.id];
     if(!prev){ map[n.id]=n; return; }
-    // Prefer Done / assignment from either side so a stale local copy cannot reopen a Done note.
+    // Prefer Done / assignment / closed from either side so a stale local copy cannot reopen a Done note.
     var done=!!(prev.done || n.done);
+    var closed=!!(prev.closed || n.closed);
+    if(closed) done=true;
     var newer=(String(n.updatedAt||'')>=String(prev.updatedAt||'')) ? n : prev;
     var older=(newer===n) ? prev : n;
     var mergedPayload=Object.assign({}, older.payload||{}, newer.payload||{});
@@ -1466,8 +1502,11 @@ function whMergeLists(serverItems, localItems){
     if(issueType) mergedPayload.issueType=issueType;
     var merged=Object.assign({}, older, newer, {
       done:done,
+      closed:closed,
       doneAt: newer.doneAt || older.doneAt || '',
       doneBy: newer.doneBy || older.doneBy || '',
+      closedAt: newer.closedAt || older.closedAt || '',
+      closedBy: newer.closedBy || older.closedBy || '',
       assignedTo: newer.assignedTo || older.assignedTo || '',
       assignedAt: newer.assignedAt || older.assignedAt || '',
       requester: pickText(newer.requester, older.requester),
@@ -1478,9 +1517,13 @@ function whMergeLists(serverItems, localItems){
       issueType: issueType,
       payload: mergedPayload
     });
-    if(done){
+    if(closed){
+      merged.payload.closed=true;
+      merged.payload.status='closed';
       merged.payload.done=true;
-      merged.payload.status='done';
+    } else if(done){
+      merged.payload.done=true;
+      if(merged.payload.status!=='closed') merged.payload.status='done';
       if(merged.assignedTo) merged.payload.assignedTo=merged.assignedTo;
     }
     merged.localOnly=!!(prev.localOnly && n.localOnly);
@@ -1499,25 +1542,39 @@ function whSetBadge(elId, n){
   else { b.style.display='none'; b.textContent=''; }
 }
 function whPartitionSaved_(){
-  var openInternal=[], openExternal=[], openOther=[], doneInternal=[], doneExternal=[], doneOther=[];
+  var openInternal=[], openExternal=[], openOther=[];
+  var assignInternal=[], assignExternal=[], assignOther=[];
+  var closedInternal=[], closedExternal=[], closedOther=[];
   (_whSavedCache||[]).forEach(function(it){
     var t=whNormIssueType_(it.issueType || (it.payload && it.payload.issueType) || '');
-    if(it.done){
-      if(t==='internal') doneInternal.push(it);
-      else if(t==='external') doneExternal.push(it);
-      else doneOther.push(it);
+    var closed=whIsItemClosed(it);
+    var done=whIsItemDone(it);
+    if(closed){
+      if(t==='internal') closedInternal.push(it);
+      else if(t==='external') closedExternal.push(it);
+      else closedOther.push(it);
+      return;
+    }
+    if(done){
+      if(t==='internal') assignInternal.push(it);
+      else if(t==='external') assignExternal.push(it);
+      else assignOther.push(it);
       return;
     }
     if(t==='internal') openInternal.push(it);
     else if(t==='external') openExternal.push(it);
     else openOther.push(it);
   });
+  var assignAll=assignInternal.concat(assignExternal, assignOther);
+  var closedAll=closedInternal.concat(closedExternal, closedOther);
   return {
     openInternal:openInternal, openExternal:openExternal, openOther:openOther,
-    doneInternal:doneInternal, doneExternal:doneExternal, doneOther:doneOther,
+    doneInternal:assignInternal, doneExternal:assignExternal, doneOther:assignOther,
+    closedInternal:closedInternal, closedExternal:closedExternal, closedOther:closedOther,
     openCount: openInternal.length+openExternal.length+openOther.length,
-    doneCount: doneInternal.length+doneExternal.length+doneOther.length,
-    unassignedCount: doneInternal.concat(doneExternal, doneOther).filter(function(it){
+    doneCount: assignAll.length,
+    closedCount: closedAll.length,
+    unassignedCount: assignAll.filter(function(it){
       return !String(it.assignedTo||'').trim();
     }).length
   };
@@ -1525,10 +1582,13 @@ function whPartitionSaved_(){
 function whLoadSavedList(){
   var savedBox=document.getElementById('whSavedList');
   var doneBox=document.getElementById('whDoneList');
+  var closedBox=document.getElementById('whClosedList');
   if(savedBox) savedBox.innerHTML = typeof empireLoadingHtml==='function' ? empireLoadingHtml('Loading saved notes…') : 'Loading…';
-  if(doneBox) doneBox.innerHTML = typeof empireLoadingHtml==='function' ? empireLoadingHtml('Loading done notes…') : 'Loading…';
+  if(doneBox) doneBox.innerHTML = typeof empireLoadingHtml==='function' ? empireLoadingHtml('Loading assignment…') : 'Loading…';
+  if(closedBox) closedBox.innerHTML = typeof empireLoadingHtml==='function' ? empireLoadingHtml('Loading done notes…') : 'Loading…';
   whBindSavedListClicks_();
   whBindDoneListClicks_();
+  whBindClosedListClicks_();
   var token=typeof empireGetToken==='function' ? empireGetToken() : '';
   var local=_whReceiverMode ? [] : whLocalRead();
   fetchJSONRetry({ action:'getWarehouseGins', token:token }, 2, 60000).then(function(d){
@@ -1543,7 +1603,7 @@ function whLoadSavedList(){
     if(_whReceiverMode){
       var me=String(typeof empireGetUser==='function' ? empireGetUser() : '').toLowerCase();
       _whSavedCache=_whSavedCache.filter(function(it){
-        return it.done && String(it.assignedTo||'').toLowerCase()===me;
+        return whIsItemDone(it) && String(it.assignedTo||'').toLowerCase()===me;
       });
     }
     whRenderSavedList();
@@ -1583,6 +1643,7 @@ function whRenderSavedList(){
   var parts=whPartitionSaved_();
   whSetBadge('whSavedBadge', _whReceiverMode ? 0 : parts.openCount);
   whSetBadge('whDoneBadge', _whReceiverMode ? parts.doneCount : parts.unassignedCount);
+  whSetBadge('whClosedBadge', parts.closedCount);
 
   var savedBox=document.getElementById('whSavedList');
   if(savedBox && !_whReceiverMode){
@@ -1592,9 +1653,9 @@ function whRenderSavedList(){
         : '<p>No open notes.</p>';
     } else {
       var h='';
-      h+=whSavedSectionHtml_('Internal', parts.openInternal, false);
-      h+=whSavedSectionHtml_('External', parts.openExternal, false);
-      if(parts.openOther.length) h+=whSavedSectionHtml_('No type selected', parts.openOther, false);
+      h+=whSavedSectionHtml_('Internal', parts.openInternal, 'open');
+      h+=whSavedSectionHtml_('External', parts.openExternal, 'open');
+      if(parts.openOther.length) h+=whSavedSectionHtml_('No type selected', parts.openOther, 'open');
       savedBox.innerHTML=h;
     }
   }
@@ -1603,21 +1664,43 @@ function whRenderSavedList(){
   if(doneBox){
     if(!parts.doneCount){
       doneBox.innerHTML = typeof empireEmptyHtml==='function'
-        ? empireEmptyHtml(_whReceiverMode ? 'Nothing assigned yet' : 'No done notes yet',
+        ? empireEmptyHtml(_whReceiverMode ? 'Nothing assigned yet' : 'No notes in Assignment',
             _whReceiverMode
               ? 'When warehouse marks a note Done and assigns it to you, it appears here.'
-              : 'When a note is finished, click Done in Saved Notes — it moves here. Then click Assign.')
-        : '<p>No done notes yet.</p>';
+              : 'When a note is finished, click Done in Saved Notes — it moves here. Assign someone, then click Done to archive.')
+        : '<p>No notes in Assignment.</p>';
     } else {
       var dh='';
       if(_whReceiverMode){
-        dh+=whSavedSectionHtml_('Assigned to me', parts.doneInternal.concat(parts.doneExternal, parts.doneOther), true);
+        dh+=whSavedSectionHtml_('Assigned to me', parts.doneInternal.concat(parts.doneExternal, parts.doneOther), 'assign');
       } else {
-        dh+=whSavedSectionHtml_('Internal', parts.doneInternal, true);
-        dh+=whSavedSectionHtml_('External', parts.doneExternal, true);
-        if(parts.doneOther.length) dh+=whSavedSectionHtml_('No type selected', parts.doneOther, true);
+        dh+=whSavedSectionHtml_('Internal', parts.doneInternal, 'assign');
+        dh+=whSavedSectionHtml_('External', parts.doneExternal, 'assign');
+        if(parts.doneOther.length) dh+=whSavedSectionHtml_('No type selected', parts.doneOther, 'assign');
       }
       doneBox.innerHTML=dh;
+    }
+  }
+
+  var closedBox=document.getElementById('whClosedList');
+  if(closedBox){
+    if(!parts.closedCount){
+      closedBox.innerHTML = typeof empireEmptyHtml==='function'
+        ? empireEmptyHtml('No done notes yet',
+            _whReceiverMode
+              ? 'When warehouse clicks Done on a note assigned to you, it appears here for review.'
+              : 'After assignment and signatures, click Done on a note in Assignment to keep it here (view only).')
+        : '<p>No done notes yet.</p>';
+    } else {
+      var ch='';
+      if(_whReceiverMode){
+        ch+=whSavedSectionHtml_('Done', parts.closedInternal.concat(parts.closedExternal, parts.closedOther), 'closed');
+      } else {
+        ch+=whSavedSectionHtml_('Internal', parts.closedInternal, 'closed');
+        ch+=whSavedSectionHtml_('External', parts.closedExternal, 'closed');
+        if(parts.closedOther.length) ch+=whSavedSectionHtml_('No type selected', parts.closedOther, 'closed');
+      }
+      closedBox.innerHTML=ch;
     }
   }
   if(!_whReceiverMode) whRenderSpUsage_();
@@ -1710,8 +1793,12 @@ function whRenderSpUsage_(){
   h+='</tbody></table></div>';
   box.innerHTML=h;
 }
-function whSavedSectionHtml_(title, items, isDoneSection){
-  var h='<div class="wh-saved-section'+(isDoneSection?' wh-saved-section-done':'')+'">'
+function whSavedSectionHtml_(title, items, mode){
+  // mode: 'open' | 'assign' | 'closed'
+  mode = mode===true ? 'assign' : (mode===false ? 'open' : String(mode||'open'));
+  var isAssign=mode==='assign';
+  var isClosed=mode==='closed';
+  var h='<div class="wh-saved-section'+(isAssign||isClosed?' wh-saved-section-done':'')+'">'
     +'<h3 class="wh-saved-section-title">'+whEsc(title)
     +' <span class="wh-saved-section-count">('+items.length+')</span></h3>';
   if(!items.length){
@@ -1721,26 +1808,40 @@ function whSavedSectionHtml_(title, items, isDoneSection){
   }
   h+='<div class="wh-saved-table-wrap"><table class="wh-saved-table"><thead><tr>'
     +'<th>#</th><th>Date</th><th>Request No.</th><th>Requester</th><th>Property</th>'
-    +(isDoneSection?'<th>Assigned</th>':'')
+    +((isAssign||isClosed)?'<th>Assigned</th>':'')
     +'<th></th>'
     +'</tr></thead><tbody>';
   items.forEach(function(it){
     var id=whEsc(String(it.id||''));
+    var acts='';
+    if(isClosed){
+      acts='<button type="button" data-wh-act="view" data-wh-id="'+id+'">View</button> '
+        +'<button type="button" data-wh-act="print" data-wh-id="'+id+'">Print</button> ';
+    } else if(isAssign){
+      acts='<button type="button" data-wh-act="view" data-wh-id="'+id+'">View</button> ';
+      if(!_whReceiverMode){
+        acts+='<button type="button" data-wh-act="assign" data-wh-id="'+id+'">'+(it.assignedTo?'Reassign':'Assign')+'</button> ';
+        if(String(it.assignedTo||'').trim()){
+          acts+='<button type="button" data-wh-act="close" data-wh-id="'+id+'" style="color:#fff;background:#1d9e75;border-color:#1d9e75;">Done</button> ';
+        }
+        acts+='<button type="button" data-wh-act="delete" data-wh-id="'+id+'">Delete</button> ';
+      }
+      acts+='<button type="button" data-wh-act="print" data-wh-id="'+id+'">Print</button> ';
+    } else {
+      acts='<button type="button" data-wh-act="open" data-wh-id="'+id+'">Open</button> '
+        +'<button type="button" data-wh-act="done" data-wh-id="'+id+'">Done</button> '
+        +'<button type="button" data-wh-act="print" data-wh-id="'+id+'">Print</button> '
+        +(_whReceiverMode?'':('<button type="button" data-wh-act="delete" data-wh-id="'+id+'">Delete</button> '));
+    }
     h+='<tr>'
       +'<td>'+(it.num||'—')+'</td>'
       +'<td>'+whEsc(whFmtDate(it.requestDate)||it.requestDate||'—')+'</td>'
       +'<td>'+whEsc(it.requestNo||'—')+'</td>'
       +'<td>'+whEsc(it.requester||'—')+'</td>'
       +'<td>'+whEsc(it.propertyCode||'—')+'</td>'
-      +(isDoneSection?('<td>'+whEsc(it.assignedTo||'—')+'</td>'):'')
+      +((isAssign||isClosed)?('<td>'+whEsc(it.assignedTo||'—')+'</td>'):'')
       +'<td class="wh-saved-actions">'
-      +(isDoneSection
-        ? ('<button type="button" data-wh-act="view" data-wh-id="'+id+'">View</button> '
-          +(_whReceiverMode?'':('<button type="button" data-wh-act="assign" data-wh-id="'+id+'">'+(it.assignedTo?'Reassign':'Assign')+'</button> ')))
-        : ('<button type="button" data-wh-act="open" data-wh-id="'+id+'">Open</button> '
-          +'<button type="button" data-wh-act="done" data-wh-id="'+id+'">Done</button> '))
-      +'<button type="button" data-wh-act="print" data-wh-id="'+id+'">Print</button> '
-      +(_whReceiverMode?'':('<button type="button" data-wh-act="delete" data-wh-id="'+id+'">Delete</button>'))
+      +acts
       +(it.localOnly?' <span class="wh-local-tag">this device</span>':'')
       +'</td></tr>';
   });
@@ -1760,6 +1861,7 @@ function whBindListClicks_(boxId){
     e.preventDefault();
     if(act==='open' || act==='view') whOpenSaved(id);
     else if(act==='done') whMarkDone(id);
+    else if(act==='close') whCloseAssigned(id);
     else if(act==='assign') whAssignDone(id);
     else if(act==='print') whPrintSaved(id);
     else if(act==='delete') whDeleteSaved(id);
@@ -1767,6 +1869,7 @@ function whBindListClicks_(boxId){
 }
 function whBindSavedListClicks_(){ whBindListClicks_('whSavedList'); }
 function whBindDoneListClicks_(){ whBindListClicks_('whDoneList'); }
+function whBindClosedListClicks_(){ whBindListClicks_('whClosedList'); }
 function whFindSaved(id){
   id=String(id||'');
   for(var i=0;i<_whSavedCache.length;i++){
@@ -1781,8 +1884,9 @@ function whSetFormLocked(locked){
   var banner=document.getElementById('whDoneBanner');
   if(banner){
     banner.hidden=!_whFormLocked;
-    if(_whFormLocked && _whReceiverMode) banner.textContent='Assigned to you — sign: '+whSigSlotsLabel_();
-    else if(_whFormLocked) banner.textContent='Done — view only';
+    if(_whFormLocked && whIsItemClosed(whFindSaved(_whEditingId))) banner.textContent='Done — view only';
+    else if(_whFormLocked && _whReceiverMode) banner.textContent='Assigned to you — sign: '+whSigSlotsLabel_();
+    else if(_whFormLocked) banner.textContent='In Assignment — view only';
   }
   ['whSaveBtn','whSaveBtn2'].forEach(function(id){
     var b=document.getElementById(id);
@@ -1807,7 +1911,8 @@ function whSetFormLocked(locked){
       else if(block && block.querySelector('#wh-sig-issued')) slot='issued';
       else if(block && block.querySelector('#wh-sig-received')) slot='received';
       if(_whReceiverMode){
-        var allow=whCanSignSlot_(slot);
+        var closed=whIsItemClosed(whFindSaved(_whEditingId));
+        var allow=!closed && whCanSignSlot_(slot);
         b.disabled = !allow;
         b.style.display = allow ? '' : 'none';
       } else if(_whFormLocked){
@@ -1823,7 +1928,12 @@ function whSetFormLocked(locked){
 function whIsItemDone(it){
   if(!it) return false;
   var p=it.payload||{};
-  return !!(it.done || p.done || p.status==='done');
+  return !!(it.done || p.done || p.status==='done' || it.closed || p.closed || p.status==='closed');
+}
+function whIsItemClosed(it){
+  if(!it) return false;
+  var p=it.payload||{};
+  return !!(it.closed || p.closed || p.status==='closed');
 }
 function whOpenSaved(id){
   var it=whFindSaved(id);
@@ -1846,16 +1956,21 @@ function whOpenSaved(id){
       sigs:{ auth:'', issued:'', received:'' }
     };
   }
+  if(whIsItemClosed(it)){
+    payload=Object.assign({}, payload, { closed:true, status:'closed', done:true });
+  } else if(whIsItemDone(it)){
+    payload=Object.assign({}, payload, { done:true, status: payload.status==='closed' ? 'closed' : 'done' });
+  }
   _whEditingId=String(it.id);
   whApplyPayload(payload);
-  whSetFormLocked(whIsItemDone(it) || _whReceiverMode);
+  whSetFormLocked(whIsItemDone(it) || whIsItemClosed(it) || _whReceiverMode);
   whUpdateFormTitle();
   if(_whFormLocked){
     var t=document.getElementById('whFormTitle');
     if(t){
-      t.textContent=_whReceiverMode
-        ? 'Goods Issue Note (Assigned — Received by only)'
-        : 'Goods Issue Note (Done — view only)';
+      if(whIsItemClosed(it)) t.textContent='Goods Issue Note (Done — view only)';
+      else if(_whReceiverMode) t.textContent='Goods Issue Note (Assigned — sign only)';
+      else t.textContent='Goods Issue Note (Assignment — view only)';
     }
   }
   whDraftSave_();
@@ -1907,7 +2022,7 @@ function whMarkDone(id){
     alert('This note is already Done.');
     return;
   }
-  whUiConfirm_('Mark this Goods Issue Note as Done?\n\nIt will move to Done Notes. You can Assign who signs Received by next.').then(function(ok){
+  whUiConfirm_('Mark this Goods Issue Note as Done?\n\nIt will move to Assignment. You can Assign who signs Received by next.').then(function(ok){
     if(!ok) return;
     var p=Object.assign({}, it.payload||{}, {
       done:true,
@@ -1938,7 +2053,7 @@ function whMarkDone(id){
       alert('Could not save Done to server: '+(err && err.message ? err.message : err));
     }).finally(function(){
       whLoadSavedList();
-      alert('Moved to Done Notes. Click Assign to choose who signs Received by.');
+      alert('Moved to Assignment. Click Assign to choose who signs Received by.');
       whSwitchTab(null,'done');
     });
   });
@@ -1948,6 +2063,10 @@ function whAssignDone(id){
   id=String(id||'');
   var it=whFindSaved(id);
   if(!it){ alert('Note not found.'); return; }
+  if(whIsItemClosed(it)){
+    alert('This note is already in Done (view only).');
+    return;
+  }
   if(!whIsItemDone(it)){
     alert('Mark the note Done in Saved Notes before assigning.');
     return;
@@ -1973,10 +2092,61 @@ function whAssignDone(id){
           alert('Could not save assignment to server: '+(err && err.message ? err.message : err));
         }).finally(function(){
           whLoadSavedList();
-          alert('Assigned to '+assignee+'.');
+          alert('Assigned to '+assignee+'. When signatures are finished, click Done to move it to the Done section.');
           whSwitchTab(null,'done');
         });
       });
+    });
+  });
+}
+function whCloseAssigned(id){
+  if(_whReceiverMode){ alert('Only warehouse staff can move notes to Done.'); return; }
+  id=String(id||'');
+  var it=whFindSaved(id);
+  if(!it){ alert('Note not found.'); return; }
+  if(whIsItemClosed(it)){
+    alert('This note is already in Done.');
+    whSwitchTab(null,'closed');
+    return;
+  }
+  if(!whIsItemDone(it)){
+    alert('Mark the note Done in Saved Notes first.');
+    return;
+  }
+  if(!String(it.assignedTo||'').trim()){
+    alert('Assign this note first, then click Done.');
+    return;
+  }
+  whUiConfirm_('Move this note to Done?\n\nIt will leave Assignment and stay view-only for warehouse and for "'+it.assignedTo+'".').then(function(ok){
+    if(!ok) return;
+    var p=Object.assign({}, it.payload||{}, {
+      closed:true,
+      status:'closed',
+      done:true,
+      closedAt:new Date().toISOString(),
+      closedBy: typeof empireGetUser==='function' ? empireGetUser() : ''
+    });
+    it.payload=p;
+    it.closed=true;
+    it.closedAt=p.closedAt;
+    it.closedBy=p.closedBy;
+    it.done=true;
+    whLocalUpsert(it);
+    if(_whEditingId===id){
+      whSetFormLocked(true);
+      var t=document.getElementById('whFormTitle');
+      if(t) t.textContent='Goods Issue Note (Done — view only)';
+    }
+    var token=typeof empireGetToken==='function' ? empireGetToken() : '';
+    fetchJSONRetry({ action:'closeWarehouseGin', token:token, id:id }, 2, 30000).then(function(d){
+      if(!(d && (d.ok||d.success))) throw new Error((d && (d.message||d.error)) || 'Could not move to Done');
+    }).catch(function(err){
+      console.warn('closeWarehouseGin', err);
+      alert('Could not save Done to server: '+(err && err.message ? err.message : err));
+    }).finally(function(){
+      whLoadSavedList();
+      alert('Moved to Done (view only).');
+      whSwitchTab(null,'closed');
     });
   });
 }

@@ -20,6 +20,7 @@ function isWarehouseSignerAuth(auth: AuthOk): boolean {
 function rowToApi(r: Record<string, unknown>) {
   const payload = (r.payload && typeof r.payload === "object") ? r.payload as GinPayload : {};
   const done = payload.done === true || payload.status === "done";
+  const closed = payload.closed === true || payload.status === "closed";
   return {
     id: String(r.id || ""),
     num: Number(r.num || 0) || 0,
@@ -36,6 +37,9 @@ function rowToApi(r: Record<string, unknown>) {
     done,
     doneAt: String(payload.doneAt || ""),
     doneBy: String(payload.doneBy || ""),
+    closed,
+    closedAt: String(payload.closedAt || ""),
+    closedBy: String(payload.closedBy || ""),
     assignedTo: String(payload.assignedTo || ""),
     assignedAt: String(payload.assignedAt || ""),
     payload,
@@ -334,6 +338,58 @@ export async function handleMarkWarehouseGinDone(body: Record<string, unknown>, 
   return { ok: true, success: true, id, done: true, doneAt: now };
 }
 
+/** Move an assigned note from Assignment into Done (view-only archive). Staff only. */
+export async function handleCloseWarehouseGin(body: Record<string, unknown>, auth: AuthOk) {
+  if (isWarehouseSignerAuth(auth)) {
+    return {
+      ok: false,
+      success: false,
+      error: "forbidden",
+      message: "Signer accounts cannot move notes to Done. Ask warehouse staff.",
+    };
+  }
+  const id = String(body.id || "").trim();
+  if (!id) return { ok: false, success: false, error: "missing_id" };
+  const { data: ex } = await sb().from("warehouse_goods_issues").select("id,payload").eq("id", id).maybeSingle();
+  if (!ex) return { ok: false, success: false, error: "not_found" };
+  const existingPayload = (ex.payload && typeof ex.payload === "object")
+    ? ex.payload as GinPayload
+    : {};
+  if (!(existingPayload.done === true || existingPayload.status === "done")) {
+    return {
+      ok: false,
+      success: false,
+      error: "not_done",
+      message: "Mark the note Done in Saved Notes first, then Assign, then move to Done.",
+    };
+  }
+  if (existingPayload.closed === true || existingPayload.status === "closed") {
+    return { ok: true, success: true, id, alreadyClosed: true };
+  }
+  if (!String(existingPayload.assignedTo || "").trim()) {
+    return {
+      ok: false,
+      success: false,
+      error: "not_assigned",
+      message: "Assign this note first, then click Done to archive it.",
+    };
+  }
+  const now = isoNow();
+  const payload = {
+    ...existingPayload,
+    closed: true,
+    status: "closed",
+    closedAt: now,
+    closedBy: String(auth.username || ""),
+  };
+  const { error } = await sb().from("warehouse_goods_issues").update({
+    payload,
+    updated_at: now,
+  }).eq("id", id);
+  if (error) throw error;
+  return { ok: true, success: true, id, closed: true, closedAt: now };
+}
+
 export async function handleAssignWarehouseGin(body: Record<string, unknown>, auth: AuthOk) {
   if (isWarehouseSignerAuth(auth)) {
     return { ok: false, success: false, error: "forbidden", message: "Receiver accounts cannot assign notes." };
@@ -360,6 +416,14 @@ export async function handleAssignWarehouseGin(body: Record<string, unknown>, au
       success: false,
       error: "not_done",
       message: "Mark the note Done in Saved Notes before assigning.",
+    };
+  }
+  if (existingPayload.closed === true || existingPayload.status === "closed") {
+    return {
+      ok: false,
+      success: false,
+      error: "closed",
+      message: "This note is already in Done (view only). It cannot be reassigned.",
     };
   }
   const now = isoNow();
@@ -434,6 +498,14 @@ export async function handleSaveWarehouseGinReceivedSig(body: Record<string, unk
   const done = existingPayload.done === true || existingPayload.status === "done";
   if (!done) {
     return { ok: false, success: false, error: "not_done", message: "Only Done notes can receive a signature." };
+  }
+  if (existingPayload.closed === true || existingPayload.status === "closed") {
+    return {
+      ok: false,
+      success: false,
+      error: "closed",
+      message: "This note is already in Done (view only). Signatures cannot be changed.",
+    };
   }
   const assignedTo = String(existingPayload.assignedTo || "").trim().toLowerCase();
   const me = String(auth.username || "").trim().toLowerCase();
