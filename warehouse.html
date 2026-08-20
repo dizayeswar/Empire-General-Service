@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-20-wh-signer">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-20-wh-combo-pill">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-20-wh-combo-float">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -285,7 +285,7 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-20-wh-signer"></script>
+<script src="config.js?v=2026-08-20-wh-combo-float"></script>
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-20-wh-signer"></script>
@@ -1964,17 +1964,58 @@ function whBuildLines(){
   body.innerHTML=h;
 }
 function whCloseCombos(){
-  document.querySelectorAll('.wh-combo-list').forEach(function(el){ el.hidden=true; el.innerHTML=''; });
+  document.querySelectorAll('.wh-combo-list').forEach(function(el){
+    el.hidden=true;
+    el.innerHTML='';
+    el.classList.remove('wh-combo-list-float');
+    el.style.cssText='';
+    if(el._whComboHome && el.parentNode!==el._whComboHome){
+      el._whComboHome.appendChild(el);
+    }
+  });
   document.querySelectorAll('.wh-combo.wh-combo-open').forEach(function(el){ el.classList.remove('wh-combo-open'); });
   var note=document.getElementById('whPrintRoot');
   if(note) note.classList.remove('wh-combo-open-active');
+  var layer=document.getElementById('whComboFloatLayer');
+  if(layer) layer.hidden=true;
   _whOpenCombo=null;
 }
-function whMarkComboOpen_(wrap){
+function whComboFloatLayer_(){
+  var layer=document.getElementById('whComboFloatLayer');
+  if(!layer){
+    layer=document.createElement('div');
+    layer.id='whComboFloatLayer';
+    layer.className='wh-combo-float-layer';
+    layer.hidden=true;
+    document.body.appendChild(layer);
+  }
+  return layer;
+}
+function whMarkComboOpen_(wrap, list, anchorEl){
   var note=document.getElementById('whPrintRoot');
   if(note) note.classList.add('wh-combo-open-active');
   if(wrap) wrap.classList.add('wh-combo-open');
   _whOpenCombo=wrap;
+  if(!list || !anchorEl) return;
+  if(!list._whComboHome) list._whComboHome=list.parentNode;
+  var layer=whComboFloatLayer_();
+  layer.hidden=false;
+  if(list.parentNode!==layer) layer.appendChild(list);
+  list.classList.add('wh-combo-list-float');
+  list.hidden=false;
+  var r=anchorEl.getBoundingClientRect();
+  var width=Math.max(r.width, 160);
+  var left=r.left;
+  if(left+width > window.innerWidth-8) left=Math.max(8, window.innerWidth-width-8);
+  var top=r.bottom+4;
+  var maxH=Math.min(280, Math.max(120, window.innerHeight-top-12));
+  list.style.position='fixed';
+  list.style.left=left+'px';
+  list.style.top=top+'px';
+  list.style.width=width+'px';
+  list.style.right='auto';
+  list.style.maxHeight=maxH+'px';
+  list.style.zIndex='10050';
 }
 function whBindComboClicks_(){
   if(document._whComboBound) return;
@@ -1994,6 +2035,8 @@ function whBindComboClicks_(){
       whPickCompany(btn.getAttribute('data-wh-name')||'');
     }
   }, true);
+  window.addEventListener('scroll', function(){ if(_whOpenCombo) whCloseCombos(); }, true);
+  window.addEventListener('resize', function(){ if(_whOpenCombo) whCloseCombos(); });
 }
 function whFilterSp(row){
   whBindComboClicks_();
@@ -2006,16 +2049,14 @@ function whFilterSp(row){
   var hits=(typeof empireWarehouseFindSp==='function') ? empireWarehouseFindSp(q) : [];
   if(!hits.length){
     list.innerHTML='<button type="button" disabled>No SP match</button>';
-    list.hidden=false;
-    whMarkComboOpen_(wrap);
+    whMarkComboOpen_(wrap, list, input);
     return;
   }
   list.innerHTML=hits.map(function(it){
     return '<button type="button" data-wh-pick="sp" data-wh-row="'+row+'" data-wh-code="'+whEsc(it.code)+'">'
       +'<strong>'+whEsc(it.code)+'</strong><div class="muted">'+whEsc(it.desc)+'</div></button>';
   }).join('');
-  list.hidden=false;
-  whMarkComboOpen_(wrap);
+  whMarkComboOpen_(wrap, list, input);
 }
 function whPickSp(row, code){
   var it=(typeof empireWarehouseSpByCode==='function') ? empireWarehouseSpByCode(code) : null;
@@ -2037,8 +2078,7 @@ function whFilterCompany(el){
   var hits=!q ? WH_COMPANIES.slice() : WH_COMPANIES.filter(function(n){ return n.toLowerCase().indexOf(q)!==-1; });
   if(!hits.length){
     list.innerHTML='<button type="button" disabled>No company match</button>';
-    list.hidden=false;
-    whMarkComboOpen_(wrap);
+    whMarkComboOpen_(wrap, list, el);
     return;
   }
   var cur=String(el.value||'').trim().toLowerCase();
@@ -2046,8 +2086,7 @@ function whFilterCompany(el){
     var sel=String(n).toLowerCase()===cur ? ' is-selected' : '';
     return '<button type="button" class="'+sel.trim()+'" data-wh-pick="company" data-wh-name="'+whEsc(n)+'">'+whEsc(n)+'</button>';
   }).join('');
-  list.hidden=false;
-  whMarkComboOpen_(wrap);
+  whMarkComboOpen_(wrap, list, el);
 }
 function whPickCompany(name){
   var el=document.getElementById('wh-company');
@@ -2065,15 +2104,13 @@ function whFilterTech(el){
   var hits=WH_TECHNICIANS.filter(function(n){ return n.toLowerCase().indexOf(q)!==-1; }).slice(0,30);
   if(!hits.length){
     list.innerHTML='<button type="button" disabled>No name match</button>';
-    list.hidden=false;
-    whMarkComboOpen_(wrap);
+    whMarkComboOpen_(wrap, list, el);
     return;
   }
   list.innerHTML=hits.map(function(n){
     return '<button type="button" data-wh-pick="tech" data-wh-name="'+whEsc(n)+'">'+whEsc(n)+'</button>';
   }).join('');
-  list.hidden=false;
-  whMarkComboOpen_(wrap);
+  whMarkComboOpen_(wrap, list, el);
 }
 function whPickTech(name){
   var el=document.getElementById('wh-technician');

@@ -478,6 +478,19 @@ html[data-theme="dark"] .wh-esig-input {
 .wh-combo { position: relative; width: 100%; z-index: 1; }
 .wh-combo:focus-within,
 .wh-combo.wh-combo-open { z-index: 200; }
+.wh-combo-float-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 10040;
+  pointer-events: none;
+}
+.wh-combo-float-layer .wh-combo-list,
+.wh-combo-list.wh-combo-list-float {
+  pointer-events: auto;
+  position: fixed !important;
+  background: #fff !important;
+  opacity: 1 !important;
+}
 .wh-combo-list {
   position: absolute;
   left: 0; right: 0; top: calc(100% + 4px);
