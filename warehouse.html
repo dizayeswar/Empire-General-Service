@@ -2710,6 +2710,8 @@ function whEsigUpdatePickHelp_(){
   if(!help) return;
   if(_whEsigPickFor){
     help.textContent='Choose a signature for '+whSigRoleLabel_(_whEsigPickFor)+', enter its password, then click Use.';
+  } else if(_whReceiverMode){
+    help.textContent='Choose a saved signature below, enter its password, then click Use.';
   } else {
     help.textContent='Upload or paste a signature photo, set a password, then save. Anyone using that signature must enter its password.';
   }
