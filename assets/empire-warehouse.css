@@ -357,10 +357,14 @@ html[data-theme="dark"] .wh-esig-input {
   align-items: flex-start;
   gap: 24px;
   margin: 0 0 8pt;
+  position: relative;
+  z-index: 40; /* keep Company/SP combos above the lines table */
 }
 .wh-top-left {
   flex: 1;
   min-width: 0;
+  position: relative;
+  z-index: 1;
 }
 .wh-top-right {
   width: 240px;
@@ -462,6 +466,10 @@ html[data-theme="dark"] .wh-esig-input {
   position: relative;
   z-index: 1;
 }
+.wh-note.wh-combo-open-active .wh-lines-wrap {
+  /* While a header combo is open, don't let table inputs steal the mouse. */
+  pointer-events: none;
+}
 .wh-lines {
   width: 100%;
   border-collapse: collapse;
@@ -469,11 +477,11 @@ html[data-theme="dark"] .wh-esig-input {
 }
 .wh-combo { position: relative; width: 100%; z-index: 1; }
 .wh-combo:focus-within,
-.wh-combo.wh-combo-open { z-index: 80; }
+.wh-combo.wh-combo-open { z-index: 200; }
 .wh-combo-list {
   position: absolute;
   left: 0; right: 0; top: calc(100% + 4px);
-  z-index: 90;
+  z-index: 210;
   max-height: 280px;
   overflow: auto;
   padding: 6px;
@@ -484,6 +492,7 @@ html[data-theme="dark"] .wh-esig-input {
   opacity: 1;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
+  pointer-events: auto;
 }
 .wh-combo-list button {
   display: flex;

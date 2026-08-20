@@ -1966,7 +1966,15 @@ function whBuildLines(){
 function whCloseCombos(){
   document.querySelectorAll('.wh-combo-list').forEach(function(el){ el.hidden=true; el.innerHTML=''; });
   document.querySelectorAll('.wh-combo.wh-combo-open').forEach(function(el){ el.classList.remove('wh-combo-open'); });
+  var note=document.getElementById('whPrintRoot');
+  if(note) note.classList.remove('wh-combo-open-active');
   _whOpenCombo=null;
+}
+function whMarkComboOpen_(wrap){
+  var note=document.getElementById('whPrintRoot');
+  if(note) note.classList.add('wh-combo-open-active');
+  if(wrap) wrap.classList.add('wh-combo-open');
+  _whOpenCombo=wrap;
 }
 function whBindComboClicks_(){
   if(document._whComboBound) return;
@@ -1999,7 +2007,7 @@ function whFilterSp(row){
   if(!hits.length){
     list.innerHTML='<button type="button" disabled>No SP match</button>';
     list.hidden=false;
-    _whOpenCombo=wrap;
+    whMarkComboOpen_(wrap);
     return;
   }
   list.innerHTML=hits.map(function(it){
@@ -2007,8 +2015,7 @@ function whFilterSp(row){
       +'<strong>'+whEsc(it.code)+'</strong><div class="muted">'+whEsc(it.desc)+'</div></button>';
   }).join('');
   list.hidden=false;
-  _whOpenCombo=wrap;
-  if(wrap) wrap.classList.add('wh-combo-open');
+  whMarkComboOpen_(wrap);
 }
 function whPickSp(row, code){
   var it=(typeof empireWarehouseSpByCode==='function') ? empireWarehouseSpByCode(code) : null;
@@ -2031,7 +2038,7 @@ function whFilterCompany(el){
   if(!hits.length){
     list.innerHTML='<button type="button" disabled>No company match</button>';
     list.hidden=false;
-    _whOpenCombo=wrap;
+    whMarkComboOpen_(wrap);
     return;
   }
   var cur=String(el.value||'').trim().toLowerCase();
@@ -2040,8 +2047,7 @@ function whFilterCompany(el){
     return '<button type="button" class="'+sel.trim()+'" data-wh-pick="company" data-wh-name="'+whEsc(n)+'">'+whEsc(n)+'</button>';
   }).join('');
   list.hidden=false;
-  _whOpenCombo=wrap;
-  if(wrap) wrap.classList.add('wh-combo-open');
+  whMarkComboOpen_(wrap);
 }
 function whPickCompany(name){
   var el=document.getElementById('wh-company');
@@ -2060,15 +2066,14 @@ function whFilterTech(el){
   if(!hits.length){
     list.innerHTML='<button type="button" disabled>No name match</button>';
     list.hidden=false;
-    _whOpenCombo=wrap;
+    whMarkComboOpen_(wrap);
     return;
   }
   list.innerHTML=hits.map(function(n){
     return '<button type="button" data-wh-pick="tech" data-wh-name="'+whEsc(n)+'">'+whEsc(n)+'</button>';
   }).join('');
   list.hidden=false;
-  _whOpenCombo=wrap;
-  if(wrap) wrap.classList.add('wh-combo-open');
+  whMarkComboOpen_(wrap);
 }
 function whPickTech(name){
   var el=document.getElementById('wh-technician');
