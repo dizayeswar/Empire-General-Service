@@ -175,6 +175,7 @@ Deno.serve(async (req) => {
     const adminOnly: Record<string, number> = {
       saveUiSettings: 1, clearElectricalJobs: 1, clearCivilJobs: 1, clearCivilIssues: 1,
       clearElectricIssues: 1, clearFireIssues: 1, clearHseInspections: 1, clearAll: 1,
+      clearWarehouseGins: 1,
       getTrash: 1, restoreTrash: 1, purgeTrash: 1,
     };
     if (adminOnly[action] && String(auth.role || "").toLowerCase() !== "admin") {
@@ -294,6 +295,7 @@ Deno.serve(async (req) => {
       case "getWarehouseTrash": return json(await warehouse.handleGetWarehouseTrash(body, a));
       case "restoreWarehouseTrash": return json(await warehouse.handleRestoreWarehouseTrash(body, a));
       case "purgeWarehouseTrash": return json(await warehouse.handlePurgeWarehouseTrash(body, a));
+      case "clearWarehouseGins": return json(await warehouse.handleClearWarehouseGins(body, a));
       case "markWarehouseGinDone": return json(await warehouse.handleMarkWarehouseGinDone(body, a));
       case "assignWarehouseGin": return json(await warehouse.handleAssignWarehouseGin(body, a));
       case "listWarehouseAssignees": return json(await warehouse.handleListWarehouseAssignees(body, a));

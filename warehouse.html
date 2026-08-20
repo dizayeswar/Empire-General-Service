@@ -72,6 +72,10 @@
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 19H4.815a1.83 1.83 0 0 1-1.57-.881 1.785 1.785 0 0 1-.004-1.784L7.196 9.5"/><path d="M11 19h8.203a1.83 1.83 0 0 0 1.556-.89 1.784 1.784 0 0 0 0-1.775l-1.226-2.12"/><path d="m14 16-3 3 3 3"/><path d="M8.293 13.596 7.196 9.5 3.1 10.598"/><path d="m9.344 5.811 1.093-1.892A1.83 1.83 0 0 1 11.985 3a1.784 1.784 0 0 1 1.546.888l3.943 6.843"/><path d="m13.378 9.633 4.096 1.098 1.097-4.096"/></svg></span>
           <span class="lbl">Recycle Bin</span>
         </button>
+        <button type="button" id="btnWhReset" onclick="whOpenResetModal()" style="display:none;color:#fff;background:#C5734F;border-color:#C5734F;">
+          <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5H3"/><path d="M7 12H3"/><path d="M7 19H3"/><path d="M12 18a5 5 0 0 0 9-3 4.5 4.5 0 0 0-4.5-4.5c-1.33 0-2.54.54-3.41 1.41L11 14"/><path d="M11 10v4h4"/></svg></span>
+          <span class="lbl">Reset Data</span>
+        </button>
       </nav>
       <div class="side-actions">
         <button type="button" class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span> <span class="lbl">Theme</span></button>
@@ -307,12 +311,26 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-20-wh-recycle"></script>
+<div id="whResetModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1600;align-items:center;justify-content:center;">
+  <div style="background:var(--panel);border:2px solid var(--card-border);border-radius:14px;max-width:460px;width:92%;padding:28px;box-shadow:0 10px 40px var(--shadow);">
+    <h2 style="margin:0 0 10px;color:var(--text);">⚠️ Reset Warehouse Data</h2>
+    <p style="color:var(--text-soft);font-size:14px;margin:0 0 14px;line-height:1.5;">Moves <strong>all Goods Issue Notes</strong> (saved + done) into the Recycle Bin. The form layout and electronic signatures stay as they are.</p>
+    <label style="color:var(--text);font-weight:600;font-size:14px;">Reset password</label>
+    <input type="password" id="whResetPwInput" placeholder="Enter password" onkeydown="if(event.key==='Enter')whDoReset()" style="width:100%;margin-top:6px;padding:12px;border:2px solid var(--input-border);border-radius:6px;background:var(--input-bg);color:var(--text);font-size:14px;box-sizing:border-box;">
+    <div id="whResetMsg" style="min-height:18px;margin-top:10px;font-size:13px;font-weight:600;"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+      <button type="button" onclick="whCloseResetModal()">Cancel</button>
+      <button type="button" onclick="whDoReset()" style="color:#fff;background:#C5504F;border-color:#C5504F;">Delete all notes</button>
+    </div>
+  </div>
+</div>
+
+<script src="config.js?v=2026-08-20-wh-reset"></script>
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
-<script src="assets/empire-auth.js?v=2026-08-20-wh-recycle"></script>
-<script src="assets/empire-core.js?v=2026-08-20-wh-recycle"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-20-wh-recycle"></script>
+<script src="assets/empire-auth.js?v=2026-08-20-wh-reset"></script>
+<script src="assets/empire-core.js?v=2026-08-20-wh-reset"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-20-wh-reset"></script>
 <script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-assign"></script>
 <script>
 var WH_LINE_COUNT = 23;
@@ -392,10 +410,10 @@ function whApplyReceiverShell_(){
     if(lbl) lbl.textContent = _whReceiverMode ? 'Assigned to me' : 'Done Notes';
   }
   var trashBtn=document.getElementById('btnWhTrash');
-  if(trashBtn){
-    var isAdmin=typeof empireIsAdminRole==='function' && empireIsAdminRole();
-    trashBtn.style.display = (!_whReceiverMode && isAdmin) ? '' : 'none';
-  }
+  var resetBtn=document.getElementById('btnWhReset');
+  var isAdmin=typeof empireIsAdminRole==='function' && empireIsAdminRole();
+  if(trashBtn) trashBtn.style.display = (!_whReceiverMode && isAdmin) ? '' : 'none';
+  if(resetBtn) resetBtn.style.display = (!_whReceiverMode && isAdmin) ? '' : 'none';
   if(_whReceiverMode){
     var help=document.getElementById('whDoneHelp');
     if(help) help.innerHTML='Notes assigned to you. Open one and use <strong>Upload</strong> only under: <strong>'+whEsc(whSigSlotsLabel_())+'</strong>. Everything else is locked.';
@@ -2096,6 +2114,75 @@ function whRbEmpty(){
         whRbLoad();
       });
   }).catch(function(e){ alert('❌ '+(e.message||'Empty failed')); });
+}
+
+function whOpenResetModal(){
+  if(typeof empireIsAdminRole==='function' && !empireIsAdminRole()){
+    alert('Only an admin can reset warehouse data.');
+    return;
+  }
+  var pw=document.getElementById('whResetPwInput');
+  var msg=document.getElementById('whResetMsg');
+  if(pw) pw.value='';
+  if(msg) msg.textContent='';
+  var m=document.getElementById('whResetModal');
+  if(m) m.style.display='flex';
+  if(pw) setTimeout(function(){ pw.focus(); }, 50);
+}
+function whCloseResetModal(){
+  var m=document.getElementById('whResetModal');
+  if(m) m.style.display='none';
+}
+function whDoReset(){
+  var pwEl=document.getElementById('whResetPwInput');
+  var msg=document.getElementById('whResetMsg');
+  if(!pwEl || !msg) return;
+  var pw=String(pwEl.value||'');
+  if(!pw){
+    msg.style.color='#C5504F';
+    msg.textContent='Please enter the password.';
+    return;
+  }
+  msg.style.color='var(--text-soft)';
+  msg.textContent='Deleting…';
+  var token=typeof empireGetToken==='function' ? empireGetToken() : '';
+  fetchJSONRetry({
+    action:'clearWarehouseGins',
+    token:token,
+    resetPassword:pw,
+    username:typeof empireGetUser==='function' ? empireGetUser() : ''
+  }, 1, 60000).then(function(d){
+    if(d && d.error==='bad_password'){
+      msg.style.color='#C5504F';
+      msg.textContent='❌ Wrong password — nothing was deleted.';
+      return;
+    }
+    if(d && d.error==='not_allowed'){
+      msg.style.color='#C5504F';
+      msg.textContent='❌ Only an admin can reset data.';
+      return;
+    }
+    if(d && d.ok===false){
+      msg.style.color='#C5504F';
+      msg.textContent='❌ '+(d.message || d.error || 'Reset failed');
+      return;
+    }
+    // Clear local note caches only — never touch layout keys.
+    try { localStorage.removeItem(WH_LOCAL_KEY); } catch(e){}
+    try { localStorage.removeItem(WH_DRAFT_KEY); } catch(e){}
+    _whSavedCache=[];
+    _whEditingId='';
+    _whFormLocked=false;
+    whCloseResetModal();
+    if(typeof whStartNew==='function') whStartNew();
+    else if(typeof whClearForm==='function') whClearForm();
+    whLoadSavedList();
+    if(typeof whSpUsageRefresh==='function') try { whSpUsageRefresh(); } catch(e){}
+    alert('✅ All Goods Issue Notes moved to the Recycle Bin. Layout unchanged.');
+  }).catch(function(e){
+    msg.style.color='#C5504F';
+    msg.textContent='❌ '+(e.message||'Reset failed');
+  });
 }
 function whBuildLines(){
   var body=document.getElementById('whLinesBody');

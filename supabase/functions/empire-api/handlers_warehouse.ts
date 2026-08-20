@@ -1,5 +1,6 @@
 import { AuthOk, verifyPassword } from "./auth.ts";
 import { isoNow, nextCounter, sb, selectAllRows, trashRows } from "./db.ts";
+import { resetPasswordOk } from "./config.ts";
 import {
   isWarehouseSigner,
   parseWarehouseSigSections,
@@ -276,6 +277,25 @@ export async function handlePurgeWarehouseTrash(body: Record<string, unknown>, a
   }
   if (toDelete.length) await sb().from("trash").delete().in("trash_id", toDelete);
   return { ok: true, success: true, purged: toDelete.length };
+}
+
+/** Wipe all GINs into recycle bin. Does NOT touch form layout or saved signatures. */
+export async function handleClearWarehouseGins(body: Record<string, unknown>, auth: AuthOk) {
+  if (String(auth.role || "").toLowerCase() !== "admin") {
+    return { ok: false, success: false, error: "not_allowed", message: "Only an admin can reset warehouse data." };
+  }
+  if (!resetPasswordOk(body)) {
+    return { ok: false, success: false, error: "bad_password", message: "Wrong password." };
+  }
+  const { data } = await sb().from("warehouse_goods_issues").select("*");
+  const count = data?.length || 0;
+  if (count) {
+    await trashRows("WarehouseGoodsIssues", data!, "reset", String(auth.username || body.username || ""));
+    await sb().from("warehouse_goods_issues").delete().gte("id", "");
+  }
+  await sb().from("id_counters").upsert({ key: "whgin_WarehouseGoodsIssues", value: 0 });
+  // Intentionally leave warehouse_gin_layout + signatures untouched.
+  return { ok: true, success: true, cleared: count };
 }
 
 export async function handleMarkWarehouseGinDone(body: Record<string, unknown>, auth: AuthOk) {
