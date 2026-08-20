@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-20-wh-type">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-20-wh-dedupe">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-20-wh-type">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-20-wh-dedupe">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -280,12 +280,12 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-19-wh-autosave3"></script>
+<script src="config.js?v=2026-08-20-wh-dedupe"></script>
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-19-wh-assign"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-autosave3"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-19-wh-autosave3"></script>
+<script src="assets/empire-core.js?v=2026-08-20-wh-dedupe"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-20-wh-dedupe"></script>
 <script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-assign"></script>
 <script>
 var WH_LINE_COUNT = 23;
@@ -315,6 +315,7 @@ var _whServerSaveTimer = null;
 var _whAutoSaveBusy = false;
 var _whAutoSavePending = false;
 var _whAutoSaveLastJson = '';
+var _whCreateInFlight = null;
 var _whEsigPreview = '';
 var _whEsigs = [];
 var _whEsigPickFor = '';
@@ -412,7 +413,7 @@ function whEsc(s){
 }
 function whInit(){
   whBuildLines();
-  whSetIssueType('');
+  whSetIssueType('', { silent:true });
   whLayoutLoadLocal_();
   whLayoutBind();
   whLayoutSyncFromServer_();
@@ -557,6 +558,10 @@ function whAutoSaveServer_(opts){
   opts=opts||{};
   if(_whFormLocked || _whReceiverMode) return Promise.resolve();
   if(_whAutoSaveBusy){ _whAutoSavePending=true; return Promise.resolve(); }
+  // If a first create is already in flight, wait — do not insert another blank/typed twin.
+  if(_whCreateInFlight){
+    return _whCreateInFlight.then(function(){ return whAutoSaveServer_(opts); });
+  }
   var id=whAutoSaveLocal_(true);
   if(!id) return Promise.resolve();
   var it=whFindSaved(id);
@@ -567,12 +572,13 @@ function whAutoSaveServer_(opts){
     whAutoSaveSetStatus_('Saved on this device');
     return Promise.resolve();
   }
+  var sendId=String(id).indexOf('local-whgin-')===0 ? '' : id;
   _whAutoSaveBusy=true;
   whAutoSaveSetStatus_('Saving…');
-  return fetchJSONRetry({
+  var req=fetchJSONRetry({
     action:'saveWarehouseGin',
     token:token,
-    id:String(id).indexOf('local-whgin-')===0 ? '' : id,
+    id:sendId,
     requestNo:payload.requestNo,
     requestDate:payload.requestDate,
     requester:payload.requester,
@@ -590,12 +596,23 @@ function whAutoSaveServer_(opts){
         id=newId;
         whUpdateFormTitle();
       }
+      try { whLocalPurgeTempIds_(newId); } catch(e){}
       it.id=newId;
       it.num=d.num||it.num||0;
       it.localOnly=false;
+      it.issueType=whNormIssueType_(payload.issueType||it.issueType||'');
+      if(it.payload) it.payload.issueType=it.issueType;
       it.updatedAt=new Date().toISOString();
       try { whLocalUpsert(it); } catch(e){}
       whCacheUpsert_(it);
+      // Drop any other cache rows that are temp shells for this edit.
+      _whSavedCache=(_whSavedCache||[]).filter(function(row){
+        if(!row || !row.id) return false;
+        var rid=String(row.id);
+        if(rid===newId) return true;
+        if(rid.indexOf('local-whgin-')===0) return false;
+        return !(row.localOnly && whIsSparseNote_(row) && !whNormIssueType_(row.issueType));
+      });
       whDraftSave_();
       whAutoSaveSetStatus_('Saved');
       return;
@@ -612,12 +629,14 @@ function whAutoSaveServer_(opts){
     whAutoSaveSetStatus_('Saved on this device');
   }).finally(function(){
     _whAutoSaveBusy=false;
+    _whCreateInFlight=null;
     if(_whAutoSavePending){
       _whAutoSavePending=false;
-      // One follow-up max — do not chain forever.
       setTimeout(function(){ whAutoSaveServer_({ quiet:true }); }, 400);
     }
   });
+  if(!sendId) _whCreateInFlight=req;
+  return req;
 }
 function whAutoSaveNow_(opts){
   opts=opts||{};
@@ -1088,7 +1107,7 @@ function whApplyPayload(p){
   set('wh-maint-datetime', p.maintDatetime);
   set('wh-price', p.price);
   set('wh-voucher', p.voucher);
-  whSetIssueType(p.issueType||'');
+  whSetIssueType(p.issueType||'', { silent:true });
   (p.lines||[]).forEach(function(ln){
     var i=Number(ln.n||0);
     if(!i || i>WH_LINE_COUNT) return;
@@ -1121,6 +1140,68 @@ function whLocalUpsert(item){
 }
 function whLocalDelete(id){
   whLocalWrite(whLocalRead().filter(function(x){ return x && x.id !== id; }));
+}
+function whIsSparseNote_(n){
+  if(!n) return true;
+  var p=n.payload||{};
+  var lines=Array.isArray(p.lines) ? p.lines : [];
+  var hasLine=lines.some(function(ln){ return ln && (ln.code||ln.desc||ln.qty||ln.project||ln.cc); });
+  return !(n.requester || n.requestNo || n.company || n.propertyCode || hasLine);
+}
+function whDedupeKey_(n){
+  if(!n) return '';
+  var p=n.payload||{};
+  var lines=(Array.isArray(p.lines)?p.lines:[]).map(function(ln){
+    return String((ln && ln.code) || '').trim().toUpperCase();
+  }).filter(Boolean).sort().join(',');
+  return [
+    String(n.requester||'').trim().toLowerCase(),
+    String(n.requestNo||'').trim().toLowerCase(),
+    String(n.requestDate||'').trim(),
+    String(n.propertyCode||'').trim().toLowerCase(),
+    lines
+  ].join('|');
+}
+/** Drop leftover local-only shells that duplicate a real server note (causes "No type selected" twins). */
+function whPruneLocalOrphans_(serverItems){
+  var serverKeys={};
+  (serverItems||[]).forEach(function(it){
+    var n=whNormalizeListItem(it);
+    if(!n || !n.id) return;
+    var k=whDedupeKey_(n);
+    if(k && k!=='||||') serverKeys[k]=true;
+  });
+  var kept=[];
+  (whLocalRead()||[]).forEach(function(x){
+    var n=whNormalizeListItem(x);
+    if(!n || !n.id) return;
+    var id=String(n.id);
+    var isTemp=id.indexOf('local-whgin-')===0 || !!n.localOnly;
+    if(isTemp){
+      if(whIsSparseNote_(n) && !whNormIssueType_(n.issueType)) return;
+      var k=whDedupeKey_(n);
+      if(k && k!=='||||' && serverKeys[k]) return;
+      // Temp note with no type while a typed server note shares requester/requestNo.
+      if(!whNormIssueType_(n.issueType)){
+        var soft=String(n.requester||'').trim().toLowerCase()+'|'+String(n.requestNo||'').trim().toLowerCase();
+        var hit=Object.keys(serverKeys).some(function(sk){ return soft!=='|' && sk.indexOf(soft)===0; });
+        if(hit) return;
+      }
+    }
+    kept.push(x);
+  });
+  whLocalWrite(kept);
+  return kept;
+}
+function whLocalPurgeTempIds_(exceptId){
+  exceptId=String(exceptId||'');
+  var kept=(whLocalRead()||[]).filter(function(x){
+    if(!x || !x.id) return false;
+    var id=String(x.id);
+    if(id.indexOf('local-whgin-')===0 && id!==exceptId) return false;
+    return true;
+  });
+  whLocalWrite(kept);
 }
 function whSetSaveBusy(busy){
   ['whSaveBtn','whSaveBtn2'].forEach(function(id){
@@ -1380,7 +1461,12 @@ function whLoadSavedList(){
   fetchJSONRetry({ action:'getWarehouseGins', token:token }, 2, 60000).then(function(d){
     var server=(d && (d.items||d.data||d.rows)) || [];
     if(!Array.isArray(server)) server=[];
+    if(!_whReceiverMode){
+      try { local=whPruneLocalOrphans_(server); } catch(e){ local=whLocalRead(); }
+    }
     _whSavedCache=whMergeLists(server, local);
+    // Final UI pass: hide leftover local-only no-type shells when a typed twin exists.
+    _whSavedCache=whDropDuplicateNoType_(_whSavedCache);
     if(_whReceiverMode){
       var me=String(typeof empireGetUser==='function' ? empireGetUser() : '').toLowerCase();
       _whSavedCache=_whSavedCache.filter(function(it){
@@ -1389,9 +1475,35 @@ function whLoadSavedList(){
     }
     whRenderSavedList();
   }).catch(function(){
-    _whSavedCache=whMergeLists([], local);
+    _whSavedCache=whDropDuplicateNoType_(whMergeLists([], local));
     if(_whReceiverMode) _whSavedCache=[];
     whRenderSavedList();
+  });
+}
+function whDropDuplicateNoType_(items){
+  items=items||[];
+  var typedKeys={};
+  items.forEach(function(it){
+    if(!it || !whNormIssueType_(it.issueType || (it.payload && it.payload.issueType))) return;
+    var k=whDedupeKey_(it);
+    if(k && k!=='||||') typedKeys[k]=true;
+    var soft=String(it.requester||'').trim().toLowerCase()+'|'+String(it.requestNo||'').trim().toLowerCase();
+    if(soft!=='|') typedKeys['soft:'+soft]=true;
+  });
+  return items.filter(function(it){
+    if(!it) return false;
+    var typed=whNormIssueType_(it.issueType || (it.payload && it.payload.issueType));
+    if(typed) return true;
+    var id=String(it.id||'');
+    var isTemp=id.indexOf('local-whgin-')===0 || !!it.localOnly;
+    // Only drop temporary "this device" shells — keep real server notes so user can open and set type.
+    if(!isTemp) return true;
+    if(whIsSparseNote_(it)) return false;
+    var k=whDedupeKey_(it);
+    if(k && k!=='||||' && typedKeys[k]) return false;
+    var soft=String(it.requester||'').trim().toLowerCase()+'|'+String(it.requestNo||'').trim().toLowerCase();
+    if(soft!=='|' && typedKeys['soft:'+soft]) return false;
+    return true;
   });
 }
 function whRenderSavedList(){
@@ -1905,7 +2017,8 @@ function whPickTech(name){
   whCloseCombos();
   whDraftSchedule_();
 }
-function whSetIssueType(type){
+function whSetIssueType(type, opts){
+  opts=opts||{};
   type=whNormIssueType_(type);
   var hidden=document.getElementById('wh-issue-type');
   if(hidden) hidden.value=type;
@@ -1921,6 +2034,7 @@ function whSetIssueType(type){
   }
   var block=document.getElementById('whMaintBlock');
   if(block) block.classList.toggle('wh-maint-disabled', type!=='external');
+  if(opts.silent) return;
   // Persist type immediately so Saved Notes does not keep "No type selected".
   try { whAutoSaveLocal_(true); } catch(e){}
   if(_whServerSaveTimer) clearTimeout(_whServerSaveTimer);
@@ -2566,7 +2680,7 @@ function whClearForm(skipConfirm){
       var el=document.getElementById(id); if(el) el.value='';
     });
     var dt=document.getElementById('wh-maint-datetime'); if(dt) dt.value='';
-    whSetIssueType('');
+    whSetIssueType('', { silent:true });
     whBuildLines();
     whClearSig('auth'); whClearSig('issued'); whClearSig('received');
     whValidateVoucher();
