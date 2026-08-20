@@ -350,7 +350,7 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-20-wh-signer-done"></script>
+<script src="config.js?v=2026-08-20-wh-signer-esig"></script>
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-20-wh-reset"></script>
@@ -457,10 +457,12 @@ function whBindSettingsOutside_(){
 function whApplyReceiverShell_(){
   _whReceiverMode = whIsReceiverMode_();
   document.body.classList.toggle('wh-receiver-mode', _whReceiverMode);
-  ['tab-wh-note','tab-wh-saved','tab-wh-spusage','tab-wh-sigs'].forEach(function(id){
+  ['tab-wh-note','tab-wh-saved','tab-wh-spusage'].forEach(function(id){
     var b=document.getElementById(id);
     if(b) b.style.display = _whReceiverMode ? 'none' : '';
   });
+  var sigsBtn=document.getElementById('tab-wh-sigs');
+  if(sigsBtn) sigsBtn.style.display = '';
   var doneBtn=document.getElementById('tab-wh-done');
   if(doneBtn){
     var lbl=doneBtn.querySelector('.lbl');
