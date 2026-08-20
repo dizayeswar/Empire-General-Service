@@ -68,6 +68,10 @@
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></span>
           <span class="lbl">Create Signature</span>
         </button>
+        <button type="button" id="btnWhTrash" onclick="whRbOpen()" style="display:none;color:#fff;background:#1d9e75;border-color:#1d9e75;">
+          <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 19H4.815a1.83 1.83 0 0 1-1.57-.881 1.785 1.785 0 0 1-.004-1.784L7.196 9.5"/><path d="M11 19h8.203a1.83 1.83 0 0 0 1.556-.89 1.784 1.784 0 0 0 0-1.775l-1.226-2.12"/><path d="m14 16-3 3 3 3"/><path d="M8.293 13.596 7.196 9.5 3.1 10.598"/><path d="m9.344 5.811 1.093-1.892A1.83 1.83 0 0 1 11.985 3a1.784 1.784 0 0 1 1.546.888l3.943 6.843"/><path d="m13.378 9.633 4.096 1.098 1.097-4.096"/></svg></span>
+          <span class="lbl">Recycle Bin</span>
+        </button>
       </nav>
       <div class="side-actions">
         <button type="button" class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span> <span class="lbl">Theme</span></button>
@@ -285,12 +289,30 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-20-wh-desk"></script>
+<div class="modal" id="whRbModal" onclick="if(event.target===this)whRbClose()" style="display:none;z-index:1600;">
+  <div class="modal-box" style="max-width:720px;">
+    <h2 style="margin:0 0 6px;color:var(--text);">
+      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 19H4.815a1.83 1.83 0 0 1-1.57-.881 1.785 1.785 0 0 1-.004-1.784L7.196 9.5"/><path d="M11 19h8.203a1.83 1.83 0 0 0 1.556-.89 1.784 1.784 0 0 0 0-1.775l-1.226-2.12"/><path d="m14 16-3 3 3 3"/><path d="M8.293 13.596 7.196 9.5 3.1 10.598"/><path d="m9.344 5.811 1.093-1.892A1.83 1.83 0 0 1 11.985 3a1.784 1.784 0 0 1 1.546.888l3.943 6.843"/><path d="m13.378 9.633 4.096 1.098 1.097-4.096"/></svg></span>
+      Recycle Bin
+    </h2>
+    <p style="color:var(--text-soft);font-size:13px;margin:0 0 14px;line-height:1.45;">Deleted Goods Issue Notes. Restore requires <strong>your login password</strong>. Empty deletes forever.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      <button type="button" onclick="whRbLoad()">Refresh</button>
+      <button type="button" onclick="whRbRestoreAll()" style="color:#fff;background:#1d9e75;border-color:#1d9e75;">↩️ Restore all</button>
+      <button type="button" onclick="whRbEmpty()" style="color:#fff;background:#C5504F;border-color:#C5504F;">Empty bin</button>
+      <span class="wh-spacer"></span>
+      <button type="button" onclick="whRbClose()">Close</button>
+    </div>
+    <div id="whRbList"><p style="color:var(--text-faint);">Loading…</p></div>
+  </div>
+</div>
+
+<script src="config.js?v=2026-08-20-wh-recycle"></script>
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
-<script src="assets/empire-auth.js?v=2026-08-20-wh-desk"></script>
-<script src="assets/empire-core.js?v=2026-08-20-wh-desk"></script>
-<script src="assets/empire-sw-update.js?v=2026-08-20-wh-desk"></script>
+<script src="assets/empire-auth.js?v=2026-08-20-wh-recycle"></script>
+<script src="assets/empire-core.js?v=2026-08-20-wh-recycle"></script>
+<script src="assets/empire-sw-update.js?v=2026-08-20-wh-recycle"></script>
 <script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-assign"></script>
 <script>
 var WH_LINE_COUNT = 23;
@@ -368,6 +390,11 @@ function whApplyReceiverShell_(){
   if(doneBtn){
     var lbl=doneBtn.querySelector('.lbl');
     if(lbl) lbl.textContent = _whReceiverMode ? 'Assigned to me' : 'Done Notes';
+  }
+  var trashBtn=document.getElementById('btnWhTrash');
+  if(trashBtn){
+    var isAdmin=typeof empireIsAdminRole==='function' && empireIsAdminRole();
+    trashBtn.style.display = (!_whReceiverMode && isAdmin) ? '' : 'none';
   }
   if(_whReceiverMode){
     var help=document.getElementById('whDoneHelp');
@@ -1938,15 +1965,137 @@ function whPrintSaved(id){
 }
 function whDeleteSaved(id){
   if(_whReceiverMode){ alert('Receiver accounts cannot delete notes.'); return; }
-  whUiConfirm_('Delete this saved Goods Issue Note?', { danger:true }).then(function(ok){
+  whUiConfirm_('Delete this saved Goods Issue Note? It will move to the Recycle Bin.', { danger:true }).then(function(ok){
     if(!ok) return;
     id=String(id||'');
     whLocalDelete(id);
     var token=typeof empireGetToken==='function' ? empireGetToken() : '';
-    fetchJSONRetry({ action:'deleteWarehouseGin', token:token, id:id }, 1, 30000).catch(function(){});
+    fetchJSONRetry({ action:'deleteWarehouseGin', token:token, id:id }, 1, 30000)
+      .then(function(d){
+        if(d && d.ok===false) throw new Error(d.message || d.error || 'Delete failed');
+      })
+      .catch(function(e){ alert('❌ '+(e.message||'Delete failed')); });
     if(_whEditingId===id){ _whEditingId=''; whUpdateFormTitle(); }
     whLoadSavedList();
   });
+}
+
+function whRbAskPassword_(){
+  var msg='Enter your login password to restore.';
+  if(typeof uiPrompt==='function'){
+    return uiPrompt(msg, '', { password:true, okLabel:'Restore', placeholder:'Password' });
+  }
+  return whUiPrompt_(msg, '', { password:true });
+}
+function whRbOpen(){
+  if(typeof empireIsAdminRole==='function' && !empireIsAdminRole()){
+    alert('Only an admin can open the Recycle Bin.');
+    return;
+  }
+  var m=document.getElementById('whRbModal');
+  if(m) m.style.display='flex';
+  whRbLoad();
+}
+function whRbClose(){
+  var m=document.getElementById('whRbModal');
+  if(m) m.style.display='none';
+}
+function whRbItemHtml_(it){
+  var when=String(it.deletedAt||'').replace('T',' ').slice(0,16);
+  var how=it.reason==='reset'
+    ? '<span class="rb-how reset">Reset</span>'
+    : '<span class="rb-how">Delete</span>';
+  var title=whEsc(it.preview || it.requestNo || 'Goods Issue Note');
+  var ref=it.num ? ('<span class="rb-ref">#'+whEsc(String(it.num))+'</span> ') : '';
+  var status=it.done
+    ? '<span class="rb-status fixed">Done</span>'
+    : '<span class="rb-status open">Open</span>';
+  var locParts=[];
+  if(it.requester) locParts.push(String(it.requester));
+  if(it.company) locParts.push(String(it.company));
+  if(it.requestDate) locParts.push(String(it.requestDate));
+  var loc=whEsc(locParts.join(' · '));
+  return '<div class="rb-item">'
+    +'<div class="rb-thumb rb-thumb-empty">GIN</div>'
+    +'<div class="rb-body">'
+      +'<div class="rb-title">'+ref+title+' '+status+'</div>'
+      +(loc?'<div class="rb-loc">'+loc+'</div>':'')
+      +'<div class="rb-meta">'+whEsc(when)+(it.deletedBy?(' · '+whEsc(it.deletedBy)):'')+' · '+how+'</div>'
+    +'</div>'
+    +'<div class="rb-actions">'
+      +'<button type="button" class="rb-restore" onclick="whRbRestore(\''+whEsc(it.trashId)+'\')">↩️ Restore</button>'
+      +'<button type="button" class="rb-purge" onclick="whRbPurge(\''+whEsc(it.trashId)+'\')" title="Delete forever">✕</button>'
+    +'</div></div>';
+}
+function whRbLoad(){
+  var box=document.getElementById('whRbList');
+  if(!box) return;
+  box.innerHTML='<p style="color:var(--text-faint);">Loading…</p>';
+  var token=typeof empireGetToken==='function' ? empireGetToken() : '';
+  fetchJSONRetry({ action:'getWarehouseTrash', token:token }, 1, 30000).then(function(d){
+    if(d && d.ok===false) throw new Error(d.message || d.error || 'Could not load bin');
+    var items=Array.isArray(d.items) ? d.items : (Array.isArray(d) ? d : []);
+    if(!items.length){
+      box.innerHTML='<p style="color:var(--text-faint);">The bin is empty.</p>';
+      return;
+    }
+    box.innerHTML='<div class="rb-items">'+items.map(whRbItemHtml_).join('')+'</div>';
+  }).catch(function(e){
+    box.innerHTML='<p style="color:#C5504F;">❌ '+whEsc(e.message||'Could not load')+'</p>';
+  });
+}
+function whRbRestore(id){
+  whRbAskPassword_().then(function(pw){
+    if(pw==null) return;
+    pw=String(pw||'');
+    if(!pw){ alert('Password required.'); return; }
+    var token=typeof empireGetToken==='function' ? empireGetToken() : '';
+    return fetchJSONRetry({ action:'restoreWarehouseTrash', token:token, trashIds:[id], password:pw }, 1, 30000)
+      .then(function(d){
+        if(d && d.ok===false) throw new Error(d.message || d.error || 'Restore failed');
+        whRbLoad();
+        whLoadSavedList();
+      });
+  }).catch(function(e){ alert('❌ '+(e.message||'Restore failed')); });
+}
+function whRbPurge(id){
+  whUiConfirm_('Delete this note forever? This cannot be undone.', { danger:true }).then(function(ok){
+    if(!ok) return;
+    var token=typeof empireGetToken==='function' ? empireGetToken() : '';
+    return fetchJSONRetry({ action:'purgeWarehouseTrash', token:token, trashIds:[id] }, 1, 30000)
+      .then(function(d){
+        if(d && d.ok===false) throw new Error(d.message || d.error || 'Purge failed');
+        whRbLoad();
+      });
+  }).catch(function(e){ alert('❌ '+(e.message||'Purge failed')); });
+}
+function whRbRestoreAll(){
+  whUiConfirm_('Restore everything in the bin? You will need your login password.').then(function(ok){
+    if(!ok) return;
+    return whRbAskPassword_().then(function(pw){
+      if(pw==null) return;
+      pw=String(pw||'');
+      if(!pw){ alert('Password required.'); return; }
+      var token=typeof empireGetToken==='function' ? empireGetToken() : '';
+      return fetchJSONRetry({ action:'restoreWarehouseTrash', token:token, password:pw }, 1, 60000)
+        .then(function(d){
+          if(d && d.ok===false) throw new Error(d.message || d.error || 'Restore failed');
+          whRbLoad();
+          whLoadSavedList();
+        });
+    });
+  }).catch(function(e){ alert('❌ '+(e.message||'Restore failed')); });
+}
+function whRbEmpty(){
+  whUiConfirm_('Empty the bin? Everything here will be deleted forever.', { danger:true }).then(function(ok){
+    if(!ok) return;
+    var token=typeof empireGetToken==='function' ? empireGetToken() : '';
+    return fetchJSONRetry({ action:'purgeWarehouseTrash', token:token }, 1, 60000)
+      .then(function(d){
+        if(d && d.ok===false) throw new Error(d.message || d.error || 'Empty failed');
+        whRbLoad();
+      });
+  }).catch(function(e){ alert('❌ '+(e.message||'Empty failed')); });
 }
 function whBuildLines(){
   var body=document.getElementById('whLinesBody');

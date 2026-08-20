@@ -1,5 +1,5 @@
-import { AuthOk } from "./auth.ts";
-import { isoNow, nextCounter, sb, selectAllRows } from "./db.ts";
+import { AuthOk, verifyPassword } from "./auth.ts";
+import { isoNow, nextCounter, sb, selectAllRows, trashRows } from "./db.ts";
 import {
   isWarehouseSigner,
   parseWarehouseSigSections,
@@ -151,9 +151,131 @@ export async function handleDeleteWarehouseGin(body: Record<string, unknown>, au
   }
   const id = String(body.id || "").trim();
   if (!id) return { ok: false, success: false, error: "missing_id" };
-  const { data } = await sb().from("warehouse_goods_issues").delete().eq("id", id).select("id");
-  if (!data?.length) return { ok: false, success: false, error: "not_found" };
-  return { ok: true, success: true, id };
+  const { data: row } = await sb().from("warehouse_goods_issues").select("*").eq("id", id).maybeSingle();
+  if (!row) return { ok: false, success: false, error: "not_found" };
+  await trashRows("WarehouseGoodsIssues", [row], "delete", String(auth.username || body.username || ""));
+  const { error } = await sb().from("warehouse_goods_issues").delete().eq("id", id);
+  if (error) throw error;
+  return { ok: true, success: true, id, trashed: true };
+}
+
+function warehouseTrashPreview_(rowJson: unknown): Record<string, unknown> {
+  const r = (rowJson && typeof rowJson === "object" && !Array.isArray(rowJson))
+    ? rowJson as Record<string, unknown>
+    : {};
+  const payload = (r.payload && typeof r.payload === "object") ? r.payload as GinPayload : {};
+  const done = payload.done === true || payload.status === "done";
+  const requestNo = String(r.request_no || payload.requestNo || "").trim();
+  const requester = String(r.requester || payload.requester || "").trim();
+  const company = String(r.company || payload.company || "").trim();
+  const num = Number(r.num || 0) || 0;
+  const parts: string[] = [];
+  if (num) parts.push("#" + num);
+  if (requestNo) parts.push(requestNo);
+  if (requester) parts.push(requester);
+  if (company) parts.push(company);
+  return {
+    preview: parts.join(" · ") || "Goods Issue Note",
+    num,
+    requestNo,
+    requester,
+    company,
+    issueType: String(r.issue_type || payload.issueType || ""),
+    requestDate: String(r.request_date || payload.requestDate || ""),
+    done,
+    status: done ? "done" : "open",
+  };
+}
+
+export async function handleGetWarehouseTrash(_body: Record<string, unknown>, auth: AuthOk) {
+  if (isWarehouseSignerAuth(auth)) {
+    return { ok: false, success: false, error: "forbidden", message: "Not allowed." };
+  }
+  const role = String(auth.role || "").toLowerCase();
+  if (role !== "admin") {
+    return { ok: false, success: false, error: "not_allowed", message: "Only an admin can open the Recycle Bin." };
+  }
+  const data = await selectAllRows<Record<string, unknown>>("trash");
+  const out = data
+    .filter((row) => String(row.source_sheet || "") === "WarehouseGoodsIssues")
+    .map((row) => {
+      const meta = warehouseTrashPreview_(row.row_json);
+      return {
+        trashId: String(row.trash_id || ""),
+        sourceSheet: "WarehouseGoodsIssues",
+        deletedBy: String(row.deleted_by || ""),
+        deletedAt: String(row.deleted_at || ""),
+        reason: String(row.reason || "delete"),
+        batchId: String(row.batch_id || ""),
+        ...meta,
+      };
+    });
+  out.reverse();
+  return { ok: true, success: true, items: out };
+}
+
+async function requireWarehouseRestorePassword_(body: Record<string, unknown>, auth: AuthOk) {
+  const password = String(body.password || body.resetPassword || "").trim();
+  if (!password) {
+    return { ok: false as const, success: false as const, error: "bad_password", message: "Password required to restore." };
+  }
+  const check = await verifyPassword({ username: auth.username, password });
+  if (!check.ok) {
+    return { ok: false as const, success: false as const, error: "bad_password", message: "Wrong password." };
+  }
+  return { ok: true as const };
+}
+
+export async function handleRestoreWarehouseTrash(body: Record<string, unknown>, auth: AuthOk) {
+  if (isWarehouseSignerAuth(auth)) {
+    return { ok: false, success: false, error: "forbidden", message: "Not allowed." };
+  }
+  if (String(auth.role || "").toLowerCase() !== "admin") {
+    return { ok: false, success: false, error: "not_allowed", message: "Only an admin can restore from the Recycle Bin." };
+  }
+  const pw = await requireWarehouseRestorePassword_(body, auth);
+  if (!pw.ok) return pw;
+
+  const ids = (body.trashIds as string[]) || (body.trashId ? [String(body.trashId)] : null);
+  const restoreAll = !ids || !ids.length;
+  const data = await selectAllRows<Record<string, unknown>>("trash");
+  let restored = 0;
+  const toDelete: string[] = [];
+  for (const row of data) {
+    if (String(row.source_sheet || "") !== "WarehouseGoodsIssues") continue;
+    const tid = String(row.trash_id || "");
+    if (!restoreAll && ids!.indexOf(tid) === -1) continue;
+    const arr = row.row_json;
+    if (!arr || typeof arr !== "object" || Array.isArray(arr)) continue;
+    try {
+      await sb().from("warehouse_goods_issues").upsert(arr as Record<string, unknown>);
+      restored++;
+      toDelete.push(tid);
+    } catch { /* skip bad rows */ }
+  }
+  if (toDelete.length) await sb().from("trash").delete().in("trash_id", toDelete);
+  return { ok: true, success: true, restored };
+}
+
+export async function handlePurgeWarehouseTrash(body: Record<string, unknown>, auth: AuthOk) {
+  if (isWarehouseSignerAuth(auth)) {
+    return { ok: false, success: false, error: "forbidden", message: "Not allowed." };
+  }
+  if (String(auth.role || "").toLowerCase() !== "admin") {
+    return { ok: false, success: false, error: "not_allowed", message: "Only an admin can empty the Recycle Bin." };
+  }
+  const ids = (body.trashIds as string[]) || (body.trashId ? [String(body.trashId)] : null);
+  const purgeAll = !ids || !ids.length;
+  const data = await selectAllRows<Record<string, unknown>>("trash");
+  const toDelete: string[] = [];
+  for (const row of data) {
+    if (String(row.source_sheet || "") !== "WarehouseGoodsIssues") continue;
+    const tid = String(row.trash_id || "");
+    if (!purgeAll && ids!.indexOf(tid) === -1) continue;
+    toDelete.push(tid);
+  }
+  if (toDelete.length) await sb().from("trash").delete().in("trash_id", toDelete);
+  return { ok: true, success: true, purged: toDelete.length };
 }
 
 export async function handleMarkWarehouseGinDone(body: Record<string, unknown>, auth: AuthOk) {

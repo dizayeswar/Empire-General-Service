@@ -332,7 +332,30 @@ export async function handleGetTrash(body: Record<string, unknown>) {
         if (meta.building || meta.floor) parts.push(`${meta.building || ""}-${meta.floor || ""}`);
         preview = parts.join("  ·  ");
       } else if (arr && typeof arr === "object") {
-        preview = JSON.stringify(arr).slice(0, 120);
+        if (src === "WarehouseGoodsIssues") {
+          const r = arr as Record<string, unknown>;
+          const payload = (r.payload && typeof r.payload === "object") ? r.payload as Record<string, unknown> : {};
+          const requestNo = String(r.request_no || payload.requestNo || "").trim();
+          const requester = String(r.requester || payload.requester || "").trim();
+          const company = String(r.company || payload.company || "").trim();
+          const num = Number(r.num || 0) || 0;
+          const parts = [];
+          if (num) parts.push("#" + num);
+          if (requestNo) parts.push(requestNo);
+          if (requester) parts.push(requester);
+          if (company) parts.push(company);
+          preview = parts.join(" · ") || "Goods Issue Note";
+          meta = {
+            num,
+            requestNo,
+            requester,
+            company,
+            issueType: String(r.issue_type || payload.issueType || ""),
+            done: payload.done === true || payload.status === "done",
+          };
+        } else {
+          preview = JSON.stringify(arr).slice(0, 120);
+        }
       }
     } catch { /* ignore */ }
     const item: Record<string, unknown> = {
