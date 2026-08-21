@@ -13,7 +13,7 @@ const EMPIRE_API_URL = 'https://nobcitpaudeopzfymgzi.supabase.co/functions/v1/em
 const GOOGLE_SCRIPT_URL = EMPIRE_API_URL || GOOGLE_SCRIPT_URL_LEGACY;
 const EMPIRE_API_ENDPOINT = GOOGLE_SCRIPT_URL;
 
-const APP_VERSION = '2026-08-21-wh-signer-done-sig';
+const APP_VERSION = '2026-08-21-wh-invoice-nav';
 
 /** Firebase Cloud Messaging — fill in after creating a Firebase project (see DEPLOY.md) */
 const FIREBASE_CONFIG = {
