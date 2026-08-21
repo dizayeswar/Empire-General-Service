@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-20-wh-signer">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-20-wh-settings">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-21-wh-invoice-form">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -322,10 +322,70 @@
       </div>
 
       <div id="wh-tab-invoice" class="tab-content dept-tab-content">
-        <div class="wh-app wh-saved-app">
-          <div class="form-section">
-            <h2>New Invoice</h2>
-            <p class="wh-tab-help">Separate from Goods Issue Notes. Invoice tools will go here.</p>
+        <div class="wh-app">
+          <div class="wh-toolbar no-print">
+            <strong>New Invoice</strong>
+            <span class="wh-spacer"></span>
+            <button type="button" onclick="whInvNew()">New</button>
+            <button type="button" onclick="whInvClear()">Clear</button>
+          </div>
+
+          <div class="wh-invoice" id="whInvoiceRoot">
+            <div class="wh-inv-top">
+              <div class="wh-inv-date">
+                <strong>Date:</strong>
+                <input id="wh-inv-date" class="wh-cell-input" type="date">
+              </div>
+              <h1 class="wh-inv-title">Receipt voucher</h1>
+              <div class="wh-inv-no">
+                <strong>Invoice No.</strong>
+                <input id="wh-inv-number" class="wh-cell-input wh-inv-number" type="text" inputmode="numeric" autocomplete="off" placeholder="e.g. 32448">
+              </div>
+            </div>
+
+            <table class="wh-inv-meta">
+              <thead>
+                <tr>
+                  <th>Amount</th>
+                  <th>Currency</th>
+                  <th>Company</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <input id="wh-inv-amount" class="wh-cell-input" type="text" inputmode="numeric" autocomplete="off" placeholder="0" oninput="whFormatPrice(event)">
+                  </td>
+                  <td>
+                    <select id="wh-inv-currency" class="wh-cell-input wh-inv-select">
+                      <option value="IQD" selected>IQD</option>
+                      <option value="USD">USD</option>
+                    </select>
+                  </td>
+                  <td>
+                    <div class="wh-combo" id="wh-inv-company-combo">
+                      <input id="wh-inv-company" class="wh-cell-input" type="text" value="" autocomplete="off" placeholder="Company" oninput="whInvFilterCompany(this)" onfocus="whInvFilterCompany(this)">
+                      <div class="wh-combo-list" id="wh-inv-company-list" hidden></div>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="wh-inv-fields">
+              <div class="wh-inv-row">
+                <label for="wh-inv-from"><strong>Received from:</strong></label>
+                <input id="wh-inv-from" class="wh-cell-input" type="text" autocomplete="off">
+              </div>
+              <div class="wh-inv-row">
+                <label for="wh-inv-words"><strong>Amount in words:</strong></label>
+                <input id="wh-inv-words" class="wh-cell-input" type="text" autocomplete="off">
+              </div>
+              <div class="wh-inv-row">
+                <label for="wh-inv-reason"><strong>Payment reason:</strong></label>
+                <input id="wh-inv-reason" class="wh-cell-input" type="text" autocomplete="off">
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -365,7 +425,7 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-21-wh-invoice-nav"></script>
+<script src="config.js?v=2026-08-21-wh-invoice-form"></script>
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-20-wh-reset"></script>
@@ -574,7 +634,10 @@ function whApplyTab_(e, tab){
     whSpUsageRefresh();
   }
   if(tab==='sigs') whEsigLoad();
-  if(tab==='invoice' && _whReceiverMode){ whApplyTab_(null,'done'); return; }
+  if(tab==='invoice'){
+    if(_whReceiverMode){ whApplyTab_(null,'done'); return; }
+    whInvEnsureDefaults_();
+  }
 }
 
 function whEsc(s){
@@ -2593,6 +2656,8 @@ function whBindComboClicks_(){
       whPickTech(btn.getAttribute('data-wh-name')||'');
     } else if(kind==='company'){
       whPickCompany(btn.getAttribute('data-wh-name')||'');
+    } else if(kind==='inv-company'){
+      whInvPickCompany(btn.getAttribute('data-wh-name')||'');
     }
   }, true);
   window.addEventListener('scroll', function(e){
@@ -2658,6 +2723,50 @@ function whPickCompany(name){
   if(el) el.value=name||'';
   whCloseCombos();
   whDraftSchedule_();
+}
+function whInvEnsureDefaults_(){
+  var d=document.getElementById('wh-inv-date');
+  if(d && !d.value){
+    var now=new Date();
+    d.value=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+  }
+  var cur=document.getElementById('wh-inv-currency');
+  if(cur && !cur.value) cur.value='IQD';
+}
+function whInvClear(){
+  ['wh-inv-date','wh-inv-number','wh-inv-amount','wh-inv-company','wh-inv-from','wh-inv-words','wh-inv-reason'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el) el.value='';
+  });
+  var cur=document.getElementById('wh-inv-currency');
+  if(cur) cur.value='IQD';
+  whCloseCombos();
+  whInvEnsureDefaults_();
+}
+function whInvNew(){ whInvClear(); }
+function whInvFilterCompany(el){
+  whBindComboClicks_();
+  var list=document.getElementById('wh-inv-company-list');
+  var wrap=document.getElementById('wh-inv-company-combo');
+  if(!list||!el) return;
+  var q=String(el.value||'').trim().toLowerCase();
+  var hits=!q ? WH_COMPANIES.slice() : WH_COMPANIES.filter(function(n){ return n.toLowerCase().indexOf(q)!==-1; });
+  if(!hits.length){
+    list.innerHTML='<button type="button" disabled>No company match</button>';
+    whMarkComboOpen_(wrap, list, el);
+    return;
+  }
+  var cur=String(el.value||'').trim().toLowerCase();
+  list.innerHTML=hits.map(function(n){
+    var sel=String(n).toLowerCase()===cur ? ' is-selected' : '';
+    return '<button type="button" class="'+sel.trim()+'" data-wh-pick="inv-company" data-wh-name="'+whEsc(n)+'">'+whEsc(n)+'</button>';
+  }).join('');
+  whMarkComboOpen_(wrap, list, el);
+}
+function whInvPickCompany(name){
+  var el=document.getElementById('wh-inv-company');
+  if(el) el.value=name||'';
+  whCloseCombos();
 }
 function whFilterTech(el){
   whBindComboClicks_();
