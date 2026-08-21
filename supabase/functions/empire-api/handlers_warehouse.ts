@@ -377,10 +377,23 @@ export async function handleCloseWarehouseGin(body: Record<string, unknown>, aut
     };
   }
   const sections = authSigSections(auth);
+  if (!sections.length) {
+    return {
+      ok: false,
+      success: false,
+      error: "missing_sig_slots",
+      message: "Your account has no signature section configured. Ask an admin to set Authorized / Issued / Received.",
+    };
+  }
   const sigs = (existingPayload.sigs && typeof existingPayload.sigs === "object")
     ? existingPayload.sigs as Record<string, unknown>
     : {};
-  const missing = sections.filter((slot) => !String(sigs[slot] || "").trim());
+  const isRealSig = (v: unknown) => {
+    const s = String(v || "").trim();
+    if (!s || s.length < 80) return false;
+    return true;
+  };
+  const missing = sections.filter((slot) => !isRealSig(sigs[slot]));
   if (missing.length) {
     return {
       ok: false,
