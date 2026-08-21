@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-20-wh-signer">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-21-wh-invoice-sp">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-21-wh-invoice-recipient">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -406,6 +406,21 @@
                 <label for="wh-inv-reason"><strong>Payment reason:</strong></label>
                 <input id="wh-inv-reason" class="wh-cell-input" type="text" autocomplete="off">
               </div>
+              <div class="wh-inv-row">
+                <label for="wh-inv-recipient"><strong>Recipient:</strong></label>
+                <input id="wh-inv-recipient" class="wh-cell-input" type="text" autocomplete="off">
+              </div>
+            </div>
+
+            <div class="wh-inv-sig">
+              <div class="wh-sig-block">
+                <div class="wh-sig-label">Recipient signature</div>
+                <div class="wh-sig-pad" id="wh-sig-invRecipient"></div>
+                <div class="wh-sig-actions no-print">
+                  <button type="button" onclick="whOpenSigPicker('invRecipient')">Upload</button>
+                  <button type="button" onclick="whClearSig('invRecipient')">Clear</button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -446,7 +461,7 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-21-wh-invoice-sp"></script>
+<script src="config.js?v=2026-08-21-wh-invoice-recipient"></script>
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-20-wh-reset"></script>
@@ -465,7 +480,7 @@ var WH_TECHNICIANS = [
   'Muhammad Hassan','Harim Sarkawt'
 ];
 var _whOpenCombo = null;
-var _whSig = { auth:'', issued:'', received:'' };
+var _whSig = { auth:'', issued:'', received:'', invRecipient:'' };
 var _whEditingId = '';
 var _whFormLocked = false;
 var _whSavedCache = [];
@@ -2843,12 +2858,13 @@ function whInvPickSp(row, code){
   if(qtyEl) qtyEl.focus();
 }
 function whInvClear(){
-  ['wh-inv-date','wh-inv-number','wh-inv-amount','wh-inv-company','wh-inv-from','wh-inv-words','wh-inv-reason'].forEach(function(id){
+  ['wh-inv-date','wh-inv-number','wh-inv-amount','wh-inv-company','wh-inv-from','wh-inv-words','wh-inv-reason','wh-inv-recipient'].forEach(function(id){
     var el=document.getElementById(id);
     if(el) el.value='';
   });
   var cur=document.getElementById('wh-inv-currency');
   if(cur) cur.value='IQD';
+  whClearSig('invRecipient');
   whInvClearSp_();
   whCloseCombos();
   whInvEnsureDefaults_();
@@ -2950,9 +2966,20 @@ function whSigRoleLabel_(which){
   if(which==='auth') return 'Authorized by';
   if(which==='issued') return 'Issued by';
   if(which==='received') return 'Received by';
+  if(which==='invRecipient') return 'Recipient';
   return 'signature';
 }
+function whIsInvSigSlot_(which){
+  return String(which||'')==='invRecipient';
+}
 function whOpenSigPicker(which){
+  if(whIsInvSigSlot_(which)){
+    _whEsigPickFor = which;
+    whEsigUpdatePickHelp_();
+    whSwitchTab(null, 'sigs');
+    whEsigRenderList_();
+    return;
+  }
   if(_whReceiverMode && !whCanSignSlot_(which)){
     alert('You can only upload a signature on: '+whSigSlotsLabel_()+'.');
     return;
@@ -3339,13 +3366,22 @@ function whEsigBindList_(){
     }
     if(act==='pick'){
       if(!_whEsigPickFor){ alert('Open Upload from the note first.'); return; }
-      if(_whFormLocked && !(_whReceiverMode && whCanSignSlot_(_whEsigPickFor))){
+      var slot=_whEsigPickFor;
+      if(whIsInvSigSlot_(slot)){
+        whEsigUnlock_(it, function(){
+          whSetSig(slot, it.image);
+          _whEsigPickFor='';
+          whEsigUpdatePickHelp_();
+          whSwitchTab(null,'invoice');
+        });
+        return;
+      }
+      if(_whFormLocked && !(_whReceiverMode && whCanSignSlot_(slot))){
         alert('This note is Done and cannot be edited.'); return;
       }
-      if(_whReceiverMode && !whCanSignSlot_(_whEsigPickFor)){
+      if(_whReceiverMode && !whCanSignSlot_(slot)){
         alert('You can only upload a signature on: '+whSigSlotsLabel_()+'.'); return;
       }
-      var slot=_whEsigPickFor;
       whEsigUnlock_(it, function(){
         whSetSig(slot, it.image);
         _whEsigPickFor='';

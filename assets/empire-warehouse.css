@@ -792,6 +792,30 @@ html[data-theme="dark"] .wh-inv-sp-table td {
   outline: none;
   border-bottom-color: var(--accent2, #8d015d);
 }
+.wh-inv-sig {
+  margin-top: 22px;
+  display: flex;
+  justify-content: flex-start;
+}
+.wh-inv-sig .wh-sig-block {
+  width: min(240px, 100%);
+  text-align: left;
+}
+.wh-inv-sig .wh-sig-label {
+  text-align: left;
+  font-size: 14px;
+}
+.wh-inv-sig .wh-sig-pad {
+  min-height: 56px;
+  border-bottom: 1px solid #444;
+  justify-content: flex-start;
+}
+.wh-inv-sig .wh-sig-pad img {
+  max-height: 48px;
+}
+.wh-inv-sig .wh-sig-actions {
+  justify-content: flex-start;
+}
 .wh-inv-date .wh-cell-input,
 .wh-inv-no .wh-cell-input {
   border: none;
