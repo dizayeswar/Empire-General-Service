@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-20-wh-signer">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-21-wh-invoice-form">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-21-wh-invoice-sp">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -331,6 +331,27 @@
           </div>
 
           <div class="wh-invoice" id="whInvoiceRoot">
+            <div class="wh-inv-sp" id="whInvSpSection">
+              <div class="wh-inv-sp-head">
+                <strong>SP</strong>
+                <span class="wh-inv-sp-hint">Optional — leave empty, or add one or more SP codes (qty starts at 1)</span>
+                <button type="button" class="no-print" onclick="whInvAddSp()">+ Add SP</button>
+              </div>
+              <table class="wh-inv-sp-table" id="whInvSpTable" hidden>
+                <thead>
+                  <tr>
+                    <th class="c-num">#</th>
+                    <th>SP Code</th>
+                    <th>Description</th>
+                    <th class="c-qty">Qty</th>
+                    <th class="c-act no-print"></th>
+                  </tr>
+                </thead>
+                <tbody id="whInvSpBody"></tbody>
+              </table>
+              <p class="wh-inv-sp-empty" id="whInvSpEmpty">No SP items on this voucher.</p>
+            </div>
+
             <div class="wh-inv-top">
               <div class="wh-inv-date">
                 <strong>Date:</strong>
@@ -425,7 +446,7 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-21-wh-invoice-form"></script>
+<script src="config.js?v=2026-08-21-wh-invoice-sp"></script>
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-20-wh-reset"></script>
@@ -2658,6 +2679,8 @@ function whBindComboClicks_(){
       whPickCompany(btn.getAttribute('data-wh-name')||'');
     } else if(kind==='inv-company'){
       whInvPickCompany(btn.getAttribute('data-wh-name')||'');
+    } else if(kind==='inv-sp'){
+      whInvPickSp(Number(btn.getAttribute('data-wh-row')||0), btn.getAttribute('data-wh-code')||'');
     }
   }, true);
   window.addEventListener('scroll', function(e){
@@ -2732,6 +2755,92 @@ function whInvEnsureDefaults_(){
   }
   var cur=document.getElementById('wh-inv-currency');
   if(cur && !cur.value) cur.value='IQD';
+  whInvSyncSpUi_();
+}
+var WH_INV_SP_MAX=12;
+var _whInvSpRows=0;
+function whInvSyncSpUi_(){
+  var table=document.getElementById('whInvSpTable');
+  var empty=document.getElementById('whInvSpEmpty');
+  var body=document.getElementById('whInvSpBody');
+  var n=body ? body.querySelectorAll('tr[data-wh-inv-sp]').length : 0;
+  _whInvSpRows=n;
+  if(table) table.hidden = n===0;
+  if(empty) empty.hidden = n!==0;
+  if(body){
+    body.querySelectorAll('tr[data-wh-inv-sp]').forEach(function(tr, idx){
+      var num=tr.querySelector('.wh-inv-sp-num');
+      if(num) num.textContent=String(idx+1);
+    });
+  }
+}
+function whInvAddSp(){
+  var body=document.getElementById('whInvSpBody');
+  if(!body) return;
+  if(body.querySelectorAll('tr[data-wh-inv-sp]').length>=WH_INV_SP_MAX){
+    alert('Maximum '+WH_INV_SP_MAX+' SP lines on one voucher.');
+    return;
+  }
+  var row=_whInvSpRows;
+  while(document.getElementById('wh-inv-sp-code-'+row)) row++;
+  var tr=document.createElement('tr');
+  tr.setAttribute('data-wh-inv-sp', String(row));
+  tr.innerHTML=
+    '<td class="wh-inv-sp-num"></td>'
+    +'<td><div class="wh-combo" id="wh-inv-sp-combo-'+row+'">'
+    +'<input type="text" class="wh-cell-input" id="wh-inv-sp-code-'+row+'" autocomplete="off" placeholder="SP-…" oninput="whInvFilterSp('+row+')" onfocus="whInvFilterSp('+row+')">'
+    +'<div class="wh-combo-list" id="wh-inv-sp-list-'+row+'" hidden></div>'
+    +'</div></td>'
+    +'<td><input type="text" class="wh-cell-input" id="wh-inv-sp-desc-'+row+'" autocomplete="off" placeholder="Description"></td>'
+    +'<td><input type="number" class="wh-cell-input wh-inv-sp-qty" id="wh-inv-sp-qty-'+row+'" min="1" step="1" value="1" inputmode="numeric"></td>'
+    +'<td class="no-print"><button type="button" class="wh-inv-sp-remove" onclick="whInvRemoveSp('+row+')" title="Remove">✕</button></td>';
+  body.appendChild(tr);
+  whInvSyncSpUi_();
+  var codeEl=document.getElementById('wh-inv-sp-code-'+row);
+  if(codeEl) codeEl.focus();
+}
+function whInvRemoveSp(row){
+  var tr=document.querySelector('tr[data-wh-inv-sp="'+String(row)+'"]');
+  if(tr && tr.parentNode) tr.parentNode.removeChild(tr);
+  whCloseCombos();
+  whInvSyncSpUi_();
+}
+function whInvClearSp_(){
+  var body=document.getElementById('whInvSpBody');
+  if(body) body.innerHTML='';
+  _whInvSpRows=0;
+  whInvSyncSpUi_();
+}
+function whInvFilterSp(row){
+  whBindComboClicks_();
+  var input=document.getElementById('wh-inv-sp-code-'+row);
+  var list=document.getElementById('wh-inv-sp-list-'+row);
+  var wrap=document.getElementById('wh-inv-sp-combo-'+row);
+  if(!input||!list) return;
+  var q=String(input.value||'').trim();
+  if(q.length<1){ list.hidden=true; list.innerHTML=''; return; }
+  var hits=(typeof empireWarehouseFindSp==='function') ? empireWarehouseFindSp(q) : [];
+  if(!hits.length){
+    list.innerHTML='<button type="button" disabled>No SP match</button>';
+    whMarkComboOpen_(wrap, list, input);
+    return;
+  }
+  list.innerHTML=hits.map(function(it){
+    return '<button type="button" data-wh-pick="inv-sp" data-wh-row="'+row+'" data-wh-code="'+whEsc(it.code)+'">'
+      +'<strong>'+whEsc(it.code)+'</strong><div class="muted">'+whEsc(it.desc)+'</div></button>';
+  }).join('');
+  whMarkComboOpen_(wrap, list, input);
+}
+function whInvPickSp(row, code){
+  var it=(typeof empireWarehouseSpByCode==='function') ? empireWarehouseSpByCode(code) : null;
+  var codeEl=document.getElementById('wh-inv-sp-code-'+row);
+  var descEl=document.getElementById('wh-inv-sp-desc-'+row);
+  var qtyEl=document.getElementById('wh-inv-sp-qty-'+row);
+  if(codeEl) codeEl.value = it ? it.code : code;
+  if(descEl) descEl.value = it ? it.desc : '';
+  if(qtyEl && (!qtyEl.value || Number(qtyEl.value)<1)) qtyEl.value='1';
+  whCloseCombos();
+  if(qtyEl) qtyEl.focus();
 }
 function whInvClear(){
   ['wh-inv-date','wh-inv-number','wh-inv-amount','wh-inv-company','wh-inv-from','wh-inv-words','wh-inv-reason'].forEach(function(id){
@@ -2740,6 +2849,7 @@ function whInvClear(){
   });
   var cur=document.getElementById('wh-inv-currency');
   if(cur) cur.value='IQD';
+  whInvClearSp_();
   whCloseCombos();
   whInvEnsureDefaults_();
 }
