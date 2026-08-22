@@ -305,6 +305,9 @@ Deno.serve(async (req) => {
       case "saveWarehouseLayout": return json(await warehouse.handleSaveWarehouseLayout(body, a));
       case "getWarehouseSignatures": return json(await warehouse.handleGetWarehouseSignatures(body));
       case "saveWarehouseSignatures": return json(await warehouse.handleSaveWarehouseSignatures(body, a));
+      case "getWarehouseInvoices": return json(await warehouse.handleGetWarehouseInvoices(body, a));
+      case "saveWarehouseInvoice": return json(await warehouse.handleSaveWarehouseInvoice(body, a));
+      case "deleteWarehouseInvoice": return json(await warehouse.handleDeleteWarehouseInvoice(body, a));
 
       case "getTrash": return json(await misc.handleGetTrash(body));
       case "restoreTrash": return json(await misc.handleRestoreTrash(body));

@@ -694,3 +694,122 @@ export async function handleSaveWarehouseSignatures(body: Record<string, unknown
   if (error) throw error;
   return { ok: true, success: true, items, updatedAt: now };
 }
+
+type InvPayload = Record<string, unknown>;
+
+function invRowToApi(r: Record<string, unknown>) {
+  const payload = (r.payload && typeof r.payload === "object") ? r.payload as InvPayload : {};
+  return {
+    id: String(r.id || ""),
+    num: Number(r.num || 0) || 0,
+    invoiceNo: String(r.invoice_no || ""),
+    date: String(r.invoice_date || ""),
+    company: String(r.company || ""),
+    name: String(r.name || ""),
+    propertyCode: String(r.property_code || ""),
+    amountUsd: String(r.amount_usd || ""),
+    amountIqd: String(r.amount_iqd || ""),
+    createdBy: String(r.created_by || ""),
+    createdAt: String(r.created_at || ""),
+    updatedAt: String(r.updated_at || ""),
+    payload,
+  };
+}
+
+export async function handleGetWarehouseInvoices(_body: Record<string, unknown>, auth: AuthOk) {
+  if (isWarehouseSignerAuth(auth)) {
+    return { ok: false, success: false, error: "forbidden", message: "Signers cannot view warehouse invoices." };
+  }
+  const data = await selectAllRows<Record<string, unknown>>("warehouse_invoices");
+  const out = data.map(invRowToApi);
+  out.sort((a, b) =>
+    String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || ""))
+  );
+  return { ok: true, success: true, items: out };
+}
+
+export async function handleSaveWarehouseInvoice(body: Record<string, unknown>, auth: AuthOk) {
+  if (isWarehouseSignerAuth(auth)) {
+    return { ok: false, success: false, error: "forbidden", message: "Signers cannot save warehouse invoices." };
+  }
+  const payload = (body.payload && typeof body.payload === "object")
+    ? body.payload as InvPayload
+    : {};
+  const invoiceNo = String(body.invoiceNo || payload.invoiceNo || "").trim();
+  const date = String(body.date || payload.date || "").trim();
+  const company = String(body.company || payload.company || "").trim();
+  const name = String(body.name || payload.name || "").trim();
+  const propertyCode = String(body.propertyCode || payload.propertyCode || "").trim();
+  const amountUsd = String(body.amountUsd || payload.amountUsd || "").trim();
+  const amountIqd = String(body.amountIqd || payload.amountIqd || "").trim();
+  if (!invoiceNo) {
+    return { ok: false, success: false, error: "missing_invoice_no", message: "Invoice number is required." };
+  }
+  if (!date) {
+    return { ok: false, success: false, error: "missing_date", message: "Date is required." };
+  }
+  let id = String(body.id || "").trim();
+  const now = isoNow();
+  const rowPayload: InvPayload = {
+    ...payload,
+    invoiceNo,
+    date,
+    company,
+    name,
+    propertyCode,
+    amountUsd,
+    amountIqd,
+  };
+
+  if (id) {
+    const { data: ex } = await sb().from("warehouse_invoices").select("id,num").eq("id", id).maybeSingle();
+    if (!ex) return { ok: false, success: false, error: "not_found" };
+    const { error } = await sb().from("warehouse_invoices").update({
+      invoice_no: invoiceNo,
+      invoice_date: date,
+      company,
+      name,
+      property_code: propertyCode,
+      amount_usd: amountUsd,
+      amount_iqd: amountIqd,
+      payload: rowPayload,
+      updated_at: now,
+    }).eq("id", id);
+    if (error) throw error;
+    return { ok: true, success: true, id, num: Number(ex.num || 0) || 0 };
+  }
+
+  id = `whinv-${Date.now()}`;
+  const num = await nextCounter("whinv_WarehouseInvoices");
+  const { error } = await sb().from("warehouse_invoices").insert({
+    id,
+    num,
+    invoice_no: invoiceNo,
+    invoice_date: date,
+    company,
+    name,
+    property_code: propertyCode,
+    amount_usd: amountUsd,
+    amount_iqd: amountIqd,
+    payload: rowPayload,
+    created_by: String(auth.username || ""),
+    created_at: now,
+    updated_at: now,
+  });
+  if (error) throw error;
+  return { ok: true, success: true, id, num };
+}
+
+export async function handleDeleteWarehouseInvoice(body: Record<string, unknown>, auth: AuthOk) {
+  if (isWarehouseSignerAuth(auth)) {
+    return { ok: false, success: false, error: "forbidden", message: "Signers cannot delete warehouse invoices." };
+  }
+  const id = String(body.id || "").trim();
+  if (!id) return { ok: false, success: false, error: "missing_id" };
+  const { data: row } = await sb().from("warehouse_invoices").select("*").eq("id", id).maybeSingle();
+  if (!row) return { ok: false, success: false, error: "not_found" };
+  await trashRows("WarehouseInvoices", [row], "delete", String(auth.username || body.username || ""));
+  const { error } = await sb().from("warehouse_invoices").delete().eq("id", id);
+  if (error) throw error;
+  return { ok: true, success: true, id, trashed: true };
+}

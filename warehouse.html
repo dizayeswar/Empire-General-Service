@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-20-wh-signer">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-21-wh-invoice-recipient">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-22-wh-inv-list">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -78,6 +78,11 @@
         <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-invoice" onclick="whSwitchTab(event,'invoice')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6"/><path d="M16 12h-6"/><path d="M10 16h4"/></svg></span>
           <span class="lbl">New Invoice</span>
+        </button>
+        <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-invoices" onclick="whSwitchTab(event,'invoices')">
+          <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span>
+          <span class="lbl">Warehouse Invoices</span>
+          <span class="side-nav-badge" id="whInvBadge" style="display:none;"></span>
         </button>
       </nav>
       <div class="side-actions wh-settings" id="whSettingsWrap">
@@ -328,6 +333,7 @@
             <span class="wh-spacer"></span>
             <button type="button" onclick="whInvNew()">New</button>
             <button type="button" onclick="whInvClear()">Clear</button>
+            <button type="button" id="whInvSaveBtn" onclick="whInvSave()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Save</button>
           </div>
 
           <div class="wh-invoice" id="whInvoiceRoot">
@@ -406,6 +412,10 @@
                 <label for="wh-inv-reason"><strong>Payment reason:</strong></label>
                 <input id="wh-inv-reason" class="wh-cell-input" type="text" autocomplete="off">
               </div>
+              <div class="wh-inv-row">
+                <label for="wh-inv-property"><strong>Property:</strong></label>
+                <input id="wh-inv-property" class="wh-cell-input" type="text" autocomplete="off" placeholder="Property code">
+              </div>
             </div>
 
             <div class="wh-inv-sig">
@@ -418,6 +428,19 @@
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="wh-tab-invoices" class="tab-content dept-tab-content">
+        <div class="wh-app wh-saved-app">
+          <div class="form-section">
+            <h2>Warehouse Invoices</h2>
+            <p class="wh-tab-help">Saved receipt vouchers. Each SP line is a row (same invoice can appear more than once).</p>
+            <div class="wh-toolbar no-print" style="margin-bottom:12px;">
+              <button type="button" onclick="whInvLoadList(true)">Refresh</button>
+            </div>
+            <div id="whInvList"><p class="wh-saved-empty">Loading…</p></div>
           </div>
         </div>
       </div>
@@ -457,7 +480,7 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-21-wh-invoice-recipient"></script>
+<script src="config.js?v=2026-08-22-wh-inv-list"></script>
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-20-wh-reset"></script>
@@ -669,6 +692,10 @@ function whApplyTab_(e, tab){
   if(tab==='invoice'){
     if(_whReceiverMode){ whApplyTab_(null,'done'); return; }
     whInvEnsureDefaults_();
+  }
+  if(tab==='invoices'){
+    if(_whReceiverMode){ whApplyTab_(null,'done'); return; }
+    whInvLoadList();
   }
 }
 
@@ -2770,6 +2797,8 @@ function whInvEnsureDefaults_(){
 }
 var WH_INV_SP_MAX=12;
 var _whInvSpRows=0;
+var _whInvEditingId='';
+var _whInvCache=[];
 function whInvSyncSpUi_(){
   var table=document.getElementById('whInvSpTable');
   var empty=document.getElementById('whInvSpEmpty');
@@ -2854,7 +2883,8 @@ function whInvPickSp(row, code){
   if(qtyEl) qtyEl.focus();
 }
 function whInvClear(){
-  ['wh-inv-date','wh-inv-number','wh-inv-amount','wh-inv-company','wh-inv-from','wh-inv-words','wh-inv-reason'].forEach(function(id){
+  _whInvEditingId='';
+  ['wh-inv-date','wh-inv-number','wh-inv-amount','wh-inv-company','wh-inv-from','wh-inv-words','wh-inv-reason','wh-inv-property'].forEach(function(id){
     var el=document.getElementById(id);
     if(el) el.value='';
   });
@@ -2866,6 +2896,231 @@ function whInvClear(){
   whInvEnsureDefaults_();
 }
 function whInvNew(){ whInvClear(); }
+function whInvCollectSpLines_(){
+  var body=document.getElementById('whInvSpBody');
+  var lines=[];
+  if(!body) return lines;
+  body.querySelectorAll('tr[data-wh-inv-sp]').forEach(function(tr){
+    var row=tr.getAttribute('data-wh-inv-sp');
+    var code=whVal('wh-inv-sp-code-'+row);
+    var desc=whVal('wh-inv-sp-desc-'+row);
+    var qty=whVal('wh-inv-sp-qty-'+row) || '1';
+    if(!code && !desc) return;
+    lines.push({ code:code, desc:desc, qty:qty });
+  });
+  return lines;
+}
+function whInvCollectPayload_(){
+  var amountRaw=whVal('wh-inv-amount');
+  var currency=whVal('wh-inv-currency')||'IQD';
+  var amountUsd='', amountIqd='';
+  if(String(currency).toUpperCase()==='USD') amountUsd=amountRaw;
+  else amountIqd=amountRaw;
+  return {
+    invoiceNo: whVal('wh-inv-number'),
+    date: whVal('wh-inv-date'),
+    company: whVal('wh-inv-company'),
+    name: whVal('wh-inv-from'),
+    propertyCode: whVal('wh-inv-property'),
+    amount: amountRaw,
+    currency: currency,
+    amountUsd: amountUsd,
+    amountIqd: amountIqd,
+    amountWords: whVal('wh-inv-words'),
+    paymentReason: whVal('wh-inv-reason'),
+    sps: whInvCollectSpLines_(),
+    recipientSig: _whSig.invRecipient||''
+  };
+}
+function whInvSave(){
+  if(_whReceiverMode){ alert('Signers cannot save invoices.'); return; }
+  var payload=whInvCollectPayload_();
+  if(!payload.invoiceNo){ alert('Enter Invoice No.'); var el=document.getElementById('wh-inv-number'); if(el) el.focus(); return; }
+  if(!payload.date){ alert('Enter Date.'); var d=document.getElementById('wh-inv-date'); if(d) d.focus(); return; }
+  var token=typeof empireGetToken==='function' ? empireGetToken() : '';
+  if(!token){ alert('Not logged in.'); return; }
+  var btn=document.getElementById('whInvSaveBtn');
+  if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
+  var body={
+    action:'saveWarehouseInvoice',
+    token:token,
+    id:_whInvEditingId||undefined,
+    invoiceNo:payload.invoiceNo,
+    date:payload.date,
+    company:payload.company,
+    name:payload.name,
+    propertyCode:payload.propertyCode,
+    amountUsd:payload.amountUsd,
+    amountIqd:payload.amountIqd,
+    payload:payload
+  };
+  fetchJSONRetry(body, 2, 60000).then(function(d){
+    if(!(d && (d.ok||d.success))) throw new Error((d && (d.message||d.error)) || 'Save failed');
+    whInvClear();
+    alert('Invoice saved.');
+    whSwitchTab(null,'invoices');
+  }).catch(function(err){
+    alert('Could not save invoice: '+(err && err.message ? err.message : err));
+  }).finally(function(){
+    if(btn){ btn.disabled=false; btn.textContent='Save'; }
+  });
+}
+function whInvLoadList(force){
+  var box=document.getElementById('whInvList');
+  if(box && (!_whInvCache.length || force)) box.innerHTML='<p class="wh-saved-empty">Loading…</p>';
+  var token=typeof empireGetToken==='function' ? empireGetToken() : '';
+  if(!token || typeof fetchJSONRetry!=='function'){
+    whInvRenderList_([]);
+    return;
+  }
+  fetchJSONRetry({ action:'getWarehouseInvoices', token:token }, 2, 30000).then(function(d){
+    if(!(d && (d.ok||d.success))) throw new Error((d && (d.message||d.error)) || 'Load failed');
+    _whInvCache=Array.isArray(d.items) ? d.items : [];
+    whInvRenderList_(_whInvCache);
+  }).catch(function(err){
+    if(box) box.innerHTML='<p class="wh-saved-empty">Could not load invoices: '+whEsc(err && err.message ? err.message : err)+'</p>';
+  });
+}
+function whInvSheetRows_(items){
+  var rows=[];
+  (items||[]).forEach(function(it){
+    var p=it.payload||{};
+    var sps=Array.isArray(p.sps) ? p.sps : [];
+    var base={
+      id:it.id,
+      num:it.num||0,
+      company:it.company||p.company||'',
+      amountUsd:it.amountUsd||p.amountUsd||'',
+      amountIqd:it.amountIqd||p.amountIqd||'',
+      invoiceNo:it.invoiceNo||p.invoiceNo||'',
+      date:it.date||p.date||'',
+      name:it.name||p.name||'',
+      propertyCode:it.propertyCode||p.propertyCode||''
+    };
+    if(!sps.length){
+      rows.push(Object.assign({}, base, { sp:'', desc:'', qty:'' }));
+      return;
+    }
+    sps.forEach(function(sp){
+      rows.push(Object.assign({}, base, {
+        sp:sp && sp.code || '',
+        desc:sp && sp.desc || '',
+        qty:sp && sp.qty || ''
+      }));
+    });
+  });
+  return rows;
+}
+function whInvRenderList_(items){
+  var box=document.getElementById('whInvList');
+  if(!box) return;
+  var badge=document.getElementById('whInvBadge');
+  if(badge){
+    var n=(items||[]).length;
+    badge.style.display=n ? '' : 'none';
+    badge.textContent=String(n);
+  }
+  var rows=whInvSheetRows_(items);
+  if(!rows.length){
+    box.innerHTML=typeof empireEmptyHtml==='function'
+      ? empireEmptyHtml('No warehouse invoices yet', 'Save a New Invoice to see it here.')
+      : '<p class="wh-saved-empty">No warehouse invoices yet.</p>';
+    return;
+  }
+  var h='<div class="wh-saved-table-wrap"><table class="wh-saved-table wh-inv-sheet"><thead><tr>'
+    +'<th>#</th><th>SP</th><th>Item description</th><th>COM</th><th>Qty</th>'
+    +'<th>Amount USD</th><th>Amount IQD</th><th>R V num</th><th>Date</th><th>Name</th><th>Property</th><th></th>'
+    +'</tr></thead><tbody>';
+  rows.forEach(function(r, idx){
+    h+='<tr>'
+      +'<td>'+(r.num||(idx+1))+'</td>'
+      +'<td>'+whEsc(r.sp||'—')+'</td>'
+      +'<td style="max-width:180px;word-break:break-word;">'+whEsc(r.desc||'—')+'</td>'
+      +'<td>'+whEsc(r.company||'—')+'</td>'
+      +'<td>'+whEsc(r.qty||'—')+'</td>'
+      +'<td>'+whEsc(r.amountUsd||'—')+'</td>'
+      +'<td>'+whEsc(r.amountIqd||'—')+'</td>'
+      +'<td>'+whEsc(r.invoiceNo||'—')+'</td>'
+      +'<td>'+whEsc(r.date||'—')+'</td>'
+      +'<td>'+whEsc(r.name||'—')+'</td>'
+      +'<td>'+whEsc(r.propertyCode||'—')+'</td>'
+      +'<td class="wh-saved-actions">'
+      +'<button type="button" data-wh-inv-act="view" data-wh-inv-id="'+whEsc(r.id)+'">Open</button> '
+      +'<button type="button" data-wh-inv-act="delete" data-wh-inv-id="'+whEsc(r.id)+'">Delete</button>'
+      +'</td></tr>';
+  });
+  h+='</tbody></table></div>';
+  box.innerHTML=h;
+  whInvBindList_();
+}
+function whInvBindList_(){
+  var box=document.getElementById('whInvList');
+  if(!box || box._whInvBound) return;
+  box._whInvBound=true;
+  box.addEventListener('click', function(e){
+    var btn=e.target && e.target.closest ? e.target.closest('[data-wh-inv-act]') : null;
+    if(!btn) return;
+    var act=btn.getAttribute('data-wh-inv-act');
+    var id=btn.getAttribute('data-wh-inv-id')||'';
+    if(act==='delete') whInvDelete(id);
+    else if(act==='view') whInvOpen(id);
+  });
+}
+function whInvFind_(id){
+  id=String(id||'');
+  for(var i=0;i<_whInvCache.length;i++){
+    if(String(_whInvCache[i].id)===id) return _whInvCache[i];
+  }
+  return null;
+}
+function whInvOpen(id){
+  var it=whInvFind_(id);
+  if(!it){ alert('Invoice not found.'); return; }
+  var p=it.payload||{};
+  whInvClear();
+  _whInvEditingId=String(it.id||'');
+  var set=function(id2,v){ var el=document.getElementById(id2); if(el) el.value=v||''; };
+  set('wh-inv-date', it.date||p.date||'');
+  set('wh-inv-number', it.invoiceNo||p.invoiceNo||'');
+  set('wh-inv-company', it.company||p.company||'');
+  set('wh-inv-from', it.name||p.name||'');
+  set('wh-inv-property', it.propertyCode||p.propertyCode||'');
+  set('wh-inv-words', p.amountWords||'');
+  set('wh-inv-reason', p.paymentReason||'');
+  var cur=String(p.currency||'').toUpperCase();
+  if(!cur) cur = (it.amountUsd||p.amountUsd) ? 'USD' : 'IQD';
+  set('wh-inv-currency', cur);
+  set('wh-inv-amount', p.amount || (cur==='USD' ? (it.amountUsd||p.amountUsd) : (it.amountIqd||p.amountIqd)) || '');
+  whClearSig('invRecipient');
+  if(p.recipientSig) whSetSig('invRecipient', p.recipientSig);
+  var sps=Array.isArray(p.sps) ? p.sps : [];
+  sps.forEach(function(sp){
+    whInvAddSp();
+    var body=document.getElementById('whInvSpBody');
+    var trs=body ? body.querySelectorAll('tr[data-wh-inv-sp]') : [];
+    var tr=trs[trs.length-1];
+    if(!tr) return;
+    var row=tr.getAttribute('data-wh-inv-sp');
+    set('wh-inv-sp-code-'+row, sp.code||'');
+    set('wh-inv-sp-desc-'+row, sp.desc||'');
+    set('wh-inv-sp-qty-'+row, sp.qty||'1');
+  });
+  whSwitchTab(null,'invoice');
+}
+function whInvDelete(id){
+  id=String(id||'');
+  if(!id) return;
+  whUiConfirm_('Delete this warehouse invoice?', { danger:true }).then(function(ok){
+    if(!ok) return;
+    var token=typeof empireGetToken==='function' ? empireGetToken() : '';
+    fetchJSONRetry({ action:'deleteWarehouseInvoice', token:token, id:id }, 2, 30000).then(function(d){
+      if(!(d && (d.ok||d.success))) throw new Error((d && (d.message||d.error)) || 'Delete failed');
+      whInvLoadList(true);
+    }).catch(function(err){
+      alert('Could not delete: '+(err && err.message ? err.message : err));
+    });
+  });
+}
 function whInvFilterCompany(el){
   whBindComboClicks_();
   var list=document.getElementById('wh-inv-company-list');

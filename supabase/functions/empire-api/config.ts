@@ -60,6 +60,7 @@ export const SHEET_TO_TABLE: Record<string, string> = {
   CivilJobs: "civil_jobs",
   CivilSummary: "civil_summaries",
   WarehouseGoodsIssues: "warehouse_goods_issues",
+  WarehouseInvoices: "warehouse_invoices",
   Trash: "trash",
   WorkerLocations: "worker_locations",
   WorkerPushTokens: "worker_push_tokens",
@@ -176,6 +177,9 @@ export const DEPT_BY_ACTION: Record<string, string> = {
   saveWarehouseLayout: "warehouse",
   getWarehouseSignatures: "warehouse",
   saveWarehouseSignatures: "warehouse",
+  getWarehouseInvoices: "warehouse",
+  saveWarehouseInvoice: "warehouse",
+  deleteWarehouseInvoice: "warehouse",
 };
 
 export const TRASH_ACTIONS: Record<string, number> = {

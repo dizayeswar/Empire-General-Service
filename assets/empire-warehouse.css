@@ -853,6 +853,14 @@ html[data-theme="dark"] .wh-inv-no .wh-cell-input {
   .wh-inv-no { justify-content: flex-start; text-align: left; }
   .wh-inv-row { grid-template-columns: 1fr; gap: 4px; }
 }
+.wh-inv-sheet th,
+.wh-inv-sheet td {
+  font-size: 12px;
+  white-space: nowrap;
+}
+.wh-inv-sheet td:nth-child(3) {
+  white-space: normal;
+}
 
 .wh-lines col.c-num { width: 4.8%; }
 .wh-lines col.c-code { width: 16.2%; }
