@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-20-wh-signer">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-22-wh-inv-pill-menus">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-22-wh-inv-one-row">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -445,7 +445,7 @@
         <div class="wh-app wh-saved-app">
           <div class="form-section">
             <h2>Warehouse Invoices</h2>
-            <p class="wh-tab-help">Saved receipt vouchers. Each SP line is a row (same invoice can appear more than once).</p>
+            <p class="wh-tab-help">Saved receipt vouchers. Each invoice is one row (all SP items on that voucher stay together).</p>
             <div class="wh-toolbar no-print" style="margin-bottom:12px;">
               <button type="button" onclick="whInvLoadList(true)">Refresh</button>
             </div>
@@ -489,7 +489,7 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-22-wh-inv-pill-menus"></script>
+<script src="config.js?v=2026-08-22-wh-inv-one-row"></script>
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-20-wh-reset"></script>
@@ -3007,7 +3007,16 @@ function whInvSheetRows_(items){
   (items||[]).forEach(function(it){
     var p=it.payload||{};
     var sps=Array.isArray(p.sps) ? p.sps : [];
-    var base={
+    var codes=[], descs=[], qtys=[];
+    sps.forEach(function(sp){
+      if(!sp) return;
+      if(sp.code || sp.desc || sp.qty){
+        codes.push(String(sp.code||'').trim() || '—');
+        descs.push(String(sp.desc||'').trim() || '—');
+        qtys.push(String(sp.qty||'').trim() || '—');
+      }
+    });
+    rows.push({
       id:it.id,
       num:it.num||0,
       company:it.company||p.company||'',
@@ -3017,18 +3026,10 @@ function whInvSheetRows_(items){
       invoiceNo:it.invoiceNo||p.invoiceNo||'',
       date:it.date||p.date||'',
       name:it.name||p.name||'',
-      propertyCode:it.propertyCode||p.propertyCode||''
-    };
-    if(!sps.length){
-      rows.push(Object.assign({}, base, { sp:'', desc:'', qty:'' }));
-      return;
-    }
-    sps.forEach(function(sp){
-      rows.push(Object.assign({}, base, {
-        sp:sp && sp.code || '',
-        desc:sp && sp.desc || '',
-        qty:sp && sp.qty || ''
-      }));
+      propertyCode:it.propertyCode||p.propertyCode||'',
+      sp: codes.length ? codes.join('\n') : '',
+      desc: descs.length ? descs.join('\n') : '',
+      qty: qtys.length ? qtys.join('\n') : ''
     });
   });
   return rows;
@@ -3056,11 +3057,11 @@ function whInvRenderList_(items){
   rows.forEach(function(r, idx){
     h+='<tr>'
       +'<td>'+(r.num||(idx+1))+'</td>'
-      +'<td>'+whEsc(r.sp||'—')+'</td>'
-      +'<td style="max-width:180px;word-break:break-word;">'+whEsc(r.desc||'—')+'</td>'
+      +'<td class="wh-inv-multi">'+whEsc(r.sp||'—').replace(/\n/g,'<br>')+'</td>'
+      +'<td class="wh-inv-multi" style="max-width:200px;word-break:break-word;">'+whEsc(r.desc||'—').replace(/\n/g,'<br>')+'</td>'
       +'<td>'+whEsc(r.company||'—')+'</td>'
       +'<td>'+whEsc(r.department||'—')+'</td>'
-      +'<td>'+whEsc(r.qty||'—')+'</td>'
+      +'<td class="wh-inv-multi">'+whEsc(r.qty||'—').replace(/\n/g,'<br>')+'</td>'
       +'<td>'+whEsc(r.amountUsd||'—')+'</td>'
       +'<td>'+whEsc(r.amountIqd||'—')+'</td>'
       +'<td>'+whEsc(r.invoiceNo||'—')+'</td>'

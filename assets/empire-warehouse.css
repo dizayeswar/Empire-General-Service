@@ -922,8 +922,11 @@ html[data-theme="dark"] .wh-inv-no .wh-cell-input {
   font-size: 12px;
   white-space: nowrap;
 }
-.wh-inv-sheet td:nth-child(3) {
+.wh-inv-sheet td:nth-child(3),
+.wh-inv-sheet td.wh-inv-multi {
   white-space: normal;
+  line-height: 1.35;
+  vertical-align: top;
 }
 
 .wh-lines col.c-num { width: 4.8%; }
