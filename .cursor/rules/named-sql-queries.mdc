@@ -1,0 +1,13 @@
+---
+description: Always name Supabase SQL Editor queries for the user
+alwaysApply: true
+---
+
+# Named SQL Editor queries
+
+Whenever giving the user SQL to paste into Supabase **SQL Editor → New query**:
+
+1. Provide a short, recognizable **query name** they should save/rename the query to (e.g. `EGS — table sizes`, `EGS — RLS check`).
+2. Put the name clearly above the SQL block before the code.
+3. Prefer the prefix `EGS —` so queries stay grouped and easy to find later.
+4. Keep names specific to purpose (size, health, cleanup, backup check) — not generic like `Query 1`.
