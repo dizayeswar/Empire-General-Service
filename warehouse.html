@@ -414,12 +414,8 @@
                 <input id="wh-inv-from" class="wh-cell-input" type="text" autocomplete="off">
               </div>
               <div class="wh-inv-row">
-                <label for="wh-inv-reason"><strong>Payment reason:</strong></label>
-                <input id="wh-inv-reason" class="wh-cell-input" type="text" autocomplete="off">
-              </div>
-              <div class="wh-inv-row">
-                <label for="wh-inv-words"><strong>Amount in words:</strong></label>
-                <input id="wh-inv-words" class="wh-cell-input" type="text" autocomplete="off">
+                <label for="wh-inv-property"><strong>Property:</strong></label>
+                <input id="wh-inv-property" class="wh-cell-input" type="text" autocomplete="off" placeholder="Property code">
               </div>
             </div>
 
@@ -485,7 +481,7 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-22-wh-inv-words-slot"></script>
+<script src="config.js?v=2026-08-22-wh-inv-from-property"></script>
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-20-wh-reset"></script>
@@ -2895,7 +2891,7 @@ function whInvPickSp(row, code){
 }
 function whInvClear(){
   _whInvEditingId='';
-  ['wh-inv-date','wh-inv-number','wh-inv-amount','wh-inv-company','wh-inv-from','wh-inv-words','wh-inv-reason'].forEach(function(id){
+  ['wh-inv-date','wh-inv-number','wh-inv-amount','wh-inv-company','wh-inv-from','wh-inv-property'].forEach(function(id){
     var el=document.getElementById(id);
     if(el) el.value='';
   });
@@ -2937,13 +2933,13 @@ function whInvCollectPayload_(){
     company: whVal('wh-inv-company'),
     department: whVal('wh-inv-dept'),
     name: whVal('wh-inv-from'),
-    propertyCode: '',
+    propertyCode: whVal('wh-inv-property'),
     amount: amountRaw,
     currency: currency,
     amountUsd: amountUsd,
     amountIqd: amountIqd,
-    amountWords: whVal('wh-inv-words'),
-    paymentReason: whVal('wh-inv-reason'),
+    amountWords: '',
+    paymentReason: '',
     sps: whInvCollectSpLines_(),
     recipientSig: _whSig.invRecipient||''
   };
@@ -3022,7 +3018,7 @@ function whInvSheetRows_(items){
       invoiceNo:it.invoiceNo||p.invoiceNo||'',
       date:it.date||p.date||'',
       name:it.name||p.name||'',
-      amountWords:p.amountWords||'',
+      propertyCode:it.propertyCode||p.propertyCode||'',
       sp: codes.length ? codes.join('\n') : '',
       desc: descs.length ? descs.join('\n') : '',
       qty: qtys.length ? qtys.join('\n') : ''
@@ -3048,7 +3044,7 @@ function whInvRenderList_(items){
   }
   var h='<div class="wh-saved-table-wrap"><table class="wh-saved-table wh-inv-sheet"><thead><tr>'
     +'<th>#</th><th>SP</th><th>Item description</th><th>COM</th><th>Dept</th><th>Qty</th>'
-    +'<th>Amount USD</th><th>Amount IQD</th><th>R V num</th><th>Date</th><th>Name</th><th>Amount in words</th><th></th>'
+    +'<th>Amount USD</th><th>Amount IQD</th><th>R V num</th><th>Date</th><th>Name</th><th>Property</th><th></th>'
     +'</tr></thead><tbody>';
   rows.forEach(function(r, idx){
     h+='<tr>'
@@ -3063,7 +3059,7 @@ function whInvRenderList_(items){
       +'<td>'+whEsc(r.invoiceNo||'—')+'</td>'
       +'<td>'+whEsc(r.date||'—')+'</td>'
       +'<td>'+whEsc(r.name||'—')+'</td>'
-      +'<td class="wh-inv-multi" style="max-width:180px;word-break:break-word;">'+whEsc(r.amountWords||'—')+'</td>'
+      +'<td>'+whEsc(r.propertyCode||'—')+'</td>'
       +'<td class="wh-saved-actions">'
       +'<button type="button" data-wh-inv-act="view" data-wh-inv-id="'+whEsc(r.id)+'">Open</button> '
       +'<button type="button" data-wh-inv-act="delete" data-wh-inv-id="'+whEsc(r.id)+'">Delete</button>'
@@ -3106,8 +3102,7 @@ function whInvOpen(id){
   set('wh-inv-dept', p.department||it.department||'');
   whInvSyncPillBtn_('dept');
   set('wh-inv-from', it.name||p.name||'');
-  set('wh-inv-words', p.amountWords||'');
-  set('wh-inv-reason', p.paymentReason||'');
+  set('wh-inv-property', it.propertyCode||p.propertyCode||'');
   var cur=String(p.currency||'').toUpperCase();
   if(!cur) cur = (it.amountUsd||p.amountUsd) ? 'USD' : 'IQD';
   set('wh-inv-currency', cur);
