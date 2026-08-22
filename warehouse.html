@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-20-wh-signer">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-22-wh-inv-pills-all">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-22-wh-inv-pill-menus">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -385,25 +385,24 @@
                     <input id="wh-inv-amount" class="wh-cell-input" type="text" inputmode="numeric" autocomplete="off" placeholder="0" oninput="whFormatPrice(event)">
                   </td>
                   <td>
-                    <select id="wh-inv-currency" class="wh-cell-input wh-inv-select">
-                      <option value="IQD" selected>IQD</option>
-                      <option value="USD">USD</option>
-                    </select>
+                    <div class="wh-combo wh-inv-pill-dd" id="wh-inv-currency-combo">
+                      <button type="button" class="wh-inv-pill-btn" id="wh-inv-currency-btn" onclick="whInvOpenPill('currency')">IQD</button>
+                      <input type="hidden" id="wh-inv-currency" value="IQD">
+                      <div class="wh-combo-list wh-inv-pill-list" id="wh-inv-currency-list" hidden></div>
+                    </div>
                   </td>
                   <td>
                     <div class="wh-combo" id="wh-inv-company-combo">
                       <input id="wh-inv-company" class="wh-cell-input" type="text" value="" autocomplete="off" placeholder="Company" oninput="whInvFilterCompany(this)" onfocus="whInvFilterCompany(this)">
-                      <div class="wh-combo-list" id="wh-inv-company-list" hidden></div>
+                      <div class="wh-combo-list wh-inv-pill-list" id="wh-inv-company-list" hidden></div>
                     </div>
                   </td>
                   <td>
-                    <select id="wh-inv-dept" class="wh-cell-input wh-inv-select">
-                      <option value="">—</option>
-                      <option value="CAI">CAI</option>
-                      <option value="MEP">MEP</option>
-                      <option value="AC">AC</option>
-                      <option value="MDM">MDM</option>
-                    </select>
+                    <div class="wh-combo wh-inv-pill-dd" id="wh-inv-dept-combo">
+                      <button type="button" class="wh-inv-pill-btn" id="wh-inv-dept-btn" onclick="whInvOpenPill('dept')">—</button>
+                      <input type="hidden" id="wh-inv-dept" value="">
+                      <div class="wh-combo-list wh-inv-pill-list" id="wh-inv-dept-list" hidden></div>
+                    </div>
                   </td>
                 </tr>
               </tbody>
@@ -490,7 +489,7 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-22-wh-inv-pills-all"></script>
+<script src="config.js?v=2026-08-22-wh-inv-pill-menus"></script>
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-20-wh-reset"></script>
@@ -2727,6 +2726,10 @@ function whBindComboClicks_(){
       whPickCompany(btn.getAttribute('data-wh-name')||'');
     } else if(kind==='inv-company'){
       whInvPickCompany(btn.getAttribute('data-wh-name')||'');
+    } else if(kind==='inv-currency'){
+      whInvPickPill_('currency', btn.getAttribute('data-wh-name')||'');
+    } else if(kind==='inv-dept'){
+      whInvPickPill_('dept', btn.getAttribute('data-wh-name')||'');
     } else if(kind==='inv-sp'){
       whInvPickSp(Number(btn.getAttribute('data-wh-row')||0), btn.getAttribute('data-wh-code')||'');
     }
@@ -2803,6 +2806,8 @@ function whInvEnsureDefaults_(){
   }
   var cur=document.getElementById('wh-inv-currency');
   if(cur && !cur.value) cur.value='IQD';
+  whInvSyncPillBtn_('currency');
+  whInvSyncPillBtn_('dept');
   whInvSyncSpUi_();
 }
 var WH_INV_SP_MAX=12;
@@ -2902,6 +2907,8 @@ function whInvClear(){
   if(cur) cur.value='IQD';
   var dept=document.getElementById('wh-inv-dept');
   if(dept) dept.value='';
+  whInvSyncPillBtn_('currency');
+  whInvSyncPillBtn_('dept');
   whClearSig('invRecipient');
   whInvClearSp_();
   whCloseCombos();
@@ -3100,6 +3107,7 @@ function whInvOpen(id){
   set('wh-inv-number', it.invoiceNo||p.invoiceNo||'');
   set('wh-inv-company', it.company||p.company||'');
   set('wh-inv-dept', p.department||it.department||'');
+  whInvSyncPillBtn_('dept');
   set('wh-inv-from', it.name||p.name||'');
   set('wh-inv-property', it.propertyCode||p.propertyCode||'');
   set('wh-inv-words', p.amountWords||'');
@@ -3107,6 +3115,7 @@ function whInvOpen(id){
   var cur=String(p.currency||'').toUpperCase();
   if(!cur) cur = (it.amountUsd||p.amountUsd) ? 'USD' : 'IQD';
   set('wh-inv-currency', cur);
+  whInvSyncPillBtn_('currency');
   set('wh-inv-amount', p.amount || (cur==='USD' ? (it.amountUsd||p.amountUsd) : (it.amountIqd||p.amountIqd)) || '');
   whClearSig('invRecipient');
   if(p.recipientSig) whSetSig('invRecipient', p.recipientSig);
@@ -3160,6 +3169,41 @@ function whInvFilterCompany(el){
 function whInvPickCompany(name){
   var el=document.getElementById('wh-inv-company');
   if(el) el.value=name||'';
+  whCloseCombos();
+}
+var WH_INV_CURRENCIES=['IQD','USD'];
+var WH_INV_DEPTS=['','CAI','MEP','AC','MDM'];
+function whInvPillLabel_(kind, val){
+  val=String(val||'');
+  if(kind==='dept') return val || '—';
+  return val || 'IQD';
+}
+function whInvSyncPillBtn_(kind){
+  var hid=document.getElementById(kind==='dept' ? 'wh-inv-dept' : 'wh-inv-currency');
+  var btn=document.getElementById(kind==='dept' ? 'wh-inv-dept-btn' : 'wh-inv-currency-btn');
+  if(btn) btn.textContent=whInvPillLabel_(kind, hid ? hid.value : '');
+}
+function whInvOpenPill(kind){
+  whBindComboClicks_();
+  var wrap=document.getElementById(kind==='dept' ? 'wh-inv-dept-combo' : 'wh-inv-currency-combo');
+  var list=document.getElementById(kind==='dept' ? 'wh-inv-dept-list' : 'wh-inv-currency-list');
+  var btn=document.getElementById(kind==='dept' ? 'wh-inv-dept-btn' : 'wh-inv-currency-btn');
+  var hid=document.getElementById(kind==='dept' ? 'wh-inv-dept' : 'wh-inv-currency');
+  if(!list||!btn) return;
+  if(!list.hidden && _whOpenCombo){ whCloseCombos(); return; }
+  var opts=kind==='dept' ? WH_INV_DEPTS : WH_INV_CURRENCIES;
+  var cur=hid ? String(hid.value||'') : '';
+  var pick=kind==='dept' ? 'inv-dept' : 'inv-currency';
+  list.innerHTML=opts.map(function(n){
+    var sel=String(n)===cur ? ' is-selected' : '';
+    return '<button type="button" class="'+sel.trim()+'" data-wh-pick="'+pick+'" data-wh-name="'+whEsc(n)+'">'+whEsc(whInvPillLabel_(kind,n))+'</button>';
+  }).join('');
+  whMarkComboOpen_(wrap, list, btn);
+}
+function whInvPickPill_(kind, name){
+  var hid=document.getElementById(kind==='dept' ? 'wh-inv-dept' : 'wh-inv-currency');
+  if(hid) hid.value=name||'';
+  whInvSyncPillBtn_(kind);
   whCloseCombos();
 }
 function whFilterTech(el){

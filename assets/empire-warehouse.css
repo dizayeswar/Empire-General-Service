@@ -747,7 +747,7 @@ html[data-theme="dark"] .wh-inv-sp-table td {
   margin: 0 auto;
 }
 .wh-inv-meta .wh-cell-input,
-.wh-inv-meta .wh-inv-select {
+.wh-inv-meta .wh-inv-pill-btn {
   width: 100%;
   max-width: 10.5em;
   margin: 0 auto;
@@ -757,42 +757,69 @@ html[data-theme="dark"] .wh-inv-sp-table td {
   border-radius: 999px;
   background: #fff;
   text-align: center;
-  text-align-last: center;
   font: inherit;
   font-size: 15px;
   padding: 7px 14px;
   box-shadow: none;
   color: inherit;
 }
-.wh-inv-meta .wh-inv-select {
+.wh-inv-meta .wh-inv-pill-btn {
   cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
   padding-right: 28px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23111' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
   background-size: 9px 6px;
   background-color: #fff;
+  font-family: "Times New Roman", Times, serif;
 }
 .wh-inv-meta .wh-cell-input:focus,
-.wh-inv-meta .wh-inv-select:focus {
+.wh-inv-meta .wh-inv-pill-btn:focus {
   outline: none;
   border-color: var(--accent2, #8d015d);
   box-shadow: 0 0 0 2px rgba(141, 1, 93, 0.16);
   background-color: #fff;
 }
+.wh-inv-meta .wh-inv-pill-list,
+.wh-inv-meta .wh-combo-list.wh-inv-pill-list,
+.wh-combo-float-layer .wh-inv-pill-list {
+  border-radius: 22px !important;
+  overflow: hidden;
+  border: 1.5px solid #6b1a3a !important;
+  box-shadow: 0 8px 22px rgba(0,0,0,.14);
+  padding: 6px !important;
+  min-width: 7.5em;
+}
+.wh-inv-meta .wh-inv-pill-list button,
+.wh-combo-float-layer .wh-inv-pill-list button {
+  border-radius: 999px !important;
+  margin: 2px 0;
+  text-align: center;
+  font-family: "Times New Roman", Times, serif;
+  font-size: 15px;
+  padding: 7px 12px;
+}
+.wh-inv-meta .wh-inv-pill-list button.is-selected,
+.wh-combo-float-layer .wh-inv-pill-list button.is-selected {
+  background: rgba(141, 1, 93, 0.12);
+  color: inherit;
+}
 html[data-theme="dark"] .wh-inv-meta .wh-cell-input,
-html[data-theme="dark"] .wh-inv-meta .wh-inv-select {
+html[data-theme="dark"] .wh-inv-meta .wh-inv-pill-btn {
   background-color: #1a1d24;
   border-color: #c47aa0;
   color: inherit;
 }
-html[data-theme="dark"] .wh-inv-meta .wh-inv-select {
+html[data-theme="dark"] .wh-inv-meta .wh-inv-pill-btn {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23c8cdd5' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
   background-size: 9px 6px;
+}
+html[data-theme="dark"] .wh-inv-meta .wh-inv-pill-list,
+html[data-theme="dark"] .wh-combo-float-layer .wh-inv-pill-list {
+  border-color: #c47aa0 !important;
+  background: #1a1d24;
 }
 .wh-inv-fields {
   display: flex;
