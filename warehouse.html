@@ -4143,6 +4143,40 @@ function whEsigSeedDiayee_(){
     return whEsigPublish_(true);
   }).catch(function(){ return false; });
 }
+function whEsigSeedHimdad_(){
+  var id='builtin-esig-himdad';
+  for(var i=0;i<_whEsigs.length;i++){
+    if(String(_whEsigs[i].id)===id) return Promise.resolve(false);
+  }
+  var url='assets/wh-esig-himdad.png';
+  try { url=new URL('assets/wh-esig-himdad.png', location.href).href; } catch(e){}
+  return fetch(url, { cache:'force-cache' }).then(function(r){
+    if(!r.ok) throw new Error('missing');
+    return r.blob();
+  }).then(function(blob){
+    return new Promise(function(resolve, reject){
+      var reader=new FileReader();
+      reader.onload=function(){ resolve(String(reader.result||'')); };
+      reader.onerror=reject;
+      reader.readAsDataURL(blob);
+    });
+  }).then(function(dataUrl){
+    if(!dataUrl) return false;
+    _whEsigs.unshift({
+      id:id,
+      name:'Himdad',
+      image:dataUrl,
+      createdBy:'system',
+      createdAt:new Date().toISOString()
+    });
+    whEsigLocalWrite_(_whEsigs);
+    whEsigRenderList_();
+    return whEsigPublish_(true);
+  }).catch(function(){ return false; });
+}
+function whEsigSeedBuiltins_(){
+  return whEsigSeedDiayee_().then(function(){ return whEsigSeedHimdad_(); });
+}
 function whEsigLoad(){
   var box=document.getElementById('whEsigList');
   if(box) box.innerHTML = typeof empireLoadingHtml==='function' ? empireLoadingHtml('Loading signatures…') : 'Loading…';
@@ -4150,7 +4184,7 @@ function whEsigLoad(){
   whEsigRenderList_();
   var token=typeof empireGetToken==='function' ? empireGetToken() : '';
   if(!token || typeof fetchJSONRetry!=='function'){
-    whEsigSeedDiayee_();
+    whEsigSeedBuiltins_();
     return;
   }
   fetchJSONRetry({ action:'getWarehouseSignatures', token:token }, 2, 30000).then(function(d){
@@ -4160,13 +4194,13 @@ function whEsigLoad(){
       _whEsigs=items;
       whEsigLocalWrite_(_whEsigs);
       whEsigRenderList_();
-      return whEsigSeedDiayee_();
+      return whEsigSeedBuiltins_();
     }
-    // Server empty: seed builtin then push local library so other PCs can use it.
-    return whEsigSeedDiayee_().then(function(){
+    // Server empty: seed builtins then push local library so other PCs can use them.
+    return whEsigSeedBuiltins_().then(function(){
       if(_whEsigs.length) whEsigPublish_(true);
     });
-  }).catch(function(){ whEsigSeedDiayee_(); });
+  }).catch(function(){ whEsigSeedBuiltins_(); });
 }
 function whEsigRenderList_(){
   var box=document.getElementById('whEsigList');
