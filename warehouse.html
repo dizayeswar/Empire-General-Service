@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-20-wh-signer">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-22-wh-inv-one-row">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-22-wh-inv-view-only">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -330,6 +330,7 @@
         <div class="wh-app">
           <div class="wh-toolbar no-print">
             <strong>New Invoice</strong>
+            <span id="whInvViewBanner" class="wh-done-banner" hidden>View only — cannot edit</span>
             <span class="wh-spacer"></span>
             <button type="button" onclick="whInvNew()">New</button>
             <button type="button" onclick="whInvClear()">Clear</button>
@@ -437,7 +438,7 @@
         <div class="wh-app wh-saved-app">
           <div class="form-section">
             <h2>Warehouse Invoices</h2>
-            <p class="wh-tab-help">Saved receipt vouchers. Each invoice is one row. No SP → item description is <strong>Work Wages</strong>.</p>
+            <p class="wh-tab-help">Saved receipt vouchers. Each invoice is one row. No SP → item description is <strong>Work Wages</strong>. View only — cannot edit after save.</p>
             <div class="wh-toolbar no-print" style="margin-bottom:12px;">
               <button type="button" onclick="whInvLoadList(true)">Refresh</button>
             </div>
@@ -481,7 +482,7 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-22-wh-inv-work-wages"></script>
+<script src="config.js?v=2026-08-22-wh-inv-view-only"></script>
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-20-wh-reset"></script>
@@ -2806,6 +2807,7 @@ var WH_INV_SP_MAX=12;
 var _whInvSpRows=0;
 var _whInvEditingId='';
 var _whInvCache=[];
+var _whInvViewOnly=false;
 function whInvSyncSpUi_(){
   var table=document.getElementById('whInvSpTable');
   var empty=document.getElementById('whInvSpEmpty');
@@ -2822,6 +2824,7 @@ function whInvSyncSpUi_(){
   }
 }
 function whInvAddSp(){
+  if(_whInvViewOnly){ alert('This invoice is view only.'); return; }
   var body=document.getElementById('whInvSpBody');
   if(!body) return;
   if(body.querySelectorAll('tr[data-wh-inv-sp]').length>=WH_INV_SP_MAX){
@@ -2847,6 +2850,7 @@ function whInvAddSp(){
   if(codeEl) codeEl.focus();
 }
 function whInvRemoveSp(row){
+  if(_whInvViewOnly){ alert('This invoice is view only.'); return; }
   var tr=document.querySelector('tr[data-wh-inv-sp="'+String(row)+'"]');
   if(tr && tr.parentNode) tr.parentNode.removeChild(tr);
   whCloseCombos();
@@ -2891,6 +2895,7 @@ function whInvPickSp(row, code){
 }
 function whInvClear(){
   _whInvEditingId='';
+  _whInvViewOnly=false;
   ['wh-inv-date','wh-inv-number','wh-inv-amount','wh-inv-company','wh-inv-from','wh-inv-property'].forEach(function(id){
     var el=document.getElementById(id);
     if(el) el.value='';
@@ -2905,6 +2910,7 @@ function whInvClear(){
   whInvClearSp_();
   whCloseCombos();
   whInvEnsureDefaults_();
+  whInvApplyViewOnly_();
 }
 function whInvNew(){ whInvClear(); }
 function whInvCollectSpLines_(){
@@ -2950,6 +2956,7 @@ function whInvCollectPayload_(){
 }
 function whInvSave(){
   if(_whReceiverMode){ alert('Signers cannot save invoices.'); return; }
+  if(_whInvViewOnly){ alert('Saved invoices are view only. Click New to create another.'); return; }
   var payload=whInvCollectPayload_();
   if(!payload.invoiceNo){ alert('Enter Invoice No.'); var el=document.getElementById('wh-inv-number'); if(el) el.focus(); return; }
   if(!payload.date){ alert('Enter Date.'); var d=document.getElementById('wh-inv-date'); if(d) d.focus(); return; }
@@ -2960,7 +2967,7 @@ function whInvSave(){
   var body={
     action:'saveWarehouseInvoice',
     token:token,
-    id:_whInvEditingId||undefined,
+    id: undefined,
     invoiceNo:payload.invoiceNo,
     date:payload.date,
     company:payload.company,
@@ -3084,7 +3091,7 @@ function whInvRenderList_(items){
       +'<td>'+whEsc(r.name||'—')+'</td>'
       +'<td>'+whEsc(r.propertyCode||'—')+'</td>'
       +'<td class="wh-saved-actions">'
-      +'<button type="button" data-wh-inv-act="view" data-wh-inv-id="'+whEsc(r.id)+'">Open</button> '
+      +'<button type="button" data-wh-inv-act="view" data-wh-inv-id="'+whEsc(r.id)+'">View</button> '
       +'<button type="button" data-wh-inv-act="delete" data-wh-inv-id="'+whEsc(r.id)+'">Delete</button>'
       +'</td></tr>';
   });
@@ -3102,7 +3109,7 @@ function whInvBindList_(){
     var act=btn.getAttribute('data-wh-inv-act');
     var id=btn.getAttribute('data-wh-inv-id')||'';
     if(act==='delete') whInvDelete(id);
-    else if(act==='view') whInvOpen(id);
+    else if(act==='view') whInvView(id);
   });
 }
 function whInvFind_(id){
@@ -3112,12 +3119,45 @@ function whInvFind_(id){
   }
   return null;
 }
-function whInvOpen(id){
+function whInvApplyViewOnly_(){
+  var root=document.getElementById('whInvoiceRoot');
+  var banner=document.getElementById('whInvViewBanner');
+  var saveBtn=document.getElementById('whInvSaveBtn');
+  var addSp=document.querySelector('#whInvSpSection .wh-inv-sp-head button');
+  if(banner) banner.hidden=!_whInvViewOnly;
+  if(saveBtn) saveBtn.style.display=_whInvViewOnly ? 'none' : '';
+  if(addSp) addSp.style.display=_whInvViewOnly ? 'none' : '';
+  if(root){
+    root.classList.toggle('wh-inv-view-only', !!_whInvViewOnly);
+    root.querySelectorAll('input,select,textarea,button').forEach(function(el){
+      if(el.closest('.wh-toolbar')) return;
+      if(_whInvViewOnly){
+        el.setAttribute('disabled','disabled');
+        if(el.tagName==='INPUT' || el.tagName==='TEXTAREA') el.setAttribute('readonly','readonly');
+      } else {
+        el.removeAttribute('disabled');
+        el.removeAttribute('readonly');
+      }
+    });
+    root.querySelectorAll('.wh-inv-pill-btn').forEach(function(b){
+      b.disabled=!!_whInvViewOnly;
+    });
+    root.querySelectorAll('.wh-sig-actions button').forEach(function(b){
+      b.disabled=!!_whInvViewOnly;
+      b.style.display=_whInvViewOnly ? 'none' : '';
+    });
+    root.querySelectorAll('.wh-inv-sp-remove').forEach(function(b){
+      b.style.display=_whInvViewOnly ? 'none' : '';
+    });
+  }
+}
+function whInvView(id){
   var it=whInvFind_(id);
   if(!it){ alert('Invoice not found.'); return; }
   var p=it.payload||{};
   whInvClear();
-  _whInvEditingId=String(it.id||'');
+  _whInvEditingId='';
+  _whInvViewOnly=true;
   var set=function(id2,v){ var el=document.getElementById(id2); if(el) el.value=v||''; };
   set('wh-inv-date', it.date||p.date||'');
   set('wh-inv-number', it.invoiceNo||p.invoiceNo||'');
@@ -3135,7 +3175,9 @@ function whInvOpen(id){
   if(p.recipientSig) whSetSig('invRecipient', p.recipientSig);
   var sps=Array.isArray(p.sps) ? p.sps : [];
   sps.forEach(function(sp){
+    _whInvViewOnly=false;
     whInvAddSp();
+    _whInvViewOnly=true;
     var body=document.getElementById('whInvSpBody');
     var trs=body ? body.querySelectorAll('tr[data-wh-inv-sp]') : [];
     var tr=trs[trs.length-1];
@@ -3145,6 +3187,7 @@ function whInvOpen(id){
     set('wh-inv-sp-desc-'+row, sp.desc||'');
     set('wh-inv-sp-qty-'+row, sp.qty||'1');
   });
+  whInvApplyViewOnly_();
   whSwitchTab(null,'invoice');
 }
 function whInvDelete(id){
@@ -3198,6 +3241,7 @@ function whInvSyncPillBtn_(kind){
   if(btn) btn.textContent=whInvPillLabel_(kind, hid ? hid.value : '');
 }
 function whInvOpenPill(kind){
+  if(_whInvViewOnly){ alert('This invoice is view only.'); return; }
   whBindComboClicks_();
   var wrap=document.getElementById(kind==='dept' ? 'wh-inv-dept-combo' : 'wh-inv-currency-combo');
   var list=document.getElementById(kind==='dept' ? 'wh-inv-dept-list' : 'wh-inv-currency-list');
@@ -3300,6 +3344,7 @@ function whIsInvSigSlot_(which){
 }
 function whOpenSigPicker(which){
   if(whIsInvSigSlot_(which)){
+    if(_whInvViewOnly){ alert('This invoice is view only.'); return; }
     _whEsigPickFor = which;
     whEsigUpdatePickHelp_();
     whSwitchTab(null, 'sigs');

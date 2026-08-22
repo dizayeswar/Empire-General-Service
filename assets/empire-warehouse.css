@@ -928,6 +928,14 @@ html[data-theme="dark"] .wh-inv-no .wh-cell-input {
   line-height: 1.35;
   vertical-align: top;
 }
+.wh-invoice.wh-inv-view-only {
+  opacity: 0.98;
+}
+.wh-invoice.wh-inv-view-only .wh-cell-input,
+.wh-invoice.wh-inv-view-only .wh-inv-pill-btn {
+  cursor: default;
+  pointer-events: none;
+}
 
 .wh-lines col.c-num { width: 4.8%; }
 .wh-lines col.c-code { width: 16.2%; }
