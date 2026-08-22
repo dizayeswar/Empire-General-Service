@@ -705,6 +705,7 @@ function invRowToApi(r: Record<string, unknown>) {
     invoiceNo: String(r.invoice_no || ""),
     date: String(r.invoice_date || ""),
     company: String(r.company || ""),
+    department: String(payload.department || ""),
     name: String(r.name || ""),
     propertyCode: String(r.property_code || ""),
     amountUsd: String(r.amount_usd || ""),
@@ -738,6 +739,7 @@ export async function handleSaveWarehouseInvoice(body: Record<string, unknown>, 
   const invoiceNo = String(body.invoiceNo || payload.invoiceNo || "").trim();
   const date = String(body.date || payload.date || "").trim();
   const company = String(body.company || payload.company || "").trim();
+  const department = String(body.department || payload.department || "").trim();
   const name = String(body.name || payload.name || "").trim();
   const propertyCode = String(body.propertyCode || payload.propertyCode || "").trim();
   const amountUsd = String(body.amountUsd || payload.amountUsd || "").trim();
@@ -755,6 +757,7 @@ export async function handleSaveWarehouseInvoice(body: Record<string, unknown>, 
     invoiceNo,
     date,
     company,
+    department,
     name,
     propertyCode,
     amountUsd,

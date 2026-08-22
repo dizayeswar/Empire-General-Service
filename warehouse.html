@@ -376,6 +376,7 @@
                   <th>Amount</th>
                   <th>Currency</th>
                   <th>Company</th>
+                  <th>Department</th>
                 </tr>
               </thead>
               <tbody>
@@ -394,6 +395,15 @@
                       <input id="wh-inv-company" class="wh-cell-input" type="text" value="" autocomplete="off" placeholder="Company" oninput="whInvFilterCompany(this)" onfocus="whInvFilterCompany(this)">
                       <div class="wh-combo-list" id="wh-inv-company-list" hidden></div>
                     </div>
+                  </td>
+                  <td>
+                    <select id="wh-inv-dept" class="wh-cell-input wh-inv-select">
+                      <option value="">—</option>
+                      <option value="CAI">CAI</option>
+                      <option value="MEP">MEP</option>
+                      <option value="AC">AC</option>
+                      <option value="MDM">MDM</option>
+                    </select>
                   </td>
                 </tr>
               </tbody>
@@ -480,7 +490,7 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-22-wh-inv-list"></script>
+<script src="config.js?v=2026-08-22-wh-inv-dept"></script>
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-20-wh-reset"></script>
@@ -2890,6 +2900,8 @@ function whInvClear(){
   });
   var cur=document.getElementById('wh-inv-currency');
   if(cur) cur.value='IQD';
+  var dept=document.getElementById('wh-inv-dept');
+  if(dept) dept.value='';
   whClearSig('invRecipient');
   whInvClearSp_();
   whCloseCombos();
@@ -2920,6 +2932,7 @@ function whInvCollectPayload_(){
     invoiceNo: whVal('wh-inv-number'),
     date: whVal('wh-inv-date'),
     company: whVal('wh-inv-company'),
+    department: whVal('wh-inv-dept'),
     name: whVal('wh-inv-from'),
     propertyCode: whVal('wh-inv-property'),
     amount: amountRaw,
@@ -2948,6 +2961,7 @@ function whInvSave(){
     invoiceNo:payload.invoiceNo,
     date:payload.date,
     company:payload.company,
+    department:payload.department,
     name:payload.name,
     propertyCode:payload.propertyCode,
     amountUsd:payload.amountUsd,
@@ -2990,6 +3004,7 @@ function whInvSheetRows_(items){
       id:it.id,
       num:it.num||0,
       company:it.company||p.company||'',
+      department:p.department||it.department||'',
       amountUsd:it.amountUsd||p.amountUsd||'',
       amountIqd:it.amountIqd||p.amountIqd||'',
       invoiceNo:it.invoiceNo||p.invoiceNo||'',
@@ -3028,7 +3043,7 @@ function whInvRenderList_(items){
     return;
   }
   var h='<div class="wh-saved-table-wrap"><table class="wh-saved-table wh-inv-sheet"><thead><tr>'
-    +'<th>#</th><th>SP</th><th>Item description</th><th>COM</th><th>Qty</th>'
+    +'<th>#</th><th>SP</th><th>Item description</th><th>COM</th><th>Dept</th><th>Qty</th>'
     +'<th>Amount USD</th><th>Amount IQD</th><th>R V num</th><th>Date</th><th>Name</th><th>Property</th><th></th>'
     +'</tr></thead><tbody>';
   rows.forEach(function(r, idx){
@@ -3037,6 +3052,7 @@ function whInvRenderList_(items){
       +'<td>'+whEsc(r.sp||'—')+'</td>'
       +'<td style="max-width:180px;word-break:break-word;">'+whEsc(r.desc||'—')+'</td>'
       +'<td>'+whEsc(r.company||'—')+'</td>'
+      +'<td>'+whEsc(r.department||'—')+'</td>'
       +'<td>'+whEsc(r.qty||'—')+'</td>'
       +'<td>'+whEsc(r.amountUsd||'—')+'</td>'
       +'<td>'+whEsc(r.amountIqd||'—')+'</td>'
@@ -3083,6 +3099,7 @@ function whInvOpen(id){
   set('wh-inv-date', it.date||p.date||'');
   set('wh-inv-number', it.invoiceNo||p.invoiceNo||'');
   set('wh-inv-company', it.company||p.company||'');
+  set('wh-inv-dept', p.department||it.department||'');
   set('wh-inv-from', it.name||p.name||'');
   set('wh-inv-property', it.propertyCode||p.propertyCode||'');
   set('wh-inv-words', p.amountWords||'');
