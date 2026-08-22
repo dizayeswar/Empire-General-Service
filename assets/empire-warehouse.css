@@ -936,6 +936,20 @@ html[data-theme="dark"] .wh-inv-no .wh-cell-input {
   cursor: default;
   pointer-events: none;
 }
+.wh-inv-month {
+  border: 1px solid var(--card-border, #ccc);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 13px;
+  background: var(--panel, #fff);
+  color: inherit;
+}
+.wh-inv-month-hint {
+  font-size: 12px;
+  color: var(--text-soft, #666);
+  white-space: nowrap;
+}
 
 .wh-lines col.c-num { width: 4.8%; }
 .wh-lines col.c-code { width: 16.2%; }
