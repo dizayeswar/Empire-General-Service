@@ -2021,8 +2021,13 @@ function buildIssuesShareText(ids){
   if(!chunks.length) return '';
   return chunks.map(function(c){ return c.text; }).join('\n\n---\n\n');
 }
+function issueWaShareFitsUrl_(text){
+  var encoded=encodeURIComponent(String(text||''));
+  return encoded.length>0 && encoded.length<=WA_SHARE_MAX_ENCODED;
+}
 function openWhatsAppShare_(text, allowNavigate){
-  var url='https://wa.me/?text='+encodeURIComponent(text||'');
+  var msg=String(text||'');
+  var url=msg ? ('https://wa.me/?text='+encodeURIComponent(msg)) : 'https://wa.me/';
   try{
     var w=window.open(url,'_blank');
     if(w) return true;
@@ -2092,8 +2097,12 @@ function renderIssueWaSharePanel_(){
   h+='<button type="button" class="issue-wa-share-close" onclick="closeIssueWaSharePanel()" aria-label="Close">&times;</button>';
   h+='<p class="issue-wa-share-title">Share '+n+' '+_esc(dept)+(n===1?'':'s')+' on WhatsApp</p>';
   if(q.copied){
-    h+='<p class="issue-wa-share-hint">All <strong>'+n+'</strong> issues are copied, including photo links. Open WhatsApp, choose the chat, then paste (<strong>Ctrl+V</strong>) and send.</p>';
-    h+='<button type="button" class="issue-wa-share-main" onclick="openIssueWaSharePaste_()">'+whatsappIconHtml()+' Open WhatsApp — then paste</button>';
+    if(issueWaShareFitsUrl_(q.fullText)){
+      h+='<p class="issue-wa-share-hint">All <strong>'+n+'</strong> issues will be filled into WhatsApp. Choose the chat and send.</p>';
+    }else{
+      h+='<p class="issue-wa-share-hint">All <strong>'+n+'</strong> issues are copied. Open WhatsApp, choose the chat, paste, then send.</p>';
+    }
+    h+='<button type="button" class="issue-wa-share-main" onclick="openIssueWaSharePaste_()">'+whatsappIconHtml()+' Open WhatsApp</button>';
     h+='<button type="button" class="issue-wa-share-secondary" onclick="copyIssueWaShareAll_()">Copy all '+n+' issues again</button>';
   }else{
     h+='<p class="issue-wa-share-hint">Could not copy automatically. Send every part below so none are left out.</p>';
@@ -2115,11 +2124,10 @@ function renderIssueWaSharePanel_(){
 }
 function openIssueWaSharePaste_(){
   if(!_waShareQueue) return;
-  var n=_waShareQueue.ids.length;
-  var dept=ISSUE_SHARE_DEPT||'issue';
+  var full=_waShareQueue.fullText||'';
   finishIssueWhatsAppSelection_();
   closeIssueWaSharePanel();
-  openWhatsAppShare_('Empire World — '+n+' '+dept+(n===1?'':'s')+'\n\nPaste the copied list here (Ctrl+V), then send.', false);
+  openWhatsAppShare_(issueWaShareFitsUrl_(full)?full:'', false);
 }
 function copyIssueWaShareAll_(){
   if(!_waShareQueue) return;
