@@ -385,6 +385,11 @@ select option:checked { background:rgba(141,1,93,0.14); }
 .rb-status.open { background:#fff3e0; color:#b8860b; }
 .rb-status.fixed { background:#e8f8ef; color:#1d9e75; }
 .rb-actions { display:flex; flex-direction:column; gap:6px; flex-shrink:0; }
+.rb-check, .rb-check-all { width:16px; height:16px; accent-color:var(--accent2,#8d015d); cursor:pointer; vertical-align:middle; }
+.rb-pick { display:flex; align-items:center; gap:8px; flex-shrink:0; padding-top:4px; cursor:pointer; user-select:none; font-size:13px; color:var(--text-soft); }
+.rb-select-head { margin-bottom:10px; }
+.rb-row-selected, .rb-item.rb-row-selected { background:rgba(141,1,93,0.08) !important; }
+.rb-item { cursor:pointer; }
 .rb-restore { padding:6px 10px; font-size:12px; color:#fff; background:#1d9e75; border:none; border-radius:8px; cursor:pointer; white-space:nowrap; }
 .rb-purge { padding:6px 10px; font-size:12px; color:#fff; background:#C5504F; border:none; border-radius:8px; cursor:pointer; }
 

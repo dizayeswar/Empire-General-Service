@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://script.google.com">
 <link rel="preconnect" href="https://api.imgbb.com">
 <title>Civil Department — Empire World</title>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-22-wa-bulk">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-22-rb-select">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
 <link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-08-19-wh-assign">
 <link rel="stylesheet" href="assets/empire-electrical-materials.css?v=2026-08-19-wh-assign">
@@ -331,7 +331,7 @@
     </div>
   </div>
 </div>
-<script src="config.js?v=2026-08-22-wa-sent"></script>
+<script src="config.js?v=2026-08-22-rb-select"></script>
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-19-wh-assign"></script>
@@ -1751,6 +1751,8 @@ function doReset(){
     <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
       <button onclick="rbLoad()"><span class="nav-icon spin-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> Refresh</button>
       <button onclick="rbRestoreAll()" style="color:#fff;background:#1d9e75;border-color:#1d9e75;">↩️ Restore all</button>
+      <button type="button" id="rbRestoreSelectedBtn" onclick="rbRestoreSelected()" disabled style="opacity:0.55;color:#fff;background:#1d9e75;border-color:#1d9e75;">Restore selected</button>
+      <button type="button" id="rbPurgeSelectedBtn" onclick="rbPurgeSelected()" disabled style="opacity:0.55;color:#fff;background:#C5504F;border-color:#C5504F;">Delete selected forever</button>
       <button onclick="rbEmpty()" style="color:#fff;background:#C5504F;border-color:#C5504F;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span> Empty bin</button>
     </div>
     <div id="rbList"><p style="color:var(--text-faint);">Loading…</p></div>
@@ -1761,6 +1763,39 @@ function doReset(){
   var RB_DEPT='civil department', RB_SHEETS=['CivilJobs','CivilWorkerReports','CivilIssues'], RB_TOKKEY='civdept_token', RB_RELOAD='refreshAllData';
   function RBTOK(){ return empireGetToken(); }
   function rbReload(){ try{ if(typeof window[RB_RELOAD]==='function') window[RB_RELOAD](true); else { loadJobs(); if(window.loadIssues) loadIssues(true); } }catch(e){} }
+  function rbEscAttr(s){ return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+  function rbSelectedIds(){
+    return Array.prototype.map.call(document.querySelectorAll('#rbList .rb-check:checked'), function(cb){ return cb.value; }).filter(Boolean);
+  }
+  window.rbToggleSelectAll=function(el){
+    document.querySelectorAll('#rbList .rb-check').forEach(function(cb){ cb.checked=!!(el&&el.checked); });
+    window.rbUpdateSelectedButtons();
+  };
+  window.rbUpdateSelectedButtons=function(){
+    var n=rbSelectedIds().length;
+    var rest=document.getElementById('rbRestoreSelectedBtn');
+    var del=document.getElementById('rbPurgeSelectedBtn');
+    if(rest){ rest.disabled=!n; rest.style.opacity=n?'1':'0.55'; }
+    if(del){ del.disabled=!n; del.style.opacity=n?'1':'0.55'; }
+    var all=document.getElementById('rbSelectAll');
+    if(all){
+      var boxes=document.querySelectorAll('#rbList .rb-check');
+      all.checked=boxes.length>0 && n===boxes.length;
+      all.indeterminate=n>0 && n<boxes.length;
+    }
+    document.querySelectorAll('#rbList .rb-row').forEach(function(tr){
+      var cb=tr.querySelector('.rb-check');
+      if(tr.classList) tr.classList.toggle('rb-row-selected', !!(cb&&cb.checked));
+    });
+  };
+  window.rbToggleRow=function(ev){
+    if(!ev || (ev.target && ev.target.closest && ev.target.closest('button, input, a'))) return;
+    var row=ev.currentTarget||(ev.target&&ev.target.closest&&ev.target.closest('tr'));
+    var cb=row&&row.querySelector('.rb-check');
+    if(!cb) return;
+    cb.checked=!cb.checked;
+    window.rbUpdateSelectedButtons();
+  };
   window.rbOpen=function(){ document.getElementById('rbModal').style.display='flex'; window.rbLoad(); };
   window.rbClose=function(){ document.getElementById('rbModal').style.display='none'; };
   window.rbLoad=function(){
@@ -1768,8 +1803,9 @@ function doReset(){
     fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'getTrash',dept:RB_DEPT,sheets:RB_SHEETS,token:RBTOK()})})
       .then(function(r){return r.json();}).then(function(d){
         if(!Array.isArray(d)){ box.innerHTML='<p style="color:#C5504F;">'+((d&&d.message)||'Could not load — update &amp; redeploy the Apps Script.')+'</p>'; return; }
-        if(d.length===0){ box.innerHTML='<p style="color:var(--text-faint);">The bin is empty. 🎉</p>'; return; }
+        if(d.length===0){ box.innerHTML='<p style="color:var(--text-faint);">The bin is empty. 🎉</p>'; window.rbUpdateSelectedButtons(); return; }
         var h='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr>'+
+          '<th style="width:32px;padding:6px;"><input type="checkbox" id="rbSelectAll" class="rb-check-all" onchange="rbToggleSelectAll(this)" title="Select all"></th>'+
           '<th style="text-align:left;padding:6px;color:var(--text-soft);">When</th>'+
           '<th style="text-align:left;padding:6px;color:var(--text-soft);">How</th>'+
           '<th style="text-align:left;padding:6px;color:var(--text-soft);">Record</th>'+
@@ -1778,26 +1814,43 @@ function doReset(){
           var when=String(it.deletedAt||'').replace('T',' ').slice(0,16);
           var how=it.reason==='reset'?'<span style="color:#C5734F;font-weight:600;">Reset</span>':'<span style="color:var(--text-soft);">Delete</span>';
           var prev=String(it.preview||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
-          h+='<tr style="border-top:1px solid var(--table-border);">'+
+          var tid=rbEscAttr(it.trashId);
+          h+='<tr class="rb-row" style="border-top:1px solid var(--table-border);cursor:pointer;" onclick="rbToggleRow(event)">'+
+            '<td style="padding:6px;" onclick="event.stopPropagation()"><input type="checkbox" class="rb-check" value="'+tid+'" onchange="rbUpdateSelectedButtons()"></td>'+
             '<td style="padding:6px;white-space:nowrap;">'+when+'</td>'+
             '<td style="padding:6px;">'+how+'</td>'+
             '<td style="padding:6px;max-width:380px;word-break:break-word;">'+prev+'</td>'+
-            '<td style="padding:6px;white-space:nowrap;">'+
-              '<button onclick="rbRestore(\''+it.trashId+'\')" style="padding:5px 9px;font-size:12px;margin-right:4px;color:#fff;background:#1d9e75;border-color:#1d9e75;">↩️ Restore</button>'+
-              '<button onclick="rbPurge(\''+it.trashId+'\')" style="padding:5px 9px;font-size:12px;color:#fff;background:#C5504F;border-color:#C5504F;">✕</button>'+
+            '<td style="padding:6px;white-space:nowrap;" onclick="event.stopPropagation()">'+
+              '<button onclick="rbRestore(\''+tid+'\')" style="padding:5px 9px;font-size:12px;margin-right:4px;color:#fff;background:#1d9e75;border-color:#1d9e75;">↩️ Restore</button>'+
+              '<button onclick="rbPurge(\''+tid+'\')" style="padding:5px 9px;font-size:12px;color:#fff;background:#C5504F;border-color:#C5504F;">✕</button>'+
             '</td></tr>';
         });
         h+='</tbody></table></div>';
         box.innerHTML=h;
+        window.rbUpdateSelectedButtons();
       }).catch(function(e){ box.innerHTML='<p style="color:#C5504F;">❌ '+e.message+'</p>'; });
   };
   window.rbRestore=function(id){
     fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'restoreTrash',dept:RB_DEPT,trashIds:[id],token:RBTOK()})})
-      .then(function(r){return r.json();}).then(function(){ window.rbLoad(); rbReload(); }).catch(function(e){ alert('❌ '+e.message); });
+      .then(function(r){return r.json();}).then(function(d){ if(d&&d.ok===false) throw new Error(d.message||d.error||'Restore failed'); window.rbLoad(); rbReload(); }).catch(function(e){ alert('❌ '+e.message); });
   };
   window.rbPurge=function(id){
     uiConfirm('Delete this record forever? This cannot be undone.').then(function(ok){ if(!ok)return;
       fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'purgeTrash',dept:RB_DEPT,trashIds:[id],token:RBTOK()})})
+        .then(function(r){return r.json();}).then(function(){ window.rbLoad(); }).catch(function(e){ alert('❌ '+e.message); }); });
+  };
+  window.rbRestoreSelected=function(){
+    var ids=rbSelectedIds();
+    if(!ids.length){ alert('Select at least one item first.'); return; }
+    uiConfirm('Restore <strong>'+ids.length+'</strong> selected item(s)?').then(function(ok){ if(!ok)return;
+      fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'restoreTrash',dept:RB_DEPT,trashIds:ids,token:RBTOK()})})
+        .then(function(r){return r.json();}).then(function(d){ if(d&&d.ok===false) throw new Error(d.message||d.error||'Restore failed'); window.rbLoad(); rbReload(); }).catch(function(e){ alert('❌ '+e.message); }); });
+  };
+  window.rbPurgeSelected=function(){
+    var ids=rbSelectedIds();
+    if(!ids.length){ alert('Select at least one item first.'); return; }
+    uiConfirm('Delete <strong>'+ids.length+'</strong> selected item(s) forever? This cannot be undone.').then(function(ok){ if(!ok)return;
+      fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'purgeTrash',dept:RB_DEPT,trashIds:ids,token:RBTOK()})})
         .then(function(r){return r.json();}).then(function(){ window.rbLoad(); }).catch(function(e){ alert('❌ '+e.message); }); });
   };
   window.rbRestoreAll=function(){
@@ -1824,7 +1877,7 @@ function doReset(){
 <script>ISSUE_CFG=Object.assign({},ISSUE_CONFIGS.civil,{embeddedInDept:true,tabNavScope:'.side-nav-issue',tabPaneScope:'#issueMain',analyticsContentId:'analyticsContent',supervisorPage:'civil-department.html'});</script>
 <script src="assets/issue-tracker.js?v=2026-08-22-wa-sent"></script>
 <script src="assets/issue-excel-export.js?v=2026-08-19-wh-assign"></script>
-<script src="assets/issue-recycle-bin.js?v=2026-08-19-wh-assign"></script>
+<script src="assets/issue-recycle-bin.js?v=2026-08-22-rb-select"></script>
 <script>
 (function(){
   window._applyIssuePerms = applyPerms;
