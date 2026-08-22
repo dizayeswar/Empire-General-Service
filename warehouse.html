@@ -340,7 +340,7 @@
             <div class="wh-inv-sp" id="whInvSpSection">
               <div class="wh-inv-sp-head">
                 <strong>SP</strong>
-                <span class="wh-inv-sp-hint">Optional — leave empty, or add one or more SP codes (qty starts at 1)</span>
+                <span class="wh-inv-sp-hint">Optional — leave empty for Work Wages, or add one or more SP codes (qty starts at 1)</span>
                 <button type="button" class="no-print" onclick="whInvAddSp()">+ Add SP</button>
               </div>
               <table class="wh-inv-sp-table" id="whInvSpTable" hidden>
@@ -437,7 +437,7 @@
         <div class="wh-app wh-saved-app">
           <div class="form-section">
             <h2>Warehouse Invoices</h2>
-            <p class="wh-tab-help">Saved receipt vouchers. Each invoice is one row (all SP items on that voucher stay together).</p>
+            <p class="wh-tab-help">Saved receipt vouchers. Each invoice is one row. No SP → item description is <strong>Work Wages</strong>.</p>
             <div class="wh-toolbar no-print" style="margin-bottom:12px;">
               <button type="button" onclick="whInvLoadList(true)">Refresh</button>
             </div>
@@ -481,7 +481,7 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-22-wh-inv-from-property"></script>
+<script src="config.js?v=2026-08-22-wh-inv-work-wages"></script>
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-20-wh-reset"></script>
@@ -2927,6 +2927,8 @@ function whInvCollectPayload_(){
   var amountUsd='', amountIqd='';
   if(String(currency).toUpperCase()==='USD') amountUsd=amountRaw;
   else amountIqd=amountRaw;
+  var sps=whInvCollectSpLines_();
+  var workWages=!sps.length;
   return {
     invoiceNo: whVal('wh-inv-number'),
     date: whVal('wh-inv-date'),
@@ -2939,8 +2941,10 @@ function whInvCollectPayload_(){
     amountUsd: amountUsd,
     amountIqd: amountIqd,
     amountWords: '',
-    paymentReason: '',
-    sps: whInvCollectSpLines_(),
+    paymentReason: workWages ? 'Work Wages' : '',
+    workWages: workWages,
+    itemDescription: workWages ? 'Work Wages' : '',
+    sps: sps,
     recipientSig: _whSig.invRecipient||''
   };
 }
@@ -3008,6 +3012,25 @@ function whInvSheetRows_(items){
         qtys.push(String(sp.qty||'').trim() || '—');
       }
     });
+    // No SP lines → Work Wages invoice (SP empty, description Work Wages)
+    if(!codes.length){
+      rows.push({
+        id:it.id,
+        num:it.num||0,
+        company:it.company||p.company||'',
+        department:p.department||it.department||'',
+        amountUsd:it.amountUsd||p.amountUsd||'',
+        amountIqd:it.amountIqd||p.amountIqd||'',
+        invoiceNo:it.invoiceNo||p.invoiceNo||'',
+        date:it.date||p.date||'',
+        name:it.name||p.name||'',
+        propertyCode:it.propertyCode||p.propertyCode||'',
+        sp: '',
+        desc: 'Work Wages',
+        qty: ''
+      });
+      return;
+    }
     rows.push({
       id:it.id,
       num:it.num||0,
@@ -3019,9 +3042,9 @@ function whInvSheetRows_(items){
       date:it.date||p.date||'',
       name:it.name||p.name||'',
       propertyCode:it.propertyCode||p.propertyCode||'',
-      sp: codes.length ? codes.join('\n') : '',
-      desc: descs.length ? descs.join('\n') : '',
-      qty: qtys.length ? qtys.join('\n') : ''
+      sp: codes.join('\n'),
+      desc: descs.join('\n'),
+      qty: qtys.join('\n')
     });
   });
   return rows;
