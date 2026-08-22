@@ -137,6 +137,83 @@ html[data-theme="dark"] .issue-card-check { background:rgba(13,50,100,0.92); }
 .issue-select-bar .bulk-assign-btn.saving { opacity:0.75; }
 .issue-select-bar .bulk-assign-btn.saved { background:#1d9e75 !important; color:#fff !important; border:none !important; }
 .issue-select-bar .bulk-assign-btn.error { background:#C5504F !important; color:#fff !important; border:none !important; }
+.issue-wa-share-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 4200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(0, 0, 0, 0.45);
+}
+.issue-wa-share-panel[hidden] { display: none !important; }
+.issue-wa-share-box {
+  position: relative;
+  width: min(520px, 100%);
+  max-height: 86vh;
+  overflow: auto;
+  background: var(--panel, #fff);
+  color: var(--text, #222);
+  border: 2px solid var(--card-border, #d0d8e8);
+  border-radius: 18px;
+  padding: 22px 20px 18px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
+}
+.issue-wa-share-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  border: none;
+  background: transparent;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--text-soft, #666);
+  cursor: pointer;
+}
+.issue-wa-share-title {
+  margin: 0 28px 10px 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+.issue-wa-share-hint {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text-soft, #555);
+}
+.issue-wa-share-parts { margin-top: 16px; }
+.issue-wa-share-main,
+.issue-wa-share-secondary,
+.issue-wa-share-part {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin: 0 0 8px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.issue-wa-share-main {
+  background: #25D366;
+  color: #fff;
+  border: none;
+}
+.issue-wa-share-secondary,
+.issue-wa-share-part {
+  background: var(--input-bg, #fff);
+  color: var(--text, #222);
+  border: 2px solid var(--card-border, #d0d8e8);
+}
+.issue-wa-share-part.sent {
+  opacity: 0.7;
+  font-weight: 600;
+}
+.issue-wa-share-part-list { margin-top: 4px; }
 .assign-multi-hint {
   font-size: 12px;
   color: var(--text-soft);

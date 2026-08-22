@@ -2021,28 +2021,112 @@ function buildIssuesShareText(ids){
   if(!chunks.length) return '';
   return chunks.map(function(c){ return c.text; }).join('\n\n---\n\n');
 }
-function openWhatsAppShare_(text){
+function openWhatsAppShare_(text, allowNavigate){
   var url='https://wa.me/?text='+encodeURIComponent(text||'');
   try{
     var w=window.open(url,'_blank');
     if(w) return true;
   }catch(e){}
-  window.location.href=url;
+  try{
+    var a=document.createElement('a');
+    a.href=url;
+    a.target='_blank';
+    a.rel='noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    return true;
+  }catch(e2){}
+  if(allowNavigate!==false) window.location.href=url;
   return true;
 }
-function sendWhatsAppShareChunks_(chunks, index){
-  if(!chunks||!chunks.length||index>=chunks.length) return;
-  openWhatsAppShare_(chunks[index].text);
-  if(index+1>=chunks.length) return;
-  var next=index+1;
-  var ask=function(){
-    var msg='WhatsApp only keeps photo links for short messages, so this was split into '+chunks.length+' parts.\n\nOpen part '+(next+1)+' of '+chunks.length+' now?';
-    var go=typeof uiConfirm==='function'
-      ? uiConfirm(msg)
-      : Promise.resolve(window.confirm(msg));
-    go.then(function(ok){ if(ok) sendWhatsAppShareChunks_(chunks, next); });
-  };
-  setTimeout(ask, 500);
+var _waShareQueue=null;
+function copyTextToClipboard_(text){
+  var val=String(text||'');
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    return navigator.clipboard.writeText(val).then(function(){ return true; }).catch(function(){ return copyTextFallback_(val); });
+  }
+  return Promise.resolve(copyTextFallback_(val));
+}
+function copyTextFallback_(text){
+  try{
+    var ta=document.createElement('textarea');
+    ta.value=text;
+    ta.setAttribute('readonly','');
+    ta.style.cssText='position:fixed;left:-9999px;top:0';
+    document.body.appendChild(ta);
+    ta.select();
+    var ok=document.execCommand('copy');
+    document.body.removeChild(ta);
+    return !!ok;
+  }catch(e){ return false; }
+}
+function issueWaSharePanelEl_(){
+  var el=document.getElementById('issueWaSharePanel');
+  if(el) return el;
+  el=document.createElement('div');
+  el.id='issueWaSharePanel';
+  el.className='issue-wa-share-panel';
+  el.hidden=true;
+  el.onclick=function(e){ if(e.target===el) closeIssueWaSharePanel(); };
+  document.body.appendChild(el);
+  return el;
+}
+function closeIssueWaSharePanel(){
+  _waShareQueue=null;
+  var el=document.getElementById('issueWaSharePanel');
+  if(el) el.hidden=true;
+}
+function renderIssueWaSharePanel_(){
+  var q=_waShareQueue;
+  var el=issueWaSharePanelEl_();
+  if(!q){ el.hidden=true; return; }
+  var n=q.ids.length;
+  var dept=ISSUE_SHARE_DEPT||'issue';
+  var h='<div class="issue-wa-share-box" onclick="event.stopPropagation()">';
+  h+='<button type="button" class="issue-wa-share-close" onclick="closeIssueWaSharePanel()" aria-label="Close">&times;</button>';
+  h+='<p class="issue-wa-share-title">Share '+n+' '+_esc(dept)+(n===1?'':'s')+' on WhatsApp</p>';
+  if(q.copied){
+    h+='<p class="issue-wa-share-hint">All <strong>'+n+'</strong> issues are copied, including photo links. Open WhatsApp, choose the chat, then paste (<strong>Ctrl+V</strong>) and send.</p>';
+    h+='<button type="button" class="issue-wa-share-main" onclick="openIssueWaSharePaste_()">'+whatsappIconHtml()+' Open WhatsApp — then paste</button>';
+    h+='<button type="button" class="issue-wa-share-secondary" onclick="copyIssueWaShareAll_()">Copy all '+n+' issues again</button>';
+  }else{
+    h+='<p class="issue-wa-share-hint">Could not copy automatically. Send every part below so none are left out.</p>';
+  }
+  if(q.chunks.length>1){
+    h+='<p class="issue-wa-share-hint issue-wa-share-parts">WhatsApp links only fit a few issues each. Send each part until all <strong>'+n+'</strong> are opened:</p>';
+    h+='<div class="issue-wa-share-part-list">';
+    q.chunks.forEach(function(c,i){
+      var done=i<q.index;
+      h+='<button type="button" class="issue-wa-share-part'+(done?' sent':'')+'" onclick="sendIssueWaSharePart_('+i+')">';
+      h+=(done?'Sent':'Send')+' part '+(i+1)+' of '+q.chunks.length+' ('+c.count+' issue'+(c.count===1?'':'s')+')';
+      h+='</button>';
+    });
+    h+='</div>';
+  }
+  h+='</div>';
+  el.innerHTML=h;
+  el.hidden=false;
+}
+function openIssueWaSharePaste_(){
+  if(!_waShareQueue) return;
+  var n=_waShareQueue.ids.length;
+  var dept=ISSUE_SHARE_DEPT||'issue';
+  openWhatsAppShare_('Empire World — '+n+' '+dept+(n===1?'':'s')+'\n\nPaste the copied list here (Ctrl+V), then send.', false);
+}
+function copyIssueWaShareAll_(){
+  if(!_waShareQueue) return;
+  copyTextToClipboard_(_waShareQueue.fullText).then(function(ok){
+    _waShareQueue.copied=!!ok;
+    renderIssueWaSharePanel_();
+    if(!ok) alert('Copy failed. Use the Send part buttons instead.');
+  });
+}
+function sendIssueWaSharePart_(index){
+  if(!_waShareQueue||!_waShareQueue.chunks[index]) return;
+  openWhatsAppShare_(_waShareQueue.chunks[index].text, false);
+  if(index>=_waShareQueue.index) _waShareQueue.index=index+1;
+  renderIssueWaSharePanel_();
 }
 function shareIssueWhatsApp(id){
   var r=allIssues.find(function(x){ return x.id===id; });
@@ -2058,10 +2142,16 @@ function shareSelectedWhatsApp(){
   if(!chunks.length) return;
   markIssuesWhatsAppSent(ids);
   try{ if(typeof refreshAllIssueTabs==='function') refreshAllIssueTabs(); else renderIssues(); }catch(e){}
-  if(chunks.length>1){
-    alert('Sending '+ids.length+' issues in '+chunks.length+' WhatsApp messages so every photo link stays clickable.');
+  if(chunks.length===1){
+    openWhatsAppShare_(chunks[0].text);
+    return;
   }
-  sendWhatsAppShareChunks_(chunks, 0);
+  var fullText=buildIssuesShareText(ids);
+  _waShareQueue={ chunks:chunks, index:0, ids:ids, fullText:fullText, copied:false };
+  copyTextToClipboard_(fullText).then(function(ok){
+    if(_waShareQueue) _waShareQueue.copied=!!ok;
+    renderIssueWaSharePanel_();
+  });
 }
 function issueWhatsAppSentKey_(){ return ISSUE_CFG.prefix+'_wa_sent_v1'; }
 function readWhatsAppSentMap_(){
