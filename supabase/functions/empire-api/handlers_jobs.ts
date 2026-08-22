@@ -31,6 +31,7 @@ function workerReportToApi(r: Record<string, unknown>) {
     transferredBy: r.transferred_by,
     materials: r.materials,
     invoicePhoto: r.invoice_photo,
+    invoiceNo: String(r.invoice_no || r.invoiceNo || "").trim(),
     num: r.num,
   };
 }
@@ -51,6 +52,7 @@ function jobFromRow(row: Record<string, unknown>) {
     type: String(row.type || ""),
     photo: String(row.photo || ""),
     invoicePhoto: String(row.invoice_photo || row.invoicePhoto || ""),
+    invoiceNo: String(row.invoice_no || row.invoiceNo || "").trim(),
     notes: String(row.notes || ""),
     createdBy: String(row.created_by || ""),
     createdAt: row.created_at,
@@ -75,6 +77,7 @@ export async function handleAddElectricalJob(body: Record<string, unknown>) {
     type: String(body.type || ""),
     photo: String(body.photo || ""),
     invoice_photo: String(body.invoicePhoto || body.invoice_photo || ""),
+    invoice_no: String(body.invoiceNo || body.invoice_no || "").trim(),
     notes: String(body.notes || ""),
     created_by: String(body.username || ""),
     created_at: isoNow(),
@@ -155,6 +158,7 @@ export async function handleUpdateElectricalJob(body: Record<string, unknown>) {
     type: String(body.type || ""),
     photo: String(body.photo || ""),
     invoice_photo: String(body.invoicePhoto || body.invoice_photo || ""),
+    invoice_no: String(body.invoiceNo || body.invoice_no || "").trim(),
     notes: String(body.notes || ""),
     amount: String(body.amount || ""),
   }).eq("id", String(body.id)).select("id");
@@ -267,6 +271,7 @@ function civilJobFromRow(row: Record<string, unknown>) {
     type: row.type,
     photo: row.photo,
     invoicePhoto: String(row.invoice_photo || row.invoicePhoto || ""),
+    invoiceNo: String(row.invoice_no || row.invoiceNo || "").trim(),
     notes: row.notes,
     createdBy: row.created_by,
     createdAt: row.created_at,
@@ -325,6 +330,7 @@ export async function handleAddCivilJob(body: Record<string, unknown>) {
     type: String(body.type || ""),
     photo: String(body.photo || ""),
     invoice_photo: String(body.invoicePhoto || body.invoice_photo || ""),
+    invoice_no: String(body.invoiceNo || body.invoice_no || "").trim(),
     notes: String(body.notes || ""),
     created_by: String(body.username || ""),
     created_at: isoNow(),
@@ -384,6 +390,7 @@ export async function handleUpdateCivilJob(body: Record<string, unknown>) {
     type: String(body.type || ""),
     photo: String(body.photo || ""),
     invoice_photo: String(body.invoicePhoto || body.invoice_photo || ""),
+    invoice_no: String(body.invoiceNo || body.invoice_no || "").trim(),
     notes: String(body.notes || ""),
     amount: String(body.amount || ""),
   }).eq("id", String(body.id)).select("id");
@@ -613,6 +620,17 @@ export async function handleTransferElectricWorkerReport(body: Record<string, un
   if (String(report.report_type) === "refundable" && amount <= 0) {
     return { ok: false, success: false, error: "amount_required" };
   }
+  const invoiceNo = String(body.invoiceNo || body.invoice_no || report.invoice_no || "").trim();
+  const needsInvoiceNo = String(report.report_type) === "refundable" ||
+    !!String(report.invoice_photo || "").trim();
+  if (needsInvoiceNo && !invoiceNo) {
+    return {
+      ok: false,
+      success: false,
+      error: "invoice_no_required",
+      message: "Invoice number is required for refundable work (or when an invoice photo is present).",
+    };
+  }
   const jobId = `job-${Date.now()}`;
   const num = await nextCounter("jobnum_ElectricalJobs");
   const jobPhotos = parseFixedPhotosFromCell(String(report.photo || ""));
@@ -626,6 +644,7 @@ export async function handleTransferElectricWorkerReport(body: Record<string, un
     type: String(report.report_type) === "refundable" ? "refundable" : "general",
     photo: jobPhotos.length ? formatFixedPhotosForStorage(jobPhotos) : String(report.photo || ""),
     invoice_photo: String(report.invoice_photo || "").trim(),
+    invoice_no: invoiceNo,
     notes: "",
     created_by: String(body.username || auth.username || ""),
     created_at: isoNow(),
@@ -642,6 +661,7 @@ export async function handleTransferElectricWorkerReport(body: Record<string, un
     transferred_at: isoNow(),
     transferred_by: String(auth.username || ""),
     materials: String(body.materials || report.materials || ""),
+    invoice_no: invoiceNo,
   }).eq("id", id);
   return { ok: true, success: true, id, jobId, job: jobFromRow(jobRow) };
 }
@@ -804,6 +824,17 @@ export async function handleTransferCivilWorkerReport(body: Record<string, unkno
   if (String(report.report_type) === "refundable" && amount <= 0) {
     return { ok: false, success: false, error: "amount_required" };
   }
+  const invoiceNo = String(body.invoiceNo || body.invoice_no || report.invoice_no || "").trim();
+  const needsInvoiceNo = String(report.report_type) === "refundable" ||
+    !!String(report.invoice_photo || "").trim();
+  if (needsInvoiceNo && !invoiceNo) {
+    return {
+      ok: false,
+      success: false,
+      error: "invoice_no_required",
+      message: "Invoice number is required for refundable work (or when an invoice photo is present).",
+    };
+  }
   const jobId = `job-${Date.now()}`;
   const jobPhotos = parseFixedPhotosFromCell(String(report.photo || ""));
   const jobRow = {
@@ -816,6 +847,7 @@ export async function handleTransferCivilWorkerReport(body: Record<string, unkno
     type: String(report.report_type) === "refundable" ? "refundable" : "general",
     photo: jobPhotos.length ? formatFixedPhotosForStorage(jobPhotos) : String(report.photo || ""),
     invoice_photo: String(report.invoice_photo || "").trim(),
+    invoice_no: invoiceNo,
     notes: "",
     created_by: String(body.username || auth.username || ""),
     created_at: isoNow(),
@@ -831,6 +863,7 @@ export async function handleTransferCivilWorkerReport(body: Record<string, unkno
     transferred_at: isoNow(),
     transferred_by: String(auth.username || ""),
     materials: String(body.materials || report.materials || ""),
+    invoice_no: invoiceNo,
   }).eq("id", id);
   return { ok: true, success: true, id, jobId, job: civilJobFromRow(jobRow) };
 }

@@ -697,12 +697,50 @@ export async function handleSaveWarehouseSignatures(body: Record<string, unknown
 
 type InvPayload = Record<string, unknown>;
 
-function invRowToApi(r: Record<string, unknown>) {
+function invNormNo_(s: unknown) {
+  return String(s || "").trim().toLowerCase().replace(/\s+/g, "");
+}
+
+async function loadDeptLinkedInvoiceNos_() {
+  const civil = new Set<string>();
+  const mep = new Set<string>();
+  const add = (set: Set<string>, rows: Record<string, unknown>[]) => {
+    for (const r of rows || []) {
+      const n = invNormNo_(r.invoice_no || r.invoiceNo);
+      if (n) set.add(n);
+    }
+  };
+  try {
+    const [civilRep, civilJobs, elecRep, elecJobs] = await Promise.all([
+      selectAllRows<Record<string, unknown>>("civil_worker_reports", { columns: "invoice_no" }),
+      selectAllRows<Record<string, unknown>>("civil_jobs", { columns: "invoice_no" }),
+      selectAllRows<Record<string, unknown>>("electric_worker_reports", { columns: "invoice_no" }),
+      selectAllRows<Record<string, unknown>>("electrical_jobs", { columns: "invoice_no" }),
+    ]);
+    add(civil, civilRep);
+    add(civil, civilJobs);
+    add(mep, elecRep);
+    add(mep, elecJobs);
+  } catch (_e) {
+    // Columns may not exist until migration is applied — leave sets empty (all pending).
+  }
+  return { civil, mep };
+}
+
+function invRowToApi(r: Record<string, unknown>, linked?: { civil: Set<string>; mep: Set<string> }) {
   const payload = (r.payload && typeof r.payload === "object") ? r.payload as InvPayload : {};
+  const department = String(payload.department || "").trim().toUpperCase();
+  const invoiceNo = String(r.invoice_no || "");
+  let linkStatus = "";
+  if (department === "CAI") {
+    linkStatus = linked && linked.civil.has(invNormNo_(invoiceNo)) ? "linked" : "pending";
+  } else if (department === "MEP") {
+    linkStatus = linked && linked.mep.has(invNormNo_(invoiceNo)) ? "linked" : "pending";
+  }
   return {
     id: String(r.id || ""),
     num: Number(r.num || 0) || 0,
-    invoiceNo: String(r.invoice_no || ""),
+    invoiceNo,
     date: String(r.invoice_date || ""),
     company: String(r.company || ""),
     department: String(payload.department || ""),
@@ -713,6 +751,7 @@ function invRowToApi(r: Record<string, unknown>) {
     createdBy: String(r.created_by || ""),
     createdAt: String(r.created_at || ""),
     updatedAt: String(r.updated_at || ""),
+    linkStatus,
     payload,
   };
 }
@@ -722,7 +761,8 @@ export async function handleGetWarehouseInvoices(_body: Record<string, unknown>,
     return { ok: false, success: false, error: "forbidden", message: "Signers cannot view warehouse invoices." };
   }
   const data = await selectAllRows<Record<string, unknown>>("warehouse_invoices");
-  const out = data.map(invRowToApi);
+  const linked = await loadDeptLinkedInvoiceNos_();
+  const out = data.map((r) => invRowToApi(r, linked));
   out.sort((a, b) =>
     String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || ""))
   );

@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-20-wh-signer">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-22-wh-inv-search">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-22-inv-link">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -552,7 +552,7 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-22-wh-inv-search"></script>
+<script src="config.js?v=2026-08-22-inv-link"></script>
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-20-wh-reset"></script>
@@ -3454,6 +3454,7 @@ function whInvSheetRows_(items){
         date:it.date||p.date||'',
         name:it.name||p.name||'',
         propertyCode:it.propertyCode||p.propertyCode||'',
+        linkStatus:it.linkStatus||'',
         sp: '',
         desc: 'Work Wages',
         qty: ''
@@ -3471,6 +3472,7 @@ function whInvSheetRows_(items){
       date:it.date||p.date||'',
       name:it.name||p.name||'',
       propertyCode:it.propertyCode||p.propertyCode||'',
+      linkStatus:it.linkStatus||'',
       sp: codes.join('\n'),
       desc: descs.join('\n'),
       qty: qtys.join('\n')
@@ -3534,7 +3536,7 @@ function whInvRenderList_(items){
   }
   if(_whInvListSearch){
     rows=rows.filter(function(r){
-      var hay=(r.num+' '+r.sp+' '+r.desc+' '+r.company+' '+r.department+' '+r.qty+' '+r.amountUsd+' '+r.amountIqd+' '+r.invoiceNo+' '+r.date+' '+r.name+' '+r.propertyCode).toLowerCase();
+      var hay=(r.num+' '+r.sp+' '+r.desc+' '+r.company+' '+r.department+' '+r.qty+' '+r.amountUsd+' '+r.amountIqd+' '+r.invoiceNo+' '+r.date+' '+r.name+' '+r.propertyCode+' '+r.linkStatus).toLowerCase();
       return hay.indexOf(_whInvListSearch)!==-1;
     });
   }
@@ -3543,7 +3545,8 @@ function whInvRenderList_(items){
     var filterLabel=_whInvListDept ? ('Dept '+_whInvListDept) : 'All departments';
     var monthLabel=_whInvListMonth ? (' · month '+_whInvListMonth+' (26th–25th)') : ' · all months';
     var searchLabel=_whInvListSearch ? (' · search "'+_whInvListSearch+'"') : '';
-    sum.textContent=filterLabel+monthLabel+searchLabel+' · showing '+rows.length+' of '+all.length;
+    var pendingN=rows.filter(function(r){ return r.linkStatus==='pending'; }).length;
+    sum.textContent=filterLabel+monthLabel+searchLabel+' · showing '+rows.length+' of '+all.length+(pendingN?(' · '+pendingN+' pending in dept'):'');
   }
   if(!all.length){
     box.innerHTML=typeof empireEmptyHtml==='function'
@@ -3558,16 +3561,23 @@ function whInvRenderList_(items){
     return;
   }
   var h='<div class="wh-saved-table-wrap"><table class="wh-saved-table wh-inv-sheet"><thead><tr>'
-    +'<th>#</th><th>SP</th><th>Item description</th><th>COM</th><th>Dept</th><th>Qty</th>'
+    +'<th>#</th><th>SP</th><th>Item description</th><th>COM</th><th>Dept</th><th>Status</th><th>Qty</th>'
     +'<th>Amount USD</th><th>Amount IQD</th><th>R V num</th><th>Date</th><th>Name</th><th>Property</th><th></th>'
     +'</tr></thead><tbody>';
   rows.forEach(function(r, idx){
-    h+='<tr>'
+    var st=r.linkStatus||'';
+    var stHtml=st==='pending'
+      ? '<span class="wh-inv-status pending" title="Not yet entered in '+(r.department==='CAI'?'Civil':'Electrical')+'">Pending</span>'
+      : (st==='linked'
+        ? '<span class="wh-inv-status linked" title="Invoice No. found in department">Linked</span>'
+        : '<span class="wh-inv-status na">—</span>');
+    h+='<tr'+(st==='pending'?' class="wh-inv-row-pending"':'')+'>'
       +'<td>'+(r.num||(idx+1))+'</td>'
       +'<td class="wh-inv-multi">'+whEsc(r.sp||'—').replace(/\n/g,'<br>')+'</td>'
       +'<td class="wh-inv-multi" style="max-width:200px;word-break:break-word;">'+whEsc(r.desc||'—').replace(/\n/g,'<br>')+'</td>'
       +'<td>'+whEsc(r.company||'—')+'</td>'
       +'<td>'+whEsc(r.department||'—')+'</td>'
+      +'<td>'+stHtml+'</td>'
       +'<td class="wh-inv-multi">'+whEsc(r.qty||'—').replace(/\n/g,'<br>')+'</td>'
       +'<td>'+whEsc(r.amountUsd||'—')+'</td>'
       +'<td>'+whEsc(r.amountIqd||'—')+'</td>'

@@ -174,7 +174,13 @@
         <div class="image-upload" id="j-imageArea" onpaste="handleJobPaste(event)">Click here and paste (Ctrl+V)</div>
         <img id="j-image" style="display:none;max-width:200px;margin-top:10px;border-radius:8px;border:2px solid var(--card-border);">
         <div id="j-invoicewrap" style="display:none;margin-top:18px;">
-          <h3 style="margin-top:0;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg></span> Invoice photo</h3>
+          <h3 style="margin-top:0;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg></span> Invoice</h3>
+          <div class="form-group" style="margin-bottom:12px;">
+            <label for="j-invoice-no">Invoice No. <span style="color:#c0392b;">*</span></label>
+            <input type="text" id="j-invoice-no" placeholder="Same number as warehouse invoice (e.g. 33446)" autocomplete="off">
+            <p style="margin:6px 0 0;font-size:12px;color:var(--text-soft);">Required for refundable — clears the warehouse CAI pending status.</p>
+          </div>
+          <h3 style="margin-top:0;font-size:14px;">Invoice photo</h3>
           <p style="margin:0 0 8px;font-size:12px;color:var(--text-soft);">Upload the invoice paper — it appears in the Jobs Invoice column.</p>
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
             <button type="button" onclick="document.getElementById('j-invoice-file').click()"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/><circle cx="14" cy="15" r="1"/></svg></span> Upload / Camera</button>
@@ -331,7 +337,7 @@
     </div>
   </div>
 </div>
-<script src="config.js?v=2026-08-22-wa-empty"></script>
+<script src="config.js?v=2026-08-22-inv-link"></script>
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-19-wh-assign"></script>
@@ -502,6 +508,7 @@ function clearForm(){
   clearStaffSelection();
   document.getElementById('j-notes').value='';
   document.getElementById('j-amount').value='';
+  var invNo=document.getElementById('j-invoice-no'); if(invNo) invNo.value='';
   var cb=document.getElementById('j-refundable'); if(cb) cb.checked=false;
   toggleRefundableUI();
   document.getElementById('j-image').style.display='none';
@@ -524,13 +531,24 @@ function saveJob(){
   if(!job){ alert('Please enter a job description.'); return; }
   syncStaffFromChecks();
   var isRef=document.getElementById('j-type').value==='refundable' || (document.getElementById('j-refundable')&&document.getElementById('j-refundable').checked);
+  var invoiceNo=String((document.getElementById('j-invoice-no')||{}).value||'').trim();
+  if(isRef && !invoiceNo){
+    alert('Please enter Invoice No. for refundable work (same number as the warehouse invoice).');
+    var invEl=document.getElementById('j-invoice-no'); if(invEl) invEl.focus();
+    return;
+  }
+  if(!isRef && currentInvoicePhoto && !invoiceNo){
+    alert('Please enter Invoice No. when an invoice photo is attached.');
+    var invEl2=document.getElementById('j-invoice-no'); if(invEl2) invEl2.focus();
+    return;
+  }
   var rec={ action: editId?'updateCivilJob':'addCivilJob', id:editId||undefined,
     date:document.getElementById('j-date').value||new Date().toISOString().split('T')[0],
     job:job, location:document.getElementById('j-location').value,
     materials:document.getElementById('j-materials').value,
     staff:document.getElementById('j-staff').value,
     type:isRef?'refundable':'general',
-    photo:currentPhoto, invoicePhoto:isRef?currentInvoicePhoto:'', notes:document.getElementById('j-notes').value,
+    photo:currentPhoto, invoicePhoto:isRef?currentInvoicePhoto:'', invoiceNo:invoiceNo, notes:document.getElementById('j-notes').value,
     amount:String(fieldReportParseAmount_(document.getElementById('j-amount').value)||''), token:tok() };
   fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify(rec)}).then(r=>r.json()).then(()=>{
     alert(editId?'✅ Job updated!':'✅ Job saved!');
@@ -636,6 +654,8 @@ function editJob(id){
   document.getElementById('j-notes').value=r.notes||'';
   document.getElementById('j-amount').value=fieldReportAmountInputValue_(r);
   toggleAmount();
+  var invNoEl=document.getElementById('j-invoice-no');
+  if(invNoEl) invNoEl.value=r.invoiceNo||'';
   currentPhoto=civilJobPhotoUrl_(r);
   if(currentPhoto){ document.getElementById('j-image').src=currentPhoto; document.getElementById('j-image').style.display='block'; document.getElementById('j-imageArea').innerHTML='✅ Photo loaded'; }
   else { document.getElementById('j-image').style.display='none'; document.getElementById('j-imageArea').innerHTML='Click here and paste (Ctrl+V)'; }
@@ -1442,6 +1462,13 @@ function openFieldReportEditor(id){
     h+='<label class="field-report-modal-label" for="frEditAmount">Amount (IQD)</label>';
     h+='<input type="text" id="frEditAmount" class="field-report-editor-amount" value="'+_esc(fieldReportAmountInputValue_(r))+'" placeholder="e.g. 25,000" inputmode="numeric" autocomplete="off">';
     h+='<p class="field-report-editor-hint">Required for refundable work. Saved to the Amount column in the monthly report.</p>';
+    h+='<label class="field-report-modal-label" for="frEditInvoiceNo">Invoice No.</label>';
+    h+='<input type="text" id="frEditInvoiceNo" class="field-report-editor-place" value="'+_esc(r.invoiceNo||'')+'" placeholder="Same as warehouse invoice (e.g. 33446)" autocomplete="off">';
+    h+='<p class="field-report-editor-hint">Required — clears warehouse CAI pending for this invoice number.</p>';
+  } else if(hasInvoice){
+    h+='<label class="field-report-modal-label" for="frEditInvoiceNo">Invoice No.</label>';
+    h+='<input type="text" id="frEditInvoiceNo" class="field-report-editor-place" value="'+_esc(r.invoiceNo||'')+'" placeholder="Same as warehouse invoice (e.g. 33446)" autocomplete="off">';
+    h+='<p class="field-report-editor-hint">Required when an invoice photo is present.</p>';
   } else if(fieldReportAmountLabel_(r)){
     h+='<div class="field-report-modal-row"><span class="field-report-modal-label">Amount</span><span class="field-report-modal-value field-report-modal-amount">'+fieldReportAmountLabel_(r)+'</span></div>';
   }
@@ -1518,6 +1545,7 @@ function openFieldReportView(id){
   h+='<div class="field-report-modal-meta">';
   h+='<div class="field-report-modal-row"><span class="field-report-modal-label">Type</span><span class="field-report-modal-value">'+_esc(fieldReportType_(r)==='refundable'?'Refundable':'Maintenance')+'</span></div>';
   if(fieldReportAmountLabel_(r)) h+='<div class="field-report-modal-row"><span class="field-report-modal-label">Amount</span><span class="field-report-modal-value field-report-modal-amount">'+fieldReportAmountLabel_(r)+'</span></div>';
+  if(r.invoiceNo) h+='<div class="field-report-modal-row"><span class="field-report-modal-label">Invoice No.</span><span class="field-report-modal-value">'+_esc(r.invoiceNo)+'</span></div>';
   if(r.place) h+='<div class="field-report-modal-row"><span class="field-report-modal-label">Place</span><span class="field-report-modal-value">'+_esc(r.place)+'</span></div>';
   if(noteText) h+='<div class="field-report-modal-row"><span class="field-report-modal-label">'+(fieldReportIsPending_(r)?'Note':'Saved job text')+'</span><span class="field-report-modal-value">'+_esc(noteText)+'</span></div>';
   if(r.materials) h+='<div class="field-report-modal-row"><span class="field-report-modal-label">Materials</span><span class="field-report-modal-value">'+_esc(materialsDisplay_(r.materials))+'</span></div>';
@@ -1550,7 +1578,7 @@ function openFieldReportView(id){
   if(typeof assignVoiceBindPlayers==='function') assignVoiceBindPlayers(body);
   document.getElementById('fieldReportModal').classList.add('show');
 }
-function fieldReportApplyTransfer_(id, note, resp, materials, place, amount) {
+function fieldReportApplyTransfer_(id, note, resp, materials, place, amount, invoiceNo) {
   var now = new Date().toISOString();
   var user = currentUser() || '';
   var idx = allFieldReports.findIndex(function(r) { return String(r.id) === String(id); });
@@ -1561,6 +1589,7 @@ function fieldReportApplyTransfer_(id, note, resp, materials, place, amount) {
       place: place != null ? place : (allFieldReports[idx].place || ''),
       materials: materials || allFieldReports[idx].materials || '',
       amount: amount > 0 ? amount : ((resp && resp.job && resp.job.amount) || allFieldReports[idx].amount || ''),
+      invoiceNo: invoiceNo != null ? invoiceNo : (allFieldReports[idx].invoiceNo || ''),
       transferredJobId: (resp && resp.jobId) || '',
       transferredAt: now,
       transferredBy: user
@@ -1586,14 +1615,22 @@ function transferFieldReport_(openNext){
   var materialsEl=document.getElementById('frEditMaterials');
   var placeEl=document.getElementById('frEditPlace');
   var amountEl=document.getElementById('frEditAmount');
+  var invNoEl=document.getElementById('frEditInvoiceNo');
   var note=noteEl?String(noteEl.value||'').trim():'';
   var materials=materialsEl?materialsDisplay_(materialsEl.value):'';
   var place=placeEl?String(placeEl.value||'').trim():'';
   var amount=amountEl?fieldReportParseAmount_(amountEl.value):0;
+  var invoiceNo=invNoEl?String(invNoEl.value||'').trim():String((r&&r.invoiceNo)||'');
   if(!note){ alert('Please enter the job description before saving.'); if(noteEl) noteEl.focus(); return; }
   if(r && fieldReportType_(r)==='refundable' && amount<=0){
     alert('Please enter the refundable amount (IQD) before saving.');
     if(amountEl) amountEl.focus();
+    return;
+  }
+  var needsInvNo=r && (fieldReportType_(r)==='refundable' || !!String(r.invoicePhoto||'').trim());
+  if(needsInvNo && !invoiceNo){
+    alert('Please enter Invoice No. (same as warehouse invoice).');
+    if(invNoEl) invNoEl.focus();
     return;
   }
   _fieldReportTransferring=true;
@@ -1603,14 +1640,14 @@ function transferFieldReport_(openNext){
   var nextLabels=btnNext?[btnNext.textContent,'']:['',''];
   if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
   if(btnNext){ btnNext.disabled=true; btnNext.textContent='Saving…'; }
-  fetchJSONRetry({action:'transferCivilWorkerReport',id:id,note:note,materials:materials,place:place,amount:amount||'',token:tok()},1,30000)
+  fetchJSONRetry({action:'transferCivilWorkerReport',id:id,note:note,materials:materials,place:place,amount:amount||'',invoiceNo:invoiceNo,token:tok()},1,30000)
     .then(function(d){
       if(d&&d.ok===false){
         if(typeof forceSessionLogout==='function'&&forceSessionLogout(d)) return;
         throw new Error(d.message||d.error||'Could not save report');
       }
       if(!d||(!d.ok&&!d.success)) throw new Error('Unexpected server response');
-      fieldReportApplyTransfer_(id, note, d, materials, place, amount);
+      fieldReportApplyTransfer_(id, note, d, materials, place, amount, invoiceNo);
       closeFieldReportModal();
       if(openNext){
         var queue=fieldReportPendingQueue_();
