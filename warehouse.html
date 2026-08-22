@@ -84,6 +84,10 @@
           <span class="lbl">Warehouse Invoices</span>
           <span class="side-nav-badge" id="whInvBadge" style="display:none;"></span>
         </button>
+        <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-invspusage" onclick="whSwitchTab(event,'invspusage')">
+          <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"/><path d="m15 9 6-6"/></svg></span>
+          <span class="lbl">Invoice SP Usage</span>
+        </button>
       </nav>
       <div class="side-actions wh-settings" id="whSettingsWrap">
         <button type="button" class="wh-settings-toggle" id="whSettingsBtn" onclick="whToggleSettings(event)" aria-expanded="false" aria-controls="whSettingsPanel">
@@ -446,6 +450,26 @@
           </div>
         </div>
       </div>
+
+      <div id="wh-tab-invspusage" class="tab-content dept-tab-content">
+        <div class="wh-app wh-saved-app">
+          <div class="form-section">
+            <h2>Invoice SP Usage</h2>
+            <p class="wh-tab-help">All SP items from Warehouse Invoices, summed by code and department.</p>
+            <div class="wh-toolbar no-print" style="margin-bottom:12px;gap:8px;flex-wrap:wrap;">
+              <button type="button" id="whInvSpFilterAll" class="wh-sp-filter active" onclick="whInvSpUsageSetFilter('')">All depts</button>
+              <button type="button" id="whInvSpFilterCAI" class="wh-sp-filter" onclick="whInvSpUsageSetFilter('CAI')">CAI</button>
+              <button type="button" id="whInvSpFilterMEP" class="wh-sp-filter" onclick="whInvSpUsageSetFilter('MEP')">MEP</button>
+              <button type="button" id="whInvSpFilterAC" class="wh-sp-filter" onclick="whInvSpUsageSetFilter('AC')">AC</button>
+              <button type="button" id="whInvSpFilterMDM" class="wh-sp-filter" onclick="whInvSpUsageSetFilter('MDM')">MDM</button>
+              <span class="wh-spacer"></span>
+              <button type="button" onclick="whInvSpUsageRefresh(true)">Refresh</button>
+            </div>
+            <p class="wh-sp-summary" id="whInvSpUsageSummary"></p>
+            <div id="whInvSpUsageList"><p class="wh-saved-empty">Loading…</p></div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -482,7 +506,7 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-22-wh-inv-view-only"></script>
+<script src="config.js?v=2026-08-22-wh-inv-sp-usage"></script>
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-20-wh-reset"></script>
@@ -698,6 +722,10 @@ function whApplyTab_(e, tab){
   if(tab==='invoices'){
     if(_whReceiverMode){ whApplyTab_(null,'done'); return; }
     whInvLoadList();
+  }
+  if(tab==='invspusage'){
+    if(_whReceiverMode){ whApplyTab_(null,'done'); return; }
+    whInvSpUsageRefresh();
   }
 }
 
@@ -3001,9 +3029,109 @@ function whInvLoadList(force){
     if(!(d && (d.ok||d.success))) throw new Error((d && (d.message||d.error)) || 'Load failed');
     _whInvCache=Array.isArray(d.items) ? d.items : [];
     whInvRenderList_(_whInvCache);
+    if(typeof whInvSpUsageRender_==='function') whInvSpUsageRender_();
   }).catch(function(err){
     if(box) box.innerHTML='<p class="wh-saved-empty">Could not load invoices: '+whEsc(err && err.message ? err.message : err)+'</p>';
   });
+}
+var _whInvSpFilter='';
+function whInvSpUsageSetFilter(dept){
+  _whInvSpFilter=String(dept||'').toUpperCase();
+  ['','CAI','MEP','AC','MDM'].forEach(function(d){
+    var id=d ? ('whInvSpFilter'+d) : 'whInvSpFilterAll';
+    var btn=document.getElementById(id);
+    if(btn) btn.classList.toggle('active', (d||'')===_whInvSpFilter);
+  });
+  whInvSpUsageRender_();
+}
+function whInvSpUsageRefresh(force){
+  var box=document.getElementById('whInvSpUsageList');
+  if(box) box.innerHTML=typeof empireLoadingHtml==='function' ? empireLoadingHtml('Loading invoice SP usage…') : 'Loading…';
+  if(_whInvCache && _whInvCache.length && !force){
+    whInvSpUsageRender_();
+    return;
+  }
+  var token=typeof empireGetToken==='function' ? empireGetToken() : '';
+  if(!token || typeof fetchJSONRetry!=='function'){
+    whInvSpUsageRender_();
+    return;
+  }
+  fetchJSONRetry({ action:'getWarehouseInvoices', token:token }, 2, 30000).then(function(d){
+    if(!(d && (d.ok||d.success))) throw new Error((d && (d.message||d.error)) || 'Load failed');
+    _whInvCache=Array.isArray(d.items) ? d.items : [];
+    whInvRenderList_(_whInvCache);
+    whInvSpUsageRender_();
+  }).catch(function(err){
+    if(box) box.innerHTML='<p class="wh-saved-empty">Could not load: '+whEsc(err && err.message ? err.message : err)+'</p>';
+  });
+}
+function whInvSpUsageBuild_(deptFilter){
+  deptFilter=String(deptFilter||'').toUpperCase();
+  var map={};
+  (_whInvCache||[]).forEach(function(it){
+    if(!it) return;
+    var p=it.payload||{};
+    var dept=String(p.department||it.department||'').trim().toUpperCase();
+    if(deptFilter && dept!==deptFilter) return;
+    var sps=Array.isArray(p.sps) ? p.sps : [];
+    sps.forEach(function(sp){
+      if(!sp) return;
+      var code=String(sp.code||'').trim();
+      if(!code) return;
+      var key=code.toUpperCase()+'|'+dept;
+      var qty=whParseQty_(sp.qty);
+      var desc=String(sp.desc||'').trim();
+      if(!map[key]){
+        map[key]={ code:code, desc:desc, dept:dept||'—', qty:0, invoices:0, invIds:{} };
+      }
+      map[key].qty += qty;
+      if(desc && desc.length > String(map[key].desc||'').length) map[key].desc=desc;
+      if(it.id && !map[key].invIds[it.id]){
+        map[key].invIds[it.id]=true;
+        map[key].invoices += 1;
+      }
+    });
+  });
+  return Object.keys(map).map(function(k){ return map[k]; }).sort(function(a,b){
+    var dc=String(a.dept).localeCompare(String(b.dept));
+    if(dc) return dc;
+    return String(a.code).localeCompare(String(b.code), undefined, { numeric:true, sensitivity:'base' });
+  });
+}
+function whInvSpUsageRender_(){
+  var box=document.getElementById('whInvSpUsageList');
+  var sum=document.getElementById('whInvSpUsageSummary');
+  if(!box) return;
+  var rows=whInvSpUsageBuild_(_whInvSpFilter);
+  var filterLabel=_whInvSpFilter ? ('Dept '+_whInvSpFilter) : 'All departments';
+  var totalQty=0;
+  rows.forEach(function(r){ totalQty += Number(r.qty)||0; });
+  if(sum){
+    sum.textContent=filterLabel+' · '+rows.length+' SP line'+(rows.length===1?'':'s')
+      +' · total qty '+(Math.round(totalQty*1000)/1000);
+  }
+  if(!rows.length){
+    box.innerHTML=typeof empireEmptyHtml==='function'
+      ? empireEmptyHtml('No invoice SP usage yet', 'Save invoices that include SP items to see totals here.')
+      : '<p class="wh-saved-empty">No invoice SP usage yet.</p>';
+    return;
+  }
+  var h='<div class="wh-saved-table-wrap"><table class="wh-saved-table wh-sp-usage-table"><thead><tr>'
+    +'<th>SP</th><th>Description</th><th>Dept</th><th>Total Qty</th><th>Invoices</th>'
+    +'</tr></thead><tbody>';
+  rows.forEach(function(r){
+    var qty=Number(r.qty)||0;
+    var qtyTxt=Math.abs(qty-Math.round(qty))<1e-9 ? String(Math.round(qty)) : String(Math.round(qty*1000)/1000);
+    h+='<tr>'
+      +'<td><strong>'+whEsc(r.code)+'</strong></td>'
+      +'<td>'+whEsc(r.desc||'—')+'</td>'
+      +'<td>'+whEsc(r.dept||'—')+'</td>'
+      +'<td class="wh-sp-qty">'+whEsc(qtyTxt)+'</td>'
+      +'<td>'+whEsc(String(r.invoices||0))+'</td>'
+      +'</tr>';
+  });
+  h+='</tbody></table></div>';
+  box.innerHTML=h;
 }
 function whInvSheetRows_(items){
   var rows=[];
