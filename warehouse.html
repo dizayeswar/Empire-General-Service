@@ -406,10 +406,6 @@
                 <label for="wh-inv-reason"><strong>Payment reason:</strong></label>
                 <input id="wh-inv-reason" class="wh-cell-input" type="text" autocomplete="off">
               </div>
-              <div class="wh-inv-row">
-                <label for="wh-inv-recipient"><strong>Recipient:</strong></label>
-                <input id="wh-inv-recipient" class="wh-cell-input" type="text" autocomplete="off">
-              </div>
             </div>
 
             <div class="wh-inv-sig">
@@ -2858,7 +2854,7 @@ function whInvPickSp(row, code){
   if(qtyEl) qtyEl.focus();
 }
 function whInvClear(){
-  ['wh-inv-date','wh-inv-number','wh-inv-amount','wh-inv-company','wh-inv-from','wh-inv-words','wh-inv-reason','wh-inv-recipient'].forEach(function(id){
+  ['wh-inv-date','wh-inv-number','wh-inv-amount','wh-inv-company','wh-inv-from','wh-inv-words','wh-inv-reason'].forEach(function(id){
     var el=document.getElementById(id);
     if(el) el.value='';
   });
