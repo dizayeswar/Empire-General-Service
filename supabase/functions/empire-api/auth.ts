@@ -14,6 +14,10 @@ import {
   tokenDeptAllows,
   parseWarehouseSigSections,
   isWarehouseSigner,
+  resolveModuleAccessForUser,
+  deriveAccountFromModuleAccess,
+  moduleAccessToJson,
+  type ModuleAccessMap,
 } from "./helpers.ts";
 
 export type AuthOk = {
@@ -24,6 +28,7 @@ export type AuthOk = {
   trade: string;
   perms?: Record<string, boolean>;
   warehouseSigSections?: string[];
+  moduleAccess?: ModuleAccessMap;
 };
 
 export type AuthFail = { ok: false; error: string; message?: string; success?: false };
@@ -93,13 +98,15 @@ export async function handleLogin(body: Record<string, unknown>) {
     };
   }
 
-  const userDept = normalizeDeptField(user.dept);
+  const access = resolveModuleAccessForUser(user as Record<string, unknown>);
+  const derived = deriveAccountFromModuleAccess(access, { hide: user.hide });
+  const userDept = normalizeDeptField(derived.dept || user.dept);
   if (!userDept) {
     return {
       ok: false,
       success: false,
       message:
-        'Department not set for this user. Use one department, comma-separated departments, or "all" in the Users sheet.',
+        'No module access set for this user. In Admin → Users, set Read or Read/Write on at least one module.',
       error: "department_not_set",
     };
   }
@@ -112,15 +119,15 @@ export async function handleLogin(body: Record<string, unknown>) {
     };
   }
 
-  const rp = computePerms(user.role, user.hide);
-  const projects = projectsForUser(user);
+  const rp = { role: derived.role, perms: derived.perms };
+  const projects = projectsForUser({ ...user, dept: userDept });
   const trade = tradeForUser(user);
   if (rp.role === "worker" && !trade) {
     if (!deptListAllows(userDept, "asaas") || String(userDept || "").replace(/\s/g, "") !== "asaas") {
       return {
         ok: false,
         success: false,
-        message: "Worker account needs a trade in column G (plumber, painting, tiles, wood, or electric).",
+        message: "Worker account needs a trade (plumber, painting, tiles, wood, or electric).",
         error: "trade_not_set",
       };
     }
@@ -163,7 +170,10 @@ export async function handleLogin(body: Record<string, unknown>) {
     electricalPerms,
     projects,
     trade,
-    warehouseSigSections: parseWarehouseSigSections(user.warehouse_sig_sections, rp.role),
+    warehouseSigSections: derived.warehouseSigSections.length
+      ? derived.warehouseSigSections
+      : parseWarehouseSigSections(user.warehouse_sig_sections, rp.role),
+    moduleAccess: moduleAccessToJson(access),
     message: "Login successful",
   };
 }
@@ -174,19 +184,23 @@ export async function handleGetPerms(body: Record<string, unknown>) {
   if (!sess.ok) return sess;
   const user = await getUser(sess.username);
   if (!user) return { ok: false, error: "User not found" };
-  const rp = computePerms(user.role, user.hide);
+  const access = resolveModuleAccessForUser(user as Record<string, unknown>);
+  const derived = deriveAccountFromModuleAccess(access, { hide: user.hide });
   const electricalHide = String(user.hide_electrical || "");
-  const electricalPerms = { ...rp.perms };
+  const electricalPerms = { ...derived.perms };
   applyHideTokens(electricalPerms, electricalHide);
   return {
     ok: true,
-    role: rp.role,
-    perms: rp.perms,
+    role: derived.role,
+    perms: derived.perms,
     electricalHide,
     electricalPerms,
-    projects: projectsForUser(user),
+    projects: projectsForUser({ ...user, dept: derived.dept }),
     trade: tradeForUser(user),
-    warehouseSigSections: parseWarehouseSigSections(user.warehouse_sig_sections, rp.role),
+    warehouseSigSections: derived.warehouseSigSections.length
+      ? derived.warehouseSigSections
+      : parseWarehouseSigSections(user.warehouse_sig_sections, derived.role),
+    moduleAccess: moduleAccessToJson(access),
   };
 }
 
@@ -199,13 +213,21 @@ export async function verifyTokenSession(token: string): Promise<AuthOk | AuthFa
     return { ok: false, error: "Token expired" };
   }
   const user = await getUser(data.username);
+  const access = user ? resolveModuleAccessForUser(user as Record<string, unknown>) : undefined;
+  const derived = access
+    ? deriveAccountFromModuleAccess(access, { hide: user?.hide })
+    : null;
   return {
     ok: true,
     username: normalizeWorkerId(data.username),
-    dept: normalizeDeptField(data.dept),
-    role: normalizeRole(data.role || user?.role),
+    dept: normalizeDeptField(derived?.dept || data.dept),
+    role: normalizeRole(derived?.role || data.role || user?.role),
     trade: tradeForUser(user),
-    warehouseSigSections: parseWarehouseSigSections(user?.warehouse_sig_sections, data.role || user?.role),
+    warehouseSigSections: derived?.warehouseSigSections?.length
+      ? derived.warehouseSigSections
+      : parseWarehouseSigSections(user?.warehouse_sig_sections, data.role || user?.role),
+    moduleAccess: access,
+    perms: derived?.perms,
   };
 }
 
@@ -224,9 +246,16 @@ export async function verifyToken(
 export async function enrichAuthRole(auth: AuthOk): Promise<AuthOk> {
   const user = await getUser(auth.username);
   if (user) {
-    auth.role = normalizeRole(user.role || auth.role);
+    const access = resolveModuleAccessForUser(user as Record<string, unknown>);
+    const derived = deriveAccountFromModuleAccess(access, { hide: user.hide });
+    auth.role = derived.role;
+    auth.dept = normalizeDeptField(derived.dept || auth.dept);
     auth.trade = tradeForUser(user);
-    auth.warehouseSigSections = parseWarehouseSigSections(user.warehouse_sig_sections, auth.role);
+    auth.warehouseSigSections = derived.warehouseSigSections.length
+      ? derived.warehouseSigSections
+      : parseWarehouseSigSections(user.warehouse_sig_sections, auth.role);
+    auth.moduleAccess = access;
+    auth.perms = derived.perms;
   }
   return auth;
 }

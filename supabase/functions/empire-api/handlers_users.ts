@@ -11,16 +11,32 @@ import {
   ensureWarehouseInDept,
   isWarehouseSigner,
   isWarehouseStaff,
+  parseModuleAccess,
+  resolveModuleAccessForUser,
+  deriveAccountFromModuleAccess,
+  moduleAccessToJson,
+  moduleLevel,
+  type ModuleAccessMap,
 } from "./helpers.ts";
 
 const BCRYPT_ROUNDS = 10;
 
+function isAdminAuth(auth: AuthOk) {
+  if (normalizeRole(auth.role) === "admin") return true;
+  return moduleLevel(auth.moduleAccess, "admin") === "write";
+}
+
 function publicUser(row: Record<string, unknown>) {
-  const role = normalizeRole(row.role);
-  const warehouseSigSections = parseWarehouseSigSections(row.warehouse_sig_sections, role);
+  const moduleAccess = resolveModuleAccessForUser(row);
+  const derived = deriveAccountFromModuleAccess(moduleAccess, { hide: row.hide });
+  const role = normalizeRole(row.role || derived.role);
+  const warehouseSigSections = parseWarehouseSigSections(
+    row.warehouse_sig_sections || derived.warehouseSigSections.join(","),
+    role,
+  );
   return {
     username: String(row.username || ""),
-    dept: String(row.dept || ""),
+    dept: String(row.dept || derived.dept || ""),
     role,
     hide: String(row.hide || ""),
     projects: String(row.projects || ""),
@@ -28,12 +44,13 @@ function publicUser(row: Record<string, unknown>) {
     hideElectrical: String(row.hide_electrical || ""),
     warehouseSigSections,
     warehouseSigSectionsRaw: warehouseSigSections.join(","),
+    moduleAccess: moduleAccessToJson(moduleAccess),
     updatedAt: String(row.updated_at || ""),
   };
 }
 
 function requireAdmin(auth: AuthOk) {
-  if (normalizeRole(auth.role) !== "admin") {
+  if (!isAdminAuth(auth)) {
     return {
       ok: false as const,
       success: false as const,
@@ -67,12 +84,20 @@ function validateRole(raw: unknown) {
   return { ok: true as const, role };
 }
 
+function bodyHasModuleAccess(body: Record<string, unknown>) {
+  return body.moduleAccess != null || body.module_access != null;
+}
+
+function moduleAccessFromBody(body: Record<string, unknown>): ModuleAccessMap {
+  return parseModuleAccess(body.moduleAccess != null ? body.moduleAccess : body.module_access);
+}
+
 export async function handleListUsers(auth: AuthOk) {
   const denied = requireAdmin(auth);
   if (denied) return denied;
   const { data, error } = await sb()
     .from("users")
-    .select("username,dept,role,hide,projects,trade,hide_electrical,warehouse_sig_sections,updated_at")
+    .select("username,dept,role,hide,projects,trade,hide_electrical,warehouse_sig_sections,module_access,updated_at")
     .order("username");
   if (error) throw error;
   return { ok: true, users: (data || []).map((r) => publicUser(r as Record<string, unknown>)) };
@@ -84,21 +109,60 @@ export async function handleCreateUser(body: Record<string, unknown>, auth: Auth
 
   const vu = validateUsername(body.username || body.targetUsername);
   if (!vu.ok) return { ok: false, success: false, error: "bad_username", message: vu.message };
-  const vd = validateDept(body.dept);
-  if (!vd.ok) return { ok: false, success: false, error: "bad_dept", message: vd.message };
-  const vr = validateRole(body.role);
-  if (!vr.ok) return { ok: false, success: false, error: "bad_role", message: vr.message };
 
   const password = String(body.password || "").trim();
   if (password.length < 4) {
     return { ok: false, success: false, error: "bad_password", message: "Password must be at least 4 characters." };
   }
 
-  const role = vr.role;
+  let role: string;
+  let dept: string;
+  let sections: string[];
+  let moduleAccessJson: Record<string, string>;
+
+  if (bodyHasModuleAccess(body)) {
+    const access = moduleAccessFromBody(body);
+    const derived = deriveAccountFromModuleAccess(access, { hide: body.hide });
+    role = derived.role;
+    dept = derived.dept;
+    sections = derived.warehouseSigSections;
+    moduleAccessJson = moduleAccessToJson(access);
+    if (!dept && role !== "admin") {
+      return {
+        ok: false,
+        success: false,
+        error: "bad_access",
+        message: "Pick at least one module with Read or Read/Write.",
+      };
+    }
+    if (role === "admin" && !dept) dept = "all";
+  } else {
+    const vd = validateDept(body.dept);
+    if (!vd.ok) return { ok: false, success: false, error: "bad_dept", message: vd.message };
+    const vr = validateRole(body.role);
+    if (!vr.ok) return { ok: false, success: false, error: "bad_role", message: vr.message };
+    role = vr.role;
+    dept = vd.dept;
+    sections = parseWarehouseSigSections(
+      body.warehouseSigSections != null ? body.warehouseSigSections : body.warehouse_sig_sections,
+      role,
+    );
+    if (isWarehouseStaff(role, dept)) sections = [];
+    const signer = isWarehouseSigner(role, sections.join(","), dept);
+    dept = ensureWarehouseInDept(dept, signer);
+    const synthesized = resolveModuleAccessForUser({
+      role,
+      dept,
+      warehouse_sig_sections: warehouseSigSectionsCsv(sections),
+      module_access: {},
+    });
+    moduleAccessJson = moduleAccessToJson(synthesized);
+  }
+
   const trade = role === "worker" ? normalizeTrade(body.trade) : "";
   if (role === "worker" && !trade) {
-    const dept = vd.dept.replace(/\s/g, "");
-    if (dept !== "asaas") {
+    const d = dept.replace(/\s/g, "");
+    if (d !== "asaas") {
       return {
         ok: false,
         success: false,
@@ -107,15 +171,6 @@ export async function handleCreateUser(body: Record<string, unknown>, auth: Auth
       };
     }
   }
-
-  let sections = parseWarehouseSigSections(
-    body.warehouseSigSections != null ? body.warehouseSigSections : body.warehouse_sig_sections,
-    role,
-  );
-  // Editor/Admin + warehouse/all = full desk; ignore signer boxes so they don't get locked UI.
-  if (isWarehouseStaff(role, vd.dept)) sections = [];
-  const signer = isWarehouseSigner(role, sections.join(","), vd.dept);
-  const dept = ensureWarehouseInDept(vd.dept, signer);
 
   const existing = await sb().from("users").select("username").eq("username", vu.username).maybeSingle();
   if (existing.error) throw existing.error;
@@ -133,6 +188,7 @@ export async function handleCreateUser(body: Record<string, unknown>, auth: Auth
     trade,
     hide_electrical: String(body.hideElectrical || body.hide_electrical || "").trim(),
     warehouse_sig_sections: warehouseSigSectionsCsv(sections),
+    module_access: moduleAccessJson,
     updated_at: isoNow(),
   };
   const { error } = await sb().from("users").insert(row);
@@ -153,32 +209,54 @@ export async function handleUpdateUser(body: Record<string, unknown>, auth: Auth
 
   const patch: Record<string, unknown> = { updated_at: isoNow() };
 
-  if (body.dept != null) {
-    const vd = validateDept(body.dept);
-    if (!vd.ok) return { ok: false, success: false, error: "bad_dept", message: vd.message };
-    patch.dept = vd.dept;
+  if (bodyHasModuleAccess(body)) {
+    const access = moduleAccessFromBody(body);
+    const derived = deriveAccountFromModuleAccess(access, {
+      hide: body.hide != null ? body.hide : existing.hide,
+    });
+    if (!derived.dept && derived.role !== "admin") {
+      return {
+        ok: false,
+        success: false,
+        error: "bad_access",
+        message: "Pick at least one module with Read or Read/Write.",
+      };
+    }
+    patch.module_access = moduleAccessToJson(access);
+    patch.role = derived.role;
+    patch.dept = derived.role === "admin" && !derived.dept ? "all" : derived.dept;
+    patch.warehouse_sig_sections = warehouseSigSectionsCsv(derived.warehouseSigSections);
+  } else {
+    if (body.dept != null) {
+      const vd = validateDept(body.dept);
+      if (!vd.ok) return { ok: false, success: false, error: "bad_dept", message: vd.message };
+      patch.dept = vd.dept;
+    }
+    if (body.role != null) {
+      const vr = validateRole(body.role);
+      if (!vr.ok) return { ok: false, success: false, error: "bad_role", message: vr.message };
+      patch.role = vr.role;
+    }
+    if (body.warehouseSigSections != null || body.warehouse_sig_sections != null) {
+      const nextRole = normalizeRole(patch.role != null ? patch.role : existing.role);
+      const sections = parseWarehouseSigSections(
+        body.warehouseSigSections != null ? body.warehouseSigSections : body.warehouse_sig_sections,
+        nextRole,
+      );
+      patch.warehouse_sig_sections = warehouseSigSectionsCsv(sections);
+    }
   }
-  if (body.role != null) {
-    const vr = validateRole(body.role);
-    if (!vr.ok) return { ok: false, success: false, error: "bad_role", message: vr.message };
-    patch.role = vr.role;
-  }
+
   if (body.hide != null) patch.hide = String(body.hide || "").trim();
   if (body.projects != null) patch.projects = String(body.projects || "").trim().toLowerCase();
-  if (body.trade != null || body.role != null) {
+  if (body.trade != null || body.role != null || bodyHasModuleAccess(body)) {
     const nextRole = normalizeRole(patch.role != null ? patch.role : existing.role);
-    patch.trade = nextRole === "worker" ? normalizeTrade(body.trade != null ? body.trade : existing.trade) : "";
+    patch.trade = nextRole === "worker"
+      ? normalizeTrade(body.trade != null ? body.trade : existing.trade)
+      : "";
   }
   if (body.hideElectrical != null || body.hide_electrical != null) {
     patch.hide_electrical = String(body.hideElectrical || body.hide_electrical || "").trim();
-  }
-  if (body.warehouseSigSections != null || body.warehouse_sig_sections != null) {
-    const nextRole = normalizeRole(patch.role != null ? patch.role : existing.role);
-    const sections = parseWarehouseSigSections(
-      body.warehouseSigSections != null ? body.warehouseSigSections : body.warehouse_sig_sections,
-      nextRole,
-    );
-    patch.warehouse_sig_sections = warehouseSigSectionsCsv(sections);
   }
 
   const password = String(body.password || "").trim();
@@ -203,30 +281,40 @@ export async function handleUpdateUser(body: Record<string, unknown>, auth: Auth
     }
   }
 
-  // Keep warehouse in dept when this account is a warehouse signer.
-  // Clear signer slots for full warehouse desk users (Editor/Admin + warehouse/all).
-  {
+  if (!bodyHasModuleAccess(body)) {
     let sections = parseWarehouseSigSections(
       patch.warehouse_sig_sections != null ? patch.warehouse_sig_sections : existing.warehouse_sig_sections,
       nextRole,
     );
     const baseDept = String(patch.dept != null ? patch.dept : existing.dept || "");
-    if (isWarehouseStaff(nextRole, baseDept)) {
+    const nextAccess = resolveModuleAccessForUser({
+      ...existing,
+      ...patch,
+      warehouse_sig_sections: warehouseSigSectionsCsv(sections),
+    });
+    if (isWarehouseStaff(nextRole, baseDept, nextAccess)) {
       sections = [];
       patch.warehouse_sig_sections = "";
     }
-    const signer = isWarehouseSigner(nextRole, sections.join(","), baseDept);
+    const signer = isWarehouseSigner(nextRole, sections.join(","), baseDept, nextAccess);
     patch.dept = ensureWarehouseInDept(baseDept, signer);
+    patch.module_access = moduleAccessToJson(nextAccess);
   }
 
   // Don't demote yourself out of admin (lock-out protection)
-  if (vu.username === normalizeWorkerId(auth.username) && nextRole !== "admin") {
-    return {
-      ok: false,
-      success: false,
-      error: "not_allowed",
-      message: "You cannot remove admin from your own account.",
-    };
+  const selfAdmin =
+    moduleLevel(auth.moduleAccess, "admin") === "write" || normalizeRole(auth.role) === "admin";
+  if (vu.username === normalizeWorkerId(auth.username) && selfAdmin) {
+    const nextAccess = parseModuleAccess(patch.module_access != null ? patch.module_access : existing.module_access);
+    const nextIsAdmin = nextRole === "admin" || moduleLevel(nextAccess, "admin") === "write";
+    if (!nextIsAdmin) {
+      return {
+        ok: false,
+        success: false,
+        error: "not_allowed",
+        message: "You cannot remove admin from your own account.",
+      };
+    }
   }
 
   const { error } = await sb().from("users").update(patch).eq("username", vu.username);
@@ -256,14 +344,20 @@ export async function handleDeleteUser(body: Record<string, unknown>, auth: Auth
     return { ok: false, success: false, error: "not_allowed", message: "You cannot delete your own account." };
   }
 
-  const { data: existing, error: findErr } = await sb().from("users").select("username,role").eq("username", vu.username).maybeSingle();
+  const { data: existing, error: findErr } = await sb().from("users").select("username,role,module_access").eq("username", vu.username).maybeSingle();
   if (findErr) throw findErr;
   if (!existing) return { ok: false, success: false, error: "not_found", message: "User not found." };
 
-  if (normalizeRole(existing.role) === "admin") {
-    const { data: admins, error: aErr } = await sb().from("users").select("username").eq("role", "admin");
+  const targetIsAdmin =
+    normalizeRole(existing.role) === "admin" ||
+    moduleLevel(existing.module_access, "admin") === "write";
+  if (targetIsAdmin) {
+    const { data: users, error: aErr } = await sb().from("users").select("username,role,module_access");
     if (aErr) throw aErr;
-    if ((admins || []).length <= 1) {
+    const admins = (users || []).filter((u) =>
+      normalizeRole(u.role) === "admin" || moduleLevel(u.module_access, "admin") === "write"
+    );
+    if (admins.length <= 1) {
       return { ok: false, success: false, error: "not_allowed", message: "Cannot delete the last admin account." };
     }
   }

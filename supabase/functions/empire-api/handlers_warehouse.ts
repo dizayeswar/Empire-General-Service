@@ -14,7 +14,12 @@ function authSigSections(auth: AuthOk): WarehouseSigSlot[] {
 }
 
 function isWarehouseSignerAuth(auth: AuthOk): boolean {
-  return isWarehouseSigner(auth.role, auth.warehouseSigSections?.join(",") || "", auth.dept);
+  return isWarehouseSigner(
+    auth.role,
+    auth.warehouseSigSections?.join(",") || "",
+    auth.dept,
+    auth.moduleAccess,
+  );
 }
 
 function rowToApi(r: Record<string, unknown>) {
@@ -474,7 +479,7 @@ export async function handleListWarehouseAssignees(_body: Record<string, unknown
   }
   const { data, error } = await sb()
     .from("users")
-    .select("username,dept,role,warehouse_sig_sections")
+    .select("username,dept,role,warehouse_sig_sections,module_access")
     .order("username");
   if (error) throw error;
   const users = (data || [])
@@ -482,7 +487,7 @@ export async function handleListWarehouseAssignees(_body: Record<string, unknown
       const role = String(u.role || "").trim().toLowerCase();
       const dept = String(u.dept || "").trim().toLowerCase();
       const sections = parseWarehouseSigSections(u.warehouse_sig_sections, role);
-      const signer = isWarehouseSigner(role, sections.join(","), dept);
+      const signer = isWarehouseSigner(role, sections.join(","), dept, u.module_access);
       if (!signer) return null;
       if (!dept) return null;
       const deptOk = dept === "all" || dept === "warehouse" ||

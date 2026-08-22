@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-assign">
+  <link rel="manifest" href="manifest.webmanifest?v=2026-08-22-inv-link">
   <meta name="theme-color" content="#8d015d">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="icon" href="logo-light.png" type="image/png">
   <title>Users — Admin — Empire EGS</title>
-  <link rel="stylesheet" href="assets/empire.css?v=2026-08-20-wh-signer">
+  <link rel="stylesheet" href="assets/empire.css?v=2026-08-22-access">
   <style>
     .admin-users-wrap { max-width: 1100px; margin: 0 auto; padding: 16px 18px 40px; }
     .admin-users-head { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; justify-content:space-between; margin-bottom:18px; }
@@ -23,9 +23,7 @@
     .admin-user-table th, .admin-user-table td { text-align:left; padding:10px 8px; border-bottom:1px solid var(--card-border); vertical-align:top; }
     .admin-user-table th { color:var(--text-soft); font-weight:600; font-size:12px; }
     .admin-user-table tr:hover td { background:var(--wait-bg, rgba(141,1,93,.04)); }
-    .admin-badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; background:var(--panel); border:1px solid var(--card-border); }
-    .admin-badge.admin { color:#8d015d; border-color:#e6d6df; }
-    .admin-badge.worker { color:#185fa5; }
+    .admin-badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; background:var(--panel); border:1px solid var(--card-border); margin:2px 4px 2px 0; }
     .admin-form-card { background:var(--card); border:1px solid var(--card-border); border-radius:16px; padding:16px; margin-bottom:18px; }
     .admin-form-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; }
     .admin-form-grid label { display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--text-soft); font-weight:600; }
@@ -41,10 +39,19 @@
     .admin-msg.ok { color:#1d9e75; }
     .admin-acts { display:flex; flex-wrap:wrap; gap:6px; }
     .admin-acts .act-btn { font-size:12px; padding:6px 10px; }
-    .admin-badge.editor { color:#5b5b5b; }
-    .admin-badge.viewer { color:#6b7280; }
-    .admin-badge.cleaning_supervisor { color:#0f766e; }
     .admin-updated { font-size:11px; color:var(--text-faint); white-space:nowrap; }
+    .access-matrix-wrap { overflow-x:auto; margin-top:8px; border:1px solid var(--card-border); border-radius:12px; }
+    .access-matrix { width:100%; border-collapse:collapse; font-size:13px; min-width:640px; }
+    .access-matrix th { background:#185fa5; color:#fff; font-weight:600; padding:10px 12px; text-align:left; }
+    .access-matrix th.lvl { text-align:center; width:7.5em; }
+    .access-matrix td { padding:9px 12px; border-bottom:1px solid var(--card-border); vertical-align:middle; }
+    .access-matrix tr:nth-child(even) td { background:rgba(24,95,165,.04); }
+    .access-matrix .mod-name { font-weight:600; color:var(--text); }
+    .access-matrix .mod-child .mod-name { font-weight:500; padding-left:22px; color:var(--text-soft); }
+    .access-matrix .mod-child .mod-name::before { content:'↳ '; }
+    .access-matrix .lvl-cell { text-align:center; }
+    .access-matrix input[type="radio"] { width:16px; height:16px; accent-color:#185fa5; cursor:pointer; }
+    .access-toggle { border:0; background:transparent; cursor:pointer; color:#185fa5; font-weight:700; margin-right:6px; }
     @media (max-width:720px) {
       .admin-user-table { display:block; overflow-x:auto; }
     }
@@ -67,46 +74,28 @@
     <div class="admin-users-head">
       <div>
         <h1>Users</h1>
-        <p>Create and edit login accounts. Passwords are stored hashed — you never see the old password.</p>
+        <p>Set No Access / Read / Read-Write for each module. Passwords are hashed — you never see the old password.</p>
       </div>
       <button type="button" class="act-btn" id="btnNewUser" onclick="openCreateForm()">+ New user</button>
     </div>
 
     <div class="admin-recipes" aria-label="Quick recipes">
+      <button type="button" onclick="applyRecipe('himdad')">Electrical + WH received (Himdad)</button>
       <button type="button" onclick="applyRecipe('civil_worker')">Civil worker</button>
       <button type="button" onclick="applyRecipe('electric_worker')">Electric worker</button>
       <button type="button" onclick="applyRecipe('cleaning_sup')">Cleaning supervisor</button>
-      <button type="button" onclick="applyRecipe('desk_editor')">Desk editor</button>
-      <button type="button" onclick="applyRecipe('warehouse_desk')">Warehouse desk</button>
+      <button type="button" onclick="applyRecipe('desk_editor')">Civil desk editor</button>
+      <button type="button" onclick="applyRecipe('warehouse_desk')">Warehouse full desk</button>
+      <button type="button" onclick="applyRecipe('admin_full')">Admin (all write)</button>
     </div>
 
     <div id="userFormCard" class="admin-form-card" style="display:none;">
       <h2 id="formTitle" style="font-size:16px;margin:0 0 12px;">New user</h2>
-      <p class="admin-role-help" id="roleHelp"></p>
+      <p class="admin-role-help">Tick access per module. Example: Electrical Read/Write + Warehouse Assigned/Done + Received signing only.</p>
       <div class="admin-form-grid">
-        <label>Username<input id="f-username" autocomplete="off" placeholder="e.g. ahmed_ali"></label>
+        <label>Username<input id="f-username" autocomplete="off" placeholder="e.g. himdad"></label>
         <label>Password<input id="f-password" type="password" autocomplete="new-password" placeholder="min 4 characters"></label>
-        <label>Role
-          <select id="f-role" onchange="onRoleOrDeptChange()">
-            <option value="editor">Editor — desk access</option>
-            <option value="admin">Admin — manage users</option>
-            <option value="viewer">Viewer — read only</option>
-            <option value="warehouse_receiver">Warehouse receiver — Done notes assigned only</option>
-            <option value="worker">Worker — mobile app</option>
-            <option value="cleaning_supervisor">Cleaning supervisor</option>
-          </select>
-        </label>
-        <label>Department<input id="f-dept" list="deptHints" placeholder="civil issue / electrical / all" oninput="onRoleOrDeptChange()"></label>
-        <div id="warehouseSigFields" style="grid-column:1/-1;display:none;">
-          <div style="font-size:12px;font-weight:600;color:var(--text-soft);margin-bottom:6px;">Warehouse signer — assigned notes only</div>
-          <p style="margin:0 0 8px;font-size:12px;color:var(--text-faint);line-height:1.4;" id="warehouseSigHelp">For people in <em>other</em> departments who only sign notes assigned to them. Do <strong>not</strong> tick these for a full warehouse desk user (Editor + Department <code>warehouse</code>).</p>
-          <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:13px;font-weight:600;color:var(--text);">
-            <label style="flex-direction:row;align-items:center;gap:6px;"><input type="checkbox" id="f-whsig-auth" onchange="onWarehouseSigChange()"> Authorized by</label>
-            <label style="flex-direction:row;align-items:center;gap:6px;"><input type="checkbox" id="f-whsig-issued" onchange="onWarehouseSigChange()"> Issued by</label>
-            <label style="flex-direction:row;align-items:center;gap:6px;"><input type="checkbox" id="f-whsig-received" onchange="onWarehouseSigChange()"> Received by</label>
-          </div>
-        </div>
-        <label id="tradeField">Trade (workers only)
+        <label id="tradeField" style="display:none;">Trade (workers)
           <select id="f-trade">
             <option value="">— choose trade —</option>
             <option value="plumber">plumber</option>
@@ -116,26 +105,28 @@
             <option value="electric">electric</option>
           </select>
         </label>
-        <label id="projectsField">Projects (cleaning)
+        <label id="projectsField" style="display:none;">Projects (cleaning)
           <input id="f-projects" placeholder="ec,es or blank = all projects">
         </label>
-        <label id="hideField">Hide tabs<input id="f-hide" placeholder="optional e.g. Analytics"></label>
-        <label id="hideElecField">Hide electrical tabs<input id="f-hide-electrical" placeholder="optional"></label>
       </div>
-      <datalist id="deptHints">
-        <option value="all"></option>
-        <option value="cleaning"></option>
-        <option value="civil issue"></option>
-        <option value="civil department"></option>
-        <option value="electrical department"></option>
-        <option value="electric issue"></option>
-        <option value="warehouse"></option>
-        <option value="hse"></option>
-        <option value="fire"></option>
-        <option value="asaas"></option>
-        <option value="application"></option>
-      </datalist>
-      <p class="admin-form-hint" id="formHint">Leave password blank when editing to keep the current password. Setting a new password signs them out on all devices.</p>
+      <div style="margin-top:14px;">
+        <div style="font-size:13px;font-weight:700;margin-bottom:6px;">Module access</div>
+        <div class="access-matrix-wrap">
+          <table class="access-matrix" id="accessMatrix">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Module / Section</th>
+                <th class="lvl">No Access</th>
+                <th class="lvl">Read</th>
+                <th class="lvl">Read/Write</th>
+              </tr>
+            </thead>
+            <tbody id="accessMatrixBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <p class="admin-form-hint" id="formHint">Leave password blank when editing to keep the current password.</p>
       <div class="admin-form-actions">
         <button type="button" class="act-btn" onclick="saveUserForm()" id="btnSaveUser">Save</button>
         <button type="button" class="act-btn" onclick="closeUserForm()">Cancel</button>
@@ -144,157 +135,137 @@
     </div>
 
     <div class="admin-toolbar">
-      <input type="search" id="userSearch" placeholder="Search username, dept, role…" oninput="renderUsers()">
+      <input type="search" id="userSearch" placeholder="Search username, access…" oninput="renderUsers()">
       <button type="button" class="act-btn" onclick="loadUsers(true)">Refresh</button>
     </div>
     <div class="admin-msg" id="listMsg"></div>
     <div id="usersTableHost"></div>
   </div>
 
-  <script src="config.js?v=2026-08-20-wh-desk"></script>
-  <script src="assets/empire-api.js?v=2026-08-20-wh-desk"></script>
-  <script src="assets/empire-auth.js?v=2026-08-20-wh-desk"></script>
-  <script src="assets/empire-core.js?v=2026-08-20-wh-desk"></script>
-  <script src="assets/empire-sw-update.js?v=2026-08-20-wh-desk"></script>
+  <script src="config.js?v=2026-08-22-access"></script>
+  <script src="assets/empire-api.js?v=2026-08-22-access"></script>
+  <script src="assets/empire-auth.js?v=2026-08-22-access"></script>
+  <script src="assets/empire-core.js?v=2026-08-22-access"></script>
+  <script src="assets/empire-sw-update.js?v=2026-08-22-access"></script>
   <script>
     var allUsers = [];
     var editingUsername = null;
+    var _whExpanded = true;
 
-    var ROLE_LABELS = {
-      admin: 'Admin',
-      editor: 'Editor',
-      viewer: 'Viewer',
-      warehouse_receiver: 'Warehouse receiver',
-      worker: 'Worker',
-      cleaning_supervisor: 'Cleaning supervisor'
-    };
+    var ACCESS_MODULES = [
+      { key: 'admin', label: 'Admin (Users)', n: 1 },
+      { key: 'cleaning', label: 'Cleaning Department', n: 2 },
+      { key: 'civil_department', label: 'Civil Department (desk)', n: 3 },
+      { key: 'civil_issue', label: 'Civil Issue (worker phone)', n: 4 },
+      { key: 'electrical_department', label: 'Electrical Department (desk)', n: 5 },
+      { key: 'electric_issue', label: 'Electric Issue (worker phone)', n: 6 },
+      { key: 'hse', label: 'HSE Inspections', n: 7 },
+      { key: 'fire', label: 'Fire Fighting & Mechanical', n: 8 },
+      { key: 'asaas', label: 'A.S.A.A.S', n: 9 },
+      { key: 'application', label: 'Application', n: 10 },
+      { key: 'warehouse', label: 'Warehouse', n: 11, group: true },
+      { key: 'warehouse_desk', label: 'Full desk (GIN / SP / create)', child: true, parent: 'warehouse' },
+      { key: 'warehouse_assigned', label: 'Assigned notes only', child: true, parent: 'warehouse' },
+      { key: 'warehouse_done', label: 'Done (after signing)', child: true, parent: 'warehouse' },
+      { key: 'warehouse_invoices', label: 'Invoices', child: true, parent: 'warehouse' },
+      { key: 'warehouse_sig_auth', label: 'Sign: Authorized by', child: true, parent: 'warehouse' },
+      { key: 'warehouse_sig_issued', label: 'Sign: Issued by', child: true, parent: 'warehouse' },
+      { key: 'warehouse_sig_received', label: 'Sign: Received by', child: true, parent: 'warehouse' }
+    ];
 
-    function roleLabel(role) {
-      var r = String(role || '').toLowerCase();
-      return ROLE_LABELS[r] || role || '—';
-    }
-
-    function roleHelpText(role) {
-      switch (String(role || '').toLowerCase()) {
-        case 'admin':
-          return 'Full access including Admin → Users. Use sparingly.';
-        case 'viewer':
-          return 'Can view allowed departments but not edit or create records.';
-        case 'warehouse_receiver':
-          return 'Warehouse signer. Sees Done notes assigned to them. Tick which signature section(s) they may upload (defaults to Received by).';
-        case 'worker':
-          return 'Mobile field app. Set Department to civil issue or electric issue, and pick a Trade.';
-        case 'cleaning_supervisor':
-          return 'Cleaning desk + mobile. Leave Projects blank for all sites, or use codes like ec,es.';
-        case 'editor':
-        default:
-          return 'Desk login for their Department. For full Warehouse (create/edit/Done like admin, but not Users/reset): Role Editor + Department warehouse — leave signer boxes unticked.';
-      }
-    }
-
-    function deptHasWarehouseDesk_(){
-      var dept=String(document.getElementById('f-dept').value||'').trim().toLowerCase();
-      if(!dept) return false;
-      if(dept==='all') return true;
-      return dept.split(',').map(function(x){ return x.trim(); }).indexOf('warehouse')!==-1;
+    function emptyAccess() {
+      var o = {};
+      ACCESS_MODULES.forEach(function (m) {
+        if (m.group) return;
+        o[m.key] = 'none';
+      });
+      return o;
     }
 
-    function readWarehouseSigSections_(){
-      var out=[];
-      if(document.getElementById('f-whsig-auth') && document.getElementById('f-whsig-auth').checked) out.push('auth');
-      if(document.getElementById('f-whsig-issued') && document.getElementById('f-whsig-issued').checked) out.push('issued');
-      if(document.getElementById('f-whsig-received') && document.getElementById('f-whsig-received').checked) out.push('received');
-      return out;
-    }
-    function setWarehouseSigSections_(list){
-      list = Array.isArray(list) ? list : String(list||'').split(/[,+|/\s]+/);
-      var set={};
-      list.forEach(function(s){ set[String(s||'').trim().toLowerCase()]=true; });
-      var role=(document.getElementById('f-role').value||'').toLowerCase();
-      if(role==='warehouse_receiver' && !set.auth && !set.issued && !set.received) set.received=true;
-      var a=document.getElementById('f-whsig-auth');
-      var i=document.getElementById('f-whsig-issued');
-      var r=document.getElementById('f-whsig-received');
-      if(a) a.checked=!!set.auth;
-      if(i) i.checked=!!set.issued;
-      if(r) r.checked=!!set.received;
-    }
-    function ensureWarehouseInDeptField_(){
-      var sections=readWarehouseSigSections_();
-      var role=(document.getElementById('f-role').value||'').toLowerCase();
-      if(!sections.length && role!=='warehouse_receiver') return;
-      var el=document.getElementById('f-dept');
-      if(!el) return;
-      var raw=String(el.value||'').trim();
-      if(!raw){ el.value='warehouse'; return; }
-      if(raw.toLowerCase()==='all') return;
-      var parts=raw.split(',').map(function(x){ return x.trim(); }).filter(Boolean);
-      var has=parts.some(function(p){ return p.toLowerCase()==='warehouse'; });
-      if(!has){ parts.push('warehouse'); el.value=parts.join(','); }
-    }
-    function onWarehouseSigChange(){
-      ensureWarehouseInDeptField_();
+    function renderAccessMatrix(access) {
+      access = access || emptyAccess();
+      var body = document.getElementById('accessMatrixBody');
+      if (!body) return;
+      var h = '';
+      ACCESS_MODULES.forEach(function (m) {
+        if (m.group) {
+          h += '<tr><td>' + m.n + '</td><td class="mod-name">' +
+            '<button type="button" class="access-toggle" onclick="_whExpanded=!_whExpanded;renderAccessMatrix(readAccessFromForm());">' +
+            (_whExpanded ? '▾' : '▸') + '</button>' + esc(m.label) +
+            '</td><td class="lvl-cell" colspan="3" style="text-align:left;color:var(--text-faint);font-size:12px;">Expand for Warehouse options</td></tr>';
+          return;
+        }
+        if (m.child && !_whExpanded) return;
+        var lvl = access[m.key] || 'none';
+        var rowClass = m.child ? ' class="mod-child"' : '';
+        h += '<tr' + rowClass + '>';
+        h += '<td>' + (m.n || '') + '</td>';
+        h += '<td class="mod-name">' + esc(m.label) + '</td>';
+        ['none', 'read', 'write'].forEach(function (v) {
+          h += '<td class="lvl-cell"><input type="radio" name="acc_' + m.key + '" value="' + v + '"' +
+            (lvl === v ? ' checked' : '') + ' onchange="onAccessChange()"></td>';
+        });
+        h += '</tr>';
+      });
+      body.innerHTML = h;
+      onAccessChange();
     }
 
-    function onRoleOrDeptChange() {
-      var role = (document.getElementById('f-role').value || '').toLowerCase();
-      var dept = (document.getElementById('f-dept').value || '').toLowerCase();
-      var isWorker = role === 'worker';
-      var isCleaning = role === 'cleaning_supervisor' || dept.indexOf('cleaning') !== -1;
-      var isElec = dept.indexOf('electric') !== -1;
+    function readAccessFromForm() {
+      var o = emptyAccess();
+      ACCESS_MODULES.forEach(function (m) {
+        if (m.group) return;
+        var el = document.querySelector('input[name="acc_' + m.key + '"]:checked');
+        o[m.key] = el ? el.value : 'none';
+      });
+      return o;
+    }
+
+    function onAccessChange() {
+      var a = readAccessFromForm();
+      var workerOnly = (a.civil_issue !== 'none' || a.electric_issue !== 'none') &&
+        a.civil_department === 'none' && a.electrical_department === 'none' &&
+        a.cleaning === 'none' && a.warehouse_desk === 'none' && a.admin === 'none';
+      var cleaning = a.cleaning !== 'none';
       var tradeEl = document.getElementById('tradeField');
       var projEl = document.getElementById('projectsField');
-      var hideEl = document.getElementById('hideField');
-      var hideElecEl = document.getElementById('hideElecField');
-      var whBox = document.getElementById('warehouseSigFields');
-      var warehouseDesk = (role === 'editor' || role === 'admin') && deptHasWarehouseDesk_();
-      if (whBox) {
-        // Full warehouse desk: hide signer boxes (they force assigned-only mode).
-        whBox.style.display = warehouseDesk ? 'none' : '';
-        if (warehouseDesk) setWarehouseSigSections_([]);
-      }
-      if (role === 'warehouse_receiver') {
-        var secs = readWarehouseSigSections_();
-        if (!secs.length) setWarehouseSigSections_(['received']);
-        ensureWarehouseInDeptField_();
-      }
-      if (tradeEl) tradeEl.style.display = isWorker ? '' : 'none';
-      if (projEl) projEl.style.display = isCleaning ? '' : 'none';
-      if (hideEl) hideEl.style.display = (isWorker ? 'none' : '');
-      if (hideElecEl) hideElecEl.style.display = (!isWorker && isElec) ? '' : 'none';
-      if (!isWorker) document.getElementById('f-trade').value = '';
-      if (!isCleaning) document.getElementById('f-projects').value = '';
-      var help = document.getElementById('roleHelp');
-      if (help) {
-        help.textContent = warehouseDesk
-          ? 'Full Warehouse desk: create notes, Saved Notes, Done/Assign. Not Admin Users, and not reset/recycle later.'
-          : roleHelpText(role);
+      if (tradeEl) tradeEl.style.display = workerOnly ? '' : 'none';
+      if (projEl) projEl.style.display = cleaning ? '' : 'none';
+      if (!workerOnly) {
+        var t = document.getElementById('f-trade');
+        if (t) t.value = '';
       }
     }
 
     function applyRecipe(kind) {
       openCreateForm();
-      if (kind === 'civil_worker') {
-        document.getElementById('f-role').value = 'worker';
-        document.getElementById('f-dept').value = 'civil issue';
+      var a = emptyAccess();
+      if (kind === 'himdad') {
+        a.electrical_department = 'write';
+        a.warehouse_assigned = 'write';
+        a.warehouse_done = 'write';
+        a.warehouse_sig_received = 'write';
+      } else if (kind === 'civil_worker') {
+        a.civil_issue = 'write';
         document.getElementById('f-trade').value = 'plumber';
       } else if (kind === 'electric_worker') {
-        document.getElementById('f-role').value = 'worker';
-        document.getElementById('f-dept').value = 'electric issue';
+        a.electric_issue = 'write';
         document.getElementById('f-trade').value = 'electric';
       } else if (kind === 'cleaning_sup') {
-        document.getElementById('f-role').value = 'cleaning_supervisor';
-        document.getElementById('f-dept').value = 'cleaning';
-        document.getElementById('f-projects').value = '';
+        a.cleaning = 'write';
       } else if (kind === 'desk_editor') {
-        document.getElementById('f-role').value = 'editor';
-        document.getElementById('f-dept').value = 'civil department';
+        a.civil_department = 'write';
       } else if (kind === 'warehouse_desk') {
-        document.getElementById('f-role').value = 'editor';
-        document.getElementById('f-dept').value = 'warehouse';
-        setWarehouseSigSections_([]);
+        a.warehouse_desk = 'write';
+        a.warehouse_assigned = 'write';
+        a.warehouse_done = 'write';
+        a.warehouse_invoices = 'write';
+      } else if (kind === 'admin_full') {
+        ACCESS_MODULES.forEach(function (m) {
+          if (!m.group) a[m.key] = 'write';
+        });
       }
-      onRoleOrDeptChange();
+      renderAccessMatrix(a);
       document.getElementById('f-username').focus();
     }
 
@@ -319,17 +290,13 @@
       document.getElementById('f-username').value = '';
       document.getElementById('f-password').value = '';
       document.getElementById('f-password').placeholder = 'min 4 characters';
-      document.getElementById('f-role').value = 'editor';
-      document.getElementById('f-dept').value = '';
       document.getElementById('f-trade').value = '';
       document.getElementById('f-projects').value = '';
-      document.getElementById('f-hide').value = '';
-      document.getElementById('f-hide-electrical').value = '';
-      setWarehouseSigSections_([]);
-      document.getElementById('formHint').textContent = 'Password is required for new users. Tip: after save, tell them the username + password once — you cannot look it up later.';
+      document.getElementById('formHint').textContent = 'Password is required for new users.';
       setMsg('formMsg', '', true);
       document.getElementById('userFormCard').style.display = '';
-      onRoleOrDeptChange();
+      _whExpanded = true;
+      renderAccessMatrix(emptyAccess());
       document.getElementById('f-username').focus();
     }
 
@@ -342,21 +309,20 @@
       document.getElementById('f-username').value = u.username;
       document.getElementById('f-password').value = '';
       document.getElementById('f-password').placeholder = 'leave blank to keep';
-      document.getElementById('f-role').value = u.role || 'editor';
-      document.getElementById('f-dept').value = u.dept || '';
       document.getElementById('f-trade').value = u.trade || '';
       document.getElementById('f-projects').value = u.projects || '';
-      document.getElementById('f-hide').value = u.hide || '';
-      document.getElementById('f-hide-electrical').value = u.hideElectrical || '';
-      setWarehouseSigSections_(u.warehouseSigSections || u.warehouseSigSectionsRaw || []);
-      document.getElementById('formHint').textContent = 'Leave password blank to keep the current one. Enter a new password to reset it (signs them out everywhere).';
+      document.getElementById('formHint').textContent = 'Leave password blank to keep the current one.';
       setMsg('formMsg', '', true);
       document.getElementById('userFormCard').style.display = '';
-      onRoleOrDeptChange();
-      // restore trade/projects after role toggle cleared non-matching fields
+      _whExpanded = true;
+      var a = emptyAccess();
+      var src = u.moduleAccess || {};
+      Object.keys(a).forEach(function (k) {
+        if (src[k]) a[k] = src[k];
+      });
+      renderAccessMatrix(a);
       document.getElementById('f-trade').value = u.trade || '';
       document.getElementById('f-projects').value = u.projects || '';
-      setWarehouseSigSections_(u.warehouseSigSections || u.warehouseSigSectionsRaw || []);
     }
 
     function closeUserForm() {
@@ -365,19 +331,16 @@
     }
 
     function formPayload() {
-      var role = document.getElementById('f-role').value;
-      var isWorker = String(role).toLowerCase() === 'worker';
-      ensureWarehouseInDeptField_();
+      var access = readAccessFromForm();
+      var workerPhone = (access.civil_issue !== 'none' || access.electric_issue !== 'none') &&
+        access.civil_department === 'none' && access.electrical_department === 'none' &&
+        access.cleaning === 'none' && access.warehouse_desk === 'none' && access.admin === 'none';
       return {
         username: document.getElementById('f-username').value.trim(),
         password: document.getElementById('f-password').value,
-        role: role,
-        dept: document.getElementById('f-dept').value.trim(),
-        trade: isWorker ? document.getElementById('f-trade').value : '',
-        projects: document.getElementById('f-projects').value.trim(),
-        hide: document.getElementById('f-hide').value.trim(),
-        hideElectrical: document.getElementById('f-hide-electrical').value.trim(),
-        warehouseSigSections: readWarehouseSigSections_().join(',')
+        moduleAccess: access,
+        trade: workerPhone ? document.getElementById('f-trade').value : '',
+        projects: document.getElementById('f-projects').value.trim()
       };
     }
 
@@ -387,7 +350,16 @@
         setMsg('formMsg', 'Password must be at least 4 characters.', false);
         return;
       }
-      if (String(p.role).toLowerCase() === 'worker' && !p.trade) {
+      var hasAny = Object.keys(p.moduleAccess).some(function (k) { return p.moduleAccess[k] !== 'none'; });
+      if (!hasAny) {
+        setMsg('formMsg', 'Pick at least one module with Read or Read/Write.', false);
+        return;
+      }
+      var workerPhone = !!p.trade || (
+        (p.moduleAccess.civil_issue !== 'none' || p.moduleAccess.electric_issue !== 'none') &&
+        p.moduleAccess.civil_department === 'none' && p.moduleAccess.electrical_department === 'none'
+      );
+      if (workerPhone && document.getElementById('tradeField').style.display !== 'none' && !p.trade) {
         setMsg('formMsg', 'Workers need a Trade (plumber, wood, electric…).', false);
         return;
       }
@@ -444,12 +416,21 @@
       }
     }
 
+    function accessSummary(u) {
+      var a = u.moduleAccess || {};
+      var bits = [];
+      Object.keys(a).forEach(function (k) {
+        if (a[k] && a[k] !== 'none') bits.push(k.replace(/_/g, ' ') + ':' + a[k]);
+      });
+      return bits.slice(0, 6).join(' · ') + (bits.length > 6 ? '…' : '');
+    }
+
     function renderUsers() {
       var host = document.getElementById('usersTableHost');
       var q = (document.getElementById('userSearch').value || '').toLowerCase().trim();
       var rows = allUsers.filter(function (u) {
         if (!q) return true;
-        var hay = [u.username, u.dept, u.role, roleLabel(u.role), u.trade, u.projects, u.hide].join(' ').toLowerCase();
+        var hay = [u.username, u.dept, u.role, u.trade, accessSummary(u)].join(' ').toLowerCase();
         return hay.indexOf(q) !== -1;
       }).slice().sort(function (a, b) {
         return String(a.username || '').localeCompare(String(b.username || ''));
@@ -461,16 +442,13 @@
         return;
       }
       var h = '<div style="overflow-x:auto;"><table class="admin-user-table"><thead><tr>' +
-        '<th>Username</th><th>Role</th><th>Department</th><th>Trade</th><th>Projects</th><th>Updated</th><th>Actions</th>' +
+        '<th>Username</th><th>Access</th><th>Trade</th><th>Updated</th><th>Actions</th>' +
         '</tr></thead><tbody>';
       rows.forEach(function (u) {
-        var badgeClass = String(u.role || '').replace(/[^a-z0-9_]/gi, '');
         h += '<tr>';
         h += '<td><strong>' + esc(u.username) + '</strong></td>';
-        h += '<td><span class="admin-badge ' + esc(badgeClass) + '" title="' + esc(u.role) + '">' + esc(roleLabel(u.role)) + '</span></td>';
-        h += '<td>' + esc(u.dept || '—') + '</td>';
+        h += '<td style="max-width:420px;font-size:12px;line-height:1.45;">' + esc(accessSummary(u) || '—') + '</td>';
         h += '<td>' + esc(u.trade || '—') + '</td>';
-        h += '<td>' + esc(u.projects || '—') + '</td>';
         h += '<td class="admin-updated">' + esc(formatUpdated(u.updatedAt)) + '</td>';
         h += '<td class="admin-acts">' +
           '<button type="button" class="act-btn" onclick="openEditForm(\'' + escAttr(u.username) + '\')">Edit</button>' +

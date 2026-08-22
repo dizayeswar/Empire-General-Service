@@ -68,7 +68,15 @@ export function deptHasWarehouseAccess(dept: unknown): boolean {
   return d.split(",").map((x) => x.trim()).filter(Boolean).includes("warehouse");
 }
 
-export function isWarehouseStaff(role: unknown, dept: unknown): boolean {
+export function isWarehouseStaff(
+  role: unknown,
+  dept: unknown,
+  moduleAccess?: unknown,
+): boolean {
+  const access = parseModuleAccess(moduleAccess);
+  if (moduleAccessHasAny_(access)) {
+    return moduleLevel(access, "warehouse_desk") === "write";
+  }
   const r = normalizeRole(role);
   if (r !== "admin" && r !== "editor") return false;
   return deptHasWarehouseAccess(dept);
@@ -78,12 +86,301 @@ export function isWarehouseSigner(
   role: unknown,
   warehouseSigSections: unknown,
   dept?: unknown,
+  moduleAccess?: unknown,
 ): boolean {
+  const access = parseModuleAccess(moduleAccess);
+  if (moduleAccessHasAny_(access)) {
+    if (moduleLevel(access, "warehouse_desk") === "write") return false;
+    return (
+      moduleLevel(access, "warehouse_assigned") !== "none" ||
+      moduleLevel(access, "warehouse_done") !== "none" ||
+      moduleLevel(access, "warehouse_sig_auth") !== "none" ||
+      moduleLevel(access, "warehouse_sig_issued") !== "none" ||
+      moduleLevel(access, "warehouse_sig_received") !== "none"
+    );
+  }
   const r = normalizeRole(role);
   if (r === "warehouse_receiver") return true;
   // Full warehouse desk users must never get the locked "Assigned to me" shell.
   if (dept != null && String(dept).trim() !== "" && isWarehouseStaff(r, dept)) return false;
   return parseWarehouseSigSections(warehouseSigSections, role).length > 0;
+}
+
+export type AccessLevel = "none" | "read" | "write";
+
+export const MODULE_ACCESS_KEYS = [
+  "admin",
+  "cleaning",
+  "civil_department",
+  "civil_issue",
+  "electrical_department",
+  "electric_issue",
+  "hse",
+  "fire",
+  "asaas",
+  "application",
+  "warehouse_desk",
+  "warehouse_assigned",
+  "warehouse_done",
+  "warehouse_invoices",
+  "warehouse_sig_auth",
+  "warehouse_sig_issued",
+  "warehouse_sig_received",
+] as const;
+
+export type ModuleAccessKey = (typeof MODULE_ACCESS_KEYS)[number];
+export type ModuleAccessMap = Record<ModuleAccessKey, AccessLevel>;
+
+const MODULE_DEPTS: Record<ModuleAccessKey, string[]> = {
+  admin: [],
+  cleaning: ["cleaning"],
+  civil_department: ["civil department"],
+  civil_issue: ["civil issue"],
+  electrical_department: ["electrical department"],
+  electric_issue: ["electric issue"],
+  hse: ["hse"],
+  fire: ["fire"],
+  asaas: ["asaas"],
+  application: ["application"],
+  warehouse_desk: ["warehouse"],
+  warehouse_assigned: ["warehouse"],
+  warehouse_done: ["warehouse"],
+  warehouse_invoices: ["warehouse"],
+  warehouse_sig_auth: ["warehouse"],
+  warehouse_sig_issued: ["warehouse"],
+  warehouse_sig_received: ["warehouse"],
+};
+
+export function emptyModuleAccess(): ModuleAccessMap {
+  const out = {} as ModuleAccessMap;
+  for (const k of MODULE_ACCESS_KEYS) out[k] = "none";
+  return out;
+}
+
+export function normalizeAccessLevel(raw: unknown): AccessLevel {
+  const s = String(raw || "").trim().toLowerCase();
+  if (s === "read" || s === "r" || s === "view" || s === "viewer") return "read";
+  if (s === "write" || s === "rw" || s === "edit" || s === "editor" || s === "full") return "write";
+  return "none";
+}
+
+export function parseModuleAccess(raw: unknown): ModuleAccessMap {
+  const out = emptyModuleAccess();
+  if (!raw) return out;
+  let obj: Record<string, unknown> = {};
+  if (typeof raw === "string") {
+    try {
+      obj = JSON.parse(raw || "{}");
+    } catch (_e) {
+      return out;
+    }
+  } else if (typeof raw === "object") {
+    obj = raw as Record<string, unknown>;
+  } else {
+    return out;
+  }
+  for (const k of MODULE_ACCESS_KEYS) {
+    if (obj[k] != null) out[k] = normalizeAccessLevel(obj[k]);
+  }
+  return out;
+}
+
+function moduleAccessHasAny_(access: ModuleAccessMap): boolean {
+  return MODULE_ACCESS_KEYS.some((k) => access[k] !== "none");
+}
+
+export function moduleLevel(access: unknown, key: ModuleAccessKey): AccessLevel {
+  return parseModuleAccess(access)[key] || "none";
+}
+
+export function moduleAccessToJson(access: ModuleAccessMap): Record<string, AccessLevel> {
+  const a = parseModuleAccess(access);
+  const out: Record<string, AccessLevel> = {};
+  for (const k of MODULE_ACCESS_KEYS) {
+    if (a[k] !== "none") out[k] = a[k];
+  }
+  return out;
+}
+
+/** Build matrix from legacy role + dept + signer slots (for users not yet migrated). */
+export function synthesizeModuleAccessFromLegacy(
+  role: unknown,
+  dept: unknown,
+  warehouseSigSections: unknown,
+): ModuleAccessMap {
+  const a = emptyModuleAccess();
+  const r = normalizeRole(role);
+  const d = normalizeDeptField(dept);
+  const sections = parseWarehouseSigSections(warehouseSigSections, role);
+  const writeLevel: AccessLevel = (r === "viewer") ? "read" : "write";
+
+  const grantDeptToken = (token: string, level: AccessLevel) => {
+    const t = token.trim().toLowerCase();
+    if (!t) return;
+    if (t === "all") {
+      for (const k of MODULE_ACCESS_KEYS) {
+        if (k === "admin") continue;
+        if (a[k] === "none") a[k] = level;
+      }
+      return;
+    }
+    if (t === "cleaning") a.cleaning = level;
+    else if (t === "civil department") a.civil_department = level;
+    else if (t === "civil issue") a.civil_issue = level;
+    else if (t === "electrical department" || t === "electrical") a.electrical_department = level;
+    else if (t === "electric issue") a.electric_issue = level;
+    else if (t === "hse") a.hse = level;
+    else if (t === "fire") a.fire = level;
+    else if (t === "asaas") a.asaas = level;
+    else if (t === "application") a.application = level;
+    else if (t === "warehouse") {
+      /* handled below for desk vs signer */
+    }
+  };
+
+  if (r === "admin") a.admin = "write";
+
+  if (d === "all") {
+    grantDeptToken("all", writeLevel);
+  } else if (d) {
+    for (const part of d.split(",")) grantDeptToken(part, writeLevel);
+  }
+
+  const deskByLegacy = (r === "admin" || r === "editor") && deptHasWarehouseAccess(d);
+  if (deskByLegacy) {
+    a.warehouse_desk = "write";
+    a.warehouse_assigned = "write";
+    a.warehouse_done = "write";
+    a.warehouse_invoices = "write";
+  } else if (r === "warehouse_receiver" || sections.length) {
+    a.warehouse_assigned = "write";
+    a.warehouse_done = "write";
+    const slots = sections.length ? sections : (["received"] as WarehouseSigSlot[]);
+    for (const s of slots) {
+      if (s === "auth") a.warehouse_sig_auth = "write";
+      if (s === "issued") a.warehouse_sig_issued = "write";
+      if (s === "received") a.warehouse_sig_received = "write";
+    }
+  }
+
+  if (r === "worker") {
+    if (deptListAllows(d, "civil issue") || d.includes("civil issue")) a.civil_issue = "write";
+    if (deptListAllows(d, "electric issue") || d.includes("electric issue")) a.electric_issue = "write";
+  }
+  if (r === "cleaning_supervisor") a.cleaning = "write";
+
+  return a;
+}
+
+export function resolveModuleAccessForUser(user: Record<string, unknown>): ModuleAccessMap {
+  const parsed = parseModuleAccess(user.module_access);
+  if (moduleAccessHasAny_(parsed)) return parsed;
+  return synthesizeModuleAccessFromLegacy(user.role, user.dept, user.warehouse_sig_sections);
+}
+
+function accessHasDeskWrite_(a: ModuleAccessMap): boolean {
+  return (
+    a.cleaning === "write" ||
+    a.civil_department === "write" ||
+    a.electrical_department === "write" ||
+    a.hse === "write" ||
+    a.fire === "write" ||
+    a.asaas === "write" ||
+    a.application === "write" ||
+    a.warehouse_desk === "write" ||
+    a.warehouse_invoices === "write"
+  );
+}
+
+function accessWorkerOnly_(a: ModuleAccessMap): boolean {
+  const mobile = a.civil_issue !== "none" || a.electric_issue !== "none";
+  if (!mobile) return false;
+  if (a.admin !== "none") return false;
+  if (accessHasDeskWrite_(a)) return false;
+  if (a.warehouse_assigned !== "none" || a.warehouse_done !== "none") return false;
+  if (a.warehouse_sig_auth !== "none" || a.warehouse_sig_issued !== "none" || a.warehouse_sig_received !== "none") {
+    return false;
+  }
+  // Allow read-only desks? treat as not worker-only
+  const deskRead =
+    a.cleaning !== "none" || a.civil_department !== "none" || a.electrical_department !== "none" ||
+    a.hse !== "none" || a.fire !== "none" || a.asaas !== "none" || a.application !== "none" ||
+    a.warehouse_desk !== "none" || a.warehouse_invoices !== "none";
+  return !deskRead;
+}
+
+export function deriveAccountFromModuleAccess(
+  accessRaw: unknown,
+  opts?: { hide?: unknown },
+): {
+  role: string;
+  dept: string;
+  warehouseSigSections: WarehouseSigSlot[];
+  moduleAccess: ModuleAccessMap;
+  perms: Record<string, boolean>;
+} {
+  const a = parseModuleAccess(accessRaw);
+  const depts = new Set<string>();
+  for (const k of MODULE_ACCESS_KEYS) {
+    if (a[k] === "none") continue;
+    for (const d of MODULE_DEPTS[k]) depts.add(d);
+  }
+  let dept = [...depts].join(",");
+
+  const sections: WarehouseSigSlot[] = [];
+  if (a.warehouse_desk === "write") {
+    // Full desk — not an assigned-only signer.
+  } else {
+    if (a.warehouse_sig_auth !== "none") sections.push("auth");
+    if (a.warehouse_sig_issued !== "none") sections.push("issued");
+    if (a.warehouse_sig_received !== "none") sections.push("received");
+  }
+
+  const anyWrite = MODULE_ACCESS_KEYS.some((k) => a[k] === "write");
+  const anyAccess = MODULE_ACCESS_KEYS.some((k) => a[k] !== "none");
+
+  let role = "viewer";
+  if (a.admin === "write") role = "admin";
+  else if (accessWorkerOnly_(a)) role = "worker";
+  else if (
+    a.cleaning === "write" &&
+    !accessHasDeskWrite_(Object.assign(emptyModuleAccess(), a, { cleaning: "none" })) &&
+    a.civil_issue === "none" &&
+    a.electric_issue === "none" &&
+    a.warehouse_desk === "none" &&
+    a.warehouse_assigned === "none"
+  ) {
+    role = "cleaning_supervisor";
+  } else if (
+    a.warehouse_desk === "none" &&
+    (a.warehouse_assigned !== "none" || a.warehouse_done !== "none" || sections.length) &&
+    !accessHasDeskWrite_(a) &&
+    a.civil_issue === "none" &&
+    a.electric_issue === "none"
+  ) {
+    role = "warehouse_receiver";
+  } else if (anyWrite) role = "editor";
+  else if (anyAccess) role = "viewer";
+  else role = "editor";
+
+  const signer = sections.length > 0 ||
+    (role === "warehouse_receiver") ||
+    (a.warehouse_desk === "none" && (a.warehouse_assigned !== "none" || a.warehouse_done !== "none"));
+  dept = ensureWarehouseInDept(dept, signer && a.warehouse_desk !== "write");
+
+  const rp = computePerms(role, opts?.hide);
+  if (anyAccess && !anyWrite && role !== "admin") {
+    Object.assign(rp.perms, basePermsForRole("viewer"));
+  }
+  return {
+    role,
+    dept,
+    warehouseSigSections: sections.length
+      ? sections
+      : (role === "warehouse_receiver" ? ["received"] as WarehouseSigSlot[] : []),
+    moduleAccess: a,
+    perms: rp.perms,
+  };
 }
 
 export function warehouseSigSectionsCsv(sections: string[]): string {

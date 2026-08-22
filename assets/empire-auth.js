@@ -9,6 +9,8 @@ var EMPIRE_AUTH_KEYS = {
   projects: 'empire_projects',
   trade: 'empire_trade',
   electricalHide: 'empire_electrical_hide',
+  warehouseSigSections: 'empire_warehouse_sig_sections',
+  moduleAccess: 'empire_module_access',
   loggedIn: 'empire_loggedIn'
 };
 
@@ -86,7 +88,33 @@ function empireGetWarehouseSigSections() {
   }
 }
 
+function empireGetModuleAccess() {
+  empireMigrateSession();
+  try {
+    var o = JSON.parse(empireAuthLs('moduleAccess') || '{}');
+    return o && typeof o === 'object' ? o : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function empireModuleLevel(key) {
+  var v = String(empireGetModuleAccess()[key] || 'none').trim().toLowerCase();
+  if (v === 'read' || v === 'write') return v;
+  return 'none';
+}
+
 function empireIsWarehouseSigner() {
+  if (empireModuleLevel('warehouse_desk') === 'write') return false;
+  if (
+    empireModuleLevel('warehouse_assigned') !== 'none' ||
+    empireModuleLevel('warehouse_done') !== 'none' ||
+    empireModuleLevel('warehouse_sig_auth') !== 'none' ||
+    empireModuleLevel('warehouse_sig_issued') !== 'none' ||
+    empireModuleLevel('warehouse_sig_received') !== 'none'
+  ) {
+    return true;
+  }
   var role = String(empireGetRole() || '').toLowerCase().replace(/[\s-]+/g, '_');
   if (role === 'warehouse_receiver' || role === 'receiver') return true;
   // Editor/Admin with warehouse (or all) in Department = full GIN desk.
@@ -226,6 +254,11 @@ function empireSetSession(username, data) {
     whSig.split(/[,+|/\s]+/).map(function (s) { return s.trim(); }).filter(Boolean)
   ));
   else empireAuthSet('warehouseSigSections', '[]');
+  if (data.moduleAccess && typeof data.moduleAccess === 'object') {
+    empireAuthSet('moduleAccess', JSON.stringify(data.moduleAccess));
+  } else {
+    empireAuthSet('moduleAccess', '{}');
+  }
 }
 
 function empireClearLegacyKeys() {
@@ -268,9 +301,11 @@ function empireIsAdminSession() {
   return empireGetToken() && empireNormDept(empireGetTokenDept()) === 'all';
 }
 
-/** True when the signed-in account has role admin (user management / Admin section). */
+/** True when the signed-in account can manage users (Admin module Write or role admin). */
 function empireIsAdminRole() {
-  return !!empireGetToken() && String(empireGetRole() || '').toLowerCase() === 'admin';
+  if (!empireGetToken()) return false;
+  if (empireModuleLevel('admin') === 'write') return true;
+  return String(empireGetRole() || '').toLowerCase() === 'admin';
 }
 
 function empireIsMultiDeptSession() {
@@ -621,6 +656,9 @@ function empireAuthRefreshPerms(onUpdate) {
             'warehouseSigSections',
             JSON.stringify(Array.isArray(d.warehouseSigSections) ? d.warehouseSigSections : [])
           );
+        }
+        if (d.moduleAccess && typeof d.moduleAccess === 'object') {
+          empireAuthSet('moduleAccess', JSON.stringify(d.moduleAccess));
         }
         if (typeof onUpdate === 'function') onUpdate(d);
       } else if (empireAuthHandleInvalidSession_(d)) {
