@@ -755,7 +755,33 @@ html[data-theme="dark"] .wh-inv-sp-table td {
 }
 .wh-inv-meta .wh-inv-select {
   cursor: pointer;
-  appearance: auto;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid #b8b8b8;
+  border-radius: 999px;
+  background: #f7f7f7 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23555' d='M1 1l5 5 5-5'/%3E%3C/svg%3E") no-repeat right 12px center;
+  background-size: 10px 7px;
+  padding: 6px 28px 6px 14px;
+  text-align: center;
+  text-align-last: center;
+  max-width: 9.5em;
+  margin: 0 auto;
+  display: block;
+}
+.wh-inv-meta .wh-inv-select:focus {
+  outline: none;
+  border-color: var(--accent2, #8d015d);
+  background-color: #fff;
+  box-shadow: 0 0 0 2px rgba(141, 1, 93, 0.15);
+}
+html[data-theme="dark"] .wh-inv-meta .wh-inv-select {
+  background-color: #252933;
+  border-color: #8a9099;
+  color: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23c8cdd5' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 10px 7px;
 }
 .wh-inv-fields {
   display: flex;
