@@ -2077,6 +2077,11 @@ function closeIssueWaSharePanel(){
   var el=document.getElementById('issueWaSharePanel');
   if(el) el.hidden=true;
 }
+function finishIssueWhatsAppSelection_(){
+  issueSelectMode=false;
+  selectedIssueIds={};
+  try{ if(typeof refreshAllIssueTabs==='function') refreshAllIssueTabs(); else renderIssues(); }catch(e){}
+}
 function renderIssueWaSharePanel_(){
   var q=_waShareQueue;
   var el=issueWaSharePanelEl_();
@@ -2112,6 +2117,8 @@ function openIssueWaSharePaste_(){
   if(!_waShareQueue) return;
   var n=_waShareQueue.ids.length;
   var dept=ISSUE_SHARE_DEPT||'issue';
+  finishIssueWhatsAppSelection_();
+  closeIssueWaSharePanel();
   openWhatsAppShare_('Empire World — '+n+' '+dept+(n===1?'':'s')+'\n\nPaste the copied list here (Ctrl+V), then send.', false);
 }
 function copyIssueWaShareAll_(){
@@ -2126,6 +2133,11 @@ function sendIssueWaSharePart_(index){
   if(!_waShareQueue||!_waShareQueue.chunks[index]) return;
   openWhatsAppShare_(_waShareQueue.chunks[index].text, false);
   if(index>=_waShareQueue.index) _waShareQueue.index=index+1;
+  finishIssueWhatsAppSelection_();
+  if(_waShareQueue.index>=_waShareQueue.chunks.length){
+    closeIssueWaSharePanel();
+    return;
+  }
   renderIssueWaSharePanel_();
 }
 function shareIssueWhatsApp(id){
@@ -2141,8 +2153,9 @@ function shareSelectedWhatsApp(){
   var chunks=buildIssuesShareChunks_(ids);
   if(!chunks.length) return;
   markIssuesWhatsAppSent(ids);
-  try{ if(typeof refreshAllIssueTabs==='function') refreshAllIssueTabs(); else renderIssues(); }catch(e){}
+  finishIssueWhatsAppSelection_();
   if(chunks.length===1){
+    closeIssueWaSharePanel();
     openWhatsAppShare_(chunks[0].text);
     return;
   }
