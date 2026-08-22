@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-20-wh-signer">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-22-wh-inv-sp-month">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-22-wh-inv-search">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -446,10 +446,22 @@
         <div class="wh-app wh-saved-app">
           <div class="form-section">
             <h2>Warehouse Invoices</h2>
-            <p class="wh-tab-help">Saved receipt vouchers. Each invoice is one row. No SP → item description is <strong>Work Wages</strong>. View only — cannot edit after save.</p>
-            <div class="wh-toolbar no-print" style="margin-bottom:12px;">
+            <p class="wh-tab-help">Saved receipt vouchers. Each invoice is one row. No SP → item description is <strong>Work Wages</strong>. View only — cannot edit after save. Billing month: <strong>26th – 25th</strong>.</p>
+            <div class="wh-toolbar no-print" style="margin-bottom:12px;gap:8px;flex-wrap:wrap;align-items:center;">
+              <label for="whInvListMonth" style="font-size:13px;font-weight:600;margin:0;">Month</label>
+              <input type="month" id="whInvListMonth" class="wh-inv-month" onchange="whInvListOnMonthChange()">
+              <button type="button" class="wh-sp-filter" onclick="whInvListClearMonth()">All months</button>
+              <span class="wh-inv-month-hint">26th – 25th</span>
+              <span class="wh-spacer"></span>
+              <button type="button" id="whInvListFilterAll" class="wh-sp-filter active" onclick="whInvListSetDept('')">All depts</button>
+              <button type="button" id="whInvListFilterCAI" class="wh-sp-filter" onclick="whInvListSetDept('CAI')">CAI</button>
+              <button type="button" id="whInvListFilterMEP" class="wh-sp-filter" onclick="whInvListSetDept('MEP')">MEP</button>
+              <button type="button" id="whInvListFilterAC" class="wh-sp-filter" onclick="whInvListSetDept('AC')">AC</button>
+              <button type="button" id="whInvListFilterMDM" class="wh-sp-filter" onclick="whInvListSetDept('MDM')">MDM</button>
+              <input type="search" id="whInvListSearch" class="wh-inv-search" placeholder="Search SP, desc, COM, RV, name, property…" oninput="whInvListOnSearch()" autocomplete="off">
               <button type="button" onclick="whInvLoadList(true)">Refresh</button>
             </div>
+            <p class="wh-sp-summary" id="whInvListSummary"></p>
             <div id="whInvList"><p class="wh-saved-empty">Loading…</p></div>
           </div>
         </div>
@@ -471,6 +483,7 @@
               <button type="button" id="whInvSpFilterMEP" class="wh-sp-filter" onclick="whInvSpUsageSetFilter('MEP')">MEP</button>
               <button type="button" id="whInvSpFilterAC" class="wh-sp-filter" onclick="whInvSpUsageSetFilter('AC')">AC</button>
               <button type="button" id="whInvSpFilterMDM" class="wh-sp-filter" onclick="whInvSpUsageSetFilter('MDM')">MDM</button>
+              <input type="search" id="whInvSpSearch" class="wh-inv-search" placeholder="Search SP, description, dept…" oninput="whInvSpUsageOnSearch()" autocomplete="off">
               <button type="button" onclick="whInvSpUsageRefresh(true)">Refresh</button>
             </div>
             <p class="wh-sp-summary" id="whInvSpUsageSummary"></p>
@@ -495,6 +508,7 @@
               <button type="button" id="whInvAmtFilterMEP" class="wh-sp-filter" onclick="whInvAmtSetFilter('MEP')">MEP</button>
               <button type="button" id="whInvAmtFilterAC" class="wh-sp-filter" onclick="whInvAmtSetFilter('AC')">AC</button>
               <button type="button" id="whInvAmtFilterMDM" class="wh-sp-filter" onclick="whInvAmtSetFilter('MDM')">MDM</button>
+              <input type="search" id="whInvAmtSearch" class="wh-inv-search" placeholder="Search RV, name, COM, property, kind…" oninput="whInvAmtOnSearch()" autocomplete="off">
               <button type="button" onclick="whInvAmtRefresh(true)">Refresh</button>
             </div>
             <p class="wh-sp-summary" id="whInvAmtSummary"></p>
@@ -538,7 +552,7 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-22-wh-inv-amount"></script>
+<script src="config.js?v=2026-08-22-wh-inv-search"></script>
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-20-wh-reset"></script>
@@ -3073,6 +3087,12 @@ function whInvLoadList(force){
 }
 var _whInvSpFilter='';
 var _whInvSpMonth='';
+var _whInvSpSearch='';
+function whInvSpUsageOnSearch(){
+  var el=document.getElementById('whInvSpSearch');
+  _whInvSpSearch=el ? String(el.value||'').trim().toLowerCase() : '';
+  whInvSpUsageRender_();
+}
 function whInvBillingMonth_(dateStr){
   var d=String(dateStr||'');
   if(!/^\d{4}-\d{2}-\d{2}/.test(d)) return '';
@@ -3181,17 +3201,24 @@ function whInvSpUsageRender_(){
   var monthEl=document.getElementById('whInvSpMonth');
   if(monthEl && _whInvSpMonth) monthEl.value=_whInvSpMonth;
   var rows=whInvSpUsageBuild_(_whInvSpFilter, _whInvSpMonth);
+  if(_whInvSpSearch){
+    rows=rows.filter(function(r){
+      var hay=(r.code+' '+r.desc+' '+r.dept+' '+r.qty+' '+r.invoices).toLowerCase();
+      return hay.indexOf(_whInvSpSearch)!==-1;
+    });
+  }
   var filterLabel=_whInvSpFilter ? ('Dept '+_whInvSpFilter) : 'All departments';
   var monthLabel=_whInvSpMonth ? (' · month '+_whInvSpMonth+' (26th–25th)') : ' · all months';
+  var searchLabel=_whInvSpSearch ? (' · search "'+_whInvSpSearch+'"') : '';
   var totalQty=0;
   rows.forEach(function(r){ totalQty += Number(r.qty)||0; });
   if(sum){
-    sum.textContent=filterLabel+monthLabel+' · '+rows.length+' SP line'+(rows.length===1?'':'s')
+    sum.textContent=filterLabel+monthLabel+searchLabel+' · '+rows.length+' SP line'+(rows.length===1?'':'s')
       +' · total qty '+(Math.round(totalQty*1000)/1000);
   }
   if(!rows.length){
     box.innerHTML=typeof empireEmptyHtml==='function'
-      ? empireEmptyHtml('No invoice SP usage yet', _whInvSpMonth ? 'No SP items in this billing month (26th–25th). Try All months or another month.' : 'Save invoices that include SP items to see totals here.')
+      ? empireEmptyHtml('No invoice SP usage yet', _whInvSpSearch ? 'No SP lines match your search.' : (_whInvSpMonth ? 'No SP items in this billing month (26th–25th). Try All months or another month.' : 'Save invoices that include SP items to see totals here.'))
       : '<p class="wh-saved-empty">No invoice SP usage yet.</p>';
     return;
   }
@@ -3214,6 +3241,12 @@ function whInvSpUsageRender_(){
 }
 var _whInvAmtFilter='';
 var _whInvAmtMonth='';
+var _whInvAmtSearch='';
+function whInvAmtOnSearch(){
+  var el=document.getElementById('whInvAmtSearch');
+  _whInvAmtSearch=el ? String(el.value||'').trim().toLowerCase() : '';
+  whInvAmtRender_();
+}
 function whInvParseMoney_(v){
   var s=String(v||'').replace(/,/g,'').replace(/[^\d.-]/g,'').trim();
   if(!s) return 0;
@@ -3332,18 +3365,25 @@ function whInvAmtRender_(){
   var monthEl=document.getElementById('whInvAmtMonth');
   if(monthEl && _whInvAmtMonth) monthEl.value=_whInvAmtMonth;
   var rows=whInvAmtRows_(_whInvAmtFilter, _whInvAmtMonth);
+  if(_whInvAmtSearch){
+    rows=rows.filter(function(r){
+      var hay=(r.invoiceNo+' '+r.date+' '+r.dept+' '+r.name+' '+r.company+' '+r.propertyCode+' '+r.kind+' '+r.amountUsd+' '+r.amountIqd+' '+r.num).toLowerCase();
+      return hay.indexOf(_whInvAmtSearch)!==-1;
+    });
+  }
   var deptRows=whInvAmtDeptSummary_(rows);
   var filterLabel=_whInvAmtFilter ? ('Dept '+_whInvAmtFilter) : 'All departments';
   var monthLabel=_whInvAmtMonth ? (' · month '+_whInvAmtMonth+' (26th–25th)') : ' · all months';
+  var searchLabel=_whInvAmtSearch ? (' · search "'+_whInvAmtSearch+'"') : '';
   var totalUsd=0, totalIqd=0;
   rows.forEach(function(r){ totalUsd+=Number(r.amountUsd)||0; totalIqd+=Number(r.amountIqd)||0; });
   if(sum){
-    sum.textContent=filterLabel+monthLabel+' · '+rows.length+' invoice'+(rows.length===1?'':'s')
+    sum.textContent=filterLabel+monthLabel+searchLabel+' · '+rows.length+' invoice'+(rows.length===1?'':'s')
       +' · USD '+whInvFmtMoney_(totalUsd)+' · IQD '+whInvFmtMoney_(totalIqd);
   }
   if(!rows.length){
     box.innerHTML=typeof empireEmptyHtml==='function'
-      ? empireEmptyHtml('No invoice amounts yet', _whInvAmtMonth ? 'No invoices in this billing month (26th–25th). Try All months or another month.' : 'Save invoices to see amounts here.')
+      ? empireEmptyHtml('No invoice amounts yet', _whInvAmtSearch ? 'No invoices match your search.' : (_whInvAmtMonth ? 'No invoices in this billing month (26th–25th). Try All months or another month.' : 'Save invoices to see amounts here.'))
       : '<p class="wh-saved-empty">No invoice amounts yet.</p>';
     return;
   }
@@ -3438,20 +3478,83 @@ function whInvSheetRows_(items){
   });
   return rows;
 }
+var _whInvListDept='';
+var _whInvListMonth='';
+var _whInvListSearch='';
+function whInvListEnsureMonth_(){
+  var el=document.getElementById('whInvListMonth');
+  if(!el) return;
+  if(!_whInvListMonth) _whInvListMonth=whInvCurrentBillingMonth_();
+  if(el.value!==_whInvListMonth) el.value=_whInvListMonth;
+}
+function whInvListOnMonthChange(){
+  var el=document.getElementById('whInvListMonth');
+  _whInvListMonth=el ? String(el.value||'') : '';
+  whInvRenderList_(_whInvCache);
+}
+function whInvListClearMonth(){
+  _whInvListMonth='';
+  var el=document.getElementById('whInvListMonth');
+  if(el) el.value='';
+  whInvRenderList_(_whInvCache);
+}
+function whInvListSetDept(dept){
+  _whInvListDept=String(dept||'').toUpperCase();
+  ['','CAI','MEP','AC','MDM'].forEach(function(d){
+    var id=d ? ('whInvListFilter'+d) : 'whInvListFilterAll';
+    var btn=document.getElementById(id);
+    if(btn) btn.classList.toggle('active', (d||'')===_whInvListDept);
+  });
+  whInvRenderList_(_whInvCache);
+}
+function whInvListOnSearch(){
+  var el=document.getElementById('whInvListSearch');
+  _whInvListSearch=el ? String(el.value||'').trim().toLowerCase() : '';
+  whInvRenderList_(_whInvCache);
+}
 function whInvRenderList_(items){
   var box=document.getElementById('whInvList');
   if(!box) return;
   var badge=document.getElementById('whInvBadge');
+  var all=items||[];
   if(badge){
-    var n=(items||[]).length;
+    var n=all.length;
     badge.style.display=n ? '' : 'none';
     badge.textContent=String(n);
   }
-  var rows=whInvSheetRows_(items);
-  if(!rows.length){
+  whInvListEnsureMonth_();
+  var monthEl=document.getElementById('whInvListMonth');
+  if(monthEl && _whInvListMonth) monthEl.value=_whInvListMonth;
+  var rows=whInvSheetRows_(all);
+  if(_whInvListMonth){
+    rows=rows.filter(function(r){ return whInvBillingMonth_(r.date)===_whInvListMonth; });
+  }
+  if(_whInvListDept){
+    rows=rows.filter(function(r){ return String(r.department||'').toUpperCase()===_whInvListDept; });
+  }
+  if(_whInvListSearch){
+    rows=rows.filter(function(r){
+      var hay=(r.num+' '+r.sp+' '+r.desc+' '+r.company+' '+r.department+' '+r.qty+' '+r.amountUsd+' '+r.amountIqd+' '+r.invoiceNo+' '+r.date+' '+r.name+' '+r.propertyCode).toLowerCase();
+      return hay.indexOf(_whInvListSearch)!==-1;
+    });
+  }
+  var sum=document.getElementById('whInvListSummary');
+  if(sum){
+    var filterLabel=_whInvListDept ? ('Dept '+_whInvListDept) : 'All departments';
+    var monthLabel=_whInvListMonth ? (' · month '+_whInvListMonth+' (26th–25th)') : ' · all months';
+    var searchLabel=_whInvListSearch ? (' · search "'+_whInvListSearch+'"') : '';
+    sum.textContent=filterLabel+monthLabel+searchLabel+' · showing '+rows.length+' of '+all.length;
+  }
+  if(!all.length){
     box.innerHTML=typeof empireEmptyHtml==='function'
       ? empireEmptyHtml('No warehouse invoices yet', 'Save a New Invoice to see it here.')
       : '<p class="wh-saved-empty">No warehouse invoices yet.</p>';
+    return;
+  }
+  if(!rows.length){
+    box.innerHTML=typeof empireEmptyHtml==='function'
+      ? empireEmptyHtml('No matching invoices', 'Try another month, department, or search.')
+      : '<p class="wh-saved-empty">No matching invoices.</p>';
     return;
   }
   var h='<div class="wh-saved-table-wrap"><table class="wh-saved-table wh-inv-sheet"><thead><tr>'

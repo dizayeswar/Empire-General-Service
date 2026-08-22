@@ -950,6 +950,24 @@ html[data-theme="dark"] .wh-inv-no .wh-cell-input {
   color: var(--text-soft, #666);
   white-space: nowrap;
 }
+.wh-inv-search {
+  flex: 1 1 220px;
+  min-width: 180px;
+  max-width: 360px;
+  border: 1px solid var(--card-border, #ccc);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font: inherit;
+  font-size: 13px;
+  background: var(--panel, #fff);
+  color: inherit;
+  box-sizing: border-box;
+}
+.wh-inv-search:focus {
+  outline: none;
+  border-color: var(--accent2, #8d015d);
+  box-shadow: 0 0 0 2px rgba(141, 1, 93, 0.14);
+}
 
 .wh-lines col.c-num { width: 4.8%; }
 .wh-lines col.c-code { width: 16.2%; }
