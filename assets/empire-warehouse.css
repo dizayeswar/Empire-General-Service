@@ -214,10 +214,15 @@ html[data-theme="dark"] .wh-sp-summary {
   color: #cfe0ff;
 }
 body.wh-receiver-mode #tab-wh-note,
-body.wh-receiver-mode #tab-wh-saved,
-body.wh-receiver-mode #tab-wh-spusage,
-body.wh-receiver-mode #tab-wh-sigs {
+body.wh-receiver-mode #tab-wh-saved {
   display: none !important;
+}
+/* Signers keep: Assigned, Done, SP Usage, Signatures */
+body.wh-receiver-mode #tab-wh-spusage,
+body.wh-receiver-mode #tab-wh-sigs,
+body.wh-receiver-mode #tab-wh-done,
+body.wh-receiver-mode #tab-wh-closed {
+  display: flex !important;
 }
 body.wh-receiver-mode .wh-toolbar button[onclick="whStartNew()"],
 body.wh-receiver-mode .wh-toolbar button[onclick="whClearForm()"],
