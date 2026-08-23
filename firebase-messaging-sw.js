@@ -1,5 +1,5 @@
 /* Empire EGS — service worker (cache + Firebase background push) */
-var CACHE_VERSION = '2026-08-19-wh-assign';
+var CACHE_VERSION = '2026-08-23-ups-hub';
 var CACHE_NAME = 'empire-egs-' + CACHE_VERSION;
 var NOTIFY_ICON = 'https://dizayeswar.github.io/Empire-General-Service/icons/icon-192.png';
 var NOTIFY_BASE = 'https://dizayeswar.github.io/Empire-General-Service/civil-issue.html';
@@ -53,6 +53,7 @@ var PRECACHE = [
   './admin.html',
   './admin-users.html',
   './asaas.html',
+  './ups.html',
   './config.js',
   './manifest.webmanifest',
   './logo.png',
@@ -82,7 +83,10 @@ var PRECACHE = [
   './assets/empire-worker-field-report.js',
   './assets/empire-worker-i18n.js',
   './assets/cleaning-mobile-app.js',
-  './assets/cleaning-mobile-i18n.js'
+  './assets/cleaning-mobile-i18n.js',
+  './assets/empire-ups.css',
+  './assets/empire-ups-app.js',
+  './assets/ups-seed.json'
 ];
 
 self.addEventListener('notificationclick', function (event) {

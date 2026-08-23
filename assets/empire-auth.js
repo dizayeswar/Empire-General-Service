@@ -219,9 +219,34 @@ function empireCanAccessDept(requiredDept) {
   if (!required.length) return false;
   var list = empireParseDeptList(empireGetTokenDept());
   if (list.indexOf('all') !== -1) return true;
+  var moduleKeysByDept = {
+    cleaning: ['cleaning'],
+    'civil department': ['civil_department'],
+    'civil issue': ['civil_issue'],
+    'electrical department': ['electrical_department'],
+    'electric issue': ['electric_issue'],
+    hse: ['hse'],
+    fire: ['fire'],
+    asaas: ['asaas'],
+    application: ['application'],
+    ups: ['ups'],
+    warehouse: [
+      'warehouse_desk', 'warehouse_assigned', 'warehouse_done', 'warehouse_invoices',
+      'warehouse_sig_auth', 'warehouse_sig_issued', 'warehouse_sig_received'
+    ]
+  };
+  function moduleAllowsDeptToken(token) {
+    var keys = moduleKeysByDept[token];
+    if (!keys || !keys.length) return false;
+    for (var j = 0; j < keys.length; j++) {
+      if (empireModuleLevel(keys[j]) !== 'none') return true;
+    }
+    return false;
+  }
   for (var i = 0; i < required.length; i++) {
     var r = required[i];
     if (list.indexOf(r) !== -1) return true;
+    if (moduleAllowsDeptToken(r)) return true;
     if (r === 'electrical department' && list.indexOf('electric issue') !== -1) return true;
     if (r === 'electric issue' && list.indexOf('electrical department') !== -1) return true;
     if (r === 'civil department' && list.indexOf('civil issue') !== -1) return true;

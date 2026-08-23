@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://script.google.com">
     <link rel="preconnect" href="https://api.imgbb.com">
     <title>Empire General Service — Login</title>
-    <link rel="stylesheet" href="assets/empire-hub.css?v=2026-08-19-wh-assign">
+    <link rel="stylesheet" href="assets/empire-hub.css?v=2026-08-23-ups-hub">
 </head>
 <body class="login-landing">
     <div class="topbar">
@@ -64,12 +64,12 @@
         <footer>Prepared by <strong>Swar Dizayee</strong></footer>
     </div>
 
-    <script src="config.js?v=2026-08-19-wh-assign"></script>
-    <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
-    <script src="assets/empire-auth.js?v=2026-08-19-wh-assign"></script>
-    <script src="assets/empire-core.js?v=2026-08-19-wh-assign"></script>
-    <script src="assets/empire-sw-update.js?v=2026-08-19-wh-assign"></script>
-    <script src="assets/empire-hub-stats.js?v=2026-08-19-wh-assign"></script>
+    <script src="config.js?v=2026-08-23-ups-hub"></script>
+    <script src="assets/empire-api.js?v=2026-08-23-ups-hub"></script>
+    <script src="assets/empire-auth.js?v=2026-08-23-ups-hub"></script>
+    <script src="assets/empire-core.js?v=2026-08-23-ups-hub"></script>
+    <script src="assets/empire-sw-update.js?v=2026-08-23-ups-hub"></script>
+    <script src="assets/empire-hub-stats.js?v=2026-08-23-ups-hub"></script>
     <script>
         const categories = [
             { icon:'🧹', name:'Cleaning Department', desc:'Daily reports, issues found on rounds & more.', link:'cleaning.html', active:true, accessDept:'cleaning', expandable:true },
@@ -267,7 +267,12 @@
         }
 
         function applyHubSummary(summary) {
-            applyHubTileStats('#grid .tile[data-dept]:not(.tile-expandable)', summary || {});
+            summary = summary || {};
+            var mapped = Object.assign({}, summary);
+            if (summary.civilIssue) mapped['civil department,civil issue'] = summary.civilIssue;
+            if (summary.electricIssue) mapped['electrical department,electric issue'] = summary.electricIssue;
+            if (summary.ups) mapped.ups = summary.ups;
+            applyHubTileStats('#grid .tile[data-dept]:not(.tile-expandable)', mapped);
             var cleaning = summary && summary.cleaning;
             if (!cleaning) return;
             applyHubTileStats('#hubCleaningTile', { cleaning: cleaning });
