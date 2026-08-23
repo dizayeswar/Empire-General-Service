@@ -303,6 +303,125 @@ export async function handleClearApplicationChecks(body: Record<string, unknown>
   return { ok: true, success: true };
 }
 
+function upsRowToApi(r: Record<string, unknown>) {
+  return {
+    id: r.id,
+    group: r.ups_group,
+    no: Number(r.no || 0) || 0,
+    apartment: r.apartment,
+    floor: r.floor,
+    room: r.room,
+    kks: r.kks,
+    brand: r.brand,
+    capacity: r.capacity,
+    upsStatus: r.ups_status,
+    batteryStatus: r.battery_status,
+    roomClean: r.room_clean,
+    acStatus: r.ac_status,
+    alarmFault: r.alarm_fault,
+    updatedAt: dtIssue(r.updated_at),
+    updatedBy: r.updated_by,
+  };
+}
+
+function upsRowFromBody(it: Record<string, unknown>, auth: AuthOk) {
+  return {
+    id: String(it.id || "").trim(),
+    ups_group: String(it.group || it.ups_group || "").trim().toLowerCase(),
+    no: Number(it.no || 0) || 0,
+    apartment: String(it.apartment || "").trim(),
+    floor: String(it.floor || "").trim(),
+    room: String(it.room || "").trim(),
+    kks: String(it.kks || "").trim(),
+    brand: String(it.brand || "").trim(),
+    capacity: String(it.capacity || "").trim(),
+    ups_status: String(it.upsStatus ?? it.ups_status ?? "").trim(),
+    battery_status: String(it.batteryStatus ?? it.battery_status ?? "").trim(),
+    room_clean: String(it.roomClean ?? it.room_clean ?? "").trim(),
+    ac_status: String(it.acStatus ?? it.ac_status ?? "").trim(),
+    alarm_fault: String(it.alarmFault ?? it.alarm_fault ?? "").trim(),
+    updated_at: isoNow(),
+    updated_by: auth.username,
+  };
+}
+
+export async function handleGetUpsChecks(body: Record<string, unknown>) {
+  const data = await selectAllRows<Record<string, unknown>>("ups_checks", {
+    filter: (q) => {
+      if (body.group) q = q.eq("ups_group", String(body.group).trim().toLowerCase());
+      return q;
+    },
+  });
+  return data
+    .map(upsRowToApi)
+    .sort((a, b) => {
+      const ga = String(a.group || "");
+      const gb = String(b.group || "");
+      if (ga !== gb) return ga.localeCompare(gb);
+      return (Number(a.no) || 0) - (Number(b.no) || 0);
+    });
+}
+
+export async function handleUpdateUpsCheck(body: Record<string, unknown>, auth: AuthOk) {
+  const id = String(body.id || "").trim();
+  if (!id) return { ok: false, error: "missing_id" };
+  const { data: row } = await sb().from("ups_checks").select("*").eq("id", id).maybeSingle();
+  if (!row) return { ok: false, error: "not_found" };
+  const patch: Record<string, unknown> = {
+    updated_at: isoNow(),
+    updated_by: auth.username,
+  };
+  const setText = (key: string, col: string, val: unknown) => {
+    if (val == null) return;
+    patch[col] = String(val).trim();
+  };
+  setText("apartment", "apartment", body.apartment);
+  setText("floor", "floor", body.floor);
+  setText("room", "room", body.room);
+  setText("kks", "kks", body.kks);
+  setText("brand", "brand", body.brand);
+  setText("capacity", "capacity", body.capacity);
+  setText("upsStatus", "ups_status", body.upsStatus);
+  setText("batteryStatus", "battery_status", body.batteryStatus);
+  setText("roomClean", "room_clean", body.roomClean);
+  setText("acStatus", "ac_status", body.acStatus);
+  if (body.alarmFault != null) patch.alarm_fault = String(body.alarmFault || "").trim();
+  await sb().from("ups_checks").update(patch).eq("id", id);
+  const { data: next } = await sb().from("ups_checks").select("*").eq("id", id).maybeSingle();
+  return { ok: true, success: true, ...(next ? upsRowToApi(next) : { id }) };
+}
+
+export async function handleImportUpsChecks(body: Record<string, unknown>, auth: AuthOk) {
+  if (String(auth.role).toLowerCase() !== "admin") {
+    return { ok: false, success: false, error: "not_allowed" };
+  }
+  const items = (body.items || []) as Array<Record<string, unknown>>;
+  let inserted = 0;
+  let updated = 0;
+  let skipped = 0;
+  for (const it of items) {
+    const row = upsRowFromBody(it, auth);
+    if (!row.id) {
+      skipped++;
+      continue;
+    }
+    const { data: ex } = await sb().from("ups_checks").select("id").eq("id", row.id).maybeSingle();
+    await sb().from("ups_checks").upsert(row);
+    if (ex) updated++;
+    else inserted++;
+  }
+  return { ok: true, success: true, inserted, updated, skipped, processed: inserted + updated + skipped };
+}
+
+export async function handleClearUpsChecks(body: Record<string, unknown>, auth: AuthOk) {
+  if (String(auth.role).toLowerCase() !== "admin") {
+    return { ok: false, success: false, error: "not_allowed" };
+  }
+  const { count } = await sb().from("ups_checks").select("*", { count: "exact", head: true });
+  await sb().from("ups_checks").delete().gte("id", "");
+  return { ok: true, success: true, deleted: count || 0 };
+}
+
 export async function handleGetTrash(body: Record<string, unknown>) {
   const filter = body.sheets as string[] | null;
   const data = await selectAllRows("trash");
@@ -615,6 +734,10 @@ export async function handleGetSummary(body: Record<string, unknown>) {
   if (allow("application")) {
     const { count } = await sb().from("application_checks").select("*", { count: "exact", head: true });
     summary.application = { open: count || 0, level: "muted", label: (count || 0) + " properties", lastActivity: "" };
+  }
+  if (allow("ups")) {
+    const { count } = await sb().from("ups_checks").select("*", { count: "exact", head: true });
+    summary.ups = { open: count || 0, level: "muted", label: (count || 0) + " UPS units", lastActivity: "" };
   }
   return { ok: true, summary, generatedAt: isoNow() };
 }

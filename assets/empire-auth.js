@@ -288,7 +288,8 @@ var EMPIRE_DEPT_HOME = {
   'electrical department': 'electrical.html',
   warehouse: 'warehouse.html',
   asaas: 'asaas.html',
-  application: 'application.html'
+  application: 'application.html',
+  ups: 'ups.html'
 };
 
 var EMPIRE_LOGIN_PAGE = 'index.html';

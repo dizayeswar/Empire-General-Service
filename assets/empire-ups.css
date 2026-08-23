@@ -1,0 +1,89 @@
+.ups-tab-help {
+  color: var(--text-soft);
+  font-size: 13px;
+  margin: -6px 0 14px;
+  line-height: 1.45;
+}
+.ups-summary {
+  font-size: 13px;
+  color: var(--text-soft);
+  margin: 0 0 12px;
+}
+.ups-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.ups-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.ups-table th,
+.ups-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--card-border);
+  text-align: left;
+  vertical-align: top;
+}
+.ups-table th {
+  background: var(--card);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.ups-table tbody tr:hover {
+  background: rgba(141, 1, 93, 0.04);
+}
+.ups-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.ups-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.ups-badge-normal { background: #c8e6c9; color: #1b5e20; }
+.ups-badge-faulty { background: #ffcdd2; color: #b71c1c; }
+.ups-badge-good { background: #c8e6c9; color: #1b5e20; }
+.ups-badge-poor { background: #fff176; color: #6d4c00; }
+.ups-badge-unavailable { background: #e0e0e0; color: #424242; }
+.ups-badge-yes { background: #b3e5fc; color: #01579b; }
+.ups-badge-no { background: #ffe0b2; color: #e65100; }
+.ups-fault {
+  max-width: 220px;
+  color: var(--text-soft);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.ups-detail-modal {
+  max-width: 640px;
+}
+.ups-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+}
+.ups-detail-grid label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-soft);
+  margin-bottom: 4px;
+}
+.ups-detail-grid input,
+.ups-detail-grid select,
+.ups-detail-grid textarea {
+  width: 100%;
+}
+.ups-detail-grid .full {
+  grid-column: 1 / -1;
+}
+@media (max-width: 720px) {
+  .ups-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}

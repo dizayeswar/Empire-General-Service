@@ -289,6 +289,11 @@ Deno.serve(async (req) => {
       case "importApplicationChecks": return json(await misc.handleImportApplicationChecks(body, a));
       case "clearApplicationChecks": return json(await misc.handleClearApplicationChecks(body, a));
 
+      case "getUpsChecks": return json(await misc.handleGetUpsChecks(body));
+      case "updateUpsCheck": return json(await misc.handleUpdateUpsCheck(body, a));
+      case "importUpsChecks": return json(await misc.handleImportUpsChecks(body, a));
+      case "clearUpsChecks": return json(await misc.handleClearUpsChecks(body, a));
+
       case "getWarehouseGins": return json(await warehouse.handleGetWarehouseGins(body, a));
       case "saveWarehouseGin": return json(await warehouse.handleSaveWarehouseGin(body, a));
       case "deleteWarehouseGin": return json(await warehouse.handleDeleteWarehouseGin(body, a));

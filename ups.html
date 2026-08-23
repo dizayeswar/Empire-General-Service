@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-23-ups">
+<meta name="theme-color" content="#8d015d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="UPS Checklist">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="logo-light.png" type="image/png">
+<title>UPS Checklist — Empire World</title>
+<style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-23-ups">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-23-ups">
+<link rel="stylesheet" href="assets/empire-ups.css?v=2026-08-23-ups">
+</head>
+<body class="auth-login-visible">
+<div class="login-page show" id="loginPage">
+  <div class="login-box">
+    <button class="theme-btn login-theme" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span></button>
+    <img src="logo-light.png" alt="Empire World" style="height:44px;width:auto;display:block;margin:0 auto 16px;">
+    <a class="back" href="index.html">&larr; Back to hub</a>
+    <h1>UPS Checklist</h1>
+    <p style="text-align:center;color:var(--text-soft);font-size:14px;margin:-8px 0 16px;">UPS department — monthly inspection register</p>
+    <div class="login-message" id="loginMessage"></div>
+    <form class="login-form" onsubmit="upsHandleLogin_(event)">
+      <input type="text" id="loginUsername" placeholder="Username" required autocomplete="username">
+      <input type="password" id="loginPassword" placeholder="Password" required autocomplete="current-password">
+      <button type="submit">Login</button>
+    </form>
+  </div>
+</div>
+
+<div class="container" id="mainContainer">
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-top">
+        <img src="logo-light.png" alt="Empire World" class="sidebar-logo">
+        <button class="side-toggle" onclick="toggleSidebar()" id="sideToggleBtn" aria-label="Collapse sidebar">&#9776;</button>
+      </div>
+      <div class="side-title">
+        <h1>UPS Checklist</h1>
+        <p>Monthly inspection — Wing, Square, Diamond, Tower, Complex</p>
+      </div>
+      <p id="whoLabel"></p>
+      <nav class="side-nav">
+        <button class="tab-btn active" onclick="switchTab(event,'list')">
+          <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span>
+          <span class="lbl">Register</span>
+        </button>
+      </nav>
+      <div class="side-actions">
+        <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle theme"><span class="nav-icon theme-icon"></span> <span class="lbl">Theme</span></button>
+        <button onclick="upsLoad_(true)"><span class="nav-icon spin-icon" id="navRefreshIcon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> <span class="lbl">Refresh</span></button>
+        <button onclick="location.href='index.html'"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg></span> <span class="lbl">Hub</span></button>
+        <button onclick="upsResetSeed_()" style="color:#fff;background:#C5734F;border-color:#C5734F;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 5H3"/><path d="M7 12H3"/><path d="M7 19H3"/><path d="M12 18a5 5 0 0 0 9-3 4.5 4.5 0 0 0-4.5-4.5c-1.33 0-2.54.54-3.41 1.41L11 14"/><path d="M11 10v4h4"/></svg></span> <span class="lbl">Reset sample</span></button>
+        <button onclick="upsLogout_()" style="color:#fff;background:#C5504F;border-color:#C5504F;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg></span> <span class="lbl">Logout</span></button>
+      </div>
+    </aside>
+
+    <div class="main-area">
+      <div id="list" class="tab-content active">
+        <div class="form-section">
+          <h2>UPS monthly checklist</h2>
+          <p class="ups-tab-help">Track UPS units by property group — status, battery, room condition, and A.C. Based on the 2026 checklist spreadsheet. Sample data only for now (5 units).</p>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Group</label>
+              <select id="upsFilterGroup" onchange="upsRenderTable_()"></select>
+            </div>
+            <div class="form-group">
+              <label>Search</label>
+              <input type="text" id="upsFilterSearch" oninput="upsRenderTable_()" placeholder="apartment, KKS, brand, fault…">
+            </div>
+            <div class="form-group">
+              <label>&nbsp;</label>
+              <button type="button" onclick="upsLoad_(true)"><span class="nav-icon spin-icon" id="listRefreshIcon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> Refresh</button>
+            </div>
+          </div>
+          <p class="ups-summary" id="upsSummary"></p>
+          <div id="upsTableHost"><p>Loading…</p></div>
+        </div>
+      </div>
+      <footer>Prepared by <strong>Swar Dizayee</strong></footer>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="upsDetailModal" onclick="if(event.target===this)upsCloseDetail_()">
+  <div class="modal-box ups-detail-modal" onclick="event.stopPropagation()">
+    <div class="app-detail-head">
+      <h2 id="upsDetailTitle">UPS unit</h2>
+      <button type="button" class="app-detail-close" onclick="upsCloseDetail_()" aria-label="Close">&times;</button>
+    </div>
+    <div id="upsDetailBody"><p>Loading…</p></div>
+  </div>
+</div>
+
+<script src="config.js?v=2026-08-23-ups"></script>
+<script src="assets/empire-api.js?v=2026-08-23-ups"></script>
+<script src="assets/empire-auth.js?v=2026-08-23-ups"></script>
+<script src="assets/empire-core.js?v=2026-08-23-ups"></script>
+<script src="assets/empire-ups-app.js?v=2026-08-23-ups"></script>
+<script>
+function switchTab(ev, tab) {
+  document.querySelectorAll('.tab-content').forEach(function (el) { el.classList.remove('active'); });
+  document.querySelectorAll('.tab-btn').forEach(function (el) { el.classList.remove('active'); });
+  var pane = document.getElementById(tab);
+  if (pane) pane.classList.add('active');
+  if (ev && ev.currentTarget) ev.currentTarget.classList.add('active');
+}
+</script>
+</body>
+</html>
