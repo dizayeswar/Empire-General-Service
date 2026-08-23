@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-20-wh-signer">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-23-sp-signer">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-23-inv-e2">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -402,8 +402,7 @@
                   </td>
                   <td>
                     <div class="wh-combo" id="wh-inv-company-combo">
-                      <input id="wh-inv-company" class="wh-cell-input" type="text" value="" autocomplete="off" placeholder="Company" oninput="whInvFilterCompany(this)" onfocus="whInvFilterCompany(this)">
-                      <div class="wh-combo-list wh-inv-pill-list" id="wh-inv-company-list" hidden></div>
+                      <input id="wh-inv-company" class="wh-cell-input" type="text" value="E2" readonly autocomplete="off" title="Company is always E2">
                     </div>
                   </td>
                   <td>
@@ -552,7 +551,7 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-23-sp-recv"></script>
+<script src="config.js?v=2026-08-23-sp-signer"></script>
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-20-wh-reset"></script>
@@ -2894,6 +2893,12 @@ function whInvEnsureDefaults_(){
   }
   var cur=document.getElementById('wh-inv-currency');
   if(cur && !cur.value) cur.value='IQD';
+  var co=document.getElementById('wh-inv-company');
+  if(co){
+    if(!_whInvViewOnly) co.value='E2';
+    co.readOnly=true;
+    co.setAttribute('readonly','readonly');
+  }
   whInvSyncPillBtn_('currency');
   whInvSyncPillBtn_('dept');
   whInvSyncSpUi_();
@@ -2991,10 +2996,12 @@ function whInvPickSp(row, code){
 function whInvClear(){
   _whInvEditingId='';
   _whInvViewOnly=false;
-  ['wh-inv-date','wh-inv-number','wh-inv-amount','wh-inv-company','wh-inv-from','wh-inv-property'].forEach(function(id){
+  ['wh-inv-date','wh-inv-number','wh-inv-amount','wh-inv-from','wh-inv-property'].forEach(function(id){
     var el=document.getElementById(id);
     if(el) el.value='';
   });
+  var co=document.getElementById('wh-inv-company');
+  if(co) co.value='E2';
   var cur=document.getElementById('wh-inv-currency');
   if(cur) cur.value='IQD';
   var dept=document.getElementById('wh-inv-dept');
@@ -3033,7 +3040,7 @@ function whInvCollectPayload_(){
   return {
     invoiceNo: whVal('wh-inv-number'),
     date: whVal('wh-inv-date'),
-    company: whVal('wh-inv-company'),
+    company: 'E2',
     department: whVal('wh-inv-dept'),
     name: whVal('wh-inv-from'),
     propertyCode: whVal('wh-inv-property'),
@@ -3643,6 +3650,11 @@ function whInvApplyViewOnly_(){
     root.classList.toggle('wh-inv-view-only', !!_whInvViewOnly);
     root.querySelectorAll('input,select,textarea,button').forEach(function(el){
       if(el.closest('.wh-toolbar')) return;
+      if(el.id==='wh-inv-company'){
+        el.setAttribute('readonly','readonly');
+        if(!_whInvViewOnly) el.value='E2';
+        return;
+      }
       if(_whInvViewOnly){
         el.setAttribute('disabled','disabled');
         if(el.tagName==='INPUT' || el.tagName==='TEXTAREA') el.setAttribute('readonly','readonly');
