@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://script.google.com">
     <link rel="preconnect" href="https://api.imgbb.com">
     <title>Empire General Service — Login</title>
-    <link rel="stylesheet" href="assets/empire-hub.css?v=2026-08-23-ups-hub">
+    <link rel="stylesheet" href="assets/empire-hub.css?v=2026-08-23-ups-admin">
 </head>
 <body class="login-landing">
     <div class="topbar">
@@ -64,12 +64,12 @@
         <footer>Prepared by <strong>Swar Dizayee</strong></footer>
     </div>
 
-    <script src="config.js?v=2026-08-23-ups-hub"></script>
-    <script src="assets/empire-api.js?v=2026-08-23-ups-hub"></script>
-    <script src="assets/empire-auth.js?v=2026-08-23-ups-hub"></script>
-    <script src="assets/empire-core.js?v=2026-08-23-ups-hub"></script>
-    <script src="assets/empire-sw-update.js?v=2026-08-23-ups-hub"></script>
-    <script src="assets/empire-hub-stats.js?v=2026-08-23-ups-hub"></script>
+    <script src="config.js?v=2026-08-23-ups-admin"></script>
+    <script src="assets/empire-api.js?v=2026-08-23-ups-admin"></script>
+    <script src="assets/empire-auth.js?v=2026-08-23-ups-admin"></script>
+    <script src="assets/empire-core.js?v=2026-08-23-ups-admin"></script>
+    <script src="assets/empire-sw-update.js?v=2026-08-23-ups-admin"></script>
+    <script src="assets/empire-hub-stats.js?v=2026-08-23-ups-admin"></script>
     <script>
         const categories = [
             { icon:'🧹', name:'Cleaning Department', desc:'Daily reports, issues found on rounds & more.', link:'cleaning.html', active:true, accessDept:'cleaning', expandable:true },
@@ -204,6 +204,7 @@
 
         function canSeeHubTile(accessDept, tile) {
             if (tile && tile.adminOnly) return typeof empireIsAdminRole === 'function' && empireIsAdminRole();
+            if (typeof empireIsAdminRole === 'function' && empireIsAdminRole()) return true;
             if (empireIsAdminSession()) return true;
             if (empireCanAccessDept(accessDept)) return true;
             if (accessDept === 'cleaning') {

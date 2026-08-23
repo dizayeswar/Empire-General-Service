@@ -237,7 +237,11 @@ export async function verifyToken(
 ): Promise<AuthOk | AuthFail> {
   const sess = await verifyTokenSession(token);
   if (!sess.ok) return sess;
-  if (requiredDept && !tokenDeptAllows(sess.dept, requiredDept)) {
+  if (
+    requiredDept &&
+    !tokenDeptAllows(sess.dept, requiredDept) &&
+    normalizeRole(sess.role) !== "admin"
+  ) {
     return { ok: false, error: "This login is not allowed for this section" };
   }
   return sess;

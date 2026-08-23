@@ -345,8 +345,10 @@ export function deriveAccountFromModuleAccess(
   const anyAccess = MODULE_ACCESS_KEYS.some((k) => a[k] !== "none");
 
   let role = "viewer";
-  if (a.admin === "write") role = "admin";
-  else if (accessWorkerOnly_(a)) role = "worker";
+  if (a.admin === "write") {
+    role = "admin";
+    dept = "all";
+  } else if (accessWorkerOnly_(a)) role = "worker";
   else if (
     a.cleaning === "write" &&
     !accessHasDeskWrite_(Object.assign(emptyModuleAccess(), a, { cleaning: "none" })) &&
@@ -581,6 +583,7 @@ export function workerAlreadyCompleted(
   return (completions || []).some((c) => normalizeWorkerId(c.user) === u);
 }
 
-export function summaryAllowedForToken(tokenDept: string, section: string): boolean {
+export function summaryAllowedForToken(tokenDept: string, section: string, role?: unknown): boolean {
+  if (normalizeRole(role) === "admin") return true;
   return deptListAllows(tokenDept, section) || normalizeDeptField(tokenDept) === "all";
 }

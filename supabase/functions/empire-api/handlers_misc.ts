@@ -686,7 +686,7 @@ export async function handleGetSummary(body: Record<string, unknown>) {
   const sess = await verifyTokenSession(String(body.token || ""));
   if (!sess.ok) return sess;
   const summary: Record<string, unknown> = {};
-  const allow = (section: string) => summaryAllowedForToken(sess.dept, section);
+  const allow = (section: string) => summaryAllowedForToken(sess.dept, section, sess.role);
 
   if (allow("cleaning")) {
     const allowed = projectsForUser(await getUser(sess.username));

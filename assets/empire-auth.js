@@ -215,6 +215,7 @@ function empireParseDeptList(deptStr) {
 
 function empireCanAccessDept(requiredDept) {
   if (!empireGetToken() || !requiredDept) return false;
+  if (typeof empireIsAdminRole === 'function' && empireIsAdminRole()) return true;
   var required = empireParseDeptList(requiredDept);
   if (!required.length) return false;
   var list = empireParseDeptList(empireGetTokenDept());
