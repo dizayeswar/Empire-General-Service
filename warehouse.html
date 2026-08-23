@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-20-wh-signer">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-23-inv-e2">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-23-arrow-nav">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -551,7 +551,7 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-23-sp-signer"></script>
+<script src="config.js?v=2026-08-23-arrow-nav"></script>
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-20-wh-reset"></script>
@@ -2740,6 +2740,108 @@ function whBuildLines(){
     h+='</tr>';
   }
   body.innerHTML=h;
+  whBindLinesKeyboard_();
+}
+var WH_LINE_FIELDS_=['code','desc','qty','project','cc'];
+function whLinesFocusCell_(row, colIdx){
+  var fields=WH_LINE_FIELDS_;
+  while(colIdx<0){ colIdx+=fields.length; row-=1; }
+  while(colIdx>=fields.length){ colIdx-=fields.length; row+=1; }
+  if(row<1 || row>WH_LINE_COUNT) return false;
+  var el=document.getElementById('wh-'+fields[colIdx]+'-'+row);
+  if(!el || el.disabled) return false;
+  el.focus();
+  try{
+    var n=String(el.value||'').length;
+    if(typeof el.setSelectionRange==='function') el.setSelectionRange(0, n);
+    else el.select();
+  }catch(err){}
+  return true;
+}
+function whBindLinesKeyboard_(){
+  var table=document.getElementById('whLinesTable');
+  if(!table || table._whKeyNavBound) return;
+  table._whKeyNavBound=true;
+  table.addEventListener('keydown', function(e){
+    var key=e.key;
+    if(key!=='ArrowUp' && key!=='ArrowDown' && key!=='ArrowLeft' && key!=='ArrowRight') return;
+    if(_whFormLocked) return;
+    var t=e.target;
+    if(!t || t.tagName!=='INPUT' || !t.classList.contains('wh-cell-input')) return;
+    var id=String(t.id||'');
+    var m=id.match(/^wh-(code|desc|qty|project|cc)-(\d+)$/);
+    if(!m) return;
+    var field=m[1];
+    var row=parseInt(m[2],10);
+    var col=WH_LINE_FIELDS_.indexOf(field);
+    if(col<0 || !row) return;
+
+    // When SP suggestion list is open, Up/Down move through picks first.
+    if(field==='code' && (key==='ArrowUp' || key==='ArrowDown')){
+      var list=document.getElementById('wh-code-list-'+row);
+      if(list && !list.hidden){
+        var btns=list.querySelectorAll('button[data-wh-pick="sp"]:not([disabled])');
+        if(btns.length){
+          e.preventDefault();
+          var cur=-1;
+          for(var i=0;i<btns.length;i++){
+            if(btns[i].classList.contains('wh-combo-active')){ cur=i; break; }
+          }
+          var next=key==='ArrowDown' ? (cur<0 ? 0 : Math.min(btns.length-1, cur+1)) : (cur<0 ? btns.length-1 : Math.max(0, cur-1));
+          btns.forEach(function(b){ b.classList.remove('wh-combo-active'); });
+          btns[next].classList.add('wh-combo-active');
+          try{ btns[next].scrollIntoView({ block:'nearest' }); }catch(err){}
+          return;
+        }
+      }
+    }
+
+    var start=t.selectionStart;
+    var end=t.selectionEnd;
+    var len=String(t.value||'').length;
+    var hasRange=(start!=null && end!=null && start!==end);
+
+    if(key==='ArrowLeft'){
+      if(hasRange || (start!=null && start>0)) return;
+      e.preventDefault();
+      whCloseCombos();
+      whLinesFocusCell_(row, col-1);
+      return;
+    }
+    if(key==='ArrowRight'){
+      if(hasRange || (start!=null && start<len)) return;
+      e.preventDefault();
+      whCloseCombos();
+      whLinesFocusCell_(row, col+1);
+      return;
+    }
+    if(key==='ArrowUp'){
+      e.preventDefault();
+      whCloseCombos();
+      whLinesFocusCell_(row-1, col);
+      return;
+    }
+    if(key==='ArrowDown'){
+      e.preventDefault();
+      whCloseCombos();
+      whLinesFocusCell_(row+1, col);
+    }
+  });
+  // Enter on highlighted SP pick
+  table.addEventListener('keydown', function(e){
+    if(e.key!=='Enter') return;
+    var t=e.target;
+    if(!t || t.id.indexOf('wh-code-')!==0) return;
+    var row=parseInt(String(t.id).replace('wh-code-',''),10);
+    if(!row) return;
+    var list=document.getElementById('wh-code-list-'+row);
+    if(!list || list.hidden) return;
+    var active=list.querySelector('button.wh-combo-active[data-wh-pick="sp"]')
+      || list.querySelector('button[data-wh-pick="sp"]:not([disabled])');
+    if(!active) return;
+    e.preventDefault();
+    whPickSp(row, active.getAttribute('data-wh-code')||'');
+  }, true);
 }
 function whCloseCombos(){
   document.querySelectorAll('.wh-combo-list').forEach(function(el){

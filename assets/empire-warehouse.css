@@ -1003,7 +1003,11 @@ html[data-theme="dark"] tr.wh-inv-row-pending td {
   background: rgba(217, 119, 6, 0.16);
 }
 
-.wh-lines col.c-num { width: 4.8%; }
+.wh-combo-list button.wh-combo-active,
+.wh-combo-float-layer .wh-combo-list button.wh-combo-active {
+  background: rgba(141, 1, 93, 0.12);
+  outline: 2px solid var(--accent2, #8d015d);
+}
 .wh-lines col.c-code { width: 16.2%; }
 .wh-lines col.c-desc { width: 33.6%; }
 .wh-lines col.c-qty { width: 12.1%; }
