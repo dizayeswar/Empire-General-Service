@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-20-wh-signer">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-22-himdad-esig">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-23-sp-recv">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -288,7 +288,7 @@
         <div class="wh-app wh-saved-app">
           <div class="form-section">
             <h2>SP Usage</h2>
-            <p class="wh-tab-help">Totals from <strong>Done</strong> Goods Issue Notes only. Same item codes are summed (e.g. SP-0562 × 4 + SP-0562 × 4 = 8).</p>
+            <p class="wh-tab-help" id="whSpUsageHelp">Totals from <strong>Done</strong> Goods Issue Notes only. Same item codes are summed (e.g. SP-0562 × 4 + SP-0562 × 4 = 8).</p>
             <div class="wh-toolbar no-print" style="margin-bottom:12px;">
               <button type="button" id="whSpFilterBoth" class="wh-sp-filter active" onclick="whSpUsageSetFilter('both')">Both</button>
               <button type="button" id="whSpFilterInternal" class="wh-sp-filter" onclick="whSpUsageSetFilter('internal')">Internal only</button>
@@ -552,7 +552,7 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-22-himdad-esig"></script>
+<script src="config.js?v=2026-08-23-sp-recv"></script>
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-20-wh-reset"></script>
@@ -659,10 +659,13 @@ function whBindSettingsOutside_(){
 function whApplyReceiverShell_(){
   _whReceiverMode = whIsReceiverMode_();
   document.body.classList.toggle('wh-receiver-mode', _whReceiverMode);
-  ['tab-wh-note','tab-wh-saved','tab-wh-spusage'].forEach(function(id){
+  ['tab-wh-note','tab-wh-saved'].forEach(function(id){
     var b=document.getElementById(id);
     if(b) b.style.display = _whReceiverMode ? 'none' : '';
   });
+  // SP Usage stays under Done for receivers (and desk staff).
+  var spBtn=document.getElementById('tab-wh-spusage');
+  if(spBtn) spBtn.style.display = '';
   var invNav=document.getElementById('whInvoiceNav');
   if(invNav) invNav.style.display = _whReceiverMode ? 'none' : '';
   var sigsBtn=document.getElementById('tab-wh-sigs');
@@ -691,6 +694,12 @@ function whApplyReceiverShell_(){
       closedHelp.innerHTML = _whReceiverMode
       ? 'Notes you signed and marked Done. View and print only.'
       : 'Notes signers finished (signed + Done). View and print only — no editing.';
+  }
+  var spHelp=document.getElementById('whSpUsageHelp');
+  if(spHelp){
+    spHelp.innerHTML = _whReceiverMode
+      ? 'SP totals from notes <strong>assigned to you</strong> that are Done. Same item codes are summed.'
+      : 'Totals from <strong>Done</strong> Goods Issue Notes only. Same item codes are summed (e.g. SP-0562 × 4 + SP-0562 × 4 = 8).';
   }
   var trashBtn=document.getElementById('btnWhTrash');
   var resetBtn=document.getElementById('btnWhReset');
@@ -2007,8 +2016,13 @@ function whSpUsageRefresh(){
 function whSpUsageBuild_(filter){
   filter = (filter==='internal' || filter==='external') ? filter : 'both';
   var map={};
+  var me=String(typeof empireGetUser==='function' ? empireGetUser() : '').toLowerCase();
   (_whSavedCache||[]).forEach(function(it){
-    if(!it || !it.done) return;
+    if(!it || !whIsItemDone(it)) return;
+    // Receivers: only notes assigned to them (their Done / Assigned list).
+    if(_whReceiverMode){
+      if(String(it.assignedTo||'').toLowerCase()!==me) return;
+    }
     var t=whNormIssueType_(it.issueType || (it.payload && it.payload.issueType) || '');
     if(filter==='internal' && t!=='internal') return;
     if(filter==='external' && t!=='external') return;
@@ -2044,11 +2058,14 @@ function whRenderSpUsage_(){
   rows.forEach(function(r){ totalQty += Number(r.qty)||0; });
   if(sum){
     sum.textContent = filterLabel + ' · ' + rows.length + ' item code' + (rows.length===1?'':'s')
-      + ' · total qty ' + (Math.round(totalQty*1000)/1000);
+      + ' · total qty ' + (Math.round(totalQty*1000)/1000)
+      + (_whReceiverMode ? ' · your notes' : '');
   }
   if(!rows.length){
     box.innerHTML = typeof empireEmptyHtml==='function'
-      ? empireEmptyHtml('No SP usage yet', 'Mark Goods Issue Notes as Done to see summed item quantities here.')
+      ? empireEmptyHtml('No SP usage yet', _whReceiverMode
+        ? 'When notes assigned to you are Done, item quantities appear here.'
+        : 'Mark Goods Issue Notes as Done to see summed item quantities here.')
       : '<p class="wh-saved-empty">No SP usage yet from Done notes.</p>';
     return;
   }
