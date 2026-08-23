@@ -192,6 +192,7 @@ export async function handleGetPerms(body: Record<string, unknown>) {
   return {
     ok: true,
     role: derived.role,
+    dept: normalizeDeptField(derived.dept || user.dept),
     perms: derived.perms,
     electricalHide,
     electricalPerms,

@@ -142,8 +142,15 @@
                 ? 'Open any section below to manage operations. Click Cleaning Department to see its sections.'
                 : 'Open one of your assigned sections below. Click Cleaning Department to see its sections.';
             renderAuthBar();
-            renderGrid();
-            loadHubSummaryForIndex();
+            function drawHub() {
+              renderGrid();
+              loadHubSummaryForIndex();
+            }
+            if (typeof empireAuthRefreshPerms === 'function') {
+              empireAuthRefreshPerms(drawHub);
+            } else {
+              drawHub();
+            }
         }
 
         function showLoginOnly() {

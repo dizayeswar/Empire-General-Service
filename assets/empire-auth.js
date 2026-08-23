@@ -675,6 +675,7 @@ function empireAuthRefreshPerms(onUpdate) {
       if (d && d.ok && d.perms) {
         empireAuthSet('perms', JSON.stringify(d.perms));
         if (d.role) empireAuthSet('role', d.role);
+        if (d.dept) empireAuthSet('tokenDept', String(d.dept).trim().toLowerCase());
         if (d.projects) empireAuthSet('projects', JSON.stringify(d.projects));
         if (d.trade) empireAuthSet('trade', String(d.trade).trim().toLowerCase());
         if (d.electricalHide != null) empireAuthSet('electricalHide', String(d.electricalHide || '').trim());
