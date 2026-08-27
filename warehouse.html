@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-20-wh-signer">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-27-done-copy">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-27-range-copy">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -2173,6 +2173,7 @@ function whFindSaved(id){
 }
 function whSetFormLocked(locked){
   _whFormLocked=!!locked;
+  if(!_whFormLocked && !_whReceiverMode) whLinesSelClear_();
   var root=document.getElementById('whPrintRoot');
   if(root) root.classList.toggle('wh-form-locked', _whFormLocked);
   var banner=document.getElementById('whDoneBanner');
@@ -2753,8 +2754,137 @@ function whBuildLines(){
   }
   body.innerHTML=h;
   whBindLinesKeyboard_();
+  whBindLinesRangeSelect_();
 }
 var WH_LINE_FIELDS_=['code','desc','qty','project','cc'];
+var _whLineSel=null; // {r0,c0,r1,c1} col indexes into WH_LINE_FIELDS_
+var _whLineSelDragging=false;
+function whLinesCellFromEvent_(e){
+  var t=e && e.target;
+  if(!t || !t.closest) return null;
+  var td=t.closest('#whLinesTable td');
+  if(!td || td.classList.contains('num')) return null;
+  var tr=td.parentElement;
+  if(!tr) return null;
+  var row=parseInt(tr.getAttribute('data-row')||'',10);
+  if(!row) return null;
+  var input=td.querySelector('input.wh-cell-input');
+  if(!input || !input.id) return null;
+  var m=String(input.id).match(/^wh-(code|desc|qty|project|cc)-(\d+)$/);
+  if(!m) return null;
+  var col=WH_LINE_FIELDS_.indexOf(m[1]);
+  if(col<0) return null;
+  return { row:row, col:col, td:td, input:input };
+}
+function whLinesSelClear_(){
+  _whLineSel=null;
+  _whLineSelDragging=false;
+  var table=document.getElementById('whLinesTable');
+  if(!table) return;
+  table.querySelectorAll('td.wh-sel').forEach(function(td){ td.classList.remove('wh-sel'); });
+}
+function whLinesSelPaint_(){
+  var table=document.getElementById('whLinesTable');
+  if(!table) return;
+  table.querySelectorAll('td.wh-sel').forEach(function(td){ td.classList.remove('wh-sel'); });
+  if(!_whLineSel) return;
+  var r0=Math.min(_whLineSel.r0,_whLineSel.r1);
+  var r1=Math.max(_whLineSel.r0,_whLineSel.r1);
+  var c0=Math.min(_whLineSel.c0,_whLineSel.c1);
+  var c1=Math.max(_whLineSel.c0,_whLineSel.c1);
+  for(var r=r0;r<=r1;r++){
+    for(var c=c0;c<=c1;c++){
+      var el=document.getElementById('wh-'+WH_LINE_FIELDS_[c]+'-'+r);
+      if(!el) continue;
+      var td=el.closest('td');
+      if(td) td.classList.add('wh-sel');
+    }
+  }
+}
+function whLinesSelText_(){
+  if(!_whLineSel) return '';
+  var r0=Math.min(_whLineSel.r0,_whLineSel.r1);
+  var r1=Math.max(_whLineSel.r0,_whLineSel.r1);
+  var c0=Math.min(_whLineSel.c0,_whLineSel.c1);
+  var c1=Math.max(_whLineSel.c0,_whLineSel.c1);
+  var rows=[];
+  for(var r=r0;r<=r1;r++){
+    var cols=[];
+    for(var c=c0;c<=c1;c++){
+      var el=document.getElementById('wh-'+WH_LINE_FIELDS_[c]+'-'+r);
+      cols.push(el ? String(el.value||'') : '');
+    }
+    rows.push(cols.join('\t'));
+  }
+  return rows.join('\n');
+}
+function whLinesSelCopy_(e){
+  if(!_whLineSel || !(_whFormLocked || _whReceiverMode)) return false;
+  var text=whLinesSelText_();
+  if(e && e.clipboardData){
+    e.clipboardData.setData('text/plain', text);
+    e.preventDefault();
+    return true;
+  }
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text);
+      return true;
+    }
+  }catch(err){}
+  return false;
+}
+function whBindLinesRangeSelect_(){
+  var table=document.getElementById('whLinesTable');
+  if(!table || table._whRangeSelBound) return;
+  table._whRangeSelBound=true;
+  table.addEventListener('mousedown', function(e){
+    if(!(_whFormLocked || _whReceiverMode)) return;
+    if(e.button!==0) return;
+    var cell=whLinesCellFromEvent_(e);
+    if(!cell) return;
+    e.preventDefault();
+    _whLineSelDragging=true;
+    _whLineSel={ r0:cell.row, c0:cell.col, r1:cell.row, c1:cell.col };
+    whLinesSelPaint_();
+  });
+  table.addEventListener('mouseover', function(e){
+    if(!_whLineSelDragging || !_whLineSel) return;
+    if(!(_whFormLocked || _whReceiverMode)) return;
+    var cell=whLinesCellFromEvent_(e);
+    if(!cell) return;
+    _whLineSel.r1=cell.row;
+    _whLineSel.c1=cell.col;
+    whLinesSelPaint_();
+  });
+  document.addEventListener('mouseup', function(){
+    _whLineSelDragging=false;
+  });
+  document.addEventListener('copy', function(e){
+    if(!(_whFormLocked || _whReceiverMode) || !_whLineSel) return;
+    var native=window.getSelection && window.getSelection();
+    if(native && String(native.toString()||'').length) return;
+    whLinesSelCopy_(e);
+  });
+  document.addEventListener('keydown', function(e){
+    if(!(_whFormLocked || _whReceiverMode) || !_whLineSel) return;
+    if(e.key==='Escape'){ whLinesSelClear_(); return; }
+    var isCopy=(e.key==='c' || e.key==='C') && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey;
+    if(!isCopy) return;
+    try{
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(whLinesSelText_());
+        e.preventDefault();
+      }
+    }catch(err){}
+  });
+  document.addEventListener('mousedown', function(e){
+    if(!_whLineSel) return;
+    var t=e.target;
+    if(t && t.closest && t.closest('#whLinesTable')) return;
+    whLinesSelClear_();
+  });
+}
 function whLinesFocusCell_(row, colIdx){
   var fields=WH_LINE_FIELDS_;
   while(colIdx<0){ colIdx+=fields.length; row-=1; }

@@ -87,15 +87,34 @@
 .wh-note.wh-form-locked {
   opacity: 0.98;
 }
-/* Keep type toggles non-clickable; text cells stay clickable so users can select/copy. */
+/* Keep type toggles non-clickable. Line inputs ignore pointer events so drag-select hits the cells. */
 .wh-note.wh-form-locked .wh-type-btn {
   pointer-events: none;
   cursor: default;
 }
-.wh-note.wh-form-locked .wh-cell-input[readonly] {
+.wh-note.wh-form-locked .wh-lines .wh-cell-input[readonly] {
+  pointer-events: none;
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.wh-note.wh-form-locked .wh-lines td:not(.num) {
+  cursor: cell;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.wh-note.wh-form-locked .wh-lines td.wh-sel {
+  background: #cfe2ff !important;
+  outline: 1px solid #5b9bd5;
+  outline-offset: -1px;
+}
+/* Header/meta fields still allow native select/copy */
+.wh-note.wh-form-locked .wh-meta .wh-cell-input[readonly],
+.wh-note.wh-form-locked .wh-maint-table .wh-cell-input[readonly] {
   pointer-events: auto;
   cursor: text;
-  background: inherit;
+  user-select: text;
+  -webkit-user-select: text;
 }
 .wh-saved-section { margin: 0 0 22px; }
 .wh-saved-section-done .wh-saved-section-title {
