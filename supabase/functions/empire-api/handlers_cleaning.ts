@@ -6,6 +6,78 @@ function normalizePhotoSource(v: unknown): string {
   return String(v || "camera").toLowerCase() === "gallery" ? "gallery" : "camera";
 }
 
+/** Billing month: 26th of previous calendar month through 25th of this month. */
+export function reportMonthOfDate(d: unknown): string {
+  let s = String(d || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const t = new Date();
+    const z = (n: number) => String(n).padStart(2, "0");
+    s = `${t.getFullYear()}-${z(t.getMonth() + 1)}-${z(t.getDate())}`;
+  }
+  let yr = parseInt(s.slice(0, 4), 10);
+  let mo = parseInt(s.slice(5, 7), 10);
+  const dy = parseInt(s.slice(8, 10), 10);
+  if (dy >= 26) {
+    mo += 1;
+    if (mo > 12) {
+      mo = 1;
+      yr += 1;
+    }
+  }
+  return `${yr}-${String(mo).padStart(2, "0")}`;
+}
+
+function reportPeriodBounds(rm: string): { from: string; to: string } | null {
+  if (!/^\d{4}-\d{2}$/.test(rm)) return null;
+  const y = parseInt(rm.slice(0, 4), 10);
+  const m = parseInt(rm.slice(5, 7), 10);
+  let pm = m - 1;
+  let py = y;
+  if (pm < 1) {
+    pm = 12;
+    py--;
+  }
+  const z = (n: number) => String(n).padStart(2, "0");
+  return { from: `${py}-${z(pm)}-26`, to: `${y}-${z(m)}-25` };
+}
+
+function weekFromPeriod(period: string): string {
+  const m = String(period || "").match(/#(\d+)/);
+  const w = m ? parseInt(m[1], 10) : 1;
+  if (!w || w < 1) return "1";
+  return String(w > 4 ? 4 : w);
+}
+
+function canonicalizePeriod(period: string, date: string, freq: string): string {
+  const p = String(period || "").trim();
+  const ds = fmtDate(date);
+  const rm = ds ? reportMonthOfDate(ds) : (p.split("#")[0] || "");
+  if (!rm) return p;
+  const isDaily = String(freq || "").toLowerCase() === "daily" || /#\d+/.test(p);
+  if (isDaily) return `${rm}#${weekFromPeriod(p)}`;
+  return rm;
+}
+
+function mapTaskPhotoRow(row: Record<string, unknown>) {
+  const date = fmtDate(row.date);
+  const freq = String(row.freq || "");
+  return {
+    id: String(row.id || ""),
+    project: String(row.project || "").trim().toLowerCase(),
+    freq,
+    task: String(row.task || "").trim(),
+    date,
+    period: canonicalizePeriod(String(row.period || ""), date, freq),
+    image: String(row.image || ""),
+    createdBy: String(row.created_by || ""),
+    createdAt: String(row.created_at || ""),
+    lat: row.lat == null ? null : Number(row.lat),
+    lng: row.lng == null ? null : Number(row.lng),
+    accuracy: row.accuracy == null ? null : Number(row.accuracy),
+    source: normalizePhotoSource(row.source),
+  };
+}
+
 function photoGps(body: Record<string, unknown>, index: number) {
   let lat: unknown = "", lng: unknown = "", accuracy: unknown = "";
   const gps = body.photoGps as Array<Record<string, unknown>> | undefined;
@@ -149,14 +221,17 @@ export async function handleAddTaskPhoto(body: Record<string, unknown>) {
   }
   const gps = photoGps(body, 0);
   const source = normalizePhotoSource(body.source || (body.photoSources as string[] | undefined)?.[0]);
+  const date = fmtDate(body.date) || String(body.date || "");
+  const freq = String(body.freq || "");
+  const period = canonicalizePeriod(String(body.period || ""), date, freq);
   const id = `tp-${crypto.randomUUID()}`;
   const { error } = await sb().from("task_photos").insert({
     id,
-    project: String(body.project || ""),
-    freq: String(body.freq || ""),
-    task: String(body.task || ""),
-    date: String(body.date || ""),
-    period: String(body.period || ""),
+    project,
+    freq,
+    task: String(body.task || "").trim(),
+    date,
+    period,
     image: String(body.image || ""),
     created_by: String(body.username || ""),
     created_at: isoNow(),
@@ -166,7 +241,7 @@ export async function handleAddTaskPhoto(body: Record<string, unknown>) {
     source,
   });
   if (error) throw error;
-  return { ok: true, success: true, id, source };
+  return { ok: true, success: true, id, source, period };
 }
 
 export async function handleAddTaskPhotos(body: Record<string, unknown>) {
@@ -178,15 +253,20 @@ export async function handleAddTaskPhotos(body: Record<string, unknown>) {
   const images = (body.images || []) as string[];
   if (!images.length) return { ok: false, error: "No images" };
   if (images.length > 3) return { ok: false, error: "too_many_photos", message: "Maximum 3 photos per save." };
-  const task = String(body.task || "");
-  const period = String(body.period || "");
-  const { data: existing } = await sb().from("task_photos").select("*")
-    .ilike("project", project).eq("task", task).eq("period", period);
+  const task = String(body.task || "").trim();
+  const date = fmtDate(body.date) || String(body.date || "");
+  const freq = String(body.freq || "");
+  const period = canonicalizePeriod(String(body.period || ""), date, freq);
+  const { data: existing, error: existingErr } = await sb().from("task_photos").select("*")
+    .ilike("project", project).eq("task", task);
+  if (existingErr) throw existingErr;
   const existingUrls: Record<string, boolean> = {};
   let existingCount = 0;
   for (const r of existing || []) {
+    const mapped = mapTaskPhotoRow(r as Record<string, unknown>);
+    if (mapped.period !== period) continue;
     existingCount++;
-    if (r.image) existingUrls[r.image] = true;
+    if (mapped.image) existingUrls[mapped.image] = true;
   }
   const sources = (body.photoSources || []) as string[];
   const items: unknown[] = [];
@@ -197,18 +277,18 @@ export async function handleAddTaskPhotos(body: Record<string, unknown>) {
     if (!img) continue;
     const source = normalizePhotoSource(sources[i]);
     if (existingUrls[img]) {
-      items.push({ id: "existing", image: img, skipped: true, lat: "", lng: "", accuracy: "", source });
+      items.push({ id: "existing", image: img, skipped: true, lat: "", lng: "", accuracy: "", source, period });
       continue;
     }
     if (existingCount + added >= 3) break;
     const id = `tp-${crypto.randomUUID()}`;
     const gps = photoGps(body, i);
-    await sb().from("task_photos").insert({
+    const { error } = await sb().from("task_photos").insert({
       id,
-      project: String(body.project || ""),
-      freq: String(body.freq || ""),
+      project,
+      freq,
       task,
-      date: String(body.date || ""),
+      date,
       period,
       image: img,
       created_by: String(body.username || ""),
@@ -218,39 +298,50 @@ export async function handleAddTaskPhotos(body: Record<string, unknown>) {
       accuracy: gps.accuracy,
       source,
     });
+    if (error) throw error;
     existingUrls[img] = true;
     added++;
-    items.push({ id, image: img, lat: gps.lat, lng: gps.lng, accuracy: gps.accuracy, source });
+    items.push({ id, image: img, lat: gps.lat, lng: gps.lng, accuracy: gps.accuracy, source, period });
   }
-  return { ok: true, success: true, items };
+  if (!items.length) {
+    return { ok: false, error: "save_failed", message: "Could not save photos. Try again." };
+  }
+  return { ok: true, success: true, items, period };
 }
 
 export async function handleGetTaskPhotos(body: Record<string, unknown>) {
-  const prefix = body.periodPrefix ? String(body.periodPrefix) : "";
-  // Page through all rows — PostgREST defaults to ~1000 and was truncating busy months.
-  // Order by id so .range() pages are stable.
-  const data = await selectAllRows<Record<string, unknown>>("task_photos", {
+  const prefix = body.periodPrefix ? String(body.periodPrefix).trim() : "";
+  const byId: Record<string, Record<string, unknown>> = {};
+  const periodRows = await selectAllRows<Record<string, unknown>>("task_photos", {
     filter: (q) => {
       let qq = q.order("id", { ascending: true });
       if (prefix) qq = qq.like("period", `${prefix}%`);
       return qq;
     },
   });
-  return data.map((row) => ({
-    id: String(row.id),
-    project: String(row.project),
-    freq: String(row.freq),
-    task: String(row.task),
-    date: fmtDate(row.date),
-    period: String(row.period || ""),
-    image: String(row.image || ""),
-    createdBy: String(row.created_by || ""),
-    createdAt: String(row.created_at || ""),
-    lat: row.lat == null ? null : Number(row.lat),
-    lng: row.lng == null ? null : Number(row.lng),
-    accuracy: row.accuracy == null ? null : Number(row.accuracy),
-    source: normalizePhotoSource(row.source),
-  }));
+  for (const row of periodRows) byId[String(row.id)] = row;
+
+  // Also pull rows whose photo date falls in the 26th–25th billing month,
+  // even if they were saved with the calendar-month period string.
+  const bounds = prefix ? reportPeriodBounds(prefix) : null;
+  if (bounds) {
+    const dateRows = await selectAllRows<Record<string, unknown>>("task_photos", {
+      filter: (q) => q.gte("date", bounds.from).lte("date", bounds.to).order("id", { ascending: true }),
+    });
+    for (const row of dateRows) byId[String(row.id)] = row;
+  }
+
+  const mapped = Object.values(byId).map(mapTaskPhotoRow);
+  const seen: Record<string, boolean> = {};
+  const out = [];
+  for (const row of mapped) {
+    const key = `${row.project}|${row.task}|${row.period}|${row.image}`;
+    if (seen[key]) continue;
+    seen[key] = true;
+    out.push(row);
+  }
+  if (!prefix) return out;
+  return out.filter((row) => String(row.period || "").indexOf(prefix) === 0);
 }
 
 export async function handleDeleteTaskPhoto(body: Record<string, unknown>) {

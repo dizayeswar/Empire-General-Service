@@ -99,6 +99,22 @@
     return yr + '-' + String(mo).padStart(2, '0');
   }
 
+  function reportPeriodBounds(rm) {
+    if (!rm) return null;
+    var p = String(rm).split('-');
+    var y = parseInt(p[0], 10), m = parseInt(p[1], 10);
+    var pm = m - 1, py = y;
+    if (pm < 1) { pm = 12; py--; }
+    var z = function (n) { return String(n).padStart(2, '0'); };
+    return { from: py + '-' + z(pm) + '-26', to: y + '-' + z(m) + '-25' };
+  }
+
+  function reportPeriodLabel(rm) {
+    var b = reportPeriodBounds(rm);
+    if (!b) return String(rm || '');
+    return rm + ' · 26th–25th';
+  }
+
   function curMonth() { return reportMonthOfDate(todayStr()); }
 
   function userProjects() {
@@ -117,6 +133,30 @@
     return (TASK_MAP[p].groups || []).find(function (g) { return g.daily; });
   }
 
+  function canonicalizePhotoPeriod(x) {
+    var date = String((x && x.date) || '');
+    var p = String((x && x.period) || '');
+    var freq = String((x && x.freq) || '');
+    var rm = /^\d{4}-\d{2}-\d{2}/.test(date) ? reportMonthOfDate(date) : (p.split('#')[0] || '');
+    if (!rm) return p;
+    var isDaily = freq.toLowerCase() === 'daily' || /#\d+/.test(p);
+    if (isDaily) {
+      var m = p.match(/#(\d+)/);
+      var w = m ? parseInt(m[1], 10) : 1;
+      if (!w || w < 1) w = 1;
+      if (w > 4) w = 4;
+      return rm + '#' + w;
+    }
+    return rm;
+  }
+
+  function mapPhotoPeriod(x) {
+    if (!x) return x;
+    var per = canonicalizePhotoPeriod(x);
+    if (per === x.period) return x;
+    return Object.assign({}, x, { period: per });
+  }
+
   function photosFor(p, g, task, wk) {
     var period = g.daily ? (curMonth() + '#' + wk) : curMonth();
     var taskName = String(task || '').trim();
@@ -124,7 +164,7 @@
     var out = [];
     state.photos.forEach(function (x) {
       if (String(x.project).toLowerCase() !== String(p).toLowerCase()) return;
-      if (String(x.task || '').trim() !== taskName || x.period !== period) return;
+      if (String(x.task || '').trim() !== taskName || canonicalizePhotoPeriod(x) !== period) return;
       var img = String(x.image || '');
       var key = x.id ? ('id:' + x.id) : ('img:' + img);
       if (img && seen['img:' + img]) return;
@@ -315,7 +355,7 @@
       var list = Array.isArray(d) ? d : [];
       var allowed = userProjects();
       // Prefer server truth, but keep recently-saved photos so they don't flicker away.
-      var fromServer = list.filter(function (x) {
+      var fromServer = list.map(mapPhotoPeriod).filter(function (x) {
         return !allowed.length || allowed.indexOf(String(x.project || '').toLowerCase()) !== -1;
       });
       state.photos = dedupePhotoList(mergeStickyIntoPhotos(fromServer));
@@ -378,8 +418,6 @@
       if (age >= 120000) return false;
       // Already confirmed on server.
       if (serverImgs[String(x.image)]) return false;
-      // If server omitted it after a short grace, treat as deleted on portal.
-      if (age > 25000) return false;
       return true;
     });
     state.stickyPhotos.forEach(function (sticky) {
@@ -789,6 +827,9 @@
         photoSources: photoSources
       });
       if (batch && batch.ok === false) throw new Error(batch.message || batch.error || 'Save failed');
+      var batchItems = (batch && batch.items) || [];
+      var kept = batchItems.filter(function (x) { return x && (x.skipped || x.image || x.id); });
+      if (!kept.length) throw new Error(batch && batch.message ? batch.message : 'Save failed');
       serverSaved = true;
       var stickyRows = remoteUrls.map(function (u, idx) {
         var row = (batch && batch.items && batch.items[idx]) || {};
@@ -1009,7 +1050,8 @@
     var wk = selectedWeek(p);
     var html = '<div class="cm-card"><button type="button" class="cm-btn cm-btn-ghost" id="cmBackProjects">' + t('back') + '</button>' +
       '<h2 style="margin:12px 0 4px;font-size:1.15rem;">' + (PROJECT_NAMES[p] || p) + '</h2>' +
-      '<p class="cm-hint">' + t('taskDoneHint') + '</p>';
+      '<p class="cm-hint">' + t('taskDoneHint') + '</p>' +
+      '<p class="cm-hint">' + t('billingMonth') + ': ' + reportPeriodLabel(curMonth()) + '</p>';
 
     html += '<div class="cm-week-row">';
     for (var w = 1; w <= 4; w++) {

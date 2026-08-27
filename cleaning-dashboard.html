@@ -80,12 +80,12 @@
         </div>
       </div>
     </div>
-    <script src="config.js?v=2026-08-19-wh-assign"></script>
+    <script src="config.js?v=2026-08-27-cleaning-month"></script>
     <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
     <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
     <script src="assets/empire-auth.js?v=2026-08-19-wh-assign"></script>
     <script src="assets/empire-core.js?v=2026-08-19-wh-assign"></script>
-    <script src="assets/empire-sw-update.js?v=2026-08-19-wh-assign"></script>
+    <script src="assets/empire-sw-update.js?v=2026-08-27-cleaning-month"></script>
     <script src="assets/empire-offline-queue.js?v=2026-08-19-wh-assign"></script>
     <script>
         /* ===== Themed dialogs (checkmark icons; shared theme/sidebar come from empire-core.js) ===== */
@@ -194,15 +194,38 @@
         function writeTasksCache(o){ try{ localStorage.setItem('cleaning_tasks_cache', JSON.stringify(o)); }catch(e){} }
         function readWeekCovCache(){ try{ var s=localStorage.getItem('cleaning_weekcov_cache'); if(!s) return null; var o=JSON.parse(s); return (o&&typeof o==='object'&&!Array.isArray(o))?o:null; }catch(e){ return null; } }
         function writeWeekCovCache(o){ try{ localStorage.setItem('cleaning_weekcov_cache', JSON.stringify(o)); }catch(e){} }
-        function readTaskPhotosCache(mv){ try{ var s=localStorage.getItem('cleaning_tphotos_'+mv); if(!s) return null; var a=JSON.parse(s); return Array.isArray(a)?a:null; }catch(e){ return null; } }
+        function readTaskPhotosCache(mv){ try{ var s=localStorage.getItem('cleaning_tphotos_'+mv); if(!s) return null; var a=JSON.parse(s); return Array.isArray(a)?a.map(mapPhotoPeriod):null; }catch(e){ return null; } }
         function writeTaskPhotosCache(mv,a){ try{ localStorage.setItem('cleaning_tphotos_'+mv, JSON.stringify(a)); }catch(e){} }
         var _photosByMonth={};
         var _photosFetchPromises={};
         function normProjectCode(v){ return String(v||'').trim().toLowerCase(); }
         function photoMatchesProject(x, p){ return normProjectCode(x.project)===normProjectCode(p); }
+        function canonicalizePhotoPeriod(x){
+          var date=String((x&&x.date)||'');
+          var p=String((x&&x.period)||'');
+          var freq=String((x&&x.freq)||'');
+          var rm=/^\d{4}-\d{2}-\d{2}/.test(date) ? reportMonthOfDate(date) : (p.split('#')[0]||'');
+          if(!rm) return p;
+          var isDaily=freq.toLowerCase()==='daily' || /#\d+/.test(p);
+          if(isDaily){
+            var m=p.match(/#(\d+)/);
+            var w=m?parseInt(m[1],10):1;
+            if(!w||w<1) w=1;
+            if(w>4) w=4;
+            return rm+'#'+w;
+          }
+          return rm;
+        }
+        function mapPhotoPeriod(x){
+          if(!x) return x;
+          var per=canonicalizePhotoPeriod(x);
+          if(per===x.period) return x;
+          return Object.assign({}, x, {period: per});
+        }
         function applyTaskPhotosList(list, mv){
           mv=mv||curMonth();
           if(!Array.isArray(list)) return;
+          list=list.map(mapPhotoPeriod);
           // Never wipe a full checklist with an empty/failed server response.
           var prevServer=(taskPhotos||[]).filter(function(x){ return x && !x._offline && !x._pending; });
           if(!list.length && prevServer.length){
@@ -236,7 +259,7 @@
                 // Do not logout + wipe photos on transient API errors.
                 return prev || [];
               }
-              if(Array.isArray(d)){ _photosByMonth[mv]=d; writeTaskPhotosCache(mv,d); return d; }
+              if(Array.isArray(d)){ d=d.map(mapPhotoPeriod); _photosByMonth[mv]=d; writeTaskPhotosCache(mv,d); return d; }
             }catch(e){ console.error('Task photo fetch error:', e.message); }
             return prev || _photosByMonth[mv] || cached || [];
           })();
@@ -481,7 +504,10 @@
         }
         function dashPhotosFor(p, g, task, mv, wk, tphotosAll){
           var per=g.daily?(mv+'#'+wk):mv;
-          return tphotosAll.filter(function(x){ return photoMatchesProject(x, p) && x.task===task && x.period===per; });
+          var tn=normTaskName(task);
+          return (tphotosAll||[]).filter(function(x){
+            return photoMatchesProject(x, p) && normTaskName(x.task)===tn && String(canonicalizePhotoPeriod(x))===per;
+          });
         }
         function dashWeekComplete(p, wk, mv, tphotosAll){
           var dg=dailyGroupOf(p);
@@ -490,6 +516,11 @@
         function dashActiveWeek(p, mv, tphotosAll){
           for(var w=1; w<=4; w++){ if(!dashWeekComplete(p, w, mv, tphotosAll)) return w; }
           return 4;
+        }
+        function reportPeriodLabel(rm){
+          var b=reportPeriodBounds(rm);
+          if(!b) return String(rm||'');
+          return rm+' (26th–25th: '+b.from+' → '+b.to+')';
         }
         function renderDashTaskRow(taskName, photos){
           var done=photos.length>0;
@@ -506,17 +537,18 @@
         }
         function renderProjectDashChecklist(p, mv, tphotosAll){
           var cfg=taskMap[p]; if(!cfg) return '';
-          var wk=dashActiveWeek(p, mv, tphotosAll);
           var h='';
           cfg.groups.forEach(function(g){
             if(g.daily){
-              var ccnt=g.tasks.filter(function(t){ return dashPhotosFor(p, g, t, mv, wk, tphotosAll).length>0; }).length;
-              h+='<h4 style="margin:12px 0 8px;font-size:14px;color:var(--text-soft);">'+g.label+' — Week '+wk+' <span style="color:'+(ccnt===g.tasks.length?'#27ae60':'var(--accent2)')+';font-weight:bold;">'+ccnt+'/'+g.tasks.length+'</span></h4>';
-              g.tasks.forEach(function(t){ h+=renderDashTaskRow(t, dashPhotosFor(p, g, t, mv, wk, tphotosAll)); });
+              for(var w=1; w<=4; w++){
+                var ccnt=g.tasks.filter(function(t){ return dashPhotosFor(p, g, t, mv, w, tphotosAll).length>0; }).length;
+                h+='<h4 style="margin:12px 0 8px;font-size:14px;color:var(--text-soft);">'+g.label+' — Week '+w+' <span style="color:'+(ccnt===g.tasks.length?'#27ae60':'var(--accent2)')+';font-weight:bold;">'+ccnt+'/'+g.tasks.length+'</span></h4>';
+                g.tasks.forEach(function(t){ h+=renderDashTaskRow(t, dashPhotosFor(p, g, t, mv, w, tphotosAll)); });
+              }
             } else {
-              var covered=g.tasks.filter(function(t){ return dashPhotosFor(p, g, t, mv, wk, tphotosAll).length>0; }).length;
+              var covered=g.tasks.filter(function(t){ return dashPhotosFor(p, g, t, mv, 1, tphotosAll).length>0; }).length;
               h+='<h4 style="margin:12px 0 8px;font-size:14px;color:var(--text-soft);">'+g.label+' <span style="color:'+(covered===g.tasks.length?'#27ae60':'var(--accent2)')+';font-weight:bold;">'+covered+'/'+g.tasks.length+'</span></h4>';
-              g.tasks.forEach(function(t){ h+=renderDashTaskRow(t, dashPhotosFor(p, g, t, mv, wk, tphotosAll)); });
+              g.tasks.forEach(function(t){ h+=renderDashTaskRow(t, dashPhotosFor(p, g, t, mv, 1, tphotosAll)); });
             }
           });
           return h;
@@ -526,16 +558,17 @@
           let filt=allReports.filter(r=>normalizeDate(r.date)===d);
           if(filterProject!=='ALL') filt=filt.filter(r=>r.project===filterProject);
           let h='<h2><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span> Task Checklist — '+d+' — '+projName(filterProject)+'</h2>';
-          h+='<p style="color:var(--text-soft);font-size:13px;margin:-8px 0 16px;">Report month: <strong>'+mv+'</strong> · '+checkIconHtml()+' = photo uploaded · '+squareIconHtml()+' = still needed</p>';
+          h+='<p style="color:var(--text-soft);font-size:13px;margin:-8px 0 16px;">Report month: <strong>'+reportPeriodLabel(mv)+'</strong> · '+checkIconHtml()+' = photo uploaded · '+squareIconHtml()+' = still needed</p>';
           userProjectList().forEach(function(p){
             if(filterProject!=='ALL' && p!==filterProject) return;
             const preps=filt.filter(r=>r.project===p);
             var dg=dailyGroupOf(p);
             var wk=dashActiveWeek(p, mv, tphotosAll);
-            var dailyDone=dg.tasks.filter(function(t){ return dashPhotosFor(p, dg, t, mv, wk, tphotosAll).length>0; }).length;
+            var dailyDone=0, dailyTotal=dg.tasks.length*4;
+            for(var w=1;w<=4;w++) dailyDone+=dg.tasks.filter(function(t){ return dashPhotosFor(p, dg, t, mv, w, tphotosAll).length>0; }).length;
             h+='<div class="form-section" style="margin-top:18px;"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:12px;">'
               +'<div><h3 style="margin:0;color:var(--accent2);">'+projName(p)+'</h3>'
-              +'<p style="font-size:13px;color:var(--text-soft);margin-top:6px;"><strong>Supervisor:</strong> '+supervisors[p]+' · Daily week '+wk+': <strong style="color:'+(dailyDone===dg.tasks.length?'#27ae60':'var(--accent2)')+';">'+dailyDone+'/'+dg.tasks.length+'</strong></p></div>'
+              +'<p style="font-size:13px;color:var(--text-soft);margin-top:6px;"><strong>Supervisor:</strong> '+supervisors[p]+' · Daily weeks: <strong style="color:'+(dailyDone===dailyTotal?'#27ae60':'var(--accent2)')+';">'+dailyDone+'/'+dailyTotal+'</strong> · current week '+wk+'</p></div>'
               +'<button type="button" onclick="switchTabToProject(\''+taskMap[p].tab+'\')" style="padding:8px 14px;font-size:12px;">Upload photos →</button>'
               +'</div>';
             preps.forEach(function(r){ if(r.image) h+='<div style="position:relative;margin-bottom:12px;display:inline-block;"><button type="button" onclick="removeReport(\''+r.id+'\', this)" title="Delete report" style="position:absolute;top:6px;right:6px;background:#C5504F;color:#fff;border:none;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;z-index:1;">'+trashIconHtml()+'</button><img src="'+r.image+'" class="report-image" onclick="openModal(this.src)" style="cursor:pointer;max-height:120px;border-radius:12px;" loading="lazy"></div>'; });
@@ -609,7 +642,7 @@
           try {
             const r=await fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'getTaskPhotos', periodPrefix:mv, force:true, token:empireGetToken()||''})});
             const d=await r.json();
-            if(Array.isArray(d)) mphotos=d;
+            if(Array.isArray(d)) mphotos=d.map(mapPhotoPeriod);
           } catch(e){ console.error('Month completion fetch error:', e.message); }
           const monthName=new Date(mv+'-01T00:00:00').toLocaleString('en-US',{month:'long',year:'numeric'});
           let h='<h2>'+chartIconHtml()+' Monthly Completion — '+monthName+'</h2><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:16px;">';
@@ -620,10 +653,10 @@
             let total=0, done=0;
             for (let wn=1; wn<=4; wn++){
               const per=mv+'#'+wn;
-              dg.tasks.forEach(function(t){ total++; if(mphotos.some(function(x){ return x.project===p && x.task===t && x.period===per; })) done++; });
+              dg.tasks.forEach(function(t){ total++; if(mphotos.some(function(x){ return photoMatchesProject(x, p) && normTaskName(x.task)===normTaskName(t) && canonicalizePhotoPeriod(x)===per; })) done++; });
             }
             ndg.forEach(function(g){
-              g.tasks.forEach(function(t){ total++; if(mphotos.some(function(x){ return x.project===p && x.task===t && x.period===mv; })) done++; });
+              g.tasks.forEach(function(t){ total++; if(mphotos.some(function(x){ return photoMatchesProject(x, p) && normTaskName(x.task)===normTaskName(t) && canonicalizePhotoPeriod(x)===mv; })) done++; });
             });
             const pct = total>0 ? (done/total*100) : 0;
             h+='<div class="form-section" style="text-align:center;">'
@@ -780,8 +813,8 @@
           _photosByMonth[mv]=serverish;
           writeTaskPhotosCache(mv, serverish);
         }
-        function dailyPhotos(p, task, wk){ const per=curMonth()+'#'+wk; const tn=normTaskName(task); return taskPhotos.filter(x=>photoMatchesProject(x,p) && normTaskName(x.task)===tn && x.period===per).sort((a,b)=>String(a.date).localeCompare(String(b.date))); }
-        function monthlyPhotos(p, task){ const tn=normTaskName(task); return taskPhotos.filter(x=>photoMatchesProject(x,p) && normTaskName(x.task)===tn && x.period===curMonth()).sort((a,b)=>String(a.date).localeCompare(String(b.date))); }
+        function dailyPhotos(p, task, wk){ const per=curMonth()+'#'+wk; const tn=normTaskName(task); return taskPhotos.filter(x=>photoMatchesProject(x,p) && normTaskName(x.task)===tn && canonicalizePhotoPeriod(x)===per).sort((a,b)=>String(a.date).localeCompare(String(b.date))); }
+        function monthlyPhotos(p, task){ const tn=normTaskName(task); return taskPhotos.filter(x=>photoMatchesProject(x,p) && normTaskName(x.task)===tn && canonicalizePhotoPeriod(x)===curMonth()).sort((a,b)=>String(a.date).localeCompare(String(b.date))); }
         function photosFor(p, g, task){ return g.daily ? dailyPhotos(p, task, selWeek[p]||1) : monthlyPhotos(p, task); }
         function dailyCoveredCount(p, wk){ const dg=dailyGroupOf(p); return dg.tasks.filter(t=>dailyPhotos(p,t,wk).length>0).length; }
         function dailyWeekComplete(p, wk){ const dg=dailyGroupOf(p); return dailyCoveredCount(p,wk)===dg.tasks.length; }
@@ -1113,7 +1146,7 @@
               const dg=g; const total=dg.tasks.length;
               if(!selWeek[p] || !weekAccessible(p, selWeek[p])) selWeek[p]=firstIncompleteWeek(p);
               const wk=selWeek[p];
-              h+='<h3>'+g.label+' — '+curMonth()+' (pick a week, fill it, the next unlocks)</h3>';
+              h+='<h3>'+g.label+' — '+reportPeriodLabel(curMonth())+' (pick a week, fill it, the next unlocks)</h3>';
               h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">';
               for(let w=1;w<=4;w++){ const acc=weekAccessible(p,w); const cnt=dailyCoveredCount(p,w); const sel=(wk===w); const dn=cnt===total;
                 h+='<div class="weektab" data-wp="'+p+'" data-wn="'+w+'" style="padding:8px 14px;border-radius:50px;border:2px solid var(--card-border);cursor:'+(acc?'pointer':'not-allowed')+';opacity:'+(acc?'1':'0.45')+';background:'+(sel?'var(--accent2)':'var(--task-bg)')+';color:'+(sel?'#fff':'var(--text)')+';font-weight:600;display:inline-flex;align-items:center;gap:6px;">'+(dn?checkIconHtml('#27ae60'):(acc?'':'<span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span> '))+'Week '+w+' <span style="font-size:12px;opacity:0.85;">'+cnt+'/'+total+'</span></div>';
@@ -1258,7 +1291,7 @@
           let covList=[];
           try { const cr=await fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'getRangeCoverage', from:(weeks[0]||from), to:(weeks[weeks.length-1]||to), token:empireGetToken()||''})}); const cd=await cr.json(); if(Array.isArray(cd)) covList=cd; else if(cd && cd.ok===false){ forceSessionLogout(cd); return; } } catch(e){ console.error('Coverage fetch error:', e.message); }
           let mphotos=[];
-          try { const mr=await fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'getTaskPhotos', periodPrefix:mv, force:true, token:empireGetToken()||''})}); const md=await mr.json(); if(Array.isArray(md)){ mphotos=md; applyTaskPhotosList(md, mv); } } catch(e){ console.error('Report photos error:', e.message); }
+          try { const mr=await fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'getTaskPhotos', periodPrefix:mv, force:true, token:empireGetToken()||''})}); const md=await mr.json(); if(Array.isArray(md)){ mphotos=md.map(mapPhotoPeriod); applyTaskPhotosList(mphotos, mv); } } catch(e){ console.error('Report photos error:', e.message); }
           const pname={ec:'Empire Complex',es:'Empire Square',wd:'West Diamond',ww:'West Wing',ww2:'(New) West Wing',ra:'Royal Apartment'};
           const imgs=countAllPhotos(monthReports, mphotos);
           let h='<h2>'+summaryIconHtml()+' Monthly Report — '+monthName+'</h2><p style="color:var(--text-soft);">'+from+' to '+to+' · Prepared by Swar Dizayee</p>';
@@ -1277,9 +1310,9 @@
             const dg=taskMap[p].groups.find(g=>g.daily);
             h+='<div style="margin-top:12px;"><strong><span class="nav-icon" style="display:inline-flex;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg></span> Daily Tasks — Weekly Coverage</strong>';
             for(let wn=1;wn<=4;wn++){ const per=mv+'#'+wn;
-              const coveredCount=dg.tasks.filter(t=>mphotos.some(x=>x.project===p && x.task===t && x.period===per)).length;
+              const coveredCount=dg.tasks.filter(t=>mphotos.some(x=>photoMatchesProject(x,p) && normTaskName(x.task)===normTaskName(t) && canonicalizePhotoPeriod(x)===per)).length;
               h+='<p style="margin-top:10px;color:var(--text-soft);">Week '+wn+' — <strong style="color:'+(coveredCount===dg.tasks.length?'#27ae60':'var(--accent2)')+';">'+coveredCount+'/'+dg.tasks.length+'</strong> covered</p><div style="display:flex;flex-direction:column;gap:4px;">';
-              dg.tasks.forEach(t=>{ const ph=mphotos.filter(x=>x.project===p && x.task===t && x.period===per); const thumbs=ph.map(x=>'<img src="'+x.image+'" onclick="openModal(this.src)" style="height:90px;border-radius:12px;border:1px solid var(--card-border);cursor:pointer;margin:6px 6px 0 0;">').join(''); h+='<div style="padding:6px 10px;background:var(--task-bg);border-radius:12px;">'+(ph.length?checkIconHtml():squareIconHtml())+' '+t+(ph.length?(' <span style="color:var(--text-faint);">('+ph.length+')</span>'):'')+(thumbs?('<div style="display:flex;flex-wrap:wrap;">'+thumbs+'</div>'):'')+'</div>'; });
+              dg.tasks.forEach(t=>{ const ph=mphotos.filter(x=>photoMatchesProject(x,p) && normTaskName(x.task)===normTaskName(t) && canonicalizePhotoPeriod(x)===per); const thumbs=ph.map(x=>'<img src="'+x.image+'" onclick="openModal(this.src)" style="height:90px;border-radius:12px;border:1px solid var(--card-border);cursor:pointer;margin:6px 6px 0 0;">').join(''); h+='<div style="padding:6px 10px;background:var(--task-bg);border-radius:12px;">'+(ph.length?checkIconHtml():squareIconHtml())+' '+t+(ph.length?(' <span style="color:var(--text-faint);">('+ph.length+')</span>'):'')+(thumbs?('<div style="display:flex;flex-wrap:wrap;">'+thumbs+'</div>'):'')+'</div>'; });
               h+='</div>';
             }
             h+='</div>';
@@ -1288,7 +1321,7 @@
               h+='<div style="margin-top:12px;"><strong>'+checkIconHtml()+' Weekly / Monthly Tasks</strong>';
               ndg.forEach(g=>{
                 h+='<p style="margin-top:10px;color:var(--text-soft);">'+g.label+'</p><div style="display:flex;flex-direction:column;gap:4px;">';
-                g.tasks.forEach(t=>{ const ph=mphotos.filter(x=>x.project===p && x.task===t && x.period===mv); const thumbs=ph.map(x=>'<img src="'+x.image+'" onclick="openModal(this.src)" style="height:90px;border-radius:12px;border:1px solid var(--card-border);cursor:pointer;margin:6px 6px 0 0;">').join(''); h+='<div style="padding:6px 10px;background:var(--task-bg);border-radius:12px;">'+(ph.length?checkIconHtml():squareIconHtml())+' '+t+' <span style="color:var(--text-faint);font-size:12px;">('+ph.length+' '+cameraIconHtml()+')</span>'+(thumbs?('<div style="display:flex;flex-wrap:wrap;">'+thumbs+'</div>'):'')+'</div>'; });
+                g.tasks.forEach(t=>{ const ph=mphotos.filter(x=>photoMatchesProject(x,p) && normTaskName(x.task)===normTaskName(t) && canonicalizePhotoPeriod(x)===mv); const thumbs=ph.map(x=>'<img src="'+x.image+'" onclick="openModal(this.src)" style="height:90px;border-radius:12px;border:1px solid var(--card-border);cursor:pointer;margin:6px 6px 0 0;">').join(''); h+='<div style="padding:6px 10px;background:var(--task-bg);border-radius:12px;">'+(ph.length?checkIconHtml():squareIconHtml())+' '+t+' <span style="color:var(--text-faint);font-size:12px;">('+ph.length+' '+cameraIconHtml()+')</span>'+(thumbs?('<div style="display:flex;flex-wrap:wrap;">'+thumbs+'</div>'):'')+'</div>'; });
                 h+='</div>';
               });
               h+='</div>';
@@ -1344,15 +1377,15 @@
             var dg=taskMap[p].groups.find(function(g){return g.daily;});
             b+='<h4><span class="si">'+CALENDAR_ICON+'</span> Daily Tasks — Weekly Coverage</h4>';
             for(var wn=1;wn<=4;wn++){ var per=R.mv+'#'+wn;
-              var cov=dg.tasks.filter(function(t){return R.mphotos.some(function(x){return x.project===p&&x.task===t&&x.period===per;});}).length;
+              var cov=dg.tasks.filter(function(t){return R.mphotos.some(function(x){return photoMatchesProject(x,p)&&normTaskName(x.task)===normTaskName(t)&&canonicalizePhotoPeriod(x)===per;});}).length;
               b+='<p class="wk"><strong>Week '+wn+'</strong> — <span style="color:'+(cov===dg.tasks.length?'#27ae60':'#e8a0cf')+';">'+cov+'/'+dg.tasks.length+' covered</span></p>';
-              dg.tasks.forEach(function(t){ var ph=R.mphotos.filter(function(x){return x.project===p&&x.task===t&&x.period===per;});
+              dg.tasks.forEach(function(t){ var ph=R.mphotos.filter(function(x){return photoMatchesProject(x,p)&&normTaskName(x.task)===normTaskName(t)&&canonicalizePhotoPeriod(x)===per;});
                 b+='<div class="task">'+(ph.length?'<span class="si" style="color:#27ae60;">'+CHECK_ICON+'</span>':'<span class="si" style="color:#C5504F;">'+SQUARE_ICON+'</span>')+' '+_esc(t)+(ph.length?' <span class="cnt">('+ph.length+')</span>':'')+(ph.length?'<div class="ph">'+ph.map(function(x){return _imgTag(x.image,map);}).join('')+'</div>':'')+'</div>'; });
             }
             var ndg=taskMap[p].groups.filter(function(g){return !g.daily;});
             if(ndg.length){ b+='<h4><span class="si">'+CHECK_ICON+'</span> Weekly / Monthly Tasks</h4>';
               ndg.forEach(function(g){ b+='<p class="wk"><strong>'+_esc(g.label)+'</strong></p>';
-                g.tasks.forEach(function(t){ var ph=R.mphotos.filter(function(x){return x.project===p&&x.task===t&&x.period===R.mv;});
+                g.tasks.forEach(function(t){ var ph=R.mphotos.filter(function(x){return photoMatchesProject(x,p)&&normTaskName(x.task)===normTaskName(t)&&canonicalizePhotoPeriod(x)===R.mv;});
                   b+='<div class="task">'+(ph.length?'<span class="si" style="color:#27ae60;">'+CHECK_ICON+'</span>':'<span class="si" style="color:#C5504F;">'+SQUARE_ICON+'</span>')+' '+_esc(t)+' <span class="cnt">('+ph.length+' <span class="si">'+CAMERA_ICON+'</span>)</span>'+(ph.length?'<div class="ph">'+ph.map(function(x){return _imgTag(x.image,map);}).join('')+'</div>':'')+'</div>'; }); });
             }
             var rphotos=pr.filter(function(r){return r.image&&r.image.length>0;});
