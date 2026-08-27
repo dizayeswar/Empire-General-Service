@@ -1,7 +1,7 @@
 /* UPS — register, monthly checklist, history */
 
 var UPS_DEPT = 'ups';
-var UPS_SEED_URL = 'assets/ups-seed.json?v=2026-08-27-ups-v2';
+var UPS_SEED_URL = 'assets/ups-seed.json?v=2026-08-28-ups-inspect';
 var UPS_GROUPS = [
   { id: '', label: 'All groups' },
   { id: 'wing1', label: 'Wing W1-W11' },
@@ -200,7 +200,7 @@ function upsRenderTable_() {
     + '<th>Brand</th><th>Capacity</th><th>UPS</th><th>Battery</th><th>Room</th>'
     + '<th>A.C</th><th>Alarm / fault</th><th>Last check</th></tr></thead><tbody>';
   rows.forEach(function (r) {
-    h += '<tr class="ups-row-click" onclick="upsOpenDetail_(' + JSON.stringify(r.id) + ',\'edit\')">'
+    h += '<tr class="ups-row-click" data-ups-id="' + upsEsc_(r.id) + '" onclick="upsOpenDetail_(this.getAttribute(\'data-ups-id\'),\'edit\')">'
       + '<td>' + upsEsc_(r.no) + '</td>'
       + '<td>' + upsEsc_(upsGroupLabel_(r.group)) + '</td>'
       + '<td><strong>' + upsEsc_(r.apartment) + '</strong></td>'
@@ -260,7 +260,7 @@ function upsRenderChecklist_() {
   var h = '<div class="ups-check-list">';
   rows.forEach(function (r) {
     var inspected = !!(r.inspectedThisMonth || r.lastInspectedMonth === month);
-    h += '<div class="ups-check-card' + (inspected ? ' done' : '') + '">'
+    h += '<div class="ups-check-card' + (inspected ? ' done' : '') + '" data-ups-id="' + upsEsc_(r.id) + '" onclick="upsOpenDetail_(this.getAttribute(\'data-ups-id\'),\'inspect\')">'
       + '<div><strong>' + upsEsc_(r.apartment) + ' · ' + upsEsc_(r.kks || '') + '</strong>'
       + '<div class="ups-check-meta">' + upsEsc_(upsGroupLabel_(r.group)) + ' · ' + upsEsc_(r.floor) + ' · ' + upsEsc_(r.room)
       + (r.brand ? ' · ' + upsEsc_(r.brand + (r.capacity ? ' ' + r.capacity : '')) : '') + '</div>'
@@ -268,7 +268,7 @@ function upsRenderChecklist_() {
       + upsBadge_('upsStatus', r.upsStatus) + upsBadge_('batteryStatus', r.batteryStatus)
       + upsBadge_('roomClean', r.roomClean) + upsBadge_('acStatus', r.acStatus)
       + '</div></div>'
-      + '<div><button type="button" onclick="upsOpenDetail_(' + JSON.stringify(r.id) + ',\'inspect\')">'
+      + '<div><button type="button" data-ups-id="' + upsEsc_(r.id) + '" onclick="event.stopPropagation();upsOpenDetail_(this.getAttribute(\'data-ups-id\'),\'inspect\')">'
       + (inspected ? 'Update check' : 'Inspect') + '</button></div></div>';
   });
   h += '</div>';

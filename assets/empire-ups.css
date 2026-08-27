@@ -120,6 +120,7 @@
   border-radius: 12px;
   padding: 12px 14px;
   background: var(--panel);
+  cursor: pointer;
 }
 .ups-check-card.done {
   border-color: #c8e6c9;
