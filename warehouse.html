@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-20-wh-signer">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-23-arrow-nav">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-27-done-copy">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -2197,12 +2197,24 @@ function whSetFormLocked(locked){
     root.querySelectorAll('input,button.wh-type-btn,textarea,select').forEach(function(el){
       if(el.closest('.wh-sig-actions')) return;
       if(el.type==='hidden') return;
-      if(_whFormLocked || _whReceiverMode){
-        el.setAttribute('disabled','disabled');
-        el.setAttribute('readonly','readonly');
+      var lock=_whFormLocked || _whReceiverMode;
+      var isTextish = el.tagName==='TEXTAREA' ||
+        (el.tagName==='INPUT' && ['text','search','tel','url','email','password','number','decimal',''].indexOf(String(el.type||'text').toLowerCase())!==-1) ||
+        (el.tagName==='INPUT' && (el.inputMode==='decimal' || el.inputMode==='numeric'));
+      // date/datetime: treat as copyable readonly too
+      if(el.tagName==='INPUT' && (el.type==='date' || el.type==='datetime-local')) isTextish=true;
+      if(lock){
+        if(isTextish){
+          // readonly = can focus/select/copy, cannot edit
+          el.removeAttribute('disabled');
+          el.setAttribute('readonly','readonly');
+        } else {
+          el.setAttribute('disabled','disabled');
+          el.removeAttribute('readonly');
+        }
       } else {
         el.removeAttribute('disabled');
-        el.removeAttribute('readonly');
+        if(el.id!=='wh-inv-company') el.removeAttribute('readonly');
       }
     });
     root.querySelectorAll('.wh-sig-actions button').forEach(function(b){
@@ -2765,7 +2777,6 @@ function whBindLinesKeyboard_(){
   table.addEventListener('keydown', function(e){
     var key=e.key;
     if(key!=='ArrowUp' && key!=='ArrowDown' && key!=='ArrowLeft' && key!=='ArrowRight') return;
-    if(_whFormLocked) return;
     var t=e.target;
     if(!t || t.tagName!=='INPUT' || !t.classList.contains('wh-cell-input')) return;
     var id=String(t.id||'');
@@ -2777,7 +2788,7 @@ function whBindLinesKeyboard_(){
     if(col<0 || !row) return;
 
     // When SP suggestion list is open, Up/Down move through picks first.
-    if(field==='code' && (key==='ArrowUp' || key==='ArrowDown')){
+    if(!_whFormLocked && field==='code' && (key==='ArrowUp' || key==='ArrowDown')){
       var list=document.getElementById('wh-code-list-'+row);
       if(list && !list.hidden){
         var btns=list.querySelectorAll('button[data-wh-pick="sp"]:not([disabled])');
@@ -2830,6 +2841,7 @@ function whBindLinesKeyboard_(){
   // Enter on highlighted SP pick
   table.addEventListener('keydown', function(e){
     if(e.key!=='Enter') return;
+    if(_whFormLocked) return;
     var t=e.target;
     if(!t || t.id.indexOf('wh-code-')!==0) return;
     var row=parseInt(String(t.id).replace('wh-code-',''),10);
@@ -2932,6 +2944,11 @@ function whBindComboClicks_(){
   window.addEventListener('resize', function(){ if(_whOpenCombo) whCloseCombos(); });
 }
 function whFilterSp(row){
+  if(_whFormLocked || _whReceiverMode){
+    var listLocked=document.getElementById('wh-code-list-'+row);
+    if(listLocked){ listLocked.hidden=true; listLocked.innerHTML=''; }
+    return;
+  }
   whBindComboClicks_();
   var input=document.getElementById('wh-code-'+row);
   var list=document.getElementById('wh-code-list-'+row);
@@ -2963,6 +2980,11 @@ function whPickSp(row, code){
   whDraftSchedule_();
 }
 function whFilterCompany(el){
+  if(_whFormLocked || _whReceiverMode){
+    var listL=document.getElementById('wh-company-list');
+    if(listL){ listL.hidden=true; listL.innerHTML=''; }
+    return;
+  }
   whBindComboClicks_();
   var list=document.getElementById('wh-company-list');
   var wrap=document.getElementById('wh-company-combo');
@@ -3891,6 +3913,11 @@ function whInvPickPill_(kind, name){
   whCloseCombos();
 }
 function whFilterTech(el){
+  if(_whFormLocked || _whReceiverMode){
+    var listL=document.getElementById('wh-tech-list');
+    if(listL){ listL.hidden=true; listL.innerHTML=''; }
+    return;
+  }
   whBindComboClicks_();
   var list=document.getElementById('wh-tech-list');
   var wrap=document.getElementById('wh-tech-combo');

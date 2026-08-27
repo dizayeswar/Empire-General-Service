@@ -87,10 +87,15 @@
 .wh-note.wh-form-locked {
   opacity: 0.98;
 }
-.wh-note.wh-form-locked .wh-cell-input,
+/* Keep type toggles non-clickable; text cells stay clickable so users can select/copy. */
 .wh-note.wh-form-locked .wh-type-btn {
   pointer-events: none;
   cursor: default;
+}
+.wh-note.wh-form-locked .wh-cell-input[readonly] {
+  pointer-events: auto;
+  cursor: text;
+  background: inherit;
 }
 .wh-saved-section { margin: 0 0 22px; }
 .wh-saved-section-done .wh-saved-section-title {
