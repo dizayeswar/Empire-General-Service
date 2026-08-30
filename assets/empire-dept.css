@@ -1100,3 +1100,10 @@ tr.job-row:hover {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+.em-add-wrap {
+  margin: 0 0 18px;
+  padding: 14px 16px 4px;
+  border: 2px dashed var(--card-border);
+  border-radius: 12px;
+  background: var(--task-bg, var(--card));
+}

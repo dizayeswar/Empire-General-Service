@@ -14,6 +14,7 @@ import * as issues from "./handlers_issues.ts";
 import * as jobs from "./handlers_jobs.ts";
 import * as misc from "./handlers_misc.ts";
 import * as ups from "./handlers_ups.ts";
+import * as minus from "./handlers_minus.ts";
 import * as warehouse from "./handlers_warehouse.ts";
 import * as storage from "./handlers_storage.ts";
 import * as users from "./handlers_users.ts";
@@ -34,7 +35,7 @@ function json(obj: unknown, status = 200) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method === "GET") {
-    return json({ ok: true, msg: "Empire API running (Supabase)", version: "2026-08-27-ups-history" });
+    return json({ ok: true, msg: "Empire API running (Supabase)", version: "2026-08-30-electric-minus" });
   }
   if (req.method !== "POST") return json({ ok: false, error: "Method not allowed" }, 405);
 
@@ -253,6 +254,9 @@ Deno.serve(async (req) => {
       case "updateElectricalJob": return json(await jobs.handleUpdateElectricalJob(body));
       case "deleteElectricalJob": return json(await jobs.handleDeleteElectricalJob(body));
       case "clearElectricalJobs": return json(await jobs.handleClearElectricalJobs(body));
+      case "getElectricalMinus": return json(await minus.handleGetElectricalMinus());
+      case "addElectricalMinus": return json(await minus.handleAddElectricalMinus(body, a));
+      case "deleteElectricalMinus": return json(await minus.handleDeleteElectricalMinus(body));
       case "getElectricalSummary": return json(await jobs.handleGetElectricalSummary(body));
       case "saveElectricalSummary": return json(await jobs.handleSaveElectricalSummary(body));
       case "getElectricWorkerReports": return json(await jobs.handleGetElectricWorkerReports(body, a));

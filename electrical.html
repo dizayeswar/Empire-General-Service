@@ -15,7 +15,7 @@
 <title>Electrical Department — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer,body.auth-login-visible .modal{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-22-rb-select">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-30-minus">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-30-minus-add">
 <link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-08-19-wh-assign">
 <link rel="stylesheet" href="assets/empire-electrical-materials.css?v=2026-08-19-wh-assign">
 </head>
@@ -258,6 +258,24 @@
     <div class="form-section">
       <h2><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg></span> Electric Minus</h2>
       <p style="color:var(--text-soft);font-size:14px;margin:-6px 0 16px;line-height:1.5;">Standalone electricity-minus log. Not linked to jobs, field reports, or issues.</p>
+      <div id="em-add-wrap" class="em-add-wrap">
+        <div class="form-row">
+          <div class="form-group"><label>Unit</label><input type="text" id="em-add-unit" placeholder="e.g. WW12-12-C" autocomplete="off"></div>
+          <div class="form-group"><label>Date</label><input type="date" id="em-add-date"></div>
+          <div class="form-group"><label>Time</label><input type="time" id="em-add-time"></div>
+          <div class="form-group">
+            <label>Agent</label>
+            <input type="text" id="em-add-agent" list="em-agent-list" placeholder="e.g. Rebin" autocomplete="off">
+            <datalist id="em-agent-list"></datalist>
+          </div>
+          <div class="form-group"><label>Phone</label><input type="text" id="em-add-phone" placeholder="750…" autocomplete="off"></div>
+          <div class="form-group filter-grow"><label>Notes</label><input type="text" id="em-add-notes" placeholder="karabay ba naqs draye" autocomplete="off"></div>
+          <div class="form-group filter-actions">
+            <label>&nbsp;</label>
+            <button type="button" id="em-add-save" onclick="saveElectricMinus()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span> Add record</button>
+          </div>
+        </div>
+      </div>
       <div class="form-row filter-toolbar">
         <div class="form-group">
           <label>Month</label>
@@ -383,7 +401,7 @@
 <script src="assets/empire-assign-voice.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-electrical-materials.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-electric-minus-data.js?v=2026-08-30-minus"></script>
-<script src="assets/empire-electric-minus.js?v=2026-08-30-minus"></script>
+<script src="assets/empire-electric-minus.js?v=2026-08-30-minus-add"></script>
 <div class="modal" id="imgModal" onclick="closeImg()"><img id="imgBig" style="max-width:92%;max-height:92%;border-radius:10px;"></div>
 <div class="modal" id="fieldReportModal" onclick="if(event.target===this)closeFieldReportModal()">
   <div class="modal-box field-report-modal-box" id="fieldReportModalBody" onclick="event.stopPropagation()"></div>
@@ -408,6 +426,7 @@ function applyDeptPerms(){ if(window.tsPerm) window.tsPerm(); if(window.tsLoadGl
   show('tab-report', p.report!==false);
   show('tab-analytics', p.analytics!==false);
   show('tab-electricminus', p.minusTab!==false);
+  show('em-add-wrap', p.add!==false);
   show('btnReset', p.reset===true);
   show('btnTrash', p.reset===true);
   var wl=document.getElementById('whoLabel'); if(wl){ var u=currentUser(); var role=empireGetRole()||''; wl.textContent = u ? ('Logged in as: '+u+(role?(' ('+role+')'):'')) : ''; }
