@@ -186,7 +186,8 @@
 }
 
 .hr-f06-grid td.lab,
-.hr-f06-entitle th {
+.hr-f06-entitle th,
+.hr-f06-entitle td.lab {
   font-weight: 700;
   background: #fff;
 }
@@ -194,8 +195,17 @@
 .hr-f06-entitle th { text-align: left; }
 
 .hr-f06-grid td.val,
-.hr-f06-entitle td:not(:first-child) {
+.hr-f06-entitle td:not(.lab),
+.hr-f06-hr td {
+  background: #fff;
+}
+
+.hr-f06-grid td.lab .hr-lbl,
+.hr-f06-entitle th .hr-lbl,
+.hr-f06-entitle td.lab .hr-lbl,
+.hr-f06-hr-foot .hr-lbl {
   background: #fffde7;
+  padding: 1px 4px;
 }
 
 .hr-note .hr-cell-input {
@@ -309,6 +319,8 @@
     background: transparent !important;
   }
   .hr-f06-grid td.val,
-  .hr-f06-entitle td:not(:first-child) { background: #fffde7 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .hr-f06-entitle td:not(.lab),
+  .hr-f06-hr td { background: #fff !important; }
+  .hr-lbl { background: #fffde7 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .hr-note input[type=date]::-webkit-calendar-picker-indicator { display: none !important; }
 }

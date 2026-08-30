@@ -133,7 +133,7 @@ function hrRenderEntitlements_(data) {
   body.innerHTML = HR_ENTITLE_KEYS.map(function (r) {
     var row = data[r.key] || {};
     return '<tr>' +
-      '<td>' + hrEsc_(r.label) + '</td>' +
+      '<td class="lab"><span class="hr-lbl">' + hrEsc_(r.label) + '</span></td>' +
       '<td><input class="hr-cell-input" data-ent="' + r.key + '" data-col="annualBalance" value="' + hrEsc_(row.annualBalance || '') + '" oninput="hrRecalcRemain_(\'' + r.key + '\')"></td>' +
       '<td><input class="hr-cell-input" data-ent="' + r.key + '" data-col="available" value="' + hrEsc_(row.available || '') + '" oninput="hrRecalcRemain_(\'' + r.key + '\')"></td>' +
       '<td><input class="hr-cell-input" data-ent="' + r.key + '" data-col="requested" value="' + hrEsc_(row.requested || '') + '" oninput="hrRecalcRemain_(\'' + r.key + '\')"></td>' +

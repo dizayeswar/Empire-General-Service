@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-30-hr-f06">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-30-hr-f06">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-08-30-hr-f06">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-08-30-hr-f06-w">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -169,21 +169,21 @@
             <table class="hr-f06-grid">
               <colgroup><col class="c-lab"><col class="c-val"><col class="c-lab"><col class="c-val"></colgroup>
               <tr>
-                <td class="lab">Name</td>
+                <td class="lab"><span class="hr-lbl">Name</span></td>
                 <td class="val"><input id="hr-empName" class="hr-cell-input" type="text" autocomplete="name"></td>
-                <td class="lab">Department</td>
+                <td class="lab"><span class="hr-lbl">Department</span></td>
                 <td class="val"><input id="hr-empDepartment" class="hr-cell-input" type="text" list="hr-dept-list" autocomplete="off"></td>
               </tr>
               <tr>
-                <td class="lab">Code</td>
+                <td class="lab"><span class="hr-lbl">Code</span></td>
                 <td class="val"><input id="hr-empCode" class="hr-cell-input" type="text" autocomplete="off"></td>
-                <td class="lab">Division</td>
+                <td class="lab"><span class="hr-lbl">Division</span></td>
                 <td class="val"><input id="hr-empDivision" class="hr-cell-input" type="text" autocomplete="off"></td>
               </tr>
               <tr>
-                <td class="lab">Job Title</td>
+                <td class="lab"><span class="hr-lbl">Job Title</span></td>
                 <td class="val"><input id="hr-empJobTitle" class="hr-cell-input" type="text" autocomplete="off"></td>
-                <td class="lab">Replacement</td>
+                <td class="lab"><span class="hr-lbl">Replacement</span></td>
                 <td class="val"><input id="hr-replacement" class="hr-cell-input" type="text" autocomplete="off"></td>
               </tr>
             </table>
@@ -192,9 +192,9 @@
             <table class="hr-f06-grid">
               <colgroup><col class="c-lab"><col class="c-val"><col class="c-lab"><col class="c-val"></colgroup>
               <tr>
-                <td class="lab">Start Date</td>
-                <td class="lab">End Date</td>
-                <td class="lab" colspan="2">Number of days out of the office</td>
+                <td class="lab"><span class="hr-lbl">Start Date</span></td>
+                <td class="lab"><span class="hr-lbl">End Date</span></td>
+                <td class="lab" colspan="2"><span class="hr-lbl">Number of days out of the office</span></td>
               </tr>
               <tr>
                 <td class="val"><input id="hr-startDate" class="hr-cell-input" type="date" onchange="hrOnDatesChange_()"></td>
@@ -202,7 +202,7 @@
                 <td class="val" colspan="2"><input id="hr-daysOut" class="hr-cell-input" type="text" list="hr-days-list" oninput="hrOnLeaveType_()"></td>
               </tr>
               <tr>
-                <td class="lab">Type of Leave</td>
+                <td class="lab"><span class="hr-lbl">Type of Leave</span></td>
                 <td class="val" colspan="3">
                   <select id="hr-leaveType" class="hr-cell-input" onchange="hrOnLeaveType_()">
                     <option value="Annual Leave">Annual leave</option>
@@ -216,7 +216,7 @@
                 </td>
               </tr>
               <tr>
-                <td class="lab">Employee Signature</td>
+                <td class="lab"><span class="hr-lbl">Employee Signature</span></td>
                 <td class="val sig-cell" colspan="3" onclick="hrOpenSig_('emp')">
                   <div class="hr-sig-pad" id="hr-sig-emp"></div>
                   <input id="hr-empSignature" class="hr-cell-input hr-sig-ghost" type="text" autocomplete="off" onclick="event.stopPropagation()">
@@ -228,12 +228,12 @@
             <table class="hr-f06-grid">
               <colgroup><col class="c-lab"><col class="c-val"><col class="c-lab"><col class="c-val"></colgroup>
               <tr>
-                <td class="lab">Line Manager</td>
+                <td class="lab"><span class="hr-lbl">Line Manager</span></td>
                 <td class="val sig-cell" onclick="hrOpenSig_('line')">
                   <div class="hr-sig-pad" id="hr-sig-line"></div>
                   <input id="hr-lineManagerName" class="hr-cell-input hr-sig-ghost" type="text" autocomplete="off" onclick="event.stopPropagation()">
                 </td>
-                <td class="lab">Director</td>
+                <td class="lab"><span class="hr-lbl">Director</span></td>
                 <td class="val sig-cell" onclick="hrOpenSig_('director')">
                   <div class="hr-sig-pad" id="hr-sig-director"></div>
                   <input id="hr-directorName" class="hr-cell-input hr-sig-ghost" type="text" autocomplete="off" onclick="event.stopPropagation()">
@@ -248,11 +248,11 @@
               </colgroup>
               <thead>
                 <tr>
-                  <th>Type of Leave</th>
-                  <th>Annual Balance</th>
-                  <th>Available balance</th>
-                  <th>Days requested</th>
-                  <th>Remaining Balance</th>
+                  <th><span class="hr-lbl">Type of Leave</span></th>
+                  <th><span class="hr-lbl">Annual Balance</span></th>
+                  <th><span class="hr-lbl">Available balance</span></th>
+                  <th><span class="hr-lbl">Days requested</span></th>
+                  <th><span class="hr-lbl">Remaining Balance</span></th>
                 </tr>
               </thead>
               <tbody id="hrEntitleBody"></tbody>
@@ -267,13 +267,13 @@
               </tr>
               <tr class="hr-f06-hr-foot">
                 <td class="sig-line">
-                  Signature
+                  <span class="hr-lbl">Signature</span>
                   <span class="dots" onclick="hrOpenSig_('hr')">
                     <span class="hr-sig-pad hr-sig-pad-inline" id="hr-sig-hr"></span>
                     <input id="hr-hrSignature" class="hr-cell-input hr-sig-ghost" type="text" autocomplete="off" onclick="event.stopPropagation()">
                   </span>
                 </td>
-                <td class="date-line">Date <input id="hr-hrSignedAt" class="hr-cell-input" type="date"></td>
+                <td class="date-line"><span class="hr-lbl">Date</span> <input id="hr-hrSignedAt" class="hr-cell-input" type="date"></td>
               </tr>
             </table>
           </div>
@@ -295,6 +295,6 @@
 <script src="assets/empire-api.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-auth.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-core.js?v=2026-08-30-hr-f06"></script>
-<script src="assets/empire-hr-leave.js?v=2026-08-30-hr-f06"></script>
+<script src="assets/empire-hr-leave.js?v=2026-08-30-hr-f06-w"></script>
 </body>
 </html>
