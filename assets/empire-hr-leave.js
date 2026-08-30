@@ -45,20 +45,40 @@ function hrVal_(id) {
 function hrSet_(id, v) {
   var el = document.getElementById(id);
   if (el) el.value = v == null ? '' : String(v);
+  if (el) hrSyncPaperDate_(el);
 }
 function hrCanWrite_() {
   var p = typeof empireGetPerms === 'function' ? empireGetPerms() : {};
   if (p.add === false && p.edit === false) return false;
   return _hrCanWrite;
 }
+var HR_MONTHS_SHORT = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+
 function hrToday_() {
   var d = new Date();
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
-function hrFmtDate_(iso) {
+function hrFmtPaperDate_(iso) {
   var s = String(iso || '').trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return s || '—';
-  return s.slice(8, 10) + '/' + s.slice(5, 7) + '/' + s.slice(0, 4);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return '';
+  var day = parseInt(s.slice(8, 10), 10);
+  var month = parseInt(s.slice(5, 7), 10);
+  if (!day || month < 1 || month > 12) return '';
+  return day + '/' + HR_MONTHS_SHORT[month - 1] + '/' + s.slice(0, 4);
+}
+function hrFmtDate_(iso) {
+  return hrFmtPaperDate_(iso) || String(iso || '').trim() || '—';
+}
+function hrSyncPaperDate_(el) {
+  if (!el || !el.id) return;
+  var view = document.getElementById(el.id + '-view');
+  if (view) view.value = hrFmtPaperDate_(el.value);
+}
+function hrSyncAllPaperDates_() {
+  ['hr-startDate', 'hr-endDate', 'hr-hrSignedAt'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) hrSyncPaperDate_(el);
+  });
 }
 function hrDaysNum_(raw) {
   var s = String(raw || '').trim().toLowerCase();
@@ -266,6 +286,7 @@ function hrFillForm_(row) {
   hrSet_('hr-hrSignedAt', row.hrSignedAt || '');
   hrSet_('hr-status', row.status || 'submitted');
   hrSet_('hrFormNo', row.num ? String(row.num) : '');
+  hrSyncAllPaperDates_();
   var title = document.getElementById('hrFormTitle');
   if (title) title.textContent = row.id ? 'Leave Request (editing saved)' : 'Leave Request';
   var delBtn = document.getElementById('hrDeleteBtn');

@@ -258,6 +258,34 @@
   border-bottom: 1px dotted #000 !important;
 }
 
+.hr-date-wrap {
+  position: relative;
+  display: block;
+  min-height: 22px;
+}
+
+.hr-date-wrap-inline {
+  display: inline-block;
+  min-width: 9em;
+  vertical-align: middle;
+}
+
+.hr-date-view {
+  pointer-events: none;
+}
+
+.hr-date-native {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+}
+
 .sig-cell {
   min-height: 42px;
   cursor: pointer;
@@ -325,5 +353,6 @@
   .hr-f06-entitle th,
   .hr-f06-entitle td.lab { background: none !important; font-weight: 400 !important; }
   .hr-note .hr-cell-input { background: #fff !important; }
-  .hr-note input[type=date]::-webkit-calendar-picker-indicator { display: none !important; }
+  .hr-date-native { display: none !important; visibility: hidden !important; }
+  .hr-date-view { display: block !important; visibility: visible !important; }
 }
