@@ -127,6 +127,7 @@ export const MODULE_ACCESS_KEYS = [
   "warehouse_sig_auth",
   "warehouse_sig_issued",
   "warehouse_sig_received",
+  "hr",
 ] as const;
 
 export type ModuleAccessKey = (typeof MODULE_ACCESS_KEYS)[number];
@@ -151,6 +152,7 @@ const MODULE_DEPTS: Record<ModuleAccessKey, string[]> = {
   warehouse_sig_auth: ["warehouse"],
   warehouse_sig_issued: ["warehouse"],
   warehouse_sig_received: ["warehouse"],
+  hr: ["hr"],
 };
 
 export function emptyModuleAccess(): ModuleAccessMap {
@@ -236,6 +238,7 @@ export function synthesizeModuleAccessFromLegacy(
     else if (t === "asaas") a.asaas = level;
     else if (t === "application") a.application = level;
     else if (t === "ups") a.ups = level;
+    else if (t === "hr" || t === "hr department") a.hr = level;
     else if (t === "warehouse") {
       /* handled below for desk vs signer */
     }
@@ -291,6 +294,7 @@ function accessHasDeskWrite_(a: ModuleAccessMap): boolean {
     a.asaas === "write" ||
     a.application === "write" ||
     a.ups === "write" ||
+    a.hr === "write" ||
     a.warehouse_desk === "write" ||
     a.warehouse_invoices === "write"
   );
@@ -309,7 +313,7 @@ function accessWorkerOnly_(a: ModuleAccessMap): boolean {
   const deskRead =
     a.cleaning !== "none" || a.civil_department !== "none" || a.electrical_department !== "none" ||
     a.hse !== "none" || a.fire !== "none" || a.asaas !== "none" || a.application !== "none" ||
-    a.ups !== "none" ||
+    a.ups !== "none" || a.hr !== "none" ||
     a.warehouse_desk !== "none" || a.warehouse_invoices !== "none";
   return !deskRead;
 }

@@ -80,6 +80,7 @@
             { icon:'📦', name:'Warehouse', desc:'Goods Issue Note — SP materials, signatures & print.', link:'warehouse.html', active:true, accessDept:'warehouse' },
             { icon:'🛡️', name:'A.S.A.A.S', desc:'West Wing corridor storage — log items, track returns & warehouse.', link:'asaas.html', active:true, accessDept:'asaas' },
             { icon:'📱', name:'Application', desc:'Door-to-door resident app registration — RA, WW, WD, ES properties.', link:'application.html', active:true, accessDept:'application' },
+            { icon:'👔', name:'HR Department', desc:'Leave requests — HR-F-06 form, approvals & entitlement balances.', link:'hr-department.html', active:true, accessDept:'hr' },
             { icon:'⚙️', name:'Admin', desc:'Create users, set roles & departments, and other system tools.', link:'admin.html', active:true, accessDept:'__admin__', adminOnly:true }
         ];
 
@@ -280,6 +281,7 @@
             if (summary.civilIssue) mapped['civil department,civil issue'] = summary.civilIssue;
             if (summary.electricIssue) mapped['electrical department,electric issue'] = summary.electricIssue;
             if (summary.ups) mapped.ups = summary.ups;
+            if (summary.hr) mapped.hr = summary.hr;
             applyHubTileStats('#grid .tile[data-dept]:not(.tile-expandable)', mapped);
             var cleaning = summary && summary.cleaning;
             if (!cleaning) return;

@@ -636,6 +636,25 @@ export async function handleGetSummary(body: Record<string, unknown>) {
       lastActivity: last,
     };
   }
+  if (allow("hr")) {
+    const rows = await selectAllRows<{ status?: string; updated_at?: string; created_at?: string }>("hr_leave_requests", {
+      columns: "status,updated_at,created_at",
+    });
+    const pending = rows.filter((r) => {
+      const st = String(r.status || "").toLowerCase();
+      return st !== "processed" && st !== "rejected";
+    }).length;
+    const last = rows.reduce((acc, r) => {
+      const t = String(r.updated_at || r.created_at || "");
+      return t > acc ? t : acc;
+    }, "");
+    summary.hr = {
+      open: pending,
+      level: pending ? "warn" : "muted",
+      label: pending ? pending + " pending" : rows.length + " leave requests",
+      lastActivity: last,
+    };
+  }
   return { ok: true, summary, generatedAt: isoNow() };
 }
 

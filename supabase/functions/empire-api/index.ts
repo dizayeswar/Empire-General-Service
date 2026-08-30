@@ -16,6 +16,7 @@ import * as misc from "./handlers_misc.ts";
 import * as ups from "./handlers_ups.ts";
 import * as minus from "./handlers_minus.ts";
 import * as warehouse from "./handlers_warehouse.ts";
+import * as hr from "./handlers_hr.ts";
 import * as storage from "./handlers_storage.ts";
 import * as users from "./handlers_users.ts";
 
@@ -35,7 +36,7 @@ function json(obj: unknown, status = 200) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method === "GET") {
-    return json({ ok: true, msg: "Empire API running (Supabase)", version: "2026-08-30-electric-minus" });
+    return json({ ok: true, msg: "Empire API running (Supabase)", version: "2026-08-30-hr-leave" });
   }
   if (req.method !== "POST") return json({ ok: false, error: "Method not allowed" }, 405);
 
@@ -323,6 +324,11 @@ Deno.serve(async (req) => {
       case "getWarehouseInvoices": return json(await warehouse.handleGetWarehouseInvoices(body, a));
       case "saveWarehouseInvoice": return json(await warehouse.handleSaveWarehouseInvoice(body, a));
       case "deleteWarehouseInvoice": return json(await warehouse.handleDeleteWarehouseInvoice(body, a));
+
+      case "getHrLeaveRequests": return json(await hr.handleGetHrLeaveRequests());
+      case "addHrLeaveRequest": return json(await hr.handleAddHrLeaveRequest(body, a));
+      case "updateHrLeaveRequest": return json(await hr.handleUpdateHrLeaveRequest(body, a));
+      case "deleteHrLeaveRequest": return json(await hr.handleDeleteHrLeaveRequest(body, a));
 
       case "getTrash": return json(await misc.handleGetTrash(body));
       case "restoreTrash": return json(await misc.handleRestoreTrash(body));

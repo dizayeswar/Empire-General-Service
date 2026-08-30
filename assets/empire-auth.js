@@ -235,7 +235,8 @@ function empireCanAccessDept(requiredDept) {
     warehouse: [
       'warehouse_desk', 'warehouse_assigned', 'warehouse_done', 'warehouse_invoices',
       'warehouse_sig_auth', 'warehouse_sig_issued', 'warehouse_sig_received'
-    ]
+    ],
+    hr: ['hr']
   };
   function moduleAllowsDeptToken(token) {
     var keys = moduleKeysByDept[token];
@@ -316,7 +317,8 @@ var EMPIRE_DEPT_HOME = {
   warehouse: 'warehouse.html',
   asaas: 'asaas.html',
   application: 'application.html',
-  ups: 'ups.html'
+  ups: 'ups.html',
+  hr: 'hr-department.html'
 };
 
 var EMPIRE_LOGIN_PAGE = 'index.html';

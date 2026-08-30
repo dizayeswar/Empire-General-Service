@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="manifest.webmanifest?v=2026-08-30-hr-leave">
+    <meta name="theme-color" content="#8d015d">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Empire EGS">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="icon" href="logo-light.png" type="image/png">
+    <title>HR Department — Empire World</title>
+    <link rel="stylesheet" href="assets/empire-hub.css?v=2026-08-30-hr-leave">
+</head>
+<body>
+    <div class="topbar">
+      <img src="logo-light.png" alt="Empire World" style="height:48px;width:auto;">
+      <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span> <span class="lbl">Theme</span></button>
+    </div>
+    <div class="wrap">
+        <a class="back" href="index.html">&larr; Back to Empire World</a>
+        <header>
+            <h1>HR Department</h1>
+            <p>Human Resources — leave requests and staff records</p>
+        </header>
+        <div class="grid" id="grid"></div>
+        <footer>Prepared by <strong>Swar Dizayee</strong></footer>
+    </div>
+    <script src="assets/empire-core.js?v=2026-08-30-hr-leave"></script>
+    <script>
+        const sections = [
+            { icon:'📋', name:'Leave request', desc:'HR-F-06 — employee details, absence dates, approvals, entitlement balances and HR comments.', link:'hr-leave.html', active:true }
+        ];
+        function render(){
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+            sections.forEach(c => {
+                let el;
+                if (c.active && c.link) {
+                    el = document.createElement('a');
+                    el.href = c.link;
+                    el.className = 'tile active';
+                } else {
+                    el = document.createElement('div');
+                    el.className = 'tile soon';
+                    el.addEventListener('click', () => alert(c.name + ' is coming soon.'));
+                }
+                el.innerHTML = '<div class="icon">' + c.icon + '</div>' +
+                    '<h2>' + c.name + '</h2>' +
+                    '<p>' + c.desc + '</p>' +
+                    '<span class="badge ' + (c.active ? 'open' : 'wait') + '">' + (c.active ? 'Open' : 'Coming Soon') + '</span>';
+                grid.appendChild(el);
+            });
+        }
+        render();
+    </script>
+</body>
+</html>

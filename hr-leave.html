@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.webmanifest?v=2026-08-30-hr-leave">
+<meta name="theme-color" content="#8d015d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="HR Leave">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="logo-light.png" type="image/png">
+<title>Leave Request — HR Department — Empire World</title>
+<style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-30-hr-leave">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-30-hr-leave">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-08-30-hr-leave">
+</head>
+<body class="auth-login-visible">
+<div class="login-page show" id="loginPage">
+  <div class="login-box">
+    <button class="theme-btn login-theme" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span></button>
+    <img src="logo-light.png" alt="Empire World" style="height:44px;width:auto;display:block;margin:0 auto 16px;">
+    <a class="back" href="hr-department.html">&larr; Back to HR</a>
+    <h1>HR Department</h1>
+    <p style="text-align:center;color:var(--text-soft);font-size:14px;margin:-8px 0 16px;">Leave request — HR-F-06</p>
+    <div class="login-message" id="loginMessage"></div>
+    <form class="login-form" onsubmit="hrHandleLogin_(event)">
+      <input type="text" id="loginUsername" placeholder="Username" required autocomplete="username">
+      <input type="password" id="loginPassword" placeholder="Password" required autocomplete="current-password">
+      <button type="submit">Login</button>
+    </form>
+  </div>
+</div>
+
+<div class="container" id="mainContainer">
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-top">
+        <img src="logo-light.png" alt="Empire World" class="sidebar-logo">
+        <button class="side-toggle" onclick="toggleSidebar()" id="sideToggleBtn" aria-label="Collapse sidebar">&#9776;</button>
+      </div>
+      <div class="side-title">
+        <h1>HR Department</h1>
+        <p>Leave request — HR-F-06</p>
+      </div>
+      <p id="whoLabel"></p>
+      <nav class="side-nav">
+        <button class="tab-btn active" id="tabBtnList" onclick="hrSwitchTab_(event,'list')">
+          <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span>
+          <span class="lbl">Requests</span>
+        </button>
+        <button class="tab-btn" id="tabBtnForm" onclick="hrSwitchTab_(event,'form')">
+          <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span>
+          <span class="lbl">New request</span>
+        </button>
+      </nav>
+      <div class="side-actions">
+        <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle theme"><span class="nav-icon theme-icon"></span> <span class="lbl">Theme</span></button>
+        <button onclick="hrLoad_(true)"><span class="nav-icon spin-icon" id="navRefreshIcon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> <span class="lbl">Refresh</span></button>
+        <button onclick="location.href='hr-department.html'"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg></span> <span class="lbl">HR home</span></button>
+        <button onclick="location.href='index.html'"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg></span> <span class="lbl">Hub</span></button>
+        <button onclick="hrLogout_()" style="color:#fff;background:#C5504F;border-color:#C5504F;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg></span> <span class="lbl">Logout</span></button>
+      </div>
+    </aside>
+
+    <div class="main-area">
+      <div id="list" class="tab-content active">
+        <div class="form-section">
+          <h2>Leave requests</h2>
+          <p class="hr-tab-help">Official leave form HR-F-06. Open a row to edit, approve, or print.</p>
+          <div class="form-row filter-toolbar">
+            <div class="form-group">
+              <label>Status</label>
+              <select id="hrFilterStatus" onchange="hrRenderTable_()">
+                <option value="">All statuses</option>
+                <option value="submitted">Submitted</option>
+                <option value="line_approved">Line manager approved</option>
+                <option value="director_approved">Director approved</option>
+                <option value="processed">HR processed</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Department</label>
+              <select id="hrFilterDept" onchange="hrRenderTable_()"></select>
+            </div>
+            <div class="form-group">
+              <label>Month</label>
+              <input type="month" id="hrFilterMonth" onchange="hrRenderTable_()">
+            </div>
+            <div class="form-group filter-grow">
+              <label>Search</label>
+              <input type="text" id="hrFilterSearch" oninput="hrRenderTable_()" placeholder="name, code, type…">
+            </div>
+            <div class="form-group filter-actions">
+              <label>&nbsp;</label>
+              <button type="button" onclick="hrLoad_(true)"><span class="nav-icon spin-icon" id="listRefreshIcon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> Refresh</button>
+            </div>
+          </div>
+          <div class="hr-kpi-row" id="hrKpiRow"></div>
+          <p class="hr-summary" id="hrSummary"></p>
+          <div id="hrTableHost"><p>Loading…</p></div>
+        </div>
+      </div>
+
+      <div id="form" class="tab-content">
+        <div class="form-section hr-form-wrap">
+          <div class="hr-form-toolbar no-print">
+            <h2 id="hrFormTitle">New leave request</h2>
+            <div class="hr-form-toolbar-acts">
+              <button type="button" id="hrPrintBtn" onclick="hrPrint_()" style="display:none;">Print / PDF</button>
+              <button type="button" onclick="hrClearForm_()">Clear</button>
+              <button type="button" id="hrCancelEditBtn" onclick="hrClearForm_()" style="display:none;color:#fff;background:#C5504F;border-color:#C5504F;">Cancel edit</button>
+            </div>
+          </div>
+
+          <article class="hr-paper" id="hrPaper">
+            <header class="hr-paper-head">
+              <img src="logo-light.png" alt="Empire World" class="hr-paper-logo">
+              <div class="hr-paper-head-text">
+                <p class="hr-form-code">HR-F-06</p>
+                <h3>Leave Request</h3>
+                <p class="hr-form-sub">Empire World — Human Resources</p>
+              </div>
+              <div class="hr-paper-meta">
+                <label>No.</label>
+                <div class="hr-meta-box" id="hrFormNo">New</div>
+                <label class="no-print">Status</label>
+                <select id="hr-status" class="no-print">
+                  <option value="submitted">Submitted</option>
+                  <option value="line_approved">Line manager approved</option>
+                  <option value="director_approved">Director approved</option>
+                  <option value="processed">HR processed</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+                <div class="hr-print-only hr-print-status" id="hrPrintStatus"></div>
+              </div>
+            </header>
+            <input type="hidden" id="hr-id">
+
+            <section class="hr-block">
+              <h4>Employee’s Detail</h4>
+              <div class="hr-grid-2">
+                <label>Name<input type="text" id="hr-empName" placeholder="Full name" autocomplete="name"></label>
+                <label>Department
+                  <select id="hr-empDepartment">
+                    <option value="">Select department</option>
+                    <option>Civil Department</option>
+                    <option>Electrical Department</option>
+                    <option>Cleaning Department</option>
+                    <option>HSE</option>
+                    <option>Warehouse</option>
+                    <option>Finance</option>
+                    <option>HR</option>
+                    <option>Administration</option>
+                    <option>Security</option>
+                    <option>Reception / Call Center</option>
+                    <option>Other</option>
+                  </select>
+                </label>
+                <label>Code<input type="text" id="hr-empCode" placeholder="e.g. 100351"></label>
+                <label>Division<input type="text" id="hr-empDivision" placeholder="Division"></label>
+                <label>Job Title<input type="text" id="hr-empJobTitle" placeholder="e.g. Cashier"></label>
+                <label>Replacement<input type="text" id="hr-replacement" placeholder="Covering staff"></label>
+              </div>
+            </section>
+
+            <section class="hr-block">
+              <h4>Absence Detail</h4>
+              <div class="hr-grid-3">
+                <label>Start Date<input type="date" id="hr-startDate" onchange="hrOnDatesChange_()"></label>
+                <label>End Date<input type="date" id="hr-endDate" onchange="hrOnDatesChange_()"></label>
+                <label>Number of days out of the office
+                  <input type="text" id="hr-daysOut" placeholder="e.g. 1 or half day" list="hr-days-list">
+                  <datalist id="hr-days-list">
+                    <option value="half day"></option>
+                    <option value="0.5"></option>
+                    <option value="1"></option>
+                    <option value="2"></option>
+                    <option value="3"></option>
+                  </datalist>
+                </label>
+              </div>
+              <p class="hr-field-label">Type of Leave</p>
+              <div class="hr-leave-types" id="hrLeaveTypes"></div>
+              <label class="hr-other-wrap" id="hrOtherWrap" style="display:none;">Other (specify)
+                <input type="text" id="hr-leaveOther" placeholder="Describe leave type">
+              </label>
+              <div class="hr-grid-2 hr-sign-row">
+                <label>Employee Signature<input type="text" id="hr-empSignature" placeholder="Employee name / signature"></label>
+                <label>Date<input type="date" id="hr-empSignedAt"></label>
+              </div>
+            </section>
+
+            <section class="hr-block">
+              <h4>Approvals</h4>
+              <div class="hr-grid-2">
+                <div class="hr-approve-box">
+                  <p class="hr-approve-title">Line Manager</p>
+                  <label>Name<input type="text" id="hr-lineManagerName" placeholder="Line manager name"></label>
+                  <label>Date<input type="date" id="hr-lineManagerSignedAt"></label>
+                  <label class="no-print">Decision
+                    <select id="hr-lineManagerStatus">
+                      <option value="">Pending</option>
+                      <option value="approved">Approved</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="hr-approve-box">
+                  <p class="hr-approve-title">Director</p>
+                  <label>Name<input type="text" id="hr-directorName" placeholder="Director name"></label>
+                  <label>Date<input type="date" id="hr-directorSignedAt"></label>
+                  <label class="no-print">Decision
+                    <select id="hr-directorStatus">
+                      <option value="">Pending</option>
+                      <option value="approved">Approved</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+            </section>
+
+            <section class="hr-block">
+              <h4>Leave Entitlement Detail</h4>
+              <div class="hr-table-wrap">
+                <table class="hr-entitle-table">
+                  <thead>
+                    <tr>
+                      <th>Type of Leave</th>
+                      <th>Annual Balance</th>
+                      <th>Available balance</th>
+                      <th>Days requested</th>
+                      <th>Remaining Balance</th>
+                    </tr>
+                  </thead>
+                  <tbody id="hrEntitleBody"></tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="hr-block">
+              <h4>Human Resources Dept. Comment</h4>
+              <label class="hr-full">Comment
+                <textarea id="hr-hrComment" rows="4" placeholder="HR notes on this request"></textarea>
+              </label>
+              <div class="hr-grid-2 hr-sign-row">
+                <label>Signature<input type="text" id="hr-hrSignature" placeholder="HR officer name"></label>
+                <label>Date<input type="date" id="hr-hrSignedAt"></label>
+              </div>
+            </section>
+          </article>
+
+          <div class="hr-form-actions no-print" id="hrFormActions">
+            <button type="button" id="hrSaveBtn" onclick="hrSave_()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Save request</button>
+            <button type="button" id="hrDeleteBtn" onclick="hrDelete_()" style="display:none;color:#fff;background:#C5504F;border-color:#C5504F;">Delete</button>
+            <p class="hr-form-msg" id="hrFormMsg"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="config.js?v=2026-08-30-hr-leave"></script>
+<script src="assets/empire-api.js?v=2026-08-30-hr-leave"></script>
+<script src="assets/empire-auth.js?v=2026-08-30-hr-leave"></script>
+<script src="assets/empire-core.js?v=2026-08-30-hr-leave"></script>
+<script src="assets/empire-hr-leave.js?v=2026-08-30-hr-leave"></script>
+</body>
+</html>

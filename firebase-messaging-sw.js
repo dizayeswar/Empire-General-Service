@@ -1,5 +1,5 @@
 /* Empire EGS — service worker (cache + Firebase background push) */
-var CACHE_VERSION = '2026-08-30-electric-minus';
+var CACHE_VERSION = '2026-08-30-hr-leave';
 var CACHE_NAME = 'empire-egs-' + CACHE_VERSION;
 var NOTIFY_ICON = 'https://dizayeswar.github.io/Empire-General-Service/icons/icon-192.png';
 var NOTIFY_BASE = 'https://dizayeswar.github.io/Empire-General-Service/civil-issue.html';
@@ -54,6 +54,8 @@ var PRECACHE = [
   './admin-users.html',
   './asaas.html',
   './ups.html',
+  './hr-department.html',
+  './hr-leave.html',
   './config.js',
   './manifest.webmanifest',
   './logo.png',
@@ -86,7 +88,9 @@ var PRECACHE = [
   './assets/cleaning-mobile-i18n.js',
   './assets/empire-ups.css',
   './assets/empire-ups-app.js',
-  './assets/ups-seed.json'
+  './assets/ups-seed.json',
+  './assets/empire-hr.css',
+  './assets/empire-hr-leave.js'
 ];
 
 self.addEventListener('notificationclick', function (event) {
@@ -186,6 +190,8 @@ function offlineNavigateFallback_(request) {
     if (path.indexOf('cleaning-mobile') !== -1) return caches.match('./cleaning-mobile.html');
     if (path.indexOf('asaas') !== -1) return caches.match('./asaas.html');
     if (path.indexOf('electrical') !== -1) return caches.match('./electrical.html');
+    if (path.indexOf('hr-leave') !== -1) return caches.match('./hr-leave.html');
+    if (path.indexOf('hr-department') !== -1) return caches.match('./hr-department.html');
     return caches.match('./index.html');
   });
 }
