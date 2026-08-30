@@ -187,6 +187,7 @@ function empireApplyHideTokens_(p, hide) {
     if (tok.indexOf('issues') !== -1 || tok === 'issue') out.issuesTab = false;
     if (tok.indexOf('not electric') !== -1 || tok.indexOf('not civil') !== -1 || tok.indexOf('not dept') !== -1) out.notElectricTab = false;
     if (tok.indexOf('needs month') !== -1 || tok.indexOf('fix delay') !== -1) out.fixDelayTab = false;
+    if (tok.indexOf('minus') !== -1) out.minusTab = false;
   });
   return out;
 }

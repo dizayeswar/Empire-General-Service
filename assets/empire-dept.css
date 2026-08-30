@@ -1080,3 +1080,23 @@ tr.job-row:hover {
 @media (max-width: 640px) {
   .issue-monthly-grid { grid-template-columns: 1fr; }
 }
+
+.em-table-wrap {
+  overflow: auto;
+  max-height: calc(100vh - 280px);
+}
+.em-table-wrap thead th {
+  position: sticky;
+  top: 0;
+  background: var(--card);
+  z-index: 1;
+}
+.em-notes {
+  max-width: 280px;
+  word-break: break-word;
+}
+.em-phone {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
