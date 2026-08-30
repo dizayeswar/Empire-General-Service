@@ -77,31 +77,8 @@ function hrMsg_(text, ok) {
   el.textContent = text || '';
 }
 
-function hrMarkTypeBtn_(btn, on) {
-  var label = String(btn.getAttribute('data-label') || btn.textContent || '').replace(/^[□☑]\s*/, '');
-  btn.textContent = (on ? '☑ ' : '□ ') + label;
-  btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-}
-
 function hrRenderLeaveTypes_(selected) {
-  var host = document.getElementById('hrLeaveTypes');
-  if (!host) return;
-  selected = selected || 'Annual Leave';
-  hrSet_('hr-leaveType', selected);
-  host.innerHTML = '<strong>Type of Leave</strong>' + HR_LEAVE_TYPES.map(function (t) {
-    var on = selected === t.id;
-    return '<button type="button" class="hr-type-btn" data-leave="' + hrEsc_(t.id) + '" data-label="' + hrEsc_(t.label) +
-      '" aria-pressed="' + (on ? 'true' : 'false') + '" onclick="hrPickLeaveType_(\'' + hrEsc_(t.id) + '\')">' +
-      (on ? '☑ ' : '□ ') + hrEsc_(t.label) + '</button>';
-  }).join('');
-  hrOnLeaveType_();
-}
-
-function hrPickLeaveType_(id) {
-  hrSet_('hr-leaveType', id);
-  document.querySelectorAll('#hrLeaveTypes .hr-type-btn').forEach(function (btn) {
-    hrMarkTypeBtn_(btn, btn.getAttribute('data-leave') === id);
-  });
+  hrSet_('hr-leaveType', selected || 'Annual Leave');
   hrOnLeaveType_();
 }
 
@@ -200,7 +177,7 @@ function hrRecalcRemain_(key) {
 
 function hrOnLeaveType_() {
   var type = hrSelectedLeaveType_();
-  var other = document.getElementById('hrOtherWrap');
+  var other = document.getElementById('hr-leaveOther');
   if (other) other.style.display = type === 'Other' ? '' : 'none';
   var days = hrVal_('hr-daysOut');
   if (!days) return;
