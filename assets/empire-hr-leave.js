@@ -28,6 +28,7 @@ var HR_STATUS_LABEL = {
 var _hrRows = [];
 var _hrSaving = false;
 var _hrCanWrite = true;
+var _hrSigs = { emp: '', line: '', director: '', hr: '' };
 
 function hrToken_() { return empireGetToken() || ''; }
 function hrEsc_(s) {
@@ -67,8 +68,7 @@ function hrDaysNum_(raw) {
   return isNaN(n) ? 0 : n;
 }
 function hrSelectedLeaveType_() {
-  var el = document.querySelector('input[name="hrLeaveType"]:checked');
-  return el ? String(el.value || '') : '';
+  return hrVal_('hr-leaveType');
 }
 function hrMsg_(text, ok) {
   var el = document.getElementById('hrFormMsg');
@@ -77,14 +77,68 @@ function hrMsg_(text, ok) {
   el.textContent = text || '';
 }
 
+function hrMarkTypeBtn_(btn, on) {
+  var label = String(btn.getAttribute('data-label') || btn.textContent || '').replace(/^[□☑]\s*/, '');
+  btn.textContent = (on ? '☑ ' : '□ ') + label;
+  btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+}
+
 function hrRenderLeaveTypes_(selected) {
   var host = document.getElementById('hrLeaveTypes');
   if (!host) return;
-  host.innerHTML = HR_LEAVE_TYPES.map(function (t) {
-    return '<label><input type="radio" name="hrLeaveType" value="' + hrEsc_(t.id) + '"' +
-      (selected === t.id ? ' checked' : '') + ' onchange="hrOnLeaveType_()"> ' + hrEsc_(t.label) + '</label>';
+  selected = selected || 'Annual Leave';
+  hrSet_('hr-leaveType', selected);
+  host.innerHTML = '<strong>Type of Leave</strong>' + HR_LEAVE_TYPES.map(function (t) {
+    var on = selected === t.id;
+    return '<button type="button" class="hr-type-btn" data-leave="' + hrEsc_(t.id) + '" data-label="' + hrEsc_(t.label) +
+      '" aria-pressed="' + (on ? 'true' : 'false') + '" onclick="hrPickLeaveType_(\'' + hrEsc_(t.id) + '\')">' +
+      (on ? '☑ ' : '□ ') + hrEsc_(t.label) + '</button>';
   }).join('');
   hrOnLeaveType_();
+}
+
+function hrPickLeaveType_(id) {
+  hrSet_('hr-leaveType', id);
+  document.querySelectorAll('#hrLeaveTypes .hr-type-btn').forEach(function (btn) {
+    hrMarkTypeBtn_(btn, btn.getAttribute('data-leave') === id);
+  });
+  hrOnLeaveType_();
+}
+
+function hrEmptySigs_() {
+  return { emp: '', line: '', director: '', hr: '' };
+}
+
+function hrRenderSig_(slot) {
+  var pad = document.getElementById('hr-sig-' + slot);
+  if (!pad) return;
+  var url = _hrSigs[slot] || '';
+  pad.innerHTML = url ? '<img src="' + url + '" alt="">' : '';
+}
+
+function hrRenderAllSigs_() {
+  ['emp', 'line', 'director', 'hr'].forEach(hrRenderSig_);
+}
+
+function hrOpenSig_(slot) {
+  if (!hrCanWrite_()) return;
+  var inp = document.getElementById('hr-sig-file');
+  if (!inp) return;
+  inp.setAttribute('data-slot', slot);
+  inp.click();
+}
+
+function hrOnSigFile_(e) {
+  var file = e.target.files && e.target.files[0];
+  var slot = e.target.getAttribute('data-slot');
+  e.target.value = '';
+  if (!file || !slot) return;
+  var reader = new FileReader();
+  reader.onload = function () {
+    _hrSigs[slot] = String(reader.result || '');
+    hrRenderSig_(slot);
+  };
+  reader.readAsDataURL(file);
 }
 
 function hrEmptyEntitlements_() {
@@ -103,10 +157,10 @@ function hrRenderEntitlements_(data) {
     var row = data[r.key] || {};
     return '<tr>' +
       '<td>' + hrEsc_(r.label) + '</td>' +
-      '<td><input data-ent="' + r.key + '" data-col="annualBalance" value="' + hrEsc_(row.annualBalance || '') + '" oninput="hrRecalcRemain_(\'' + r.key + '\')"></td>' +
-      '<td><input data-ent="' + r.key + '" data-col="available" value="' + hrEsc_(row.available || '') + '" oninput="hrRecalcRemain_(\'' + r.key + '\')"></td>' +
-      '<td><input data-ent="' + r.key + '" data-col="requested" value="' + hrEsc_(row.requested || '') + '" oninput="hrRecalcRemain_(\'' + r.key + '\')"></td>' +
-      '<td><input data-ent="' + r.key + '" data-col="remaining" value="' + hrEsc_(row.remaining || '') + '"></td>' +
+      '<td><input class="hr-cell-input" data-ent="' + r.key + '" data-col="annualBalance" value="' + hrEsc_(row.annualBalance || '') + '" oninput="hrRecalcRemain_(\'' + r.key + '\')"></td>' +
+      '<td><input class="hr-cell-input" data-ent="' + r.key + '" data-col="available" value="' + hrEsc_(row.available || '') + '" oninput="hrRecalcRemain_(\'' + r.key + '\')"></td>' +
+      '<td><input class="hr-cell-input" data-ent="' + r.key + '" data-col="requested" value="' + hrEsc_(row.requested || '') + '" oninput="hrRecalcRemain_(\'' + r.key + '\')"></td>' +
+      '<td><input class="hr-cell-input" data-ent="' + r.key + '" data-col="remaining" value="' + hrEsc_(row.remaining || '') + '"></td>' +
       '</tr>';
   }).join('');
 }
@@ -118,6 +172,14 @@ function hrReadEntitlements_() {
     var c = el.getAttribute('data-col');
     if (out[k] && c) out[k][c] = String(el.value || '').trim();
   });
+  if (_hrSigs.emp || _hrSigs.line || _hrSigs.director || _hrSigs.hr) {
+    out.__sigs = {
+      emp: _hrSigs.emp || '',
+      line: _hrSigs.line || '',
+      director: _hrSigs.director || '',
+      hr: _hrSigs.hr || ''
+    };
+  }
   return out;
 }
 
@@ -208,48 +270,43 @@ function hrFillForm_(row) {
   hrSet_('hr-startDate', row.startDate || '');
   hrSet_('hr-endDate', row.endDate || '');
   hrSet_('hr-daysOut', row.daysOut || '');
-  hrRenderLeaveTypes_(row.leaveType || '');
+  hrRenderLeaveTypes_(row.leaveType || 'Annual Leave');
   hrSet_('hr-leaveOther', row.leaveOther || '');
   hrSet_('hr-empSignature', row.empSignature || '');
-  hrSet_('hr-empSignedAt', row.empSignedAt || '');
+  hrSet_('hr-empSignedAt', row.empSignedAt || hrToday_());
   hrSet_('hr-lineManagerName', row.lineManagerName || '');
   hrSet_('hr-lineManagerSignedAt', row.lineManagerSignedAt || '');
   hrSet_('hr-lineManagerStatus', row.lineManagerStatus || '');
   hrSet_('hr-directorName', row.directorName || '');
   hrSet_('hr-directorSignedAt', row.directorSignedAt || '');
   hrSet_('hr-directorStatus', row.directorStatus || '');
-  hrRenderEntitlements_(row.entitlements);
+  var ents = row.entitlements || {};
+  _hrSigs = Object.assign(hrEmptySigs_(), ents.__sigs || {});
+  hrRenderEntitlements_(ents);
+  hrRenderAllSigs_();
   hrSet_('hr-hrComment', row.hrComment || '');
   hrSet_('hr-hrSignature', row.hrSignature || '');
   hrSet_('hr-hrSignedAt', row.hrSignedAt || '');
   hrSet_('hr-status', row.status || 'submitted');
-  var no = document.getElementById('hrFormNo');
-  if (no) no.textContent = row.num ? String(row.num) : 'New';
+  hrSet_('hrFormNo', row.num ? String(row.num) : '');
   var title = document.getElementById('hrFormTitle');
-  if (title) title.textContent = row.id ? 'Edit leave request' : 'New leave request';
-  var printSt = document.getElementById('hrPrintStatus');
-  if (printSt) printSt.textContent = HR_STATUS_LABEL[row.status] || '';
-  var printBtn = document.getElementById('hrPrintBtn');
+  if (title) title.textContent = row.id ? 'Leave Request (editing saved)' : 'Leave Request';
   var delBtn = document.getElementById('hrDeleteBtn');
-  var cancelBtn = document.getElementById('hrCancelEditBtn');
-  if (printBtn) printBtn.style.display = row.id ? '' : 'none';
   if (delBtn) delBtn.style.display = row.id && hrCanWrite_() ? '' : 'none';
-  if (cancelBtn) cancelBtn.style.display = row.id ? '' : 'none';
   var saveBtn = document.getElementById('hrSaveBtn');
-  if (saveBtn) {
-    saveBtn.style.display = hrCanWrite_() ? '' : 'none';
-    saveBtn.textContent = row.id ? 'Save changes' : 'Save request';
-  }
+  var saveBtn2 = document.getElementById('hrSaveBtn2');
+  if (saveBtn) saveBtn.style.display = hrCanWrite_() ? '' : 'none';
+  if (saveBtn2) saveBtn2.style.display = hrCanWrite_() ? '' : 'none';
   hrMsg_('', true);
 }
 
 function hrClearForm_() {
+  _hrSigs = hrEmptySigs_();
   hrFillForm_({
     status: 'submitted',
     empSignedAt: hrToday_(),
     entitlements: hrEmptyEntitlements_()
   });
-  hrRenderLeaveTypes_('Annual Leave');
 }
 
 function hrOpenRow_(id) {
@@ -269,10 +326,8 @@ function hrSwitchTab_(ev, tab) {
     var btn = document.getElementById(tab === 'form' ? 'tabBtnForm' : 'tabBtnList');
     if (btn) btn.classList.add('active');
   }
-  if (tab === 'form' && !hrVal_('hr-id') && !hrVal_('hr-empName')) {
-    if (!document.getElementById('hrFormNo') || document.getElementById('hrFormNo').textContent === 'New') {
-      if (!hrVal_('hr-empSignedAt')) hrSet_('hr-empSignedAt', hrToday_());
-    }
+  if (tab === 'form' && !hrVal_('hr-id') && !hrVal_('hr-empSignedAt')) {
+    hrSet_('hr-empSignedAt', hrToday_());
   }
 }
 
@@ -443,8 +498,6 @@ function hrDelete_() {
 }
 
 function hrPrint_() {
-  var st = document.getElementById('hrPrintStatus');
-  if (st) st.textContent = HR_STATUS_LABEL[hrVal_('hr-status')] || '';
   window.print();
 }
 
@@ -457,11 +510,13 @@ function hrEnterApp_() {
   var who = document.getElementById('whoLabel');
   if (who) who.textContent = 'Logged in as: ' + (empireGetUser() || '');
   _hrCanWrite = hrCanWrite_();
-  hrRenderLeaveTypes_('Annual Leave');
-  hrRenderEntitlements_(hrEmptyEntitlements_());
-  if (!hrVal_('hr-empSignedAt')) hrSet_('hr-empSignedAt', hrToday_());
+  if (!hrVal_('hr-id')) {
+    hrClearForm_();
+  }
   var saveBtn = document.getElementById('hrSaveBtn');
+  var saveBtn2 = document.getElementById('hrSaveBtn2');
   if (saveBtn && !_hrCanWrite) saveBtn.style.display = 'none';
+  if (saveBtn2 && !_hrCanWrite) saveBtn2.style.display = 'none';
   hrLoad_(false);
 }
 

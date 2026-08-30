@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Leave Request — HR Department — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-30-hr-leave">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-30-hr-leave">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-08-30-hr-leave">
+<link rel="stylesheet" href="assets/empire.css?v=2026-08-30-hr-paper">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-30-hr-paper">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-08-30-hr-paper">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -46,13 +46,13 @@
       </div>
       <p id="whoLabel"></p>
       <nav class="side-nav">
-        <button class="tab-btn active" id="tabBtnList" onclick="hrSwitchTab_(event,'list')">
-          <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span>
-          <span class="lbl">Requests</span>
+        <button class="tab-btn active" id="tabBtnForm" onclick="hrSwitchTab_(event,'form')">
+          <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></span>
+          <span class="lbl">Leave request</span>
         </button>
-        <button class="tab-btn" id="tabBtnForm" onclick="hrSwitchTab_(event,'form')">
-          <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span>
-          <span class="lbl">New request</span>
+        <button class="tab-btn" id="tabBtnList" onclick="hrSwitchTab_(event,'list')">
+          <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span>
+          <span class="lbl">Saved requests</span>
         </button>
       </nav>
       <div class="side-actions">
@@ -65,7 +65,7 @@
     </aside>
 
     <div class="main-area">
-      <div id="list" class="tab-content active">
+      <div id="list" class="tab-content">
         <div class="form-section">
           <h2>Leave requests</h2>
           <p class="hr-tab-help">Official leave form HR-F-06. Open a row to edit, approve, or print.</p>
@@ -104,170 +104,180 @@
         </div>
       </div>
 
-      <div id="form" class="tab-content">
-        <div class="form-section hr-form-wrap">
-          <div class="hr-form-toolbar no-print">
-            <h2 id="hrFormTitle">New leave request</h2>
-            <div class="hr-form-toolbar-acts">
-              <button type="button" id="hrPrintBtn" onclick="hrPrint_()" style="display:none;">Print / PDF</button>
-              <button type="button" onclick="hrClearForm_()">Clear</button>
-              <button type="button" id="hrCancelEditBtn" onclick="hrClearForm_()" style="display:none;color:#fff;background:#C5504F;border-color:#C5504F;">Cancel edit</button>
+      <div id="form" class="tab-content active">
+        <div class="hr-app">
+          <div class="hr-toolbar no-print">
+            <strong id="hrFormTitle">Leave Request</strong>
+            <select id="hr-status" title="Status">
+              <option value="submitted">Submitted</option>
+              <option value="line_approved">Line manager approved</option>
+              <option value="director_approved">Director approved</option>
+              <option value="processed">HR processed</option>
+              <option value="rejected">Rejected</option>
+            </select>
+            <span class="hr-spacer"></span>
+            <button type="button" onclick="hrClearForm_()">New</button>
+            <button type="button" onclick="hrClearForm_()">Clear</button>
+            <button type="button" id="hrSaveBtn" onclick="hrSave_()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Save</button>
+            <button type="button" id="hrPrintBtn" onclick="hrPrint_()">Print / Save as PDF</button>
+            <button type="button" id="hrDeleteBtn" onclick="hrDelete_()" style="display:none;color:#fff;background:#C5504F;border-color:#C5504F;">Delete</button>
+          </div>
+          <p class="hr-form-msg no-print" id="hrFormMsg"></p>
+          <input type="hidden" id="hr-id">
+          <input type="hidden" id="hr-leaveType" value="Annual Leave">
+          <input type="file" id="hr-sig-file" accept="image/*" hidden onchange="hrOnSigFile_(event)">
+
+          <div class="hr-note" id="hrPrintRoot">
+            <div class="hr-top">
+              <div class="hr-top-left">
+                <h1 class="hr-title">Leave Request</h1>
+                <div class="hr-line"><strong>Name:</strong><input id="hr-empName" class="hr-cell-input" type="text" autocomplete="name"></div>
+                <div class="hr-line"><strong>Department:</strong>
+                  <input id="hr-empDepartment" class="hr-cell-input" type="text" list="hr-dept-list" autocomplete="off">
+                  <datalist id="hr-dept-list">
+                    <option value="Civil Department"></option>
+                    <option value="Electrical Department"></option>
+                    <option value="Cleaning Department"></option>
+                    <option value="HSE"></option>
+                    <option value="Warehouse"></option>
+                    <option value="Finance"></option>
+                    <option value="HR"></option>
+                    <option value="Administration"></option>
+                    <option value="Security"></option>
+                    <option value="Reception / Call Center"></option>
+                  </datalist>
+                </div>
+                <div class="hr-line"><strong>Code:</strong><input id="hr-empCode" class="hr-cell-input" type="text" autocomplete="off"></div>
+                <div class="hr-line"><strong>Job Title:</strong><input id="hr-empJobTitle" class="hr-cell-input" type="text" autocomplete="off"></div>
+                <div class="hr-type-inline" id="hrLeaveTypes"></div>
+              </div>
+              <div class="hr-top-right">
+                <div class="hr-logo-wrap">
+                  <img class="hr-logo" src="assets/empire-gin-logo.png?v=2026-08-30-hr-paper" alt="Empire">
+                </div>
+                <div class="hr-req-block">
+                  <div class="hr-line"><strong>Request No.:</strong><input id="hrFormNo" class="hr-cell-input" type="text" readonly></div>
+                  <div class="hr-line"><strong>Request Date:</strong><input id="hr-empSignedAt" class="hr-cell-input" type="date"></div>
+                  <div class="hr-line"><strong>Division:</strong><input id="hr-empDivision" class="hr-cell-input" type="text" autocomplete="off"></div>
+                  <div class="hr-line"><strong>Replacement:</strong><input id="hr-replacement" class="hr-cell-input" type="text" autocomplete="off"></div>
+                </div>
+              </div>
+            </div>
+
+            <p class="hr-to-line">Absence Detail</p>
+            <p class="hr-kindly">Kindly approve the leave stated below:</p>
+
+            <div class="hr-line-row">
+              <div class="hr-line"><strong>Start Date:</strong><input id="hr-startDate" class="hr-cell-input" type="date" onchange="hrOnDatesChange_()"></div>
+              <div class="hr-line"><strong>End Date:</strong><input id="hr-endDate" class="hr-cell-input" type="date" onchange="hrOnDatesChange_()"></div>
+              <div class="hr-line"><strong>Number of days out of the office:</strong><input id="hr-daysOut" class="hr-cell-input" type="text" list="hr-days-list" oninput="hrOnLeaveType_()"></div>
+            </div>
+            <datalist id="hr-days-list">
+              <option value="half day"></option>
+              <option value="0.5"></option>
+              <option value="1"></option>
+              <option value="2"></option>
+              <option value="3"></option>
+            </datalist>
+            <div class="hr-line" id="hrOtherWrap" style="display:none;"><strong>Other:</strong><input id="hr-leaveOther" class="hr-cell-input" type="text" autocomplete="off"></div>
+
+            <div class="hr-lines-wrap">
+              <table class="hr-lines">
+                <colgroup>
+                  <col class="c-type"><col class="c-ann"><col class="c-avail"><col class="c-req"><col class="c-rem">
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>Type of Leave</th>
+                    <th>Annual Balance</th>
+                    <th>Available balance</th>
+                    <th>Days requested</th>
+                    <th>Remaining Balance</th>
+                  </tr>
+                </thead>
+                <tbody id="hrEntitleBody"></tbody>
+              </table>
+            </div>
+
+            <table class="hr-maint-table">
+              <tr><th colspan="2">Human Resources Dept. Comment</th></tr>
+              <tr>
+                <td class="lab">Comment:</td>
+                <td><textarea id="hr-hrComment" class="hr-cell-input" rows="3"></textarea></td>
+              </tr>
+              <tr>
+                <td class="lab">HR Signature:</td>
+                <td>
+                  <div class="hr-inline-sig">
+                    <input id="hr-hrSignature" class="hr-cell-input" type="text" autocomplete="off" placeholder="">
+                    <button type="button" class="no-print" onclick="hrOpenSig_('hr')">Upload</button>
+                  </div>
+                  <div class="hr-sig-pad hr-sig-pad-inline" id="hr-sig-hr"></div>
+                </td>
+              </tr>
+              <tr>
+                <td class="lab">Date:</td>
+                <td><input id="hr-hrSignedAt" class="hr-cell-input" type="date"></td>
+              </tr>
+            </table>
+
+            <div class="hr-sigs-row">
+              <div class="hr-sig-block">
+                <div class="hr-sig-label">Employee Signature</div>
+                <input id="hr-empSignature" class="hr-cell-input hr-sig-name" type="text" autocomplete="off">
+                <div class="hr-sig-pad" id="hr-sig-emp"></div>
+                <div class="hr-sig-actions no-print">
+                  <button type="button" onclick="hrOpenSig_('emp')">Upload</button>
+                </div>
+              </div>
+              <div class="hr-sig-block">
+                <div class="hr-sig-label">Line Manager</div>
+                <input id="hr-lineManagerName" class="hr-cell-input hr-sig-name" type="text" autocomplete="off">
+                <input id="hr-lineManagerSignedAt" class="hr-cell-input hr-sig-date" type="date">
+                <select id="hr-lineManagerStatus" class="hr-cell-input no-print">
+                  <option value="">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+                <div class="hr-sig-pad" id="hr-sig-line"></div>
+                <div class="hr-sig-actions no-print">
+                  <button type="button" onclick="hrOpenSig_('line')">Upload</button>
+                </div>
+              </div>
+              <div class="hr-sig-block">
+                <div class="hr-sig-label">Director</div>
+                <input id="hr-directorName" class="hr-cell-input hr-sig-name" type="text" autocomplete="off">
+                <input id="hr-directorSignedAt" class="hr-cell-input hr-sig-date" type="date">
+                <select id="hr-directorStatus" class="hr-cell-input no-print">
+                  <option value="">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+                <div class="hr-sig-pad" id="hr-sig-director"></div>
+                <div class="hr-sig-actions no-print">
+                  <button type="button" onclick="hrOpenSig_('director')">Upload</button>
+                </div>
+              </div>
             </div>
           </div>
 
-          <article class="hr-paper" id="hrPaper">
-            <header class="hr-paper-head">
-              <img src="logo-light.png" alt="Empire World" class="hr-paper-logo">
-              <div class="hr-paper-head-text">
-                <p class="hr-form-code">HR-F-06</p>
-                <h3>Leave Request</h3>
-                <p class="hr-form-sub">Empire World — Human Resources</p>
-              </div>
-              <div class="hr-paper-meta">
-                <label>No.</label>
-                <div class="hr-meta-box" id="hrFormNo">New</div>
-                <label class="no-print">Status</label>
-                <select id="hr-status" class="no-print">
-                  <option value="submitted">Submitted</option>
-                  <option value="line_approved">Line manager approved</option>
-                  <option value="director_approved">Director approved</option>
-                  <option value="processed">HR processed</option>
-                  <option value="rejected">Rejected</option>
-                </select>
-                <div class="hr-print-only hr-print-status" id="hrPrintStatus"></div>
-              </div>
-            </header>
-            <input type="hidden" id="hr-id">
-
-            <section class="hr-block">
-              <h4>Employee’s Detail</h4>
-              <div class="hr-grid-2">
-                <label>Name<input type="text" id="hr-empName" placeholder="Full name" autocomplete="name"></label>
-                <label>Department
-                  <select id="hr-empDepartment">
-                    <option value="">Select department</option>
-                    <option>Civil Department</option>
-                    <option>Electrical Department</option>
-                    <option>Cleaning Department</option>
-                    <option>HSE</option>
-                    <option>Warehouse</option>
-                    <option>Finance</option>
-                    <option>HR</option>
-                    <option>Administration</option>
-                    <option>Security</option>
-                    <option>Reception / Call Center</option>
-                    <option>Other</option>
-                  </select>
-                </label>
-                <label>Code<input type="text" id="hr-empCode" placeholder="e.g. 100351"></label>
-                <label>Division<input type="text" id="hr-empDivision" placeholder="Division"></label>
-                <label>Job Title<input type="text" id="hr-empJobTitle" placeholder="e.g. Cashier"></label>
-                <label>Replacement<input type="text" id="hr-replacement" placeholder="Covering staff"></label>
-              </div>
-            </section>
-
-            <section class="hr-block">
-              <h4>Absence Detail</h4>
-              <div class="hr-grid-3">
-                <label>Start Date<input type="date" id="hr-startDate" onchange="hrOnDatesChange_()"></label>
-                <label>End Date<input type="date" id="hr-endDate" onchange="hrOnDatesChange_()"></label>
-                <label>Number of days out of the office
-                  <input type="text" id="hr-daysOut" placeholder="e.g. 1 or half day" list="hr-days-list">
-                  <datalist id="hr-days-list">
-                    <option value="half day"></option>
-                    <option value="0.5"></option>
-                    <option value="1"></option>
-                    <option value="2"></option>
-                    <option value="3"></option>
-                  </datalist>
-                </label>
-              </div>
-              <p class="hr-field-label">Type of Leave</p>
-              <div class="hr-leave-types" id="hrLeaveTypes"></div>
-              <label class="hr-other-wrap" id="hrOtherWrap" style="display:none;">Other (specify)
-                <input type="text" id="hr-leaveOther" placeholder="Describe leave type">
-              </label>
-              <div class="hr-grid-2 hr-sign-row">
-                <label>Employee Signature<input type="text" id="hr-empSignature" placeholder="Employee name / signature"></label>
-                <label>Date<input type="date" id="hr-empSignedAt"></label>
-              </div>
-            </section>
-
-            <section class="hr-block">
-              <h4>Approvals</h4>
-              <div class="hr-grid-2">
-                <div class="hr-approve-box">
-                  <p class="hr-approve-title">Line Manager</p>
-                  <label>Name<input type="text" id="hr-lineManagerName" placeholder="Line manager name"></label>
-                  <label>Date<input type="date" id="hr-lineManagerSignedAt"></label>
-                  <label class="no-print">Decision
-                    <select id="hr-lineManagerStatus">
-                      <option value="">Pending</option>
-                      <option value="approved">Approved</option>
-                      <option value="rejected">Rejected</option>
-                    </select>
-                  </label>
-                </div>
-                <div class="hr-approve-box">
-                  <p class="hr-approve-title">Director</p>
-                  <label>Name<input type="text" id="hr-directorName" placeholder="Director name"></label>
-                  <label>Date<input type="date" id="hr-directorSignedAt"></label>
-                  <label class="no-print">Decision
-                    <select id="hr-directorStatus">
-                      <option value="">Pending</option>
-                      <option value="approved">Approved</option>
-                      <option value="rejected">Rejected</option>
-                    </select>
-                  </label>
-                </div>
-              </div>
-            </section>
-
-            <section class="hr-block">
-              <h4>Leave Entitlement Detail</h4>
-              <div class="hr-table-wrap">
-                <table class="hr-entitle-table">
-                  <thead>
-                    <tr>
-                      <th>Type of Leave</th>
-                      <th>Annual Balance</th>
-                      <th>Available balance</th>
-                      <th>Days requested</th>
-                      <th>Remaining Balance</th>
-                    </tr>
-                  </thead>
-                  <tbody id="hrEntitleBody"></tbody>
-                </table>
-              </div>
-            </section>
-
-            <section class="hr-block">
-              <h4>Human Resources Dept. Comment</h4>
-              <label class="hr-full">Comment
-                <textarea id="hr-hrComment" rows="4" placeholder="HR notes on this request"></textarea>
-              </label>
-              <div class="hr-grid-2 hr-sign-row">
-                <label>Signature<input type="text" id="hr-hrSignature" placeholder="HR officer name"></label>
-                <label>Date<input type="date" id="hr-hrSignedAt"></label>
-              </div>
-            </section>
-          </article>
-
-          <div class="hr-form-actions no-print" id="hrFormActions">
-            <button type="button" id="hrSaveBtn" onclick="hrSave_()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Save request</button>
-            <button type="button" id="hrDeleteBtn" onclick="hrDelete_()" style="display:none;color:#fff;background:#C5504F;border-color:#C5504F;">Delete</button>
-            <p class="hr-form-msg" id="hrFormMsg"></p>
+          <div class="hr-actions-print no-print">
+            <button type="button" onclick="hrClearForm_()">New</button>
+            <button type="button" id="hrSaveBtn2" onclick="hrSave_()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Save</button>
+            <button type="button" onclick="hrPrint_()">Print / Save as PDF</button>
+            <button type="button" onclick="hrClearForm_()">Clear form</button>
           </div>
+          <p class="no-print" style="color:var(--text-soft);font-size:12px;margin-top:10px;">This sheet matches official form <strong>HR-F-06</strong>. Prefer <strong>Portrait A4</strong> at 100% scale.</p>
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<script src="config.js?v=2026-08-30-hr-leave"></script>
-<script src="assets/empire-api.js?v=2026-08-30-hr-leave"></script>
-<script src="assets/empire-auth.js?v=2026-08-30-hr-leave"></script>
-<script src="assets/empire-core.js?v=2026-08-30-hr-leave"></script>
-<script src="assets/empire-hr-leave.js?v=2026-08-30-hr-leave"></script>
+<script src="config.js?v=2026-08-30-hr-paper"></script>
+<script src="assets/empire-api.js?v=2026-08-30-hr-paper"></script>
+<script src="assets/empire-auth.js?v=2026-08-30-hr-paper"></script>
+<script src="assets/empire-core.js?v=2026-08-30-hr-paper"></script>
+<script src="assets/empire-hr-leave.js?v=2026-08-30-hr-paper"></script>
 </body>
 </html>
