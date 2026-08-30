@@ -13,6 +13,7 @@ import * as cleaning from "./handlers_cleaning.ts";
 import * as issues from "./handlers_issues.ts";
 import * as jobs from "./handlers_jobs.ts";
 import * as misc from "./handlers_misc.ts";
+import * as ups from "./handlers_ups.ts";
 import * as warehouse from "./handlers_warehouse.ts";
 import * as storage from "./handlers_storage.ts";
 import * as users from "./handlers_users.ts";
@@ -33,7 +34,7 @@ function json(obj: unknown, status = 200) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method === "GET") {
-    return json({ ok: true, msg: "Empire API running (Supabase)", version: "2026-08-27-cleaning-month-v10" });
+    return json({ ok: true, msg: "Empire API running (Supabase)", version: "2026-08-27-ups-history" });
   }
   if (req.method !== "POST") return json({ ok: false, error: "Method not allowed" }, 405);
 
@@ -289,10 +290,15 @@ Deno.serve(async (req) => {
       case "importApplicationChecks": return json(await misc.handleImportApplicationChecks(body, a));
       case "clearApplicationChecks": return json(await misc.handleClearApplicationChecks(body, a));
 
-      case "getUpsChecks": return json(await misc.handleGetUpsChecks(body));
-      case "updateUpsCheck": return json(await misc.handleUpdateUpsCheck(body, a));
-      case "importUpsChecks": return json(await misc.handleImportUpsChecks(body, a));
-      case "clearUpsChecks": return json(await misc.handleClearUpsChecks(body, a));
+      case "getUpsChecks": return json(await ups.handleGetUpsChecks(body));
+      case "getUpsCheckDetail": return json(await ups.handleGetUpsCheckDetail(body));
+      case "getUpsHistory": return json(await ups.handleGetUpsHistory(body));
+      case "updateUpsCheck": return json(await ups.handleUpdateUpsCheck(body, a));
+      case "saveUpsInspection": return json(await ups.handleSaveUpsInspection(body, a));
+      case "addUpsCheck": return json(await ups.handleAddUpsCheck(body, a));
+      case "deleteUpsCheck": return json(await ups.handleDeleteUpsCheck(body, a));
+      case "importUpsChecks": return json(await ups.handleImportUpsChecks(body, a));
+      case "clearUpsChecks": return json(await ups.handleClearUpsChecks(body, a));
 
       case "getWarehouseGins": return json(await warehouse.handleGetWarehouseGins(body, a));
       case "saveWarehouseGin": return json(await warehouse.handleSaveWarehouseGin(body, a));
