@@ -80,6 +80,15 @@ function hrSyncAllPaperDates_() {
     if (el) hrSyncPaperDate_(el);
   });
 }
+function hrOpenPaperDate_(id) {
+  if (!hrCanWrite_()) return;
+  var el = document.getElementById(id);
+  if (!el) return;
+  if (typeof el.showPicker === 'function') {
+    try { el.showPicker(); return; } catch (err) { /* fall through */ }
+  }
+  el.focus();
+}
 function hrDaysNum_(raw) {
   var s = String(raw || '').trim().toLowerCase();
   if (!s) return 0;

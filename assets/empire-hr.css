@@ -262,6 +262,8 @@
   position: relative;
   display: block;
   min-height: 22px;
+  overflow: hidden;
+  cursor: pointer;
 }
 
 .hr-date-wrap-inline {
@@ -279,9 +281,11 @@
   left: 0;
   top: 0;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   height: 100%;
   opacity: 0;
-  cursor: pointer;
+  pointer-events: none;
   border: none;
   background: transparent;
 }
