@@ -154,7 +154,7 @@
 .hr-f06-h {
   margin: 14pt 0 6pt;
   font-size: 12pt;
-  font-weight: 700;
+  font-weight: 400;
   color: #000;
 }
 
@@ -191,7 +191,7 @@
 .hr-f06-grid td.lab,
 .hr-f06-entitle th,
 .hr-f06-entitle td.lab {
-  font-weight: 700;
+  font-weight: 400;
   background: #fff;
 }
 
@@ -204,14 +204,14 @@
   background: #fff;
 }
 
-.hr-lbl { background: none; padding: 0; }
+.hr-lbl { background: none; padding: 0; font-weight: 400; }
 
 .hr-note .hr-cell-input {
   width: 100%;
   border: none !important;
   border-radius: 0 !important;
   outline: none;
-  background: #fffde7 !important;
+  background: #fff !important;
   box-shadow: none !important;
   padding: 1px 2px !important;
   margin: 0;
@@ -314,12 +314,16 @@
   .hr-note .hr-cell-input {
     border: none !important;
     box-shadow: none !important;
-    background: #fffde7 !important;
+    background: #fff !important;
   }
   .hr-f06-grid td.val,
   .hr-f06-entitle td:not(.lab),
   .hr-f06-hr td { background: #fff !important; }
-  .hr-lbl { background: none !important; }
-  .hr-note .hr-cell-input { background: #fffde7 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .hr-lbl,
+  .hr-f06-h,
+  .hr-f06-grid td.lab,
+  .hr-f06-entitle th,
+  .hr-f06-entitle td.lab { background: none !important; font-weight: 400 !important; }
+  .hr-note .hr-cell-input { background: #fff !important; }
   .hr-note input[type=date]::-webkit-calendar-picker-indicator { display: none !important; }
 }
