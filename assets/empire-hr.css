@@ -168,6 +168,9 @@
 
 .hr-f06-grid col.c-lab { width: 22%; }
 .hr-f06-grid col.c-val { width: 28%; }
+.hr-f06-absence col { width: 33.333%; }
+.hr-f06-absence td.lab,
+.hr-f06-absence td.val { text-align: center; }
 .hr-f06-entitle col.c-type { width: 24%; }
 .hr-f06-entitle col.c-ann,
 .hr-f06-entitle col.c-avail,

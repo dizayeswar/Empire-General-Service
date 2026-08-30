@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-30-hr-f06">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-30-hr-f06">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-08-30-hr-f06-y">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-08-30-hr-f06-eq">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -189,21 +189,21 @@
             </table>
 
             <p class="hr-f06-h">Absence Detail:</p>
-            <table class="hr-f06-grid">
-              <colgroup><col class="c-lab"><col class="c-val"><col class="c-lab"><col class="c-val"></colgroup>
+            <table class="hr-f06-grid hr-f06-absence">
+              <colgroup><col><col><col></colgroup>
               <tr>
                 <td class="lab"><span class="hr-lbl">Start Date</span></td>
                 <td class="lab"><span class="hr-lbl">End Date</span></td>
-                <td class="lab" colspan="2"><span class="hr-lbl">Number of days out of the office</span></td>
+                <td class="lab"><span class="hr-lbl">Number of days out of the office</span></td>
               </tr>
               <tr>
                 <td class="val"><input id="hr-startDate" class="hr-cell-input" type="date" onchange="hrOnDatesChange_()"></td>
                 <td class="val"><input id="hr-endDate" class="hr-cell-input" type="date" onchange="hrOnDatesChange_()"></td>
-                <td class="val" colspan="2"><input id="hr-daysOut" class="hr-cell-input" type="text" list="hr-days-list" oninput="hrOnLeaveType_()"></td>
+                <td class="val"><input id="hr-daysOut" class="hr-cell-input" type="text" list="hr-days-list" oninput="hrOnLeaveType_()"></td>
               </tr>
               <tr>
                 <td class="lab"><span class="hr-lbl">Type of Leave</span></td>
-                <td class="val" colspan="3">
+                <td class="val" colspan="2">
                   <select id="hr-leaveType" class="hr-cell-input" onchange="hrOnLeaveType_()">
                     <option value="Annual Leave">Annual leave</option>
                     <option value="Sick leave">Sick leave</option>
@@ -217,7 +217,7 @@
               </tr>
               <tr>
                 <td class="lab"><span class="hr-lbl">Employee Signature</span></td>
-                <td class="val sig-cell" colspan="3" onclick="hrOpenSig_('emp')">
+                <td class="val sig-cell" colspan="2" onclick="hrOpenSig_('emp')">
                   <div class="hr-sig-pad" id="hr-sig-emp"></div>
                   <input id="hr-empSignature" class="hr-cell-input hr-sig-ghost" type="text" autocomplete="off" onclick="event.stopPropagation()">
                 </td>
@@ -295,6 +295,6 @@
 <script src="assets/empire-api.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-auth.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-core.js?v=2026-08-30-hr-f06"></script>
-<script src="assets/empire-hr-leave.js?v=2026-08-30-hr-f06-y"></script>
+<script src="assets/empire-hr-leave.js?v=2026-08-30-hr-f06-eq"></script>
 </body>
 </html>
