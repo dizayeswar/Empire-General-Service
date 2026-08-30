@@ -196,24 +196,19 @@
 
 .hr-f06-grid td.val,
 .hr-f06-entitle td:not(.lab),
-.hr-f06-hr td {
+.hr-f06-hr td,
+.hr-f06-comment {
   background: #fff;
 }
 
-.hr-f06-grid td.lab .hr-lbl,
-.hr-f06-entitle th .hr-lbl,
-.hr-f06-entitle td.lab .hr-lbl,
-.hr-f06-hr-foot .hr-lbl {
-  background: #fffde7;
-  padding: 1px 4px;
-}
+.hr-lbl { background: none; padding: 0; }
 
 .hr-note .hr-cell-input {
   width: 100%;
   border: none !important;
   border-radius: 0 !important;
   outline: none;
-  background: transparent !important;
+  background: #fffde7 !important;
   box-shadow: none !important;
   padding: 1px 2px !important;
   margin: 0;
@@ -316,11 +311,12 @@
   .hr-note .hr-cell-input {
     border: none !important;
     box-shadow: none !important;
-    background: transparent !important;
+    background: #fffde7 !important;
   }
   .hr-f06-grid td.val,
   .hr-f06-entitle td:not(.lab),
   .hr-f06-hr td { background: #fff !important; }
-  .hr-lbl { background: #fffde7 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .hr-lbl { background: none !important; }
+  .hr-note .hr-cell-input { background: #fffde7 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .hr-note input[type=date]::-webkit-calendar-picker-indicator { display: none !important; }
 }
