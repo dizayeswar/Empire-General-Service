@@ -201,6 +201,7 @@ export const DEPT_BY_ACTION: Record<string, string> = {
   addHrLeaveRequest: "hr",
   updateHrLeaveRequest: "hr",
   deleteHrLeaveRequest: "hr",
+  seedHrPdfAnnualPapers: "hr",
 };
 
 export const TRASH_ACTIONS: Record<string, number> = {
