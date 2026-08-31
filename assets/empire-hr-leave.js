@@ -53,6 +53,13 @@ function hrSet_(id, v) {
   var el = document.getElementById(id);
   if (el) el.value = v == null ? '' : String(v);
   if (el) hrSyncPaperDate_(el);
+  if (id === 'hr-daysOut') hrAutosizeDaysOut_(el);
+}
+function hrAutosizeDaysOut_(el) {
+  el = el || document.getElementById('hr-daysOut');
+  if (!el) return;
+  el.style.height = 'auto';
+  el.style.height = Math.max(22, el.scrollHeight) + 'px';
 }
 function hrCanWrite_() {
   var p = typeof empireGetPerms === 'function' ? empireGetPerms() : {};
@@ -347,6 +354,7 @@ function hrFillForm_(row) {
   if (saveBtn) saveBtn.style.display = hrCanWrite_() ? '' : 'none';
   if (saveBtn2) saveBtn2.style.display = hrCanWrite_() ? '' : 'none';
   hrMsg_('', true);
+  hrAutosizeDaysOut_();
 }
 
 function hrClearForm_() {
@@ -387,6 +395,7 @@ function hrSetListEditing_(on) {
   if (ret2) ret2.style.display = on ? '' : 'none';
   var title = document.getElementById('hrFormTitle');
   if (title && on) title.textContent = hrCanWrite_() ? 'Edit leave request' : 'View leave request';
+  if (on) setTimeout(hrAutosizeDaysOut_, 0);
 }
 
 function hrEditInList_(id) {
@@ -453,6 +462,7 @@ function hrSwitchTab_(ev, tab) {
   if (tab === 'form' && !hrVal_('hr-id') && !hrVal_('hr-empSignedAt')) {
     hrSet_('hr-empSignedAt', hrToday_());
   }
+  if (tab === 'form') setTimeout(hrAutosizeDaysOut_, 0);
   if (tab === 'scan') {
     hrSyncScanFields_();
     hrRenderScan_();

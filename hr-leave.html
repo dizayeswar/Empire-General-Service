@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-30-hr-f06">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-30-hr-f06">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-08-31-hr-list">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-08-31-hr-days">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -281,7 +281,7 @@
                     <input id="hr-endDate" class="hr-date-native" type="date" onchange="hrSyncPaperDate_(this);hrOnDatesChange_()">
                   </span>
                 </td>
-                <td class="val"><input id="hr-daysOut" class="hr-cell-input" type="text" list="hr-days-list" oninput="hrOnLeaveType_()"></td>
+                <td class="val"><textarea id="hr-daysOut" class="hr-cell-input hr-days-out" rows="1" oninput="hrOnLeaveType_();hrAutosizeDaysOut_(this)"></textarea></td>
               </tr>
               <tr>
                 <td class="lab"><span class="hr-lbl">Type of Leave</span></td>
@@ -381,11 +381,11 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-31-hr-list"></script>
+<script src="config.js?v=2026-08-31-hr-days"></script>
 <script src="assets/empire-api.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-auth.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-core.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-storage.js?v=2026-08-31-hr-scan"></script>
-<script src="assets/empire-hr-leave.js?v=2026-08-31-hr-list"></script>
+<script src="assets/empire-hr-leave.js?v=2026-08-31-hr-days"></script>
 </body>
 </html>

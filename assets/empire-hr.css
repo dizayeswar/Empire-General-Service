@@ -254,6 +254,19 @@
   min-height: 20px;
 }
 
+.hr-note textarea.hr-days-out {
+  display: block;
+  resize: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.25;
+  text-align: center;
+  min-height: 22px;
+  height: auto;
+}
+
 .hr-toolbar select,
 .filter-toolbar select,
 .hr-scan-app select,
@@ -613,6 +626,11 @@
   .hr-f06-entitle th,
   .hr-f06-entitle td.lab { background: none !important; font-weight: 400 !important; }
   .hr-note .hr-cell-input { background: #fff !important; }
+  .hr-note textarea.hr-days-out {
+    height: auto !important;
+    overflow: visible !important;
+    white-space: pre-wrap !important;
+  }
   .hr-note select.hr-cell-input {
     appearance: none !important;
     width: 100% !important;
