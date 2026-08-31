@@ -917,23 +917,42 @@ function hrBindScanDrag_() {
   sig.addEventListener('pointercancel', hrScanDirPointerUp_);
 }
 
+function hrPdfAnnualPeople_() {
+  return [
+    { empName: 'Barzi Law Braim Ali', empDepartment: 'MEP', empCode: '101807', empDivision: 'Electrical', empJobTitle: 'Electrical Engineer', daysOut: '1 day (due to Lateness)', requested: '1' },
+    { empName: 'Hoshang Ali Ibrahim', empDepartment: 'Head Office', empCode: '100489', empDivision: 'Procurement', empJobTitle: 'HOP', daysOut: '1 day (due to Lateness)', requested: '1' },
+    { empName: 'Barzan Sherzad Burhan', empDepartment: 'Civil & Infrastructure', empCode: '100106', empDivision: 'Civil', empJobTitle: 'Camp Supervisor', daysOut: '1 day (due to Lateness)', requested: '1' },
+    { empName: 'Aso Assad Heni Ahmed', empDepartment: 'MEP', empCode: '101477', empDivision: 'Electrical', empJobTitle: 'Administration Coordinator', daysOut: '3 days (due to not compline with F.P and Lateness)', requested: '3' },
+    { empName: 'Dilan Abdulsatar Jawhar', empDepartment: 'Head Office', empCode: '101447', empDivision: '', empJobTitle: 'Data Entry Associate', daysOut: '1 day (due to not compline with F.P and Lateness)', requested: '1' },
+    { empName: 'Delan Mahdi Fard', empDepartment: 'Head Office', empCode: '100733', empDivision: '', empJobTitle: 'Administrative Assistant', daysOut: '3.5 days (due to not compline with F.P and Lateness)', requested: '3.5' },
+    { empName: 'Farman Fareed Hussain', empDepartment: 'Head Office', empCode: '100068', empDivision: 'Procurement', empJobTitle: 'Driver', daysOut: 'half day (due to not compline with F.P and Lateness)', requested: '0.5' },
+    { empName: 'Mohammed Abdulkhaliq Hamasharif', empDepartment: 'Head Office', empCode: '101786', empDivision: '', empJobTitle: 'Lawyer', daysOut: '1 day (due to Lateness)', requested: '1' },
+    { empName: 'Marwan Deyab Saeed', empDepartment: 'Head Office', empCode: '100195', empDivision: '', empJobTitle: 'Operation Coordinator', daysOut: '2 days (due to not compline with F.P and Lateness)', requested: '2' },
+    { empName: 'Ibrahim Mahdi Nader', empDepartment: 'Civil & Infrastructure', empCode: '100635', empDivision: 'Cleaning', empJobTitle: 'Cleaning T.L', daysOut: '2.5 days (due to not compline with F.P)', requested: '2.5' },
+    { empName: 'Karzan Jamal Omer', empDepartment: 'MEP', empCode: '100264', empDivision: 'Mechanical', empJobTitle: 'Supervisor', daysOut: '3 days (due to not compline with F.P and Lateness)', requested: '3' },
+    { empName: 'Mahmood Jamal Hashim', empDepartment: 'MEP', empCode: '100988', empDivision: 'HVAC', empJobTitle: 'Supervisor', daysOut: '3 days (due to Lateness)', requested: '3' },
+    { empName: 'Abdulstar Ahmed Maaroof', empDepartment: 'MEP', empCode: '100054', empDivision: 'Power', empJobTitle: 'Sub-Station Supervisor', daysOut: '3 days (due to not compline with F.P and Lateness)', requested: '3' },
+    { empName: 'Adnan Abdulrahman Sulaiman', empDepartment: 'Landscape', empCode: '100115', empDivision: '', empJobTitle: 'HOD', daysOut: '3 days (due to not compline with F.P and Lateness)', requested: '3' },
+    { empName: 'Adnan Ahmed Khdhir', empDepartment: 'Civil & Infrastructure', empCode: '100184', empDivision: 'Civil', empJobTitle: 'Skilled Worker', daysOut: '2 days (due to not compline with F.P)', requested: '2' }
+  ];
+}
+
 function hrPdfAnnualBodies_() {
-  var ents = hrEmptyEntitlements_();
-  ents.annual = { annualBalance: '', available: '', requested: '1', remaining: '' };
-  var out = [];
-  var i;
-  for (i = 1; i <= 15; i++) {
-    out.push({
-      id: 'hrlv-pdf-annual-' + String(i).padStart(2, '0'),
-      empName: 'Barzi Law Braim Ali',
-      empDepartment: 'MEP',
-      empCode: '101807',
-      empDivision: 'Electrical',
-      empJobTitle: 'Electrical Engineer',
+  return hrPdfAnnualPeople_().map(function (p, idx) {
+    var ents = hrEmptyEntitlements_();
+    ents.annual = { annualBalance: '', available: '', requested: p.requested || '', remaining: '' };
+    var n = idx + 1;
+    return {
+      id: 'hrlv-pdf-annual-' + String(n).padStart(2, '0'),
+      empName: p.empName,
+      empDepartment: p.empDepartment,
+      empCode: p.empCode,
+      empDivision: p.empDivision || '',
+      empJobTitle: p.empJobTitle,
       replacement: '',
       startDate: '2026-08-01',
       endDate: '2026-08-30',
-      daysOut: '1 day (due to Lateness)',
+      daysOut: p.daysOut,
       leaveType: 'Annual Leave',
       leaveOther: '',
       empSignature: '',
@@ -944,33 +963,37 @@ function hrPdfAnnualBodies_() {
       directorName: '',
       directorSignedAt: '',
       directorStatus: '',
-      entitlements: JSON.parse(JSON.stringify(ents)),
-      hrComment: 'PDF page ' + i + ' of 15',
+      entitlements: ents,
+      hrComment: 'PDF page ' + n + ' of 15 — Lateness vcations',
       hrSignature: '',
       hrSignedAt: '',
       status: 'submitted'
-    });
-  }
-  return out;
+    };
+  });
 }
 
 function hrSeedPdfAnnualPapers_() {
   if (!hrCanWrite_()) return Promise.resolve(0);
+  var people = hrPdfAnnualPeople_();
+  var seeded = _hrRows.filter(function (r) { return String(r.id).indexOf('hrlv-pdf-annual-') === 0; });
+  var page2 = _hrRows.find(function (r) { return r.id === 'hrlv-pdf-annual-02'; });
+  if (seeded.length >= 15 && page2 && page2.empName === people[1].empName) return Promise.resolve(0);
   var have = {};
   _hrRows.forEach(function (r) { have[String(r.id)] = true; });
-  var queue = hrPdfAnnualBodies_().filter(function (b) { return !have[b.id]; });
-  if (!queue.length) return Promise.resolve(0);
-  hrMsg_('Saving 15 Annual leave papers…', true);
+  var queue = hrPdfAnnualBodies_();
+  hrMsg_('Saving all 15 Annual leave papers from the PDF…', true);
   var i = 0;
   function next() {
     if (i >= queue.length) return Promise.resolve(queue.length);
     var body = queue[i++];
-    return fetchJSONRetry(Object.assign({ action: 'addHrLeaveRequest', token: hrToken_() }, body), 1, 45000)
+    var action = have[body.id] ? 'updateHrLeaveRequest' : 'addHrLeaveRequest';
+    return fetchJSONRetry(Object.assign({ action: action, token: hrToken_() }, body), 1, 45000)
       .then(function (d) {
         if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) {
           return Promise.reject(new Error('Session expired'));
         }
         if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Save failed');
+        have[body.id] = true;
         return next();
       });
   }
