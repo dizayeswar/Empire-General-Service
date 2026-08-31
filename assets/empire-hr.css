@@ -96,6 +96,22 @@
 
 .hr-row-acts { display: flex; flex-wrap: wrap; gap: 6px; }
 .hr-row-acts button { padding: 6px 10px; font-size: 12px; }
+.hr-row-acts .hr-btn-edit {
+  color: #fff;
+  background: var(--accent2);
+  border-color: var(--accent2);
+}
+.hr-row-acts .hr-btn-del,
+.hr-saved-type-bar .hr-btn-del {
+  color: #fff;
+  background: #C5504F;
+  border-color: #C5504F;
+}
+
+.hr-list-editor {
+  padding: 0 0 40px;
+}
+.hr-list-editor .hr-app { padding-bottom: 0; }
 
 .hr-app {
   max-width: 820px;

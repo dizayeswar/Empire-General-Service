@@ -30,6 +30,7 @@ var HR_STATUS_LABEL = {
 var _hrRows = [];
 var _hrSaving = false;
 var _hrCanWrite = true;
+var _hrListEditing = false;
 var _hrSigs = { emp: '', line: '', director: '', hr: '' };
 var _hrScan = { url: '', directorSig: '', x: 0.56, y: 0.36, w: 0.2 };
 var _hrScanDrag = null;
@@ -359,13 +360,86 @@ function hrClearForm_() {
 }
 
 function hrOpenRow_(id) {
+  hrEditInList_(id);
+}
+
+function hrSetListEditing_(on) {
+  _hrListEditing = !!on;
+  var browse = document.getElementById('hrListBrowse');
+  var editor = document.getElementById('hrListEditor');
+  var app = document.getElementById('hrApp');
+  var home = document.getElementById('form');
+  if (on) {
+    if (browse) browse.hidden = true;
+    if (editor) editor.hidden = false;
+    if (app && editor && app.parentNode !== editor) editor.appendChild(app);
+  } else {
+    if (browse) browse.hidden = false;
+    if (editor) editor.hidden = true;
+    if (app && home && app.parentNode !== home) home.appendChild(app);
+  }
+  document.querySelectorAll('[data-hr-form-only]').forEach(function (el) {
+    el.style.display = on ? 'none' : '';
+  });
+  var ret = document.getElementById('hrReturnBtn');
+  var ret2 = document.getElementById('hrReturnBtn2');
+  if (ret) ret.style.display = on ? '' : 'none';
+  if (ret2) ret2.style.display = on ? '' : 'none';
+  var title = document.getElementById('hrFormTitle');
+  if (title && on) title.textContent = hrCanWrite_() ? 'Edit leave request' : 'View leave request';
+}
+
+function hrEditInList_(id) {
   var row = _hrRows.find(function (r) { return String(r.id) === String(id); });
   if (!row) return;
   hrFillForm_(row);
-  hrSwitchTab_(null, 'form');
+  hrSetListEditing_(true);
+  hrSwitchTab_(null, 'list');
+}
+
+function hrReturnToList_() {
+  hrSetListEditing_(false);
+  hrSwitchTab_(null, 'list');
+  hrRenderTable_();
+}
+
+function hrPrintRow_(id) {
+  var row = _hrRows.find(function (r) { return String(r.id) === String(id); });
+  if (!row) return;
+  if (!(_hrListEditing && hrVal_('hr-id') === String(id))) hrFillForm_(row);
+  setTimeout(hrPrint_, 80);
+}
+
+function hrDeleteRow_(id) {
+  id = String(id || hrVal_('hr-id') || '').trim();
+  if (!id || !hrCanWrite_()) return;
+  var row = _hrRows.find(function (r) { return String(r.id) === id; });
+  var label = row && row.empName ? row.empName : 'this leave request';
+  var go = function () {
+    fetchJSONRetry({ action: 'deleteHrLeaveRequest', token: hrToken_(), id: id }, 1, 30000)
+      .then(function (d) {
+        if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) return;
+        if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Delete failed');
+        if (hrVal_('hr-id') === id) hrClearForm_();
+        hrSetListEditing_(false);
+        hrSwitchTab_(null, 'list');
+        return hrLoad_(true);
+      })
+      .catch(function (err) {
+        hrMsg_(err.message || 'Delete failed.', false);
+      });
+  };
+  var msg = 'Delete the leave request for ' + label + '?';
+  if (typeof uiConfirm === 'function') {
+    uiConfirm(msg).then(function (ok) { if (ok) go(); });
+    return;
+  }
+  if (confirm(msg)) go();
 }
 
 function hrSwitchTab_(ev, tab) {
+  if (tab !== 'list' && _hrListEditing) hrSetListEditing_(false);
+  else if (tab === 'list' && _hrListEditing && ev && ev.currentTarget) hrSetListEditing_(false);
   document.querySelectorAll('.tab-content').forEach(function (el) { el.classList.remove('active'); });
   document.querySelectorAll('.tab-btn').forEach(function (el) { el.classList.remove('active'); });
   var pane = document.getElementById(tab);
@@ -383,7 +457,7 @@ function hrSwitchTab_(ev, tab) {
     hrSyncScanFields_();
     hrRenderScan_();
   }
-  if (tab === 'list') hrRenderSavedFilledPapers_(hrFiltered_());
+  if (tab === 'list' && !_hrListEditing) hrRenderSavedFilledPapers_(hrFiltered_());
 }
 
 function hrUniqueDepts_() {
@@ -445,6 +519,7 @@ function hrGroupedByType_(list) {
 }
 
 function hrNewPaper_(typeId) {
+  hrSetListEditing_(false);
   hrClearForm_();
   hrRenderLeaveTypes_(typeId || 'Lateness');
   hrSwitchTab_(null, 'form');
@@ -559,6 +634,7 @@ function hrEnsureSavedPapers_() {
 
 function hrRenderSavedFilledPapers_(list) {
   hrEnsureSavedPapers_();
+  var write = hrCanWrite_();
   HR_LEAVE_TYPES.forEach(function (t) {
     var slug = String(t.id).replace(/\s+/g, '-');
     var box = document.getElementById('hr-filled-' + slug);
@@ -579,7 +655,8 @@ function hrRenderSavedFilledPapers_(list) {
           '<h3>' + hrEsc_(r.empName || t.label) +
             (r.no || r.num ? ' (#' + hrEsc_(r.no || r.num) + ')' : '') + '</h3>' +
           '<span class="hr-badge hr-badge-' + hrEsc_(st) + '">' + hrEsc_(HR_STATUS_LABEL[st] || st) + '</span>' +
-          '<button type="button" data-hr-open="' + hrEsc_(r.id) + '">Open</button>' +
+          '<button type="button" data-hr-edit="' + hrEsc_(r.id) + '">' + (write ? 'Edit' : 'View') + '</button>' +
+          (write ? '<button type="button" class="hr-btn-del" data-hr-del="' + hrEsc_(r.id) + '">Delete</button>' : '') +
           '<button type="button" data-hr-print="' + hrEsc_(r.id) + '">Print / PDF</button>' +
         '</div>';
       var clone = hrMakePaperClone_('hr-saved-' + String(r.id).replace(/[^a-zA-Z0-9_-]/g, ''), r.leaveType);
@@ -587,17 +664,18 @@ function hrRenderSavedFilledPapers_(list) {
         hrFillPaperClone_(clone, r);
         card.appendChild(clone);
       }
-      var openBtn = card.querySelector('[data-hr-open]');
+      var editBtn = card.querySelector('[data-hr-edit]');
+      var delBtn = card.querySelector('[data-hr-del]');
       var printBtn = card.querySelector('[data-hr-print]');
-      if (openBtn) openBtn.addEventListener('click', function (ev) { ev.stopPropagation(); hrOpenRow_(r.id); });
+      if (editBtn) editBtn.addEventListener('click', function (ev) { ev.stopPropagation(); hrEditInList_(r.id); });
+      if (delBtn) delBtn.addEventListener('click', function (ev) { ev.stopPropagation(); hrDeleteRow_(r.id); });
       if (printBtn) printBtn.addEventListener('click', function (ev) {
         ev.stopPropagation();
-        hrOpenRow_(r.id);
-        setTimeout(hrPrint_, 80);
+        hrPrintRow_(r.id);
       });
       card.addEventListener('click', function (ev) {
         if (ev.target.closest('button')) return;
-        hrOpenRow_(r.id);
+        hrEditInList_(r.id);
       });
       box.appendChild(card);
     });
@@ -665,11 +743,12 @@ function hrRenderTable_() {
         '<td>' + hrEsc_(r.daysOut || '—') + '</td>' +
         '<td><span class="hr-badge hr-badge-' + hrEsc_(st) + '">' + hrEsc_(HR_STATUS_LABEL[st] || st) + '</span></td>' +
         '<td><div class="hr-row-acts">' +
-          '<button type="button" onclick="hrOpenRow_(\'' + hrEsc_(r.id) + '\')">' + (write ? 'Open' : 'View') + '</button>' +
+          '<button type="button" class="hr-btn-edit" onclick="hrEditInList_(\'' + hrEsc_(r.id) + '\')">' + (write ? 'Edit' : 'View') + '</button>' +
+          (write ? '<button type="button" class="hr-btn-del" onclick="hrDeleteRow_(\'' + hrEsc_(r.id) + '\')">Delete</button>' : '') +
           (r.entitlements && r.entitlements.__scan && r.entitlements.__scan.url
             ? '<button type="button" onclick="hrOpenScanRow_(\'' + hrEsc_(r.id) + '\')">Open scan</button>'
             : '') +
-          '<button type="button" onclick="hrOpenRow_(\'' + hrEsc_(r.id) + '\');setTimeout(hrPrint_,80)">Print</button>' +
+          '<button type="button" onclick="hrPrintRow_(\'' + hrEsc_(r.id) + '\')">Print</button>' +
         '</div></td></tr>';
     });
   });
@@ -870,7 +949,10 @@ function hrSaveFromScan_() {
 }
 
 function hrOpenScanRow_(id) {
-  hrOpenRow_(id);
+  var row = _hrRows.find(function (r) { return String(r.id) === String(id); });
+  if (!row) return;
+  hrFillForm_(row);
+  hrSetListEditing_(false);
   hrSwitchTab_(null, 'scan');
 }
 
@@ -952,7 +1034,10 @@ function hrSave_() {
       if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Save failed');
       hrMsg_('Saved.', true);
       if (d.row) hrFillForm_(d.row);
-      return hrLoad_(true);
+      var stay = _hrListEditing;
+      return hrLoad_(true).then(function () {
+        if (stay) hrSetListEditing_(true);
+      });
     })
     .catch(function (err) {
       hrMsg_(err.message || 'Save failed.', false);
@@ -963,26 +1048,7 @@ function hrSave_() {
 }
 
 function hrDelete_() {
-  var id = hrVal_('hr-id');
-  if (!id || !hrCanWrite_()) return;
-  var go = function () {
-    fetchJSONRetry({ action: 'deleteHrLeaveRequest', token: hrToken_(), id: id }, 1, 30000)
-      .then(function (d) {
-        if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) return;
-        if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Delete failed');
-        hrClearForm_();
-        hrSwitchTab_(null, 'list');
-        return hrLoad_(true);
-      })
-      .catch(function (err) {
-        hrMsg_(err.message || 'Delete failed.', false);
-      });
-  };
-  if (typeof uiConfirm === 'function') {
-    uiConfirm('Delete this leave request?').then(function (ok) { if (ok) go(); });
-    return;
-  }
-  if (confirm('Delete this leave request?')) go();
+  hrDeleteRow_(hrVal_('hr-id'));
 }
 
 function hrPrint_() {

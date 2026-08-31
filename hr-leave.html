@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-30-hr-f06">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-30-hr-f06">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-08-31-hr-pdf">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-08-31-hr-edit">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -70,6 +70,7 @@
 
     <div class="main-area">
       <div id="list" class="tab-content">
+        <div id="hrListBrowse">
         <div class="form-section">
           <h2>Leave requests</h2>
           <p class="hr-tab-help">Saved papers show the filled Leave Request, like a PDF. Use New paper to start a blank one.</p>
@@ -120,6 +121,8 @@
           <div id="hrSavedPapers" class="hr-saved-papers no-print"></div>
           <div id="hrTableHost"><p>Loading…</p></div>
         </div>
+        </div>
+        <div id="hrListEditor" class="hr-list-editor" hidden></div>
       </div>
 
       <div id="scan" class="tab-content">
@@ -157,7 +160,7 @@
       </div>
 
       <div id="form" class="tab-content active">
-        <div class="hr-app">
+        <div class="hr-app" id="hrApp">
           <div class="hr-toolbar no-print">
             <strong id="hrFormTitle">Leave Request</strong>
             <select id="hr-status" title="Status">
@@ -168,15 +171,16 @@
               <option value="rejected">Rejected</option>
             </select>
             <span class="hr-spacer"></span>
-            <button type="button" onclick="hrClearForm_()">New</button>
-            <button type="button" onclick="hrClearForm_()">Clear</button>
+            <button type="button" id="hrReturnBtn" onclick="hrReturnToList_()" style="display:none;">Return to saved requests</button>
+            <button type="button" data-hr-form-only="1" onclick="hrClearForm_()">New</button>
+            <button type="button" data-hr-form-only="1" onclick="hrClearForm_()">Clear</button>
             <button type="button" id="hrSaveBtn" onclick="hrSave_()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Save</button>
-            <button type="button" onclick="hrSwitchTab_(null,'scan')">Scan paper</button>
+            <button type="button" data-hr-form-only="1" onclick="hrSwitchTab_(null,'scan')">Scan paper</button>
             <button type="button" id="hrPrintBtn" onclick="hrPrint_()">Print / Save as PDF</button>
             <button type="button" id="hrDeleteBtn" onclick="hrDelete_()" style="display:none;color:#fff;background:#C5504F;border-color:#C5504F;">Delete</button>
           </div>
           <p class="hr-form-msg no-print" id="hrFormMsg"></p>
-          <div class="hr-scan-card no-print" id="hrScanCardOnForm">
+          <div class="hr-scan-card no-print" id="hrScanCardOnForm" data-hr-form-only="1">
             <div>
               <strong>Paper scan</strong>
               <p>Scan or upload the printed leave form. Only the Director box gets an e-signature.</p>
@@ -365,10 +369,11 @@
           </div>
 
           <div class="hr-actions-print no-print">
-            <button type="button" onclick="hrClearForm_()">New</button>
+            <button type="button" id="hrReturnBtn2" onclick="hrReturnToList_()" style="display:none;">Return to saved requests</button>
+            <button type="button" data-hr-form-only="1" onclick="hrClearForm_()">New</button>
             <button type="button" id="hrSaveBtn2" onclick="hrSave_()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Save</button>
             <button type="button" onclick="hrPrint_()">Print / Save as PDF</button>
-            <button type="button" onclick="hrClearForm_()">Clear form</button>
+            <button type="button" data-hr-form-only="1" onclick="hrClearForm_()">Clear form</button>
           </div>
           <p class="no-print" style="color:var(--text-soft);font-size:12px;margin-top:10px;">Official form <strong>HR-F-06</strong>. Click a signature box to upload. Prefer <strong>Portrait A4</strong> at 100% scale.</p>
         </div>
@@ -377,11 +382,11 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-31-hr-15pdf3"></script>
+<script src="config.js?v=2026-08-31-hr-edit"></script>
 <script src="assets/empire-api.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-auth.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-core.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-storage.js?v=2026-08-31-hr-scan"></script>
-<script src="assets/empire-hr-leave.js?v=2026-08-31-hr-15pdf3"></script>
+<script src="assets/empire-hr-leave.js?v=2026-08-31-hr-edit"></script>
 </body>
 </html>
