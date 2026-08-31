@@ -115,7 +115,7 @@
   function userProjects() {
     var scoped = typeof empireGetProjects === 'function' ? empireGetProjects() : null;
     if (scoped && scoped.length) {
-      return scoped.filter(function (p) { return !!TASK_MAP[p]; });
+      return scoped.map(function (p) { return String(p || '').trim().toLowerCase(); }).filter(function (p) { return !!TASK_MAP[p]; });
     }
     // Cleaning supervisors must be assigned projects in Users sheet — never show all.
     if (typeof empireIsCleaningSupervisor === 'function' && empireIsCleaningSupervisor()) {
@@ -309,20 +309,70 @@
   var _photosRefreshTimer = null;
   var _photosRefreshing = false;
   var _lastPhotosSyncAt = 0;
+  var _pickingPhoto = false;
+  var _pickPhotoTimer = null;
+
+  function photosCacheKey() {
+    var user = (typeof empireGetUser === 'function' && empireGetUser()) || '';
+    return 'cm_photos_' + String(user || 'x').toLowerCase() + '_' + curMonth();
+  }
+
+  function readLocalPhotos() {
+    try {
+      var raw = localStorage.getItem(photosCacheKey());
+      if (!raw) return [];
+      var list = JSON.parse(raw);
+      return Array.isArray(list) ? list.map(mapPhotoPeriod) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function writeLocalPhotos(list) {
+    try {
+      var slim = (list || []).filter(function (x) {
+        var img = String((x && x.image) || '');
+        return x && img.indexOf('http') === 0 && !x._offline;
+      }).slice(-250);
+      localStorage.setItem(photosCacheKey(), JSON.stringify(slim));
+    } catch (e) {}
+  }
+
+  function beginPhotoPick() {
+    _pickingPhoto = true;
+    if (_pickPhotoTimer) clearTimeout(_pickPhotoTimer);
+    _pickPhotoTimer = setTimeout(function () { _pickingPhoto = false; }, 120000);
+  }
+
+  function endPhotoPick() {
+    _pickingPhoto = false;
+    if (_pickPhotoTimer) {
+      clearTimeout(_pickPhotoTimer);
+      _pickPhotoTimer = null;
+    }
+  }
+
+  function hasPendingPhotos() {
+    var pending = state.pending || {};
+    var keys = Object.keys(pending);
+    for (var i = 0; i < keys.length; i++) {
+      if (pending[keys[i]] && pending[keys[i]].length) return true;
+    }
+    return false;
+  }
 
   async function loadPhotos(force) {
     if (!empireGetToken()) return;
     if (state.saving || state.syncing) return;
+    if (_pickingPhoto) return;
     if (_photosRefreshing) return;
     var now = Date.now();
-    // Soft debounce background polls; force/refresh always runs.
     if (!force && now - _lastPhotosSyncAt < 12000) return;
     _photosRefreshing = true;
     var mv = curMonth();
     try {
       var d = await api({ action: 'getTaskPhotos', periodPrefix: mv, force: true });
       if (d && d.ok === false) {
-        // Never auto-kick supervisors from the mobile app — show error and keep session.
         console.warn('getTaskPhotos rejected', d);
         var err = String(d.error || '').toLowerCase();
         var bar = document.getElementById('cmOfflineBanner');
@@ -348,21 +398,31 @@
         }
         return;
       }
-      // If a save started while we were fetching, keep current UI.
-      if (state.saving || state.syncing) return;
+      if (state.saving || state.syncing || _pickingPhoto) return;
       state.photoLoadTries = 0;
       _lastPhotosSyncAt = Date.now();
-      var list = Array.isArray(d) ? d : [];
+      var list = Array.isArray(d) ? d : null;
       var allowed = userProjects();
-      // Prefer server truth, but keep recently-saved photos so they don't flicker away.
-      var fromServer = list.map(mapPhotoPeriod).filter(function (x) {
-        return !allowed.length || allowed.indexOf(String(x.project || '').toLowerCase()) !== -1;
+      var fromServer = (list || []).map(mapPhotoPeriod).filter(function (x) {
+        if (!allowed.length) return true;
+        return allowed.indexOf(String(x.project || '').trim().toLowerCase()) !== -1;
       });
+      if (!fromServer.length) {
+        var cached = readLocalPhotos();
+        if (cached.length || state.photos.length || (state.stickyPhotos && state.stickyPhotos.length)) {
+          fromServer = cached.length ? cached : state.photos.slice();
+        }
+      } else {
+        writeLocalPhotos(fromServer);
+      }
       state.photos = dedupePhotoList(mergeStickyIntoPhotos(fromServer));
       await restoreOfflinePlaceholders();
       state.photos = dedupePhotoList(state.photos);
+      writeLocalPhotos(state.photos);
       await refreshOfflineBanner();
-      renderAll();
+      if (_pickingPhoto) return;
+      if (hasPendingPhotos() && state.project) renderTasks();
+      else renderAll();
     } catch (e) {
       console.warn(e);
     } finally {
@@ -376,15 +436,18 @@
       if (document.visibilityState !== 'visible') return;
       if (state.view === 'login') return;
       if (!empireGetToken()) return;
-      if (state.saving || state.syncing) return;
+      if (state.saving || state.syncing || _pickingPhoto) return;
       loadPhotos(false);
     };
     _photosRefreshTimer = setInterval(tick, 30000);
     document.addEventListener('visibilitychange', function () {
-      if (document.visibilityState === 'visible') loadPhotos(true);
+      if (document.visibilityState === 'visible') {
+        if (_pickingPhoto || hasPendingPhotos()) return;
+        loadPhotos(true);
+      }
     });
     window.addEventListener('focus', function () {
-      if (!state.saving && !state.syncing) loadPhotos(true);
+      if (!state.saving && !state.syncing && !_pickingPhoto && !hasPendingPhotos()) loadPhotos(true);
     });
   }
 
@@ -850,6 +913,7 @@
           state.photos.push(row);
         }
       });
+      writeLocalPhotos(state.photos);
       items.forEach(function (it) {
         if (it.preview && String(it.preview).indexOf('blob:') === 0) {
           try { URL.revokeObjectURL(it.preview); } catch (e) {}
@@ -860,7 +924,7 @@
       state.photos = dedupePhotoList(state.photos);
       renderTasks();
       state.saving = false;
-      try { await loadPhotos(true); } catch (eLoad) {}
+      setTimeout(function () { loadPhotos(true); }, 800);
       renderTasks();
     } catch (e) {
       if (!serverSaved) {
@@ -878,7 +942,7 @@
         }
       } else {
         delete state.pending[key];
-        try { await loadPhotos(true); } catch (e2) {}
+        try { setTimeout(function () { loadPhotos(true); }, 800); } catch (e2) {}
         renderTasks();
       }
     } finally {
@@ -888,6 +952,7 @@
   }
 
   async function onPhotoFiles(p, gi, ti, files, source) {
+    endPhotoPick();
     if (!files || !files.length) return;
     var g = taskGroup(p, gi);
     if (!g || !g.tasks || !g.tasks[ti]) return;
@@ -919,6 +984,7 @@
   }
 
   function openPhotoPicker(p, gi, ti) {
+    beginPhotoPick();
     var slot = pendingSlot(p, gi);
     var cam = document.getElementById(photoInputId('Cam', p, gi, ti, slot));
     var gal = document.getElementById(photoInputId('Gal', p, gi, ti, slot));
@@ -1336,6 +1402,11 @@
     applyLangUi();
     setupPush();
     scheduleDailyLocalReminder();
+    var cached = readLocalPhotos();
+    if (cached.length) {
+      state.photos = dedupePhotoList(mergeStickyIntoPhotos(cached));
+      renderAll();
+    }
     loadPhotos(true);
     syncOffline(true);
     startPhotosAutoSync();

@@ -337,34 +337,43 @@ export async function handleGetTaskPhotos(body: Record<string, unknown>) {
   const month = prefix.slice(0, 7);
   const prefixes = prefix ? periodMonthPrefixes(prefix) : [];
   const byId: Record<string, Record<string, unknown>> = {};
+  const allowed = projectsForUser(await getUser(String(body.username || "")));
+  const withProject = (q: any) => (allowed.length ? q.in("project", allowed) : q);
+  const cols = "id,project,freq,task,date,period,image,created_by,created_at,lat,lng,accuracy,source";
 
   if (!prefixes.length) {
     const allRows = await selectAllRows<Record<string, unknown>>("task_photos", {
-      filter: (q) => q.order("id", { ascending: true }),
+      columns: cols,
+      filter: (q) => withProject(q.order("id", { ascending: true })),
     });
     for (const row of allRows) byId[String(row.id)] = row;
   } else {
     for (const pre of prefixes) {
       const periodRows = await selectAllRows<Record<string, unknown>>("task_photos", {
-        filter: (q) => q.like("period", `${pre}%`).order("id", { ascending: true }),
+        columns: cols,
+        filter: (q) => withProject(q.like("period", `${pre}%`).order("id", { ascending: true })),
       });
       for (const row of periodRows) byId[String(row.id)] = row;
     }
     const bounds = reportPeriodBounds(month);
     if (bounds) {
       const dateRows = await selectAllRows<Record<string, unknown>>("task_photos", {
-        filter: (q) => q.gte("date", bounds.from).lte("date", bounds.to).order("id", { ascending: true }),
+        columns: cols,
+        filter: (q) => withProject(q.gte("date", bounds.from).lte("date", bounds.to).order("id", { ascending: true })),
       });
       for (const row of dateRows) byId[String(row.id)] = row;
     }
   }
 
   const bounds = prefix ? reportPeriodBounds(month) : null;
+  const allowedSet: Record<string, boolean> = {};
+  for (const p of allowed) allowedSet[p] = true;
   const seen: Record<string, boolean> = {};
   const out = [];
   for (const raw of Object.values(byId)) {
     const originalPeriod = String(raw.period || "");
     const row = mapTaskPhotoRow(raw);
+    if (allowed.length && !allowedSet[row.project]) continue;
     const key = `${row.project}|${row.task}|${row.period}|${row.image}`;
     if (seen[key]) continue;
     if (prefix) {
