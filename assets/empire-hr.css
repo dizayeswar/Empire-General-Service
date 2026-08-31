@@ -116,12 +116,13 @@
 .hr-actions-print button { font-family: inherit; cursor: pointer; }
 
 .hr-toolbar select {
-  padding: 6px 8px;
-  border: 1px solid var(--card-border);
-  border-radius: 8px;
+  padding: 8px 32px 8px 14px;
+  border: 2px solid var(--input-border);
+  border-radius: 999px;
   background: var(--panel);
   color: var(--text);
   font: inherit;
+  cursor: pointer;
 }
 
 .hr-form-msg {
@@ -237,7 +238,70 @@
   min-height: 20px;
 }
 
-.hr-note select.hr-cell-input { appearance: none; }
+.hr-toolbar select,
+.filter-toolbar select,
+.hr-scan-app select,
+.hr-note select.hr-cell-input {
+  appearance: base-select;
+  border-radius: 999px !important;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23111' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 9px 6px;
+}
+
+.hr-note select.hr-cell-input {
+  width: auto !important;
+  max-width: 100%;
+  min-width: 12em;
+  border: 1.5px solid #000 !important;
+  padding: 4px 28px 4px 12px !important;
+  background-color: #fff !important;
+}
+
+.filter-toolbar select,
+.hr-scan-app select {
+  border-radius: 999px;
+  padding: 10px 32px 10px 14px;
+}
+
+.hr-toolbar select::picker(select),
+.filter-toolbar select::picker(select),
+.hr-scan-app select::picker(select),
+.hr-note select.hr-cell-input::picker(select) {
+  appearance: base-select;
+  border-radius: 22px;
+  padding: 6px;
+  border: 1.5px solid #000;
+  background: #fff;
+  color: #000;
+  box-shadow: 0 8px 22px rgba(0,0,0,.14);
+}
+
+.hr-toolbar select option,
+.filter-toolbar select option,
+.hr-scan-app select option,
+.hr-note select.hr-cell-input option {
+  border-radius: 999px;
+  padding: 8px 14px;
+  margin: 2px 0;
+  background: #fff;
+  color: #000;
+  font-weight: 400;
+}
+
+.hr-toolbar select option:hover,
+.hr-toolbar select option:checked,
+.filter-toolbar select option:hover,
+.filter-toolbar select option:checked,
+.hr-scan-app select option:hover,
+.hr-scan-app select option:checked,
+.hr-note select.hr-cell-input option:hover,
+.hr-note select.hr-cell-input option:checked {
+  background: rgba(141, 1, 93, 0.12);
+  color: #000;
+}
 
 .hr-f06-comment { height: 92px; padding: 6px 8px; }
 .hr-f06-comment textarea {
@@ -468,6 +532,16 @@
   .hr-f06-entitle th,
   .hr-f06-entitle td.lab { background: none !important; font-weight: 400 !important; }
   .hr-note .hr-cell-input { background: #fff !important; }
+  .hr-note select.hr-cell-input {
+    appearance: none !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 1px 2px !important;
+    background-image: none !important;
+    background-color: #fff !important;
+  }
   .hr-date-native { display: none !important; visibility: hidden !important; }
   .hr-date-view { display: block !important; visibility: visible !important; }
   body.hr-print-scan #hrPrintRoot,
