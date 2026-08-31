@@ -80,12 +80,12 @@
         </div>
       </div>
     </div>
-    <script src="config.js?v=2026-08-31-cleaning-photos"></script>
+    <script src="config.js?v=2026-08-31-cleaning-extra5"></script>
     <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
     <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
     <script src="assets/empire-auth.js?v=2026-08-19-wh-assign"></script>
     <script src="assets/empire-core.js?v=2026-08-19-wh-assign"></script>
-    <script src="assets/empire-sw-update.js?v=2026-08-31-cleaning-photos"></script>
+    <script src="assets/empire-sw-update.js?v=2026-08-31-cleaning-extra5"></script>
     <script src="assets/empire-offline-queue.js?v=2026-08-19-wh-assign"></script>
     <script>
         /* ===== Themed dialogs (checkmark icons; shared theme/sidebar come from empire-core.js) ===== */
@@ -392,19 +392,35 @@
         function uploadToImgbbAsync(blob){ return empireUploadPhotoAsync(blob, CLEANING_TASK_FOLDER); }
         function compressImage(file, callback) { empireCompressImage(file, CLEANING_REPORT_FOLDER, callback, { maxSize: 1600, quality: 0.85 }); }
         function compressForPreview(file, callback){
-          const reader=new FileReader();
-          reader.onload=function(e){
+          if(!file){ callback(null); return; }
+          var type=String(file.type||'').toLowerCase();
+          var name=String(file.name||'').toLowerCase();
+          var isJpeg=type==='image/jpeg'||type==='image/jpg'||/\.jpe?g$/.test(name);
+          function asItem(blob){ callback(blob ? { preview:URL.createObjectURL(blob), blob:blob } : null); }
+          function fallback(){ if(isJpeg || type==='image/png' || type==='image/webp') asItem(file); else callback(null); }
+          if(isJpeg && file.size<450000){ asItem(file); return; }
+          function draw(src,w,h){
+            const MAX=1200; let nw=w, nh=h;
+            if(nw>MAX||nh>MAX){ const scale=Math.min(MAX/nw,MAX/nh); nw=Math.round(nw*scale); nh=Math.round(nh*scale); }
+            const canvas=document.createElement('canvas'); canvas.width=Math.max(1,nw); canvas.height=Math.max(1,nh);
+            try{ canvas.getContext('2d').drawImage(src,0,0,nw,nh); }catch(e){ fallback(); return; }
+            if(src && typeof src.close==='function'){ try{ src.close(); }catch(e2){} }
+            canvas.toBlob(function(blob){ if(blob) asItem(blob); else fallback(); }, 'image/jpeg', 0.72);
+          }
+          function viaImg(){
+            var url=URL.createObjectURL(file);
             const img=new Image();
-            img.onload=function(){
-              const MAX=1200; let w=img.width, h=img.height;
-              if(w>MAX||h>MAX){ const scale=Math.min(MAX/w,MAX/h); w=Math.round(w*scale); h=Math.round(h*scale); }
-              const canvas=document.createElement('canvas'); canvas.width=w; canvas.height=h;
-              canvas.getContext('2d').drawImage(img,0,0,w,h);
-              canvas.toBlob(function(blob){ callback(blob ? { preview:URL.createObjectURL(blob), blob:blob } : null); }, 'image/jpeg', 0.78);
-            };
-            img.src=e.target.result;
-          };
-          reader.readAsDataURL(file);
+            img.onload=function(){ URL.revokeObjectURL(url); draw(img, img.naturalWidth||img.width, img.naturalHeight||img.height); };
+            img.onerror=function(){ URL.revokeObjectURL(url); fallback(); };
+            img.src=url;
+          }
+          if(typeof createImageBitmap==='function'){
+            createImageBitmap(file, { imageOrientation:'from-image' }).then(function(bmp){ draw(bmp, bmp.width, bmp.height); }).catch(function(){
+              createImageBitmap(file).then(function(bmp){ draw(bmp, bmp.width, bmp.height); }).catch(viaImg);
+            });
+            return;
+          }
+          viaImg();
         }
         function handlePaste(e,p) { const i=e.clipboardData.items; for(let j=0;j<i.length;j++) if(i[j].type.indexOf('image')!==-1) { const b=i[j].getAsFile(); document.getElementById(p+'-imageArea').innerHTML='⏳ Uploading...'; uploading[p]=true; compressImage(b, (url)=>{ const img=document.getElementById(p+'-image'); const area=document.getElementById(p+'-imageArea'); uploading[p]=false; if(url) { img.src=url; img.style.display='block'; img.onclick=()=>openModal(url); currentImages[p]=url; area.innerHTML='✅ Image uploaded!'; setTimeout(()=>{area.innerHTML='Click here and paste (Ctrl+V)';}, 2000); } else { area.innerHTML='❌ Upload failed. Try again.'; currentImages[p]=''; setTimeout(()=>{area.innerHTML='Click here and paste (Ctrl+V)';}, 2000); } }); e.preventDefault(); } }
         function handleProjectFile(e,p) { const f=e.target.files&&e.target.files[0]; if(!f){ return; } document.getElementById(p+'-imageArea').innerHTML='⏳ Uploading...'; uploading[p]=true; compressImage(f, (url)=>{ const img=document.getElementById(p+'-image'); const area=document.getElementById(p+'-imageArea'); uploading[p]=false; if(url) { img.src=url; img.style.display='block'; img.onclick=()=>openModal(url); currentImages[p]=url; area.innerHTML='✅ Image uploaded!'; setTimeout(()=>{area.innerHTML='Click here and paste (Ctrl+V)';}, 2000); } else { area.innerHTML='❌ Upload failed. Try again.'; currentImages[p]=''; setTimeout(()=>{area.innerHTML='Click here and paste (Ctrl+V)';}, 2000); } }); e.target.value=''; }
@@ -506,7 +522,22 @@
           renderDashboard(d, tphotosAll);
         }
         function weekScopedGroup(g){ return !!(g && (g.daily || g.extra)); }
+        function photoLimit(g){ return (g && g.extra) ? 5 : 3; }
+        function isExtraPhoto(x){
+          var freq=String((x && x.freq) || '').toLowerCase();
+          var task=normTaskName(x && x.task).toLowerCase();
+          return freq==='extra' || task==='extra';
+        }
+        function extraPhotosIn(p, mv, wk, list){
+          var per=mv+'#'+wk;
+          return (list||[]).filter(function(x){
+            if(!photoMatchesProject(x, p) || !isExtraPhoto(x)) return false;
+            var got=String(canonicalizePhotoPeriod(x));
+            return got===per || got===mv;
+          });
+        }
         function dashPhotosFor(p, g, task, mv, wk, tphotosAll){
+          if(g && g.extra) return extraPhotosIn(p, mv, wk, tphotosAll);
           var tn=normTaskName(task);
           return (tphotosAll||[]).filter(function(x){
             if(!photoMatchesProject(x, p) || normTaskName(x.task)!==tn) return false;
@@ -541,7 +572,7 @@
           }).join('');
           return '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 10px;background:var(--task-bg);border-radius:12px;margin-bottom:6px;">'
             +'<div style="flex-shrink:0;padding-top:2px;">'+(done?checkIconHtml():squareIconHtml())+'</div>'
-            +'<div style="flex:1;min-width:0;"><div style="font-weight:600;font-size:13px;'+(done?'':'color:var(--text-soft);')+'">'+taskName+'</div>'
+            +'<div style="flex:1;min-width:0;">'+(taskName?('<div style="font-weight:600;font-size:13px;'+(done?'':'color:var(--text-soft);')+'">'+taskName+'</div>'):'')
             +(thumbs?('<div style="display:flex;flex-wrap:wrap;margin-top:6px;">'+thumbs+'</div>'):'')
             +'</div></div>';
         }
@@ -551,9 +582,15 @@
           cfg.groups.forEach(function(g){
             if(weekScopedGroup(g)){
               for(var w=1; w<=4; w++){
-                var ccnt=g.tasks.filter(function(t){ return dashPhotosFor(p, g, t, mv, w, tphotosAll).length>0; }).length;
-                h+='<h4 style="margin:12px 0 8px;font-size:14px;color:var(--text-soft);">'+g.label+' — Week '+w+' <span style="color:'+(ccnt===g.tasks.length?'#27ae60':'var(--accent2)')+';font-weight:bold;">'+ccnt+'/'+g.tasks.length+'</span></h4>';
-                g.tasks.forEach(function(t){ h+=renderDashTaskRow(t, dashPhotosFor(p, g, t, mv, w, tphotosAll)); });
+                if(g.extra){
+                  var eph=dashPhotosFor(p, g, 'Extra', mv, w, tphotosAll);
+                  h+='<h4 style="margin:12px 0 8px;font-size:14px;color:var(--text-soft);">'+g.label+' — Week '+w+' <span style="color:'+(eph.length?'#27ae60':'var(--accent2)')+';font-weight:bold;">'+eph.length+'/5</span></h4>';
+                  h+=renderDashTaskRow('', eph);
+                } else {
+                  var ccnt=g.tasks.filter(function(t){ return dashPhotosFor(p, g, t, mv, w, tphotosAll).length>0; }).length;
+                  h+='<h4 style="margin:12px 0 8px;font-size:14px;color:var(--text-soft);">'+g.label+' — Week '+w+' <span style="color:'+(ccnt===g.tasks.length?'#27ae60':'var(--accent2)')+';font-weight:bold;">'+ccnt+'/'+g.tasks.length+'</span></h4>';
+                  g.tasks.forEach(function(t){ h+=renderDashTaskRow(t, dashPhotosFor(p, g, t, mv, w, tphotosAll)); });
+                }
               }
             } else {
               var covered=g.tasks.filter(function(t){ return dashPhotosFor(p, g, t, mv, 1, tphotosAll).length>0; }).length;
@@ -668,8 +705,8 @@
             ndg.forEach(function(g){
               if(g.extra){
                 for (let wn=1; wn<=4; wn++){
-                  const per=mv+'#'+wn;
-                  g.tasks.forEach(function(t){ total++; if(mphotos.some(function(x){ var got=canonicalizePhotoPeriod(x); return photoMatchesProject(x, p) && normTaskName(x.task)===normTaskName(t) && (got===per || got===mv); })) done++; });
+                  total++;
+                  if(extraPhotosIn(p, mv, wn, mphotos).length>0) done++;
                 }
               } else {
                 g.tasks.forEach(function(t){ total++; if(mphotos.some(function(x){ return photoMatchesProject(x, p) && normTaskName(x.task)===normTaskName(t) && canonicalizePhotoPeriod(x)===mv; })) done++; });
@@ -711,27 +748,27 @@
         const taskMap = {
           ec: { tab:'empire-complex', groups:[
             { label:'Daily Tasks', daily:true, freq:'daily', tasks:['Cleaning area','Cleaning road','Floor mopping','Elevator mopping','Cleaning basement','Ground mopping','Around building cleaning (ride-on scrubber dryer)'] },
-            { label:'Extra', extra:true, daily:false, freq:'extra', tasks:['Walk-behind scrubber dryer','Rooftops cleaning','Floor cleaning (floor scrubber machine)'] }
+            { label:'Extra', extra:true, daily:false, freq:'extra', tasks:['Extra'] }
           ]},
           es: { tab:'empire-square', groups:[
             { label:'Daily Tasks', daily:true, freq:'daily', tasks:['Cleaning area','Cleaning road','Floor mopping','Elevator mopping','Cleaning balcony','Cleaning basement','Ground cleaning (ride-on scrubber dryer)','Around building cleaning (ride-on scrubber dryer)'] },
-            { label:'Extra', extra:true, daily:false, freq:'extra', tasks:['Walk-behind scrubber dryer','Rooftops cleaning','Basement 1 & Basement 2 (ride-on scrubber dryer)'] }
+            { label:'Extra', extra:true, daily:false, freq:'extra', tasks:['Extra'] }
           ]},
           wd: { tab:'west-diamond', groups:[
             { label:'Daily Tasks', daily:true, freq:'daily', tasks:['Cleaning garden','Cleaning area','Cleaning road','Floor mopping','Rooftops cleaning','Elevator mopping','Cleaning basement','Ground cleaning (ride-on scrubber dryer)','Around building cleaning (ride-on scrubber dryer)','Restaurant floor cleaning (ride-on scrubber dryer)','Washing garbage room','Cleaning glass'] },
-            { label:'Extra', extra:true, daily:false, freq:'extra', tasks:['Washing all floors','Washing trash container'] }
+            { label:'Extra', extra:true, daily:false, freq:'extra', tasks:['Extra'] }
           ]},
           ww: { tab:'west-wing', groups:[
             { label:'Daily Tasks', daily:true, freq:'daily', tasks:['Elevator mopping','Floor mopping','Ground mopping and washing','Basement mopping and washing','Cleaning trash can','Cleaning garden','Cleaning area','Cleaning road','Cleaning basement'] },
-            { label:'Extra', extra:true, daily:false, freq:'extra', tasks:['Washing stairs','Gates between properties','Cleaning balcony'] }
+            { label:'Extra', extra:true, daily:false, freq:'extra', tasks:['Extra'] }
           ]},
           ww2: { tab:'new-west-wing', groups:[
             { label:'Daily Tasks', daily:true, freq:'daily', tasks:['Elevator mopping','Floor mopping','Ground mopping and washing','Basement mopping and washing','Cleaning trash can','Cleaning garden','Cleaning area','Cleaning road','Cleaning basement','Ground cleaning (ride-on scrubber dryer)','Basement garbage room washing (WW12-WW15)'] },
-            { label:'Extra', extra:true, daily:false, freq:'extra', tasks:['Washing stairs','Gates between properties','Cleaning balcony'] }
+            { label:'Extra', extra:true, daily:false, freq:'extra', tasks:['Extra'] }
           ]},
           ra: { tab:'royal-apartment', groups:[
             { label:'Daily Tasks', daily:true, freq:'daily', tasks:['Cleaning garden','Cleaning area','Cleaning road','Cleaning trash can','Cleaning basement','Ground mopping','Elevator mopping','Floor mopping'] },
-            { label:'Extra', extra:true, daily:false, freq:'extra', tasks:['Area washing','Washing around building','Rooftops cleaning'] }
+            { label:'Extra', extra:true, daily:false, freq:'extra', tasks:['Extra'] }
           ]}
         };
         function taskTodayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -829,6 +866,7 @@
         function monthlyPhotos(p, task){ const tn=normTaskName(task); return taskPhotos.filter(x=>photoMatchesProject(x,p) && normTaskName(x.task)===tn && canonicalizePhotoPeriod(x)===curMonth()).sort((a,b)=>String(a.date).localeCompare(String(b.date))); }
         function photosFor(p, g, task){
           var wk=selWeek[p]||1;
+          if(g && g.extra) return extraPhotosIn(p, curMonth(), wk, taskPhotos).sort(function(a,b){ return String(a.date).localeCompare(String(b.date)); });
           if(weekScopedGroup(g)){
             var tn=normTaskName(task);
             var per=curMonth()+'#'+wk;
@@ -871,16 +909,22 @@
         }
         function onAddPhotos(p, gi, ti, files){
           if(!files || !files.length) return;
+          const g=taskMap[p] && taskMap[p].groups[gi];
           const key=taskCardKey(p, gi, ti);
           taskPasteFocusKey=key;
+          const cap=photoLimit(g);
+          const existing=photosFor(p, g, (g && g.tasks && g.tasks[ti]) || 'Extra').length;
+          const pendingN=pendingItems(pendingTaskUpload[key]).length;
+          let room=cap - existing - pendingN;
+          if(room<=0){ alert('Maximum '+cap+' photos. Remove one to add another.'); return; }
           let remaining=0;
-          files.forEach(function(file){
+          Array.prototype.slice.call(files, 0, room).forEach(function(file){
             if(!file) return;
             remaining++;
             compressForPreview(file, function(item){
               remaining--;
               if(item) ensurePendingUpload(key).items.push(item);
-              else alert('Could not read that image. Try again.');
+              else alert('Could not read that image. Try gallery, or take the picture again.');
               if(remaining===0) renderTaskProject(p);
             });
           });
@@ -989,7 +1033,7 @@
           const key=taskCardKey(p, gi, ti);
           const items=pendingItems(pendingTaskUpload[key]);
           if(!items.length) return;
-          const g=taskMap[p].groups[gi]; const t=g.tasks[ti]; const freq=g.daily?'daily':g.freq;
+          const g=taskMap[p].groups[gi]; const t=g.extra?'Extra':g.tasks[ti]; const freq=g.daily?'daily':(g.extra?'extra':g.freq);
           const wk=selWeek[p]||1; const period=weekScopedGroup(g) ? (curMonth()+'#'+wk) : curMonth();
           const host=document.getElementById(p+'-taskSection');
           const confirmBtn=host && host.querySelector('.task-confirm-photo[data-pp="'+p+'"][data-gi="'+gi+'"][data-ti="'+ti+'"]');
@@ -1011,15 +1055,20 @@
           }
           const remoteUrls=[];
           try {
-            for(let i=0;i<items.length;i++){
-              if(confirmBtn) confirmBtn.innerHTML=checkIconHtml('#fff')+' Uploading '+(i+1)+'/'+items.length+'…';
-              let url=items[i].remote;
-              if(!url){
-                url=await uploadToImgbbAsync(items[i].blob);
-                if(!url) throw new Error('Photo '+(i+1)+' upload failed. Check your connection and try again.');
-              }
-              remoteUrls.push(url);
-            }
+            if(confirmBtn) confirmBtn.innerHTML=checkIconHtml('#fff')+' Uploading…';
+            const uploaded=await Promise.all(items.map(function(it){
+              return (async function(){
+                var url=it.remote;
+                if(!url){
+                  url=await uploadToImgbbAsync(it.blob);
+                  if(!url) throw new Error('Photo upload failed. Check your connection and try again.');
+                }
+                return url;
+              })();
+            }));
+            uploaded.forEach(function(url){ if(url) remoteUrls.push(url); });
+            var cap=photoLimit(g);
+            if(remoteUrls.length>cap) remoteUrls.splice(cap);
             if(confirmBtn) confirmBtn.innerHTML=checkIconHtml('#fff')+' Saving to server…';
             let saved=[];
             const batch=await fetchJSONRetry({action:'addTaskPhotos', project:p, freq:freq, task:t, date:taskTodayStr(), period:period, images:remoteUrls, token:empireGetToken()||''}, 3);
@@ -1103,9 +1152,10 @@
           }).catch(e=>alert('Error: '+e.message)); });
         }
         function taskCardHtml(p, gi, ti, g, t){
-          const photos=photosFor(p, g, t); const done=photos.length>0;
+          const photos=photosFor(p, g, t || (g && g.tasks && g.tasks[ti])); const done=photos.length>0;
           const key=taskCardKey(p, gi, ti); const editing=!!taskEditOpen[key]; const pending=pendingTaskUpload[key];
           const pendingList=pendingUrls(pending);
+          const cap=photoLimit(g);
           let ph='';
           if(editing || done){
             photos.forEach(x=>{
@@ -1147,7 +1197,7 @@
           const bodyBits=(ph||uploadHtml)?(ph?('<div style="display:flex;flex-wrap:wrap;margin-bottom:6px;">'+ph+'</div>'):'')+(uploadHtml||''):'';
           return '<div class="task-card" style="background:var(--task-bg);border:1px solid var(--card-border);border-radius:16px;padding:10px;">'
             +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;'+(bodyBits?'margin-bottom:6px;':'')+'">'
-            +'<div style="font-weight:600;flex:1;">'+(done?checkIconHtml():squareIconHtml())+' '+t+'</div>'
+            +'<div style="font-weight:600;flex:1;">'+(done?checkIconHtml():squareIconHtml())+' '+(g && g.extra ? (photos.length+'/'+cap+' photos') : t)+'</div>'
             +editBtn
             +'</div>'
             +bodyBits
@@ -1186,13 +1236,12 @@
               h+='</div>';
             } else if(g.extra){
               const wk=selWeek[p]||1;
-              const total=g.tasks.length;
-              const coveredCount=g.tasks.filter(function(t){ return photosFor(p,g,t).length>0; }).length;
-              const complete=coveredCount===total;
-              h+='<h3>'+g.label+' — Week '+wk+' <span style="color:'+(complete?'#27ae60':'var(--accent2)')+';font-weight:bold;">'+coveredCount+'/'+total+'</span></h3>';
-              h+='<p style="color:var(--text-soft);font-size:13px;margin-bottom:8px;">Extra can be done on every week.</p>';
+              const extraPh=photosFor(p,g,'Extra');
+              const extraCnt=extraPh.length;
+              h+='<h3>'+g.label+' — Week '+wk+' <span style="color:'+(extraCnt?'#27ae60':'var(--accent2)')+';font-weight:bold;">'+extraCnt+'/5</span></h3>';
+              h+='<p style="color:var(--text-soft);font-size:13px;margin-bottom:8px;">Extra photos for this week — up to 5. No named tasks.</p>';
               h+='<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">';
-              g.tasks.forEach((t,ti)=>{ h+=taskCardHtml(p,gi,ti,g,t); });
+              h+=taskCardHtml(p,gi,0,g,'');
               h+='</div>';
             } else {
               const total=g.tasks.length; const coveredCount=g.tasks.filter(t=>monthlyPhotos(p,t).length>0).length; const complete=coveredCount===total;
@@ -1355,11 +1404,11 @@
             if(ndg.length){
               h+='<div style="margin-top:12px;"><strong>'+checkIconHtml()+' Extra</strong>';
               ndg.forEach(g=>{
-                for(let wn=1;wn<=4;wn++){ const per=mv+'#'+wn;
-                  const coveredCount=g.tasks.filter(t=>mphotos.some(x=>photoMatchesProject(x,p) && normTaskName(x.task)===normTaskName(t) && (canonicalizePhotoPeriod(x)===per || canonicalizePhotoPeriod(x)===mv))).length;
-                  h+='<p style="margin-top:10px;color:var(--text-soft);">'+g.label+' — Week '+wn+' — <strong style="color:'+(coveredCount===g.tasks.length?'#27ae60':'var(--accent2)')+';">'+coveredCount+'/'+g.tasks.length+'</strong></p><div style="display:flex;flex-direction:column;gap:4px;">';
-                  g.tasks.forEach(t=>{ const ph=mphotos.filter(x=>photoMatchesProject(x,p) && normTaskName(x.task)===normTaskName(t) && (canonicalizePhotoPeriod(x)===per || canonicalizePhotoPeriod(x)===mv)); const thumbs=ph.map(x=>'<img src="'+x.image+'" onclick="openModal(this.src)" style="height:90px;border-radius:12px;border:1px solid var(--card-border);cursor:pointer;margin:6px 6px 0 0;">').join(''); h+='<div style="padding:6px 10px;background:var(--task-bg);border-radius:12px;">'+(ph.length?checkIconHtml():squareIconHtml())+' '+t+(ph.length?(' <span style="color:var(--text-faint);">('+ph.length+')</span>'):'')+(thumbs?('<div style="display:flex;flex-wrap:wrap;">'+thumbs+'</div>'):'')+'</div>'; });
-                  h+='</div>';
+                for(let wn=1;wn<=4;wn++){
+                  const ph=extraPhotosIn(p, mv, wn, mphotos);
+                  const thumbs=ph.map(x=>'<img src="'+x.image+'" onclick="openModal(this.src)" style="height:90px;border-radius:12px;border:1px solid var(--card-border);cursor:pointer;margin:6px 6px 0 0;">').join('');
+                  h+='<p style="margin-top:10px;color:var(--text-soft);">'+g.label+' — Week '+wn+' — <strong style="color:'+(ph.length?'#27ae60':'var(--accent2)')+';">'+ph.length+'/5</strong></p>';
+                  h+='<div style="padding:6px 10px;background:var(--task-bg);border-radius:12px;">'+(ph.length?checkIconHtml():squareIconHtml())+(ph.length?(' <span style="color:var(--text-faint);">('+ph.length+')</span>'):'')+(thumbs?('<div style="display:flex;flex-wrap:wrap;">'+thumbs+'</div>'):'')+'</div>';
                 }
               });
               h+='</div>';
@@ -1423,11 +1472,10 @@
             var ndg=taskMap[p].groups.filter(function(g){return !g.daily;});
             if(ndg.length){ b+='<h4><span class="si">'+CHECK_ICON+'</span> Extra</h4>';
               ndg.forEach(function(g){
-                for(var wn=1;wn<=4;wn++){ var per=R.mv+'#'+wn;
-                  var cov=g.tasks.filter(function(t){return R.mphotos.some(function(x){var got=canonicalizePhotoPeriod(x); return photoMatchesProject(x,p)&&normTaskName(x.task)===normTaskName(t)&&(got===per||(wn===1&&got===R.mv));});}).length;
-                  b+='<p class="wk"><strong>'+_esc(g.label)+' — Week '+wn+'</strong> — <span style="color:'+(cov===g.tasks.length?'#27ae60':'#e8a0cf')+';">'+cov+'/'+g.tasks.length+'</span></p>';
-                  g.tasks.forEach(function(t){ var ph=R.mphotos.filter(function(x){var got=canonicalizePhotoPeriod(x); return photoMatchesProject(x,p)&&normTaskName(x.task)===normTaskName(t)&&(got===per||(wn===1&&got===R.mv));});
-                    b+='<div class="task">'+(ph.length?'<span class="si" style="color:#27ae60;">'+CHECK_ICON+'</span>':'<span class="si" style="color:#C5504F;">'+SQUARE_ICON+'</span>')+' '+_esc(t)+(ph.length?' <span class="cnt">('+ph.length+')</span>':'')+(ph.length?'<div class="ph">'+ph.map(function(x){return _imgTag(x.image,map);}).join('')+'</div>':'')+'</div>'; });
+                for(var wn=1;wn<=4;wn++){
+                  var ph=extraPhotosIn(p, R.mv, wn, R.mphotos);
+                  b+='<p class="wk"><strong>'+_esc(g.label)+' — Week '+wn+'</strong> — <span style="color:'+(ph.length?'#27ae60':'#e8a0cf')+';">'+ph.length+'/5</span></p>';
+                  b+='<div class="task">'+(ph.length?'<span class="si" style="color:#27ae60;">'+CHECK_ICON+'</span>':'<span class="si" style="color:#C5504F;">'+SQUARE_ICON+'</span>')+(ph.length?' <span class="cnt">('+ph.length+')</span>':'')+(ph.length?'<div class="ph">'+ph.map(function(x){return _imgTag(x.image,map);}).join('')+'</div>':'')+'</div>';
                 }
               });
             }

@@ -39,14 +39,18 @@
       weekUnlockedPush: function (p) { return 'Week ' + (p.n || '') + ' unlocked'; },
       takePhoto: 'Take photo',
       addPhoto: 'Add photo',
-      cameraOnly: 'Camera only — max 3 photos',
-      cameraOrUpload: 'Camera or gallery — max 3 photos',
+      cameraOnly: function (p) { return 'Camera only — max ' + (p.max || 3) + ' photos'; },
+      cameraOrUpload: function (p) { return 'Camera or gallery — max ' + (p.max || 3) + ' photos'; },
       sourceTaken: 'Taken',
       sourceUploaded: 'Uploaded',
       photosReady: function (p) {
         return (p.count || 0) + ' photo' + ((p.count || 0) === 1 ? '' : 's') + ' ready';
       },
-      photoMax: 'Maximum 3 photos. Remove one to add another.',
+      photoMax: function (p) { return 'Maximum ' + (p.max || 3) + ' photos. Remove one to add another.'; },
+      photoFailed: 'Could not read that photo. Try gallery, or take the picture again.',
+      photoTakeCamera: 'Take photo (camera)',
+      photoChooseGallery: 'Choose from gallery',
+      photoCancel: 'Cancel',
       confirmSave: 'Confirm & save',
       saving: 'Saving…',
       uploading: 'Uploading…',
@@ -119,14 +123,18 @@
       weekUnlockedPush: function (p) { return 'هەفتەی ' + (p.n || '') + ' کرایەوە'; },
       takePhoto: 'وێنە بگرە',
       addPhoto: 'وێنە زیادبکە',
-      cameraOnly: 'تەنها کامێرا — زۆرترین ٣ وێنە',
-      cameraOrUpload: 'کامێرا یان گالەری — زۆرترین ٣ وێنە',
+      cameraOnly: function (p) { return 'تەنها کامێرا — زۆرترین ' + (p.max || 3) + ' وێنە'; },
+      cameraOrUpload: function (p) { return 'کامێرا یان گالەری — زۆرترین ' + (p.max || 3) + ' وێنە'; },
       sourceTaken: 'گیراو',
       sourceUploaded: 'بارکراو',
       photosReady: function (p) {
         return (p.count || 0) + ' وێنە ئامادەیە';
       },
-      photoMax: 'زۆرترین ٣ وێنە. یەکێک بسڕەوە بۆ زیادکردن.',
+      photoMax: function (p) { return 'زۆرترین ' + (p.max || 3) + ' وێنە. یەکێک بسڕەوە بۆ زیادکردن.'; },
+      photoFailed: 'نەتوانرا وێنەکە بخوێنرێتەوە. گالەری بەکاربهێنە یان دووبارە وێنە بگرە.',
+      photoTakeCamera: 'وێنە بگرە (کامێرا)',
+      photoChooseGallery: 'لە گالەری هەڵبژێرە',
+      photoCancel: 'پاشگەزبوونەوە',
       confirmSave: 'دڵنیابوون و پاشەکەوت',
       saving: 'پاشەکەوت…',
       uploading: 'بارکردن…',
@@ -177,6 +185,7 @@
     'Cleaning basement': 'خاوێنکردنەوەی ژێرزەمین',
     'Ground mopping': 'مۆپکردنی زەوی',
     'Around building cleaning (ride-on scrubber dryer)': 'خاوێنکردنەوەی دەوروبەری بینا (ئامێری سواربوون)',
+    Extra: 'زیادە',
     'Walk-behind scrubber dryer': 'ئامێری پاککردنەوەی پاشەوەڕۆ',
     'Rooftops cleaning': 'خاوێنکردنەوەی بان',
     'Floor cleaning (floor scrubber machine)': 'خاوێنکردنەوەی نهۆم (ئامێری نهۆم)',
@@ -204,7 +213,7 @@
     'Once or Twice a Week': 'جارێک یان دووجار لە هەفتەیەکدا',
     'Once or Twice a Month': 'جارێک یان دووجار لە مانگێکدا',
     'Once a Month': 'جارێک لە مانگێکدا',
-    Extra: 'زیادە'
+    Extra: 'زیادە',
   };
 
   function cleaningTaskLabel(englishName) {

@@ -257,6 +257,10 @@ export async function handleAddTaskPhoto(body: Record<string, unknown>) {
   return { ok: true, success: true, id, source, period };
 }
 
+function isExtraTask(freq: string, task: string): boolean {
+  return String(freq || "").toLowerCase() === "extra" || String(task || "").trim().toLowerCase() === "extra";
+}
+
 export async function handleAddTaskPhotos(body: Record<string, unknown>) {
   const project = String(body.project || "").trim().toLowerCase();
   if (!project) return { ok: false, error: "missing_project", message: "Project is required." };
@@ -265,13 +269,19 @@ export async function handleAddTaskPhotos(body: Record<string, unknown>) {
   }
   const images = (body.images || []) as string[];
   if (!images.length) return { ok: false, error: "No images" };
-  if (images.length > 3) return { ok: false, error: "too_many_photos", message: "Maximum 3 photos per save." };
   const task = String(body.task || "").trim();
   const date = fmtDate(body.date) || String(body.date || "");
   const freq = String(body.freq || "");
+  const extra = isExtraTask(freq, task);
+  const maxPhotos = extra ? 5 : 3;
+  if (images.length > maxPhotos) {
+    return { ok: false, error: "too_many_photos", message: extra ? "Maximum 5 Extra photos per save." : "Maximum 3 photos per save." };
+  }
   const period = canonicalizePeriod(String(body.period || ""), date, freq);
   const existing = await selectAllRows<Record<string, unknown>>("task_photos", {
-    filter: (q) => q.ilike("project", project).eq("task", task),
+    filter: (q) => extra
+      ? q.ilike("project", project).ilike("freq", "extra")
+      : q.ilike("project", project).eq("task", task),
   });
   const existingUrls: Record<string, boolean> = {};
   let existingCount = 0;
@@ -279,6 +289,7 @@ export async function handleAddTaskPhotos(body: Record<string, unknown>) {
   const bounds = reportPeriodBounds(month);
   for (const r of existing || []) {
     const mapped = mapTaskPhotoRow(r);
+    if (extra && !isExtraTask(String(mapped.freq || ""), String(mapped.task || ""))) continue;
     if (mapped.period !== period) continue;
     const stored = String(r.period || "");
     const dateOk = !!(bounds && mapped.date && mapped.date >= bounds.from && mapped.date <= bounds.to);
@@ -290,6 +301,8 @@ export async function handleAddTaskPhotos(body: Record<string, unknown>) {
   const items: unknown[] = [];
   let added = 0;
   const now = isoNow();
+  const saveTask = extra ? "Extra" : task;
+  const saveFreq = extra ? "extra" : freq;
   for (let i = 0; i < images.length; i++) {
     const img = String(images[i] || "");
     if (!img) continue;
@@ -298,9 +311,15 @@ export async function handleAddTaskPhotos(body: Record<string, unknown>) {
       items.push({ id: "existing", image: img, skipped: true, lat: "", lng: "", accuracy: "", source, period });
       continue;
     }
-    if (existingCount + added >= 3) {
+    if (existingCount + added >= maxPhotos) {
       if (!items.length) {
-        return { ok: false, error: "photo_limit", message: "This task already has 3 photos for this week." };
+        return {
+          ok: false,
+          error: "photo_limit",
+          message: extra
+            ? "Extra already has 5 photos for this week."
+            : "This task already has 3 photos for this week.",
+        };
       }
       break;
     }
@@ -309,8 +328,8 @@ export async function handleAddTaskPhotos(body: Record<string, unknown>) {
     const { error } = await sb().from("task_photos").insert({
       id,
       project,
-      freq,
-      task,
+      freq: saveFreq,
+      task: saveTask,
       date,
       period,
       image: img,

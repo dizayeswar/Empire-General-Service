@@ -2,6 +2,8 @@
 (function () {
   var TASK_FOLDER = 'cleaning/tasks';
   var MAX_PHOTOS = 3;
+  var EXTRA_PHOTOS = 5;
+  var EXTRA_TASK = 'Extra';
   var PROJECT_NAMES = {
     ec: 'Empire Complex',
     es: 'Empire Square',
@@ -13,27 +15,27 @@
   var TASK_MAP = {
     ec: { groups: [
       { labelKey: 'dailyTasks', daily: true, freq: 'daily', tasks: ['Cleaning area', 'Cleaning road', 'Floor mopping', 'Elevator mopping', 'Cleaning basement', 'Ground mopping', 'Around building cleaning (ride-on scrubber dryer)'] },
-      { labelKey: 'extraTasks', extra: true, daily: false, freq: 'extra', tasks: ['Walk-behind scrubber dryer', 'Rooftops cleaning', 'Floor cleaning (floor scrubber machine)'] }
+      { labelKey: 'extraTasks', extra: true, daily: false, freq: 'extra', tasks: ['Extra'] }
     ]},
     es: { groups: [
       { labelKey: 'dailyTasks', daily: true, freq: 'daily', tasks: ['Cleaning area', 'Cleaning road', 'Floor mopping', 'Elevator mopping', 'Cleaning balcony', 'Cleaning basement', 'Ground cleaning (ride-on scrubber dryer)', 'Around building cleaning (ride-on scrubber dryer)'] },
-      { labelKey: 'extraTasks', extra: true, daily: false, freq: 'extra', tasks: ['Walk-behind scrubber dryer', 'Rooftops cleaning', 'Basement 1 & Basement 2 (ride-on scrubber dryer)'] }
+      { labelKey: 'extraTasks', extra: true, daily: false, freq: 'extra', tasks: ['Extra'] }
     ]},
     wd: { groups: [
       { labelKey: 'dailyTasks', daily: true, freq: 'daily', tasks: ['Cleaning garden', 'Cleaning area', 'Cleaning road', 'Floor mopping', 'Rooftops cleaning', 'Elevator mopping', 'Cleaning basement', 'Ground cleaning (ride-on scrubber dryer)', 'Around building cleaning (ride-on scrubber dryer)', 'Restaurant floor cleaning (ride-on scrubber dryer)', 'Washing garbage room', 'Cleaning glass'] },
-      { labelKey: 'extraTasks', extra: true, daily: false, freq: 'extra', tasks: ['Washing all floors', 'Washing trash container'] }
+      { labelKey: 'extraTasks', extra: true, daily: false, freq: 'extra', tasks: ['Extra'] }
     ]},
     ww: { groups: [
       { labelKey: 'dailyTasks', daily: true, freq: 'daily', tasks: ['Elevator mopping', 'Floor mopping', 'Ground mopping and washing', 'Basement mopping and washing', 'Cleaning trash can', 'Cleaning garden', 'Cleaning area', 'Cleaning road', 'Cleaning basement'] },
-      { labelKey: 'extraTasks', extra: true, daily: false, freq: 'extra', tasks: ['Washing stairs', 'Gates between properties', 'Cleaning balcony'] }
+      { labelKey: 'extraTasks', extra: true, daily: false, freq: 'extra', tasks: ['Extra'] }
     ]},
     ww2: { groups: [
       { labelKey: 'dailyTasks', daily: true, freq: 'daily', tasks: ['Elevator mopping', 'Floor mopping', 'Ground mopping and washing', 'Basement mopping and washing', 'Cleaning trash can', 'Cleaning garden', 'Cleaning area', 'Cleaning road', 'Cleaning basement', 'Ground cleaning (ride-on scrubber dryer)', 'Basement garbage room washing (WW12-WW15)'] },
-      { labelKey: 'extraTasks', extra: true, daily: false, freq: 'extra', tasks: ['Washing stairs', 'Gates between properties', 'Cleaning balcony'] }
+      { labelKey: 'extraTasks', extra: true, daily: false, freq: 'extra', tasks: ['Extra'] }
     ]},
     ra: { groups: [
       { labelKey: 'dailyTasks', daily: true, freq: 'daily', tasks: ['Cleaning garden', 'Cleaning area', 'Cleaning road', 'Cleaning trash can', 'Cleaning basement', 'Ground mopping', 'Elevator mopping', 'Floor mopping'] },
-      { labelKey: 'extraTasks', extra: true, daily: false, freq: 'extra', tasks: ['Area washing', 'Washing around building', 'Rooftops cleaning'] }
+      { labelKey: 'extraTasks', extra: true, daily: false, freq: 'extra', tasks: ['Extra'] }
     ]}
   };
 
@@ -154,6 +156,16 @@
 
   function weekScoped(g) { return !!(g && (g.daily || g.extra)); }
 
+  function photoLimit(g) {
+    return (g && g.extra) ? EXTRA_PHOTOS : MAX_PHOTOS;
+  }
+
+  function isExtraPhoto(x) {
+    var freq = String((x && x.freq) || '').toLowerCase();
+    var task = String((x && x.task) || '').trim().toLowerCase();
+    return freq === 'extra' || task === 'extra';
+  }
+
   function photosFor(p, g, task, wk) {
     var period = weekScoped(g) ? (curMonth() + '#' + wk) : curMonth();
     var monthPeriod = curMonth();
@@ -162,7 +174,9 @@
     var out = [];
     state.photos.forEach(function (x) {
       if (String(x.project).toLowerCase() !== String(p).toLowerCase()) return;
-      if (String(x.task || '').trim() !== taskName) return;
+      if (g && g.extra) {
+        if (!isExtraPhoto(x)) return;
+      } else if (String(x.task || '').trim() !== taskName) return;
       var got = canonicalizePhotoPeriod(x);
       if (got !== period && !(g.extra && got === monthPeriod)) return;
       var img = String(x.image || '');
@@ -498,32 +512,81 @@
   function compressPreview(file, source) {
     return new Promise(function (resolve) {
       if (!file) return resolve(null);
-      var reader = new FileReader();
-      reader.onerror = function () { resolve(null); };
-      reader.onload = function (e) {
+      var type = String(file.type || '').toLowerCase();
+      var name = String(file.name || '').toLowerCase();
+      var isJpeg = type === 'image/jpeg' || type === 'image/jpg' || /\.jpe?g$/.test(name);
+      var isPng = type === 'image/png' || /\.png$/.test(name);
+      var isWebp = type === 'image/webp' || /\.webp$/.test(name);
+      var MAX = 1280;
+      var QUALITY = 0.72;
+
+      function asItem(blob) {
+        if (!blob) return resolve(null);
+        resolve({
+          preview: URL.createObjectURL(blob),
+          blob: blob,
+          remote: null,
+          source: normalizeSource(source),
+          gps: state.lastGps ? Object.assign({}, state.lastGps) : null
+        });
+      }
+
+      function fallbackOriginal() {
+        if (isJpeg || isPng || isWebp) return asItem(file);
+        resolve(null);
+      }
+
+      function drawToJpeg(src, w, h) {
+        var s = Math.min(1, MAX / Math.max(w || 1, h || 1));
+        var c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(w * s));
+        c.height = Math.max(1, Math.round(h * s));
+        try {
+          c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
+        } catch (e) {
+          fallbackOriginal();
+          return;
+        }
+        if (src && typeof src.close === 'function') {
+          try { src.close(); } catch (e2) {}
+        }
+        c.toBlob(function (blob) {
+          if (blob) asItem(blob);
+          else fallbackOriginal();
+        }, 'image/jpeg', QUALITY);
+      }
+
+      if (isJpeg && file.size < 450000) {
+        asItem(file);
+        return;
+      }
+
+      function loadViaImg() {
+        var url = URL.createObjectURL(file);
         var img = new Image();
-        img.onerror = function () { resolve(null); };
         img.onload = function () {
-          var maxSize = 1600;
-          var s = Math.min(1, maxSize / Math.max(img.width, img.height));
-          var c = document.createElement('canvas');
-          c.width = Math.round(img.width * s);
-          c.height = Math.round(img.height * s);
-          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-          c.toBlob(function (blob) {
-            if (!blob) return resolve(null);
-            resolve({
-              preview: URL.createObjectURL(blob),
-              blob: blob,
-              remote: null,
-              source: normalizeSource(source),
-              gps: state.lastGps ? Object.assign({}, state.lastGps) : null
-            });
-          }, 'image/jpeg', 0.85);
+          URL.revokeObjectURL(url);
+          drawToJpeg(img, img.naturalWidth || img.width, img.naturalHeight || img.height);
         };
-        img.src = e.target.result;
-      };
-      reader.readAsDataURL(file);
+        img.onerror = function () {
+          URL.revokeObjectURL(url);
+          fallbackOriginal();
+        };
+        img.src = url;
+      }
+
+      if (typeof createImageBitmap === 'function') {
+        var opts = { imageOrientation: 'from-image' };
+        createImageBitmap(file, opts).then(function (bmp) {
+          drawToJpeg(bmp, bmp.width, bmp.height);
+        }).catch(function () {
+          createImageBitmap(file).then(function (bmp) {
+            drawToJpeg(bmp, bmp.width, bmp.height);
+          }).catch(loadViaImg);
+        });
+        return;
+      }
+      loadViaImg();
     });
   }
 
@@ -771,9 +834,10 @@
             photoSources.push(normalizeSource(queuedSources[(item.remoteUrls || []).length + bi]));
           }
           if (!remoteUrls.length) throw new Error('No photos');
-          if (remoteUrls.length > MAX_PHOTOS) {
-            remoteUrls = remoteUrls.slice(0, MAX_PHOTOS);
-            photoSources = photoSources.slice(0, MAX_PHOTOS);
+          var offCap = String(item.freq || '').toLowerCase() === 'extra' ? EXTRA_PHOTOS : MAX_PHOTOS;
+          if (remoteUrls.length > offCap) {
+            remoteUrls = remoteUrls.slice(0, offCap);
+            photoSources = photoSources.slice(0, offCap);
           }
           var batch = await apiWrite({
             action: 'addTaskPhotos',
@@ -825,8 +889,8 @@
     var key = pendingKey(p, gi, ti);
     var items = ensurePending(key);
     if (!items.length || state.saving) return;
-    var task = g.tasks[ti];
-    var freq = g.daily ? 'daily' : (g.freq || 'weekly');
+    var task = g.extra ? EXTRA_TASK : g.tasks[ti];
+    var freq = g.daily ? 'daily' : (g.extra ? 'extra' : (g.freq || 'weekly'));
     var wk = selectedWeek(p);
     var period = weekScoped(g) ? (curMonth() + '#' + wk) : curMonth();
     var date = todayStr();
@@ -850,29 +914,43 @@
 
     var serverSaved = false;
     try {
+      var cap = photoLimit(g);
+      var uploadJobs = items.map(function (it) {
+        return (async function () {
+          var url = it.remote;
+          if (!url) {
+            url = await uploadBlob(it.blob);
+            if (!url) {
+              var why = (typeof _lastEmpireUploadError === 'string' && _lastEmpireUploadError) ? _lastEmpireUploadError : '';
+              throw new Error(why || t('photoFailed'));
+            }
+            it.remote = url;
+          }
+          return {
+            url: url,
+            gps: it.gps || state.lastGps || null,
+            source: normalizeSource(it.source)
+          };
+        })();
+      });
+      if (btn) btn.textContent = t('uploading');
+      var uploaded = await Promise.all(uploadJobs);
       var remoteUrls = [];
       var photoGps = [];
       var photoSources = [];
       var seenUrl = {};
-      for (var i = 0; i < items.length; i++) {
-        if (btn) btn.textContent = t('uploading') + ' ' + (i + 1) + '/' + items.length;
-        var url = items[i].remote;
-        if (!url) {
-          url = await uploadBlob(items[i].blob);
-          if (!url) throw new Error('Upload failed');
-          items[i].remote = url;
-        }
-        if (seenUrl[url]) continue;
-        seenUrl[url] = 1;
-        remoteUrls.push(url);
-        photoGps.push(items[i].gps || state.lastGps || null);
-        photoSources.push(normalizeSource(items[i].source));
-      }
+      uploaded.forEach(function (u) {
+        if (!u || !u.url || seenUrl[u.url]) return;
+        seenUrl[u.url] = 1;
+        remoteUrls.push(u.url);
+        photoGps.push(u.gps);
+        photoSources.push(u.source);
+      });
       if (!remoteUrls.length) throw new Error('No photos');
-      if (remoteUrls.length > MAX_PHOTOS) {
-        remoteUrls = remoteUrls.slice(0, MAX_PHOTOS);
-        photoGps = photoGps.slice(0, MAX_PHOTOS);
-        photoSources = photoSources.slice(0, MAX_PHOTOS);
+      if (remoteUrls.length > cap) {
+        remoteUrls = remoteUrls.slice(0, cap);
+        photoGps = photoGps.slice(0, cap);
+        photoSources = photoSources.slice(0, cap);
       }
       var batch = await apiWrite({
         action: 'addTaskPhotos',
@@ -959,17 +1037,22 @@
     var key = pendingKey(p, gi, ti);
     var list = ensurePending(key);
     var existing = photosFor(p, g, g.tasks[ti], selectedWeek(p)).length;
-    var room = MAX_PHOTOS - existing - list.length;
+    var cap = photoLimit(g);
+    var room = cap - existing - list.length;
     if (room <= 0) {
-      alert(t('photoMax'));
+      alert(t('photoMax', { max: cap }));
       return;
     }
     var arr = Array.prototype.slice.call(files, 0, room);
+    var failed = 0;
     for (var i = 0; i < arr.length; i++) {
       var item = await compressPreview(arr[i], source);
       if (item) list.push(item);
+      else failed++;
     }
+    if (failed) alert(t('photoFailed'));
     renderTasks();
+    if (list.length) confirmSave(p, gi, ti);
   }
 
   function sourceBadgeHtml(source) {
@@ -1071,12 +1154,17 @@
     var offlineOnly = done && saved.every(function (x) {
       return !!x._offline || String(x.id || '').indexOf('offline-') === 0 || String(x.id || '').indexOf('sticky-') === 0;
     });
+    var cap = photoLimit(g);
     var html = '<div class="cm-task" data-project="' + p + '" data-gi="' + gi + '" data-ti="' + ti + '" data-slot="' + slot + '">' +
       '<div class="cm-task-top">' +
-        '<div><div class="cm-task-title">' + taskLabel(task) + '</div>' +
-        '<div class="cm-task-meta">' + (done
-          ? (offlineOnly ? ('⏳ ' + t('photosCount', { count: saved.length }) + ' · sync') : t('photosCount', { count: saved.length }))
-          : t('noPhotosYet')) + '</div></div>' +
+        '<div>' + (g.extra
+          ? ('<div class="cm-task-meta">' + (done
+              ? (offlineOnly ? ('⏳ ' + t('photosCount', { count: saved.length }) + ' · sync') : t('photosCount', { count: saved.length }))
+              : t('noPhotosYet')) + ' · ' + t('weekProgress', { done: saved.length, total: cap }) + '</div>')
+          : ('<div class="cm-task-title">' + taskLabel(task) + '</div>' +
+            '<div class="cm-task-meta">' + (done
+              ? (offlineOnly ? ('⏳ ' + t('photosCount', { count: saved.length }) + ' · sync') : t('photosCount', { count: saved.length }))
+              : t('noPhotosYet')) + '</div>')) + '</div>' +
         '<div class="cm-done-dot' + (done ? ' on' : '') + (offlineOnly ? ' pending' : '') + '"></div>' +
       '</div>';
     if (saved.length || pending.length) {
@@ -1092,7 +1180,7 @@
       });
       html += '</div>';
     }
-    var room = MAX_PHOTOS - saved.length - pending.length;
+    var room = cap - saved.length - pending.length;
     html += '<div class="cm-actions">';
     if (room > 0) {
       var camId = photoInputId('Cam', p, gi, ti, slot);
@@ -1104,7 +1192,7 @@
     if (pending.length) {
       html += '<button type="button" class="cm-btn" data-confirm="' + key + '">' + t('confirmSave') + '</button>';
     }
-    html += '</div><div class="cm-task-meta">' + t('cameraOrUpload') + '</div></div>';
+    html += '</div><div class="cm-task-meta">' + t('cameraOrUpload', { max: cap }) + '</div></div>';
     return html;
   }
 
@@ -1143,7 +1231,8 @@
         html += '<h3 style="margin:16px 0 8px;font-size:0.95rem;">' + t('dailyTasks') + ' — ' + t('week', { n: wk }) + '</h3>';
         g.tasks.forEach(function (_task, ti) { html += renderTaskCard(p, gi, ti); });
       } else {
-        html += '<h3 style="margin:16px 0 8px;font-size:0.95rem;">' + groupLabel(g) + '</h3>';
+        html += '<h3 style="margin:16px 0 8px;font-size:0.95rem;">' + groupLabel(g) +
+          (g.extra ? (' — ' + t('week', { n: wk })) : '') + '</h3>';
         g.tasks.forEach(function (_task, ti) { html += renderTaskCard(p, gi, ti); });
       }
     });
@@ -1220,9 +1309,9 @@
         if (g.daily) return;
         if (g.extra) {
           for (var ew = 1; ew <= 4; ew++) {
-            var eDone = g.tasks.filter(function (task) { return photosFor(p, g, task, ew).length > 0; }).length;
+            var eCnt = photosFor(p, g, EXTRA_TASK, ew).length;
             html += '<div class="cm-task-meta">' + t('extraTasks') + ' · ' + t('week', { n: ew }) + ': ' +
-              t('weekProgress', { done: eDone, total: g.tasks.length }) + '</div>';
+              t('weekProgress', { done: eCnt, total: EXTRA_PHOTOS }) + '</div>';
           }
           return;
         }
@@ -1238,10 +1327,13 @@
 
   function renderMonthlyTaskRow(p, g, task, wk) {
     var ph = photosFor(p, g, task, wk);
-    var html = '<div class="cm-task"><div class="cm-task-title">' + taskLabel(task) +
-      (g.daily || g.extra ? (' <span class="cm-task-meta">· ' + t('week', { n: wk }) + '</span>') : '') +
-      '</div>' +
-      '<div class="cm-task-meta">' + (ph.length ? t('photosCount', { count: ph.length }) : t('noPhotosYet')) + '</div>';
+    var html = '<div class="cm-task">';
+    if (!g.extra) {
+      html += '<div class="cm-task-title">' + taskLabel(task) +
+        (g.daily ? (' <span class="cm-task-meta">· ' + t('week', { n: wk }) + '</span>') : '') +
+        '</div>';
+    }
+    html += '<div class="cm-task-meta">' + (ph.length ? t('photosCount', { count: ph.length }) : t('noPhotosYet')) + '</div>';
     if (ph.length) {
       html += '<div class="cm-thumbs">';
       ph.forEach(function (x) {
@@ -1273,7 +1365,7 @@
         if (weekScoped(g)) {
           for (var w = 1; w <= 4; w++) {
             html += '<div class="cm-task-meta" style="margin:8px 0 4px;">' + t('week', { n: w }) +
-              ' — ' + t('weekProgress', { done: g.daily ? dailyCovered(p, w) : g.tasks.filter(function (task) { return photosFor(p, g, task, w).length > 0; }).length, total: g.tasks.length }) + '</div>';
+              ' — ' + t('weekProgress', { done: g.daily ? dailyCovered(p, w) : photosFor(p, g, g.tasks[0], w).length, total: g.daily ? g.tasks.length : (g.extra ? EXTRA_PHOTOS : g.tasks.length) }) + '</div>';
             g.tasks.forEach(function (task) {
               html += renderMonthlyTaskRow(p, g, task, w);
             });

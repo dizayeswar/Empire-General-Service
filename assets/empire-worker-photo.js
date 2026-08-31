@@ -11,6 +11,10 @@
   }
 
   function photoT_(key, fallback) {
+    if (typeof cleaningT === 'function') {
+      var c = cleaningT(key);
+      if (c && c !== key) return c;
+    }
     if (typeof workerT === 'function') {
       var v = workerT(key);
       if (v && v !== key) return v;
