@@ -1,5 +1,6 @@
 import { AuthOk } from "./auth.ts";
 import { fmtDate, isoNow, sb, selectAllRows } from "./db.ts";
+import { moduleLevel, normalizeRole } from "./helpers.ts";
 
 const LEAVE_TYPES = [
   "Lateness",
@@ -11,12 +12,38 @@ const LEAVE_TYPES = [
   "Other",
 ] as const;
 
-const STATUSES = ["submitted", "line_approved", "director_approved", "processed", "rejected"] as const;
+const STATUSES = [
+  "submitted",
+  "line_approved",
+  "pending_director",
+  "director_approved",
+  "completed",
+  "processed",
+  "rejected",
+] as const;
+
+function isHrStaff(auth: AuthOk): boolean {
+  if (normalizeRole(auth.role) === "admin") return true;
+  return moduleLevel(auth.moduleAccess, "hr") === "write";
+}
+
+function isHrDirector(auth: AuthOk): boolean {
+  return moduleLevel(auth.moduleAccess, "hr_director") !== "none";
+}
+
+function isDirectorOnly(auth: AuthOk): boolean {
+  return isHrDirector(auth) && !isHrStaff(auth);
+}
 
 function canWrite(auth: AuthOk): boolean {
-  const role = String(auth.role || "").toLowerCase();
-  if (role === "viewer") return false;
-  return true;
+  if (isDirectorOnly(auth)) return false;
+  if (normalizeRole(auth.role) === "viewer") return false;
+  return isHrStaff(auth) || normalizeRole(auth.role) === "editor";
+}
+
+function isLockedStatus(status: unknown): boolean {
+  const s = String(status || "").trim().toLowerCase();
+  return s === "pending_director" || s === "completed" || s === "processed" || s === "director_approved";
 }
 
 function parseEntitlements(raw: unknown): Record<string, Record<string, string>> {
@@ -126,9 +153,12 @@ async function nextLeaveNo(): Promise<number> {
   return max + 1;
 }
 
-export async function handleGetHrLeaveRequests() {
+export async function handleGetHrLeaveRequests(auth?: AuthOk) {
   const data = await selectAllRows<Record<string, unknown>>("hr_leave_requests");
-  const out = data.map(rowToApi);
+  let out = data.map(rowToApi);
+  if (auth && isDirectorOnly(auth)) {
+    out = out.filter((r) => String(r.status || "") === "pending_director");
+  }
   out.sort((a, b) => (b.num || 0) - (a.num || 0));
   return { ok: true, success: true, rows: out };
 }
@@ -175,6 +205,9 @@ export async function handleUpdateHrLeaveRequest(body: Record<string, unknown>, 
   if (!id) return { ok: false, success: false, error: "missing_id", message: "Request id is required." };
   const { data: ex } = await sb().from("hr_leave_requests").select("*").eq("id", id).maybeSingle();
   if (!ex) return { ok: false, success: false, error: "not_found", message: "Leave request not found." };
+  if (isLockedStatus(ex.status)) {
+    return { ok: false, success: false, error: "locked", message: "This paper is locked. It cannot be edited." };
+  }
   const fields = fieldsFromBody(body);
   if (!fields.emp_name) {
     return { ok: false, success: false, error: "missing_name", message: "Employee name is required." };
@@ -191,9 +224,65 @@ export async function handleDeleteHrLeaveRequest(body: Record<string, unknown>, 
   }
   const id = String(body.id || "").trim();
   if (!id) return { ok: false, success: false, error: "missing_id", message: "Request id is required." };
+  const { data: ex } = await sb().from("hr_leave_requests").select("id,status").eq("id", id).maybeSingle();
+  if (!ex) return { ok: false, success: false, error: "not_found", message: "Leave request not found." };
+  if (isLockedStatus(ex.status)) {
+    return { ok: false, success: false, error: "locked", message: "This paper is locked. It cannot be deleted." };
+  }
   const { error } = await sb().from("hr_leave_requests").delete().eq("id", id);
   if (error) throw error;
   return { ok: true, success: true, id };
+}
+
+export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>, auth: AuthOk) {
+  const id = String(body.id || "").trim();
+  if (!id) return { ok: false, success: false, error: "missing_id", message: "Request id is required." };
+  const { data: ex } = await sb().from("hr_leave_requests").select("*").eq("id", id).maybeSingle();
+  if (!ex) return { ok: false, success: false, error: "not_found", message: "Leave request not found." };
+  const status = String(ex.status || "submitted");
+  const staff = isHrStaff(auth);
+  const director = isHrDirector(auth);
+  const directorOnly = isDirectorOnly(auth);
+
+  if (staff && !directorOnly && (status === "submitted" || status === "line_approved")) {
+    const patch = { status: "pending_director", updated_at: isoNow() };
+    const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", id);
+    if (error) throw error;
+    return { ok: true, success: true, id, row: rowToApi({ ...ex, ...patch }) };
+  }
+
+  if (director && status === "pending_director") {
+    const incoming = parseEntitlements(body.entitlements) as Record<string, unknown>;
+    const existing = parseEntitlements(ex.entitlements) as Record<string, unknown>;
+    const incomingSigs = incoming.__sigs && typeof incoming.__sigs === "object" && !Array.isArray(incoming.__sigs)
+      ? incoming.__sigs as Record<string, string>
+      : {};
+    const existingSigs = existing.__sigs && typeof existing.__sigs === "object" && !Array.isArray(existing.__sigs)
+      ? existing.__sigs as Record<string, string>
+      : {};
+    const directorSig = String(incomingSigs.director || body.directorSignature || existingSigs.director || "").trim();
+    if (!directorSig) {
+      return { ok: false, success: false, error: "missing_signature", message: "Add your e-signature in the Director box first." };
+    }
+    const merged: Record<string, unknown> = { ...existing, ...incoming, __sigs: { ...existingSigs, ...incomingSigs, director: directorSig } };
+    if (existing.__scan && !incoming.__scan) merged.__scan = existing.__scan;
+    const patch = {
+      status: "completed",
+      director_name: String(body.directorName || auth.username || "").trim(),
+      director_signed_at: String(body.directorSignedAt || "").trim() || isoNow().slice(0, 10),
+      director_status: "approved",
+      entitlements: entitlementsJson(merged),
+      updated_at: isoNow(),
+    };
+    const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", id);
+    if (error) throw error;
+    return { ok: true, success: true, id, row: rowToApi({ ...ex, ...patch }) };
+  }
+
+  if (!staff && !director) {
+    return { ok: false, success: false, error: "not_allowed", message: "Not allowed." };
+  }
+  return { ok: false, success: false, error: "bad_status", message: "This paper cannot be confirmed in its current status." };
 }
 
 type PdfAnnualPerson = {

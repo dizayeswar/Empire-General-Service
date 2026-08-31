@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-30-hr-f06">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-30-hr-f06">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-08-31-hr-days">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-08-31-hr-dir">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -73,16 +73,15 @@
         <div id="hrListBrowse">
         <div class="form-section">
           <h2>Leave requests</h2>
-          <p class="hr-tab-help">Use Edit to open a saved paper here. Start a new request from the Leave request tab.</p>
+          <p class="hr-tab-help">Use Edit to open a saved paper here. Confirm sends it to Pending Director. After the director signs, it returns here as Completed.</p>
           <div class="form-row filter-toolbar">
             <div class="form-group">
               <label>Status</label>
               <select id="hrFilterStatus" onchange="hrRenderTable_()">
                 <option value="">All statuses</option>
                 <option value="submitted">Submitted</option>
-                <option value="line_approved">Line manager approved</option>
-                <option value="director_approved">Director approved</option>
-                <option value="processed">HR processed</option>
+                <option value="pending_director">Pending Director</option>
+                <option value="completed">Completed</option>
                 <option value="rejected">Rejected</option>
               </select>
             </div>
@@ -165,8 +164,10 @@
             <select id="hr-status" title="Status">
               <option value="submitted">Submitted</option>
               <option value="line_approved">Line manager approved</option>
-              <option value="director_approved">Director approved</option>
-              <option value="processed">HR processed</option>
+              <option value="pending_director">Pending Director</option>
+              <option value="completed">Completed</option>
+              <option value="director_approved">Completed</option>
+              <option value="processed">Completed</option>
               <option value="rejected">Rejected</option>
             </select>
             <span class="hr-spacer"></span>
@@ -174,6 +175,7 @@
             <button type="button" data-hr-form-only="1" onclick="hrClearForm_()">New</button>
             <button type="button" data-hr-form-only="1" onclick="hrClearForm_()">Clear</button>
             <button type="button" id="hrSaveBtn" onclick="hrSave_()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Save</button>
+            <button type="button" id="hrConfirmBtn" onclick="hrConfirmRow_()" class="hr-btn-confirm" style="display:none;">Confirm</button>
             <button type="button" data-hr-form-only="1" onclick="hrSwitchTab_(null,'scan')">Scan paper</button>
             <button type="button" id="hrPrintBtn" onclick="hrPrint_()">Print / Save as PDF</button>
             <button type="button" id="hrDeleteBtn" onclick="hrDelete_()" style="display:none;color:#fff;background:#C5504F;border-color:#C5504F;">Delete</button>
@@ -371,6 +373,7 @@
             <button type="button" id="hrReturnBtn2" onclick="hrReturnToList_()" style="display:none;">Return to saved requests</button>
             <button type="button" data-hr-form-only="1" onclick="hrClearForm_()">New</button>
             <button type="button" id="hrSaveBtn2" onclick="hrSave_()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Save</button>
+            <button type="button" id="hrConfirmBtn2" onclick="hrConfirmRow_()" class="hr-btn-confirm" style="display:none;">Confirm</button>
             <button type="button" onclick="hrPrint_()">Print / Save as PDF</button>
             <button type="button" data-hr-form-only="1" onclick="hrClearForm_()">Clear form</button>
           </div>
@@ -381,11 +384,11 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-31-hr-days"></script>
+<script src="config.js?v=2026-08-31-hr-dir"></script>
 <script src="assets/empire-api.js?v=2026-08-30-hr-f06"></script>
-<script src="assets/empire-auth.js?v=2026-08-30-hr-f06"></script>
+<script src="assets/empire-auth.js?v=2026-08-31-hr-dir"></script>
 <script src="assets/empire-core.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-storage.js?v=2026-08-31-hr-scan"></script>
-<script src="assets/empire-hr-leave.js?v=2026-08-31-hr-days"></script>
+<script src="assets/empire-hr-leave.js?v=2026-08-31-hr-dir"></script>
 </body>
 </html>

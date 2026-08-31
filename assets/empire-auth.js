@@ -236,7 +236,7 @@ function empireCanAccessDept(requiredDept) {
       'warehouse_desk', 'warehouse_assigned', 'warehouse_done', 'warehouse_invoices',
       'warehouse_sig_auth', 'warehouse_sig_issued', 'warehouse_sig_received'
     ],
-    hr: ['hr']
+    hr: ['hr', 'hr_director']
   };
   function moduleAllowsDeptToken(token) {
     var keys = moduleKeysByDept[token];

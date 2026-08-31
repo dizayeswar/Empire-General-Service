@@ -128,6 +128,7 @@ export const MODULE_ACCESS_KEYS = [
   "warehouse_sig_issued",
   "warehouse_sig_received",
   "hr",
+  "hr_director",
 ] as const;
 
 export type ModuleAccessKey = (typeof MODULE_ACCESS_KEYS)[number];
@@ -153,6 +154,7 @@ const MODULE_DEPTS: Record<ModuleAccessKey, string[]> = {
   warehouse_sig_issued: ["warehouse"],
   warehouse_sig_received: ["warehouse"],
   hr: ["hr"],
+  hr_director: ["hr"],
 };
 
 export function emptyModuleAccess(): ModuleAccessMap {
@@ -313,7 +315,7 @@ function accessWorkerOnly_(a: ModuleAccessMap): boolean {
   const deskRead =
     a.cleaning !== "none" || a.civil_department !== "none" || a.electrical_department !== "none" ||
     a.hse !== "none" || a.fire !== "none" || a.asaas !== "none" || a.application !== "none" ||
-    a.ups !== "none" || a.hr !== "none" ||
+    a.ups !== "none" || a.hr !== "none" || a.hr_director !== "none" ||
     a.warehouse_desk !== "none" || a.warehouse_invoices !== "none";
   return !deskRead;
 }

@@ -101,12 +101,21 @@
   background: var(--accent2);
   border-color: var(--accent2);
 }
+.hr-row-acts .hr-btn-confirm,
+.hr-toolbar .hr-btn-confirm,
+.hr-actions-print .hr-btn-confirm {
+  color: #fff;
+  background: #1d9e75;
+  border-color: #1d9e75;
+}
 .hr-row-acts .hr-btn-del,
 .hr-saved-type-bar .hr-btn-del {
   color: #fff;
   background: #C5504F;
   border-color: #C5504F;
 }
+.hr-badge-pending_director { background: #f7f0e6; color: #8a5a12; border-color: #e4d0a8; }
+.hr-badge-completed { background: #eef8f3; color: #146c4e; border-color: #b7e0cf; }
 
 .hr-list-editor {
   padding: 0 0 40px;

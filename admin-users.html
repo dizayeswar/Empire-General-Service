@@ -87,11 +87,12 @@
       <button type="button" onclick="applyRecipe('desk_editor')">Civil desk editor</button>
       <button type="button" onclick="applyRecipe('warehouse_desk')">Warehouse full desk</button>
       <button type="button" onclick="applyRecipe('admin_full')">Admin (all write)</button>
+      <button type="button" onclick="applyRecipe('hr_director')">HR Pending Director</button>
     </div>
 
     <div id="userFormCard" class="admin-form-card" style="display:none;">
       <h2 id="formTitle" style="font-size:16px;margin:0 0 12px;">New user</h2>
-      <p class="admin-role-help">Tick access per module. Example: Electrical Read/Write + Warehouse Assigned/Done + Received signing only.</p>
+      <p class="admin-role-help">Tick access per module. Example: Electrical Read/Write + Warehouse Assigned/Done + Received signing only. <strong>HR — Pending Director</strong> can be given to only one user.</p>
       <div class="admin-form-grid">
         <label>Username<input id="f-username" autocomplete="off" placeholder="e.g. himdad"></label>
         <label>Password<input id="f-password" type="password" autocomplete="new-password" placeholder="min 4 characters"></label>
@@ -142,9 +143,9 @@
     <div id="usersTableHost"></div>
   </div>
 
-  <script src="config.js?v=2026-08-22-access"></script>
-  <script src="assets/empire-api.js?v=2026-08-22-access"></script>
-  <script src="assets/empire-auth.js?v=2026-08-22-access"></script>
+  <script src="config.js?v=2026-08-31-hr-dir"></script>
+  <script src="assets/empire-api.js?v=2026-08-31-hr-dir"></script>
+  <script src="assets/empire-auth.js?v=2026-08-31-hr-dir"></script>
   <script src="assets/empire-core.js?v=2026-08-22-access"></script>
   <script src="assets/empire-sw-update.js?v=2026-08-22-access"></script>
   <script>
@@ -165,6 +166,7 @@
       { key: 'application', label: 'Application', n: 10 },
       { key: 'ups', label: 'UPS Checklist', n: 11 },
       { key: 'hr', label: 'HR Department (leave requests)', n: 12 },
+      { key: 'hr_director', label: 'HR — Pending Director', n: '', child: true, parent: 'hr' },
       { key: 'warehouse', label: 'Warehouse', n: 13, group: true },
       { key: 'warehouse_desk', label: 'Full desk (GIN / SP / create)', child: true, parent: 'warehouse' },
       { key: 'warehouse_assigned', label: 'Assigned notes only', child: true, parent: 'warehouse' },
@@ -197,7 +199,7 @@
             '</td><td class="lvl-cell" colspan="3" style="text-align:left;color:var(--text-faint);font-size:12px;">Expand for Warehouse options</td></tr>';
           return;
         }
-        if (m.child && !_whExpanded) return;
+        if (m.child && m.parent === 'warehouse' && !_whExpanded) return;
         var lvl = access[m.key] || 'none';
         var rowClass = m.child ? ' class="mod-child"' : '';
         h += '<tr' + rowClass + '>';
@@ -227,7 +229,7 @@
       var a = readAccessFromForm();
       var workerOnly = (a.civil_issue !== 'none' || a.electric_issue !== 'none') &&
         a.civil_department === 'none' && a.electrical_department === 'none' &&
-        a.cleaning === 'none' && a.hr === 'none' && a.warehouse_desk === 'none' && a.admin === 'none';
+        a.cleaning === 'none' && a.hr === 'none' && a.hr_director === 'none' && a.warehouse_desk === 'none' && a.admin === 'none';
       var cleaning = a.cleaning !== 'none';
       var tradeEl = document.getElementById('tradeField');
       var projEl = document.getElementById('projectsField');
@@ -264,8 +266,10 @@
         a.warehouse_invoices = 'write';
       } else if (kind === 'admin_full') {
         ACCESS_MODULES.forEach(function (m) {
-          if (!m.group) a[m.key] = 'write';
+          if (!m.group && m.key !== 'hr_director') a[m.key] = 'write';
         });
+      } else if (kind === 'hr_director') {
+        a.hr_director = 'write';
       }
       renderAccessMatrix(a);
       document.getElementById('f-username').focus();
@@ -360,7 +364,7 @@
       var workerPhone = !!p.trade || (
         (p.moduleAccess.civil_issue !== 'none' || p.moduleAccess.electric_issue !== 'none') &&
         p.moduleAccess.civil_department === 'none' && p.moduleAccess.electrical_department === 'none' &&
-        p.moduleAccess.hr === 'none'
+        p.moduleAccess.hr === 'none' && p.moduleAccess.hr_director === 'none'
       );
       if (workerPhone && document.getElementById('tradeField').style.display !== 'none' && !p.trade) {
         setMsg('formMsg', 'Workers need a Trade (plumber, wood, electric…).', false);

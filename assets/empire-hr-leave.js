@@ -22,10 +22,18 @@ var HR_ENTITLE_KEYS = [
 var HR_STATUS_LABEL = {
   submitted: 'Submitted',
   line_approved: 'Line manager approved',
-  director_approved: 'Director approved',
-  processed: 'HR processed',
+  pending_director: 'Pending Director',
+  director_approved: 'Completed',
+  completed: 'Completed',
+  processed: 'Completed',
   rejected: 'Rejected'
 };
+var HR_STAGES = [
+  { id: 'inbox', label: 'Leave requests' },
+  { id: 'pending_director', label: 'Pending Director' },
+  { id: 'completed', label: 'Completed' },
+  { id: 'rejected', label: 'Rejected' }
+];
 
 var _hrRows = [];
 var _hrSaving = false;
@@ -61,7 +69,33 @@ function hrAutosizeDaysOut_(el) {
   el.style.height = 'auto';
   el.style.height = Math.max(22, el.scrollHeight) + 'px';
 }
+function hrIsHrStaff_() {
+  if (typeof empireIsAdminRole === 'function' && empireIsAdminRole()) return true;
+  return typeof empireModuleLevel === 'function' && empireModuleLevel('hr') === 'write';
+}
+function hrIsDirector_() {
+  return typeof empireModuleLevel === 'function' && empireModuleLevel('hr_director') !== 'none';
+}
+function hrIsDirectorOnly_() {
+  return hrIsDirector_() && !hrIsHrStaff_();
+}
+function hrStageOf_(r) {
+  var s = String((r && r.status) || 'submitted');
+  if (s === 'pending_director') return 'pending_director';
+  if (s === 'completed' || s === 'processed' || s === 'director_approved') return 'completed';
+  if (s === 'rejected') return 'rejected';
+  return 'inbox';
+}
+function hrPaperLocked_(row) {
+  var st = row ? String(row.status || '') : hrVal_('hr-status');
+  return hrStageOf_({ status: st }) !== 'inbox';
+}
+function hrDirectorCanSign_(row) {
+  var st = row ? String(row.status || '') : hrVal_('hr-status');
+  return hrIsDirectorOnly_() && st === 'pending_director';
+}
 function hrCanWrite_() {
+  if (hrIsDirectorOnly_()) return false;
   var p = typeof empireGetPerms === 'function' ? empireGetPerms() : {};
   if (p.add === false && p.edit === false) return false;
   return _hrCanWrite;
@@ -155,7 +189,11 @@ function hrRenderAllSigs_() {
 }
 
 function hrOpenSig_(slot) {
-  if (!hrCanWrite_()) return;
+  if (hrDirectorCanSign_() && slot === 'director') {
+    /* director may sign the Director box only */
+  } else if (!hrCanWrite_() || hrPaperLocked_()) {
+    return;
+  }
   var inp = document.getElementById('hr-sig-file');
   if (!inp) return;
   inp.setAttribute('data-slot', slot);
@@ -355,6 +393,7 @@ function hrFillForm_(row) {
   if (saveBtn2) saveBtn2.style.display = hrCanWrite_() ? '' : 'none';
   hrMsg_('', true);
   hrAutosizeDaysOut_();
+  hrApplyPaperLock_();
 }
 
 function hrClearForm_() {
@@ -394,7 +433,12 @@ function hrSetListEditing_(on) {
   if (ret) ret.style.display = on ? '' : 'none';
   if (ret2) ret2.style.display = on ? '' : 'none';
   var title = document.getElementById('hrFormTitle');
-  if (title && on) title.textContent = hrCanWrite_() ? 'Edit leave request' : 'View leave request';
+  if (title && on) {
+    if (hrDirectorCanSign_()) title.textContent = 'Sign leave request';
+    else if (hrPaperLocked_()) title.textContent = 'View leave request';
+    else title.textContent = hrCanWrite_() ? 'Edit leave request' : 'View leave request';
+  }
+  hrApplyPaperLock_();
   if (on) setTimeout(hrAutosizeDaysOut_, 0);
 }
 
@@ -508,24 +552,99 @@ function hrTypeLabel_(id) {
   return found ? found.label : (id || 'Other');
 }
 
-function hrGroupedByType_(list) {
-  var order = HR_LEAVE_TYPES.map(function (t) { return t.id; });
+function hrGroupedByStage_(list) {
   var groups = {};
   list.forEach(function (r) {
-    var k = String(r.leaveType || '').trim() || 'Other';
+    var k = hrStageOf_(r);
     if (!groups[k]) groups[k] = [];
     groups[k].push(r);
   });
-  return Object.keys(groups).sort(function (a, b) {
-    var ia = order.indexOf(a);
-    var ib = order.indexOf(b);
-    if (ia < 0) ia = 900;
-    if (ib < 0) ib = 900;
-    if (ia !== ib) return ia - ib;
-    return a.localeCompare(b);
-  }).map(function (k) {
-    return { type: k, label: hrTypeLabel_(k), rows: groups[k] };
+  return HR_STAGES.filter(function (st) { return groups[st.id] && groups[st.id].length; }).map(function (st) {
+    return { type: st.id, label: st.label, rows: groups[st.id] };
   });
+}
+
+function hrApplyPaperLock_() {
+  var root = document.getElementById('hrPrintRoot');
+  var locked = hrPaperLocked_();
+  var directorSign = hrDirectorCanSign_();
+  var freeze = locked && !directorSign;
+  if (root) {
+    root.classList.toggle('hr-paper-locked', freeze);
+    root.classList.toggle('hr-paper-director-sign', directorSign);
+    root.querySelectorAll('input, select, textarea').forEach(function (el) {
+      var id = el.id || '';
+      var directorField = id === 'hr-directorName' || id === 'hr-directorSignedAt' || id === 'hr-directorSignedAt-view';
+      var block = freeze || (directorSign && !directorField);
+      if (el.tagName === 'SELECT') el.disabled = block;
+      else el.readOnly = block;
+    });
+  }
+  var statusEl = document.getElementById('hr-status');
+  if (statusEl) statusEl.disabled = locked || directorSign || hrIsDirectorOnly_();
+  var saveBtn = document.getElementById('hrSaveBtn');
+  var saveBtn2 = document.getElementById('hrSaveBtn2');
+  var delBtn = document.getElementById('hrDeleteBtn');
+  var confirmBtn = document.getElementById('hrConfirmBtn');
+  var confirmBtn2 = document.getElementById('hrConfirmBtn2');
+  var st = hrVal_('hr-status');
+  var showSave = hrCanWrite_() && !locked;
+  var showDel = showSave && !!hrVal_('hr-id');
+  var showConfirm = (!!hrVal_('hr-id')) && (
+    (hrIsHrStaff_() && hrStageOf_({ status: st }) === 'inbox') ||
+    (hrIsDirectorOnly_() && st === 'pending_director')
+  );
+  if (saveBtn) saveBtn.style.display = showSave ? '' : 'none';
+  if (saveBtn2) saveBtn2.style.display = showSave ? '' : 'none';
+  if (delBtn) delBtn.style.display = showDel ? '' : 'none';
+  if (confirmBtn) confirmBtn.style.display = showConfirm ? '' : 'none';
+  if (confirmBtn2) confirmBtn2.style.display = showConfirm ? '' : 'none';
+}
+
+function hrConfirmRow_(id) {
+  id = String(id || hrVal_('hr-id') || '').trim();
+  if (!id) return;
+  var row = _hrRows.find(function (r) { return String(r.id) === id; });
+  var stage = hrStageOf_(row || { status: hrVal_('hr-status') });
+  if (hrIsDirectorOnly_()) {
+    var sig = '';
+    if (hrVal_('hr-id') === id) sig = (_hrSigs && _hrSigs.director) || '';
+    if (!sig && row && row.entitlements && row.entitlements.__sigs) {
+      sig = row.entitlements.__sigs.director || '';
+    }
+    if (!sig) {
+      if (hrVal_('hr-id') !== id) hrEditInList_(id);
+      hrMsg_('Add your e-signature in the Director box, then Confirm.', false);
+      return;
+    }
+  } else if (!(hrIsHrStaff_() && stage === 'inbox')) {
+    return;
+  }
+  var extra = { action: 'confirmHrLeaveRequest', token: hrToken_(), id: id };
+  if (hrIsDirectorOnly_()) {
+    if (hrVal_('hr-id') === id) {
+      extra.directorName = hrVal_('hr-directorName') || (typeof empireGetUser === 'function' ? empireGetUser() : '');
+      extra.directorSignedAt = hrVal_('hr-directorSignedAt') || hrToday_();
+      extra.entitlements = hrReadEntitlements_();
+    } else if (row) {
+      extra.directorName = row.directorName || (typeof empireGetUser === 'function' ? empireGetUser() : '');
+      extra.directorSignedAt = row.directorSignedAt || hrToday_();
+      extra.entitlements = row.entitlements || {};
+    }
+  }
+  hrMsg_('Confirming…', true);
+  fetchJSONRetry(extra, 1, 30000)
+    .then(function (d) {
+      if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) return;
+      if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Confirm failed');
+      hrMsg_(hrIsDirectorOnly_() ? 'Sent back to HR as Completed.' : 'Sent to Pending Director.', true);
+      hrSetListEditing_(false);
+      hrSwitchTab_(null, 'list');
+      return hrLoad_(true);
+    })
+    .catch(function (err) {
+      hrMsg_(err.message || 'Confirm failed.', false);
+    });
 }
 
 function hrNewPaper_(typeId) {
@@ -695,14 +814,14 @@ function hrRenderSavedFilledPapers_(list) {
 function hrRenderKpis_(list) {
   var host = document.getElementById('hrKpiRow');
   if (!host) return;
-  var pending = list.filter(function (r) { return r.status !== 'processed' && r.status !== 'rejected'; }).length;
-  var processed = list.filter(function (r) { return r.status === 'processed'; }).length;
-  var rejected = list.filter(function (r) { return r.status === 'rejected'; }).length;
+  var pendingDir = list.filter(function (r) { return hrStageOf_(r) === 'pending_director'; }).length;
+  var completed = list.filter(function (r) { return hrStageOf_(r) === 'completed'; }).length;
+  var inbox = list.filter(function (r) { return hrStageOf_(r) === 'inbox'; }).length;
   host.innerHTML =
-    '<div class="hr-kpi"><b>' + list.length + '</b><span>Shown</span></div>' +
-    '<div class="hr-kpi"><b>' + pending + '</b><span>Pending</span></div>' +
-    '<div class="hr-kpi"><b>' + processed + '</b><span>Processed</span></div>' +
-    '<div class="hr-kpi"><b>' + rejected + '</b><span>Rejected</span></div>';
+    '<div class="hr-kpi"><b>' + inbox + '</b><span>Leave requests</span></div>' +
+    '<div class="hr-kpi"><b>' + pendingDir + '</b><span>Pending Director</span></div>' +
+    '<div class="hr-kpi"><b>' + completed + '</b><span>Completed</span></div>' +
+    '<div class="hr-kpi"><b>' + list.length + '</b><span>Shown</span></div>';
 }
 
 function hrRenderTable_() {
@@ -732,8 +851,9 @@ function hrRenderTable_() {
     host.innerHTML = '<p class="hr-summary">No saved fills yet for this filter. The papers above are the same Leave Request sheet.</p>';
     return;
   }
-  var write = hrCanWrite_();
-  var groups = hrGroupedByType_(list);
+  var staff = hrIsHrStaff_();
+  var director = hrIsDirectorOnly_();
+  var groups = hrGroupedByStage_(list);
   var h = '<div class="hr-table-wrap"><table class="hr-list-table"><thead><tr>' +
     '<th>#</th><th>Employee</th><th>Department</th><th>Type</th><th>Dates</th><th>Days</th><th>Status</th><th></th>' +
     '</tr></thead><tbody>';
@@ -742,6 +862,9 @@ function hrRenderTable_() {
       ' <span>(' + g.rows.length + ')</span></td></tr>';
     g.rows.forEach(function (r) {
       var st = String(r.status || 'submitted');
+      var stage = hrStageOf_(r);
+      var canEdit = staff && stage === 'inbox';
+      var canConfirm = (staff && stage === 'inbox') || (director && stage === 'pending_director');
       h += '<tr>' +
         '<td>' + hrEsc_(r.no || r.num || '') + '</td>' +
         '<td><strong>' + hrEsc_(r.empName || '—') + '</strong><div style="color:var(--text-soft);font-size:12px;">' + hrEsc_(r.empCode || '') + '</div></td>' +
@@ -752,8 +875,9 @@ function hrRenderTable_() {
         '<td>' + hrEsc_(r.daysOut || '—') + '</td>' +
         '<td><span class="hr-badge hr-badge-' + hrEsc_(st) + '">' + hrEsc_(HR_STATUS_LABEL[st] || st) + '</span></td>' +
         '<td><div class="hr-row-acts">' +
-          '<button type="button" class="hr-btn-edit" onclick="hrEditInList_(\'' + hrEsc_(r.id) + '\')">' + (write ? 'Edit' : 'View') + '</button>' +
-          (write ? '<button type="button" class="hr-btn-del" onclick="hrDeleteRow_(\'' + hrEsc_(r.id) + '\')">Delete</button>' : '') +
+          '<button type="button" class="hr-btn-edit" onclick="hrEditInList_(\'' + hrEsc_(r.id) + '\')">' + (canEdit ? 'Edit' : 'View') + '</button>' +
+          (canConfirm ? '<button type="button" class="hr-btn-confirm" onclick="hrConfirmRow_(\'' + hrEsc_(r.id) + '\')">Confirm</button>' : '') +
+          (canEdit ? '<button type="button" class="hr-btn-del" onclick="hrDeleteRow_(\'' + hrEsc_(r.id) + '\')">Delete</button>' : '') +
           (r.entitlements && r.entitlements.__scan && r.entitlements.__scan.url
             ? '<button type="button" onclick="hrOpenScanRow_(\'' + hrEsc_(r.id) + '\')">Open scan</button>'
             : '') +
@@ -849,8 +973,6 @@ function hrApplyDirectorOnly_(dataUrl, openPickerDone) {
   _hrScan.directorSig = url;
   hrSet_('hr-directorSignedAt', hrToday_());
   hrSet_('hr-directorStatus', 'approved');
-  var st = hrVal_('hr-status');
-  if (!st || st === 'submitted' || st === 'line_approved') hrSet_('hr-status', 'director_approved');
   hrRenderSig_('director');
   hrRenderScan_();
   if (openPickerDone) hrMsg_('Director e-signature placed. Drag it onto the Director box if needed.', true);
@@ -1077,10 +1199,14 @@ function hrEnterApp_() {
   if (!hrVal_('hr-id')) {
     hrClearForm_();
   }
-  var saveBtn = document.getElementById('hrSaveBtn');
-  var saveBtn2 = document.getElementById('hrSaveBtn2');
-  if (saveBtn && !_hrCanWrite) saveBtn.style.display = 'none';
-  if (saveBtn2 && !_hrCanWrite) saveBtn2.style.display = 'none';
+  hrApplyPaperLock_();
+  if (hrIsDirectorOnly_()) {
+    var formBtn = document.getElementById('tabBtnForm');
+    var scanBtn = document.getElementById('tabBtnScan');
+    if (formBtn) formBtn.style.display = 'none';
+    if (scanBtn) scanBtn.style.display = 'none';
+    hrSwitchTab_(null, 'list');
+  }
   hrRenderScan_();
   hrLoad_(false).then(function () {
     return hrSeedPdfAnnualPapers_();

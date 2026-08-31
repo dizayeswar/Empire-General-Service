@@ -19,7 +19,27 @@ import {
   type ModuleAccessMap,
 } from "./helpers.ts";
 
-const BCRYPT_ROUNDS = 10;
+function moduleAccessHasDirector_(raw: unknown): boolean {
+  return moduleLevel(raw, "hr_director") !== "none";
+}
+
+async function assertSingleHrDirector(access: ModuleAccessMap, exceptUsername?: string) {
+  if (!moduleAccessHasDirector_(access)) return null;
+  const { data, error } = await sb().from("users").select("username,module_access");
+  if (error) throw error;
+  const other = (data || []).find((u) => {
+    const name = normalizeWorkerId(u.username);
+    if (exceptUsername && name === exceptUsername) return false;
+    return moduleAccessHasDirector_(u.module_access);
+  });
+  if (!other) return null;
+  return {
+    ok: false as const,
+    success: false as const,
+    error: "director_taken",
+    message: "Only one user can have HR Pending Director. It is already on " + String(other.username) + ".",
+  };
+}
 
 function isAdminAuth(auth: AuthOk) {
   if (normalizeRole(auth.role) === "admin") return true;
@@ -158,6 +178,9 @@ export async function handleCreateUser(body: Record<string, unknown>, auth: Auth
     });
     moduleAccessJson = moduleAccessToJson(synthesized);
   }
+
+  const directorLock = await assertSingleHrDirector(parseModuleAccess(moduleAccessJson));
+  if (directorLock) return directorLock;
 
   const trade = role === "worker" ? normalizeTrade(body.trade) : "";
   if (role === "worker" && !trade) {
@@ -316,6 +339,12 @@ export async function handleUpdateUser(body: Record<string, unknown>, auth: Auth
       };
     }
   }
+
+  const nextAccessForDirector = parseModuleAccess(
+    patch.module_access != null ? patch.module_access : existing.module_access,
+  );
+  const directorLock = await assertSingleHrDirector(nextAccessForDirector, vu.username);
+  if (directorLock) return directorLock;
 
   const { error } = await sb().from("users").update(patch).eq("username", vu.username);
   if (error) throw error;
