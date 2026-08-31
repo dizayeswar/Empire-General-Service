@@ -13,32 +13,27 @@
   var TASK_MAP = {
     ec: { groups: [
       { labelKey: 'dailyTasks', daily: true, freq: 'daily', tasks: ['Cleaning area', 'Cleaning road', 'Floor mopping', 'Elevator mopping', 'Cleaning basement', 'Ground mopping', 'Around building cleaning (ride-on scrubber dryer)'] },
-      { label: 'Once a Week', daily: false, freq: 'weekly', tasks: ['Walk-behind scrubber dryer', 'Rooftops cleaning', 'Floor cleaning (floor scrubber machine)'] }
+      { labelKey: 'extraTasks', extra: true, daily: false, freq: 'extra', tasks: ['Walk-behind scrubber dryer', 'Rooftops cleaning', 'Floor cleaning (floor scrubber machine)'] }
     ]},
     es: { groups: [
       { labelKey: 'dailyTasks', daily: true, freq: 'daily', tasks: ['Cleaning area', 'Cleaning road', 'Floor mopping', 'Elevator mopping', 'Cleaning balcony', 'Cleaning basement', 'Ground cleaning (ride-on scrubber dryer)', 'Around building cleaning (ride-on scrubber dryer)'] },
-      { label: 'Once a Week', daily: false, freq: 'weekly', tasks: ['Walk-behind scrubber dryer', 'Rooftops cleaning'] },
-      { label: 'Once Every 2 Weeks', daily: false, freq: 'biweekly', tasks: ['Basement 1 & Basement 2 (ride-on scrubber dryer)'] }
+      { labelKey: 'extraTasks', extra: true, daily: false, freq: 'extra', tasks: ['Walk-behind scrubber dryer', 'Rooftops cleaning', 'Basement 1 & Basement 2 (ride-on scrubber dryer)'] }
     ]},
     wd: { groups: [
       { labelKey: 'dailyTasks', daily: true, freq: 'daily', tasks: ['Cleaning garden', 'Cleaning area', 'Cleaning road', 'Floor mopping', 'Rooftops cleaning', 'Elevator mopping', 'Cleaning basement', 'Ground cleaning (ride-on scrubber dryer)', 'Around building cleaning (ride-on scrubber dryer)', 'Restaurant floor cleaning (ride-on scrubber dryer)', 'Washing garbage room', 'Cleaning glass'] },
-      { label: 'Once a Week', daily: false, freq: 'weekly', tasks: ['Washing all floors'] },
-      { label: 'Once or Twice a Week', daily: false, freq: 'weekly2', tasks: ['Washing trash container'] }
+      { labelKey: 'extraTasks', extra: true, daily: false, freq: 'extra', tasks: ['Washing all floors', 'Washing trash container'] }
     ]},
     ww: { groups: [
       { labelKey: 'dailyTasks', daily: true, freq: 'daily', tasks: ['Elevator mopping', 'Floor mopping', 'Ground mopping and washing', 'Basement mopping and washing', 'Cleaning trash can', 'Cleaning garden', 'Cleaning area', 'Cleaning road', 'Cleaning basement'] },
-      { label: 'Once a Week', daily: false, freq: 'weekly', tasks: ['Washing stairs'] },
-      { label: 'Once or Twice a Month', daily: false, freq: 'monthly2', tasks: ['Gates between properties', 'Cleaning balcony'] }
+      { labelKey: 'extraTasks', extra: true, daily: false, freq: 'extra', tasks: ['Washing stairs', 'Gates between properties', 'Cleaning balcony'] }
     ]},
     ww2: { groups: [
       { labelKey: 'dailyTasks', daily: true, freq: 'daily', tasks: ['Elevator mopping', 'Floor mopping', 'Ground mopping and washing', 'Basement mopping and washing', 'Cleaning trash can', 'Cleaning garden', 'Cleaning area', 'Cleaning road', 'Cleaning basement', 'Ground cleaning (ride-on scrubber dryer)', 'Basement garbage room washing (WW12-WW15)'] },
-      { label: 'Once a Week', daily: false, freq: 'weekly', tasks: ['Washing stairs'] },
-      { label: 'Once or Twice a Month', daily: false, freq: 'monthly2', tasks: ['Gates between properties', 'Cleaning balcony'] }
+      { labelKey: 'extraTasks', extra: true, daily: false, freq: 'extra', tasks: ['Washing stairs', 'Gates between properties', 'Cleaning balcony'] }
     ]},
     ra: { groups: [
       { labelKey: 'dailyTasks', daily: true, freq: 'daily', tasks: ['Cleaning garden', 'Cleaning area', 'Cleaning road', 'Cleaning trash can', 'Cleaning basement', 'Ground mopping', 'Elevator mopping', 'Floor mopping'] },
-      { label: 'Once a Week', daily: false, freq: 'weekly', tasks: ['Area washing', 'Washing around building'] },
-      { label: 'Once a Month', daily: false, freq: 'monthly', tasks: ['Rooftops cleaning'] }
+      { labelKey: 'extraTasks', extra: true, daily: false, freq: 'extra', tasks: ['Area washing', 'Washing around building', 'Rooftops cleaning'] }
     ]}
   };
 
@@ -139,7 +134,7 @@
     var freq = String((x && x.freq) || '');
     var rm = /^\d{4}-\d{2}-\d{2}/.test(date) ? reportMonthOfDate(date) : (p.split('#')[0] || '');
     if (!rm) return p;
-    var isDaily = freq.toLowerCase() === 'daily' || /#\d+/.test(p);
+    var isDaily = freq.toLowerCase() === 'daily' || freq.toLowerCase() === 'extra' || /#\d+/.test(p);
     if (isDaily) {
       var m = p.match(/#(\d+)/);
       var w = m ? parseInt(m[1], 10) : 1;
@@ -157,14 +152,19 @@
     return Object.assign({}, x, { period: per });
   }
 
+  function weekScoped(g) { return !!(g && (g.daily || g.extra)); }
+
   function photosFor(p, g, task, wk) {
-    var period = g.daily ? (curMonth() + '#' + wk) : curMonth();
+    var period = weekScoped(g) ? (curMonth() + '#' + wk) : curMonth();
+    var monthPeriod = curMonth();
     var taskName = String(task || '').trim();
     var seen = {};
     var out = [];
     state.photos.forEach(function (x) {
       if (String(x.project).toLowerCase() !== String(p).toLowerCase()) return;
-      if (String(x.task || '').trim() !== taskName || canonicalizePhotoPeriod(x) !== period) return;
+      if (String(x.task || '').trim() !== taskName) return;
+      var got = canonicalizePhotoPeriod(x);
+      if (got !== period && !(g.extra && got === monthPeriod)) return;
       var img = String(x.image || '');
       var key = x.id ? ('id:' + x.id) : ('img:' + img);
       if (img && seen['img:' + img]) return;
@@ -226,7 +226,7 @@
   function pendingSlot(p, gi) {
     var g = TASK_MAP[p] && TASK_MAP[p].groups && TASK_MAP[p].groups[gi];
     if (!g) return 'x';
-    return g.daily ? String(selectedWeek(p)) : 'm';
+    return weekScoped(g) ? String(selectedWeek(p)) : 'm';
   }
 
   function pendingKey(p, gi, ti, slot) {
@@ -393,30 +393,26 @@
   }
 
   function rememberStickyPhotos(rows) {
-    var now = Date.now();
     state.stickyPhotos = (state.stickyPhotos || []).filter(function (x) {
-      return x && x.image && (now - (x._stickyAt || 0) < 120000);
+      return x && x.image;
     });
     (rows || []).forEach(function (row) {
       if (!row || !row.image) return;
       var exists = state.stickyPhotos.some(function (x) { return x.image === row.image; });
       if (exists) return;
-      state.stickyPhotos.push(Object.assign({}, row, { _stickyAt: now }));
+      state.stickyPhotos.push(Object.assign({}, row, { _stickyAt: Date.now() }));
     });
+    if (state.stickyPhotos.length > 80) state.stickyPhotos = state.stickyPhotos.slice(-80);
   }
 
   function mergeStickyIntoPhotos(list) {
     var out = (list || []).slice();
-    var now = Date.now();
     var serverImgs = {};
     out.forEach(function (x) {
       if (x && x.image) serverImgs[String(x.image)] = 1;
     });
     state.stickyPhotos = (state.stickyPhotos || []).filter(function (x) {
       if (!x || !x.image) return false;
-      var age = now - (x._stickyAt || 0);
-      if (age >= 120000) return false;
-      // Already confirmed on server.
       if (serverImgs[String(x.image)]) return false;
       return true;
     });
@@ -769,7 +765,7 @@
     var task = g.tasks[ti];
     var freq = g.daily ? 'daily' : (g.freq || 'weekly');
     var wk = selectedWeek(p);
-    var period = g.daily ? (curMonth() + '#' + wk) : curMonth();
+    var period = weekScoped(g) ? (curMonth() + '#' + wk) : curMonth();
     var date = todayStr();
     var btn = document.querySelector('[data-confirm="' + key + '"]');
     if (btn) { btn.disabled = true; btn.textContent = t('saving'); }
@@ -826,7 +822,11 @@
         photoGps: photoGps,
         photoSources: photoSources
       });
-      if (batch && batch.ok === false) throw new Error(batch.message || batch.error || 'Save failed');
+      if (batch && batch.ok === false) {
+        var saveErr = new Error(batch.message || batch.error || 'Save failed');
+        saveErr.code = batch.error;
+        throw saveErr;
+      }
       var batchItems = (batch && batch.items) || [];
       var kept = batchItems.filter(function (x) { return x && (x.skipped || x.image || x.id); });
       if (!kept.length) throw new Error(batch && batch.message ? batch.message : 'Save failed');
@@ -864,13 +864,17 @@
       renderTasks();
     } catch (e) {
       if (!serverSaved) {
-        try {
-          await enqueueOffline(p, freq, task, period, date, items);
-          delete state.pending[key];
-          renderTasks();
-          alert(t('savedOffline'));
-        } catch (err) {
+        if (e && e.code === 'photo_limit') {
           alert(e.message || String(e));
+        } else {
+          try {
+            await enqueueOffline(p, freq, task, period, date, items);
+            delete state.pending[key];
+            renderTasks();
+            alert(t('savedOffline'));
+          } catch (err) {
+            alert(e.message || String(e));
+          }
         }
       } else {
         delete state.pending[key];
@@ -1148,6 +1152,14 @@
       }
       (TASK_MAP[p].groups || []).forEach(function (g) {
         if (g.daily) return;
+        if (g.extra) {
+          for (var ew = 1; ew <= 4; ew++) {
+            var eDone = g.tasks.filter(function (task) { return photosFor(p, g, task, ew).length > 0; }).length;
+            html += '<div class="cm-task-meta">' + t('extraTasks') + ' · ' + t('week', { n: ew }) + ': ' +
+              t('weekProgress', { done: eDone, total: g.tasks.length }) + '</div>';
+          }
+          return;
+        }
         var nDone = nonDailyCovered(p, g);
         html += '<div class="cm-task-meta">' + groupLabel(g) + ': ' +
           t('weekProgress', { done: nDone, total: g.tasks.length }) + '</div>';
@@ -1161,7 +1173,7 @@
   function renderMonthlyTaskRow(p, g, task, wk) {
     var ph = photosFor(p, g, task, wk);
     var html = '<div class="cm-task"><div class="cm-task-title">' + taskLabel(task) +
-      (g.daily ? (' <span class="cm-task-meta">· ' + t('week', { n: wk }) + '</span>') : '') +
+      (g.daily || g.extra ? (' <span class="cm-task-meta">· ' + t('week', { n: wk }) + '</span>') : '') +
       '</div>' +
       '<div class="cm-task-meta">' + (ph.length ? t('photosCount', { count: ph.length }) : t('noPhotosYet')) + '</div>';
     if (ph.length) {
@@ -1192,10 +1204,10 @@
       groups.forEach(function (g) {
         html += '<div class="cm-task-meta" style="margin-bottom:6px;font-weight:600;">' +
           groupLabel(g) + '</div>';
-        if (g.daily) {
+        if (weekScoped(g)) {
           for (var w = 1; w <= 4; w++) {
             html += '<div class="cm-task-meta" style="margin:8px 0 4px;">' + t('week', { n: w }) +
-              ' — ' + t('weekProgress', { done: dailyCovered(p, w), total: g.tasks.length }) + '</div>';
+              ' — ' + t('weekProgress', { done: g.daily ? dailyCovered(p, w) : g.tasks.filter(function (task) { return photosFor(p, g, task, w).length > 0; }).length, total: g.tasks.length }) + '</div>';
             g.tasks.forEach(function (task) {
               html += renderMonthlyTaskRow(p, g, task, w);
             });

@@ -70,6 +70,7 @@
       loadError: 'Could not load data. Check your signal.',
       removePhoto: 'Remove',
       openPhoto: 'Open photo',
+      extraTasks: 'Extra',
       dailyTasks: 'Daily Tasks',
       otherTasks: 'Other tasks',
       monthLabel: 'Month',
@@ -149,6 +150,7 @@
       loadError: 'زانیاری بار نەبوو. سەیری ئینتەرنێت بکە.',
       removePhoto: 'سڕینەوە',
       openPhoto: 'کردنەوەی وێنە',
+      extraTasks: 'زیادە',
       dailyTasks: 'کارەکانی ڕۆژانە',
       otherTasks: 'کارەکانی تر',
       monthLabel: 'مانگ',
@@ -201,7 +203,8 @@
     'Once Every 2 Weeks': 'جارێک لە هەر ٢ هەفتەیەکدا',
     'Once or Twice a Week': 'جارێک یان دووجار لە هەفتەیەکدا',
     'Once or Twice a Month': 'جارێک یان دووجار لە مانگێکدا',
-    'Once a Month': 'جارێک لە مانگێکدا'
+    'Once a Month': 'جارێک لە مانگێکدا',
+    Extra: 'زیادە'
   };
 
   function cleaningTaskLabel(englishName) {

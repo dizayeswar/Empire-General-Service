@@ -53,9 +53,22 @@ function canonicalizePeriod(period: string, date: string, freq: string): string 
   const ds = fmtDate(date);
   const rm = ds ? reportMonthOfDate(ds) : (p.split("#")[0] || "");
   if (!rm) return p;
-  const isDaily = String(freq || "").toLowerCase() === "daily" || /#\d+/.test(p);
-  if (isDaily) return `${rm}#${weekFromPeriod(p)}`;
+  const freqL = String(freq || "").toLowerCase();
+  const weekScoped = freqL === "daily" || freqL === "extra" || /#\d+/.test(p);
+  if (weekScoped) return `${rm}#${weekFromPeriod(p)}`;
   return rm;
+}
+
+function periodMonthPrefixes(prefix: string): string[] {
+  const month = String(prefix || "").trim().slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(month)) return [];
+  const out = new Set<string>([month]);
+  const bounds = reportPeriodBounds(month);
+  if (bounds) {
+    out.add(bounds.from.slice(0, 7));
+    out.add(bounds.to.slice(0, 7));
+  }
+  return [...out];
 }
 
 function mapTaskPhotoRow(row: Record<string, unknown>) {
@@ -257,14 +270,19 @@ export async function handleAddTaskPhotos(body: Record<string, unknown>) {
   const date = fmtDate(body.date) || String(body.date || "");
   const freq = String(body.freq || "");
   const period = canonicalizePeriod(String(body.period || ""), date, freq);
-  const { data: existing, error: existingErr } = await sb().from("task_photos").select("*")
-    .ilike("project", project).eq("task", task);
-  if (existingErr) throw existingErr;
+  const existing = await selectAllRows<Record<string, unknown>>("task_photos", {
+    filter: (q) => q.ilike("project", project).eq("task", task),
+  });
   const existingUrls: Record<string, boolean> = {};
   let existingCount = 0;
+  const month = period.split("#")[0] || "";
+  const bounds = reportPeriodBounds(month);
   for (const r of existing || []) {
-    const mapped = mapTaskPhotoRow(r as Record<string, unknown>);
+    const mapped = mapTaskPhotoRow(r);
     if (mapped.period !== period) continue;
+    const stored = String(r.period || "");
+    const dateOk = !!(bounds && mapped.date && mapped.date >= bounds.from && mapped.date <= bounds.to);
+    if (!dateOk && stored !== period) continue;
     existingCount++;
     if (mapped.image) existingUrls[mapped.image] = true;
   }
@@ -280,7 +298,12 @@ export async function handleAddTaskPhotos(body: Record<string, unknown>) {
       items.push({ id: "existing", image: img, skipped: true, lat: "", lng: "", accuracy: "", source, period });
       continue;
     }
-    if (existingCount + added >= 3) break;
+    if (existingCount + added >= 3) {
+      if (!items.length) {
+        return { ok: false, error: "photo_limit", message: "This task already has 3 photos for this week." };
+      }
+      break;
+    }
     const id = `tp-${crypto.randomUUID()}`;
     const gps = photoGps(body, i);
     const { error } = await sb().from("task_photos").insert({
@@ -311,37 +334,50 @@ export async function handleAddTaskPhotos(body: Record<string, unknown>) {
 
 export async function handleGetTaskPhotos(body: Record<string, unknown>) {
   const prefix = body.periodPrefix ? String(body.periodPrefix).trim() : "";
+  const month = prefix.slice(0, 7);
+  const prefixes = prefix ? periodMonthPrefixes(prefix) : [];
   const byId: Record<string, Record<string, unknown>> = {};
-  const periodRows = await selectAllRows<Record<string, unknown>>("task_photos", {
-    filter: (q) => {
-      let qq = q.order("id", { ascending: true });
-      if (prefix) qq = qq.like("period", `${prefix}%`);
-      return qq;
-    },
-  });
-  for (const row of periodRows) byId[String(row.id)] = row;
 
-  // Also pull rows whose photo date falls in the 26th–25th billing month,
-  // even if they were saved with the calendar-month period string.
-  const bounds = prefix ? reportPeriodBounds(prefix) : null;
-  if (bounds) {
-    const dateRows = await selectAllRows<Record<string, unknown>>("task_photos", {
-      filter: (q) => q.gte("date", bounds.from).lte("date", bounds.to).order("id", { ascending: true }),
+  if (!prefixes.length) {
+    const allRows = await selectAllRows<Record<string, unknown>>("task_photos", {
+      filter: (q) => q.order("id", { ascending: true }),
     });
-    for (const row of dateRows) byId[String(row.id)] = row;
+    for (const row of allRows) byId[String(row.id)] = row;
+  } else {
+    for (const pre of prefixes) {
+      const periodRows = await selectAllRows<Record<string, unknown>>("task_photos", {
+        filter: (q) => q.like("period", `${pre}%`).order("id", { ascending: true }),
+      });
+      for (const row of periodRows) byId[String(row.id)] = row;
+    }
+    const bounds = reportPeriodBounds(month);
+    if (bounds) {
+      const dateRows = await selectAllRows<Record<string, unknown>>("task_photos", {
+        filter: (q) => q.gte("date", bounds.from).lte("date", bounds.to).order("id", { ascending: true }),
+      });
+      for (const row of dateRows) byId[String(row.id)] = row;
+    }
   }
 
-  const mapped = Object.values(byId).map(mapTaskPhotoRow);
+  const bounds = prefix ? reportPeriodBounds(month) : null;
   const seen: Record<string, boolean> = {};
   const out = [];
-  for (const row of mapped) {
+  for (const raw of Object.values(byId)) {
+    const originalPeriod = String(raw.period || "");
+    const row = mapTaskPhotoRow(raw);
     const key = `${row.project}|${row.task}|${row.period}|${row.image}`;
     if (seen[key]) continue;
+    if (prefix) {
+      const inRemap = String(row.period || "").indexOf(month) === 0;
+      const inOrig = prefixes.some((pre) => originalPeriod.indexOf(pre) === 0);
+      const date = String(row.date || "");
+      const inDates = !!(bounds && date >= bounds.from && date <= bounds.to);
+      if (!inRemap && !inOrig && !inDates) continue;
+    }
     seen[key] = true;
     out.push(row);
   }
-  if (!prefix) return out;
-  return out.filter((row) => String(row.period || "").indexOf(prefix) === 0);
+  return out;
 }
 
 export async function handleDeleteTaskPhoto(body: Record<string, unknown>) {

@@ -80,12 +80,12 @@
         </div>
       </div>
     </div>
-    <script src="config.js?v=2026-08-27-cleaning-month"></script>
+    <script src="config.js?v=2026-08-31-cleaning-extra"></script>
     <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
     <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
     <script src="assets/empire-auth.js?v=2026-08-19-wh-assign"></script>
     <script src="assets/empire-core.js?v=2026-08-19-wh-assign"></script>
-    <script src="assets/empire-sw-update.js?v=2026-08-27-cleaning-month"></script>
+    <script src="assets/empire-sw-update.js?v=2026-08-31-cleaning-extra"></script>
     <script src="assets/empire-offline-queue.js?v=2026-08-19-wh-assign"></script>
     <script>
         /* ===== Themed dialogs (checkmark icons; shared theme/sidebar come from empire-core.js) ===== */
@@ -206,7 +206,7 @@
           var freq=String((x&&x.freq)||'');
           var rm=/^\d{4}-\d{2}-\d{2}/.test(date) ? reportMonthOfDate(date) : (p.split('#')[0]||'');
           if(!rm) return p;
-          var isDaily=freq.toLowerCase()==='daily' || /#\d+/.test(p);
+          var isDaily=freq.toLowerCase()==='daily' || freq.toLowerCase()==='extra' || /#\d+/.test(p);
           if(isDaily){
             var m=p.match(/#(\d+)/);
             var w=m?parseInt(m[1],10):1;
@@ -245,10 +245,10 @@
         }
         function normTaskName(v){ return String(v||'').trim(); }
         async function fetchTaskPhotosForMonth(mv, force){
-          if(!force && _photosByMonth[mv]) return _photosByMonth[mv];
+          if(!force && Array.isArray(_photosByMonth[mv]) && _photosByMonth[mv].length) return _photosByMonth[mv];
           if(!force && _photosFetchPromises[mv]) return _photosFetchPromises[mv];
           var cached=readTaskPhotosCache(mv);
-          if(cached && !force){ _photosByMonth[mv]=cached; return cached; }
+          if(cached && cached.length && !force){ _photosByMonth[mv]=cached; return cached; }
           var prev = _photosByMonth[mv] || cached || null;
           _photosFetchPromises[mv]=(async function(){
             try{
@@ -259,7 +259,10 @@
                 // Do not logout + wipe photos on transient API errors.
                 return prev || [];
               }
-              if(Array.isArray(d)){ d=d.map(mapPhotoPeriod); _photosByMonth[mv]=d; writeTaskPhotosCache(mv,d); return d; }
+              if(Array.isArray(d)){
+                if(!d.length && prev && prev.length) return prev;
+                d=d.map(mapPhotoPeriod); _photosByMonth[mv]=d; writeTaskPhotosCache(mv,d); return d;
+              }
             }catch(e){ console.error('Task photo fetch error:', e.message); }
             return prev || _photosByMonth[mv] || cached || [];
           })();
@@ -497,16 +500,23 @@
           } else {
             const dc=document.getElementById('dashboardContent'); if(dc) dc.innerHTML=LOADING_HTML;
           }
-          let tphotosAll=await fetchTaskPhotosForMonth(mv);
+          let tphotosAll=await fetchTaskPhotosForMonth(mv, true);
           if (mySeq !== _filterCallSeq) return;
           _dashCache = { date:d, tphotosAll:tphotosAll };
           renderDashboard(d, tphotosAll);
         }
+        function weekScopedGroup(g){ return !!(g && (g.daily || g.extra)); }
         function dashPhotosFor(p, g, task, mv, wk, tphotosAll){
-          var per=g.daily?(mv+'#'+wk):mv;
           var tn=normTaskName(task);
           return (tphotosAll||[]).filter(function(x){
-            return photoMatchesProject(x, p) && normTaskName(x.task)===tn && String(canonicalizePhotoPeriod(x))===per;
+            if(!photoMatchesProject(x, p) || normTaskName(x.task)!==tn) return false;
+            var got=String(canonicalizePhotoPeriod(x));
+            if(weekScopedGroup(g)){
+              if(got===mv+'#'+wk) return true;
+              if(g.extra && got===mv) return true;
+              return false;
+            }
+            return got===mv;
           });
         }
         function dashWeekComplete(p, wk, mv, tphotosAll){
@@ -539,7 +549,7 @@
           var cfg=taskMap[p]; if(!cfg) return '';
           var h='';
           cfg.groups.forEach(function(g){
-            if(g.daily){
+            if(weekScopedGroup(g)){
               for(var w=1; w<=4; w++){
                 var ccnt=g.tasks.filter(function(t){ return dashPhotosFor(p, g, t, mv, w, tphotosAll).length>0; }).length;
                 h+='<h4 style="margin:12px 0 8px;font-size:14px;color:var(--text-soft);">'+g.label+' — Week '+w+' <span style="color:'+(ccnt===g.tasks.length?'#27ae60':'var(--accent2)')+';font-weight:bold;">'+ccnt+'/'+g.tasks.length+'</span></h4>';
@@ -656,7 +666,14 @@
               dg.tasks.forEach(function(t){ total++; if(mphotos.some(function(x){ return photoMatchesProject(x, p) && normTaskName(x.task)===normTaskName(t) && canonicalizePhotoPeriod(x)===per; })) done++; });
             }
             ndg.forEach(function(g){
-              g.tasks.forEach(function(t){ total++; if(mphotos.some(function(x){ return photoMatchesProject(x, p) && normTaskName(x.task)===normTaskName(t) && canonicalizePhotoPeriod(x)===mv; })) done++; });
+              if(g.extra){
+                for (let wn=1; wn<=4; wn++){
+                  const per=mv+'#'+wn;
+                  g.tasks.forEach(function(t){ total++; if(mphotos.some(function(x){ var got=canonicalizePhotoPeriod(x); return photoMatchesProject(x, p) && normTaskName(x.task)===normTaskName(t) && (got===per || got===mv); })) done++; });
+                }
+              } else {
+                g.tasks.forEach(function(t){ total++; if(mphotos.some(function(x){ return photoMatchesProject(x, p) && normTaskName(x.task)===normTaskName(t) && canonicalizePhotoPeriod(x)===mv; })) done++; });
+              }
             });
             const pct = total>0 ? (done/total*100) : 0;
             h+='<div class="form-section" style="text-align:center;">'
@@ -694,32 +711,27 @@
         const taskMap = {
           ec: { tab:'empire-complex', groups:[
             { label:'Daily Tasks', daily:true, freq:'daily', tasks:['Cleaning area','Cleaning road','Floor mopping','Elevator mopping','Cleaning basement','Ground mopping','Around building cleaning (ride-on scrubber dryer)'] },
-            { label:'Once a Week', daily:false, freq:'weekly', tasks:['Walk-behind scrubber dryer','Rooftops cleaning','Floor cleaning (floor scrubber machine)'] }
+            { label:'Extra', extra:true, daily:false, freq:'extra', tasks:['Walk-behind scrubber dryer','Rooftops cleaning','Floor cleaning (floor scrubber machine)'] }
           ]},
           es: { tab:'empire-square', groups:[
             { label:'Daily Tasks', daily:true, freq:'daily', tasks:['Cleaning area','Cleaning road','Floor mopping','Elevator mopping','Cleaning balcony','Cleaning basement','Ground cleaning (ride-on scrubber dryer)','Around building cleaning (ride-on scrubber dryer)'] },
-            { label:'Once a Week', daily:false, freq:'weekly', tasks:['Walk-behind scrubber dryer','Rooftops cleaning'] },
-            { label:'Once Every 2 Weeks', daily:false, freq:'biweekly', tasks:['Basement 1 & Basement 2 (ride-on scrubber dryer)'] }
+            { label:'Extra', extra:true, daily:false, freq:'extra', tasks:['Walk-behind scrubber dryer','Rooftops cleaning','Basement 1 & Basement 2 (ride-on scrubber dryer)'] }
           ]},
           wd: { tab:'west-diamond', groups:[
             { label:'Daily Tasks', daily:true, freq:'daily', tasks:['Cleaning garden','Cleaning area','Cleaning road','Floor mopping','Rooftops cleaning','Elevator mopping','Cleaning basement','Ground cleaning (ride-on scrubber dryer)','Around building cleaning (ride-on scrubber dryer)','Restaurant floor cleaning (ride-on scrubber dryer)','Washing garbage room','Cleaning glass'] },
-            { label:'Once a Week', daily:false, freq:'weekly', tasks:['Washing all floors'] },
-            { label:'Once or Twice a Week', daily:false, freq:'weekly2', tasks:['Washing trash container'] }
+            { label:'Extra', extra:true, daily:false, freq:'extra', tasks:['Washing all floors','Washing trash container'] }
           ]},
           ww: { tab:'west-wing', groups:[
             { label:'Daily Tasks', daily:true, freq:'daily', tasks:['Elevator mopping','Floor mopping','Ground mopping and washing','Basement mopping and washing','Cleaning trash can','Cleaning garden','Cleaning area','Cleaning road','Cleaning basement'] },
-            { label:'Once a Week', daily:false, freq:'weekly', tasks:['Washing stairs'] },
-            { label:'Once or Twice a Month', daily:false, freq:'monthly2', tasks:['Gates between properties','Cleaning balcony'] }
+            { label:'Extra', extra:true, daily:false, freq:'extra', tasks:['Washing stairs','Gates between properties','Cleaning balcony'] }
           ]},
           ww2: { tab:'new-west-wing', groups:[
             { label:'Daily Tasks', daily:true, freq:'daily', tasks:['Elevator mopping','Floor mopping','Ground mopping and washing','Basement mopping and washing','Cleaning trash can','Cleaning garden','Cleaning area','Cleaning road','Cleaning basement','Ground cleaning (ride-on scrubber dryer)','Basement garbage room washing (WW12-WW15)'] },
-            { label:'Once a Week', daily:false, freq:'weekly', tasks:['Washing stairs'] },
-            { label:'Once or Twice a Month', daily:false, freq:'monthly2', tasks:['Gates between properties','Cleaning balcony'] }
+            { label:'Extra', extra:true, daily:false, freq:'extra', tasks:['Washing stairs','Gates between properties','Cleaning balcony'] }
           ]},
           ra: { tab:'royal-apartment', groups:[
             { label:'Daily Tasks', daily:true, freq:'daily', tasks:['Cleaning garden','Cleaning area','Cleaning road','Cleaning trash can','Cleaning basement','Ground mopping','Elevator mopping','Floor mopping'] },
-            { label:'Once a Week', daily:false, freq:'weekly', tasks:['Area washing','Washing around building'] },
-            { label:'Once a Month', daily:false, freq:'monthly', tasks:['Rooftops cleaning'] }
+            { label:'Extra', extra:true, daily:false, freq:'extra', tasks:['Area washing','Washing around building','Rooftops cleaning'] }
           ]}
         };
         function taskTodayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -815,7 +827,20 @@
         }
         function dailyPhotos(p, task, wk){ const per=curMonth()+'#'+wk; const tn=normTaskName(task); return taskPhotos.filter(x=>photoMatchesProject(x,p) && normTaskName(x.task)===tn && canonicalizePhotoPeriod(x)===per).sort((a,b)=>String(a.date).localeCompare(String(b.date))); }
         function monthlyPhotos(p, task){ const tn=normTaskName(task); return taskPhotos.filter(x=>photoMatchesProject(x,p) && normTaskName(x.task)===tn && canonicalizePhotoPeriod(x)===curMonth()).sort((a,b)=>String(a.date).localeCompare(String(b.date))); }
-        function photosFor(p, g, task){ return g.daily ? dailyPhotos(p, task, selWeek[p]||1) : monthlyPhotos(p, task); }
+        function photosFor(p, g, task){
+          var wk=selWeek[p]||1;
+          if(weekScopedGroup(g)){
+            var tn=normTaskName(task);
+            var per=curMonth()+'#'+wk;
+            var monthPer=curMonth();
+            return taskPhotos.filter(function(x){
+              if(!photoMatchesProject(x,p) || normTaskName(x.task)!==tn) return false;
+              var got=canonicalizePhotoPeriod(x);
+              return got===per || (g.extra && got===monthPer);
+            }).sort(function(a,b){ return String(a.date).localeCompare(String(b.date)); });
+          }
+          return monthlyPhotos(p, task);
+        }
         function dailyCoveredCount(p, wk){ const dg=dailyGroupOf(p); return dg.tasks.filter(t=>dailyPhotos(p,t,wk).length>0).length; }
         function dailyWeekComplete(p, wk){ const dg=dailyGroupOf(p); return dailyCoveredCount(p,wk)===dg.tasks.length; }
         function weekAccessible(p, wk){ return wk===1 || dailyWeekComplete(p, wk-1); }
@@ -965,7 +990,7 @@
           const items=pendingItems(pendingTaskUpload[key]);
           if(!items.length) return;
           const g=taskMap[p].groups[gi]; const t=g.tasks[ti]; const freq=g.daily?'daily':g.freq;
-          const wk=selWeek[p]||1; const period=g.daily ? (curMonth()+'#'+wk) : curMonth();
+          const wk=selWeek[p]||1; const period=weekScopedGroup(g) ? (curMonth()+'#'+wk) : curMonth();
           const host=document.getElementById(p+'-taskSection');
           const confirmBtn=host && host.querySelector('.task-confirm-photo[data-pp="'+p+'"][data-gi="'+gi+'"][data-ti="'+ti+'"]');
           const origBtn=confirmBtn ? confirmBtn.innerHTML : '';
@@ -1159,6 +1184,16 @@
               h+='<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">';
               dg.tasks.forEach((t,ti)=>{ h+=taskCardHtml(p,gi,ti,g,t); });
               h+='</div>';
+            } else if(g.extra){
+              const wk=selWeek[p]||1;
+              const total=g.tasks.length;
+              const coveredCount=g.tasks.filter(function(t){ return photosFor(p,g,t).length>0; }).length;
+              const complete=coveredCount===total;
+              h+='<h3>'+g.label+' — Week '+wk+' <span style="color:'+(complete?'#27ae60':'var(--accent2)')+';font-weight:bold;">'+coveredCount+'/'+total+'</span></h3>';
+              h+='<p style="color:var(--text-soft);font-size:13px;margin-bottom:8px;">Extra can be done on every week.</p>';
+              h+='<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">';
+              g.tasks.forEach((t,ti)=>{ h+=taskCardHtml(p,gi,ti,g,t); });
+              h+='</div>';
             } else {
               const total=g.tasks.length; const coveredCount=g.tasks.filter(t=>monthlyPhotos(p,t).length>0).length; const complete=coveredCount===total;
               h+='<h3>'+g.label+' <span style="color:'+(complete?'#27ae60':'var(--accent2)')+';font-weight:bold;">'+coveredCount+'/'+total+'</span></h3>';
@@ -1318,11 +1353,14 @@
             h+='</div>';
             const ndg=taskMap[p].groups.filter(g=>!g.daily);
             if(ndg.length){
-              h+='<div style="margin-top:12px;"><strong>'+checkIconHtml()+' Weekly / Monthly Tasks</strong>';
+              h+='<div style="margin-top:12px;"><strong>'+checkIconHtml()+' Extra</strong>';
               ndg.forEach(g=>{
-                h+='<p style="margin-top:10px;color:var(--text-soft);">'+g.label+'</p><div style="display:flex;flex-direction:column;gap:4px;">';
-                g.tasks.forEach(t=>{ const ph=mphotos.filter(x=>photoMatchesProject(x,p) && normTaskName(x.task)===normTaskName(t) && canonicalizePhotoPeriod(x)===mv); const thumbs=ph.map(x=>'<img src="'+x.image+'" onclick="openModal(this.src)" style="height:90px;border-radius:12px;border:1px solid var(--card-border);cursor:pointer;margin:6px 6px 0 0;">').join(''); h+='<div style="padding:6px 10px;background:var(--task-bg);border-radius:12px;">'+(ph.length?checkIconHtml():squareIconHtml())+' '+t+' <span style="color:var(--text-faint);font-size:12px;">('+ph.length+' '+cameraIconHtml()+')</span>'+(thumbs?('<div style="display:flex;flex-wrap:wrap;">'+thumbs+'</div>'):'')+'</div>'; });
-                h+='</div>';
+                for(let wn=1;wn<=4;wn++){ const per=mv+'#'+wn;
+                  const coveredCount=g.tasks.filter(t=>mphotos.some(x=>photoMatchesProject(x,p) && normTaskName(x.task)===normTaskName(t) && (canonicalizePhotoPeriod(x)===per || canonicalizePhotoPeriod(x)===mv))).length;
+                  h+='<p style="margin-top:10px;color:var(--text-soft);">'+g.label+' — Week '+wn+' — <strong style="color:'+(coveredCount===g.tasks.length?'#27ae60':'var(--accent2)')+';">'+coveredCount+'/'+g.tasks.length+'</strong></p><div style="display:flex;flex-direction:column;gap:4px;">';
+                  g.tasks.forEach(t=>{ const ph=mphotos.filter(x=>photoMatchesProject(x,p) && normTaskName(x.task)===normTaskName(t) && (canonicalizePhotoPeriod(x)===per || canonicalizePhotoPeriod(x)===mv)); const thumbs=ph.map(x=>'<img src="'+x.image+'" onclick="openModal(this.src)" style="height:90px;border-radius:12px;border:1px solid var(--card-border);cursor:pointer;margin:6px 6px 0 0;">').join(''); h+='<div style="padding:6px 10px;background:var(--task-bg);border-radius:12px;">'+(ph.length?checkIconHtml():squareIconHtml())+' '+t+(ph.length?(' <span style="color:var(--text-faint);">('+ph.length+')</span>'):'')+(thumbs?('<div style="display:flex;flex-wrap:wrap;">'+thumbs+'</div>'):'')+'</div>'; });
+                  h+='</div>';
+                }
               });
               h+='</div>';
             }
@@ -1383,10 +1421,15 @@
                 b+='<div class="task">'+(ph.length?'<span class="si" style="color:#27ae60;">'+CHECK_ICON+'</span>':'<span class="si" style="color:#C5504F;">'+SQUARE_ICON+'</span>')+' '+_esc(t)+(ph.length?' <span class="cnt">('+ph.length+')</span>':'')+(ph.length?'<div class="ph">'+ph.map(function(x){return _imgTag(x.image,map);}).join('')+'</div>':'')+'</div>'; });
             }
             var ndg=taskMap[p].groups.filter(function(g){return !g.daily;});
-            if(ndg.length){ b+='<h4><span class="si">'+CHECK_ICON+'</span> Weekly / Monthly Tasks</h4>';
-              ndg.forEach(function(g){ b+='<p class="wk"><strong>'+_esc(g.label)+'</strong></p>';
-                g.tasks.forEach(function(t){ var ph=R.mphotos.filter(function(x){return photoMatchesProject(x,p)&&normTaskName(x.task)===normTaskName(t)&&canonicalizePhotoPeriod(x)===R.mv;});
-                  b+='<div class="task">'+(ph.length?'<span class="si" style="color:#27ae60;">'+CHECK_ICON+'</span>':'<span class="si" style="color:#C5504F;">'+SQUARE_ICON+'</span>')+' '+_esc(t)+' <span class="cnt">('+ph.length+' <span class="si">'+CAMERA_ICON+'</span>)</span>'+(ph.length?'<div class="ph">'+ph.map(function(x){return _imgTag(x.image,map);}).join('')+'</div>':'')+'</div>'; }); });
+            if(ndg.length){ b+='<h4><span class="si">'+CHECK_ICON+'</span> Extra</h4>';
+              ndg.forEach(function(g){
+                for(var wn=1;wn<=4;wn++){ var per=R.mv+'#'+wn;
+                  var cov=g.tasks.filter(function(t){return R.mphotos.some(function(x){var got=canonicalizePhotoPeriod(x); return photoMatchesProject(x,p)&&normTaskName(x.task)===normTaskName(t)&&(got===per||(wn===1&&got===R.mv));});}).length;
+                  b+='<p class="wk"><strong>'+_esc(g.label)+' — Week '+wn+'</strong> — <span style="color:'+(cov===g.tasks.length?'#27ae60':'#e8a0cf')+';">'+cov+'/'+g.tasks.length+'</span></p>';
+                  g.tasks.forEach(function(t){ var ph=R.mphotos.filter(function(x){var got=canonicalizePhotoPeriod(x); return photoMatchesProject(x,p)&&normTaskName(x.task)===normTaskName(t)&&(got===per||(wn===1&&got===R.mv));});
+                    b+='<div class="task">'+(ph.length?'<span class="si" style="color:#27ae60;">'+CHECK_ICON+'</span>':'<span class="si" style="color:#C5504F;">'+SQUARE_ICON+'</span>')+' '+_esc(t)+(ph.length?' <span class="cnt">('+ph.length+')</span>':'')+(ph.length?'<div class="ph">'+ph.map(function(x){return _imgTag(x.image,map);}).join('')+'</div>':'')+'</div>'; });
+                }
+              });
             }
             var rphotos=pr.filter(function(r){return r.image&&r.image.length>0;});
             if(rphotos.length){ b+='<h4><span class="si">'+CAMERA_ICON+'</span> Daily Report Photos</h4><div class="ph">';
