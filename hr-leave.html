@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-30-hr-f06">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-30-hr-f06">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-08-31-hr-pill">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-08-31-hr-papers">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -72,7 +72,7 @@
       <div id="list" class="tab-content">
         <div class="form-section">
           <h2>Leave requests</h2>
-          <p class="hr-tab-help">Official leave form HR-F-06. Open a row to edit, approve, or print.</p>
+          <p class="hr-tab-help">Same Leave Request paper for every type. Open a paper to fill or open a saved one.</p>
           <div class="form-row filter-toolbar">
             <div class="form-group">
               <label>Status</label>
@@ -117,6 +117,7 @@
           </div>
           <div class="hr-kpi-row" id="hrKpiRow"></div>
           <p class="hr-summary" id="hrSummary"></p>
+          <div id="hrSavedPapers" class="hr-saved-papers no-print"></div>
           <div id="hrTableHost"><p>Loading…</p></div>
         </div>
       </div>
@@ -376,11 +377,11 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-31-hr-pill"></script>
+<script src="config.js?v=2026-08-31-hr-papers"></script>
 <script src="assets/empire-api.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-auth.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-core.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-storage.js?v=2026-08-31-hr-scan"></script>
-<script src="assets/empire-hr-leave.js?v=2026-08-31-hr-pill"></script>
+<script src="assets/empire-hr-leave.js?v=2026-08-31-hr-papers"></script>
 </body>
 </html>

@@ -33,6 +33,8 @@ var _hrCanWrite = true;
 var _hrSigs = { emp: '', line: '', director: '', hr: '' };
 var _hrScan = { url: '', directorSig: '', x: 0.56, y: 0.36, w: 0.2 };
 var _hrScanDrag = null;
+var _hrPaperTemplate = null;
+var _hrPapersReady = false;
 
 function hrToken_() { return empireGetToken() || ''; }
 function hrEsc_(s) {
@@ -441,6 +443,160 @@ function hrGroupedByType_(list) {
   });
 }
 
+function hrNewPaper_(typeId) {
+  hrClearForm_();
+  hrRenderLeaveTypes_(typeId || 'Lateness');
+  hrSwitchTab_(null, 'form');
+}
+
+function hrSnapshotPaperTemplate_() {
+  var src = document.getElementById('hrPrintRoot');
+  if (!src) return;
+  if (!_hrPaperTemplate) hrRenderEntitlements_(hrEmptyEntitlements_());
+  src = document.getElementById('hrPrintRoot');
+  if (!src) return;
+  _hrPaperTemplate = src.cloneNode(true);
+}
+
+function hrMakePaperClone_(prefix, typeId) {
+  if (!_hrPaperTemplate) hrSnapshotPaperTemplate_();
+  if (!_hrPaperTemplate) return null;
+  var clone = _hrPaperTemplate.cloneNode(true);
+  clone.id = prefix;
+  clone.querySelectorAll('[id]').forEach(function (el) {
+    el.setAttribute('data-hr-id', el.id);
+    el.id = prefix + '-' + el.id;
+  });
+  ['onclick', 'onchange', 'oninput', 'onpaste'].forEach(function (a) {
+    clone.querySelectorAll('[' + a + ']').forEach(function (el) { el.removeAttribute(a); });
+  });
+  clone.querySelectorAll('input, select, textarea, button').forEach(function (el) {
+    el.disabled = true;
+    el.tabIndex = -1;
+  });
+  var typeSel = clone.querySelector('[data-hr-id="hr-leaveType"]');
+  if (typeSel) {
+    typeSel.value = typeId || 'Lateness';
+    if (typeSel.value !== typeId) {
+      var opt = document.createElement('option');
+      opt.value = typeId;
+      opt.textContent = hrTypeLabel_(typeId);
+      typeSel.appendChild(opt);
+      typeSel.value = typeId;
+    }
+  }
+  return clone;
+}
+
+function hrCloneSet_(root, id, v) {
+  var el = root.querySelector('[data-hr-id="' + id + '"]');
+  if (!el) return;
+  el.value = v == null ? '' : String(v);
+  if (el.classList && el.classList.contains('hr-date-native')) {
+    var view = root.querySelector('[data-hr-id="' + id + '-view"]');
+    if (view) view.value = hrFmtPaperDate_(el.value);
+  }
+}
+
+function hrFillPaperClone_(root, row) {
+  if (!root || !row) return;
+  hrCloneSet_(root, 'hr-empName', row.empName);
+  hrCloneSet_(root, 'hr-empDepartment', row.empDepartment);
+  hrCloneSet_(root, 'hr-empCode', row.empCode);
+  hrCloneSet_(root, 'hr-empDivision', row.empDivision);
+  hrCloneSet_(root, 'hr-empJobTitle', row.empJobTitle);
+  hrCloneSet_(root, 'hr-replacement', row.replacement);
+  hrCloneSet_(root, 'hr-startDate', row.startDate);
+  hrCloneSet_(root, 'hr-endDate', row.endDate);
+  hrCloneSet_(root, 'hr-daysOut', row.daysOut);
+  hrCloneSet_(root, 'hr-leaveType', row.leaveType);
+  hrCloneSet_(root, 'hr-leaveOther', row.leaveOther);
+  hrCloneSet_(root, 'hr-empSignature', row.empSignature);
+  hrCloneSet_(root, 'hr-lineManagerName', row.lineManagerName);
+  hrCloneSet_(root, 'hr-directorName', row.directorName);
+  hrCloneSet_(root, 'hr-hrComment', row.hrComment);
+  hrCloneSet_(root, 'hr-hrSignature', row.hrSignature);
+  hrCloneSet_(root, 'hr-hrSignedAt', row.hrSignedAt);
+  var other = root.querySelector('[data-hr-id="hr-leaveOther"]');
+  if (other) other.style.display = String(row.leaveType || '') === 'Other' ? '' : 'none';
+  var ents = row.entitlements || {};
+  var sigs = Object.assign({ emp: '', line: '', director: '', hr: '' }, ents.__sigs || {});
+  ['emp', 'line', 'director', 'hr'].forEach(function (slot) {
+    var pad = root.querySelector('[data-hr-id="hr-sig-' + slot + '"]');
+    if (pad) pad.innerHTML = sigs[slot] ? '<img src="' + sigs[slot] + '" alt="">' : '';
+  });
+  HR_ENTITLE_KEYS.forEach(function (r) {
+    var d = ents[r.key] || {};
+    root.querySelectorAll('input[data-ent="' + r.key + '"]').forEach(function (el) {
+      var col = el.getAttribute('data-col');
+      if (col) el.value = d[col] || '';
+    });
+  });
+}
+
+function hrEnsureSavedPapers_() {
+  var host = document.getElementById('hrSavedPapers');
+  if (!host || _hrPapersReady) return;
+  hrSnapshotPaperTemplate_();
+  host.innerHTML = '';
+  HR_LEAVE_TYPES.forEach(function (t, idx) {
+    var sec = document.createElement('section');
+    sec.className = 'hr-saved-type';
+    sec.setAttribute('data-type', t.id);
+    var slug = String(t.id).replace(/\s+/g, '-');
+    var paper = hrMakePaperClone_('hr-paper-' + slug, t.id);
+    sec.innerHTML =
+      '<div class="hr-saved-type-bar">' +
+        '<h3>' + hrEsc_(t.label) + '</h3>' +
+        '<button type="button" onclick="hrNewPaper_(\'' + hrEsc_(t.id) + '\')">Open paper</button>' +
+      '</div>' +
+      '<div class="hr-saved-blank" data-open-type="' + hrEsc_(t.id) + '"></div>' +
+      '<div class="hr-saved-filled" id="hr-filled-' + slug + '"></div>';
+    var blank = sec.querySelector('.hr-saved-blank');
+    if (paper && blank) {
+      blank.appendChild(paper);
+      blank.addEventListener('click', function () { hrNewPaper_(t.id); });
+    }
+    host.appendChild(sec);
+    if (idx === 0) sec.classList.add('is-first');
+  });
+  _hrPapersReady = true;
+}
+
+function hrRenderSavedFilledPapers_(list) {
+  hrEnsureSavedPapers_();
+  HR_LEAVE_TYPES.forEach(function (t) {
+    var slug = String(t.id).replace(/\s+/g, '-');
+    var box = document.getElementById('hr-filled-' + slug);
+    if (!box) return;
+    box.innerHTML = '';
+    var rows = (list || []).filter(function (r) { return String(r.leaveType || '') === t.id; });
+    rows.forEach(function (r) {
+      var card = document.createElement('div');
+      card.className = 'hr-saved-filled-card';
+      var st = String(r.status || 'submitted');
+      card.innerHTML =
+        '<div class="hr-saved-type-bar">' +
+          '<h3>' + hrEsc_(t.label) + ' — ' + hrEsc_(r.empName || 'Saved') +
+            (r.no || r.num ? ' (#' + hrEsc_(r.no || r.num) + ')' : '') + '</h3>' +
+          '<span class="hr-badge hr-badge-' + hrEsc_(st) + '">' + hrEsc_(HR_STATUS_LABEL[st] || st) + '</span>' +
+          '<button type="button" onclick="hrOpenRow_(\'' + hrEsc_(r.id) + '\')">Open</button>' +
+          '<button type="button" onclick="hrOpenRow_(\'' + hrEsc_(r.id) + '\');setTimeout(hrPrint_,80)">Print</button>' +
+        '</div>';
+      var clone = hrMakePaperClone_('hr-saved-' + String(r.id).replace(/[^a-zA-Z0-9_-]/g, ''), r.leaveType);
+      if (clone) {
+        hrFillPaperClone_(clone, r);
+        card.appendChild(clone);
+      }
+      card.addEventListener('click', function (ev) {
+        if (ev.target.closest('button')) return;
+        hrOpenRow_(r.id);
+      });
+      box.appendChild(card);
+    });
+  });
+}
+
 function hrRenderKpis_(list) {
   var host = document.getElementById('hrKpiRow');
   if (!host) return;
@@ -473,14 +629,13 @@ function hrRenderTable_() {
   }
   var list = hrFiltered_();
   hrRenderKpis_(list);
+  hrRenderSavedFilledPapers_(list);
   if (summary) {
     summary.textContent = list.length + ' request' + (list.length === 1 ? '' : 's') +
       (list.length !== _hrRows.length ? ' of ' + _hrRows.length : '');
   }
   if (!list.length) {
-    host.innerHTML = typeof empireEmptyHtml === 'function'
-      ? empireEmptyHtml('No leave requests', 'Use New request to fill HR-F-06.')
-      : '<p>No leave requests yet.</p>';
+    host.innerHTML = '<p class="hr-summary">No saved fills yet for this filter. The papers above are the same Leave Request sheet.</p>';
     return;
   }
   var write = hrCanWrite_();
@@ -843,6 +998,7 @@ function hrLogout_() {
 
 function hrInit_() {
   hrBindScanDrag_();
+  hrEnsureSavedPapers_();
   window.addEventListener('afterprint', function () {
     document.body.classList.remove('hr-print-scan');
   });
