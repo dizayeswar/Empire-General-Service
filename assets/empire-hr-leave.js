@@ -457,7 +457,7 @@ function hrSwitchTab_(ev, tab) {
     hrSyncScanFields_();
     hrRenderScan_();
   }
-  if (tab === 'list' && !_hrListEditing) hrRenderSavedFilledPapers_(hrFiltered_());
+  if (tab === 'list' && !_hrListEditing) hrRenderTable_();
 }
 
 function hrUniqueDepts_() {
@@ -714,7 +714,6 @@ function hrRenderTable_() {
   }
   var list = hrFiltered_();
   hrRenderKpis_(list);
-  hrRenderSavedFilledPapers_(list);
   if (summary) {
     summary.textContent = list.length + ' request' + (list.length === 1 ? '' : 's') +
       (list.length !== _hrRows.length ? ' of ' + _hrRows.length : '');
@@ -1093,7 +1092,6 @@ function hrLogout_() {
 
 function hrInit_() {
   hrBindScanDrag_();
-  hrEnsureSavedPapers_();
   window.addEventListener('afterprint', function () {
     document.body.classList.remove('hr-print-scan');
   });
