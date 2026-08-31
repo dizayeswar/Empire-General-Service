@@ -2,6 +2,7 @@ import { AuthOk } from "./auth.ts";
 import { fmtDate, isoNow, sb, selectAllRows } from "./db.ts";
 
 const LEAVE_TYPES = [
+  "Lateness",
   "Annual Leave",
   "Sick leave",
   "Unpaid Leave",

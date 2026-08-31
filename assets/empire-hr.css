@@ -63,6 +63,21 @@
 
 .hr-list-table tr:hover td { background: rgba(141, 1, 93, 0.04); }
 
+.hr-list-group td {
+  background: rgba(141, 1, 93, 0.08) !important;
+  font-weight: 600;
+  font-size: 13px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.hr-list-group span {
+  font-weight: 400;
+  color: var(--text-soft);
+}
+
+.hr-list-table tr.hr-list-group:hover td { background: rgba(141, 1, 93, 0.08) !important; }
+
 .hr-badge {
   display: inline-block;
   padding: 2px 8px;

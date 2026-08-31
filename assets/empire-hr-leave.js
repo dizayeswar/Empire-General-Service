@@ -2,6 +2,7 @@
 
 var HR_DEPT = 'hr';
 var HR_LEAVE_TYPES = [
+  { id: 'Lateness', label: 'Lateness' },
   { id: 'Annual Leave', label: 'Annual leave' },
   { id: 'Sick leave', label: 'Sick leave' },
   { id: 'Unpaid Leave', label: 'Unpaid Leave' },
@@ -10,6 +11,7 @@ var HR_LEAVE_TYPES = [
   { id: 'Other', label: 'Other' }
 ];
 var HR_ENTITLE_KEYS = [
+  { key: 'lateness', label: 'Lateness', type: 'Lateness' },
   { key: 'annual', label: 'Annual Leave', type: 'Annual Leave' },
   { key: 'sick', label: 'Sick leave', type: 'Sick leave' },
   { key: 'unpaid', label: 'Unpaid Leave', type: 'Unpaid Leave' },
@@ -95,6 +97,10 @@ function hrDaysNum_(raw) {
   var s = String(raw || '').trim().toLowerCase();
   if (!s) return 0;
   if (s.indexOf('half') !== -1) return 0.5;
+  var hour = s.match(/^(\d+(?:\.\d+)?)\s*h/);
+  if (hour) return parseFloat(hour[1]) / 8;
+  var min = s.match(/^(\d+(?:\.\d+)?)\s*m/);
+  if (min) return parseFloat(min[1]) / (8 * 60);
   var n = parseFloat(s);
   return isNaN(n) ? 0 : n;
 }
@@ -111,7 +117,15 @@ function hrMsg_(text, ok) {
 }
 
 function hrRenderLeaveTypes_(selected) {
-  hrSet_('hr-leaveType', selected || 'Annual Leave');
+  var sel = document.getElementById('hr-leaveType');
+  var want = selected || 'Lateness';
+  if (sel) {
+    sel.innerHTML = HR_LEAVE_TYPES.map(function (t) {
+      return '<option value="' + hrEsc_(t.id) + '">' + hrEsc_(t.label) + '</option>';
+    }).join('');
+    sel.value = want;
+    if (sel.value !== want) sel.value = 'Lateness';
+  }
   hrOnLeaveType_();
 }
 
@@ -290,7 +304,7 @@ function hrFillForm_(row) {
   hrSet_('hr-startDate', row.startDate || '');
   hrSet_('hr-endDate', row.endDate || '');
   hrSet_('hr-daysOut', row.daysOut || '');
-  hrRenderLeaveTypes_(row.leaveType || 'Annual Leave');
+  hrRenderLeaveTypes_(row.leaveType || 'Lateness');
   hrSet_('hr-leaveOther', row.leaveOther || '');
   hrSet_('hr-empSignature', row.empSignature || '');
   hrSet_('hr-empSignedAt', row.empSignedAt || hrToday_());
@@ -384,11 +398,13 @@ function hrUniqueDepts_() {
 
 function hrFiltered_() {
   var status = hrVal_('hrFilterStatus');
+  var type = hrVal_('hrFilterType');
   var dept = hrVal_('hrFilterDept');
   var month = hrVal_('hrFilterMonth');
   var q = hrVal_('hrFilterSearch').toLowerCase();
   return _hrRows.filter(function (r) {
     if (status && String(r.status || '') !== status) return false;
+    if (type && String(r.leaveType || '') !== type) return false;
     if (dept && String(r.empDepartment || '') !== dept) return false;
     if (month && String(r.startDate || '').slice(0, 7) !== month) return false;
     if (q) {
@@ -397,6 +413,31 @@ function hrFiltered_() {
       if (hay.indexOf(q) === -1) return false;
     }
     return true;
+  });
+}
+
+function hrTypeLabel_(id) {
+  var found = HR_LEAVE_TYPES.find(function (t) { return t.id === id; });
+  return found ? found.label : (id || 'Other');
+}
+
+function hrGroupedByType_(list) {
+  var order = HR_LEAVE_TYPES.map(function (t) { return t.id; });
+  var groups = {};
+  list.forEach(function (r) {
+    var k = String(r.leaveType || '').trim() || 'Other';
+    if (!groups[k]) groups[k] = [];
+    groups[k].push(r);
+  });
+  return Object.keys(groups).sort(function (a, b) {
+    var ia = order.indexOf(a);
+    var ib = order.indexOf(b);
+    if (ia < 0) ia = 900;
+    if (ib < 0) ib = 900;
+    if (ia !== ib) return ia - ib;
+    return a.localeCompare(b);
+  }).map(function (k) {
+    return { type: k, label: hrTypeLabel_(k), rows: groups[k] };
   });
 }
 
@@ -443,27 +484,32 @@ function hrRenderTable_() {
     return;
   }
   var write = hrCanWrite_();
+  var groups = hrGroupedByType_(list);
   var h = '<div class="hr-table-wrap"><table class="hr-list-table"><thead><tr>' +
     '<th>#</th><th>Employee</th><th>Department</th><th>Type</th><th>Dates</th><th>Days</th><th>Status</th><th></th>' +
     '</tr></thead><tbody>';
-  list.forEach(function (r) {
-    var st = String(r.status || 'submitted');
-    h += '<tr>' +
-      '<td>' + hrEsc_(r.no || r.num || '') + '</td>' +
-      '<td><strong>' + hrEsc_(r.empName || '—') + '</strong><div style="color:var(--text-soft);font-size:12px;">' + hrEsc_(r.empCode || '') + '</div></td>' +
-      '<td>' + hrEsc_(r.empDepartment || '—') + '</td>' +
-      '<td>' + hrEsc_(r.leaveType || '—') + '</td>' +
-      '<td>' + hrEsc_(hrFmtDate_(r.startDate)) + (r.endDate && r.endDate !== r.startDate ? ' – ' + hrEsc_(hrFmtDate_(r.endDate)) : '') +
-        (r.entitlements && r.entitlements.__scan && r.entitlements.__scan.url ? ' <span class="hr-badge">Scan</span>' : '') + '</td>' +
-      '<td>' + hrEsc_(r.daysOut || '—') + '</td>' +
-      '<td><span class="hr-badge hr-badge-' + hrEsc_(st) + '">' + hrEsc_(HR_STATUS_LABEL[st] || st) + '</span></td>' +
-      '<td><div class="hr-row-acts">' +
-        '<button type="button" onclick="hrOpenRow_(\'' + hrEsc_(r.id) + '\')">' + (write ? 'Open' : 'View') + '</button>' +
-        (r.entitlements && r.entitlements.__scan && r.entitlements.__scan.url
-          ? '<button type="button" onclick="hrOpenScanRow_(\'' + hrEsc_(r.id) + '\')">Open scan</button>'
-          : '') +
-        '<button type="button" onclick="hrOpenRow_(\'' + hrEsc_(r.id) + '\');setTimeout(hrPrint_,80)">Print</button>' +
-      '</div></td></tr>';
+  groups.forEach(function (g) {
+    h += '<tr class="hr-list-group"><td colspan="8">' + hrEsc_(g.label) +
+      ' <span>(' + g.rows.length + ')</span></td></tr>';
+    g.rows.forEach(function (r) {
+      var st = String(r.status || 'submitted');
+      h += '<tr>' +
+        '<td>' + hrEsc_(r.no || r.num || '') + '</td>' +
+        '<td><strong>' + hrEsc_(r.empName || '—') + '</strong><div style="color:var(--text-soft);font-size:12px;">' + hrEsc_(r.empCode || '') + '</div></td>' +
+        '<td>' + hrEsc_(r.empDepartment || '—') + '</td>' +
+        '<td>' + hrEsc_(r.leaveType || '—') + '</td>' +
+        '<td>' + hrEsc_(hrFmtDate_(r.startDate)) + (r.endDate && r.endDate !== r.startDate ? ' – ' + hrEsc_(hrFmtDate_(r.endDate)) : '') +
+          (r.entitlements && r.entitlements.__scan && r.entitlements.__scan.url ? ' <span class="hr-badge">Scan</span>' : '') + '</td>' +
+        '<td>' + hrEsc_(r.daysOut || '—') + '</td>' +
+        '<td><span class="hr-badge hr-badge-' + hrEsc_(st) + '">' + hrEsc_(HR_STATUS_LABEL[st] || st) + '</span></td>' +
+        '<td><div class="hr-row-acts">' +
+          '<button type="button" onclick="hrOpenRow_(\'' + hrEsc_(r.id) + '\')">' + (write ? 'Open' : 'View') + '</button>' +
+          (r.entitlements && r.entitlements.__scan && r.entitlements.__scan.url
+            ? '<button type="button" onclick="hrOpenScanRow_(\'' + hrEsc_(r.id) + '\')">Open scan</button>'
+            : '') +
+          '<button type="button" onclick="hrOpenRow_(\'' + hrEsc_(r.id) + '\');setTimeout(hrPrint_,80)">Print</button>' +
+        '</div></td></tr>';
+    });
   });
   h += '</tbody></table></div>';
   host.innerHTML = h;

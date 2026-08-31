@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-30-hr-f06">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-30-hr-f06">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-08-31-hr-scan">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-08-31-hr-late">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -83,6 +83,19 @@
                 <option value="director_approved">Director approved</option>
                 <option value="processed">HR processed</option>
                 <option value="rejected">Rejected</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Type</label>
+              <select id="hrFilterType" onchange="hrRenderTable_()">
+                <option value="">All types</option>
+                <option value="Lateness">Lateness</option>
+                <option value="Annual Leave">Annual leave</option>
+                <option value="Sick leave">Sick leave</option>
+                <option value="Unpaid Leave">Unpaid Leave</option>
+                <option value="Bereavement">Bereavement</option>
+                <option value="Marriage Leave">Marriage Leave</option>
+                <option value="Other">Other</option>
               </select>
             </div>
             <div class="form-group">
@@ -204,6 +217,9 @@
             <option value="Reception / Call Center"></option>
           </datalist>
           <datalist id="hr-days-list">
+            <option value="15 min"></option>
+            <option value="30 min"></option>
+            <option value="1 hour"></option>
             <option value="half day"></option>
             <option value="0.5"></option>
             <option value="1"></option>
@@ -267,6 +283,7 @@
                 <td class="lab"><span class="hr-lbl">Type of Leave</span></td>
                 <td class="val" colspan="2">
                   <select id="hr-leaveType" class="hr-cell-input" onchange="hrOnLeaveType_()">
+                    <option value="Lateness">Lateness</option>
                     <option value="Annual Leave">Annual leave</option>
                     <option value="Sick leave">Sick leave</option>
                     <option value="Unpaid Leave">Unpaid Leave</option>
@@ -359,11 +376,11 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-31-hr-scan"></script>
+<script src="config.js?v=2026-08-31-hr-late"></script>
 <script src="assets/empire-api.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-auth.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-core.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-storage.js?v=2026-08-31-hr-scan"></script>
-<script src="assets/empire-hr-leave.js?v=2026-08-31-hr-scan"></script>
+<script src="assets/empire-hr-leave.js?v=2026-08-31-hr-late"></script>
 </body>
 </html>
