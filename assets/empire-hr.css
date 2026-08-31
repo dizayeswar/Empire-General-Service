@@ -533,6 +533,30 @@
   margin-top: 18px;
 }
 
+.hr-paper-pdf input,
+.hr-paper-pdf select,
+.hr-paper-pdf textarea {
+  color: #000 !important;
+  -webkit-text-fill-color: #000;
+  opacity: 1 !important;
+  background: transparent !important;
+}
+
+.hr-paper-pdf input::placeholder {
+  color: transparent;
+}
+
+.hr-paper-pdf .hr-date-native {
+  display: none !important;
+}
+
+.hr-paper-pdf .hr-date-view {
+  display: block !important;
+  pointer-events: none;
+  color: #000 !important;
+  -webkit-text-fill-color: #000;
+}
+
 @media (max-width: 720px) {
   .hr-note { padding: 12px; }
 }

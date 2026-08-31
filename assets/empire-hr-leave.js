@@ -383,6 +383,7 @@ function hrSwitchTab_(ev, tab) {
     hrSyncScanFields_();
     hrRenderScan_();
   }
+  if (tab === 'list') hrRenderSavedFilledPapers_(hrFiltered_());
 }
 
 function hrUniqueDepts_() {
@@ -463,6 +464,7 @@ function hrMakePaperClone_(prefix, typeId) {
   if (!_hrPaperTemplate) return null;
   var clone = _hrPaperTemplate.cloneNode(true);
   clone.id = prefix;
+  clone.classList.add('hr-paper-pdf');
   clone.querySelectorAll('[id]').forEach(function (el) {
     el.setAttribute('data-hr-id', el.id);
     el.id = prefix + '-' + el.id;
@@ -471,12 +473,12 @@ function hrMakePaperClone_(prefix, typeId) {
     clone.querySelectorAll('[' + a + ']').forEach(function (el) { el.removeAttribute(a); });
   });
   clone.querySelectorAll('input, select, textarea, button').forEach(function (el) {
-    el.disabled = true;
     el.tabIndex = -1;
+    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') el.readOnly = true;
   });
   var typeSel = clone.querySelector('[data-hr-id="hr-leaveType"]');
-  if (typeSel) {
-    typeSel.value = typeId || 'Lateness';
+  if (typeSel && typeId) {
+    typeSel.value = typeId;
     if (typeSel.value !== typeId) {
       var opt = document.createElement('option');
       opt.value = typeId;
@@ -490,12 +492,10 @@ function hrMakePaperClone_(prefix, typeId) {
 
 function hrCloneSet_(root, id, v) {
   var el = root.querySelector('[data-hr-id="' + id + '"]');
-  if (!el) return;
-  el.value = v == null ? '' : String(v);
-  if (el.classList && el.classList.contains('hr-date-native')) {
-    var view = root.querySelector('[data-hr-id="' + id + '-view"]');
-    if (view) view.value = hrFmtPaperDate_(el.value);
-  }
+  var val = v == null ? '' : String(v);
+  if (el) el.value = val;
+  var view = root.querySelector('[data-hr-id="' + id + '-view"]');
+  if (view) view.value = hrFmtPaperDate_(val) || val;
 }
 
 function hrFillPaperClone_(root, row) {
@@ -539,26 +539,20 @@ function hrEnsureSavedPapers_() {
   if (!host || _hrPapersReady) return;
   hrSnapshotPaperTemplate_();
   host.innerHTML = '';
-  HR_LEAVE_TYPES.forEach(function (t, idx) {
+  HR_LEAVE_TYPES.forEach(function (t) {
     var sec = document.createElement('section');
     sec.className = 'hr-saved-type';
     sec.setAttribute('data-type', t.id);
     var slug = String(t.id).replace(/\s+/g, '-');
-    var paper = hrMakePaperClone_('hr-paper-' + slug, t.id);
     sec.innerHTML =
       '<div class="hr-saved-type-bar">' +
         '<h3>' + hrEsc_(t.label) + '</h3>' +
-        '<button type="button" onclick="hrNewPaper_(\'' + hrEsc_(t.id) + '\')">Open paper</button>' +
+        '<button type="button" data-hr-new="' + hrEsc_(t.id) + '">New paper</button>' +
       '</div>' +
-      '<div class="hr-saved-blank" data-open-type="' + hrEsc_(t.id) + '"></div>' +
       '<div class="hr-saved-filled" id="hr-filled-' + slug + '"></div>';
-    var blank = sec.querySelector('.hr-saved-blank');
-    if (paper && blank) {
-      blank.appendChild(paper);
-      blank.addEventListener('click', function () { hrNewPaper_(t.id); });
-    }
+    var btn = sec.querySelector('[data-hr-new]');
+    if (btn) btn.addEventListener('click', function () { hrNewPaper_(t.id); });
     host.appendChild(sec);
-    if (idx === 0) sec.classList.add('is-first');
   });
   _hrPapersReady = true;
 }
@@ -568,26 +562,39 @@ function hrRenderSavedFilledPapers_(list) {
   HR_LEAVE_TYPES.forEach(function (t) {
     var slug = String(t.id).replace(/\s+/g, '-');
     var box = document.getElementById('hr-filled-' + slug);
+    var sec = box && box.closest('.hr-saved-type');
     if (!box) return;
     box.innerHTML = '';
-    var rows = (list || []).filter(function (r) { return String(r.leaveType || '') === t.id; });
+    var rows = (list || []).filter(function (r) {
+      var s = String(r.leaveType || '').trim();
+      return s === t.id || s.toLowerCase() === t.id.toLowerCase() || s.toLowerCase() === t.label.toLowerCase();
+    });
+    if (sec) sec.style.display = '';
     rows.forEach(function (r) {
       var card = document.createElement('div');
       card.className = 'hr-saved-filled-card';
       var st = String(r.status || 'submitted');
       card.innerHTML =
         '<div class="hr-saved-type-bar">' +
-          '<h3>' + hrEsc_(t.label) + ' — ' + hrEsc_(r.empName || 'Saved') +
+          '<h3>' + hrEsc_(r.empName || t.label) +
             (r.no || r.num ? ' (#' + hrEsc_(r.no || r.num) + ')' : '') + '</h3>' +
           '<span class="hr-badge hr-badge-' + hrEsc_(st) + '">' + hrEsc_(HR_STATUS_LABEL[st] || st) + '</span>' +
-          '<button type="button" onclick="hrOpenRow_(\'' + hrEsc_(r.id) + '\')">Open</button>' +
-          '<button type="button" onclick="hrOpenRow_(\'' + hrEsc_(r.id) + '\');setTimeout(hrPrint_,80)">Print</button>' +
+          '<button type="button" data-hr-open="' + hrEsc_(r.id) + '">Open</button>' +
+          '<button type="button" data-hr-print="' + hrEsc_(r.id) + '">Print / PDF</button>' +
         '</div>';
       var clone = hrMakePaperClone_('hr-saved-' + String(r.id).replace(/[^a-zA-Z0-9_-]/g, ''), r.leaveType);
       if (clone) {
         hrFillPaperClone_(clone, r);
         card.appendChild(clone);
       }
+      var openBtn = card.querySelector('[data-hr-open]');
+      var printBtn = card.querySelector('[data-hr-print]');
+      if (openBtn) openBtn.addEventListener('click', function (ev) { ev.stopPropagation(); hrOpenRow_(r.id); });
+      if (printBtn) printBtn.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        hrOpenRow_(r.id);
+        setTimeout(hrPrint_, 80);
+      });
       card.addEventListener('click', function (ev) {
         if (ev.target.closest('button')) return;
         hrOpenRow_(r.id);
