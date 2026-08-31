@@ -80,12 +80,12 @@
         </div>
       </div>
     </div>
-    <script src="config.js?v=2026-08-31-cleaning-sync"></script>
+    <script src="config.js?v=2026-08-31-cleaning-reset"></script>
     <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
     <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
     <script src="assets/empire-auth.js?v=2026-08-19-wh-assign"></script>
     <script src="assets/empire-core.js?v=2026-08-19-wh-assign"></script>
-    <script src="assets/empire-sw-update.js?v=2026-08-31-cleaning-sync"></script>
+    <script src="assets/empire-sw-update.js?v=2026-08-31-cleaning-reset"></script>
     <script src="assets/empire-offline-queue.js?v=2026-08-19-wh-assign"></script>
     <script>
         /* ===== Themed dialogs (checkmark icons; shared theme/sidebar come from empire-core.js) ===== */
@@ -196,6 +196,34 @@
         function writeWeekCovCache(o){ try{ localStorage.setItem('cleaning_weekcov_cache', JSON.stringify(o)); }catch(e){} }
         function readTaskPhotosCache(mv){ try{ var s=localStorage.getItem('cleaning_tphotos_'+mv); if(!s) return null; var a=JSON.parse(s); return Array.isArray(a)?a.map(mapPhotoPeriod):null; }catch(e){ return null; } }
         function writeTaskPhotosCache(mv,a){ try{ localStorage.setItem('cleaning_tphotos_'+mv, JSON.stringify(a)); }catch(e){} }
+        function parseTaskPhotosPayload(d){
+          if(Array.isArray(d)) return { photos:d, resetEpoch:0 };
+          if(d && Array.isArray(d.photos)) return { photos:d.photos, resetEpoch:Number(d.resetEpoch)||0 };
+          return null;
+        }
+        function readCleaningResetEpoch(){ try{ return Number(localStorage.getItem('cleaning_reset_epoch')||0)||0; }catch(e){ return 0; } }
+        function writeCleaningResetEpoch(n){ try{ if(n) localStorage.setItem('cleaning_reset_epoch', String(n)); }catch(e){} }
+        function applyCleaningResetEpoch(epoch){
+          epoch=Number(epoch)||0;
+          if(!epoch || epoch<=readCleaningResetEpoch()) return false;
+          writeCleaningResetEpoch(epoch);
+          try{ Object.keys(localStorage).forEach(function(k){ if(k.indexOf('cleaning_tphotos_')===0) localStorage.removeItem(k); }); }catch(e){}
+          _photosByMonth={};
+          pendingPhotos=[];
+          taskPhotos=[];
+          return true;
+        }
+        async function wipePortalCleaningOfflineQueue(){
+          if(typeof empireOfflineQueueAll!=='function' || typeof empireOfflineQueueDelete!=='function') return;
+          try{
+            var rows=await empireOfflineQueueAll();
+            for(var i=0;i<(rows||[]).length;i++){
+              if(rows[i] && rows[i].type==='cleaning_task_photos'){
+                try{ await empireOfflineQueueDelete(rows[i].id); }catch(eDel){}
+              }
+            }
+          }catch(e){}
+        }
         var _photosByMonth={};
         var _photosFetchPromises={};
         function normProjectCode(v){ return String(v||'').trim().toLowerCase(); }
@@ -222,13 +250,12 @@
           if(per===x.period) return x;
           return Object.assign({}, x, {period: per});
         }
-        function applyTaskPhotosList(list, mv){
+        function applyTaskPhotosList(list, mv, allowEmpty){
           mv=mv||curMonth();
           if(!Array.isArray(list)) return;
           list=list.map(mapPhotoPeriod);
-          // Never wipe a full checklist with an empty/failed server response.
           var prevServer=(taskPhotos||[]).filter(function(x){ return x && !x._offline && !x._pending; });
-          if(!list.length && prevServer.length){
+          if(!list.length && prevServer.length && !allowEmpty){
             console.warn('Keeping existing task photos; server returned empty list');
             return;
           }
@@ -259,9 +286,12 @@
                 // Do not logout + wipe photos on transient API errors.
                 return prev || [];
               }
-              if(Array.isArray(d)){
-                if(!d.length && prev && prev.length) return prev;
-                d=d.map(mapPhotoPeriod); _photosByMonth[mv]=d; writeTaskPhotosCache(mv,d); return d;
+              var parsed=parseTaskPhotosPayload(d);
+              if(parsed){
+                var wiped=applyCleaningResetEpoch(parsed.resetEpoch);
+                if(!parsed.photos.length && prev && prev.length && !wiped) return prev;
+                var photos=parsed.photos.map(mapPhotoPeriod);
+                _photosByMonth[mv]=photos; writeTaskPhotosCache(mv,photos); return photos;
               }
             }catch(e){ console.error('Task photo fetch error:', e.message); }
             return prev || _photosByMonth[mv] || cached || [];
@@ -379,7 +409,8 @@
             if(out) out.textContent = txt;
             try{
               var d = JSON.parse(txt);
-              if(Array.isArray(d)){ updateDebugStatus('✅ Server returned '+d.length+' task photo(s) for '+mv+' — full raw reply is shown below.'); }
+              var parsed=parseTaskPhotosPayload(d);
+              if(parsed){ updateDebugStatus('✅ Server returned '+parsed.photos.length+' task photo(s) for '+mv+' — full raw reply is shown below.'); }
               else { updateDebugStatus('⚠️ Server did NOT return a list of task photos — see the raw reply below.'); }
             }catch(e){ updateDebugStatus('⚠️ Server reply was not valid JSON — see the raw reply below.'); }
           }catch(e){ updateDebugStatus('❌ Request failed: '+e.message); }
@@ -689,7 +720,11 @@
           try {
             const r=await fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'getTaskPhotos', periodPrefix:mv, force:true, token:empireGetToken()||''})});
             const d=await r.json();
-            if(Array.isArray(d)) mphotos=d.map(mapPhotoPeriod);
+            var parsed=parseTaskPhotosPayload(d);
+            if(parsed){
+              applyCleaningResetEpoch(parsed.resetEpoch);
+              mphotos=parsed.photos.map(mapPhotoPeriod);
+            }
           } catch(e){ console.error('Month completion fetch error:', e.message); }
           const monthName=new Date(mv+'-01T00:00:00').toLocaleString('en-US',{month:'long',year:'numeric'});
           let h='<h2>'+chartIconHtml()+' Monthly Completion — '+monthName+'</h2><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:16px;">';
@@ -744,7 +779,7 @@
         function downloadAnalyticsReport() { const dashHTML=`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Empire World Dashboard - Analytics Report</title><style>* { margin: 0; padding: 0; box-sizing: border-box; }body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #0f5a9e 0%, #8d015d 100%); color: #fff; min-height: 100vh; padding-bottom: 40px; }.container { max-width: 1400px; margin: 0 auto; padding: 20px; }header { background: #0d4a85; padding: 20px; border-radius: 0 0 24px 24px; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border-bottom: 3px solid #a0327d; }.header-top { display: flex; justify-content: space-between; align-items: center; }.header-title h1 { font-size: 28px; margin-bottom: 5px; color: #fff; }.header-title p { font-size: 13px; color: #ccc; }.form-section { background: rgba(13,50,100,0.6); padding: 25px; border-radius: 18px; margin-bottom: 25px; border: 2px solid #a0327d; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }h2 { margin-bottom: 20px; font-size: 20px; color: #fff; }h3 { margin-top: 25px; margin-bottom: 15px; font-size: 16px; color: #ccc; }.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin: 20px 0; }.stat-box { background: rgba(13,50,100,0.8); padding: 15px; border-radius: 16px; text-align: center; border: 2px solid #a0327d; }.stat-value { font-size: 24px; font-weight: bold; color: #a0327d; }.stat-label { font-size: 12px; color: #ccc; margin-top: 5px; }p { color: #fff; }img { max-width: 150px; margin-top: 10px; border-radius: 12px; margin-right: 15px; }</style></head><body><div class="container"><header><div class="header-top"><div class="header-title"><h1>Empire World Dashboard</h1><p>Analytics Report - Downloaded on ${new Date().toLocaleString()}</p></div></div></header><div id="analyticsContent"></div></div><script>const supervisors = {ec:'Ibrahim',es:'Ibrahim',wd:'Rawa',ww:'Emad',ww2:'Muhamad',ra:'Rawa'};const buildingInfo = {ec:{count:6,buildings:'EC1-EC6',avgFloors:'5-6'},es:{count:5,buildings:'ES1-ES6',avgFloors:'23-28'},wd:{count:3,buildings:'WD-A, WD-B, WD-C',avgFloors:'25-27'},ww:{count:11,buildings:'WW1-WW11',avgFloors:'10-26'},ww2:{count:4,buildings:'WW12-WW15',avgFloors:'32'},ra:{count:32,buildings:'RA-A1-A12, RA-B1-B12, RA-C1-C8',avgFloors:'11-14'}};function normalizeFloors(f){if(Array.isArray(f))return f;if(typeof f==='string')return f.split(',').map(s=>s.trim()).filter(s=>s.length);return [];}const projects = ${JSON.stringify(userProjectList())};const reps = ${JSON.stringify(allReports)};let h='<h2>📋 Summary</h2><div class="stats"><div class="stat-box"><div class="stat-value">'+reps.length+'</div><div class="stat-label">Total Reports</div></div>';const imgs=reps.filter(r=>r.image&&r.image.length>0).length;h+='<div class="stat-box"><div class="stat-value">'+imgs+'</div><div class="stat-label">Photos</div></div><div class="stat-box"><div class="stat-value">'+new Set(reps.map(r=>r.building)).size+'</div><div class="stat-label">Buildings</div></div><div class="stat-box"><div class="stat-value">'+reps.reduce((s,r)=>s+parseInt(r.employees),0)+'</div><div class="stat-label">Employees</div></div></div><h3 style="margin-top:30px;">📊 By Project</h3>';projects.forEach(p=>{const pr=reps.filter(r=>r.project===p);const pi=pr.filter(r=>r.image&&r.image.length>0).length;const bi=new Set(pr.map(r=>r.building)).size;const te=pr.reduce((s,r)=>s+parseInt(r.employees),0);const tf=pr.reduce((s,r)=>s+normalizeFloors(r.floors).length,0);h+='<div class="form-section"><h3>'+{ec:'Empire Complex',es:'Empire Square',wd:'West Diamond',ww:'West Wing',ww2:'(New) West Wing',ra:'Royal Apartment'}[p]+'</h3><div class="stats"><div class="stat-box"><div class="stat-value">'+pr.length+'</div><div class="stat-label">Reports</div></div><div class="stat-box"><div class="stat-value">'+pi+'</div><div class="stat-label">Photos</div></div><div class="stat-box"><div class="stat-value">'+bi+'/'+buildingInfo[p].count+'</div><div class="stat-label">Buildings</div></div><div class="stat-box"><div class="stat-value">'+tf+'</div><div class="stat-label">Floors</div></div><div class="stat-box"><div class="stat-value">'+te+'</div><div class="stat-label">Employees</div></div></div><p><strong>Supervisor:</strong> '+supervisors[p]+'</p><p><strong>Buildings:</strong> '+buildingInfo[p].buildings+'</p><p><strong>Floors:</strong> '+buildingInfo[p].avgFloors+'</p></div>'});document.getElementById('analyticsContent').innerHTML=h;<\/script></body></html>`; const blob=new Blob([dashHTML],{type:'text/html'}); const url=window.URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='empire_dashboard_analytics_'+new Date().toISOString().split('T')[0]+'.html'; a.click(); }
         function resetAllData(){ var i=document.getElementById('resetPwInput'); if(i)i.value=''; var m=document.getElementById('resetMsg'); if(m)m.textContent=''; document.getElementById('resetModal').classList.add('show'); if(i) setTimeout(function(){ i.focus(); },50); }
         function closeResetModal(){ document.getElementById('resetModal').classList.remove('show'); }
-        function doReset(){ var pw=document.getElementById('resetPwInput').value; var msg=document.getElementById('resetMsg'); msg.style.color='var(--c-error)'; msg.textContent='Deleting…'; fetch(GOOGLE_SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'clearAll', resetPassword:pw, token:empireGetToken()||''})}).then(r=>r.json()).then(d=>{ if(d && d.error==='bad_password'){ msg.style.color='var(--c-error)'; msg.textContent='❌ Wrong password — nothing was deleted.'; return; } allReports=[]; writeReportsCache([], 'full'); _reportsScope=''; _monthCompletionLoadedFor=''; _analyticsTabReady=false; try{ Object.keys(localStorage).forEach(function(k){ if(k.indexOf('cleaning_reports_day_')===0) localStorage.removeItem(k); }); }catch(e){} taskPhotos=[]; pendingPhotos=[]; _photosByMonth={}; try{ Object.keys(localStorage).forEach(function(k){ if(k.indexOf('cleaning_tphotos_')===0) localStorage.removeItem(k); }); }catch(e){} weekCov={}; taskState={}; taskEditOpen={}; pendingTaskUpload={}; renderTaskChecklists(); var dc=document.getElementById('dashboardContent'); if(dc) dc.innerHTML='<p>Select a date to view reports or click a project tab to add new data.</p>'; var mc=document.getElementById('monthlyContent'); if(mc) mc.innerHTML='<p>Pick a month and click Generate.</p>'; var ac=document.getElementById('analyticsContent'); if(ac) ac.innerHTML='<p>Select dates and click \'Refresh Analytics\' or view \'All-Time Analytics\'.</p>'; msg.style.color='var(--ok-text)'; msg.textContent='✅ All cleaning data deleted.'; setTimeout(closeResetModal, 1300); }).catch(err=>{ msg.style.color='var(--c-error)'; msg.textContent='❌ Error: '+err.message; }); }
+        function doReset(){ var pw=document.getElementById('resetPwInput').value; var msg=document.getElementById('resetMsg'); msg.style.color='var(--c-error)'; msg.textContent='Deleting…'; fetch(GOOGLE_SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'clearAll', resetPassword:pw, token:empireGetToken()||''})}).then(r=>r.json()).then(async function(d){ if(d && (d.error==='bad_password' || d.ok===false && d.error==='bad_password')){ msg.style.color='var(--c-error)'; msg.textContent='❌ Wrong password — nothing was deleted.'; return; } if(d && d.ok===false){ msg.style.color='var(--c-error)'; msg.textContent='❌ Could not reset: '+(d.message||d.error||'unknown error'); return; } if(d && d.resetEpoch) writeCleaningResetEpoch(d.resetEpoch); await wipePortalCleaningOfflineQueue(); allReports=[]; writeReportsCache([], 'full'); _reportsScope=''; _monthCompletionLoadedFor=''; _analyticsTabReady=false; try{ Object.keys(localStorage).forEach(function(k){ if(k.indexOf('cleaning_reports_day_')===0 || k.indexOf('cleaning_tphotos_')===0) localStorage.removeItem(k); }); }catch(e){} taskPhotos=[]; pendingPhotos=[]; _photosByMonth={}; weekCov={}; taskState={}; taskEditOpen={}; pendingTaskUpload={}; try{ localStorage.removeItem('cleaning_tasks_cache'); localStorage.removeItem('cleaning_weekcov_cache'); }catch(e2){} renderTaskChecklists(); var dc=document.getElementById('dashboardContent'); if(dc) dc.innerHTML='<p>Select a date to view reports or click a project tab to add new data.</p>'; var mc=document.getElementById('monthlyContent'); if(mc) mc.innerHTML='<p>Pick a month and click Generate.</p>'; var ac=document.getElementById('analyticsContent'); if(ac) ac.innerHTML='<p>Select dates and click \'Refresh Analytics\' or view \'All-Time Analytics\'.</p>'; msg.style.color='var(--ok-text)'; msg.textContent='✅ All cleaning data deleted. Phones will clear when they reopen or refresh the app.'; setTimeout(closeResetModal, 1800); }).catch(err=>{ msg.style.color='var(--c-error)'; msg.textContent='❌ Error: '+err.message; }); }
         const taskMap = {
           ec: { tab:'empire-complex', groups:[
             { label:'Daily Tasks', daily:true, freq:'daily', tasks:['Cleaning area','Cleaning road','Floor mopping','Elevator mopping','Cleaning basement','Ground mopping','Around building cleaning (ride-on scrubber dryer)'] },
@@ -853,7 +888,7 @@
           if(!refresh && cached) return;
           try{
             const d=await fetchTaskPhotosForMonth(mv, true);
-            if(Array.isArray(d) && (d.length || !(cached && cached.length))) applyTaskPhotosList(d, mv);
+            if(Array.isArray(d)) applyTaskPhotosList(d, mv);
           }catch(e){ console.error('Task photos load error:', e.message); }
         }
         function syncTaskPhotosCacheAfterLocalChange(){
@@ -1375,7 +1410,7 @@
           let covList=[];
           try { const cr=await fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'getRangeCoverage', from:(weeks[0]||from), to:(weeks[weeks.length-1]||to), token:empireGetToken()||''})}); const cd=await cr.json(); if(Array.isArray(cd)) covList=cd; else if(cd && cd.ok===false){ forceSessionLogout(cd); return; } } catch(e){ console.error('Coverage fetch error:', e.message); }
           let mphotos=[];
-          try { const mr=await fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'getTaskPhotos', periodPrefix:mv, force:true, token:empireGetToken()||''})}); const md=await mr.json(); if(Array.isArray(md)){ mphotos=md.map(mapPhotoPeriod); applyTaskPhotosList(mphotos, mv); } } catch(e){ console.error('Report photos error:', e.message); }
+          try { const mr=await fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'getTaskPhotos', periodPrefix:mv, force:true, token:empireGetToken()||''})}); const md=await mr.json(); var parsed=parseTaskPhotosPayload(md); if(parsed){ var wiped=applyCleaningResetEpoch(parsed.resetEpoch); mphotos=parsed.photos.map(mapPhotoPeriod); applyTaskPhotosList(mphotos, mv, wiped); } } catch(e){ console.error('Report photos error:', e.message); }
           const pname={ec:'Empire Complex',es:'Empire Square',wd:'West Diamond',ww:'West Wing',ww2:'(New) West Wing',ra:'Royal Apartment'};
           const imgs=countAllPhotos(monthReports, mphotos);
           let h='<h2>'+summaryIconHtml()+' Monthly Report — '+monthName+'</h2><p style="color:var(--text-soft);">'+from+' to '+to+' · Prepared by Swar Dizayee</p>';

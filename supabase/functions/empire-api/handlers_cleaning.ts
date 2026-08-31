@@ -2,6 +2,31 @@ import { projectAllowedForUser, projectsForUser, getUser } from "./auth.ts";
 import { fmtDate, isoNow, sb, selectAllRows, trashRows } from "./db.ts";
 import { resetPasswordOk } from "./config.ts";
 
+const CLEANING_EPOCH_KEY = "cleaning_data_epoch";
+
+async function getCleaningResetEpoch(): Promise<number> {
+  try {
+    const { data } = await sb().from("ui_settings").select("settings").eq("key", CLEANING_EPOCH_KEY).maybeSingle();
+    const settings = (data && data.settings && typeof data.settings === "object")
+      ? data.settings as Record<string, unknown>
+      : {};
+    const n = Number(settings.epoch || 0);
+    return Number.isFinite(n) ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
+async function bumpCleaningResetEpoch(): Promise<number> {
+  const epoch = Date.now();
+  await sb().from("ui_settings").upsert({
+    key: CLEANING_EPOCH_KEY,
+    settings: { epoch, resetAt: isoNow() },
+    updated_at: isoNow(),
+  });
+  return epoch;
+}
+
 function normalizePhotoSource(v: unknown): string {
   return String(v || "camera").toLowerCase() === "gallery" ? "gallery" : "camera";
 }
@@ -405,7 +430,7 @@ export async function handleGetTaskPhotos(body: Record<string, unknown>) {
     seen[key] = true;
     out.push(row);
   }
-  return out;
+  return { ok: true, photos: out, resetEpoch: await getCleaningResetEpoch() };
 }
 
 export async function handleDeleteTaskPhoto(body: Record<string, unknown>) {
@@ -526,5 +551,6 @@ export async function handleClearAll(body: Record<string, unknown>) {
     await trashRows("WeekCoverage", week, "reset", String(body.username));
     await sb().from("week_coverage").delete().gte("week_start", "");
   }
-  return { ok: true, success: true };
+  const resetEpoch = await bumpCleaningResetEpoch();
+  return { ok: true, success: true, resetEpoch };
 }

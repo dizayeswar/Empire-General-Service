@@ -355,6 +355,54 @@
     } catch (e) {}
   }
 
+  function readResetEpoch() {
+    try { return Number(localStorage.getItem('cm_reset_epoch') || 0) || 0; } catch (e) { return 0; }
+  }
+
+  function writeResetEpoch(n) {
+    try { localStorage.setItem('cm_reset_epoch', String(n || 0)); } catch (e) {}
+  }
+
+  function clearLocalPhotoCaches() {
+    try {
+      Object.keys(localStorage).forEach(function (k) {
+        if (k.indexOf('cm_photos_') === 0) localStorage.removeItem(k);
+      });
+    } catch (e) {}
+    state.photos = [];
+    state.stickyPhotos = [];
+    state.pending = {};
+    state.week = {};
+  }
+
+  async function wipeCleaningOfflineQueue() {
+    if (typeof empireOfflineQueueAll !== 'function' || typeof empireOfflineQueueDelete !== 'function') return;
+    try {
+      var rows = await empireOfflineQueueAll();
+      for (var i = 0; i < (rows || []).length; i++) {
+        if (isCleaningQueueItem(rows[i])) {
+          try { await empireOfflineQueueDelete(rows[i].id); } catch (eDel) {}
+        }
+      }
+    } catch (e) {}
+  }
+
+  async function applyServerResetIfNeeded(resetEpoch) {
+    resetEpoch = Number(resetEpoch) || 0;
+    if (!resetEpoch) return false;
+    if (resetEpoch <= readResetEpoch()) return false;
+    clearLocalPhotoCaches();
+    await wipeCleaningOfflineQueue();
+    writeResetEpoch(resetEpoch);
+    return true;
+  }
+
+  function parseTaskPhotosResponse(d) {
+    if (Array.isArray(d)) return { photos: d, resetEpoch: 0 };
+    if (d && Array.isArray(d.photos)) return { photos: d.photos, resetEpoch: Number(d.resetEpoch) || 0 };
+    return null;
+  }
+
   function beginPhotoPick() {
     _pickingPhoto = true;
     if (_pickPhotoTimer) clearTimeout(_pickPhotoTimer);
@@ -418,12 +466,22 @@
       if (state.saving || state.syncing || _pickingPhoto) return;
       state.photoLoadTries = 0;
       _lastPhotosSyncAt = Date.now();
-      var list = Array.isArray(d) ? d : null;
+      var parsed = parseTaskPhotosResponse(d);
+      var list = parsed ? parsed.photos : null;
+      var wiped = parsed ? await applyServerResetIfNeeded(parsed.resetEpoch) : false;
       var allowed = userProjects();
       var fromServer = (list || []).map(mapPhotoPeriod).filter(function (x) {
         if (!allowed.length) return true;
         return allowed.indexOf(String(x.project || '').trim().toLowerCase()) !== -1;
       });
+      if (wiped) {
+        writeLocalPhotos(fromServer);
+        state.photos = dedupePhotoList(fromServer);
+        await refreshOfflineBanner();
+        if (_pickingPhoto) return;
+        renderAll();
+        return;
+      }
       if (!fromServer.length) {
         var cached = readLocalPhotos();
         if (cached.length || state.photos.length || (state.stickyPhotos && state.stickyPhotos.length)) {
