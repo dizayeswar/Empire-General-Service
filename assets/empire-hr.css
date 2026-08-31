@@ -141,7 +141,7 @@
 .hr-badge-completed { background: #eef8f3; color: #146c4e; border-color: #b7e0cf; }
 
 .hr-list-editor {
-  padding: 0 0 40px;
+  padding: 16px 20px 40px;
 }
 .hr-list-editor .hr-app { padding-bottom: 0; }
 
