@@ -917,6 +917,69 @@ function hrBindScanDrag_() {
   sig.addEventListener('pointercancel', hrScanDirPointerUp_);
 }
 
+function hrPdfAnnualBodies_() {
+  var ents = hrEmptyEntitlements_();
+  ents.annual = { annualBalance: '', available: '', requested: '1', remaining: '' };
+  var out = [];
+  var i;
+  for (i = 1; i <= 15; i++) {
+    out.push({
+      id: 'hrlv-pdf-annual-' + String(i).padStart(2, '0'),
+      empName: 'Barzi Law Braim Ali',
+      empDepartment: 'MEP',
+      empCode: '101807',
+      empDivision: 'Electrical',
+      empJobTitle: 'Electrical Engineer',
+      replacement: '',
+      startDate: '2026-08-01',
+      endDate: '2026-08-30',
+      daysOut: '1 day (due to Lateness)',
+      leaveType: 'Annual Leave',
+      leaveOther: '',
+      empSignature: '',
+      empSignedAt: '2026-08-01',
+      lineManagerName: '',
+      lineManagerSignedAt: '',
+      lineManagerStatus: '',
+      directorName: '',
+      directorSignedAt: '',
+      directorStatus: '',
+      entitlements: JSON.parse(JSON.stringify(ents)),
+      hrComment: 'PDF page ' + i + ' of 15',
+      hrSignature: '',
+      hrSignedAt: '',
+      status: 'submitted'
+    });
+  }
+  return out;
+}
+
+function hrSeedPdfAnnualPapers_() {
+  if (!hrCanWrite_()) return Promise.resolve(0);
+  var have = {};
+  _hrRows.forEach(function (r) { have[String(r.id)] = true; });
+  var queue = hrPdfAnnualBodies_().filter(function (b) { return !have[b.id]; });
+  if (!queue.length) return Promise.resolve(0);
+  hrMsg_('Saving 15 Annual leave papers…', true);
+  var i = 0;
+  function next() {
+    if (i >= queue.length) return Promise.resolve(queue.length);
+    var body = queue[i++];
+    return fetchJSONRetry(Object.assign({ action: 'addHrLeaveRequest', token: hrToken_() }, body), 1, 45000)
+      .then(function (d) {
+        if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) {
+          return Promise.reject(new Error('Session expired'));
+        }
+        if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Save failed');
+        return next();
+      });
+  }
+  return next().catch(function (err) {
+    hrMsg_(err.message || 'Could not save the PDF papers.', false);
+    return 0;
+  });
+}
+
 function hrSave_() {
   if (_hrSaving || !hrCanWrite_()) return;
   var body = hrCollect_();
@@ -990,7 +1053,14 @@ function hrEnterApp_() {
   if (saveBtn && !_hrCanWrite) saveBtn.style.display = 'none';
   if (saveBtn2 && !_hrCanWrite) saveBtn2.style.display = 'none';
   hrRenderScan_();
-  hrLoad_(false);
+  hrLoad_(false).then(function () {
+    return hrSeedPdfAnnualPapers_();
+  }).then(function (n) {
+    if (n) {
+      hrMsg_('Saved 15 Annual leave papers from the PDF.', true);
+      return hrLoad_(true);
+    }
+  });
 }
 
 function hrHandleLogin_(e) {
