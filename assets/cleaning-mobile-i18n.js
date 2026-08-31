@@ -55,9 +55,19 @@
       saving: 'Saving…',
       uploading: 'Uploading…',
       savedOffline: 'Saved on this device. Will upload when you have signal.',
+      sync: 'Sync',
+      syncing: 'Syncing…',
       synced: function (p) {
         return (p.count || 0) + ' offline upload' + ((p.count || 0) === 1 ? '' : 's') + ' synced.';
       },
+      syncPartial: function (p) {
+        return 'Uploaded ' + (p.ok || 0) + '. ' + (p.fail || 0) + ' still waiting on this phone.';
+      },
+      syncFailed: function (p) {
+        return 'Could not upload ' + (p.count || 0) + ' photo batch(es). They stay on this phone.';
+      },
+      syncFailedGeneric: 'Sync failed. Check your signal and try again.',
+      syncOldUnreadable: 'An old photo on this phone could not be read. It was left on the device.',
       offlineWaiting: function (p) {
         return (p.count || 0) + ' photo upload' + ((p.count || 0) === 1 ? '' : 's') + ' waiting';
       },
@@ -139,9 +149,19 @@
       saving: 'پاشەکەوت…',
       uploading: 'بارکردن…',
       savedOffline: 'لەسەر ئەم ئامێرە پاشەکەوت کرا. کاتێک ئینتەرنێت هەبوو بار دەکرێت.',
+      sync: 'سینک',
+      syncing: 'سینک…',
       synced: function (p) {
         return (p.count || 0) + ' بارکردنی ئۆفلاین سینک بوو.';
       },
+      syncPartial: function (p) {
+        return (p.ok || 0) + ' بارکرا. ' + (p.fail || 0) + ' هێشتا لەسەر ئەم مۆبایلە چاوەڕوانە.';
+      },
+      syncFailed: function (p) {
+        return 'نەتوانرا ' + (p.count || 0) + ' وێنە باربکرێت. لەسەر ئەم مۆبایلە دەمێننەوە.';
+      },
+      syncFailedGeneric: 'سینک سەرکەوتوو نەبوو. سەیری ئینتەرنێت بکە و دووبارە هەوڵ بدە.',
+      syncOldUnreadable: 'وێنەیەکی کۆن نەخوێندرایەوە. لەسەر ئەم مۆبایلە هێڵدرایەوە.',
       offlineWaiting: function (p) {
         return (p.count || 0) + ' وێنە چاوەڕوانی بارکردنە';
       },

@@ -175,7 +175,7 @@ function empireUploadBlob(blob, folder, path, cb) {
     if (controller) controller.abort();
     else finish(null);
     if (!finished) _lastEmpireUploadError = 'Upload timed out — check your connection and try again.';
-  }, 45000);
+  }, 90000);
 
   var signBody = {
     action: 'getSignedUpload',

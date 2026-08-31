@@ -68,13 +68,27 @@ function empireOfflineBlobToDataUrl(blob) {
 }
 
 function empireOfflineDataUrlToBlob(dataUrl) {
-  var parts = String(dataUrl || '').split(',');
-  if (parts.length < 2) return null;
-  var mime = (parts[0].match(/data:([^;]+)/) || [])[1] || 'image/jpeg';
-  var bin = atob(parts[1]);
-  var arr = new Uint8Array(bin.length);
-  for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-  return new Blob([arr], { type: mime });
+  try {
+    var s = String(dataUrl || '');
+    if (!s || s.indexOf('blob:') === 0) return null;
+    if (s.indexOf('http://') === 0 || s.indexOf('https://') === 0) return null;
+    var comma = s.indexOf(',');
+    if (comma < 0) return null;
+    var meta = s.slice(0, comma);
+    var b64 = s.slice(comma + 1);
+    if (!b64) return null;
+    // Skip huge payloads instead of atob-crashing low-memory phones (~6MB decoded).
+    if (b64.length > 8 * 1024 * 1024) return null;
+    var mime = (meta.match(/data:([^;]+)/) || [])[1] || 'image/jpeg';
+    var bin = atob(b64);
+    var len = bin.length;
+    var arr = new Uint8Array(len);
+    var i;
+    for (i = 0; i < len; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: mime });
+  } catch (e) {
+    return null;
+  }
 }
 
 function empireOfflineSetBanner(count, onSync, opts) {
