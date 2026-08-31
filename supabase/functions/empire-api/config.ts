@@ -1,4 +1,6 @@
 export const TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+/** bcrypt cost for user password hashes (add/update user). */
+export const BCRYPT_ROUNDS = 10;
 /** Destructive wipe/clear password — must be set via `supabase secrets set RESET_PASSWORD=...` (no default). */
 export const RESET_PASSWORD = String(Deno.env.get("RESET_PASSWORD") || "").trim();
 export const HSE_INSPECTOR = "Evan Mansour";

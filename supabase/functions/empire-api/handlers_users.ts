@@ -1,5 +1,6 @@
 import bcrypt from "https://esm.sh/bcryptjs@2.4.3";
 import { AuthOk } from "./auth.ts";
+import { BCRYPT_ROUNDS } from "./config.ts";
 import { sb, isoNow } from "./db.ts";
 import {
   normalizeDeptField,
