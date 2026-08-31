@@ -39,7 +39,30 @@
   color: var(--text-soft);
 }
 
-.hr-table-wrap { overflow-x: auto; }
+.hr-stage {
+  margin: 18px 0 28px;
+  padding: 14px 14px 8px;
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  background: var(--panel, #fff);
+}
+.hr-stage-title {
+  margin: 0 0 10px;
+  font-size: 16px;
+  font-weight: 700;
+}
+.hr-stage-title span {
+  color: var(--text-soft);
+  font-weight: 600;
+  font-size: 13px;
+}
+.hr-stage-empty {
+  margin: 0 0 8px;
+  color: var(--text-soft);
+  font-size: 13px;
+}
+.hr-stage-pending_director { border-color: #e4d0a8; background: #fdf8ef; }
+.hr-stage-completed { border-color: #b7e0cf; background: #f3faf7; }
 
 .hr-list-table {
   width: 100%;

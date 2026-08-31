@@ -554,13 +554,17 @@ function hrTypeLabel_(id) {
 
 function hrGroupedByStage_(list) {
   var groups = {};
+  HR_STAGES.forEach(function (st) { groups[st.id] = []; });
   list.forEach(function (r) {
     var k = hrStageOf_(r);
     if (!groups[k]) groups[k] = [];
     groups[k].push(r);
   });
-  return HR_STAGES.filter(function (st) { return groups[st.id] && groups[st.id].length; }).map(function (st) {
-    return { type: st.id, label: st.label, rows: groups[st.id] };
+  var stages = hrIsDirectorOnly_()
+    ? HR_STAGES.filter(function (st) { return st.id === 'pending_director'; })
+    : HR_STAGES.filter(function (st) { return st.id !== 'rejected' || groups.rejected.length; });
+  return stages.map(function (st) {
+    return { type: st.id, label: st.label, rows: groups[st.id] || [] };
   });
 }
 
@@ -847,19 +851,26 @@ function hrRenderTable_() {
     summary.textContent = list.length + ' request' + (list.length === 1 ? '' : 's') +
       (list.length !== _hrRows.length ? ' of ' + _hrRows.length : '');
   }
-  if (!list.length) {
-    host.innerHTML = '<p class="hr-summary">No saved fills yet for this filter. The papers above are the same Leave Request sheet.</p>';
-    return;
-  }
   var staff = hrIsHrStaff_();
   var director = hrIsDirectorOnly_();
   var groups = hrGroupedByStage_(list);
-  var h = '<div class="hr-table-wrap"><table class="hr-list-table"><thead><tr>' +
-    '<th>#</th><th>Employee</th><th>Department</th><th>Type</th><th>Dates</th><th>Days</th><th>Status</th><th></th>' +
-    '</tr></thead><tbody>';
+  var h = '';
   groups.forEach(function (g) {
-    h += '<tr class="hr-list-group"><td colspan="8">' + hrEsc_(g.label) +
-      ' <span>(' + g.rows.length + ')</span></td></tr>';
+    var emptyHint = g.type === 'pending_director'
+      ? 'Confirmed papers wait here for the director e-signature.'
+      : (g.type === 'completed'
+        ? 'Papers the director has signed come back here.'
+        : 'No leave requests in this section.');
+    h += '<section class="hr-stage hr-stage-' + hrEsc_(g.type) + '">';
+    h += '<h3 class="hr-stage-title">' + hrEsc_(g.label) + ' <span>(' + g.rows.length + ')</span></h3>';
+    if (!g.rows.length) {
+      h += '<p class="hr-stage-empty">' + emptyHint + '</p>';
+      h += '</section>';
+      return;
+    }
+    h += '<div class="hr-table-wrap"><table class="hr-list-table"><thead><tr>' +
+      '<th>#</th><th>Employee</th><th>Department</th><th>Type</th><th>Dates</th><th>Days</th><th>Status</th><th></th>' +
+      '</tr></thead><tbody>';
     g.rows.forEach(function (r) {
       var st = String(r.status || 'submitted');
       var stage = hrStageOf_(r);
@@ -884,8 +895,8 @@ function hrRenderTable_() {
           '<button type="button" onclick="hrPrintRow_(\'' + hrEsc_(r.id) + '\')">Print</button>' +
         '</div></td></tr>';
     });
+    h += '</tbody></table></div></section>';
   });
-  h += '</tbody></table></div>';
   host.innerHTML = h;
 }
 
