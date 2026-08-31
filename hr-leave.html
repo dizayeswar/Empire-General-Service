@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-30-hr-f06">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-30-hr-f06">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-08-30-hr-f06-dmy2">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-08-31-hr-scan">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -49,6 +49,10 @@
         <button class="tab-btn active" id="tabBtnForm" onclick="hrSwitchTab_(event,'form')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></span>
           <span class="lbl">Leave request</span>
+        </button>
+        <button class="tab-btn" id="tabBtnScan" onclick="hrSwitchTab_(event,'scan')">
+          <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg></span>
+          <span class="lbl">Scan paper</span>
         </button>
         <button class="tab-btn" id="tabBtnList" onclick="hrSwitchTab_(event,'list')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span>
@@ -104,6 +108,40 @@
         </div>
       </div>
 
+      <div id="scan" class="tab-content">
+        <div class="form-section hr-scan-app">
+          <h2>Scan paper leave form</h2>
+          <p class="hr-tab-help">Photograph or upload the filled paper. After the scan loads, add an e-signature on the <strong>Director</strong> box only — not employee, line manager, or HR.</p>
+          <p class="hr-form-msg" id="hrScanMsg"></p>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Employee name</label>
+              <input type="text" id="hr-scanEmpName" autocomplete="name" oninput="hrSet_('hr-empName', this.value)">
+            </div>
+            <div class="form-group">
+              <label>Start date</label>
+              <input type="date" id="hr-scanStartDate" onchange="hrSet_('hr-startDate', this.value)">
+            </div>
+          </div>
+          <div class="hr-scan-toolbar">
+            <button type="button" onclick="document.getElementById('hr-scan-cam').click()">Scan with camera</button>
+            <button type="button" onclick="document.getElementById('hr-scan-file').click()">Upload scan</button>
+            <button type="button" id="hrScanDirBtn" onclick="hrOpenScanDirectorSig_()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Director e-signature</button>
+            <button type="button" onclick="hrClearScan_()">Remove scan</button>
+            <button type="button" onclick="hrSaveFromScan_()">Save</button>
+            <button type="button" onclick="hrPrintScan_()">Print signed scan</button>
+          </div>
+          <p class="hr-scan-hint" id="hrScanHint">No paper yet. Scan or upload the leave form, then put the director e-signature on the Director box.</p>
+          <div class="hr-scan-stage-wrap" id="hrScanStageWrap" style="display:none;">
+            <div class="hr-scan-stage" id="hrScanStage">
+              <img id="hrScanImg" alt="Scanned leave form">
+              <div class="hr-scan-target" id="hrScanTarget">Director</div>
+              <img class="hr-scan-dir-sig" id="hrScanDirSig" alt="Director e-signature" hidden>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div id="form" class="tab-content active">
         <div class="hr-app">
           <div class="hr-toolbar no-print">
@@ -119,10 +157,21 @@
             <button type="button" onclick="hrClearForm_()">New</button>
             <button type="button" onclick="hrClearForm_()">Clear</button>
             <button type="button" id="hrSaveBtn" onclick="hrSave_()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Save</button>
+            <button type="button" onclick="hrSwitchTab_(null,'scan')">Scan paper</button>
             <button type="button" id="hrPrintBtn" onclick="hrPrint_()">Print / Save as PDF</button>
             <button type="button" id="hrDeleteBtn" onclick="hrDelete_()" style="display:none;color:#fff;background:#C5504F;border-color:#C5504F;">Delete</button>
           </div>
           <p class="hr-form-msg no-print" id="hrFormMsg"></p>
+          <div class="hr-scan-card no-print" id="hrScanCardOnForm">
+            <div>
+              <strong>Paper scan</strong>
+              <p>Scan or upload the printed leave form. Only the Director box gets an e-signature.</p>
+            </div>
+            <div class="hr-scan-card-acts">
+              <button type="button" onclick="hrSwitchTab_(null,'scan')">Open scan section</button>
+              <span class="hr-scan-card-status" id="hrScanFormStatus">No scan yet</span>
+            </div>
+          </div>
           <input type="hidden" id="hr-id">
           <input type="hidden" id="hrFormNo">
           <input type="hidden" id="hr-empSignedAt">
@@ -139,6 +188,9 @@
             <option value="rejected">Rejected</option>
           </select>
           <input type="file" id="hr-sig-file" accept="image/*" hidden onchange="hrOnSigFile_(event)">
+          <input type="file" id="hr-scan-file" accept="image/*" hidden onchange="hrOnScanFile_(event)">
+          <input type="file" id="hr-scan-cam" accept="image/*" capture="environment" hidden onchange="hrOnScanFile_(event)">
+          <input type="file" id="hr-scan-dir-sig" accept="image/*" hidden onchange="hrOnScanDirectorSig_(event)">
           <datalist id="hr-dept-list">
             <option value="Civil Department"></option>
             <option value="Electrical Department"></option>
@@ -307,10 +359,11 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-30-hr-f06"></script>
+<script src="config.js?v=2026-08-31-hr-scan"></script>
 <script src="assets/empire-api.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-auth.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-core.js?v=2026-08-30-hr-f06"></script>
-<script src="assets/empire-hr-leave.js?v=2026-08-30-hr-f06-dmy2"></script>
+<script src="assets/empire-storage.js?v=2026-08-31-hr-scan"></script>
+<script src="assets/empire-hr-leave.js?v=2026-08-31-hr-scan"></script>
 </body>
 </html>
