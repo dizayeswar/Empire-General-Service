@@ -174,6 +174,7 @@ export async function handleLogin(body: Record<string, unknown>) {
       ? derived.warehouseSigSections
       : parseWarehouseSigSections(user.warehouse_sig_sections, rp.role),
     moduleAccess: moduleAccessToJson(access),
+    signature: String(user.signature || ""),
     message: "Login successful",
   };
 }
@@ -202,6 +203,7 @@ export async function handleGetPerms(body: Record<string, unknown>) {
       ? derived.warehouseSigSections
       : parseWarehouseSigSections(user.warehouse_sig_sections, derived.role),
     moduleAccess: moduleAccessToJson(access),
+    signature: String(user.signature || ""),
   };
 }
 

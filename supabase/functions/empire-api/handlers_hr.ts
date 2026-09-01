@@ -1,4 +1,4 @@
-import { AuthOk } from "./auth.ts";
+import { AuthOk, getUser } from "./auth.ts";
 import { fmtDate, isoNow, sb, selectAllRows } from "./db.ts";
 import { moduleLevel, normalizeRole } from "./helpers.ts";
 
@@ -260,7 +260,11 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
     const existingSigs = existing.__sigs && typeof existing.__sigs === "object" && !Array.isArray(existing.__sigs)
       ? existing.__sigs as Record<string, string>
       : {};
-    const directorSig = String(incomingSigs.director || body.directorSignature || existingSigs.director || "").trim();
+    let directorSig = String(incomingSigs.director || body.directorSignature || existingSigs.director || "").trim();
+    if (!directorSig) {
+      const u = await getUser(auth.username);
+      directorSig = String((u && u.signature) || "").trim();
+    }
     if (!directorSig) {
       return { ok: false, success: false, error: "missing_signature", message: "Add your e-signature in the Director box first." };
     }

@@ -110,6 +110,18 @@
           <input id="f-projects" placeholder="ec,es or blank = all projects">
         </label>
       </div>
+      <div id="sigField" style="margin-top:14px;">
+        <div style="font-size:13px;font-weight:700;margin-bottom:6px;">Director e-signature</div>
+        <p class="admin-form-hint" style="margin-top:0;">Saved on this user. When they confirm a Pending Director paper, this stamp is used automatically.</p>
+        <input type="file" id="f-signature" accept="image/*" hidden onchange="onSigFile(event)">
+        <div id="sigPreviewWrap" style="display:none;margin:8px 0 10px;">
+          <img id="sigPreview" alt="E-signature" style="max-height:56px;max-width:260px;background:#fff;border:1px solid var(--card-border);border-radius:8px;padding:6px 10px;">
+        </div>
+        <div class="admin-form-actions" style="margin-top:0;">
+          <button type="button" class="act-btn" onclick="document.getElementById('f-signature').click()">Upload e-signature</button>
+          <button type="button" class="act-btn" id="btnClearSig" onclick="clearSignaturePreview()" style="display:none;">Remove</button>
+        </div>
+      </div>
       <div style="margin-top:14px;">
         <div style="font-size:13px;font-weight:700;margin-bottom:6px;">Module access</div>
         <div class="access-matrix-wrap">
@@ -143,15 +155,16 @@
     <div id="usersTableHost"></div>
   </div>
 
-  <script src="config.js?v=2026-08-31-hr-dir"></script>
+  <script src="config.js?v=2026-09-01-dir-esig"></script>
   <script src="assets/empire-api.js?v=2026-08-31-hr-dir"></script>
-  <script src="assets/empire-auth.js?v=2026-08-31-hr-dir"></script>
+  <script src="assets/empire-auth.js?v=2026-09-01-dir-esig"></script>
   <script src="assets/empire-core.js?v=2026-08-22-access"></script>
   <script src="assets/empire-sw-update.js?v=2026-08-22-access"></script>
   <script>
     var allUsers = [];
     var editingUsername = null;
     var _whExpanded = true;
+    var _pendingSig = undefined;
 
     var ACCESS_MODULES = [
       { key: 'admin', label: 'Admin (Users)', n: 1 },
@@ -303,6 +316,8 @@
       document.getElementById('userFormCard').style.display = '';
       _whExpanded = true;
       renderAccessMatrix(emptyAccess());
+      showSigPreview('');
+      _pendingSig = undefined;
       document.getElementById('f-username').focus();
     }
 
@@ -329,6 +344,8 @@
       renderAccessMatrix(a);
       document.getElementById('f-trade').value = u.trade || '';
       document.getElementById('f-projects').value = u.projects || '';
+      _pendingSig = undefined;
+      showSigPreview(u.signature || '');
     }
 
     function closeUserForm() {
@@ -348,6 +365,88 @@
         trade: workerPhone ? document.getElementById('f-trade').value : '',
         projects: document.getElementById('f-projects').value.trim()
       };
+    }
+
+    function showSigPreview(url) {
+      var wrap = document.getElementById('sigPreviewWrap');
+      var img = document.getElementById('sigPreview');
+      var clr = document.getElementById('btnClearSig');
+      var has = !!url;
+      if (wrap) wrap.style.display = has ? '' : 'none';
+      if (img) {
+        if (has) img.src = url;
+        else img.removeAttribute('src');
+      }
+      if (clr) clr.style.display = has ? '' : 'none';
+    }
+
+    function clearSignaturePreview() {
+      _pendingSig = '';
+      showSigPreview('');
+      var inp = document.getElementById('f-signature');
+      if (inp) inp.value = '';
+    }
+
+    function processSigImage(dataUrl, cb) {
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var maxW = 900, maxH = 360;
+          var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+          var scale = Math.min(1, maxW / w, maxH / h);
+          var cw = Math.max(1, Math.round(w * scale));
+          var ch = Math.max(1, Math.round(h * scale));
+          var canvas = document.createElement('canvas');
+          canvas.width = cw; canvas.height = ch;
+          var ctx = canvas.getContext('2d', { willReadFrequently: true });
+          ctx.clearRect(0, 0, cw, ch);
+          ctx.drawImage(img, 0, 0, cw, ch);
+          var imageData = ctx.getImageData(0, 0, cw, ch);
+          var d = imageData.data;
+          var minX = cw, minY = ch, maxX = 0, maxY = 0, found = false;
+          for (var i = 0; i < d.length; i += 4) {
+            var r = d[i], g = d[i + 1], b = d[i + 2], a = d[i + 3];
+            if (a < 8) { d[i + 3] = 0; continue; }
+            var lum = 0.299 * r + 0.587 * g + 0.114 * b;
+            var ink = Math.max(0, Math.min(1, (205 - lum) / 95));
+            if (ink < 0.12) { d[i] = 0; d[i + 1] = 0; d[i + 2] = 0; d[i + 3] = 0; continue; }
+            d[i] = 16; d[i + 1] = 38; d[i + 2] = 125;
+            d[i + 3] = Math.round(Math.pow(ink, 0.85) * 255);
+            var px = (i / 4) % cw, py = Math.floor((i / 4) / cw);
+            if (px < minX) minX = px;
+            if (py < minY) minY = py;
+            if (px > maxX) maxX = px;
+            if (py > maxY) maxY = py;
+            found = true;
+          }
+          ctx.putImageData(imageData, 0, 0);
+          if (!found) { cb(canvas.toDataURL('image/png')); return; }
+          var pad = 4;
+          minX = Math.max(0, minX - pad); minY = Math.max(0, minY - pad);
+          maxX = Math.min(cw - 1, maxX + pad); maxY = Math.min(ch - 1, maxY + pad);
+          var out = document.createElement('canvas');
+          out.width = Math.max(1, maxX - minX + 1);
+          out.height = Math.max(1, maxY - minY + 1);
+          out.getContext('2d').drawImage(canvas, minX, minY, out.width, out.height, 0, 0, out.width, out.height);
+          cb(out.toDataURL('image/png'));
+        } catch (err) { cb(dataUrl); }
+      };
+      img.onerror = function () { cb(dataUrl); };
+      img.src = dataUrl;
+    }
+
+    function onSigFile(e) {
+      var file = e.target.files && e.target.files[0];
+      e.target.value = '';
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        processSigImage(String(reader.result || ''), function (url) {
+          _pendingSig = url;
+          showSigPreview(url);
+        });
+      };
+      reader.readAsDataURL(file);
     }
 
     function saveUserForm() {
@@ -376,6 +475,7 @@
       var action = editingUsername ? 'updateUser' : 'createUser';
       var body = Object.assign({ action: action, token: empireGetToken() }, p);
       if (editingUsername) body.username = editingUsername;
+      if (_pendingSig !== undefined) body.signature = _pendingSig;
       fetchJSONRetry(body, 1, 30000)
         .then(function (d) {
           if (!d || d.ok === false) {
@@ -453,7 +553,8 @@
         '</tr></thead><tbody>';
       rows.forEach(function (u) {
         h += '<tr>';
-        h += '<td><strong>' + esc(u.username) + '</strong></td>';
+        h += '<td><strong>' + esc(u.username) + '</strong>' +
+          (u.hasSignature || u.signature ? ' <span class="admin-badge">e-sig</span>' : '') + '</td>';
         h += '<td style="max-width:420px;font-size:12px;line-height:1.45;">' + esc(accessSummary(u) || '—') + '</td>';
         h += '<td>' + esc(u.trade || '—') + '</td>';
         h += '<td class="admin-updated">' + esc(formatUpdated(u.updatedAt)) + '</td>';

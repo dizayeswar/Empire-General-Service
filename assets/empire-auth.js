@@ -11,6 +11,7 @@ var EMPIRE_AUTH_KEYS = {
   electricalHide: 'empire_electrical_hide',
   warehouseSigSections: 'empire_warehouse_sig_sections',
   moduleAccess: 'empire_module_access',
+  signature: 'empire_user_signature',
   loggedIn: 'empire_loggedIn'
 };
 
@@ -96,6 +97,11 @@ function empireGetModuleAccess() {
   } catch (e) {
     return {};
   }
+}
+
+function empireGetSignature() {
+  empireMigrateSession();
+  return empireAuthLs('signature');
 }
 
 function empireModuleLevel(key) {
@@ -287,6 +293,8 @@ function empireSetSession(username, data) {
   } else {
     empireAuthSet('moduleAccess', '{}');
   }
+  if (data.signature) empireAuthSet('signature', String(data.signature));
+  else empireAuthSet('signature', '');
 }
 
 function empireClearLegacyKeys() {
@@ -691,6 +699,7 @@ function empireAuthRefreshPerms(onUpdate) {
         if (d.moduleAccess && typeof d.moduleAccess === 'object') {
           empireAuthSet('moduleAccess', JSON.stringify(d.moduleAccess));
         }
+        if (d.signature != null) empireAuthSet('signature', String(d.signature || ''));
         if (typeof onUpdate === 'function') onUpdate(d);
       } else if (empireAuthHandleInvalidSession_(d)) {
         return;

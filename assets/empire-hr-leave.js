@@ -80,6 +80,23 @@ function hrIsDirector_() {
 function hrIsDirectorOnly_() {
   return hrIsDirector_() && !hrIsHrStaff_();
 }
+function hrAccountDirectorSig_() {
+  return typeof empireGetSignature === 'function' ? String(empireGetSignature() || '').trim() : '';
+}
+
+function hrApplyAccountDirectorSig_(row) {
+  if (!hrDirectorCanSign_(row)) return;
+  if (_hrSigs.director) return;
+  var saved = hrAccountDirectorSig_();
+  if (!saved) return;
+  _hrSigs.director = saved;
+  if (!hrVal_('hr-directorName')) {
+    hrSet_('hr-directorName', typeof empireGetUser === 'function' ? empireGetUser() : '');
+  }
+  if (!hrVal_('hr-directorSignedAt')) hrSet_('hr-directorSignedAt', hrToday_());
+  hrSet_('hr-directorStatus', 'approved');
+}
+
 function hrStageOf_(r) {
   var s = String((r && r.status) || 'submitted');
   if (s === 'pending_director') return 'pending_director';
@@ -457,6 +474,7 @@ function hrFillForm_(row) {
     if (ents.__scan.w != null) _hrScan.w = Number(ents.__scan.w) || _hrScan.w;
     if (_hrScan.directorSig && !_hrSigs.director) _hrSigs.director = _hrScan.directorSig;
   }
+  hrApplyAccountDirectorSig_(row);
   hrRenderEntitlements_(ents);
   hrRenderAllSigs_();
   hrRenderScan_();
@@ -717,6 +735,7 @@ function hrConfirmRow_(id) {
     if (!sig && row && row.entitlements && row.entitlements.__sigs) {
       sig = row.entitlements.__sigs.director || '';
     }
+    if (!sig) sig = hrAccountDirectorSig_();
     if (!sig) {
       if (hrVal_('hr-id') !== id) hrEditInList_(id);
       hrMsg_('Add your e-signature in the Director box, then Confirm.', false);
@@ -727,15 +746,13 @@ function hrConfirmRow_(id) {
   }
   var extra = { action: 'confirmHrLeaveRequest', token: hrToken_(), id: id };
   if (hrIsDirectorOnly_()) {
-    if (hrVal_('hr-id') === id) {
-      extra.directorName = hrVal_('hr-directorName') || (typeof empireGetUser === 'function' ? empireGetUser() : '');
-      extra.directorSignedAt = hrVal_('hr-directorSignedAt') || hrToday_();
-      extra.entitlements = hrReadEntitlements_();
-    } else if (row) {
-      extra.directorName = row.directorName || (typeof empireGetUser === 'function' ? empireGetUser() : '');
-      extra.directorSignedAt = row.directorSignedAt || hrToday_();
-      extra.entitlements = row.entitlements || {};
-    }
+    extra.directorSignature = sig;
+    extra.directorName = (hrVal_('hr-id') === id ? hrVal_('hr-directorName') : (row && row.directorName)) ||
+      (typeof empireGetUser === 'function' ? empireGetUser() : '');
+    extra.directorSignedAt = (hrVal_('hr-id') === id ? hrVal_('hr-directorSignedAt') : (row && row.directorSignedAt)) || hrToday_();
+    extra.entitlements = hrVal_('hr-id') === id ? hrReadEntitlements_() : ((row && row.entitlements) || {});
+    extra.entitlements = extra.entitlements || {};
+    extra.entitlements.__sigs = Object.assign({}, extra.entitlements.__sigs || {}, { director: sig });
   }
   hrMsg_('Confirming…', true);
   fetchJSONRetry(extra, 1, 30000)
@@ -1342,6 +1359,11 @@ function hrEnterApp_() {
   if (typeof empireAuthMarkLoginVisible === 'function') empireAuthMarkLoginVisible(false);
   var who = document.getElementById('whoLabel');
   if (who) who.textContent = 'Logged in as: ' + (empireGetUser() || '');
+  if (typeof empireAuthRefreshPerms === 'function') {
+    empireAuthRefreshPerms(function () {
+      _hrCanWrite = hrCanWrite_();
+    });
+  }
   _hrCanWrite = hrCanWrite_();
   if (!hrVal_('hr-id')) {
     hrClearForm_();

@@ -47,6 +47,20 @@ function isAdminAuth(auth: AuthOk) {
   return moduleLevel(auth.moduleAccess, "admin") === "write";
 }
 
+const SIG_MAX_CHARS = 280000;
+
+export function parseUserSignature(raw: unknown): { ok: true; value: string } | { ok: false; message: string } {
+  const s = String(raw || "").trim();
+  if (!s) return { ok: true, value: "" };
+  if (!/^data:image\/(png|jpe?g|webp);base64,/i.test(s)) {
+    return { ok: false, message: "E-signature must be a PNG or JPG image." };
+  }
+  if (s.length > SIG_MAX_CHARS) {
+    return { ok: false, message: "E-signature image is too large." };
+  }
+  return { ok: true, value: s };
+}
+
 function publicUser(row: Record<string, unknown>) {
   const moduleAccess = resolveModuleAccessForUser(row);
   const derived = deriveAccountFromModuleAccess(moduleAccess, { hide: row.hide });
@@ -55,6 +69,7 @@ function publicUser(row: Record<string, unknown>) {
     row.warehouse_sig_sections || derived.warehouseSigSections.join(","),
     role,
   );
+  const signature = String(row.signature || "");
   return {
     username: String(row.username || ""),
     dept: String(row.dept || derived.dept || ""),
@@ -66,6 +81,8 @@ function publicUser(row: Record<string, unknown>) {
     warehouseSigSections,
     warehouseSigSectionsRaw: warehouseSigSections.join(","),
     moduleAccess: moduleAccessToJson(moduleAccess),
+    hasSignature: !!signature,
+    signature,
     updatedAt: String(row.updated_at || ""),
   };
 }
@@ -118,7 +135,7 @@ export async function handleListUsers(auth: AuthOk) {
   if (denied) return denied;
   const { data, error } = await sb()
     .from("users")
-    .select("username,dept,role,hide,projects,trade,hide_electrical,warehouse_sig_sections,module_access,updated_at")
+    .select("username,dept,role,hide,projects,trade,hide_electrical,warehouse_sig_sections,module_access,signature,updated_at")
     .order("username");
   if (error) throw error;
   return { ok: true, users: (data || []).map((r) => publicUser(r as Record<string, unknown>)) };
@@ -202,6 +219,9 @@ export async function handleCreateUser(body: Record<string, unknown>, auth: Auth
     return { ok: false, success: false, error: "exists", message: "That username already exists." };
   }
 
+  const sigIn = parseUserSignature(body.signature);
+  if (!sigIn.ok) return { ok: false, success: false, error: "bad_signature", message: sigIn.message };
+
   const row = {
     username: vu.username,
     password_hash: bcrypt.hashSync(password, BCRYPT_ROUNDS),
@@ -213,6 +233,7 @@ export async function handleCreateUser(body: Record<string, unknown>, auth: Auth
     hide_electrical: String(body.hideElectrical || body.hide_electrical || "").trim(),
     warehouse_sig_sections: warehouseSigSectionsCsv(sections),
     module_access: moduleAccessJson,
+    signature: sigIn.value,
     updated_at: isoNow(),
   };
   const { error } = await sb().from("users").insert(row);
@@ -289,6 +310,12 @@ export async function handleUpdateUser(body: Record<string, unknown>, auth: Auth
       return { ok: false, success: false, error: "bad_password", message: "Password must be at least 4 characters." };
     }
     patch.password_hash = bcrypt.hashSync(password, BCRYPT_ROUNDS);
+  }
+
+  if (body.signature !== undefined) {
+    const sigIn = parseUserSignature(body.signature);
+    if (!sigIn.ok) return { ok: false, success: false, error: "bad_signature", message: sigIn.message };
+    patch.signature = sigIn.value;
   }
 
   const nextRole = normalizeRole(patch.role != null ? patch.role : existing.role);
