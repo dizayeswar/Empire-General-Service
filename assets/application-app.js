@@ -36,6 +36,27 @@ function appEsc_(s) {
   return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+function appAsk_(msg, opts, onOk) {
+  if (typeof opts === 'function') {
+    onOk = opts;
+    opts = {};
+  }
+  opts = opts || {};
+  if (typeof uiConfirm === 'function') {
+    uiConfirm(msg, opts).then(function (ok) { if (ok) onOk(); });
+    return;
+  }
+  if (window.confirm(msg)) onOk();
+}
+
+function appNote_(msg) {
+  if (typeof uiAlert === 'function') {
+    uiAlert(String(msg || ''));
+    return;
+  }
+  window.alert(String(msg || ''));
+}
+
 function appPropertySortKey_(propertyId) {
   return String(propertyId || '').toUpperCase().split('-').map(function (part) {
     if (part === 'G') return '0';
@@ -764,7 +785,7 @@ function appSaveRow_(id, patch) {
         }
       }
     } else {
-      alert((d && (d.message || d.error)) || 'Could not save');
+      appNote_((d && (d.message || d.error)) || 'Could not save');
       if (!_appSaveQueue[id] && String(row.phone || '') === sentPhone && String(row.status || '') === sentStatus) {
         row.phone = baseline.phone;
         row.status = baseline.status;
@@ -774,7 +795,7 @@ function appSaveRow_(id, patch) {
       }
     }
   }).catch(function (e) {
-    alert(String((e && e.message) || e || 'Save failed'));
+    appNote_(String((e && e.message) || e || 'Save failed'));
     if (!_appSaveQueue[id] && String(row.phone || '') === sentPhone && String(row.status || '') === sentStatus) {
       row.phone = baseline.phone;
       row.status = baseline.status;
@@ -1168,7 +1189,7 @@ function appIssueClearForm_() {
 
 function appIssueAdd_() {
   if (_appIssuePhotoUploading) {
-    alert('Wait for the photo to finish uploading.');
+    appNote_('Wait for the photo to finish uploading.');
     return;
   }
   var propertyId = String((document.getElementById('appIssueApt') || {}).value || '').trim().toUpperCase();
@@ -1176,11 +1197,11 @@ function appIssueAdd_() {
   var problem = String((document.getElementById('appIssueProblem') || {}).value || '').trim();
   var solution = String((document.getElementById('appIssueSolution') || {}).value || '').trim();
   if (_appIssueKind === 'customer' && !propertyId) {
-    alert('Pick an apartment for a customer issue.');
+    appNote_('Pick an apartment for a customer issue.');
     return;
   }
   if (!note) {
-    alert('Write the issue first.');
+    appNote_('Write the issue first.');
     return;
   }
   fetchJSONRetry({
@@ -1195,7 +1216,7 @@ function appIssueAdd_() {
     photo: _appIssuePhotoUrl || ''
   }, 2, 45000).then(function (d) {
     if (!d || d.ok === false) {
-      alert((d && (d.message || d.error)) || 'Could not save issue');
+      appNote_((d && (d.message || d.error)) || 'Could not save issue');
       return;
     }
     if (d.issue) _appIssues.unshift(d.issue);
@@ -1203,7 +1224,7 @@ function appIssueAdd_() {
     appIssueClearForm_();
     appRenderIssues_();
   }).catch(function (e) {
-    alert(String((e && e.message) || e || 'Save failed'));
+    appNote_(String((e && e.message) || e || 'Save failed'));
   });
 }
 
@@ -1215,7 +1236,7 @@ function appIssueMarkFixed_(id) {
     id: id
   }, 2, 30000).then(function (d) {
     if (!d || d.ok === false) {
-      alert((d && (d.message || d.error)) || 'Could not mark fixed');
+      appNote_((d && (d.message || d.error)) || 'Could not mark fixed');
       return;
     }
     var i = _appIssues.findIndex(function (x) { return String(x.id) === String(id); });
@@ -1223,25 +1244,27 @@ function appIssueMarkFixed_(id) {
     else appIssueLoad_(true);
     appRenderIssues_();
   }).catch(function (e) {
-    alert(String((e && e.message) || e || 'Update failed'));
+    appNote_(String((e && e.message) || e || 'Update failed'));
   });
 }
 
 function appIssueDelete_(id) {
-  if (!id || !confirm('Delete this issue?')) return;
-  fetchJSONRetry({
-    action: 'deleteApplicationIssue',
-    token: appToken_(),
-    id: id
-  }, 1, 30000).then(function (d) {
-    if (!d || d.ok === false) {
-      alert((d && (d.message || d.error)) || 'Could not delete');
-      return;
-    }
-    _appIssues = _appIssues.filter(function (x) { return String(x.id) !== String(id); });
-    appRenderIssues_();
-  }).catch(function (e) {
-    alert(String((e && e.message) || e || 'Delete failed'));
+  if (!id) return;
+  appAsk_('Delete this issue? It will go to the Recycle Bin.', { danger: true }, function () {
+    fetchJSONRetry({
+      action: 'deleteApplicationIssue',
+      token: appToken_(),
+      id: id
+    }, 1, 30000).then(function (d) {
+      if (!d || d.ok === false) {
+        appNote_((d && (d.message || d.error)) || 'Could not delete');
+        return;
+      }
+      _appIssues = _appIssues.filter(function (x) { return String(x.id) !== String(id); });
+      appRenderIssues_();
+    }).catch(function (e) {
+      appNote_(String((e && e.message) || e || 'Delete failed'));
+    });
   });
 }
 
@@ -1425,66 +1448,72 @@ function appRbLoad_() {
 }
 
 function appRbRestore_(id) {
-  if (!id || !confirm('Restore this issue?')) return;
-  fetchJSONRetry({
-    action: 'restoreTrash',
-    dept: APP_DEPT,
-    sheets: APP_TRASH_SHEETS,
-    trashIds: [id],
-    token: appToken_()
-  }, 1, 30000).then(function (d) {
-    if (d && d.ok === false) throw new Error(d.message || d.error || 'Restore failed');
-    appRbLoad_();
-    appIssueLoad_(true);
-  }).catch(function (e) {
-    alert(String((e && e.message) || e || 'Restore failed'));
+  if (!id) return;
+  appAsk_('Restore this issue?', function () {
+    fetchJSONRetry({
+      action: 'restoreTrash',
+      dept: APP_DEPT,
+      sheets: APP_TRASH_SHEETS,
+      trashIds: [id],
+      token: appToken_()
+    }, 1, 30000).then(function (d) {
+      if (d && d.ok === false) throw new Error(d.message || d.error || 'Restore failed');
+      appRbLoad_();
+      appIssueLoad_(true);
+    }).catch(function (e) {
+      appNote_(String((e && e.message) || e || 'Restore failed'));
+    });
   });
 }
 
 function appRbPurge_(id) {
-  if (!id || !confirm('Delete this issue forever? This cannot be undone.')) return;
-  fetchJSONRetry({
-    action: 'purgeTrash',
-    dept: APP_DEPT,
-    sheets: APP_TRASH_SHEETS,
-    trashIds: [id],
-    token: appToken_()
-  }, 1, 30000).then(function (d) {
-    if (d && d.ok === false) throw new Error(d.message || d.error || 'Delete forever failed');
-    appRbLoad_();
-  }).catch(function (e) {
-    alert(String((e && e.message) || e || 'Delete forever failed'));
+  if (!id) return;
+  appAsk_('Delete this issue forever? This cannot be undone.', { danger: true }, function () {
+    fetchJSONRetry({
+      action: 'purgeTrash',
+      dept: APP_DEPT,
+      sheets: APP_TRASH_SHEETS,
+      trashIds: [id],
+      token: appToken_()
+    }, 1, 30000).then(function (d) {
+      if (d && d.ok === false) throw new Error(d.message || d.error || 'Delete forever failed');
+      appRbLoad_();
+    }).catch(function (e) {
+      appNote_(String((e && e.message) || e || 'Delete forever failed'));
+    });
   });
 }
 
 function appRbRestoreAll_() {
-  if (!confirm('Restore every issue in the Recycle Bin?')) return;
-  fetchJSONRetry({
-    action: 'restoreTrash',
-    dept: APP_DEPT,
-    sheets: APP_TRASH_SHEETS,
-    token: appToken_()
-  }, 1, 60000).then(function (d) {
-    if (d && d.ok === false) throw new Error(d.message || d.error || 'Restore failed');
-    appRbLoad_();
-    appIssueLoad_(true);
-  }).catch(function (e) {
-    alert(String((e && e.message) || e || 'Restore failed'));
+  appAsk_('Restore every issue in the Recycle Bin?', function () {
+    fetchJSONRetry({
+      action: 'restoreTrash',
+      dept: APP_DEPT,
+      sheets: APP_TRASH_SHEETS,
+      token: appToken_()
+    }, 1, 60000).then(function (d) {
+      if (d && d.ok === false) throw new Error(d.message || d.error || 'Restore failed');
+      appRbLoad_();
+      appIssueLoad_(true);
+    }).catch(function (e) {
+      appNote_(String((e && e.message) || e || 'Restore failed'));
+    });
   });
 }
 
 function appRbEmpty_() {
-  if (!confirm('Empty the Recycle Bin? This deletes every item forever.')) return;
-  fetchJSONRetry({
-    action: 'purgeTrash',
-    dept: APP_DEPT,
-    sheets: APP_TRASH_SHEETS,
-    token: appToken_()
-  }, 1, 60000).then(function (d) {
-    if (d && d.ok === false) throw new Error(d.message || d.error || 'Empty bin failed');
-    appRbLoad_();
-  }).catch(function (e) {
-    alert(String((e && e.message) || e || 'Empty bin failed'));
+  appAsk_('Empty the Recycle Bin? This deletes every item forever.', { danger: true }, function () {
+    fetchJSONRetry({
+      action: 'purgeTrash',
+      dept: APP_DEPT,
+      sheets: APP_TRASH_SHEETS,
+      token: appToken_()
+    }, 1, 60000).then(function (d) {
+      if (d && d.ok === false) throw new Error(d.message || d.error || 'Empty bin failed');
+      appRbLoad_();
+    }).catch(function (e) {
+      appNote_(String((e && e.message) || e || 'Empty bin failed'));
+    });
   });
 }
 
