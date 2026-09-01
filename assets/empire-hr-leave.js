@@ -50,6 +50,8 @@ var _hrSelected = {};
 var _hrBulkBusy = false;
 var _hrDoneSelectMode = false;
 var _hrDoneSelected = {};
+var _hrConfirmedSelectMode = false;
+var _hrConfirmedSelected = {};
 
 function hrSelectedIds_() {
   return Object.keys(_hrSelected).filter(function (id) { return !!_hrSelected[id]; });
@@ -149,6 +151,45 @@ function hrSelectAllDone_(ev) {
   hrRenderDoneTable_();
 }
 
+function hrConfirmedSelectedIds_() {
+  return Object.keys(_hrConfirmedSelected).filter(function (id) { return !!_hrConfirmedSelected[id]; });
+}
+
+function hrToggleConfirmedSelectMode_(on) {
+  _hrConfirmedSelectMode = on === undefined ? !_hrConfirmedSelectMode : !!on;
+  if (!_hrConfirmedSelectMode) _hrConfirmedSelected = {};
+  hrRenderConfirmedTable_();
+}
+
+function hrToggleConfirmedRowSelect_(id, ev) {
+  if (ev) ev.stopPropagation();
+  id = String(id || '');
+  if (!id) return;
+  if (_hrConfirmedSelected[id]) delete _hrConfirmedSelected[id];
+  else _hrConfirmedSelected[id] = true;
+  var box = document.getElementById('hrConfirmedSel-' + id);
+  if (box) box.checked = !!_hrConfirmedSelected[id];
+  var row = box && box.closest('tr');
+  if (row) row.classList.toggle('hr-row-selected', !!_hrConfirmedSelected[id]);
+  var n = hrConfirmedSelectedIds_().length;
+  var count = document.getElementById('hrConfirmedSelectCount');
+  if (count) count.textContent = n ? n + ' selected' : 'Select papers';
+  var all = document.getElementById('hrConfirmedSelAll');
+  if (all) {
+    var boxes = document.querySelectorAll('input[data-hr-confirmed-sel]');
+    all.checked = boxes.length > 0 && n === boxes.length;
+  }
+}
+
+function hrSelectAllConfirmed_(ev) {
+  var on = !!(ev && ev.target && ev.target.checked);
+  _hrConfirmedSelected = {};
+  if (on) {
+    hrCompletedRows_().forEach(function (r) { _hrConfirmedSelected[String(r.id)] = true; });
+  }
+  hrRenderConfirmedTable_();
+}
+
 function hrWaitImages_(root, cb) {
   var finished = false;
   var finish = function () {
@@ -221,18 +262,17 @@ function hrClearBatchPrint_() {
   }
 }
 
-function hrPrintSelectedCompleted_() {
-  if (hrIsDirectorOnly_()) return;
-  var ids = hrDoneSelectedIds_();
+function hrPrintCompletedByIds_(ids, emptyMsg) {
+  ids = ids || [];
   if (!ids.length) {
-    hrMsg_('Select at least one completed paper first.', false);
+    alert(emptyMsg || 'Select at least one paper first.');
     return;
   }
   var rows = ids.map(function (id) {
     return _hrRows.find(function (r) { return String(r.id) === String(id); });
   }).filter(function (r) { return r && hrStageOf_(r) === 'completed'; });
   if (!rows.length) {
-    hrMsg_('Select at least one completed paper first.', false);
+    alert(emptyMsg || 'Select at least one paper first.');
     return;
   }
   var host = document.getElementById('hrBatchPrint');
@@ -250,6 +290,15 @@ function hrPrintSelectedCompleted_() {
     document.body.classList.add('hr-print-batch');
     window.print();
   });
+}
+
+function hrPrintSelectedCompleted_() {
+  if (hrIsDirectorOnly_()) return;
+  hrPrintCompletedByIds_(hrDoneSelectedIds_(), 'Select at least one completed paper first.');
+}
+
+function hrPrintSelectedConfirmed_() {
+  hrPrintCompletedByIds_(hrConfirmedSelectedIds_(), 'Select at least one confirmed paper first.');
 }
 
 function hrDirectorConfirmRequest_(id) {
@@ -1569,41 +1618,59 @@ function hrRenderDoneTable_() {
   host.innerHTML = h + rejectedHtml(rejected);
 }
 
-function hrArchiveRowHtml_(r, fromTab) {
-  var rejectedRow = hrStageOf_(r) === 'rejected';
-  return '<tr>' +
-    '<td>' + hrEsc_(r.no || r.num || '') + '</td>' +
-    '<td><strong>' + hrEsc_(r.empName || '—') + '</strong><div style="color:var(--text-soft);font-size:12px;">' + hrEsc_(r.empCode || '') + '</div></td>' +
-    '<td>' + hrEsc_(r.empDepartment || '—') + '</td>' +
-    '<td>' + hrEsc_(r.leaveType || '—') + '</td>' +
-    '<td>' + hrEsc_(hrFmtDate_(r.startDate)) + (r.endDate && r.endDate !== r.startDate ? ' – ' + hrEsc_(hrFmtDate_(r.endDate)) : '') + '</td>' +
-    '<td>' + hrEsc_(r.daysOut || '—') + '</td>' +
-    '<td><span class="hr-badge hr-badge-' + (rejectedRow ? 'rejected' : 'completed') + '">' + (rejectedRow ? 'Rejected' : 'Confirmed') + '</span></td>' +
-    '<td><div class="hr-row-acts">' +
-      '<button type="button" class="hr-btn-edit" onclick="hrEditInList_(\'' + hrEsc_(r.id) + '\',\'' + hrEsc_(fromTab) + '\')">View</button>' +
-      '<button type="button" onclick="hrPrintRow_(\'' + hrEsc_(r.id) + '\')">Print</button>' +
-    '</div></td></tr>';
-}
-
 function hrRenderConfirmedTable_() {
   var host = document.getElementById('hrConfirmedHost');
   var summary = document.getElementById('hrConfirmedSummary');
   if (!host) return;
-  var completed = (_hrRows || []).filter(function (r) { return hrStageOf_(r) === 'completed'; });
+  var completed = hrCompletedRows_();
   if (summary) {
     summary.textContent = completed.length + ' confirmed paper' + (completed.length === 1 ? '' : 's');
   }
+  var showSel = _hrConfirmedSelectMode && completed.length;
+  var selN = hrConfirmedSelectedIds_().length;
+  var groupSelN = completed.filter(function (r) { return !!_hrConfirmedSelected[String(r.id)]; }).length;
+  var h = '<section class="hr-stage hr-stage-completed">';
+  h += '<div class="hr-stage-head">';
+  h += '<h3 class="hr-stage-title">Director confirmed <span>(' + completed.length + ')</span></h3>';
+  if (completed.length) {
+    h += '<div class="hr-stage-acts">';
+    if (_hrConfirmedSelectMode) {
+      h += '<span class="hr-select-count" id="hrConfirmedSelectCount">' + (selN ? selN + ' selected' : 'Select papers') + '</span>';
+      h += '<button type="button" class="hr-btn-confirm" onclick="hrPrintSelectedConfirmed_()">Print / PDF</button>';
+      h += '<button type="button" onclick="hrToggleConfirmedSelectMode_(false)">Cancel</button>';
+    } else {
+      h += '<button type="button" onclick="hrToggleConfirmedSelectMode_(true)">Select</button>';
+    }
+    h += '</div>';
+  }
+  h += '</div>';
   if (!completed.length) {
-    host.innerHTML = '<section class="hr-stage hr-stage-completed"><h3 class="hr-stage-title">Director confirmed <span>(0)</span></h3>' +
-      '<p class="hr-stage-empty">Papers the director confirms appear here.</p></section>';
+    h += '<p class="hr-stage-empty">Papers the director confirms appear here.</p></section>';
+    host.innerHTML = h;
     return;
   }
-  var h = '<section class="hr-stage hr-stage-completed">';
-  h += '<h3 class="hr-stage-title">Director confirmed <span>(' + completed.length + ')</span></h3>';
   h += '<div class="hr-table-wrap"><table class="hr-list-table"><thead><tr>' +
+    (showSel ? '<th class="hr-sel-col"><input type="checkbox" id="hrConfirmedSelAll" onclick="hrSelectAllConfirmed_(event)"' + (completed.length && groupSelN === completed.length ? ' checked' : '') + '></th>' : '') +
     '<th>#</th><th>Employee</th><th>Department</th><th>Type</th><th>Dates</th><th>Days</th><th>Status</th><th></th>' +
     '</tr></thead><tbody>';
-  completed.forEach(function (r) { h += hrArchiveRowHtml_(r, 'confirmed'); });
+  completed.forEach(function (r) {
+    var picked = !!_hrConfirmedSelected[String(r.id)];
+    h += '<tr' + (showSel && picked ? ' class="hr-row-selected"' : '') + '>' +
+      (showSel
+        ? '<td class="hr-sel-col"><input type="checkbox" id="hrConfirmedSel-' + hrEsc_(r.id) + '" data-hr-confirmed-sel="1" onclick="hrToggleConfirmedRowSelect_(\'' + hrEsc_(r.id) + '\',event)"' + (picked ? ' checked' : '') + '></td>'
+        : '') +
+      '<td>' + hrEsc_(r.no || r.num || '') + '</td>' +
+      '<td><strong>' + hrEsc_(r.empName || '—') + '</strong><div style="color:var(--text-soft);font-size:12px;">' + hrEsc_(r.empCode || '') + '</div></td>' +
+      '<td>' + hrEsc_(r.empDepartment || '—') + '</td>' +
+      '<td>' + hrEsc_(r.leaveType || '—') + '</td>' +
+      '<td>' + hrEsc_(hrFmtDate_(r.startDate)) + (r.endDate && r.endDate !== r.startDate ? ' – ' + hrEsc_(hrFmtDate_(r.endDate)) : '') + '</td>' +
+      '<td>' + hrEsc_(r.daysOut || '—') + '</td>' +
+      '<td><span class="hr-badge hr-badge-completed">Confirmed</span></td>' +
+      '<td><div class="hr-row-acts">' +
+        '<button type="button" class="hr-btn-edit" onclick="hrEditInList_(\'' + hrEsc_(r.id) + '\',\'confirmed\')">View</button>' +
+        (!showSel ? '<button type="button" onclick="hrPrintRow_(\'' + hrEsc_(r.id) + '\')">Print</button>' : '') +
+      '</div></td></tr>';
+  });
   h += '</tbody></table></div></section>';
   host.innerHTML = h;
 }
