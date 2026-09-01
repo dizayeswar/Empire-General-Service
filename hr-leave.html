@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-30-hr-f06">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-30-hr-f06">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-01-dir-esig">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-01-dir-box">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -330,10 +330,12 @@
                   <div class="hr-sig-pad" id="hr-sig-line"></div>
                   <input id="hr-lineManagerName" class="hr-cell-input hr-sig-ghost" type="text" autocomplete="off" onclick="event.stopPropagation()">
                 </td>
-                <td class="lab"><span class="hr-lbl">Director</span></td>
-                <td class="val sig-cell" onclick="hrOpenSig_('director')">
-                  <div class="hr-sig-pad" id="hr-sig-director"></div>
-                  <input id="hr-directorName" class="hr-cell-input hr-sig-ghost" type="text" autocomplete="off" onclick="event.stopPropagation()">
+                <td class="val sig-cell hr-director-box" colspan="2" onclick="hrOpenSig_('director')">
+                  <div class="hr-director-box-inner">
+                    <span class="hr-lbl">Director</span>
+                    <div class="hr-sig-pad hr-sig-pad-director" id="hr-sig-director"></div>
+                  </div>
+                  <input id="hr-directorName" type="hidden" autocomplete="off">
                 </td>
               </tr>
             </table>
@@ -396,7 +398,7 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-09-01-dir-esig"></script>
+<script src="config.js?v=2026-09-01-dir-box"></script>
 <script src="assets/empire-api.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-auth.js?v=2026-09-01-dir-esig"></script>
 <script src="assets/empire-core.js?v=2026-08-30-hr-f06"></script>
