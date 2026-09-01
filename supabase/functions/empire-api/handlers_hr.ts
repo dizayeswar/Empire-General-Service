@@ -158,7 +158,10 @@ export async function handleGetHrLeaveRequests(auth?: AuthOk) {
   const data = await selectAllRows<Record<string, unknown>>("hr_leave_requests");
   let out = data.map(rowToApi);
   if (auth && isDirectorOnly(auth)) {
-    out = out.filter((r) => String(r.status || "") === "pending_director");
+    out = out.filter((r) => {
+      const s = String(r.status || "").trim().toLowerCase();
+      return s === "pending_director" || s === "completed" || s === "director_approved" || s === "processed";
+    });
   }
   out.sort((a, b) => (b.num || 0) - (a.num || 0));
   return { ok: true, success: true, rows: out };

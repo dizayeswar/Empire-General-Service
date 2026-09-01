@@ -167,7 +167,8 @@ function hrRunSelectedPending_(kind) {
       working: verb + 'ing ' + n + '…',
       done: kind === 'reject'
         ? 'Sent ' + n + ' back to HR as Rejected, without an e-signature.'
-        : 'Sent ' + n + ' back to HR as Completed.'
+        : 'Sent ' + n + ' back to HR as Completed.',
+      tab: kind === 'reject' ? 'list' : 'confirmed'
     });
   };
   if (typeof uiConfirm === 'function') {
@@ -218,6 +219,7 @@ function hrRunBulkIds_(ids, requestFn, msgs) {
       _hrSelected = {};
       hrSetListEditing_(false);
       return hrLoad_(true).then(function () {
+        if (msgs.tab) hrSwitchTab_(null, msgs.tab);
         if (fail) hrMsg_((n - fail) + ' done, ' + fail + ' failed' + (lastErr ? ': ' + lastErr : '.'), false);
         else hrMsg_(msgs.done, true);
       });
@@ -741,7 +743,7 @@ function hrSetListEditing_(on) {
     if (app && editor && app.parentNode !== editor) editor.appendChild(app);
     document.querySelectorAll('.tab-content').forEach(function (el) { el.classList.remove('active'); });
     document.querySelectorAll('.tab-btn').forEach(function (el) { el.classList.remove('active'); });
-    var stayBtn = document.getElementById(_hrReturnTab === 'done' ? 'tabBtnDone' : 'tabBtnList');
+    var stayBtn = document.getElementById(hrTabBtnId_(_hrReturnTab));
     if (stayBtn) stayBtn.classList.add('active');
   } else {
     if (browse) browse.hidden = false;
@@ -775,19 +777,31 @@ function hrEditInList_(id, fromTab) {
   var row = _hrRows.find(function (r) { return String(r.id) === String(id); });
   if (!row) return;
   if (fromTab) _hrReturnTab = fromTab;
-  else _hrReturnTab = (hrStageOf_(row) === 'completed' || hrStageOf_(row) === 'rejected') ? 'done' : 'list';
+  else if (hrStageOf_(row) === 'completed') _hrReturnTab = 'confirmed';
+  else if (hrStageOf_(row) === 'rejected') _hrReturnTab = 'done';
+  else _hrReturnTab = 'list';
   hrFillForm_(row);
   hrSetListEditing_(true);
 }
 
 function hrReturnToList_() {
-  var tab = _hrReturnTab === 'done' ? 'done' : 'list';
+  var tab = _hrReturnTab === 'done' || _hrReturnTab === 'confirmed' ? _hrReturnTab : 'list';
   hrSetListEditing_(false);
   hrSwitchTab_(null, tab);
 }
 
 function hrReturnBtnLabel_() {
-  return _hrReturnTab === 'done' ? 'Return to completed request' : 'Return to saved requests';
+  if (_hrReturnTab === 'done') return 'Return to completed request';
+  if (_hrReturnTab === 'confirmed') return 'Return to director confirmed';
+  return 'Return to saved requests';
+}
+
+function hrTabBtnId_(tab) {
+  if (tab === 'form') return 'tabBtnForm';
+  if (tab === 'scan') return 'tabBtnScan';
+  if (tab === 'done') return 'tabBtnDone';
+  if (tab === 'confirmed') return 'tabBtnConfirmed';
+  return 'tabBtnList';
 }
 
 function hrPrintRow_(id) {
@@ -822,16 +836,15 @@ function hrDeleteRow_(id) {
 }
 
 function hrSwitchTab_(ev, tab) {
-  if (_hrListEditing && (tab === 'list' || tab === 'done') && ev && ev.currentTarget) hrSetListEditing_(false);
-  else if (tab !== 'list' && tab !== 'done' && _hrListEditing) hrSetListEditing_(false);
+  if (_hrListEditing && (tab === 'list' || tab === 'done' || tab === 'confirmed') && ev && ev.currentTarget) hrSetListEditing_(false);
+  else if (tab !== 'list' && tab !== 'done' && tab !== 'confirmed' && _hrListEditing) hrSetListEditing_(false);
   document.querySelectorAll('.tab-content').forEach(function (el) { el.classList.remove('active'); });
   document.querySelectorAll('.tab-btn').forEach(function (el) { el.classList.remove('active'); });
   var pane = document.getElementById(tab);
   if (pane) pane.classList.add('active');
   if (ev && ev.currentTarget) ev.currentTarget.classList.add('active');
   else {
-    var btnId = tab === 'form' ? 'tabBtnForm' : (tab === 'scan' ? 'tabBtnScan' : (tab === 'done' ? 'tabBtnDone' : 'tabBtnList'));
-    var btn = document.getElementById(btnId);
+    var btn = document.getElementById(hrTabBtnId_(tab));
     if (btn) btn.classList.add('active');
   }
   if (tab === 'form' && !hrVal_('hr-id') && !hrVal_('hr-empSignedAt')) {
@@ -844,6 +857,7 @@ function hrSwitchTab_(ev, tab) {
   }
   if (tab === 'list' && !_hrListEditing) hrRenderTable_();
   if (tab === 'done' && !_hrListEditing) hrRenderDoneTable_();
+  if (tab === 'confirmed' && !_hrListEditing) hrRenderConfirmedTable_();
 }
 
 function hrUniqueDepts_() {
@@ -953,8 +967,9 @@ function hrConfirmRow_(id) {
       .then(function () {
         hrMsg_('Sent back to HR as Completed.', true);
         hrSetListEditing_(false);
-        hrSwitchTab_(null, 'list');
-        return hrLoad_(true);
+        return hrLoad_(true).then(function () {
+          hrSwitchTab_(null, 'confirmed');
+        });
       })
       .catch(function (err) {
         if (String(err && err.message || '').indexOf('e-signature') !== -1 && hrVal_('hr-id') !== id) hrEditInList_(id);
@@ -1185,9 +1200,11 @@ function hrRenderKpis_(list) {
   var completed = all.filter(function (r) { return hrStageOf_(r) === 'completed'; }).length;
   var inbox = all.filter(function (r) { return hrStageOf_(r) === 'inbox'; }).length;
   host.innerHTML =
-    '<div class="hr-kpi"><b>' + inbox + '</b><span>Leave requests</span></div>' +
+    (hrIsDirectorOnly_()
+      ? ''
+      : '<div class="hr-kpi"><b>' + inbox + '</b><span>Leave requests</span></div>') +
     '<div class="hr-kpi"><b>' + pendingDir + '</b><span>Pending Director</span></div>' +
-    '<div class="hr-kpi" role="button" tabindex="0" onclick="hrSwitchTab_(null,\'done\')" style="cursor:pointer;"><b>' + completed + '</b><span>Completed</span></div>';
+    '<div class="hr-kpi" role="button" tabindex="0" onclick="hrSwitchTab_(null,\'confirmed\')" style="cursor:pointer;"><b>' + completed + '</b><span>Director confirmed</span></div>';
 }
 
 function hrRenderTable_() {
@@ -1339,6 +1356,45 @@ function hrRenderDoneTable_() {
     sectionHtml('Rejected', 'rejected', rejected, 'Papers the director rejected come here, with no e-signature.');
 }
 
+function hrArchiveRowHtml_(r, fromTab) {
+  var rejectedRow = hrStageOf_(r) === 'rejected';
+  return '<tr>' +
+    '<td>' + hrEsc_(r.no || r.num || '') + '</td>' +
+    '<td><strong>' + hrEsc_(r.empName || '—') + '</strong><div style="color:var(--text-soft);font-size:12px;">' + hrEsc_(r.empCode || '') + '</div></td>' +
+    '<td>' + hrEsc_(r.empDepartment || '—') + '</td>' +
+    '<td>' + hrEsc_(r.leaveType || '—') + '</td>' +
+    '<td>' + hrEsc_(hrFmtDate_(r.startDate)) + (r.endDate && r.endDate !== r.startDate ? ' – ' + hrEsc_(hrFmtDate_(r.endDate)) : '') + '</td>' +
+    '<td>' + hrEsc_(r.daysOut || '—') + '</td>' +
+    '<td><span class="hr-badge hr-badge-' + (rejectedRow ? 'rejected' : 'completed') + '">' + (rejectedRow ? 'Rejected' : 'Confirmed') + '</span></td>' +
+    '<td><div class="hr-row-acts">' +
+      '<button type="button" class="hr-btn-edit" onclick="hrEditInList_(\'' + hrEsc_(r.id) + '\',\'' + hrEsc_(fromTab) + '\')">View</button>' +
+      '<button type="button" onclick="hrPrintRow_(\'' + hrEsc_(r.id) + '\')">Print</button>' +
+    '</div></td></tr>';
+}
+
+function hrRenderConfirmedTable_() {
+  var host = document.getElementById('hrConfirmedHost');
+  var summary = document.getElementById('hrConfirmedSummary');
+  if (!host) return;
+  var completed = (_hrRows || []).filter(function (r) { return hrStageOf_(r) === 'completed'; });
+  if (summary) {
+    summary.textContent = completed.length + ' confirmed paper' + (completed.length === 1 ? '' : 's');
+  }
+  if (!completed.length) {
+    host.innerHTML = '<section class="hr-stage hr-stage-completed"><h3 class="hr-stage-title">Director confirmed <span>(0)</span></h3>' +
+      '<p class="hr-stage-empty">Papers the director confirms appear here.</p></section>';
+    return;
+  }
+  var h = '<section class="hr-stage hr-stage-completed">';
+  h += '<h3 class="hr-stage-title">Director confirmed <span>(' + completed.length + ')</span></h3>';
+  h += '<div class="hr-table-wrap"><table class="hr-list-table"><thead><tr>' +
+    '<th>#</th><th>Employee</th><th>Department</th><th>Type</th><th>Dates</th><th>Days</th><th>Status</th><th></th>' +
+    '</tr></thead><tbody>';
+  completed.forEach(function (r) { h += hrArchiveRowHtml_(r, 'confirmed'); });
+  h += '</tbody></table></div></section>';
+  host.innerHTML = h;
+}
+
 function hrLoad_(force) {
   var host = document.getElementById('hrTableHost');
   if (host && !_hrRows.length) host.innerHTML = typeof empireLoadingHtml === 'function' ? empireLoadingHtml('Loading leave requests…') : '<p>Loading…</p>';
@@ -1349,6 +1405,7 @@ function hrLoad_(force) {
       _hrRows = Array.isArray(d.rows) ? d.rows : (Array.isArray(d) ? d : []);
       hrRenderTable_();
       hrRenderDoneTable_();
+      hrRenderConfirmedTable_();
     })
     .catch(function (err) {
       var errHtml = typeof empireErrorHtml === 'function'
@@ -1357,6 +1414,8 @@ function hrLoad_(force) {
       if (host) host.innerHTML = errHtml;
       var doneHost = document.getElementById('hrDoneHost');
       if (doneHost) doneHost.innerHTML = errHtml;
+      var confirmedHost = document.getElementById('hrConfirmedHost');
+      if (confirmedHost) confirmedHost.innerHTML = errHtml;
     });
 }
 
@@ -1871,6 +1930,8 @@ function hrEnterApp_() {
     if (scanBtn) scanBtn.style.display = 'none';
     var doneBtn = document.getElementById('tabBtnDone');
     if (doneBtn) doneBtn.style.display = 'none';
+    var confirmedBtn = document.getElementById('tabBtnConfirmed');
+    if (confirmedBtn) confirmedBtn.style.display = '';
     hrSwitchTab_(null, 'list');
   }
   hrShowStaffTools_();
