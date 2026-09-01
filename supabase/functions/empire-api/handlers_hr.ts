@@ -43,7 +43,7 @@ function canWrite(auth: AuthOk): boolean {
 
 function isLockedStatus(status: unknown): boolean {
   const s = String(status || "").trim().toLowerCase();
-  return s === "pending_director" || s === "completed" || s === "processed" || s === "director_approved";
+  return s === "pending_director" || s === "completed" || s === "processed" || s === "director_approved" || s === "rejected";
 }
 
 function parseEntitlements(raw: unknown): Record<string, Record<string, string>> {
@@ -287,6 +287,41 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
     return { ok: false, success: false, error: "not_allowed", message: "Not allowed." };
   }
   return { ok: false, success: false, error: "bad_status", message: "This paper cannot be confirmed in its current status." };
+}
+
+export async function handleRejectHrLeaveRequest(body: Record<string, unknown>, auth: AuthOk) {
+  const id = String(body.id || "").trim();
+  if (!id) return { ok: false, success: false, error: "missing_id", message: "Request id is required." };
+  if (!isHrDirector(auth)) {
+    return { ok: false, success: false, error: "not_allowed", message: "Only the director can reject a pending paper." };
+  }
+  const { data: ex } = await sb().from("hr_leave_requests").select("*").eq("id", id).maybeSingle();
+  if (!ex) return { ok: false, success: false, error: "not_found", message: "Leave request not found." };
+  if (String(ex.status || "") !== "pending_director") {
+    return { ok: false, success: false, error: "bad_status", message: "Only Pending Director papers can be rejected." };
+  }
+  const existing = parseEntitlements(ex.entitlements) as Record<string, unknown>;
+  const existingSigs = existing.__sigs && typeof existing.__sigs === "object" && !Array.isArray(existing.__sigs)
+    ? { ...(existing.__sigs as Record<string, string>) }
+    : {};
+  existingSigs.director = "";
+  const merged: Record<string, unknown> = { ...existing, __sigs: existingSigs };
+  if (existing.__scan && typeof existing.__scan === "object" && !Array.isArray(existing.__scan)) {
+    const scan = { ...(existing.__scan as Record<string, unknown>) };
+    scan.directorSig = "";
+    merged.__scan = scan;
+  }
+  const patch = {
+    status: "rejected",
+    director_name: "",
+    director_signed_at: "",
+    director_status: "rejected",
+    entitlements: entitlementsJson(merged),
+    updated_at: isoNow(),
+  };
+  const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", id);
+  if (error) throw error;
+  return { ok: true, success: true, id, row: rowToApi({ ...ex, ...patch }) };
 }
 
 type PdfAnnualPerson = {

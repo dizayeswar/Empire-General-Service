@@ -474,6 +474,10 @@ function hrFillForm_(row) {
     if (ents.__scan.w != null) _hrScan.w = Number(ents.__scan.w) || _hrScan.w;
     if (_hrScan.directorSig && !_hrSigs.director) _hrSigs.director = _hrScan.directorSig;
   }
+  if (hrStageOf_(row) === 'rejected') {
+    _hrSigs.director = '';
+    if (_hrScan) _hrScan.directorSig = '';
+  }
   hrApplyAccountDirectorSig_(row);
   hrRenderEntitlements_(ents);
   hrRenderAllSigs_();
@@ -558,7 +562,7 @@ function hrEditInList_(id, fromTab) {
   var row = _hrRows.find(function (r) { return String(r.id) === String(id); });
   if (!row) return;
   if (fromTab) _hrReturnTab = fromTab;
-  else _hrReturnTab = hrStageOf_(row) === 'completed' ? 'done' : 'list';
+  else _hrReturnTab = (hrStageOf_(row) === 'completed' || hrStageOf_(row) === 'rejected') ? 'done' : 'list';
   hrFillForm_(row);
   hrSetListEditing_(true);
 }
@@ -656,7 +660,7 @@ function hrFiltered_() {
     if (type && String(r.leaveType || '') !== type) return false;
     if (dept && String(r.empDepartment || '') !== dept) return false;
     if (month && String(r.startDate || '').slice(0, 7) !== month) return false;
-    if (hrStageOf_(r) === 'completed') return false;
+    if (hrStageOf_(r) === 'completed' || hrStageOf_(r) === 'rejected') return false;
     if (q) {
       var hay = [r.no, r.empName, r.empCode, r.empDepartment, r.empJobTitle, r.leaveType, r.replacement, r.daysOut]
         .join(' ').toLowerCase();
@@ -681,7 +685,7 @@ function hrGroupedByStage_(list) {
   });
   var stages = hrIsDirectorOnly_()
     ? HR_STAGES.filter(function (st) { return st.id === 'pending_director'; })
-    : HR_STAGES.filter(function (st) { return st.id === 'inbox' || st.id === 'pending_director' || (st.id === 'rejected' && groups.rejected.length); });
+    : HR_STAGES.filter(function (st) { return st.id === 'inbox' || st.id === 'pending_director'; });
   return stages.map(function (st) {
     return { type: st.id, label: st.label, rows: groups[st.id] || [] };
   });
@@ -710,6 +714,8 @@ function hrApplyPaperLock_() {
   var delBtn = document.getElementById('hrDeleteBtn');
   var confirmBtn = document.getElementById('hrConfirmBtn');
   var confirmBtn2 = document.getElementById('hrConfirmBtn2');
+  var rejectBtn = document.getElementById('hrRejectBtn');
+  var rejectBtn2 = document.getElementById('hrRejectBtn2');
   var st = hrVal_('hr-status');
   var showSave = hrCanWrite_() && !locked;
   var showDel = showSave && !!hrVal_('hr-id');
@@ -717,11 +723,14 @@ function hrApplyPaperLock_() {
     (hrIsHrStaff_() && hrStageOf_({ status: st }) === 'inbox') ||
     (hrIsDirectorOnly_() && st === 'pending_director')
   );
+  var showReject = (!!hrVal_('hr-id')) && hrIsDirectorOnly_() && st === 'pending_director';
   if (saveBtn) saveBtn.style.display = showSave ? '' : 'none';
   if (saveBtn2) saveBtn2.style.display = showSave ? '' : 'none';
   if (delBtn) delBtn.style.display = showDel ? '' : 'none';
   if (confirmBtn) confirmBtn.style.display = showConfirm ? '' : 'none';
   if (confirmBtn2) confirmBtn2.style.display = showConfirm ? '' : 'none';
+  if (rejectBtn) rejectBtn.style.display = showReject ? '' : 'none';
+  if (rejectBtn2) rejectBtn2.style.display = showReject ? '' : 'none';
 }
 
 function hrConfirmRow_(id) {
@@ -767,6 +776,42 @@ function hrConfirmRow_(id) {
     .catch(function (err) {
       hrMsg_(err.message || 'Confirm failed.', false);
     });
+}
+
+function hrRejectRow_(id) {
+  id = String(id || hrVal_('hr-id') || '').trim();
+  if (!id || !hrIsDirectorOnly_()) return;
+  var row = _hrRows.find(function (r) { return String(r.id) === id; });
+  if (hrStageOf_(row || { status: hrVal_('hr-status') }) !== 'pending_director') return;
+  var label = row && row.empName ? row.empName : 'this leave request';
+  var go = function () {
+    hrMsg_('Rejecting…', true);
+    fetchJSONRetry({ action: 'rejectHrLeaveRequest', token: hrToken_(), id: id }, 1, 30000)
+      .then(function (d) {
+        if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) return;
+        if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Reject failed');
+        if (hrVal_('hr-id') === id) {
+          _hrSigs.director = '';
+          hrSet_('hr-directorName', '');
+          hrSet_('hr-directorSignedAt', '');
+          hrSet_('hr-directorStatus', 'rejected');
+          hrRenderSig_('director');
+        }
+        hrMsg_('Sent back to HR as Rejected, without an e-signature.', true);
+        hrSetListEditing_(false);
+        hrSwitchTab_(null, 'list');
+        return hrLoad_(true);
+      })
+      .catch(function (err) {
+        hrMsg_(err.message || 'Reject failed.', false);
+      });
+  };
+  var msg = 'Reject the leave request for ' + label + '? It goes to HR as Rejected, with no director e-signature.';
+  if (typeof uiConfirm === 'function') {
+    uiConfirm(msg).then(function (ok) { if (ok) go(); });
+    return;
+  }
+  if (confirm(msg)) go();
 }
 
 function hrNewPaper_(typeId) {
@@ -1004,6 +1049,7 @@ function hrRenderTable_() {
         '<td><div class="hr-row-acts">' +
           '<button type="button" class="hr-btn-edit" onclick="hrEditInList_(\'' + hrEsc_(r.id) + '\')">' + (canEdit ? 'Edit' : 'View') + '</button>' +
           (canConfirm ? '<button type="button" class="hr-btn-confirm" onclick="hrConfirmRow_(\'' + hrEsc_(r.id) + '\')">Confirm</button>' : '') +
+          (director && stage === 'pending_director' ? '<button type="button" class="hr-btn-reject" onclick="hrRejectRow_(\'' + hrEsc_(r.id) + '\')">Rejected</button>' : '') +
           (canEdit ? '<button type="button" class="hr-btn-del" onclick="hrDeleteRow_(\'' + hrEsc_(r.id) + '\')">Delete</button>' : '') +
           (r.entitlements && r.entitlements.__scan && r.entitlements.__scan.url
             ? '<button type="button" onclick="hrOpenScanRow_(\'' + hrEsc_(r.id) + '\')">Open scan</button>'
@@ -1020,33 +1066,50 @@ function hrRenderDoneTable_() {
   var host = document.getElementById('hrDoneHost');
   var summary = document.getElementById('hrDoneSummary');
   if (!host) return;
-  var rows = (_hrRows || []).filter(function (r) { return hrStageOf_(r) === 'completed'; });
-  if (summary) summary.textContent = rows.length + ' completed request' + (rows.length === 1 ? '' : 's');
-  if (!rows.length) {
-    host.innerHTML = '<section class="hr-stage hr-stage-completed"><h3 class="hr-stage-title">Completed request <span>(0)</span></h3><p class="hr-stage-empty">Papers the director has signed come here.</p></section>';
-    return;
+  var completed = (_hrRows || []).filter(function (r) { return hrStageOf_(r) === 'completed'; });
+  var rejected = (_hrRows || []).filter(function (r) { return hrStageOf_(r) === 'rejected'; });
+  var rows = completed.concat(rejected);
+  if (summary) {
+    summary.textContent = completed.length + ' completed, ' + rejected.length + ' rejected';
   }
-  var h = '<section class="hr-stage hr-stage-completed">';
-  h += '<h3 class="hr-stage-title">Completed request <span>(' + rows.length + ')</span></h3>';
-  h += '<div class="hr-table-wrap"><table class="hr-list-table"><thead><tr>' +
-    '<th>#</th><th>Employee</th><th>Department</th><th>Type</th><th>Dates</th><th>Days</th><th>Status</th><th></th>' +
-    '</tr></thead><tbody>';
-  rows.forEach(function (r) {
-    h += '<tr>' +
+  function rowHtml(r) {
+    var st = String(r.status || '');
+    var rejectedRow = hrStageOf_(r) === 'rejected';
+    return '<tr>' +
       '<td>' + hrEsc_(r.no || r.num || '') + '</td>' +
       '<td><strong>' + hrEsc_(r.empName || '—') + '</strong><div style="color:var(--text-soft);font-size:12px;">' + hrEsc_(r.empCode || '') + '</div></td>' +
       '<td>' + hrEsc_(r.empDepartment || '—') + '</td>' +
       '<td>' + hrEsc_(r.leaveType || '—') + '</td>' +
       '<td>' + hrEsc_(hrFmtDate_(r.startDate)) + (r.endDate && r.endDate !== r.startDate ? ' – ' + hrEsc_(hrFmtDate_(r.endDate)) : '') + '</td>' +
       '<td>' + hrEsc_(r.daysOut || '—') + '</td>' +
-      '<td><span class="hr-badge hr-badge-completed">Completed</span></td>' +
+      '<td><span class="hr-badge hr-badge-' + (rejectedRow ? 'rejected' : 'completed') + '">' + (rejectedRow ? 'Rejected' : 'Completed') + '</span></td>' +
       '<td><div class="hr-row-acts">' +
         '<button type="button" class="hr-btn-edit" onclick="hrEditInList_(\'' + hrEsc_(r.id) + '\',\'done\')">View</button>' +
         '<button type="button" onclick="hrPrintRow_(\'' + hrEsc_(r.id) + '\')">Print</button>' +
       '</div></td></tr>';
-  });
-  h += '</tbody></table></div></section>';
-  host.innerHTML = h;
+  }
+  function sectionHtml(title, type, list, emptyHint) {
+    var h = '<section class="hr-stage hr-stage-' + type + '">';
+    h += '<h3 class="hr-stage-title">' + hrEsc_(title) + ' <span>(' + list.length + ')</span></h3>';
+    if (!list.length) {
+      h += '<p class="hr-stage-empty">' + emptyHint + '</p></section>';
+      return h;
+    }
+    h += '<div class="hr-table-wrap"><table class="hr-list-table"><thead><tr>' +
+      '<th>#</th><th>Employee</th><th>Department</th><th>Type</th><th>Dates</th><th>Days</th><th>Status</th><th></th>' +
+      '</tr></thead><tbody>';
+    list.forEach(function (r) { h += rowHtml(r); });
+    h += '</tbody></table></div></section>';
+    return h;
+  }
+  if (!rows.length) {
+    host.innerHTML = sectionHtml('Completed request', 'completed', [], 'Papers the director has signed come here.') +
+      sectionHtml('Rejected', 'rejected', [], 'Papers the director rejected come here, with no e-signature.');
+    return;
+  }
+  host.innerHTML =
+    sectionHtml('Completed request', 'completed', completed, 'Papers the director has signed come here.') +
+    sectionHtml('Rejected', 'rejected', rejected, 'Papers the director rejected come here, with no e-signature.');
 }
 
 function hrLoad_(force) {

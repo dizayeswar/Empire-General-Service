@@ -204,6 +204,7 @@ export const DEPT_BY_ACTION: Record<string, string> = {
   updateHrLeaveRequest: "hr",
   deleteHrLeaveRequest: "hr",
   confirmHrLeaveRequest: "hr",
+  rejectHrLeaveRequest: "hr",
   seedHrPdfAnnualPapers: "hr",
 };
 

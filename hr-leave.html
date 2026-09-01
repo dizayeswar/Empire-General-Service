@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-30-hr-f06">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-30-hr-f06">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-01-dir-mid">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-01-hr-rej">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -128,7 +128,7 @@
       <div id="done" class="tab-content">
         <div class="form-section">
           <h2>Completed request</h2>
-          <p class="hr-tab-help">Papers the director has signed. These cannot be edited.</p>
+          <p class="hr-tab-help">Papers the director has signed or rejected. Rejected papers have no director e-signature and cannot be edited.</p>
           <p class="hr-summary" id="hrDoneSummary"></p>
           <div id="hrDoneHost"><p>Loading…</p></div>
         </div>
@@ -188,6 +188,7 @@
             <button type="button" data-hr-form-only="1" onclick="hrClearForm_()">Clear</button>
             <button type="button" id="hrSaveBtn" onclick="hrSave_()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Save</button>
             <button type="button" id="hrConfirmBtn" onclick="hrConfirmRow_()" class="hr-btn-confirm" style="display:none;">Confirm</button>
+            <button type="button" id="hrRejectBtn" onclick="hrRejectRow_()" class="hr-btn-reject" style="display:none;">Rejected</button>
             <button type="button" data-hr-form-only="1" onclick="hrSwitchTab_(null,'scan')">Scan paper</button>
             <button type="button" id="hrPrintBtn" onclick="hrPrint_()">Print / Save as PDF</button>
             <button type="button" id="hrDeleteBtn" onclick="hrDelete_()" style="display:none;color:#fff;background:#C5504F;border-color:#C5504F;">Delete</button>
@@ -388,6 +389,7 @@
             <button type="button" data-hr-form-only="1" onclick="hrClearForm_()">New</button>
             <button type="button" id="hrSaveBtn2" onclick="hrSave_()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Save</button>
             <button type="button" id="hrConfirmBtn2" onclick="hrConfirmRow_()" class="hr-btn-confirm" style="display:none;">Confirm</button>
+            <button type="button" id="hrRejectBtn2" onclick="hrRejectRow_()" class="hr-btn-reject" style="display:none;">Rejected</button>
             <button type="button" onclick="hrPrint_()">Print / Save as PDF</button>
             <button type="button" data-hr-form-only="1" onclick="hrClearForm_()">Clear form</button>
           </div>
@@ -398,11 +400,11 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-09-01-dir-mid"></script>
+<script src="config.js?v=2026-09-01-hr-rej"></script>
 <script src="assets/empire-api.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-auth.js?v=2026-09-01-dir-esig"></script>
 <script src="assets/empire-core.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-storage.js?v=2026-08-31-hr-scan"></script>
-<script src="assets/empire-hr-leave.js?v=2026-09-01-dir-esig"></script>
+<script src="assets/empire-hr-leave.js?v=2026-09-01-hr-rej"></script>
 </body>
 </html>

@@ -63,6 +63,7 @@
 }
 .hr-stage-pending_director { border-color: #e4d0a8; background: #fdf8ef; }
 .hr-stage-completed { border-color: #b7e0cf; background: #f3faf7; }
+.hr-stage-rejected { border-color: #f0c4c3; background: #fdf6f6; }
 
 .hr-list-table {
   width: 100%;
@@ -130,6 +131,13 @@
   color: #fff;
   background: #1d9e75;
   border-color: #1d9e75;
+}
+.hr-row-acts .hr-btn-reject,
+.hr-toolbar .hr-btn-reject,
+.hr-actions-print .hr-btn-reject {
+  color: #fff;
+  background: #C5504F;
+  border-color: #C5504F;
 }
 .hr-row-acts .hr-btn-del,
 .hr-saved-type-bar .hr-btn-del {
