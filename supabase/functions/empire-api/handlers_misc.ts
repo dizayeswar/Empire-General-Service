@@ -1,6 +1,6 @@
 import { AuthOk, getUser, projectsForUser } from "./auth.ts";
 import { SHEET_TO_TABLE } from "./config.ts";
-import { dtIssue, fmtDate, isoNow, nextCounter, sb, selectAllRows } from "./db.ts";
+import { dtIssue, fmtDate, isoNow, nextCounter, sb, selectAllRows, trashRows } from "./db.ts";
 import {
   isCleaningSupervisorRole,
   normalizeTrade,
@@ -381,6 +381,102 @@ export async function handleClearApplicationChecks(body: Record<string, unknown>
   return { ok: true, success: true };
 }
 
+function normalizeAppIssueKind_(raw: unknown): "customer" | "portal" {
+  return String(raw || "").trim().toLowerCase() === "portal" ? "portal" : "customer";
+}
+
+function appIssueToApi_(r: Record<string, unknown>) {
+  return {
+    id: String(r.id || ""),
+    num: Number(r.num || 0) || 0,
+    kind: normalizeAppIssueKind_(r.kind),
+    project: String(r.project || ""),
+    propertyId: String(r.property_id || ""),
+    note: String(r.note || ""),
+    photo: String(r.photo || ""),
+    status: String(r.status || "open").toLowerCase() === "fixed" ? "fixed" : "open",
+    createdBy: String(r.created_by || ""),
+    createdAt: dtIssue(r.created_at),
+    fixedBy: String(r.fixed_by || ""),
+    fixedAt: dtIssue(r.fixed_at),
+  };
+}
+
+export async function handleGetApplicationIssues(body: Record<string, unknown>) {
+  const kind = String(body.kind || "").trim().toLowerCase();
+  const data = await selectAllRows<Record<string, unknown>>("application_issues", {
+    filter: (q) => {
+      if (kind === "customer" || kind === "portal") q = q.eq("kind", kind);
+      return q;
+    },
+  });
+  return {
+    ok: true,
+    issues: data.map(appIssueToApi_).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))),
+  };
+}
+
+export async function handleAddApplicationIssue(body: Record<string, unknown>, auth: AuthOk) {
+  const kind = normalizeAppIssueKind_(body.kind);
+  const propertyId = String(body.propertyId || "").trim().toUpperCase();
+  const project = String(body.project || "").trim().toUpperCase()
+    || (propertyId.indexOf("-") > 0 ? propertyId.split("-")[0] : "");
+  const note = String(body.note || "").trim();
+  const photo = String(body.photo || "").trim();
+  if (kind === "customer" && !propertyId) {
+    return { ok: false, success: false, error: "missing_apartment", message: "Pick an apartment for a customer issue." };
+  }
+  if (!note) {
+    return { ok: false, success: false, error: "missing_note", message: "Write the issue first." };
+  }
+  const num = await nextCounter("issnum_ApplicationIssues");
+  const now = isoNow();
+  const row = {
+    id: `appiss-${crypto.randomUUID()}`,
+    num,
+    kind,
+    project,
+    property_id: propertyId,
+    note,
+    photo,
+    status: "open",
+    created_by: auth.username,
+    created_at: now,
+    fixed_by: "",
+    fixed_at: "",
+  };
+  const { error } = await sb().from("application_issues").insert(row);
+  if (error) throw error;
+  return { ok: true, success: true, issue: appIssueToApi_(row) };
+}
+
+export async function handleMarkApplicationIssueFixed(body: Record<string, unknown>, auth: AuthOk) {
+  const id = String(body.id || "").trim();
+  if (!id) return { ok: false, success: false, error: "missing_id" };
+  const { data: row } = await sb().from("application_issues").select("*").eq("id", id).maybeSingle();
+  if (!row) return { ok: false, success: false, error: "not_found" };
+  const now = isoNow();
+  const patch = {
+    status: "fixed",
+    fixed_by: auth.username,
+    fixed_at: now,
+  };
+  const { error } = await sb().from("application_issues").update(patch).eq("id", id);
+  if (error) throw error;
+  return { ok: true, success: true, issue: appIssueToApi_({ ...row, ...patch }) };
+}
+
+export async function handleDeleteApplicationIssue(body: Record<string, unknown>, auth: AuthOk) {
+  const id = String(body.id || "").trim();
+  if (!id) return { ok: false, success: false, error: "missing_id" };
+  const { data: row } = await sb().from("application_issues").select("*").eq("id", id).maybeSingle();
+  if (!row) return { ok: false, success: false, error: "not_found" };
+  await trashRows("ApplicationIssues", [row], "delete", auth.username);
+  const { error } = await sb().from("application_issues").delete().eq("id", id);
+  if (error) throw error;
+  return { ok: true, success: true, id };
+}
+
 export async function handleGetTrash(body: Record<string, unknown>) {
   const filter = body.sheets as string[] | null;
   const data = await selectAllRows("trash");
@@ -706,7 +802,14 @@ export async function handleGetSummary(body: Record<string, unknown>) {
   }
   if (allow("application")) {
     const { count } = await sb().from("application_checks").select("*", { count: "exact", head: true });
-    summary.application = { open: count || 0, level: "muted", label: (count || 0) + " properties", lastActivity: "" };
+    const { count: openIssues } = await sb().from("application_issues").select("*", { count: "exact", head: true }).eq("status", "open");
+    const open = openIssues || 0;
+    summary.application = {
+      open: open || (count || 0),
+      level: open ? "warn" : "muted",
+      label: open ? open + " open issues" : (count || 0) + " properties",
+      lastActivity: "",
+    };
   }
   if (allow("ups")) {
     const rows = await selectAllRows<{ ups_status?: string; battery_status?: string; updated_at?: string }>("ups_checks", {

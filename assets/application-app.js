@@ -22,6 +22,11 @@ var _appExpectedByProject = {};
 var _appSeedItems = null;
 var _appPendingDaily = null;
 var _appPendingDailyLoading = null;
+var _appIssues = [];
+var _appIssueKind = 'customer';
+var _appIssuePhotoUrl = '';
+var _appIssuePhotoUploading = false;
+var _appIssueSuggestIndex = -1;
 
 function appToken_() { return empireGetToken() || ''; }
 function appEsc_(s) {
@@ -808,6 +813,7 @@ function appLoad_(force) {
   if (host) host.innerHTML = '<p>Loading all projects (RA, WW, WD, ES)…</p>';
   appSetRefreshSpinning_(true);
   appLoadPendingDaily_(force);
+  appIssueLoad_(force);
   return Promise.all(APP_PROJECTS.map(function (p) {
     return appFetchProjectRows_(p, force);
   })).then(function (parts) {
@@ -848,6 +854,341 @@ function appEnsureSeedMeta_() {
   });
 }
 
+function appIssueKindLabel_(kind) {
+  return kind === 'portal' ? 'Portal' : 'Customer';
+}
+
+function appIssueShow_() {
+  appIssueSyncKindUi_();
+  appRenderIssues_();
+  appIssueLoad_(false);
+}
+
+function appIssueSetKind_(kind) {
+  _appIssueKind = kind === 'portal' ? 'portal' : 'customer';
+  appIssueSyncKindUi_();
+  appRenderIssues_();
+}
+
+function appIssueSyncKindUi_() {
+  var cust = document.getElementById('appIssueKindCustomer');
+  var port = document.getElementById('appIssueKindPortal');
+  if (cust) cust.classList.toggle('active', _appIssueKind === 'customer');
+  if (port) port.classList.toggle('active', _appIssueKind === 'portal');
+  var lab = document.getElementById('appIssueAptLabel');
+  var inp = document.getElementById('appIssueApt');
+  if (lab) lab.textContent = _appIssueKind === 'portal' ? 'Apartment (optional)' : 'Apartment';
+  if (inp) inp.placeholder = _appIssueKind === 'portal' ? 'Optional — or leave blank' : 'Search e.g. ES-1-1-01';
+}
+
+function appIssueOpenCount_() {
+  return _appIssues.filter(function (r) {
+    return String(r.status || '') !== 'fixed';
+  }).length;
+}
+
+function appIssueUpdateNavCount_() {
+  var el = document.getElementById('appIssueNavCount');
+  if (!el) return;
+  var n = appIssueOpenCount_();
+  el.hidden = !n;
+  el.textContent = String(n);
+}
+
+function appIssueLoad_(force) {
+  if (!force && _appIssues.length) {
+    appRenderIssues_();
+    return Promise.resolve(_appIssues);
+  }
+  return fetchJSONRetry({
+    action: 'getApplicationIssues',
+    token: appToken_()
+  }, 1, 45000).then(function (d) {
+    _appIssues = (d && Array.isArray(d.issues)) ? d.issues : (Array.isArray(d) ? d : []);
+    appRenderIssues_();
+    return _appIssues;
+  }).catch(function (e) {
+    var host = document.getElementById('appIssueHost');
+    if (host) host.innerHTML = '<p class="worker-empty">Could not load issues. ' + appEsc_((e && e.message) || e) + '</p>';
+    return _appIssues;
+  });
+}
+
+function appIssueHideSuggest_() {
+  var box = document.getElementById('appIssueAptSuggest');
+  if (box) box.hidden = true;
+  _appIssueSuggestIndex = -1;
+}
+
+function appIssueMatchApts_(q) {
+  q = String(q || '').trim().toLowerCase();
+  var out = [];
+  for (var i = 0; i < _appRows.length && out.length < 12; i++) {
+    var r = _appRows[i];
+    if (!q) {
+      out.push(r);
+      continue;
+    }
+    var blob = (r.propertyId + ' ' + r.project + ' ' + (r.phone || '')).toLowerCase();
+    if (blob.indexOf(q) !== -1) out.push(r);
+  }
+  return out;
+}
+
+function appIssueAptSuggest_() {
+  var box = document.getElementById('appIssueAptSuggest');
+  var inp = document.getElementById('appIssueApt');
+  if (!box || !inp) return;
+  var q = String(inp.value || '').trim();
+  if (!q) {
+    box.hidden = true;
+    return;
+  }
+  if (!_appRows.length) {
+    box.hidden = false;
+    box.innerHTML = '<div class="app-issue-suggest-empty">Loading apartments…</div>';
+    return;
+  }
+  var rows = appIssueMatchApts_(q);
+  if (!rows.length) {
+    box.hidden = false;
+    box.innerHTML = '<div class="app-issue-suggest-empty">No apartment match — you can still type it</div>';
+    return;
+  }
+  _appIssueSuggestIndex = -1;
+  box.hidden = false;
+  box.innerHTML = rows.map(function (r, i) {
+    return '<button type="button" class="app-issue-suggest-item" data-idx="' + i + '" onclick=\'appIssuePickApt_(' + JSON.stringify(String(r.propertyId || '')) + ')\'>'
+      + '<strong>' + appEsc_(r.propertyId) + '</strong>'
+      + (r.phone ? '<span>' + appEsc_(r.phone) + '</span>' : '')
+      + '</button>';
+  }).join('');
+}
+
+function appIssuePickApt_(propertyId) {
+  var inp = document.getElementById('appIssueApt');
+  if (inp) inp.value = propertyId;
+  appIssueHideSuggest_();
+}
+
+function appIssueAptKey_(ev) {
+  var box = document.getElementById('appIssueAptSuggest');
+  if (!box || box.hidden) {
+    if (ev.key === 'Enter') ev.preventDefault();
+    return;
+  }
+  var items = box.querySelectorAll('.app-issue-suggest-item');
+  if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+    ev.preventDefault();
+    if (!items.length) return;
+    if (ev.key === 'ArrowDown') _appIssueSuggestIndex = Math.min(items.length - 1, _appIssueSuggestIndex + 1);
+    else _appIssueSuggestIndex = Math.max(0, _appIssueSuggestIndex - 1);
+    items.forEach(function (el, i) { el.classList.toggle('active', i === _appIssueSuggestIndex); });
+    return;
+  }
+  if (ev.key === 'Enter' && _appIssueSuggestIndex >= 0 && items[_appIssueSuggestIndex]) {
+    ev.preventDefault();
+    items[_appIssueSuggestIndex].click();
+  }
+  if (ev.key === 'Escape') appIssueHideSuggest_();
+}
+
+function appIssueResolveProject_(propertyId) {
+  var id = String(propertyId || '').trim().toUpperCase();
+  var row = _appRows.find(function (r) { return String(r.propertyId || '').toUpperCase() === id; });
+  if (row && row.project) return String(row.project).toUpperCase();
+  if (id.indexOf('-') > 0) return id.split('-')[0];
+  return '';
+}
+
+function appIssuePickPhoto_(ev) {
+  var file = ev.target.files && ev.target.files[0];
+  ev.target.value = '';
+  if (!file) return;
+  var status = document.getElementById('appIssuePhotoStatus');
+  var preview = document.getElementById('appIssuePhotoPreview');
+  if (status) status.textContent = 'Uploading photo…';
+  _appIssuePhotoUploading = true;
+  if (typeof empireCompressImage !== 'function') {
+    _appIssuePhotoUploading = false;
+    if (status) status.textContent = 'Photo upload is not available.';
+    return;
+  }
+  empireCompressImage(file, 'application-issues', function (url) {
+    _appIssuePhotoUploading = false;
+    if (url) {
+      _appIssuePhotoUrl = url;
+      if (status) status.textContent = 'Photo ready';
+      if (preview) { preview.src = url; preview.hidden = false; }
+    } else if (status) {
+      status.textContent = (_lastEmpireUploadError || 'Photo upload failed');
+    }
+  }, { maxSize: 1400, quality: 0.7 });
+}
+
+function appIssueClearForm_() {
+  var apt = document.getElementById('appIssueApt');
+  var note = document.getElementById('appIssueNote');
+  var status = document.getElementById('appIssuePhotoStatus');
+  var preview = document.getElementById('appIssuePhotoPreview');
+  if (apt) apt.value = '';
+  if (note) note.value = '';
+  if (status) status.textContent = '';
+  if (preview) { preview.hidden = true; preview.src = ''; }
+  _appIssuePhotoUrl = '';
+  appIssueHideSuggest_();
+}
+
+function appIssueAdd_() {
+  if (_appIssuePhotoUploading) {
+    alert('Wait for the photo to finish uploading.');
+    return;
+  }
+  var propertyId = String((document.getElementById('appIssueApt') || {}).value || '').trim().toUpperCase();
+  var note = String((document.getElementById('appIssueNote') || {}).value || '').trim();
+  if (_appIssueKind === 'customer' && !propertyId) {
+    alert('Pick an apartment for a customer issue.');
+    return;
+  }
+  if (!note) {
+    alert('Write the issue first.');
+    return;
+  }
+  fetchJSONRetry({
+    action: 'addApplicationIssue',
+    token: appToken_(),
+    kind: _appIssueKind,
+    propertyId: propertyId,
+    project: appIssueResolveProject_(propertyId),
+    note: note,
+    photo: _appIssuePhotoUrl || ''
+  }, 2, 45000).then(function (d) {
+    if (!d || d.ok === false) {
+      alert((d && (d.message || d.error)) || 'Could not save issue');
+      return;
+    }
+    if (d.issue) _appIssues.unshift(d.issue);
+    else appIssueLoad_(true);
+    appIssueClearForm_();
+    appRenderIssues_();
+  }).catch(function (e) {
+    alert(String((e && e.message) || e || 'Save failed'));
+  });
+}
+
+function appIssueMarkFixed_(id) {
+  if (!id) return;
+  fetchJSONRetry({
+    action: 'markApplicationIssueFixed',
+    token: appToken_(),
+    id: id
+  }, 2, 30000).then(function (d) {
+    if (!d || d.ok === false) {
+      alert((d && (d.message || d.error)) || 'Could not mark fixed');
+      return;
+    }
+    var i = _appIssues.findIndex(function (x) { return String(x.id) === String(id); });
+    if (i >= 0 && d.issue) _appIssues[i] = d.issue;
+    else appIssueLoad_(true);
+    appRenderIssues_();
+  }).catch(function (e) {
+    alert(String((e && e.message) || e || 'Update failed'));
+  });
+}
+
+function appIssueDelete_(id) {
+  if (!id || !confirm('Delete this issue?')) return;
+  fetchJSONRetry({
+    action: 'deleteApplicationIssue',
+    token: appToken_(),
+    id: id
+  }, 1, 30000).then(function (d) {
+    if (!d || d.ok === false) {
+      alert((d && (d.message || d.error)) || 'Could not delete');
+      return;
+    }
+    _appIssues = _appIssues.filter(function (x) { return String(x.id) !== String(id); });
+    appRenderIssues_();
+  }).catch(function (e) {
+    alert(String((e && e.message) || e || 'Delete failed'));
+  });
+}
+
+function appOpenImg_(src) {
+  var modal = document.getElementById('appImgModal');
+  var img = document.getElementById('appImgBig');
+  if (img) img.src = src || '';
+  if (modal) modal.classList.add('show');
+}
+
+function appCloseImg_() {
+  var modal = document.getElementById('appImgModal');
+  if (modal) modal.classList.remove('show');
+}
+
+function appIssueCardHtml_(r) {
+  var open = String(r.status || '') !== 'fixed';
+  var apt = String(r.propertyId || '').trim() || 'No apartment';
+  var photoHtml = '';
+  if (r.photo) {
+    if (typeof empireThumbImgHtml === 'function') {
+      photoHtml = empireThumbImgHtml(r.photo, 'app-issue-thumb', '', 320).replace('<img ', '<img onclick="appOpenImg_(this.dataset.full||this.src)" ');
+    } else {
+      photoHtml = '<img class="app-issue-thumb" src="' + appEsc_(r.photo) + '" alt="" onclick="appOpenImg_(this.src)">';
+    }
+  }
+  var h = '<article class="app-issue-card' + (open ? '' : ' is-fixed') + '">'
+    + '<div class="app-issue-card-top">'
+    + '<strong class="app-issue-apt">' + appEsc_(apt) + '</strong>'
+    + (open
+      ? '<span class="app-issue-badge is-open">Not fixed</span>'
+      : '<span class="app-issue-badge is-fixed">Fixed</span>')
+    + '</div>'
+    + '<p class="app-issue-note">' + appEsc_(r.note || '') + '</p>'
+    + photoHtml
+    + '<div class="app-issue-meta">Opened ' + appEsc_(appFormatDateTime_(r.createdAt))
+    + (r.createdBy ? (' · ' + appEsc_(r.createdBy)) : '') + '</div>';
+  if (!open) {
+    h += '<div class="app-issue-meta">Fixed ' + appEsc_(appFormatDateTime_(r.fixedAt))
+      + (r.fixedBy ? (' · ' + appEsc_(r.fixedBy)) : '') + '</div>';
+  }
+  h += '<div class="app-issue-card-actions">';
+  if (open) {
+    h += '<button type="button" class="app-issue-fix-btn" onclick="appIssueMarkFixed_(\'' + appEsc_(r.id) + '\')">Fixed</button>';
+  }
+  h += '<button type="button" class="app-issue-del-btn" onclick="appIssueDelete_(\'' + appEsc_(r.id) + '\')">Delete</button>';
+  h += '</div></article>';
+  return h;
+}
+
+function appRenderIssues_() {
+  appIssueUpdateNavCount_();
+  var host = document.getElementById('appIssueHost');
+  if (!host) return;
+  var rows = _appIssues.filter(function (r) {
+    return String(r.kind || 'customer') === _appIssueKind;
+  });
+  var open = rows.filter(function (r) { return String(r.status || '') !== 'fixed'; });
+  var fixed = rows.filter(function (r) { return String(r.status || '') === 'fixed'; });
+  var h = '<div class="app-issue-board">'
+    + '<section class="app-issue-col">'
+    + '<h3>Not fixed <span>' + open.length + '</span></h3>';
+  if (!open.length) {
+    h += '<p class="worker-empty">No open ' + appIssueKindLabel_(_appIssueKind).toLowerCase() + ' issues.</p>';
+  } else {
+    h += open.map(appIssueCardHtml_).join('');
+  }
+  h += '</section><section class="app-issue-col is-fixed-col">'
+    + '<h3>Fixed <span>' + fixed.length + '</span></h3>';
+  if (!fixed.length) {
+    h += '<p class="worker-empty">Nothing marked fixed yet.</p>';
+  } else {
+    h += fixed.map(appIssueCardHtml_).join('');
+  }
+  h += '</section></div>';
+  host.innerHTML = h;
+}
+
 function appEnterApp_() {
   var loginPage = document.getElementById('loginPage');
   var main = document.getElementById('mainContainer');
@@ -880,6 +1221,9 @@ function appInit_() {
     document.addEventListener('click', appStatusDdCloseAll_);
     document.addEventListener('scroll', appStatusDdOnOuterScroll_, true);
     window.addEventListener('resize', appStatusDdCloseAll_);
+    document.addEventListener('click', function (ev) {
+      if (!ev.target.closest('.app-issue-apt-wrap')) appIssueHideSuggest_();
+    });
   }
   if (!empireAuthPageBoot({
     dept: APP_DEPT,

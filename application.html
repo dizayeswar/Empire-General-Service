@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://script.google.com">
 <title>Application — Door Check — Empire World</title>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/application.css?v=2026-09-01-pending-daily">
+<link rel="stylesheet" href="assets/application.css?v=2026-09-01-app-issues">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -46,6 +46,7 @@
       <nav class="side-nav">
         <button class="tab-btn active" onclick="switchTab(event,'list')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span> <span class="lbl">Door check</span></button>
         <button class="tab-btn" onclick="switchTab(event,'analytics')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 11h8"/><path d="M7 16h12"/><path d="M7 6h3"/></svg></span> <span class="lbl">Summary</span></button>
+        <button class="tab-btn" onclick="switchTab(event,'issues')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg></span> <span class="lbl">Issues</span><span id="appIssueNavCount" class="app-issue-nav-count" hidden>0</span></button>
       </nav>
       <div class="side-actions">
         <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle theme"><span class="nav-icon theme-icon"></span> <span class="lbl">Theme</span></button>
@@ -79,6 +80,41 @@
           <div id="appSummaryHost" class="app-summary-host"></div>
         </div>
       </div>
+      <div id="issues" class="tab-content">
+        <div class="form-section">
+          <h2>Issues</h2>
+          <p style="color:var(--text-soft);font-size:13px;margin:-6px 0 14px;">Log apartment problems with date and time. Open cards stay not-fixed until you mark them Fixed.</p>
+          <div class="app-issue-kind-tabs" role="tablist">
+            <button type="button" class="app-issue-kind-btn active" id="appIssueKindCustomer" onclick="appIssueSetKind_('customer')">Customer issues</button>
+            <button type="button" class="app-issue-kind-btn" id="appIssueKindPortal" onclick="appIssueSetKind_('portal')">Portal issues</button>
+          </div>
+          <div class="app-issue-add">
+            <div class="form-row">
+              <div class="form-group app-issue-apt-wrap">
+                <label id="appIssueAptLabel">Apartment</label>
+                <input type="text" id="appIssueApt" autocomplete="off" placeholder="Search e.g. ES-1-1-01" oninput="appIssueAptSuggest_()" onfocus="appIssueAptSuggest_()" onkeydown="appIssueAptKey_(event)">
+                <div id="appIssueAptSuggest" class="app-issue-suggest" hidden></div>
+              </div>
+              <div class="form-group" style="flex:1;min-width:220px;">
+                <label>Issue</label>
+                <input type="text" id="appIssueNote" placeholder="What is the problem?" maxlength="500">
+              </div>
+              <div class="form-group">
+                <label>Photo</label>
+                <button type="button" onclick="document.getElementById('appIssuePhotoFile').click()">Add photo</button>
+                <input type="file" id="appIssuePhotoFile" accept="image/*" style="display:none" onchange="appIssuePickPhoto_(event)">
+              </div>
+              <div class="form-group">
+                <label>&nbsp;</label>
+                <button type="button" onclick="appIssueAdd_()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Add issue</button>
+              </div>
+            </div>
+            <p id="appIssuePhotoStatus" class="app-issue-photo-status"></p>
+            <img id="appIssuePhotoPreview" class="app-issue-photo-preview" alt="" hidden>
+          </div>
+          <div id="appIssueHost" class="app-issue-host"><p>Loading…</p></div>
+        </div>
+      </div>
       <footer>Prepared by <strong>Swar Dizayee</strong></footer>
     </div>
   </div>
@@ -92,12 +128,15 @@
     <div id="appDetailBody"><p>Loading…</p></div>
   </div>
 </div>
+<div class="modal" id="appImgModal" onclick="appCloseImg_()">
+  <img id="appImgBig" alt="">
+</div>
 <script src="config.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-core.js?v=2026-08-19-wh-assign"></script>
-<script src="assets/application-app.js?v=2026-09-01-pending-daily"></script>
+<script src="assets/application-app.js?v=2026-09-01-app-issues"></script>
 <script>
 function switchTab(ev, tab) {
   document.querySelectorAll('.tab-content').forEach(function (el) { el.classList.remove('active'); });
@@ -109,6 +148,7 @@ function switchTab(ev, tab) {
     appRenderSummary_();
     appRenderPendingDaily_();
   }
+  if (tab === 'issues') appIssueShow_();
 }
 </script>
 </body>
