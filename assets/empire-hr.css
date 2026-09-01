@@ -711,16 +711,18 @@
   box-sizing: border-box;
   padding: 11px 12px;
   border-radius: var(--radius-pill, 999px);
-  border: 1px solid var(--card-border);
-  background: var(--panel, #fff);
-  color: var(--text);
+  border: 2px solid var(--btn-border);
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  box-shadow: 0 9px 17px var(--shadow);
   cursor: pointer;
   font: inherit;
   font-weight: 600;
 }
 .hr-settings.open .hr-settings-toggle {
-  border-color: var(--header-accent, #8d015d);
-  color: var(--header-accent, #8d015d);
+  background: var(--tab-active);
+  border-color: var(--tab-active);
+  color: var(--tab-active-text);
 }
 .hr-settings-panel {
   display: flex;
