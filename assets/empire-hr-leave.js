@@ -45,8 +45,149 @@ var _hrScan = { url: '', directorSig: '', x: 0.56, y: 0.36, w: 0.2 };
 var _hrScanDrag = null;
 var _hrPaperTemplate = null;
 var _hrPapersReady = false;
+var _hrSelectMode = false;
+var _hrSelected = {};
+var _hrBulkBusy = false;
+
+function hrSelectedIds_() {
+  return Object.keys(_hrSelected).filter(function (id) { return !!_hrSelected[id]; });
+}
+
+function hrToggleSelectMode_(on) {
+  if (_hrBulkBusy) return;
+  _hrSelectMode = on === undefined ? !_hrSelectMode : !!on;
+  if (!_hrSelectMode) _hrSelected = {};
+  hrRenderTable_();
+}
+
+function hrToggleRowSelect_(id, ev) {
+  if (ev) ev.stopPropagation();
+  if (_hrBulkBusy) return;
+  id = String(id || '');
+  if (!id) return;
+  if (_hrSelected[id]) delete _hrSelected[id];
+  else _hrSelected[id] = true;
+  var box = document.getElementById('hrSel-' + id);
+  if (box) box.checked = !!_hrSelected[id];
+  var row = box && box.closest('tr');
+  if (row) row.classList.toggle('hr-row-selected', !!_hrSelected[id]);
+  var n = hrSelectedIds_().length;
+  var count = document.getElementById('hrSelectCount');
+  if (count) count.textContent = n ? n + ' selected' : 'Select papers';
+  var all = document.getElementById('hrSelAll');
+  if (all) {
+    var boxes = document.querySelectorAll('input[data-hr-sel]');
+    all.checked = boxes.length > 0 && n === boxes.length;
+  }
+}
+
+function hrSelectAllPending_(ev) {
+  if (_hrBulkBusy) return;
+  var on = !!(ev && ev.target && ev.target.checked);
+  _hrSelected = {};
+  if (on) {
+    hrFiltered_().forEach(function (r) {
+      if (hrStageOf_(r) === 'pending_director') _hrSelected[String(r.id)] = true;
+    });
+  }
+  hrRenderTable_();
+}
+
+function hrDirectorConfirmRequest_(id) {
+  id = String(id || '').trim();
+  var row = _hrRows.find(function (r) { return String(r.id) === id; });
+  if (!row || hrStageOf_(row) !== 'pending_director') {
+    return Promise.reject(new Error('That paper is not waiting for the director.'));
+  }
+  var sig = '';
+  if (hrVal_('hr-id') === id) sig = (_hrSigs && _hrSigs.director) || '';
+  if (!sig && row.entitlements && row.entitlements.__sigs) sig = row.entitlements.__sigs.director || '';
+  if (!sig) sig = hrAccountDirectorSig_();
+  if (!sig) return Promise.reject(new Error('Add your e-signature in the Director box, then Confirm.'));
+  var extra = {
+    action: 'confirmHrLeaveRequest',
+    token: hrToken_(),
+    id: id,
+    directorSignature: sig,
+    directorName: (hrVal_('hr-id') === id ? hrVal_('hr-directorName') : row.directorName) ||
+      (typeof empireGetUser === 'function' ? empireGetUser() : ''),
+    directorSignedAt: (hrVal_('hr-id') === id ? hrVal_('hr-directorSignedAt') : row.directorSignedAt) || hrToday_(),
+    entitlements: Object.assign({}, hrVal_('hr-id') === id ? hrReadEntitlements_() : (row.entitlements || {}))
+  };
+  extra.entitlements.__sigs = Object.assign({}, extra.entitlements.__sigs || {}, { director: sig });
+  return fetchJSONRetry(extra, 1, 30000).then(function (d) {
+    if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) {
+      throw new Error('Session expired');
+    }
+    if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Confirm failed');
+    return d;
+  });
+}
+
+function hrDirectorRejectRequest_(id) {
+  id = String(id || '').trim();
+  return fetchJSONRetry({ action: 'rejectHrLeaveRequest', token: hrToken_(), id: id }, 1, 30000).then(function (d) {
+    if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) {
+      throw new Error('Session expired');
+    }
+    if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Reject failed');
+    return d;
+  });
+}
+
+function hrRunSelectedPending_(kind) {
+  if (_hrBulkBusy || !hrIsDirectorOnly_()) return;
+  var ids = hrSelectedIds_();
+  if (!ids.length) {
+    hrMsg_('Select at least one paper first.', false);
+    return;
+  }
+  if (kind === 'confirm' && !hrAccountDirectorSig_()) {
+    hrMsg_('Add your e-signature in the Director box, then Confirm.', false);
+    return;
+  }
+  var n = ids.length;
+  var verb = kind === 'reject' ? 'Reject' : 'Confirm';
+  var detail = kind === 'reject'
+    ? verb + ' ' + n + ' selected paper' + (n === 1 ? '' : 's') + '? They go to HR as Rejected, with no e-signature.'
+    : verb + ' ' + n + ' selected paper' + (n === 1 ? '' : 's') + '? Your e-signature is applied to each.';
+  var go = function () {
+    _hrBulkBusy = true;
+    hrMsg_(verb + 'ing ' + n + '…', true);
+    var i = 0;
+    var fail = 0;
+    var lastErr = '';
+    var step = function () {
+      if (i >= ids.length) {
+        _hrBulkBusy = false;
+        _hrSelectMode = false;
+        _hrSelected = {};
+        return hrLoad_(true).then(function () {
+          if (fail) hrMsg_((n - fail) + ' done, ' + fail + ' failed' + (lastErr ? ': ' + lastErr : '.'), false);
+          else hrMsg_(kind === 'reject'
+            ? 'Sent ' + n + ' back to HR as Rejected, without an e-signature.'
+            : 'Sent ' + n + ' back to HR as Completed.', true);
+        });
+      }
+      var id = ids[i++];
+      var req = kind === 'reject' ? hrDirectorRejectRequest_(id) : hrDirectorConfirmRequest_(id);
+      req.then(function () { step(); }).catch(function (err) {
+        fail++;
+        lastErr = err && err.message ? err.message : String(err || 'failed');
+        step();
+      });
+    };
+    step();
+  };
+  if (typeof uiConfirm === 'function') {
+    uiConfirm(detail).then(function (ok) { if (ok) go(); });
+    return;
+  }
+  if (confirm(detail)) go();
+}
 
 function hrToken_() { return empireGetToken() || ''; }
+
 function hrEsc_(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;')
@@ -739,36 +880,27 @@ function hrConfirmRow_(id) {
   var row = _hrRows.find(function (r) { return String(r.id) === id; });
   var stage = hrStageOf_(row || { status: hrVal_('hr-status') });
   if (hrIsDirectorOnly_()) {
-    var sig = '';
-    if (hrVal_('hr-id') === id) sig = (_hrSigs && _hrSigs.director) || '';
-    if (!sig && row && row.entitlements && row.entitlements.__sigs) {
-      sig = row.entitlements.__sigs.director || '';
-    }
-    if (!sig) sig = hrAccountDirectorSig_();
-    if (!sig) {
-      if (hrVal_('hr-id') !== id) hrEditInList_(id);
-      hrMsg_('Add your e-signature in the Director box, then Confirm.', false);
-      return;
-    }
-  } else if (!(hrIsHrStaff_() && stage === 'inbox')) {
+    hrDirectorConfirmRequest_(id)
+      .then(function () {
+        hrMsg_('Sent back to HR as Completed.', true);
+        hrSetListEditing_(false);
+        hrSwitchTab_(null, 'list');
+        return hrLoad_(true);
+      })
+      .catch(function (err) {
+        if (String(err && err.message || '').indexOf('e-signature') !== -1 && hrVal_('hr-id') !== id) hrEditInList_(id);
+        hrMsg_(err.message || 'Confirm failed.', false);
+      });
     return;
   }
+  if (!(hrIsHrStaff_() && stage === 'inbox')) return;
   var extra = { action: 'confirmHrLeaveRequest', token: hrToken_(), id: id };
-  if (hrIsDirectorOnly_()) {
-    extra.directorSignature = sig;
-    extra.directorName = (hrVal_('hr-id') === id ? hrVal_('hr-directorName') : (row && row.directorName)) ||
-      (typeof empireGetUser === 'function' ? empireGetUser() : '');
-    extra.directorSignedAt = (hrVal_('hr-id') === id ? hrVal_('hr-directorSignedAt') : (row && row.directorSignedAt)) || hrToday_();
-    extra.entitlements = hrVal_('hr-id') === id ? hrReadEntitlements_() : ((row && row.entitlements) || {});
-    extra.entitlements = extra.entitlements || {};
-    extra.entitlements.__sigs = Object.assign({}, extra.entitlements.__sigs || {}, { director: sig });
-  }
   hrMsg_('Confirming…', true);
   fetchJSONRetry(extra, 1, 30000)
     .then(function (d) {
       if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) return;
       if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Confirm failed');
-      hrMsg_(hrIsDirectorOnly_() ? 'Sent back to HR as Completed.' : 'Sent to Pending Director.', true);
+      hrMsg_('Sent to Pending Director.', true);
       hrSetListEditing_(false);
       hrSwitchTab_(null, 'list');
       return hrLoad_(true);
@@ -786,10 +918,8 @@ function hrRejectRow_(id) {
   var label = row && row.empName ? row.empName : 'this leave request';
   var go = function () {
     hrMsg_('Rejecting…', true);
-    fetchJSONRetry({ action: 'rejectHrLeaveRequest', token: hrToken_(), id: id }, 1, 30000)
-      .then(function (d) {
-        if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) return;
-        if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Reject failed');
+    hrDirectorRejectRequest_(id)
+      .then(function () {
         if (hrVal_('hr-id') === id) {
           _hrSigs.director = '';
           hrSet_('hr-directorName', '');
@@ -1023,13 +1153,30 @@ function hrRenderTable_() {
       ? 'Confirmed papers wait here for the director e-signature.'
       : 'No leave requests in this section.';
     h += '<section class="hr-stage hr-stage-' + hrEsc_(g.type) + '">';
+    h += '<div class="hr-stage-head">';
     h += '<h3 class="hr-stage-title">' + hrEsc_(g.label) + ' <span>(' + g.rows.length + ')</span></h3>';
+    if (director && g.type === 'pending_director' && g.rows.length) {
+      var selN = hrSelectedIds_().length;
+      h += '<div class="hr-stage-acts">';
+      if (_hrSelectMode) {
+        h += '<span class="hr-select-count" id="hrSelectCount">' + (selN ? selN + ' selected' : 'Select papers') + '</span>';
+        h += '<button type="button" class="hr-btn-confirm" onclick="hrRunSelectedPending_(\'confirm\')">Confirm</button>';
+        h += '<button type="button" class="hr-btn-reject" onclick="hrRunSelectedPending_(\'reject\')">Rejected</button>';
+        h += '<button type="button" onclick="hrToggleSelectMode_(false)">Cancel</button>';
+      } else {
+        h += '<button type="button" onclick="hrToggleSelectMode_(true)">Select</button>';
+      }
+      h += '</div>';
+    }
+    h += '</div>';
     if (!g.rows.length) {
       h += '<p class="hr-stage-empty">' + emptyHint + '</p>';
       h += '</section>';
       return;
     }
+    var showSel = director && g.type === 'pending_director' && _hrSelectMode;
     h += '<div class="hr-table-wrap"><table class="hr-list-table"><thead><tr>' +
+      (showSel ? '<th class="hr-sel-col"><input type="checkbox" id="hrSelAll" onclick="hrSelectAllPending_(event)"' + (g.rows.length && selN === g.rows.length ? ' checked' : '') + '></th>' : '') +
       '<th>#</th><th>Employee</th><th>Department</th><th>Type</th><th>Dates</th><th>Days</th><th>Status</th><th></th>' +
       '</tr></thead><tbody>';
     g.rows.forEach(function (r) {
@@ -1037,7 +1184,11 @@ function hrRenderTable_() {
       var stage = hrStageOf_(r);
       var canEdit = staff && stage === 'inbox';
       var canConfirm = (staff && stage === 'inbox') || (director && stage === 'pending_director');
-      h += '<tr>' +
+      var picked = !!_hrSelected[String(r.id)];
+      h += '<tr' + (showSel && picked ? ' class="hr-row-selected"' : '') + '>' +
+        (showSel
+          ? '<td class="hr-sel-col"><input type="checkbox" id="hrSel-' + hrEsc_(r.id) + '" data-hr-sel="1" onclick="hrToggleRowSelect_(\'' + hrEsc_(r.id) + '\',event)"' + (picked ? ' checked' : '') + '></td>'
+          : '') +
         '<td>' + hrEsc_(r.no || r.num || '') + '</td>' +
         '<td><strong>' + hrEsc_(r.empName || '—') + '</strong><div style="color:var(--text-soft);font-size:12px;">' + hrEsc_(r.empCode || '') + '</div></td>' +
         '<td>' + hrEsc_(r.empDepartment || '—') + '</td>' +
@@ -1048,8 +1199,8 @@ function hrRenderTable_() {
         '<td><span class="hr-badge hr-badge-' + hrEsc_(st) + '">' + hrEsc_(HR_STATUS_LABEL[st] || st) + '</span></td>' +
         '<td><div class="hr-row-acts">' +
           '<button type="button" class="hr-btn-edit" onclick="hrEditInList_(\'' + hrEsc_(r.id) + '\')">' + (canEdit ? 'Edit' : 'View') + '</button>' +
-          (canConfirm ? '<button type="button" class="hr-btn-confirm" onclick="hrConfirmRow_(\'' + hrEsc_(r.id) + '\')">Confirm</button>' : '') +
-          (director && stage === 'pending_director' ? '<button type="button" class="hr-btn-reject" onclick="hrRejectRow_(\'' + hrEsc_(r.id) + '\')">Rejected</button>' : '') +
+          (!showSel && canConfirm ? '<button type="button" class="hr-btn-confirm" onclick="hrConfirmRow_(\'' + hrEsc_(r.id) + '\')">Confirm</button>' : '') +
+          (!showSel && director && stage === 'pending_director' ? '<button type="button" class="hr-btn-reject" onclick="hrRejectRow_(\'' + hrEsc_(r.id) + '\')">Rejected</button>' : '') +
           (canEdit ? '<button type="button" class="hr-btn-del" onclick="hrDeleteRow_(\'' + hrEsc_(r.id) + '\')">Delete</button>' : '') +
           (r.entitlements && r.entitlements.__scan && r.entitlements.__scan.url
             ? '<button type="button" onclick="hrOpenScanRow_(\'' + hrEsc_(r.id) + '\')">Open scan</button>'

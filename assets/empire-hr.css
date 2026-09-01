@@ -47,10 +47,37 @@
   background: var(--panel, #fff);
 }
 .hr-stage-title {
-  margin: 0 0 10px;
+  margin: 0;
   font-size: 16px;
   font-weight: 700;
 }
+.hr-stage-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 10px;
+}
+.hr-stage-acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.hr-stage-acts button { padding: 6px 12px; font-size: 12px; }
+.hr-select-count {
+  font-size: 12px;
+  color: var(--text-soft);
+  font-weight: 600;
+  margin-right: 4px;
+}
+.hr-sel-col {
+  width: 36px;
+  text-align: center;
+}
+.hr-sel-col input { width: 16px; height: 16px; accent-color: var(--accent2); cursor: pointer; }
+.hr-row-selected td { background: rgba(141, 1, 93, 0.06); }
 .hr-stage-title span {
   color: var(--text-soft);
   font-weight: 600;
