@@ -48,6 +48,8 @@ var _hrPapersReady = false;
 var _hrSelectMode = false;
 var _hrSelected = {};
 var _hrBulkBusy = false;
+var _hrDoneSelectMode = false;
+var _hrDoneSelected = {};
 
 function hrSelectedIds_() {
   return Object.keys(_hrSelected).filter(function (id) { return !!_hrSelected[id]; });
@@ -102,6 +104,152 @@ function hrSelectAllVisible_(ev) {
     });
   }
   hrRenderTable_();
+}
+
+function hrDoneSelectedIds_() {
+  return Object.keys(_hrDoneSelected).filter(function (id) { return !!_hrDoneSelected[id]; });
+}
+
+function hrCompletedRows_() {
+  return (_hrRows || []).filter(function (r) { return hrStageOf_(r) === 'completed'; });
+}
+
+function hrToggleDoneSelectMode_(on) {
+  _hrDoneSelectMode = on === undefined ? !_hrDoneSelectMode : !!on;
+  if (!_hrDoneSelectMode) _hrDoneSelected = {};
+  hrRenderDoneTable_();
+}
+
+function hrToggleDoneRowSelect_(id, ev) {
+  if (ev) ev.stopPropagation();
+  id = String(id || '');
+  if (!id) return;
+  if (_hrDoneSelected[id]) delete _hrDoneSelected[id];
+  else _hrDoneSelected[id] = true;
+  var box = document.getElementById('hrDoneSel-' + id);
+  if (box) box.checked = !!_hrDoneSelected[id];
+  var row = box && box.closest('tr');
+  if (row) row.classList.toggle('hr-row-selected', !!_hrDoneSelected[id]);
+  var n = hrDoneSelectedIds_().length;
+  var count = document.getElementById('hrDoneSelectCount');
+  if (count) count.textContent = n ? n + ' selected' : 'Select papers';
+  var all = document.getElementById('hrDoneSelAll');
+  if (all) {
+    var boxes = document.querySelectorAll('input[data-hr-done-sel]');
+    all.checked = boxes.length > 0 && n === boxes.length;
+  }
+}
+
+function hrSelectAllDone_(ev) {
+  var on = !!(ev && ev.target && ev.target.checked);
+  _hrDoneSelected = {};
+  if (on) {
+    hrCompletedRows_().forEach(function (r) { _hrDoneSelected[String(r.id)] = true; });
+  }
+  hrRenderDoneTable_();
+}
+
+function hrWaitImages_(root, cb) {
+  var finished = false;
+  var finish = function () {
+    if (finished) return;
+    finished = true;
+    cb();
+  };
+  var imgs = root ? root.querySelectorAll('img') : [];
+  var left = imgs.length;
+  if (!left) {
+    finish();
+    return;
+  }
+  var tick = function () {
+    left--;
+    if (left <= 0) finish();
+  };
+  for (var i = 0; i < imgs.length; i++) {
+    if (imgs[i].complete) tick();
+    else {
+      imgs[i].addEventListener('load', tick);
+      imgs[i].addEventListener('error', tick);
+    }
+  }
+  setTimeout(finish, 5000);
+}
+
+function hrBatchScanPage_(row) {
+  var scan = row.entitlements && row.entitlements.__scan;
+  var page = document.createElement('div');
+  page.className = 'hr-batch-page hr-batch-scan-page';
+  var stage = document.createElement('div');
+  stage.className = 'hr-scan-stage';
+  var img = document.createElement('img');
+  img.className = 'hr-batch-scan-img';
+  img.alt = row.empName || 'Scanned leave form';
+  img.src = scan.url;
+  stage.appendChild(img);
+  if (scan.directorSig) {
+    var sig = document.createElement('img');
+    sig.className = 'hr-scan-dir-sig';
+    sig.alt = 'Director e-signature';
+    sig.src = scan.directorSig;
+    sig.style.left = ((Number(scan.x) || 0.56) * 100) + '%';
+    sig.style.top = ((Number(scan.y) || 0.36) * 100) + '%';
+    sig.style.width = ((Number(scan.w) || 0.2) * 100) + '%';
+    stage.appendChild(sig);
+  }
+  page.appendChild(stage);
+  return page;
+}
+
+function hrBatchFormPage_(row, i) {
+  var page = document.createElement('div');
+  page.className = 'hr-batch-page';
+  var clone = hrMakePaperClone_('hr-batch-' + i + '-' + String(row.id || '').replace(/[^a-zA-Z0-9_-]/g, ''), row.leaveType);
+  if (clone) {
+    hrFillPaperClone_(clone, row);
+    page.appendChild(clone);
+  }
+  return page;
+}
+
+function hrClearBatchPrint_() {
+  document.body.classList.remove('hr-print-batch');
+  var host = document.getElementById('hrBatchPrint');
+  if (host) {
+    host.innerHTML = '';
+    host.hidden = true;
+  }
+}
+
+function hrPrintSelectedCompleted_() {
+  if (hrIsDirectorOnly_()) return;
+  var ids = hrDoneSelectedIds_();
+  if (!ids.length) {
+    hrMsg_('Select at least one completed paper first.', false);
+    return;
+  }
+  var rows = ids.map(function (id) {
+    return _hrRows.find(function (r) { return String(r.id) === String(id); });
+  }).filter(function (r) { return r && hrStageOf_(r) === 'completed'; });
+  if (!rows.length) {
+    hrMsg_('Select at least one completed paper first.', false);
+    return;
+  }
+  var host = document.getElementById('hrBatchPrint');
+  if (!host) return;
+  hrSnapshotPaperTemplate_();
+  host.innerHTML = '';
+  rows.forEach(function (row, i) {
+    var scan = row.entitlements && row.entitlements.__scan;
+    host.appendChild(scan && scan.url ? hrBatchScanPage_(row) : hrBatchFormPage_(row, i));
+  });
+  host.hidden = false;
+  hrMsg_('Preparing ' + rows.length + ' paper' + (rows.length === 1 ? '' : 's') + '… In the print window choose Save as PDF.', true);
+  hrWaitImages_(host, function () {
+    document.body.classList.remove('hr-print-scan');
+    document.body.classList.add('hr-print-batch');
+    window.print();
+  });
 }
 
 function hrDirectorConfirmRequest_(id) {
@@ -1097,8 +1245,11 @@ function hrFillPaperClone_(root, row) {
   hrCloneSet_(root, 'hr-leaveType', row.leaveType);
   hrCloneSet_(root, 'hr-leaveOther', row.leaveOther);
   hrCloneSet_(root, 'hr-empSignature', row.empSignature);
+  hrCloneSet_(root, 'hr-empSignedAt', row.empSignedAt);
   hrCloneSet_(root, 'hr-lineManagerName', row.lineManagerName);
+  hrCloneSet_(root, 'hr-lineManagerSignedAt', row.lineManagerSignedAt);
   hrCloneSet_(root, 'hr-directorName', row.directorName);
+  hrCloneSet_(root, 'hr-directorSignedAt', row.directorSignedAt);
   hrCloneSet_(root, 'hr-hrComment', row.hrComment);
   hrCloneSet_(root, 'hr-hrSignature', row.hrSignature);
   hrCloneSet_(root, 'hr-hrSignedAt', row.hrSignedAt);
@@ -1117,6 +1268,11 @@ function hrFillPaperClone_(root, row) {
       if (col) el.value = d[col] || '';
     });
   });
+  var days = root.querySelector('[data-hr-id="hr-daysOut"]');
+  if (days && days.style) {
+    days.style.height = 'auto';
+    days.style.height = Math.max(22, days.scrollHeight || 22) + 'px';
+  }
 }
 
 function hrEnsureSavedPapers_() {
@@ -1310,16 +1466,19 @@ function hrRenderDoneTable_() {
   var host = document.getElementById('hrDoneHost');
   var summary = document.getElementById('hrDoneSummary');
   if (!host) return;
-  var completed = (_hrRows || []).filter(function (r) { return hrStageOf_(r) === 'completed'; });
+  var completed = hrCompletedRows_();
   var rejected = (_hrRows || []).filter(function (r) { return hrStageOf_(r) === 'rejected'; });
   var rows = completed.concat(rejected);
   if (summary) {
     summary.textContent = completed.length + ' completed, ' + rejected.length + ' rejected';
   }
-  function rowHtml(r) {
-    var st = String(r.status || '');
+  function rowHtml(r, showSel) {
     var rejectedRow = hrStageOf_(r) === 'rejected';
-    return '<tr>' +
+    var picked = !!_hrDoneSelected[String(r.id)];
+    return '<tr' + (showSel && picked ? ' class="hr-row-selected"' : '') + '>' +
+      (showSel
+        ? '<td class="hr-sel-col"><input type="checkbox" id="hrDoneSel-' + hrEsc_(r.id) + '" data-hr-done-sel="1" onclick="hrToggleDoneRowSelect_(\'' + hrEsc_(r.id) + '\',event)"' + (picked ? ' checked' : '') + '></td>'
+        : '') +
       '<td>' + hrEsc_(r.no || r.num || '') + '</td>' +
       '<td><strong>' + hrEsc_(r.empName || '—') + '</strong><div style="color:var(--text-soft);font-size:12px;">' + hrEsc_(r.empCode || '') + '</div></td>' +
       '<td>' + hrEsc_(r.empDepartment || '—') + '</td>' +
@@ -1329,31 +1488,56 @@ function hrRenderDoneTable_() {
       '<td><span class="hr-badge hr-badge-' + (rejectedRow ? 'rejected' : 'completed') + '">' + (rejectedRow ? 'Rejected' : 'Completed') + '</span></td>' +
       '<td><div class="hr-row-acts">' +
         '<button type="button" class="hr-btn-edit" onclick="hrEditInList_(\'' + hrEsc_(r.id) + '\',\'done\')">View</button>' +
-        '<button type="button" onclick="hrPrintRow_(\'' + hrEsc_(r.id) + '\')">Print</button>' +
+        (!showSel ? '<button type="button" onclick="hrPrintRow_(\'' + hrEsc_(r.id) + '\')">Print</button>' : '') +
       '</div></td></tr>';
   }
-  function sectionHtml(title, type, list, emptyHint) {
-    var h = '<section class="hr-stage hr-stage-' + type + '">';
-    h += '<h3 class="hr-stage-title">' + hrEsc_(title) + ' <span>(' + list.length + ')</span></h3>';
+  function rejectedHtml(list) {
+    var h = '<section class="hr-stage hr-stage-rejected">';
+    h += '<h3 class="hr-stage-title">Rejected <span>(' + list.length + ')</span></h3>';
     if (!list.length) {
-      h += '<p class="hr-stage-empty">' + emptyHint + '</p></section>';
+      h += '<p class="hr-stage-empty">Papers the director rejected come here, with no e-signature.</p></section>';
       return h;
     }
     h += '<div class="hr-table-wrap"><table class="hr-list-table"><thead><tr>' +
       '<th>#</th><th>Employee</th><th>Department</th><th>Type</th><th>Dates</th><th>Days</th><th>Status</th><th></th>' +
       '</tr></thead><tbody>';
-    list.forEach(function (r) { h += rowHtml(r); });
+    list.forEach(function (r) { h += rowHtml(r, false); });
     h += '</tbody></table></div></section>';
     return h;
   }
+  var showSel = !hrIsDirectorOnly_() && _hrDoneSelectMode && completed.length;
+  var selN = hrDoneSelectedIds_().length;
+  var groupSelN = completed.filter(function (r) { return !!_hrDoneSelected[String(r.id)]; }).length;
+  var h = '<section class="hr-stage hr-stage-completed">';
+  h += '<div class="hr-stage-head">';
+  h += '<h3 class="hr-stage-title">Completed request <span>(' + completed.length + ')</span></h3>';
+  if (completed.length && !hrIsDirectorOnly_()) {
+    h += '<div class="hr-stage-acts">';
+    if (_hrDoneSelectMode) {
+      h += '<span class="hr-select-count" id="hrDoneSelectCount">' + (selN ? selN + ' selected' : 'Select papers') + '</span>';
+      h += '<button type="button" class="hr-btn-confirm" onclick="hrPrintSelectedCompleted_()">Print / PDF</button>';
+      h += '<button type="button" onclick="hrToggleDoneSelectMode_(false)">Cancel</button>';
+    } else {
+      h += '<button type="button" onclick="hrToggleDoneSelectMode_(true)">Select</button>';
+    }
+    h += '</div>';
+  }
+  h += '</div>';
+  if (!completed.length) {
+    h += '<p class="hr-stage-empty">Papers the director has signed come here.</p></section>';
+  } else {
+    h += '<div class="hr-table-wrap"><table class="hr-list-table"><thead><tr>' +
+      (showSel ? '<th class="hr-sel-col"><input type="checkbox" id="hrDoneSelAll" onclick="hrSelectAllDone_(event)"' + (completed.length && groupSelN === completed.length ? ' checked' : '') + '></th>' : '') +
+      '<th>#</th><th>Employee</th><th>Department</th><th>Type</th><th>Dates</th><th>Days</th><th>Status</th><th></th>' +
+      '</tr></thead><tbody>';
+    completed.forEach(function (r) { h += rowHtml(r, showSel); });
+    h += '</tbody></table></div></section>';
+  }
   if (!rows.length) {
-    host.innerHTML = sectionHtml('Completed request', 'completed', [], 'Papers the director has signed come here.') +
-      sectionHtml('Rejected', 'rejected', [], 'Papers the director rejected come here, with no e-signature.');
+    host.innerHTML = h + rejectedHtml([]);
     return;
   }
-  host.innerHTML =
-    sectionHtml('Completed request', 'completed', completed, 'Papers the director has signed come here.') +
-    sectionHtml('Rejected', 'rejected', rejected, 'Papers the director rejected come here, with no e-signature.');
+  host.innerHTML = h + rejectedHtml(rejected);
 }
 
 function hrArchiveRowHtml_(r, fromTab) {
@@ -1953,6 +2137,7 @@ function hrInit_() {
   hrBindScanDrag_();
   window.addEventListener('afterprint', function () {
     document.body.classList.remove('hr-print-scan');
+    hrClearBatchPrint_();
   });
   if (!empireAuthPageBoot({
     dept: HR_DEPT,

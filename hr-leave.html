@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-30-hr-f06">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-30-hr-f06">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-01-hr-dconf">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-01-hr-pdf">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -143,7 +143,7 @@
       <div id="done" class="tab-content">
         <div class="form-section">
           <h2>Completed request</h2>
-          <p class="hr-tab-help">Papers the director has signed or rejected. Rejected papers have no director e-signature and cannot be edited.</p>
+          <p class="hr-tab-help">Papers the director has signed or rejected. Use <strong>Select</strong> on signed papers to save them as one PDF (Print → Save as PDF).</p>
           <p class="hr-summary" id="hrDoneSummary"></p>
           <div id="hrDoneHost"><p>Loading…</p></div>
         </div>
@@ -444,11 +444,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-09-01-hr-dconf"></script>
+<div id="hrBatchPrint" class="hr-batch-print" hidden></div>
+
+<script src="config.js?v=2026-09-01-hr-pdf"></script>
 <script src="assets/empire-api.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-auth.js?v=2026-09-01-dir-esig"></script>
 <script src="assets/empire-core.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-storage.js?v=2026-08-31-hr-scan"></script>
-<script src="assets/empire-hr-leave.js?v=2026-09-01-hr-dconf"></script>
+<script src="assets/empire-hr-leave.js?v=2026-09-01-hr-pdf"></script>
 </body>
 </html>

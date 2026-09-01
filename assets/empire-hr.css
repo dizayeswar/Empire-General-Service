@@ -680,6 +680,8 @@
   .hr-note { padding: 12px; }
 }
 
+.hr-batch-print { display: none; }
+
 @media print {
   @page { size: A4 portrait; margin: 12mm 14mm; }
   html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; }
@@ -757,4 +759,46 @@
     padding: 0 !important;
   }
   body.hr-print-scan .hr-scan-target { display: none !important; }
+
+  body.hr-print-batch #hrPrintRoot,
+  body.hr-print-batch #hrPrintRoot * { visibility: hidden !important; display: none !important; }
+  body.hr-print-batch #scan,
+  body.hr-print-batch #scan * { visibility: hidden !important; }
+  body.hr-print-batch #hrBatchPrint {
+    display: block !important;
+    visibility: visible !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+  body.hr-print-batch #hrBatchPrint,
+  body.hr-print-batch #hrBatchPrint * { visibility: visible !important; }
+  body.hr-print-batch .hr-batch-page {
+    page-break-after: always;
+    break-after: page;
+    margin: 0;
+    padding: 0;
+  }
+  body.hr-print-batch .hr-batch-page:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+  body.hr-print-batch .hr-batch-page .hr-note {
+    border: none !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+  body.hr-print-batch .hr-batch-scan-page .hr-scan-stage {
+    width: 100%;
+  }
+  body.hr-print-batch .hr-batch-scan-img {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+  }
 }
