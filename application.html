@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://script.google.com">
 <title>Application — Door Check — Empire World</title>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/application.css?v=2026-09-01-app-issues">
+<link rel="stylesheet" href="assets/application.css?v=2026-09-01-app-issues-paste">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -88,7 +88,7 @@
             <button type="button" class="app-issue-kind-btn active" id="appIssueKindCustomer" onclick="appIssueSetKind_('customer')">Customer issues</button>
             <button type="button" class="app-issue-kind-btn" id="appIssueKindPortal" onclick="appIssueSetKind_('portal')">Portal issues</button>
           </div>
-          <div class="app-issue-add">
+          <div class="app-issue-add" onpaste="appIssuePastePhoto_(event)">
             <div class="form-row">
               <div class="form-group app-issue-apt-wrap">
                 <label id="appIssueAptLabel">Apartment</label>
@@ -109,6 +109,7 @@
                 <button type="button" onclick="appIssueAdd_()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Add issue</button>
               </div>
             </div>
+            <div class="image-upload app-issue-paste" id="appIssuePasteArea" tabindex="0" onclick="this.focus()" onpaste="appIssuePastePhoto_(event)">Click here and paste a picture (Ctrl+V)</div>
             <p id="appIssuePhotoStatus" class="app-issue-photo-status"></p>
             <img id="appIssuePhotoPreview" class="app-issue-photo-preview" alt="" hidden>
           </div>
@@ -136,7 +137,7 @@
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-core.js?v=2026-08-19-wh-assign"></script>
-<script src="assets/application-app.js?v=2026-09-01-app-issues"></script>
+<script src="assets/application-app.js?v=2026-09-01-app-issues-paste"></script>
 <script>
 function switchTab(ev, tab) {
   document.querySelectorAll('.tab-content').forEach(function (el) { el.classList.remove('active'); });

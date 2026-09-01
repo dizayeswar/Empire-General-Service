@@ -675,6 +675,18 @@
   font-size: 12px;
   color: var(--text-soft);
 }
+.app-issue-paste {
+  margin-top: 10px;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.app-issue-paste:focus {
+  outline: none;
+  border-color: var(--header-accent, #8d015d);
+  box-shadow: 0 0 0 3px rgba(141, 1, 93, 0.18);
+}
 .app-issue-photo-preview {
   display: block;
   margin-top: 8px;

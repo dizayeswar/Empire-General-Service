@@ -1004,14 +1004,33 @@ function appIssueResolveProject_(propertyId) {
 function appIssuePickPhoto_(ev) {
   var file = ev.target.files && ev.target.files[0];
   ev.target.value = '';
+  appIssueUploadPhoto_(file);
+}
+
+function appIssuePastePhoto_(ev) {
+  var items = ev.clipboardData && ev.clipboardData.items;
+  if (!items) return;
+  for (var i = 0; i < items.length; i++) {
+    if (items[i].type && items[i].type.indexOf('image') !== -1) {
+      ev.preventDefault();
+      appIssueUploadPhoto_(items[i].getAsFile());
+      return;
+    }
+  }
+}
+
+function appIssueUploadPhoto_(file) {
   if (!file) return;
   var status = document.getElementById('appIssuePhotoStatus');
   var preview = document.getElementById('appIssuePhotoPreview');
+  var area = document.getElementById('appIssuePasteArea');
   if (status) status.textContent = 'Uploading photo…';
+  if (area) area.textContent = 'Uploading photo…';
   _appIssuePhotoUploading = true;
   if (typeof empireCompressImage !== 'function') {
     _appIssuePhotoUploading = false;
     if (status) status.textContent = 'Photo upload is not available.';
+    if (area) area.textContent = 'Click here and paste a picture (Ctrl+V)';
     return;
   }
   empireCompressImage(file, 'application-issues', function (url) {
@@ -1019,9 +1038,11 @@ function appIssuePickPhoto_(ev) {
     if (url) {
       _appIssuePhotoUrl = url;
       if (status) status.textContent = 'Photo ready';
+      if (area) area.textContent = 'Picture pasted — click to replace, or paste again';
       if (preview) { preview.src = url; preview.hidden = false; }
-    } else if (status) {
-      status.textContent = (_lastEmpireUploadError || 'Photo upload failed');
+    } else {
+      if (status) status.textContent = (_lastEmpireUploadError || 'Photo upload failed');
+      if (area) area.textContent = 'Click here and paste a picture (Ctrl+V)';
     }
   }, { maxSize: 1400, quality: 0.7 });
 }
@@ -1035,6 +1056,8 @@ function appIssueClearForm_() {
   if (note) note.value = '';
   if (status) status.textContent = '';
   if (preview) { preview.hidden = true; preview.src = ''; }
+  var area = document.getElementById('appIssuePasteArea');
+  if (area) area.textContent = 'Click here and paste a picture (Ctrl+V)';
   _appIssuePhotoUrl = '';
   appIssueHideSuggest_();
 }
