@@ -631,9 +631,39 @@
   border-radius: 12px;
   background: var(--panel);
 }
-.app-issue-apt-wrap {
+.app-issue-apt-wrap,
+.app-issue-title-wrap {
   position: relative;
   min-width: 180px;
+}
+.app-issue-add textarea {
+  width: 100%;
+  min-height: 64px;
+  resize: vertical;
+  padding: 10px 12px;
+  border: 2px solid var(--input-border);
+  border-radius: 12px;
+  background: var(--input-bg);
+  color: var(--text);
+  font: inherit;
+  box-sizing: border-box;
+}
+.app-issue-desc {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.app-issue-desc span {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+  margin-bottom: 2px;
 }
 .app-issue-suggest {
   position: absolute;

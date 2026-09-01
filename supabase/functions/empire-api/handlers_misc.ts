@@ -393,6 +393,8 @@ function appIssueToApi_(r: Record<string, unknown>) {
     project: String(r.project || ""),
     propertyId: String(r.property_id || ""),
     note: String(r.note || ""),
+    problem: String(r.problem || ""),
+    solution: String(r.solution || ""),
     photo: String(r.photo || ""),
     status: String(r.status || "open").toLowerCase() === "fixed" ? "fixed" : "open",
     createdBy: String(r.created_by || ""),
@@ -421,7 +423,9 @@ export async function handleAddApplicationIssue(body: Record<string, unknown>, a
   const propertyId = String(body.propertyId || "").trim().toUpperCase();
   const project = String(body.project || "").trim().toUpperCase()
     || (propertyId.indexOf("-") > 0 ? propertyId.split("-")[0] : "");
-  const note = String(body.note || "").trim();
+  const note = String(body.note || body.title || "").trim();
+  const problem = String(body.problem || "").trim();
+  const solution = String(body.solution || "").trim();
   const photo = String(body.photo || "").trim();
   if (kind === "customer" && !propertyId) {
     return { ok: false, success: false, error: "missing_apartment", message: "Pick an apartment for a customer issue." };
@@ -431,13 +435,15 @@ export async function handleAddApplicationIssue(body: Record<string, unknown>, a
   }
   const num = await nextCounter("issnum_ApplicationIssues");
   const now = isoNow();
-  const row = {
+  const row: Record<string, unknown> = {
     id: `appiss-${crypto.randomUUID()}`,
     num,
     kind,
     project,
     property_id: propertyId,
     note,
+    problem,
+    solution,
     photo,
     status: "open",
     created_by: auth.username,
@@ -445,7 +451,12 @@ export async function handleAddApplicationIssue(body: Record<string, unknown>, a
     fixed_by: "",
     fixed_at: "",
   };
-  const { error } = await sb().from("application_issues").insert(row);
+  let { error } = await sb().from("application_issues").insert(row);
+  if (error && /problem|solution/i.test(String(error.message || ""))) {
+    delete row.problem;
+    delete row.solution;
+    ({ error } = await sb().from("application_issues").insert(row));
+  }
   if (error) throw error;
   return { ok: true, success: true, issue: appIssueToApi_(row) };
 }

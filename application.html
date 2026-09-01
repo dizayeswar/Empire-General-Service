@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://script.google.com">
 <title>Application — Door Check — Empire World</title>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/application.css?v=2026-09-01-app-issues-paste">
+<link rel="stylesheet" href="assets/application.css?v=2026-09-01-app-issue-titles">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -95,9 +95,10 @@
                 <input type="text" id="appIssueApt" autocomplete="off" placeholder="Search e.g. ES-1-1-01" oninput="appIssueAptSuggest_()" onfocus="appIssueAptSuggest_()" onkeydown="appIssueAptKey_(event)">
                 <div id="appIssueAptSuggest" class="app-issue-suggest" hidden></div>
               </div>
-              <div class="form-group" style="flex:1;min-width:220px;">
+              <div class="form-group app-issue-title-wrap" style="flex:1;min-width:200px;">
                 <label>Issue</label>
-                <input type="text" id="appIssueNote" placeholder="What is the problem?" maxlength="500">
+                <input type="text" id="appIssueNote" autocomplete="off" placeholder="e.g. gas replace" maxlength="120" oninput="appIssueTitleSuggest_()" onfocus="appIssueTitleSuggest_()" onkeydown="appIssueTitleKey_(event)">
+                <div id="appIssueTitleSuggest" class="app-issue-suggest" hidden></div>
               </div>
               <div class="form-group">
                 <label>Photo</label>
@@ -107,6 +108,16 @@
               <div class="form-group">
                 <label>&nbsp;</label>
                 <button type="button" onclick="appIssueAdd_()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Add issue</button>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group" style="flex:1;min-width:220px;">
+                <label>What's the problem</label>
+                <textarea id="appIssueProblem" rows="2" placeholder="Describe the problem"></textarea>
+              </div>
+              <div class="form-group" style="flex:1;min-width:220px;">
+                <label>How to solve the problem</label>
+                <textarea id="appIssueSolution" rows="2" placeholder="What should be done"></textarea>
               </div>
             </div>
             <div class="image-upload app-issue-paste" id="appIssuePasteArea" tabindex="0" onclick="this.focus()" onpaste="appIssuePastePhoto_(event)">Click here and paste a picture (Ctrl+V)</div>
@@ -137,7 +148,7 @@
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-core.js?v=2026-08-19-wh-assign"></script>
-<script src="assets/application-app.js?v=2026-09-01-app-issues-paste"></script>
+<script src="assets/application-app.js?v=2026-09-01-app-issue-titles"></script>
 <script>
 function switchTab(ev, tab) {
   document.querySelectorAll('.tab-content').forEach(function (el) { el.classList.remove('active'); });

@@ -27,6 +27,7 @@ var _appIssueKind = 'customer';
 var _appIssuePhotoUrl = '';
 var _appIssuePhotoUploading = false;
 var _appIssueSuggestIndex = -1;
+var _appIssueTitleSuggestIndex = -1;
 
 function appToken_() { return empireGetToken() || ''; }
 function appEsc_(s) {
@@ -936,6 +937,7 @@ function appIssueMatchApts_(q) {
 }
 
 function appIssueAptSuggest_() {
+  appIssueHideTitleSuggest_();
   var box = document.getElementById('appIssueAptSuggest');
   var inp = document.getElementById('appIssueApt');
   if (!box || !inp) return;
@@ -991,6 +993,76 @@ function appIssueAptKey_(ev) {
     items[_appIssueSuggestIndex].click();
   }
   if (ev.key === 'Escape') appIssueHideSuggest_();
+}
+
+function appIssueHideTitleSuggest_() {
+  var box = document.getElementById('appIssueTitleSuggest');
+  if (box) box.hidden = true;
+  _appIssueTitleSuggestIndex = -1;
+}
+
+function appIssueSavedTitles_() {
+  var seen = {};
+  var out = [];
+  _appIssues.forEach(function (r) {
+    var t = String(r.note || '').trim();
+    if (!t) return;
+    var k = t.toLowerCase();
+    if (seen[k]) return;
+    seen[k] = true;
+    out.push(t);
+  });
+  return out;
+}
+
+function appIssueTitleSuggest_() {
+  appIssueHideSuggest_();
+  var box = document.getElementById('appIssueTitleSuggest');
+  var inp = document.getElementById('appIssueNote');
+  if (!box || !inp) return;
+  var q = String(inp.value || '').trim().toLowerCase();
+  if (!q) {
+    box.hidden = true;
+    return;
+  }
+  var titles = appIssueSavedTitles_().filter(function (t) {
+    return t.toLowerCase().indexOf(q) !== -1;
+  }).slice(0, 12);
+  if (!titles.length) {
+    box.hidden = true;
+    return;
+  }
+  _appIssueTitleSuggestIndex = -1;
+  box.hidden = false;
+  box.innerHTML = titles.map(function (t, i) {
+    return '<button type="button" class="app-issue-suggest-item" data-idx="' + i + '" onclick=\'appIssuePickTitle_(' + JSON.stringify(String(t)) + ')\'>'
+      + '<strong>' + appEsc_(t) + '</strong></button>';
+  }).join('');
+}
+
+function appIssuePickTitle_(title) {
+  var inp = document.getElementById('appIssueNote');
+  if (inp) inp.value = title;
+  appIssueHideTitleSuggest_();
+}
+
+function appIssueTitleKey_(ev) {
+  var box = document.getElementById('appIssueTitleSuggest');
+  if (!box || box.hidden) return;
+  var items = box.querySelectorAll('.app-issue-suggest-item');
+  if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+    ev.preventDefault();
+    if (!items.length) return;
+    if (ev.key === 'ArrowDown') _appIssueTitleSuggestIndex = Math.min(items.length - 1, _appIssueTitleSuggestIndex + 1);
+    else _appIssueTitleSuggestIndex = Math.max(0, _appIssueTitleSuggestIndex - 1);
+    items.forEach(function (el, i) { el.classList.toggle('active', i === _appIssueTitleSuggestIndex); });
+    return;
+  }
+  if (ev.key === 'Enter' && _appIssueTitleSuggestIndex >= 0 && items[_appIssueTitleSuggestIndex]) {
+    ev.preventDefault();
+    items[_appIssueTitleSuggestIndex].click();
+  }
+  if (ev.key === 'Escape') appIssueHideTitleSuggest_();
 }
 
 function appIssueResolveProject_(propertyId) {
@@ -1050,16 +1122,21 @@ function appIssueUploadPhoto_(file) {
 function appIssueClearForm_() {
   var apt = document.getElementById('appIssueApt');
   var note = document.getElementById('appIssueNote');
+  var problem = document.getElementById('appIssueProblem');
+  var solution = document.getElementById('appIssueSolution');
   var status = document.getElementById('appIssuePhotoStatus');
   var preview = document.getElementById('appIssuePhotoPreview');
   if (apt) apt.value = '';
   if (note) note.value = '';
+  if (problem) problem.value = '';
+  if (solution) solution.value = '';
   if (status) status.textContent = '';
   if (preview) { preview.hidden = true; preview.src = ''; }
   var area = document.getElementById('appIssuePasteArea');
   if (area) area.textContent = 'Click here and paste a picture (Ctrl+V)';
   _appIssuePhotoUrl = '';
   appIssueHideSuggest_();
+  appIssueHideTitleSuggest_();
 }
 
 function appIssueAdd_() {
@@ -1069,6 +1146,8 @@ function appIssueAdd_() {
   }
   var propertyId = String((document.getElementById('appIssueApt') || {}).value || '').trim().toUpperCase();
   var note = String((document.getElementById('appIssueNote') || {}).value || '').trim();
+  var problem = String((document.getElementById('appIssueProblem') || {}).value || '').trim();
+  var solution = String((document.getElementById('appIssueSolution') || {}).value || '').trim();
   if (_appIssueKind === 'customer' && !propertyId) {
     alert('Pick an apartment for a customer issue.');
     return;
@@ -1084,6 +1163,8 @@ function appIssueAdd_() {
     propertyId: propertyId,
     project: appIssueResolveProject_(propertyId),
     note: note,
+    problem: problem,
+    solution: solution,
     photo: _appIssuePhotoUrl || ''
   }, 2, 45000).then(function (d) {
     if (!d || d.ok === false) {
@@ -1168,6 +1249,8 @@ function appIssueCardHtml_(r) {
       : '<span class="app-issue-badge is-fixed">Fixed</span>')
     + '</div>'
     + '<p class="app-issue-note">' + appEsc_(r.note || '') + '</p>'
+    + (r.problem ? ('<div class="app-issue-desc"><span>Problem</span>' + appEsc_(r.problem) + '</div>') : '')
+    + (r.solution ? ('<div class="app-issue-desc"><span>How to solve</span>' + appEsc_(r.solution) + '</div>') : '')
     + photoHtml
     + '<div class="app-issue-meta">Opened ' + appEsc_(appFormatDateTime_(r.createdAt))
     + (r.createdBy ? (' · ' + appEsc_(r.createdBy)) : '') + '</div>';
@@ -1246,6 +1329,7 @@ function appInit_() {
     window.addEventListener('resize', appStatusDdCloseAll_);
     document.addEventListener('click', function (ev) {
       if (!ev.target.closest('.app-issue-apt-wrap')) appIssueHideSuggest_();
+      if (!ev.target.closest('.app-issue-title-wrap')) appIssueHideTitleSuggest_();
     });
   }
   if (!empireAuthPageBoot({
