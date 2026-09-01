@@ -201,6 +201,87 @@ function hrOpenSig_(slot) {
   inp.click();
 }
 
+function hrProcessSigImage_(dataUrl, cb) {
+  var img = new Image();
+  img.onload = function () {
+    try {
+      var maxW = 900;
+      var maxH = 360;
+      var w = img.naturalWidth || img.width;
+      var h = img.naturalHeight || img.height;
+      var scale = Math.min(1, maxW / w, maxH / h);
+      var cw = Math.max(1, Math.round(w * scale));
+      var ch = Math.max(1, Math.round(h * scale));
+      var canvas = document.createElement('canvas');
+      canvas.width = cw;
+      canvas.height = ch;
+      var ctx = canvas.getContext('2d', { willReadFrequently: true });
+      ctx.clearRect(0, 0, cw, ch);
+      ctx.drawImage(img, 0, 0, cw, ch);
+      var imageData = ctx.getImageData(0, 0, cw, ch);
+      var d = imageData.data;
+      var minX = cw;
+      var minY = ch;
+      var maxX = 0;
+      var maxY = 0;
+      var found = false;
+      for (var i = 0; i < d.length; i += 4) {
+        var r = d[i];
+        var g = d[i + 1];
+        var b = d[i + 2];
+        var a = d[i + 3];
+        if (a < 8) {
+          d[i + 3] = 0;
+          continue;
+        }
+        var lum = 0.299 * r + 0.587 * g + 0.114 * b;
+        var ink = Math.max(0, Math.min(1, (205 - lum) / 95));
+        if (ink < 0.12) {
+          d[i] = 0;
+          d[i + 1] = 0;
+          d[i + 2] = 0;
+          d[i + 3] = 0;
+          continue;
+        }
+        d[i] = 16;
+        d[i + 1] = 38;
+        d[i + 2] = 125;
+        d[i + 3] = Math.round(Math.pow(ink, 0.85) * 255);
+        var px = (i / 4) % cw;
+        var py = Math.floor((i / 4) / cw);
+        if (px < minX) minX = px;
+        if (py < minY) minY = py;
+        if (px > maxX) maxX = px;
+        if (py > maxY) maxY = py;
+        found = true;
+      }
+      ctx.putImageData(imageData, 0, 0);
+      if (!found) {
+        cb(canvas.toDataURL('image/png'));
+        return;
+      }
+      var pad = 4;
+      minX = Math.max(0, minX - pad);
+      minY = Math.max(0, minY - pad);
+      maxX = Math.min(cw - 1, maxX + pad);
+      maxY = Math.min(ch - 1, maxY + pad);
+      var tw = Math.max(1, maxX - minX + 1);
+      var th = Math.max(1, maxY - minY + 1);
+      var out = document.createElement('canvas');
+      out.width = tw;
+      out.height = th;
+      var octx = out.getContext('2d');
+      octx.clearRect(0, 0, tw, th);
+      octx.drawImage(canvas, minX, minY, tw, th, 0, 0, tw, th);
+      cb(out.toDataURL('image/png'));
+    } catch (err) {
+      cb(dataUrl);
+    }
+  };
+  img.onerror = function () { cb(dataUrl); };
+  img.src = dataUrl;
+}
+
 function hrOnSigFile_(e) {
   var file = e.target.files && e.target.files[0];
   var slot = e.target.getAttribute('data-slot');
@@ -208,9 +289,11 @@ function hrOnSigFile_(e) {
   if (!file || !slot) return;
   var reader = new FileReader();
   reader.onload = function () {
-    _hrSigs[slot] = String(reader.result || '');
-    hrRenderSig_(slot);
-    if (slot === 'director') hrApplyDirectorOnly_(_hrSigs.director, false);
+    hrProcessSigImage_(String(reader.result || ''), function (url) {
+      _hrSigs[slot] = url;
+      hrRenderSig_(slot);
+      if (slot === 'director') hrApplyDirectorOnly_(url, false);
+    });
   };
   reader.readAsDataURL(file);
 }
@@ -1054,7 +1137,9 @@ function hrOnScanDirectorSig_(e) {
   if (!hrCanWrite_()) return;
   var reader = new FileReader();
   reader.onload = function () {
-    hrApplyDirectorOnly_(reader.result, true);
+    hrProcessSigImage_(String(reader.result || ''), function (url) {
+      hrApplyDirectorOnly_(url, true);
+    });
   };
   reader.readAsDataURL(file);
 }
