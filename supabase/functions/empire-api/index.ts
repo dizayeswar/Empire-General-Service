@@ -332,6 +332,7 @@ Deno.serve(async (req) => {
       case "confirmHrLeaveRequest": return json(await hr.handleConfirmHrLeaveRequest(body, a));
       case "rejectHrLeaveRequest": return json(await hr.handleRejectHrLeaveRequest(body, a));
       case "seedHrPdfAnnualPapers": return json(await hr.handleSeedHrPdfAnnualPapers(body, a));
+      case "clearHrLeaveRequests": return json(await hr.handleClearHrLeaveRequests(body, a));
 
       case "getTrash": return json(await misc.handleGetTrash(body));
       case "restoreTrash": return json(await misc.handleRestoreTrash(body));

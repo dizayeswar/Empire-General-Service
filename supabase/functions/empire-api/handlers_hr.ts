@@ -1,5 +1,6 @@
 import { AuthOk, getUser } from "./auth.ts";
-import { fmtDate, isoNow, sb, selectAllRows } from "./db.ts";
+import { resetPasswordOk } from "./config.ts";
+import { fmtDate, isoNow, sb, selectAllRows, trashRows } from "./db.ts";
 import { moduleLevel, normalizeRole } from "./helpers.ts";
 
 const LEAVE_TYPES = [
@@ -224,14 +225,32 @@ export async function handleDeleteHrLeaveRequest(body: Record<string, unknown>, 
   }
   const id = String(body.id || "").trim();
   if (!id) return { ok: false, success: false, error: "missing_id", message: "Request id is required." };
-  const { data: ex } = await sb().from("hr_leave_requests").select("id,status").eq("id", id).maybeSingle();
+  const { data: ex } = await sb().from("hr_leave_requests").select("*").eq("id", id).maybeSingle();
   if (!ex) return { ok: false, success: false, error: "not_found", message: "Leave request not found." };
   if (isLockedStatus(ex.status)) {
     return { ok: false, success: false, error: "locked", message: "This paper is locked. It cannot be deleted." };
   }
+  await trashRows("HrLeaveRequests", [ex], "delete", String(auth.username || body.username || ""));
   const { error } = await sb().from("hr_leave_requests").delete().eq("id", id);
   if (error) throw error;
-  return { ok: true, success: true, id };
+  return { ok: true, success: true, id, trashed: true };
+}
+
+export async function handleClearHrLeaveRequests(body: Record<string, unknown>, auth: AuthOk) {
+  if (!canWrite(auth)) {
+    return { ok: false, success: false, error: "not_allowed", message: "Read-only accounts cannot reset leave requests." };
+  }
+  if (!resetPasswordOk(body)) {
+    return { ok: false, success: false, error: "bad_password", message: "Wrong password." };
+  }
+  const { data } = await sb().from("hr_leave_requests").select("*");
+  const count = data?.length || 0;
+  if (count) {
+    await trashRows("HrLeaveRequests", data!, "reset", String(auth.username || body.username || ""));
+    const { error } = await sb().from("hr_leave_requests").delete().gte("id", "");
+    if (error) throw error;
+  }
+  return { ok: true, success: true, cleared: count };
 }
 
 export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>, auth: AuthOk) {
@@ -391,6 +410,7 @@ export async function handleSeedHrPdfAnnualPapers(_body: Record<string, unknown>
     const p = PDF_ANNUAL_PEOPLE[i];
     const id = ids[i];
     const ex = byId.get(id);
+    if (!ex) continue;
     const existingNum = Number(ex?.num || 0);
     const num = existingNum > 0 ? existingNum : ++maxNum;
     const n = i + 1;
@@ -426,8 +446,10 @@ export async function handleSeedHrPdfAnnualPapers(_body: Record<string, unknown>
       updated_at: now,
     });
   }
-  const { error } = await sb().from("hr_leave_requests").upsert(upserts);
-  if (error) throw error;
+  if (upserts.length) {
+    const { error } = await sb().from("hr_leave_requests").upsert(upserts);
+    if (error) throw error;
+  }
 
   const extraIds = allRows
     .filter((r) => {

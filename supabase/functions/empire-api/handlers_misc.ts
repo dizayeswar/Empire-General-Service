@@ -353,6 +353,20 @@ export async function handleGetTrash(body: Record<string, unknown>) {
             issueType: String(r.issue_type || payload.issueType || ""),
             done: payload.done === true || payload.status === "done",
           };
+        } else if (src === "HrLeaveRequests") {
+          const r = arr as Record<string, unknown>;
+          const name = String(r.emp_name || "").trim();
+          const code = String(r.emp_code || "").trim();
+          const type = String(r.leave_type || "").trim();
+          const status = String(r.status || "").trim();
+          const num = Number(r.num || 0) || 0;
+          const parts = [];
+          if (num) parts.push("#" + num);
+          if (name) parts.push(name);
+          if (code) parts.push(code);
+          if (type) parts.push(type);
+          preview = parts.join(" · ") || "Leave request";
+          meta = { num, empName: name, empCode: code, leaveType: type, status };
         } else {
           preview = JSON.stringify(arr).slice(0, 120);
         }

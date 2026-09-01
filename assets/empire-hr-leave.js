@@ -744,7 +744,7 @@ function hrDeleteRow_(id) {
         hrMsg_(err.message || 'Delete failed.', false);
       });
   };
-  var msg = 'Delete the leave request for ' + label + '?';
+  var msg = 'Delete the leave request for ' + label + '? It will move to the Recycle Bin.';
   if (typeof uiConfirm === 'function') {
     uiConfirm(msg).then(function (ok) { if (ok) go(); });
     return;
@@ -1508,21 +1508,225 @@ function hrBindScanDrag_() {
   sig.addEventListener('pointercancel', hrScanDirPointerUp_);
 }
 
-function hrSeedPdfAnnualPapers_() {
-  if (!hrCanWrite_()) return Promise.resolve(0);
-  hrMsg_('Saving all 15 Annual leave papers from the PDF…', true);
-  return fetchJSONRetry({ action: 'seedHrPdfAnnualPapers', token: hrToken_() }, 1, 60000)
-    .then(function (d) {
-      if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) {
-        return Promise.reject(new Error('Session expired'));
-      }
-      if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Save failed');
-      return Number(d.updated || 15);
-    })
-    .catch(function (err) {
-      hrMsg_(err.message || 'Could not save the PDF papers.', false);
-      return 0;
+var HR_TRASH_SHEETS = ['HrLeaveRequests'];
+
+function hrShowStaffTools_() {
+  var show = hrCanWrite_() && !hrIsDirectorOnly_();
+  var trash = document.getElementById('btnHrTrash');
+  var reset = document.getElementById('btnHrReset');
+  if (trash) trash.style.display = show ? '' : 'none';
+  if (reset) reset.style.display = show ? '' : 'none';
+}
+
+function hrRbOpen_() {
+  if (!hrCanWrite_()) return;
+  var m = document.getElementById('hrRbModal');
+  if (m) m.style.display = 'flex';
+  hrRbLoad_();
+}
+
+function hrRbClose_() {
+  var m = document.getElementById('hrRbModal');
+  if (m) m.style.display = 'none';
+}
+
+function hrRbItemHtml_(it) {
+  var when = String(it.deletedAt || '').replace('T', ' ').slice(0, 16);
+  var how = it.reason === 'reset'
+    ? '<span class="rb-how reset">Reset</span>'
+    : '<span class="rb-how">Delete</span>';
+  var title = hrEsc_(it.preview || it.empName || 'Leave request');
+  var ref = it.num ? ('<span class="rb-ref">#' + hrEsc_(String(it.num)) + '</span> ') : '';
+  var st = String(it.status || '');
+  var status = st
+    ? '<span class="rb-status open">' + hrEsc_(HR_STATUS_LABEL[st] || st) + '</span>'
+    : '';
+  var locParts = [];
+  if (it.empCode) locParts.push(String(it.empCode));
+  if (it.leaveType) locParts.push(String(it.leaveType));
+  var loc = hrEsc_(locParts.join(' · '));
+  var tid = hrEsc_(it.trashId);
+  return '<div class="rb-item">'
+    + '<div class="rb-body">'
+    + '<div class="rb-title">' + ref + title + ' ' + status + '</div>'
+    + (loc ? '<div class="rb-loc">' + loc + '</div>' : '')
+    + '<div class="rb-meta">' + hrEsc_(when) + (it.deletedBy ? (' · ' + hrEsc_(it.deletedBy)) : '') + ' · ' + how + '</div>'
+    + '</div>'
+    + '<div class="rb-actions">'
+    + '<button type="button" class="rb-restore" onclick="hrRbRestore_(\'' + tid + '\')">Restore</button>'
+    + '<button type="button" class="rb-purge" onclick="hrRbPurge_(\'' + tid + '\')" title="Delete forever">✕</button>'
+    + '</div></div>';
+}
+
+function hrRbLoad_() {
+  var box = document.getElementById('hrRbList');
+  if (!box) return;
+  box.innerHTML = '<p style="color:var(--text-faint);">Loading…</p>';
+  fetchJSONRetry({
+    action: 'getTrash',
+    dept: HR_DEPT,
+    sheets: HR_TRASH_SHEETS,
+    token: hrToken_()
+  }, 1, 30000).then(function (d) {
+    if (d && d.ok === false) throw new Error(d.message || d.error || 'Could not load bin');
+    var items = Array.isArray(d) ? d : (Array.isArray(d.items) ? d.items : []);
+    if (!items.length) {
+      box.innerHTML = '<p style="color:var(--text-faint);">The bin is empty.</p>';
+      return;
+    }
+    box.innerHTML = '<div class="rb-items">' + items.map(hrRbItemHtml_).join('') + '</div>';
+  }).catch(function (e) {
+    box.innerHTML = '<p style="color:#C5504F;">' + hrEsc_(e.message || 'Could not load') + '</p>';
+  });
+}
+
+function hrRbRestore_(id) {
+  var go = function () {
+    fetchJSONRetry({
+      action: 'restoreTrash',
+      dept: HR_DEPT,
+      sheets: HR_TRASH_SHEETS,
+      trashIds: [id],
+      token: hrToken_()
+    }, 1, 30000).then(function (d) {
+      if (d && d.ok === false) throw new Error(d.message || d.error || 'Restore failed');
+      hrRbLoad_();
+      return hrLoad_(true);
+    }).catch(function (e) {
+      hrMsg_(e.message || 'Restore failed.', false);
     });
+  };
+  if (typeof uiConfirm === 'function') {
+    uiConfirm('Restore this leave request?').then(function (ok) { if (ok) go(); });
+    return;
+  }
+  if (confirm('Restore this leave request?')) go();
+}
+
+function hrRbPurge_(id) {
+  var go = function () {
+    fetchJSONRetry({
+      action: 'purgeTrash',
+      dept: HR_DEPT,
+      sheets: HR_TRASH_SHEETS,
+      trashIds: [id],
+      token: hrToken_()
+    }, 1, 30000).then(function (d) {
+      if (d && d.ok === false) throw new Error(d.message || d.error || 'Delete forever failed');
+      hrRbLoad_();
+    }).catch(function (e) {
+      hrMsg_(e.message || 'Delete forever failed.', false);
+    });
+  };
+  var msg = 'Delete this record forever? This cannot be undone.';
+  if (typeof uiConfirm === 'function') {
+    uiConfirm(msg, { danger: true }).then(function (ok) { if (ok) go(); });
+    return;
+  }
+  if (confirm(msg)) go();
+}
+
+function hrRbRestoreAll_() {
+  var go = function () {
+    fetchJSONRetry({
+      action: 'restoreTrash',
+      dept: HR_DEPT,
+      sheets: HR_TRASH_SHEETS,
+      token: hrToken_()
+    }, 1, 60000).then(function (d) {
+      if (d && d.ok === false) throw new Error(d.message || d.error || 'Restore failed');
+      hrRbLoad_();
+      return hrLoad_(true);
+    }).catch(function (e) {
+      hrMsg_(e.message || 'Restore failed.', false);
+    });
+  };
+  if (typeof uiConfirm === 'function') {
+    uiConfirm('Restore everything in the bin?').then(function (ok) { if (ok) go(); });
+    return;
+  }
+  if (confirm('Restore everything in the bin?')) go();
+}
+
+function hrRbEmpty_() {
+  var go = function () {
+    fetchJSONRetry({
+      action: 'purgeTrash',
+      dept: HR_DEPT,
+      sheets: HR_TRASH_SHEETS,
+      token: hrToken_()
+    }, 1, 60000).then(function (d) {
+      if (d && d.ok === false) throw new Error(d.message || d.error || 'Empty bin failed');
+      hrRbLoad_();
+    }).catch(function (e) {
+      hrMsg_(e.message || 'Empty bin failed.', false);
+    });
+  };
+  var msg = 'Empty the Recycle Bin? This deletes every item forever.';
+  if (typeof uiConfirm === 'function') {
+    uiConfirm(msg, { danger: true }).then(function (ok) { if (ok) go(); });
+    return;
+  }
+  if (confirm(msg)) go();
+}
+
+function hrOpenResetModal_() {
+  if (!hrCanWrite_()) return;
+  var m = document.getElementById('hrResetModal');
+  var pw = document.getElementById('hrResetPwInput');
+  var msg = document.getElementById('hrResetMsg');
+  if (pw) pw.value = '';
+  if (msg) msg.textContent = '';
+  if (m) m.style.display = 'flex';
+  if (pw) setTimeout(function () { pw.focus(); }, 50);
+}
+
+function hrCloseResetModal_() {
+  var m = document.getElementById('hrResetModal');
+  if (m) m.style.display = 'none';
+}
+
+function hrDoReset_() {
+  var pwEl = document.getElementById('hrResetPwInput');
+  var msg = document.getElementById('hrResetMsg');
+  if (!pwEl || !msg) return;
+  var pw = String(pwEl.value || '');
+  if (!pw) {
+    msg.style.color = '#C5504F';
+    msg.textContent = 'Please enter the password.';
+    return;
+  }
+  msg.style.color = 'var(--text-soft)';
+  msg.textContent = 'Moving to Recycle Bin…';
+  fetchJSONRetry({
+    action: 'clearHrLeaveRequests',
+    token: hrToken_(),
+    resetPassword: pw,
+    username: typeof empireGetUser === 'function' ? empireGetUser() : ''
+  }, 1, 60000).then(function (d) {
+    if (d && d.error === 'bad_password') {
+      msg.style.color = '#C5504F';
+      msg.textContent = 'Wrong password — nothing was deleted.';
+      return;
+    }
+    if (d && d.error === 'not_allowed') {
+      msg.style.color = '#C5504F';
+      msg.textContent = 'Not allowed.';
+      return;
+    }
+    if (d && d.ok === false) {
+      msg.style.color = '#C5504F';
+      msg.textContent = d.message || d.error || 'Reset failed';
+      return;
+    }
+    msg.style.color = '#1d9e75';
+    msg.textContent = 'Moved ' + (d.cleared || 0) + ' leave request(s) to the Recycle Bin.';
+    hrLoad_(true);
+    setTimeout(hrCloseResetModal_, 900);
+  }).catch(function (e) {
+    msg.style.color = '#C5504F';
+    msg.textContent = e.message || 'Reset failed';
+  });
 }
 
 function hrSave_() {
@@ -1576,6 +1780,7 @@ function hrEnterApp_() {
   if (typeof empireAuthRefreshPerms === 'function') {
     empireAuthRefreshPerms(function () {
       _hrCanWrite = hrCanWrite_();
+      hrShowStaffTools_();
     });
   }
   _hrCanWrite = hrCanWrite_();
@@ -1592,13 +1797,9 @@ function hrEnterApp_() {
     if (doneBtn) doneBtn.style.display = 'none';
     hrSwitchTab_(null, 'list');
   }
+  hrShowStaffTools_();
   hrRenderScan_();
-  hrLoad_(false).then(function () {
-    return hrSeedPdfAnnualPapers_();
-  }).then(function (n) {
-    if (n) hrMsg_('Saved 15 Annual leave papers from the PDF.', true);
-    return hrLoad_(true);
-  });
+  hrLoad_(true);
 }
 
 function hrHandleLogin_(e) {

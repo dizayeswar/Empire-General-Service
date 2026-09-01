@@ -206,6 +206,7 @@ export const DEPT_BY_ACTION: Record<string, string> = {
   confirmHrLeaveRequest: "hr",
   rejectHrLeaveRequest: "hr",
   seedHrPdfAnnualPapers: "hr",
+  clearHrLeaveRequests: "hr",
 };
 
 export const TRASH_ACTIONS: Record<string, number> = {
