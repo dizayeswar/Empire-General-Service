@@ -257,6 +257,15 @@
   color: #000;
 }
 
+.hr-f06-blank { display: contents; }
+.hr-f06-blank input,
+.hr-f06-blank textarea,
+.hr-f06-blank .dots,
+.hr-f06-blank .hr-date-wrap,
+.hr-f06-blank .hr-sig-pad {
+  pointer-events: none;
+}
+
 .hr-f06-grid,
 .hr-f06-entitle,
 .hr-f06-hr {

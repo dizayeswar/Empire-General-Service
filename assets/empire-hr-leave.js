@@ -510,6 +510,7 @@ function hrSyncAllPaperDates_() {
   });
 }
 function hrOpenPaperDate_(id) {
+  if (id === 'hr-hrSignedAt') return;
   if (!hrCanWrite_()) return;
   var el = document.getElementById(id);
   if (!el) return;
@@ -570,6 +571,7 @@ function hrRenderAllSigs_() {
 }
 
 function hrOpenSig_(slot) {
+  if (slot === 'hr') return;
   if (hrDirectorCanSign_() && slot === 'director') {
     /* director may sign the Director box only */
   } else if (!hrCanWrite_() || hrPaperLocked_()) {
@@ -694,10 +696,10 @@ function hrRenderEntitlements_(data) {
     var row = data[r.key] || {};
     return '<tr>' +
       '<td class="lab"><span class="hr-lbl">' + hrEsc_(r.label) + '</span></td>' +
-      '<td><input class="hr-cell-input" data-ent="' + r.key + '" data-col="annualBalance" value="' + hrEsc_(row.annualBalance || '') + '" oninput="hrRecalcRemain_(\'' + r.key + '\')"></td>' +
-      '<td><input class="hr-cell-input" data-ent="' + r.key + '" data-col="available" value="' + hrEsc_(row.available || '') + '" oninput="hrRecalcRemain_(\'' + r.key + '\')"></td>' +
-      '<td><input class="hr-cell-input" data-ent="' + r.key + '" data-col="requested" value="' + hrEsc_(row.requested || '') + '" oninput="hrRecalcRemain_(\'' + r.key + '\')"></td>' +
-      '<td><input class="hr-cell-input" data-ent="' + r.key + '" data-col="remaining" value="' + hrEsc_(row.remaining || '') + '"></td>' +
+      '<td><input class="hr-cell-input" data-ent="' + r.key + '" data-col="annualBalance" value="' + hrEsc_(row.annualBalance || '') + '" readonly tabindex="-1"></td>' +
+      '<td><input class="hr-cell-input" data-ent="' + r.key + '" data-col="available" value="' + hrEsc_(row.available || '') + '" readonly tabindex="-1"></td>' +
+      '<td><input class="hr-cell-input" data-ent="' + r.key + '" data-col="requested" value="' + hrEsc_(row.requested || '') + '" readonly tabindex="-1"></td>' +
+      '<td><input class="hr-cell-input" data-ent="' + r.key + '" data-col="remaining" value="' + hrEsc_(row.remaining || '') + '" readonly tabindex="-1"></td>' +
       '</tr>';
   }).join('');
 }
@@ -729,34 +731,14 @@ function hrReadEntitlements_() {
   return out;
 }
 
-function hrRecalcRemain_(key) {
-  var avail = document.querySelector('#hrEntitleBody input[data-ent="' + key + '"][data-col="available"]');
-  var req = document.querySelector('#hrEntitleBody input[data-ent="' + key + '"][data-col="requested"]');
-  var rem = document.querySelector('#hrEntitleBody input[data-ent="' + key + '"][data-col="remaining"]');
-  if (!avail || !req || !rem) return;
-  var a = hrDaysNum_(avail.value);
-  var r = hrDaysNum_(req.value);
-  if (String(avail.value || '').trim() === '' && String(req.value || '').trim() === '') {
-    rem.value = '';
-    return;
-  }
-  var left = a - r;
-  rem.value = String(Math.round(left * 100) / 100);
+function hrRecalcRemain_(_key) {
+  return;
 }
 
 function hrOnLeaveType_() {
   var type = hrSelectedLeaveType_();
   var other = document.getElementById('hr-leaveOther');
   if (other) other.style.display = type === 'Other' ? '' : 'none';
-  var days = hrVal_('hr-daysOut');
-  if (!days) return;
-  var match = HR_ENTITLE_KEYS.find(function (r) { return r.type === type; });
-  if (!match) return;
-  var req = document.querySelector('#hrEntitleBody input[data-ent="' + match.key + '"][data-col="requested"]');
-  if (req && !String(req.value || '').trim()) {
-    req.value = days;
-    hrRecalcRemain_(match.key);
-  }
 }
 
 function hrOnDatesChange_() {
@@ -1073,8 +1055,10 @@ function hrApplyPaperLock_() {
     root.classList.toggle('hr-paper-director-sign', directorSign);
     root.querySelectorAll('input, select, textarea').forEach(function (el) {
       var id = el.id || '';
+      var blank = !!(el.closest && el.closest('.hr-f06-blank')) || !!el.getAttribute('data-ent') ||
+        id === 'hr-hrComment' || id === 'hr-hrSignature' || id === 'hr-hrSignedAt' || id === 'hr-hrSignedAt-view';
       var directorField = id === 'hr-directorName' || id === 'hr-directorSignedAt' || id === 'hr-directorSignedAt-view';
-      var block = freeze || (directorSign && !directorField);
+      var block = blank || freeze || (directorSign && !directorField);
       if (el.tagName === 'SELECT') el.disabled = block;
       else el.readOnly = block;
     });
