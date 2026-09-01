@@ -1,6 +1,7 @@
 /* Application — door-to-door app registration checks (RA, WW, WD, ES) */
 
 var APP_DEPT = 'application';
+var APP_TZ = 'Asia/Baghdad';
 var APP_TRASH_SHEETS = ['ApplicationIssues'];
 var APP_PROJECTS = ['RA', 'WW', 'WD', 'ES'];
 var APP_STATUS_OPTIONS = [
@@ -497,14 +498,39 @@ function appStatusDdPick_(ev, optBtn) {
 function appFormatDateTime_(raw) {
   var s = String(raw || '').trim();
   if (!s) return '—';
-  if (s.indexOf('T') !== -1) {
-    var d = new Date(s);
-    if (!isNaN(d.getTime())) {
-      var z = function (n) { return String(n).padStart(2, '0'); };
-      return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + ' ' + z(d.getHours()) + ':' + z(d.getMinutes());
-    }
+  var iso = s;
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(s)) iso = s.replace(' ', 'T');
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(iso)) iso += 'Z';
+  var d = new Date(iso);
+  if (isNaN(d.getTime())) return s.length > 16 ? s.slice(0, 16) : s;
+  try {
+    var parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: APP_TZ,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      hourCycle: 'h23'
+    }).formatToParts(d);
+    var get = function (type) {
+      for (var i = 0; i < parts.length; i++) if (parts[i].type === type) return parts[i].value;
+      return '';
+    };
+    var hour = get('hour');
+    if (hour === '24') hour = '00';
+    return get('year') + '-' + get('month') + '-' + get('day') + ' ' + hour + ':' + get('minute');
+  } catch (err) {
+    var z = function (n) { return String(n).padStart(2, '0'); };
+    return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + ' ' + z(d.getHours()) + ':' + z(d.getMinutes());
   }
-  return s.length > 16 ? s.slice(0, 16) : s;
+}
+
+function appFormatDate_(raw) {
+  var dt = appFormatDateTime_(raw);
+  if (!dt || dt === '—') return '—';
+  return dt.slice(0, 10);
 }
 
 function appHistoryFieldLabel_(field) {
@@ -625,7 +651,7 @@ function appRenderTable_() {
       + '<td><strong class="app-property-link">' + appEsc_(r.propertyId) + '</strong></td>'
       + '<td><input type="text" class="app-phone-input" inputmode="numeric" data-app-id="' + appEsc_(r.id) + '" data-app-field="phone" value="' + appEsc_(r.phone || '') + '" onchange="appSaveRow_(this.getAttribute(\'data-app-id\'))"></td>'
       + '<td>' + appStatusSelectHtml_(r.id, r.status) + '</td>'
-      + '<td class="app-updated-cell">' + (r.updatedAt ? appEsc_(r.updatedAt.slice(0, 10)) : '—') + '</td></tr>';
+      + '<td class="app-updated-cell">' + appEsc_(appFormatDate_(r.updatedAt)) + '</td></tr>';
   });
   h += '</tbody></table></div>';
   h += '<p style="margin-top:10px;font-size:13px;color:var(--text-soft);">' + rows.length + ' shown</p>';
@@ -650,7 +676,7 @@ function appMarkRowSaving_(id, saving) {
   if (saving) cell.textContent = 'Saving…';
   else {
     var row = _appRows.find(function (x) { return String(x.id) === String(id); });
-    cell.textContent = row && row.updatedAt ? String(row.updatedAt).slice(0, 10) : '—';
+    cell.textContent = row && row.updatedAt ? appFormatDate_(row.updatedAt) : '—';
   }
 }
 
@@ -677,7 +703,7 @@ function appPaintRow_(id, row) {
   }
   if (!_appSaving[id]) {
     var cell = tr.querySelector('.app-updated-cell');
-    if (cell) cell.textContent = row.updatedAt ? String(row.updatedAt).slice(0, 10) : '—';
+    if (cell) cell.textContent = row.updatedAt ? appFormatDate_(row.updatedAt) : '—';
   }
 }
 
@@ -1353,7 +1379,7 @@ function appRbClose_() {
 }
 
 function appRbItemHtml_(it) {
-  var when = String(it.deletedAt || '').replace('T', ' ').slice(0, 16);
+  var when = appFormatDateTime_(it.deletedAt);
   var how = it.reason === 'reset' ? 'Reset' : 'Delete';
   var title = appEsc_(it.issueType || it.preview || 'Issue');
   var apt = appEsc_(it.propertyId || '');

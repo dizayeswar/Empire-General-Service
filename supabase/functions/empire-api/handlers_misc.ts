@@ -1,6 +1,6 @@
 import { AuthOk, getUser, projectsForUser } from "./auth.ts";
 import { resetPasswordOk, SHEET_TO_TABLE } from "./config.ts";
-import { dtIssue, fmtDate, isoNow, nextCounter, sb, selectAllRows, trashRows } from "./db.ts";
+import { fmtDate, isoNow, nextCounter, sb, selectAllRows, trashRows } from "./db.ts";
 import {
   isCleaningSupervisorRole,
   normalizeTrade,
@@ -186,7 +186,7 @@ export async function handleGetApplicationChecks(body: Record<string, unknown>) 
     phone: r.phone,
     status: r.status,
     note: r.note,
-    updatedAt: dtIssue(r.updated_at),
+    updatedAt: r.updated_at,
     updatedBy: r.updated_by,
   }));
 }
@@ -203,7 +203,7 @@ export async function handleGetApplicationCheckDetail(body: Record<string, unkno
       field: h.field,
       oldValue: h.old_value,
       newValue: h.new_value,
-      changedAt: dtIssue(h.changed_at),
+      changedAt: h.changed_at,
       changedBy: h.changed_by,
     }))
     .sort((a, b) => String(b.changedAt).localeCompare(String(a.changedAt)));
@@ -215,7 +215,7 @@ export async function handleGetApplicationCheckDetail(body: Record<string, unkno
     phone: row.phone,
     status: row.status,
     note: row.note,
-    updatedAt: dtIssue(row.updated_at),
+    updatedAt: row.updated_at,
     updatedBy: row.updated_by,
     history,
   };
@@ -398,9 +398,9 @@ function appIssueToApi_(r: Record<string, unknown>) {
     photo: String(r.photo || ""),
     status: String(r.status || "open").toLowerCase() === "fixed" ? "fixed" : "open",
     createdBy: String(r.created_by || ""),
-    createdAt: dtIssue(r.created_at),
+    createdAt: r.created_at,
     fixedBy: String(r.fixed_by || ""),
-    fixedAt: dtIssue(r.fixed_at),
+    fixedAt: r.fixed_at,
   };
 }
 
