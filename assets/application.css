@@ -829,6 +829,50 @@
   border-radius: 10px;
   object-fit: contain;
 }
+.app-settings { gap: 8px; }
+.app-settings-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 9px;
+  width: 100%;
+  text-align: left;
+  box-sizing: border-box;
+  padding: 11px 12px;
+  border-radius: var(--radius-pill, 999px);
+  border: 2px solid var(--btn-border);
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  box-shadow: 0 9px 17px var(--shadow);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+}
+.app-settings.open .app-settings-toggle {
+  background: var(--tab-active);
+  border-color: var(--tab-active);
+  color: var(--tab-active-text);
+}
+.app-settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 0 0;
+}
+.app-settings-panel[hidden] { display: none !important; }
+.app-settings-panel button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 9px;
+  width: 100%;
+  text-align: left;
+  box-sizing: border-box;
+}
+#appRbList {
+  max-height: min(60vh, 520px);
+  overflow: auto;
+}
 @media (max-width: 820px) {
   .app-issue-board {
     grid-template-columns: 1fr;

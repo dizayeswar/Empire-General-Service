@@ -1,5 +1,5 @@
 import { AuthOk, getUser, projectsForUser } from "./auth.ts";
-import { SHEET_TO_TABLE } from "./config.ts";
+import { resetPasswordOk, SHEET_TO_TABLE } from "./config.ts";
 import { dtIssue, fmtDate, isoNow, nextCounter, sb, selectAllRows, trashRows } from "./db.ts";
 import {
   isCleaningSupervisorRole,
@@ -488,6 +488,20 @@ export async function handleDeleteApplicationIssue(body: Record<string, unknown>
   return { ok: true, success: true, id };
 }
 
+export async function handleClearApplicationIssues(body: Record<string, unknown>, auth: AuthOk) {
+  if (!resetPasswordOk(body)) {
+    return { ok: false, success: false, error: "bad_password", message: "Wrong password." };
+  }
+  const rows = await selectAllRows<Record<string, unknown>>("application_issues");
+  const count = rows.length;
+  if (count) {
+    await trashRows("ApplicationIssues", rows, "reset", String(auth.username || body.username || ""));
+    const { error } = await sb().from("application_issues").delete().gte("id", "");
+    if (error) throw error;
+  }
+  return { ok: true, success: true, cleared: count };
+}
+
 export async function handleGetTrash(body: Record<string, unknown>) {
   const filter = body.sheets as string[] | null;
   const data = await selectAllRows("trash");
@@ -537,6 +551,25 @@ export async function handleGetTrash(body: Record<string, unknown>) {
             company,
             issueType: String(r.issue_type || payload.issueType || ""),
             done: payload.done === true || payload.status === "done",
+          };
+        } else if (src === "ApplicationIssues") {
+          const r = arr as Record<string, unknown>;
+          const title = String(r.note || "").trim();
+          const apt = String(r.property_id || "").trim();
+          const kind = String(r.kind || "customer");
+          const parts = [];
+          if (apt) parts.push(apt);
+          if (title) parts.push(title);
+          preview = parts.join(" · ") || "Application issue";
+          meta = {
+            propertyId: apt,
+            issueType: title,
+            project: String(r.project || ""),
+            photo: String(r.photo || ""),
+            status: String(r.status || ""),
+            kind,
+            problem: String(r.problem || ""),
+            solution: String(r.solution || ""),
           };
         } else if (src === "HrLeaveRequests") {
           const r = arr as Record<string, unknown>;

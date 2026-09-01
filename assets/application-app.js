@@ -1,6 +1,7 @@
 /* Application — door-to-door app registration checks (RA, WW, WD, ES) */
 
 var APP_DEPT = 'application';
+var APP_TRASH_SHEETS = ['ApplicationIssues'];
 var APP_PROJECTS = ['RA', 'WW', 'WD', 'ES'];
 var APP_STATUS_OPTIONS = [
   '',
@@ -1316,6 +1317,204 @@ function appHandleLogin_(e) {
   });
 }
 
+function appCloseSettings_() {
+  var wrap = document.getElementById('appSettingsWrap');
+  var btn = document.getElementById('appSettingsBtn');
+  var panel = document.getElementById('appSettingsPanel');
+  if (wrap) wrap.classList.remove('open');
+  if (btn) btn.setAttribute('aria-expanded', 'false');
+  if (panel) panel.hidden = true;
+}
+
+function appToggleSettings_(e) {
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  var wrap = document.getElementById('appSettingsWrap');
+  var btn = document.getElementById('appSettingsBtn');
+  var panel = document.getElementById('appSettingsPanel');
+  if (!wrap || !panel) return;
+  var open = !wrap.classList.contains('open');
+  wrap.classList.toggle('open', open);
+  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  panel.hidden = !open;
+}
+
+function appRbOpen_() {
+  var m = document.getElementById('appRbModal');
+  if (m) m.classList.add('show');
+  appRbLoad_();
+}
+
+function appRbClose_() {
+  var m = document.getElementById('appRbModal');
+  if (m) m.classList.remove('show');
+}
+
+function appRbItemHtml_(it) {
+  var when = String(it.deletedAt || '').replace('T', ' ').slice(0, 16);
+  var how = it.reason === 'reset' ? 'Reset' : 'Delete';
+  var title = appEsc_(it.issueType || it.preview || 'Issue');
+  var apt = appEsc_(it.propertyId || '');
+  var kind = String(it.kind || 'customer') === 'portal' ? 'Portal' : 'Customer';
+  var tid = appEsc_(it.trashId);
+  var photo = String(it.photo || '').trim();
+  var thumb = photo
+    ? '<img class="rb-thumb" src="' + appEsc_(photo) + '" alt="" loading="lazy" onclick="appOpenImg_(this.src)">'
+    : '';
+  return '<div class="rb-item">'
+    + thumb
+    + '<div class="rb-body">'
+    + '<div class="rb-title">' + (apt ? (apt + ' · ') : '') + title + '</div>'
+    + '<div class="rb-loc">' + kind + (it.status === 'fixed' ? ' · Fixed' : ' · Not fixed') + '</div>'
+    + '<div class="rb-meta">' + appEsc_(when) + (it.deletedBy ? (' · ' + appEsc_(it.deletedBy)) : '') + ' · ' + how + '</div>'
+    + '</div>'
+    + '<div class="rb-actions">'
+    + '<button type="button" class="rb-restore" onclick="appRbRestore_(\'' + tid + '\')">Restore</button>'
+    + '<button type="button" class="rb-purge" onclick="appRbPurge_(\'' + tid + '\')" title="Delete forever">✕</button>'
+    + '</div></div>';
+}
+
+function appRbLoad_() {
+  var box = document.getElementById('appRbList');
+  if (!box) return;
+  box.innerHTML = '<p style="color:var(--text-faint);">Loading…</p>';
+  fetchJSONRetry({
+    action: 'getTrash',
+    dept: APP_DEPT,
+    sheets: APP_TRASH_SHEETS,
+    token: appToken_()
+  }, 1, 30000).then(function (d) {
+    if (d && d.ok === false) throw new Error(d.message || d.error || 'Could not load bin');
+    var items = Array.isArray(d) ? d : (Array.isArray(d.items) ? d.items : []);
+    if (!items.length) {
+      box.innerHTML = '<p style="color:var(--text-faint);">The bin is empty.</p>';
+      return;
+    }
+    box.innerHTML = '<div class="rb-items">' + items.map(appRbItemHtml_).join('') + '</div>';
+  }).catch(function (e) {
+    box.innerHTML = '<p style="color:#C5504F;">' + appEsc_((e && e.message) || 'Could not load') + '</p>';
+  });
+}
+
+function appRbRestore_(id) {
+  if (!id || !confirm('Restore this issue?')) return;
+  fetchJSONRetry({
+    action: 'restoreTrash',
+    dept: APP_DEPT,
+    sheets: APP_TRASH_SHEETS,
+    trashIds: [id],
+    token: appToken_()
+  }, 1, 30000).then(function (d) {
+    if (d && d.ok === false) throw new Error(d.message || d.error || 'Restore failed');
+    appRbLoad_();
+    appIssueLoad_(true);
+  }).catch(function (e) {
+    alert(String((e && e.message) || e || 'Restore failed'));
+  });
+}
+
+function appRbPurge_(id) {
+  if (!id || !confirm('Delete this issue forever? This cannot be undone.')) return;
+  fetchJSONRetry({
+    action: 'purgeTrash',
+    dept: APP_DEPT,
+    sheets: APP_TRASH_SHEETS,
+    trashIds: [id],
+    token: appToken_()
+  }, 1, 30000).then(function (d) {
+    if (d && d.ok === false) throw new Error(d.message || d.error || 'Delete forever failed');
+    appRbLoad_();
+  }).catch(function (e) {
+    alert(String((e && e.message) || e || 'Delete forever failed'));
+  });
+}
+
+function appRbRestoreAll_() {
+  if (!confirm('Restore every issue in the Recycle Bin?')) return;
+  fetchJSONRetry({
+    action: 'restoreTrash',
+    dept: APP_DEPT,
+    sheets: APP_TRASH_SHEETS,
+    token: appToken_()
+  }, 1, 60000).then(function (d) {
+    if (d && d.ok === false) throw new Error(d.message || d.error || 'Restore failed');
+    appRbLoad_();
+    appIssueLoad_(true);
+  }).catch(function (e) {
+    alert(String((e && e.message) || e || 'Restore failed'));
+  });
+}
+
+function appRbEmpty_() {
+  if (!confirm('Empty the Recycle Bin? This deletes every item forever.')) return;
+  fetchJSONRetry({
+    action: 'purgeTrash',
+    dept: APP_DEPT,
+    sheets: APP_TRASH_SHEETS,
+    token: appToken_()
+  }, 1, 60000).then(function (d) {
+    if (d && d.ok === false) throw new Error(d.message || d.error || 'Empty bin failed');
+    appRbLoad_();
+  }).catch(function (e) {
+    alert(String((e && e.message) || e || 'Empty bin failed'));
+  });
+}
+
+function appOpenResetModal_() {
+  var m = document.getElementById('appResetModal');
+  var pw = document.getElementById('appResetPwInput');
+  var msg = document.getElementById('appResetMsg');
+  if (msg) msg.textContent = '';
+  if (pw) pw.value = '';
+  if (m) m.classList.add('show');
+  if (pw) setTimeout(function () { pw.focus(); }, 50);
+}
+
+function appCloseResetModal_() {
+  var m = document.getElementById('appResetModal');
+  if (m) m.classList.remove('show');
+}
+
+function appDoReset_() {
+  var pwEl = document.getElementById('appResetPwInput');
+  var msg = document.getElementById('appResetMsg');
+  if (!pwEl || !msg) return;
+  var pw = String(pwEl.value || '');
+  if (!pw) {
+    msg.style.color = '#C5504F';
+    msg.textContent = 'Please enter the password.';
+    return;
+  }
+  msg.style.color = 'var(--text-soft)';
+  msg.textContent = 'Moving issues to Recycle Bin…';
+  fetchJSONRetry({
+    action: 'clearApplicationIssues',
+    token: appToken_(),
+    resetPassword: pw,
+    username: typeof empireGetUser === 'function' ? empireGetUser() : ''
+  }, 1, 60000).then(function (d) {
+    if (d && d.error === 'bad_password') {
+      msg.style.color = '#C5504F';
+      msg.textContent = 'Wrong password — nothing was deleted.';
+      return;
+    }
+    if (d && d.ok === false) {
+      msg.style.color = '#C5504F';
+      msg.textContent = d.message || d.error || 'Reset failed';
+      return;
+    }
+    msg.style.color = '#1d9e75';
+    msg.textContent = 'Moved ' + (d.cleared || 0) + ' issue(s) to the Recycle Bin.';
+    appIssueLoad_(true);
+    setTimeout(appCloseResetModal_, 900);
+  }).catch(function (e) {
+    msg.style.color = '#C5504F';
+    msg.textContent = (e && e.message) || 'Reset failed';
+  });
+}
+
 function appLogout_() {
   empireAuthLogout({ redirect: 'index.html', reload: false });
 }
@@ -1330,6 +1529,7 @@ function appInit_() {
     document.addEventListener('click', function (ev) {
       if (!ev.target.closest('.app-issue-apt-wrap')) appIssueHideSuggest_();
       if (!ev.target.closest('.app-issue-title-wrap')) appIssueHideTitleSuggest_();
+      if (!ev.target.closest('#appSettingsWrap')) appCloseSettings_();
     });
   }
   if (!empireAuthPageBoot({

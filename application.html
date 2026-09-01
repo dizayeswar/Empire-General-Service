@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://script.google.com">
 <title>Application — Door Check — Empire World</title>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/application.css?v=2026-09-01-app-issue-titles">
+<link rel="stylesheet" href="assets/application.css?v=2026-09-01-app-issue-settings">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -48,11 +48,19 @@
         <button class="tab-btn" onclick="switchTab(event,'analytics')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 11h8"/><path d="M7 16h12"/><path d="M7 6h3"/></svg></span> <span class="lbl">Summary</span></button>
         <button class="tab-btn" onclick="switchTab(event,'issues')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg></span> <span class="lbl">Issues</span><span id="appIssueNavCount" class="app-issue-nav-count" hidden>0</span></button>
       </nav>
-      <div class="side-actions">
-        <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle theme"><span class="nav-icon theme-icon"></span> <span class="lbl">Theme</span></button>
+      <div class="side-actions app-settings" id="appSettingsWrap">
         <button onclick="appLoad_(true)"><span class="nav-icon spin-icon" id="navRefreshIcon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> <span class="lbl">Refresh</span></button>
-        <button onclick="location.href='index.html'"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg></span> <span class="lbl">Hub</span></button>
-        <button onclick="appLogout_()" style="color:#fff;background:#C5504F;border-color:#C5504F;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg></span> <span class="lbl">Logout</span></button>
+        <button type="button" class="app-settings-toggle" id="appSettingsBtn" onclick="appToggleSettings_(event)" aria-expanded="false" aria-controls="appSettingsPanel">
+          <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span>
+          <span class="lbl">Settings</span>
+        </button>
+        <div class="app-settings-panel" id="appSettingsPanel" hidden>
+          <button type="button" class="theme-btn" onclick="toggleTheme()" aria-label="Toggle theme"><span class="nav-icon theme-icon"></span> <span class="lbl">Light Mode</span></button>
+          <button type="button" onclick="appCloseSettings_();appRbOpen_()" style="color:#fff;background:#1d9e75;border-color:#1d9e75;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 19H4.815a1.83 1.83 0 0 1-1.57-.881 1.785 1.785 0 0 1-.004-1.784L7.196 9.5"/><path d="M11 19h8.203a1.83 1.83 0 0 0 1.556-.89 1.784 1.784 0 0 0 0-1.775l-1.226-2.12"/><path d="m14 16-3 3 3 3"/><path d="M8.293 13.596 7.196 9.5 3.1 10.598"/><path d="m9.344 5.811 1.093-1.892A1.83 1.83 0 0 1 11.985 3a1.784 1.784 0 0 1 1.546.888l3.943 6.843"/><path d="m13.378 9.633 4.096 1.098 1.097-4.096"/></svg></span> <span class="lbl">Recycle Bin</span></button>
+          <button type="button" onclick="appCloseSettings_();appOpenResetModal_()" style="color:#fff;background:#C5734F;border-color:#C5734F;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 5H3"/><path d="M7 12H3"/><path d="M7 19H3"/><path d="M12 18a5 5 0 0 0 9-3 4.5 4.5 0 0 0-4.5-4.5c-1.33 0-2.54.54-3.41 1.41L11 14"/><path d="M11 10v4h4"/></svg></span> <span class="lbl">Reset Data</span></button>
+          <button type="button" onclick="location.href='index.html'"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg></span> <span class="lbl">Hub</span></button>
+          <button type="button" onclick="appLogout_()" style="color:#fff;background:#C5504F;border-color:#C5504F;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg></span> <span class="lbl">Logout</span></button>
+        </div>
       </div>
     </aside>
     <div class="main-area">
@@ -143,14 +151,42 @@
 <div class="modal" id="appImgModal" onclick="appCloseImg_()">
   <img id="appImgBig" alt="">
 </div>
+<div class="modal" id="appRbModal" onclick="if(event.target===this)appRbClose_()">
+  <div class="modal-box" style="max-width:720px;" onclick="event.stopPropagation()">
+    <h2 style="margin:0 0 6px;">Recycle Bin</h2>
+    <p style="color:var(--text-soft);font-size:13px;margin:0 0 14px;line-height:1.45;">Deleted issues. Restore puts them back. Empty bin deletes them forever.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      <button type="button" onclick="appRbLoad_()">Refresh</button>
+      <button type="button" onclick="appRbRestoreAll_()" style="color:#fff;background:#1d9e75;border-color:#1d9e75;">Restore all</button>
+      <button type="button" onclick="appRbEmpty_()" style="color:#fff;background:#C5504F;border-color:#C5504F;">Empty bin</button>
+      <span style="flex:1;"></span>
+      <button type="button" onclick="appRbClose_()">Close</button>
+    </div>
+    <div id="appRbList"><p style="color:var(--text-faint);">Loading…</p></div>
+  </div>
+</div>
+<div class="modal" id="appResetModal" onclick="if(event.target===this)appCloseResetModal_()">
+  <div class="modal-box" style="max-width:460px;" onclick="event.stopPropagation()">
+    <h2 style="margin:0 0 10px;">Reset issue data</h2>
+    <p style="color:var(--text-soft);font-size:14px;margin:0 0 14px;line-height:1.5;">Moves <strong>all customer and portal issues</strong> into the Recycle Bin. Door check apartments stay. You can restore issues from the bin.</p>
+    <label style="color:var(--text);font-weight:600;font-size:14px;">Reset password</label>
+    <input type="password" id="appResetPwInput" placeholder="Enter password" onkeydown="if(event.key==='Enter')appDoReset_()" style="width:100%;margin-top:6px;padding:12px;border:2px solid var(--input-border);border-radius:6px;background:var(--input-bg);color:var(--text);font-size:14px;box-sizing:border-box;">
+    <div id="appResetMsg" style="min-height:18px;margin-top:10px;font-size:13px;font-weight:600;"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+      <button type="button" onclick="appCloseResetModal_()">Cancel</button>
+      <button type="button" onclick="appDoReset_()" style="color:#fff;background:#C5504F;border-color:#C5504F;">Move all to Recycle Bin</button>
+    </div>
+  </div>
+</div>
 <script src="config.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-core.js?v=2026-08-19-wh-assign"></script>
-<script src="assets/application-app.js?v=2026-09-01-app-issue-titles"></script>
+<script src="assets/application-app.js?v=2026-09-01-app-issue-settings"></script>
 <script>
 function switchTab(ev, tab) {
+  if (typeof appCloseSettings_ === 'function') appCloseSettings_();
   document.querySelectorAll('.tab-content').forEach(function (el) { el.classList.remove('active'); });
   document.querySelectorAll('.tab-btn').forEach(function (el) { el.classList.remove('active'); });
   var pane = document.getElementById(tab);

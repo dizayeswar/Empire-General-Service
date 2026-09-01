@@ -174,6 +174,7 @@ export const DEPT_BY_ACTION: Record<string, string> = {
   addApplicationIssue: "application",
   markApplicationIssueFixed: "application",
   deleteApplicationIssue: "application",
+  clearApplicationIssues: "application",
   updateApplicationCheck: "application",
   importApplicationChecks: "application",
   clearApplicationChecks: "application",
