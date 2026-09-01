@@ -81,13 +81,24 @@ function hrToggleRowSelect_(id, ev) {
   }
 }
 
-function hrSelectAllPending_(ev) {
+function hrSelectableStage_() {
+  return hrIsDirectorOnly_() ? 'pending_director' : 'inbox';
+}
+
+function hrCanSelectGroup_(g) {
+  if (!g || !g.rows.length) return false;
+  if (hrIsDirectorOnly_()) return g.type === 'pending_director';
+  return hrCanWrite_() && g.type === 'inbox';
+}
+
+function hrSelectAllVisible_(ev) {
   if (_hrBulkBusy) return;
   var on = !!(ev && ev.target && ev.target.checked);
+  var stage = hrSelectableStage_();
   _hrSelected = {};
   if (on) {
     hrFiltered_().forEach(function (r) {
-      if (hrStageOf_(r) === 'pending_director') _hrSelected[String(r.id)] = true;
+      if (hrStageOf_(r) === stage) _hrSelected[String(r.id)] = true;
     });
   }
   hrRenderTable_();
@@ -152,35 +163,96 @@ function hrRunSelectedPending_(kind) {
     ? verb + ' ' + n + ' selected paper' + (n === 1 ? '' : 's') + '? They go to HR as Rejected, with no e-signature.'
     : verb + ' ' + n + ' selected paper' + (n === 1 ? '' : 's') + '? Your e-signature is applied to each.';
   var go = function () {
-    _hrBulkBusy = true;
-    hrMsg_(verb + 'ing ' + n + '…', true);
-    var i = 0;
-    var fail = 0;
-    var lastErr = '';
-    var step = function () {
-      if (i >= ids.length) {
-        _hrBulkBusy = false;
-        _hrSelectMode = false;
-        _hrSelected = {};
-        return hrLoad_(true).then(function () {
-          if (fail) hrMsg_((n - fail) + ' done, ' + fail + ' failed' + (lastErr ? ': ' + lastErr : '.'), false);
-          else hrMsg_(kind === 'reject'
-            ? 'Sent ' + n + ' back to HR as Rejected, without an e-signature.'
-            : 'Sent ' + n + ' back to HR as Completed.', true);
-        });
-      }
-      var id = ids[i++];
-      var req = kind === 'reject' ? hrDirectorRejectRequest_(id) : hrDirectorConfirmRequest_(id);
-      req.then(function () { step(); }).catch(function (err) {
-        fail++;
-        lastErr = err && err.message ? err.message : String(err || 'failed');
-        step();
-      });
-    };
-    step();
+    hrRunBulkIds_(ids, kind === 'reject' ? hrDirectorRejectRequest_ : hrDirectorConfirmRequest_, {
+      working: verb + 'ing ' + n + '…',
+      done: kind === 'reject'
+        ? 'Sent ' + n + ' back to HR as Rejected, without an e-signature.'
+        : 'Sent ' + n + ' back to HR as Completed.'
+    });
   };
   if (typeof uiConfirm === 'function') {
     uiConfirm(detail).then(function (ok) { if (ok) go(); });
+    return;
+  }
+  if (confirm(detail)) go();
+}
+
+function hrStaffConfirmRequest_(id) {
+  id = String(id || '').trim();
+  var row = _hrRows.find(function (r) { return String(r.id) === id; });
+  if (!row || hrStageOf_(row) !== 'inbox') {
+    return Promise.reject(new Error('That paper cannot be confirmed.'));
+  }
+  return fetchJSONRetry({ action: 'confirmHrLeaveRequest', token: hrToken_(), id: id }, 1, 30000).then(function (d) {
+    if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) {
+      throw new Error('Session expired');
+    }
+    if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Confirm failed');
+    return d;
+  });
+}
+
+function hrDeleteRequest_(id) {
+  id = String(id || '').trim();
+  return fetchJSONRetry({ action: 'deleteHrLeaveRequest', token: hrToken_(), id: id }, 1, 30000).then(function (d) {
+    if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) {
+      throw new Error('Session expired');
+    }
+    if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Delete failed');
+    if (hrVal_('hr-id') === id) hrClearForm_();
+    return d;
+  });
+}
+
+function hrRunBulkIds_(ids, requestFn, msgs) {
+  _hrBulkBusy = true;
+  hrMsg_(msgs.working, true);
+  var n = ids.length;
+  var i = 0;
+  var fail = 0;
+  var lastErr = '';
+  var step = function () {
+    if (i >= ids.length) {
+      _hrBulkBusy = false;
+      _hrSelectMode = false;
+      _hrSelected = {};
+      hrSetListEditing_(false);
+      return hrLoad_(true).then(function () {
+        if (fail) hrMsg_((n - fail) + ' done, ' + fail + ' failed' + (lastErr ? ': ' + lastErr : '.'), false);
+        else hrMsg_(msgs.done, true);
+      });
+    }
+    requestFn(ids[i++]).then(function () { step(); }).catch(function (err) {
+      fail++;
+      lastErr = err && err.message ? err.message : String(err || 'failed');
+      step();
+    });
+  };
+  step();
+}
+
+function hrRunSelectedInbox_(kind) {
+  if (_hrBulkBusy || !hrCanWrite_() || hrIsDirectorOnly_()) return;
+  var ids = hrSelectedIds_();
+  if (!ids.length) {
+    hrMsg_('Select at least one paper first.', false);
+    return;
+  }
+  var n = ids.length;
+  var confirmKind = kind === 'confirm';
+  var detail = confirmKind
+    ? 'Confirm ' + n + ' selected paper' + (n === 1 ? '' : 's') + '? They go to Pending Director.'
+    : 'Delete ' + n + ' selected paper' + (n === 1 ? '' : 's') + '? They move to the Recycle Bin.';
+  var go = function () {
+    hrRunBulkIds_(ids, confirmKind ? hrStaffConfirmRequest_ : hrDeleteRequest_, {
+      working: (confirmKind ? 'Confirming ' : 'Deleting ') + n + '…',
+      done: confirmKind
+        ? 'Sent ' + n + ' to Pending Director.'
+        : 'Moved ' + n + ' to the Recycle Bin.'
+    });
+  };
+  if (typeof uiConfirm === 'function') {
+    uiConfirm(detail, confirmKind ? {} : { danger: true }).then(function (ok) { if (ok) go(); });
     return;
   }
   if (confirm(detail)) go();
@@ -731,11 +803,8 @@ function hrDeleteRow_(id) {
   var row = _hrRows.find(function (r) { return String(r.id) === id; });
   var label = row && row.empName ? row.empName : 'this leave request';
   var go = function () {
-    fetchJSONRetry({ action: 'deleteHrLeaveRequest', token: hrToken_(), id: id }, 1, 30000)
-      .then(function (d) {
-        if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) return;
-        if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Delete failed');
-        if (hrVal_('hr-id') === id) hrClearForm_();
+    hrDeleteRequest_(id)
+      .then(function () {
         hrSetListEditing_(false);
         hrSwitchTab_(null, 'list');
         return hrLoad_(true);
@@ -1155,13 +1224,20 @@ function hrRenderTable_() {
     h += '<section class="hr-stage hr-stage-' + hrEsc_(g.type) + '">';
     h += '<div class="hr-stage-head">';
     h += '<h3 class="hr-stage-title">' + hrEsc_(g.label) + ' <span>(' + g.rows.length + ')</span></h3>';
-    if (director && g.type === 'pending_director' && g.rows.length) {
+    var groupSelN = 0;
+    if (hrCanSelectGroup_(g)) {
       var selN = hrSelectedIds_().length;
+      groupSelN = g.rows.filter(function (r) { return !!_hrSelected[String(r.id)]; }).length;
       h += '<div class="hr-stage-acts">';
       if (_hrSelectMode) {
         h += '<span class="hr-select-count" id="hrSelectCount">' + (selN ? selN + ' selected' : 'Select papers') + '</span>';
-        h += '<button type="button" class="hr-btn-confirm" onclick="hrRunSelectedPending_(\'confirm\')">Confirm</button>';
-        h += '<button type="button" class="hr-btn-reject" onclick="hrRunSelectedPending_(\'reject\')">Rejected</button>';
+        if (director) {
+          h += '<button type="button" class="hr-btn-confirm" onclick="hrRunSelectedPending_(\'confirm\')">Confirm</button>';
+          h += '<button type="button" class="hr-btn-reject" onclick="hrRunSelectedPending_(\'reject\')">Rejected</button>';
+        } else {
+          h += '<button type="button" class="hr-btn-confirm" onclick="hrRunSelectedInbox_(\'confirm\')">Confirm</button>';
+          h += '<button type="button" class="hr-btn-del" onclick="hrRunSelectedInbox_(\'delete\')">Delete</button>';
+        }
         h += '<button type="button" onclick="hrToggleSelectMode_(false)">Cancel</button>';
       } else {
         h += '<button type="button" onclick="hrToggleSelectMode_(true)">Select</button>';
@@ -1174,9 +1250,9 @@ function hrRenderTable_() {
       h += '</section>';
       return;
     }
-    var showSel = director && g.type === 'pending_director' && _hrSelectMode;
+    var showSel = hrCanSelectGroup_(g) && _hrSelectMode;
     h += '<div class="hr-table-wrap"><table class="hr-list-table"><thead><tr>' +
-      (showSel ? '<th class="hr-sel-col"><input type="checkbox" id="hrSelAll" onclick="hrSelectAllPending_(event)"' + (g.rows.length && selN === g.rows.length ? ' checked' : '') + '></th>' : '') +
+      (showSel ? '<th class="hr-sel-col"><input type="checkbox" id="hrSelAll" onclick="hrSelectAllVisible_(event)"' + (g.rows.length && groupSelN === g.rows.length ? ' checked' : '') + '></th>' : '') +
       '<th>#</th><th>Employee</th><th>Department</th><th>Type</th><th>Dates</th><th>Days</th><th>Status</th><th></th>' +
       '</tr></thead><tbody>';
     g.rows.forEach(function (r) {
@@ -1201,7 +1277,7 @@ function hrRenderTable_() {
           '<button type="button" class="hr-btn-edit" onclick="hrEditInList_(\'' + hrEsc_(r.id) + '\')">' + (canEdit ? 'Edit' : 'View') + '</button>' +
           (!showSel && canConfirm ? '<button type="button" class="hr-btn-confirm" onclick="hrConfirmRow_(\'' + hrEsc_(r.id) + '\')">Confirm</button>' : '') +
           (!showSel && director && stage === 'pending_director' ? '<button type="button" class="hr-btn-reject" onclick="hrRejectRow_(\'' + hrEsc_(r.id) + '\')">Rejected</button>' : '') +
-          (canEdit ? '<button type="button" class="hr-btn-del" onclick="hrDeleteRow_(\'' + hrEsc_(r.id) + '\')">Delete</button>' : '') +
+          (!showSel && canEdit ? '<button type="button" class="hr-btn-del" onclick="hrDeleteRow_(\'' + hrEsc_(r.id) + '\')">Delete</button>' : '') +
           (r.entitlements && r.entitlements.__scan && r.entitlements.__scan.url
             ? '<button type="button" onclick="hrOpenScanRow_(\'' + hrEsc_(r.id) + '\')">Open scan</button>'
             : '') +
