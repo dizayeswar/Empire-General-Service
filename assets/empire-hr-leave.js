@@ -965,7 +965,49 @@ function hrDeleteRow_(id) {
   if (confirm(msg)) go();
 }
 
+function hrOpenLeaveNav_() {
+  var sub = document.getElementById('hrLeaveSub');
+  var parent = document.getElementById('tabBtnForm');
+  if (sub) sub.hidden = false;
+  if (parent) parent.classList.add('hr-nav-open');
+}
+
+function hrClickLeaveNav_(ev) {
+  hrOpenLeaveNav_();
+  hrCloseSettings_();
+  if (hrIsDirectorOnly_()) {
+    hrSwitchTab_(null, 'list');
+    return;
+  }
+  hrSwitchTab_(ev, 'form');
+}
+
+function hrCloseSettings_() {
+  var wrap = document.getElementById('hrSettingsWrap');
+  var btn = document.getElementById('hrSettingsBtn');
+  var panel = document.getElementById('hrSettingsPanel');
+  if (wrap) wrap.classList.remove('open');
+  if (btn) btn.setAttribute('aria-expanded', 'false');
+  if (panel) panel.hidden = true;
+}
+
+function hrToggleSettings_(e) {
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  var wrap = document.getElementById('hrSettingsWrap');
+  var btn = document.getElementById('hrSettingsBtn');
+  var panel = document.getElementById('hrSettingsPanel');
+  if (!wrap || !panel) return;
+  var open = !wrap.classList.contains('open');
+  wrap.classList.toggle('open', open);
+  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  panel.hidden = !open;
+}
+
 function hrSwitchTab_(ev, tab) {
+  hrCloseSettings_();
   if (_hrListEditing && (tab === 'list' || tab === 'done' || tab === 'confirmed') && ev && ev.currentTarget) hrSetListEditing_(false);
   else if (tab !== 'list' && tab !== 'done' && tab !== 'confirmed' && _hrListEditing) hrSetListEditing_(false);
   document.querySelectorAll('.tab-content').forEach(function (el) { el.classList.remove('active'); });
@@ -976,6 +1018,9 @@ function hrSwitchTab_(ev, tab) {
   else {
     var btn = document.getElementById(hrTabBtnId_(tab));
     if (btn) btn.classList.add('active');
+  }
+  if (tab === 'form' || tab === 'scan' || tab === 'list' || tab === 'done' || tab === 'confirmed') {
+    hrOpenLeaveNav_();
   }
   if (tab === 'form' && !hrVal_('hr-id') && !hrVal_('hr-empSignedAt')) {
     hrSet_('hr-empSignedAt', hrToday_());
@@ -2092,14 +2137,13 @@ function hrEnterApp_() {
   }
   hrApplyPaperLock_();
   if (hrIsDirectorOnly_()) {
-    var formBtn = document.getElementById('tabBtnForm');
     var scanBtn = document.getElementById('tabBtnScan');
-    if (formBtn) formBtn.style.display = 'none';
     if (scanBtn) scanBtn.style.display = 'none';
     var doneBtn = document.getElementById('tabBtnDone');
     if (doneBtn) doneBtn.style.display = 'none';
     var confirmedBtn = document.getElementById('tabBtnConfirmed');
     if (confirmedBtn) confirmedBtn.style.display = '';
+    hrOpenLeaveNav_();
     hrSwitchTab_(null, 'list');
   }
   hrShowStaffTools_();
@@ -2119,6 +2163,12 @@ function hrLogout_() {
 
 function hrInit_() {
   hrBindScanDrag_();
+  document.addEventListener('click', function (e) {
+    var wrap = document.getElementById('hrSettingsWrap');
+    if (!wrap || !wrap.classList.contains('open')) return;
+    if (wrap.contains(e.target)) return;
+    hrCloseSettings_();
+  });
   window.addEventListener('afterprint', function () {
     document.body.classList.remove('hr-print-scan');
     hrClearBatchPrint_();
