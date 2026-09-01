@@ -3,6 +3,42 @@
 var APP_DEPT = 'application';
 var APP_TZ = 'Asia/Baghdad';
 var APP_TRASH_SHEETS = ['ApplicationIssues'];
+var APP_AUTOCORRECT = {
+  cant: "can't",
+  dont: "don't",
+  wont: "won't",
+  didnt: "didn't",
+  doesnt: "doesn't",
+  couldnt: "couldn't",
+  wouldnt: "wouldn't",
+  shouldnt: "shouldn't",
+  isnt: "isn't",
+  wasnt: "wasn't",
+  hasnt: "hasn't",
+  havent: "haven't",
+  thats: "that's",
+  whats: "what's",
+  theres: "there's",
+  theyre: "they're",
+  youre: "you're",
+  im: "I'm",
+  ive: "I've",
+  teh: "the",
+  adn: "and",
+  taht: "that",
+  wich: "which",
+  becuase: "because",
+  becasue: "because",
+  appartment: "apartment",
+  appartments: "apartments",
+  recieve: "receive",
+  recieved: "received",
+  occured: "occurred",
+  seperate: "separate",
+  definately: "definitely",
+  untill: "until",
+  alot: "a lot"
+};
 var APP_PROJECTS = ['RA', 'WW', 'WD', 'ES'];
 var APP_STATUS_OPTIONS = [
   '',
@@ -1185,6 +1221,40 @@ function appIssueClearForm_() {
   _appIssuePhotoUrl = '';
   appIssueHideSuggest_();
   appIssueHideTitleSuggest_();
+}
+
+function appIssueAutocorrect_(el, fromBlur) {
+  if (!el) return;
+  var v = String(el.value || '');
+  var pos = el.selectionStart;
+  if (pos == null) pos = v.length;
+  var end = pos;
+  if (fromBlur) {
+    end = v.length;
+    while (end > 0 && /[\s.,;:!?)]/.test(v.charAt(end - 1))) end--;
+    pos = end;
+  } else {
+    var ch = v.charAt(pos - 1);
+    if (!/[\s.,;:!?)]/.test(ch)) return;
+    end = pos - 1;
+  }
+  var start = end;
+  while (start > 0 && /[A-Za-z]/.test(v.charAt(start - 1))) start--;
+  var word = v.slice(start, end);
+  if (!word) return;
+  var key = word.toLowerCase();
+  var fix = APP_AUTOCORRECT[key];
+  if (!fix || word === fix) return;
+  if (word.charAt(0) === word.charAt(0).toUpperCase() && word !== word.toUpperCase()) {
+    fix = fix.charAt(0).toUpperCase() + fix.slice(1);
+  } else if (word === word.toUpperCase() && word.length > 1) {
+    fix = fix.toUpperCase();
+  }
+  el.value = v.slice(0, start) + fix + v.slice(end);
+  if (!fromBlur) {
+    var np = start + fix.length + (pos - end);
+    try { el.setSelectionRange(np, np); } catch (e) {}
+  }
 }
 
 function appIssueAdd_() {
