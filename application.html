@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://script.google.com">
 <title>Application — Door Check — Empire World</title>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/application.css?v=2026-09-01-app-issue-settings">
+<link rel="stylesheet" href="assets/application.css?v=2026-09-01-app-issue-phone">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -100,8 +100,12 @@
             <div class="form-row">
               <div class="form-group app-issue-apt-wrap">
                 <label id="appIssueAptLabel">Apartment</label>
-                <input type="text" id="appIssueApt" autocomplete="off" placeholder="Search e.g. ES-1-1-01" oninput="appIssueAptSuggest_()" onfocus="appIssueAptSuggest_()" onkeydown="appIssueAptKey_(event)">
+                <input type="text" id="appIssueApt" autocomplete="off" placeholder="Search e.g. ES-1-1-01" oninput="appIssueAptSuggest_()" onfocus="appIssueAptSuggest_()" onkeydown="appIssueAptKey_(event)" onblur="appIssueFillPhoneFromApt_(this.value)">
                 <div id="appIssueAptSuggest" class="app-issue-suggest" hidden></div>
+              </div>
+              <div class="form-group app-issue-phone-wrap">
+                <label>Phone number</label>
+                <input type="tel" id="appIssuePhone" inputmode="numeric" autocomplete="off" placeholder="Fills from apartment">
               </div>
               <div class="form-group app-issue-title-wrap" style="flex:1;min-width:200px;">
                 <label>Issue</label>
@@ -183,7 +187,7 @@
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-core.js?v=2026-08-19-wh-assign"></script>
-<script src="assets/application-app.js?v=2026-09-01-app-desc-autocorrect"></script>
+<script src="assets/application-app.js?v=2026-09-01-app-issue-phone"></script>
 <script>
 function switchTab(ev, tab) {
   if (typeof appCloseSettings_ === 'function') appCloseSettings_();

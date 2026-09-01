@@ -1020,6 +1020,32 @@ function appIssueMatchApts_(q) {
   return out;
 }
 
+function appIssuePhoneForApt_(propertyId) {
+  var want = String(propertyId || '').trim().toUpperCase();
+  if (!want) return '';
+  var row = _appRows.find(function (r) { return String(r.propertyId || '').toUpperCase() === want; });
+  return row && row.phone ? String(row.phone).replace(/\D/g, '') : '';
+}
+
+function appIssueFillPhoneFromApt_(propertyId, forceClear) {
+  var el = document.getElementById('appIssuePhone');
+  if (!el) return;
+  var want = String(propertyId || '').trim().toUpperCase();
+  if (!want) {
+    el.value = '';
+    return;
+  }
+  var phone = appIssuePhoneForApt_(want);
+  if (phone) el.value = phone;
+  else if (forceClear) el.value = '';
+}
+
+function appIssueDisplayPhone_(r) {
+  var p = String((r && r.phone) || '').replace(/\D/g, '');
+  if (p) return p;
+  return appIssuePhoneForApt_(r && r.propertyId);
+}
+
 function appIssueAptSuggest_() {
   appIssueHideTitleSuggest_();
   var box = document.getElementById('appIssueAptSuggest');
@@ -1028,6 +1054,7 @@ function appIssueAptSuggest_() {
   var q = String(inp.value || '').trim();
   if (!q) {
     box.hidden = true;
+    appIssueFillPhoneFromApt_('');
     return;
   }
   if (!_appRows.length) {
@@ -1049,11 +1076,16 @@ function appIssueAptSuggest_() {
       + (r.phone ? '<span>' + appEsc_(r.phone) + '</span>' : '')
       + '</button>';
   }).join('');
+  var exact = rows.filter(function (r) {
+    return String(r.propertyId || '').toUpperCase() === q.toUpperCase();
+  });
+  if (exact.length === 1) appIssueFillPhoneFromApt_(exact[0].propertyId);
 }
 
 function appIssuePickApt_(propertyId) {
   var inp = document.getElementById('appIssueApt');
   if (inp) inp.value = propertyId;
+  appIssueFillPhoneFromApt_(propertyId, true);
   appIssueHideSuggest_();
 }
 
@@ -1205,12 +1237,14 @@ function appIssueUploadPhoto_(file) {
 
 function appIssueClearForm_() {
   var apt = document.getElementById('appIssueApt');
+  var phone = document.getElementById('appIssuePhone');
   var note = document.getElementById('appIssueNote');
   var problem = document.getElementById('appIssueProblem');
   var solution = document.getElementById('appIssueSolution');
   var status = document.getElementById('appIssuePhotoStatus');
   var preview = document.getElementById('appIssuePhotoPreview');
   if (apt) apt.value = '';
+  if (phone) phone.value = '';
   if (note) note.value = '';
   if (problem) problem.value = '';
   if (solution) solution.value = '';
@@ -1263,6 +1297,8 @@ function appIssueAdd_() {
     return;
   }
   var propertyId = String((document.getElementById('appIssueApt') || {}).value || '').trim().toUpperCase();
+  var phone = String((document.getElementById('appIssuePhone') || {}).value || '').replace(/\D/g, '');
+  if (!phone) phone = appIssuePhoneForApt_(propertyId);
   var note = String((document.getElementById('appIssueNote') || {}).value || '').trim();
   var problem = String((document.getElementById('appIssueProblem') || {}).value || '').trim();
   var solution = String((document.getElementById('appIssueSolution') || {}).value || '').trim();
@@ -1283,6 +1319,7 @@ function appIssueAdd_() {
     note: note,
     problem: problem,
     solution: solution,
+    phone: phone,
     photo: _appIssuePhotoUrl || ''
   }, 2, 45000).then(function (d) {
     if (!d || d.ok === false) {
@@ -1353,6 +1390,7 @@ function appCloseImg_() {
 function appIssueCardHtml_(r) {
   var open = String(r.status || '') !== 'fixed';
   var apt = String(r.propertyId || '').trim() || 'No apartment';
+  var phone = appIssueDisplayPhone_(r);
   var photoHtml = '';
   if (r.photo) {
     if (typeof empireThumbImgHtml === 'function') {
@@ -1368,6 +1406,7 @@ function appIssueCardHtml_(r) {
       ? '<span class="app-issue-badge is-open">Not fixed</span>'
       : '<span class="app-issue-badge is-fixed">Fixed</span>')
     + '</div>'
+    + (phone ? ('<div class="app-issue-phone">Phone <a href="tel:' + appEsc_(phone) + '">' + appEsc_(phone) + '</a></div>') : '')
     + '<p class="app-issue-note">' + appEsc_(r.note || '') + '</p>'
     + (r.problem ? ('<div class="app-issue-desc"><span>Problem</span>' + appEsc_(r.problem) + '</div>') : '')
     + (r.solution ? ('<div class="app-issue-desc"><span>How to solve</span>' + appEsc_(r.solution) + '</div>') : '')
@@ -1486,7 +1525,7 @@ function appRbItemHtml_(it) {
     + thumb
     + '<div class="rb-body">'
     + '<div class="rb-title">' + (apt ? (apt + ' · ') : '') + title + '</div>'
-    + '<div class="rb-loc">' + kind + (it.status === 'fixed' ? ' · Fixed' : ' · Not fixed') + '</div>'
+    + '<div class="rb-loc">' + kind + (it.phone ? (' · ' + appEsc_(String(it.phone))) : '') + (it.status === 'fixed' ? ' · Fixed' : ' · Not fixed') + '</div>'
     + '<div class="rb-meta">' + appEsc_(when) + (it.deletedBy ? (' · ' + appEsc_(it.deletedBy)) : '') + ' · ' + how + '</div>'
     + '</div>'
     + '<div class="rb-actions">'

@@ -632,9 +632,14 @@
   background: var(--panel);
 }
 .app-issue-apt-wrap,
-.app-issue-title-wrap {
+.app-issue-title-wrap,
+.app-issue-phone-wrap {
   position: relative;
   min-width: 180px;
+}
+.app-issue-phone-wrap {
+  min-width: 150px;
+  max-width: 200px;
 }
 .app-issue-add textarea {
   width: 100%;
@@ -771,6 +776,19 @@
 }
 .app-issue-apt {
   font-size: 14px;
+}
+.app-issue-phone {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--text-soft);
+}
+.app-issue-phone a {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: none;
+}
+.app-issue-phone a:hover {
+  text-decoration: underline;
 }
 .app-issue-badge {
   flex: 0 0 auto;

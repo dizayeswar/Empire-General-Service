@@ -392,6 +392,7 @@ function appIssueToApi_(r: Record<string, unknown>) {
     kind: normalizeAppIssueKind_(r.kind),
     project: String(r.project || ""),
     propertyId: String(r.property_id || ""),
+    phone: String(r.phone || "").replace(/\D/g, ""),
     note: String(r.note || ""),
     problem: String(r.problem || ""),
     solution: String(r.solution || ""),
@@ -426,6 +427,7 @@ export async function handleAddApplicationIssue(body: Record<string, unknown>, a
   const note = String(body.note || body.title || "").trim();
   const problem = String(body.problem || "").trim();
   const solution = String(body.solution || "").trim();
+  const phone = String(body.phone || "").replace(/\D/g, "");
   const photo = String(body.photo || "").trim();
   if (kind === "customer" && !propertyId) {
     return { ok: false, success: false, error: "missing_apartment", message: "Pick an apartment for a customer issue." };
@@ -444,6 +446,7 @@ export async function handleAddApplicationIssue(body: Record<string, unknown>, a
     note,
     problem,
     solution,
+    phone,
     photo,
     status: "open",
     created_by: auth.username,
@@ -452,9 +455,10 @@ export async function handleAddApplicationIssue(body: Record<string, unknown>, a
     fixed_at: "",
   };
   let { error } = await sb().from("application_issues").insert(row);
-  if (error && /problem|solution/i.test(String(error.message || ""))) {
+  if (error && /problem|solution|phone/i.test(String(error.message || ""))) {
     delete row.problem;
     delete row.solution;
+    delete row.phone;
     ({ error } = await sb().from("application_issues").insert(row));
   }
   if (error) throw error;
@@ -570,6 +574,7 @@ export async function handleGetTrash(body: Record<string, unknown>) {
             kind,
             problem: String(r.problem || ""),
             solution: String(r.solution || ""),
+            phone: String(r.phone || ""),
           };
         } else if (src === "HrLeaveRequests") {
           const r = arr as Record<string, unknown>;
