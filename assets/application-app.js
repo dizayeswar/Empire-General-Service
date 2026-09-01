@@ -20,6 +20,8 @@ var _appDetailId = '';
 var _appExpectedTotal = 0;
 var _appExpectedByProject = {};
 var _appSeedItems = null;
+var _appPendingDaily = null;
+var _appPendingDailyLoading = null;
 
 function appToken_() { return empireGetToken() || ''; }
 function appEsc_(s) {
@@ -245,6 +247,132 @@ function appOnSummaryProjectChange_() {
   if (sp && fp) fp.value = sp.value;
   appRenderTable_();
   appRenderSummary_();
+  appRenderPendingDaily_();
+}
+
+function appPendingProject_() {
+  return String((document.getElementById('appSummaryProject') || {}).value || '').trim().toUpperCase();
+}
+
+function appPendingDayTotal_(day) {
+  if (!day) return 0;
+  var project = appPendingProject_();
+  if (!project) return Number(day.total || 0);
+  return Number((day.byProject && day.byProject[project]) || 0);
+}
+
+function appPrettyDayLabel_(ymd, todayYmd) {
+  var s = String(ymd || '');
+  if (!s) return '—';
+  if (s === todayYmd) return 'Today';
+  var parts = s.split('-');
+  var d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  if (isNaN(d.getTime())) return s;
+  var days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return days[d.getDay()] + ' ' + d.getDate() + ' ' + months[d.getMonth()];
+}
+
+function appPendingDailyHtml_() {
+  if (!_appPendingDaily) {
+    return '<div class="app-pending-board"><p class="app-pending-empty">Loading daily Pending counts…</p></div>';
+  }
+  if (_appPendingDaily.error) {
+    return '<div class="app-pending-board"><p class="app-pending-empty">Could not load daily Pending counts. Refresh and try again.</p></div>';
+  }
+  var days = Array.isArray(_appPendingDaily.days) ? _appPendingDaily.days : [];
+  var todayYmd = String(_appPendingDaily.today || '');
+  var todayDay = days[0] && days[0].date === todayYmd ? days[0] : days.find(function (d) { return d.date === todayYmd; });
+  var todayCount = appPendingDayTotal_(todayDay);
+  var project = appPendingProject_();
+  var chips = '';
+  if (!project && todayDay && todayDay.byProject) {
+    chips = APP_PROJECTS.map(function (p) {
+      var n = Number(todayDay.byProject[p] || 0);
+      if (!n) return '';
+      return '<span class="app-pending-chip">' + p + ': ' + n + '</span>';
+    }).join('');
+  }
+  var max = 0;
+  days.forEach(function (d) {
+    var n = appPendingDayTotal_(d);
+    if (n > max) max = n;
+  });
+  var bars = days.map(function (d) {
+    var n = appPendingDayTotal_(d);
+    var pct = max ? Math.round(n / max * 100) : 0;
+    if (n && pct < 4) pct = 4;
+    var isToday = d.date === todayYmd;
+    return '<div class="app-pending-day' + (isToday ? ' is-today' : '') + '">'
+      + '<span class="app-pending-day-label">' + appEsc_(appPrettyDayLabel_(d.date, todayYmd)) + '</span>'
+      + '<div class="app-pending-bar-track"><div class="app-pending-bar-fill" style="width:' + pct + '%"></div></div>'
+      + '<span class="app-pending-day-count">' + n + '</span></div>';
+  }).join('');
+  return '<div class="app-pending-board">'
+    + '<div class="app-pending-today">'
+    + '<span class="app-pending-kicker">Set to Pending today</span>'
+    + '<strong>' + todayCount + '</strong>'
+    + '<span class="app-pending-sub">apartments' + (project ? (' · ' + appEsc_(project)) : '') + '</span>'
+    + (chips ? '<div class="app-pending-projects">' + chips + '</div>' : '')
+    + '</div>'
+    + '<div class="app-pending-days">'
+    + '<div class="app-pending-days-title">Last 14 days</div>'
+    + (bars || '<p class="app-pending-empty">No Pending changes recorded yet.</p>')
+    + '</div></div>';
+}
+
+function appRenderPendingDaily_() {
+  var host = document.getElementById('appPendingDailyHost');
+  if (!host) return;
+  host.innerHTML = appPendingDailyHtml_();
+}
+
+function appLoadPendingDaily_(force) {
+  if (!force && _appPendingDaily && !_appPendingDaily.error) {
+    appRenderPendingDaily_();
+    return Promise.resolve(_appPendingDaily);
+  }
+  if (!force && _appPendingDailyLoading) return _appPendingDailyLoading;
+  appRenderPendingDaily_();
+  _appPendingDailyLoading = fetchJSONRetry({
+    action: 'getApplicationPendingDaily',
+    token: appToken_()
+  }, 1, 45000).then(function (d) {
+    if (d && d.ok !== false && Array.isArray(d.days)) {
+      _appPendingDaily = d;
+    } else {
+      _appPendingDaily = { error: true, days: [], today: '' };
+    }
+    appRenderPendingDaily_();
+    return _appPendingDaily;
+  }).catch(function () {
+    _appPendingDaily = { error: true, days: [], today: '' };
+    appRenderPendingDaily_();
+    return _appPendingDaily;
+  }).finally(function () {
+    _appPendingDailyLoading = null;
+  });
+  return _appPendingDailyLoading;
+}
+
+function appBumpPendingDaily_(id, project) {
+  if (!_appPendingDaily || _appPendingDaily.error || !Array.isArray(_appPendingDaily.days)) return;
+  var today = String(_appPendingDaily.today || '');
+  if (!today) return;
+  _appPendingDaily.todayIds = _appPendingDaily.todayIds || {};
+  var key = String(id || '');
+  if (key && _appPendingDaily.todayIds[key]) return;
+  if (key) _appPendingDaily.todayIds[key] = true;
+  var day = _appPendingDaily.days.find(function (d) { return d.date === today; });
+  if (!day) {
+    day = { date: today, total: 0, byProject: {} };
+    _appPendingDaily.days.unshift(day);
+  }
+  if (!day.byProject) day.byProject = {};
+  var p = String(project || '').toUpperCase();
+  day.total = Number(day.total || 0) + 1;
+  if (p) day.byProject[p] = Number(day.byProject[p] || 0) + 1;
+  appRenderPendingDaily_();
 }
 
 function appStatusDisplayLabel_(status) {
@@ -597,6 +725,10 @@ function appSaveRow_(id, patch) {
         appPaintRow_(id, row);
         appRefreshDetailIfOpen_(id, d.history);
         appRenderSummary_();
+        if (String(sentStatus || '').toUpperCase() === 'PENDING'
+          && String(baseline.status || '').toUpperCase() !== 'PENDING') {
+          appBumpPendingDaily_(id, row.project);
+        }
       }
     } else {
       alert((d && (d.message || d.error)) || 'Could not save');
@@ -675,6 +807,7 @@ function appLoad_(force) {
   var host = document.getElementById('appTableHost');
   if (host) host.innerHTML = '<p>Loading all projects (RA, WW, WD, ES)…</p>';
   appSetRefreshSpinning_(true);
+  appLoadPendingDaily_(force);
   return Promise.all(APP_PROJECTS.map(function (p) {
     return appFetchProjectRows_(p, force);
   })).then(function (parts) {

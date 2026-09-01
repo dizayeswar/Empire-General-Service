@@ -168,6 +168,7 @@ export const DEPT_BY_ACTION: Record<string, string> = {
   getApplicationChecks: "application",
   getApplicationCheckMeta: "application",
   getApplicationCheckDetail: "application",
+  getApplicationPendingDaily: "application",
   updateApplicationCheck: "application",
   importApplicationChecks: "application",
   clearApplicationChecks: "application",

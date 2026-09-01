@@ -221,6 +221,84 @@ export async function handleGetApplicationCheckDetail(body: Record<string, unkno
   };
 }
 
+const APP_PENDING_TZ = "Asia/Baghdad";
+const APP_PENDING_DAY_COUNT = 14;
+
+function ymdInTimeZone_(iso: string, timeZone: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(d);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value || "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+function addDaysYmd_(ymd: string, delta: number): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  if (!y || !m || !d) return "";
+  const dt = new Date(Date.UTC(y, m - 1, d + delta));
+  const z = (n: number) => String(n).padStart(2, "0");
+  return `${dt.getUTCFullYear()}-${z(dt.getUTCMonth() + 1)}-${z(dt.getUTCDate())}`;
+}
+
+/** Unique apartments whose account status was changed to PENDING, grouped by local day. */
+export async function handleGetApplicationPendingDaily(body: Record<string, unknown>) {
+  const hist = await selectAllRows<{ check_id?: string; new_value?: string; changed_at?: string }>(
+    "application_check_history",
+    {
+      columns: "check_id,new_value,changed_at",
+      filter: (q) => q.eq("field", "status").ilike("new_value", "PENDING"),
+    },
+  );
+  const today = ymdInTimeZone_(new Date().toISOString(), APP_PENDING_TZ);
+  const byDate: Record<string, { ids: Set<string>; byProject: Record<string, Set<string>> }> = {};
+  for (const h of hist) {
+    if (String(h.new_value || "").trim().toUpperCase() !== "PENDING") continue;
+    const day = ymdInTimeZone_(String(h.changed_at || ""), APP_PENDING_TZ);
+    if (!day) continue;
+    const checkId = String(h.check_id || "");
+    if (!checkId) continue;
+    const project = checkId.split("|")[0].toUpperCase();
+    if (!byDate[day]) byDate[day] = { ids: new Set(), byProject: {} };
+    byDate[day].ids.add(checkId);
+    if (project) {
+      if (!byDate[day].byProject[project]) byDate[day].byProject[project] = new Set();
+      byDate[day].byProject[project].add(checkId);
+    }
+  }
+  const days: Array<{ date: string; total: number; byProject: Record<string, number> }> = [];
+  for (let i = 0; i < APP_PENDING_DAY_COUNT; i++) {
+    const date = addDaysYmd_(today, -i);
+    const bucket = byDate[date];
+    const byProject: Record<string, number> = {};
+    if (bucket) {
+      for (const [p, set] of Object.entries(bucket.byProject)) byProject[p] = set.size;
+    }
+    days.push({
+      date,
+      total: bucket ? bucket.ids.size : 0,
+      byProject,
+    });
+  }
+  const project = String(body.project || "").trim().toUpperCase();
+  if (project) {
+    for (const day of days) {
+      day.total = day.byProject[project] || 0;
+    }
+  }
+  return {
+    ok: true,
+    timezone: APP_PENDING_TZ,
+    today,
+    todayCount: days[0] ? days[0].total : 0,
+    days,
+  };
+}
+
 export async function handleUpdateApplicationCheck(body: Record<string, unknown>, auth: AuthOk) {
   let id = String(body.id || "").trim();
   if (!id) {

@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://script.google.com">
 <title>Application — Door Check — Empire World</title>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/application.css?v=2026-08-19-wh-assign">
+<link rel="stylesheet" href="assets/application.css?v=2026-09-01-pending-daily">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -71,10 +71,11 @@
       <div id="analytics" class="tab-content">
         <div class="form-section">
           <h2>Summary by status</h2>
-          <p style="color:var(--text-soft);font-size:13px;margin:-6px 0 14px;">Status breakdown by project — donut chart and counts for Active, New Active, Pending, etc.</p>
+          <p style="color:var(--text-soft);font-size:13px;margin:-6px 0 14px;">Status breakdown by project — plus how many apartments were set to Pending each day.</p>
           <div class="form-row">
             <div class="form-group"><label>Project</label><select id="appSummaryProject" onchange="appOnSummaryProjectChange_()"><option value="">All projects</option><option value="RA">RA</option><option value="WW">WW</option><option value="WD">WD</option><option value="ES">ES</option></select></div>
           </div>
+          <div id="appPendingDailyHost" class="app-pending-daily-host"></div>
           <div id="appSummaryHost" class="app-summary-host"></div>
         </div>
       </div>
@@ -96,7 +97,7 @@
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-core.js?v=2026-08-19-wh-assign"></script>
-<script src="assets/application-app.js?v=2026-08-19-wh-assign"></script>
+<script src="assets/application-app.js?v=2026-09-01-pending-daily"></script>
 <script>
 function switchTab(ev, tab) {
   document.querySelectorAll('.tab-content').forEach(function (el) { el.classList.remove('active'); });
@@ -104,7 +105,10 @@ function switchTab(ev, tab) {
   var pane = document.getElementById(tab);
   if (pane) pane.classList.add('active');
   if (ev && ev.currentTarget) ev.currentTarget.classList.add('active');
-  if (tab === 'analytics') appRenderSummary_();
+  if (tab === 'analytics') {
+    appRenderSummary_();
+    appRenderPendingDaily_();
+  }
 }
 </script>
 </body>
