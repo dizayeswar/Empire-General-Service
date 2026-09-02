@@ -530,7 +530,7 @@ function hrCanWrite_() {
   if (p.add === false && p.edit === false) return false;
   return _hrCanWrite;
 }
-var HR_MONTHS_SHORT = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+var HR_MONTHS_SHORT = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
 function hrToday_() {
   var d = new Date();
@@ -542,7 +542,7 @@ function hrFmtPaperDate_(iso) {
   var day = parseInt(s.slice(8, 10), 10);
   var month = parseInt(s.slice(5, 7), 10);
   if (!day || month < 1 || month > 12) return '';
-  return day + '/' + HR_MONTHS_SHORT[month - 1] + '/' + s.slice(0, 4);
+  return day + '-' + HR_MONTHS_SHORT[month - 1] + '-' + s.slice(0, 4);
 }
 function hrFmtDate_(iso) {
   return hrFmtPaperDate_(iso) || String(iso || '').trim() || '—';
