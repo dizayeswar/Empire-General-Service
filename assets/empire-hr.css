@@ -318,19 +318,10 @@
   height: 18pt;
 }
 
-.hr-f06-grid tr:not(.hr-f06-sec) > td:last-child,
-.hr-f06-entitle tr:not(.hr-f06-sec) > th:last-child,
-.hr-f06-entitle tr:not(.hr-f06-sec) > td:last-child,
-.hr-f06-hr tr:not(.hr-f06-sec) > td:last-child {
-  border-right: 1px solid #000;
-  box-shadow: inset -1px 0 0 #000;
-}
-
 .hr-f06-sec td,
 .hr-f06-sec th {
   border: none;
   border-bottom: 1px solid #000;
-  box-shadow: none;
   font-size: 12pt;
   font-weight: 700;
   text-align: left;
