@@ -460,13 +460,20 @@
 }
 
 .hr-f06-comment {
-  height: 68pt;
+  height: 80pt;
+  min-height: 80pt;
+  padding: 4pt 6pt;
+  vertical-align: top;
+}
+.hr-f06-hr td.hr-f06-comment {
+  height: 80pt;
+  min-height: 80pt;
   padding: 4pt 6pt;
   vertical-align: top;
 }
 .hr-f06-comment textarea {
-  min-height: 60pt;
-  height: 60pt;
+  min-height: 72pt;
+  height: 72pt;
   resize: none;
   font-family: inherit;
   font-size: 10pt;
