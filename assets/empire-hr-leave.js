@@ -2235,22 +2235,22 @@ function hrBakePrintClone_(src) {
 }
 
 function hrPrintFrameCss_() {
-  return '@page{size:A4 portrait;margin:7mm 16.26mm 12mm 17.51mm;}'
-    + 'html,body{margin:0;padding:0;background:#fff;color:#000;}'
-    + '*{color:#000;-webkit-text-fill-color:#000;}'
+  return '@page{size:A4 portrait;margin:0;}'
+    + 'html,body{margin:0;padding:0;width:210mm;background:#fff;color:#000;}'
+    + '*{color:#000;-webkit-text-fill-color:#000;box-sizing:border-box;}'
     + 'th,td,.hr-lbl,.hr-f06-sec td,.hr-f06-sec th{color:#000!important;-webkit-text-fill-color:#000!important;text-transform:none!important;background:#fff!important;}'
-    + '@media print{body *{visibility:visible!important;color:#000!important;-webkit-text-fill-color:#000!important;}}'
-    + '.hr-note{width:100%!important;max-width:100%!important;min-height:278mm!important;padding:0!important;margin:0!important;border:none!important;box-shadow:none!important;position:relative!important;overflow:visible!important;}'
-    + '.hr-f06-grid,.hr-f06-entitle,.hr-f06-hr{width:100%!important;max-width:100%!important;box-sizing:border-box!important;}'
+    + '@media print{html,body{width:210mm;}body *{visibility:visible!important;color:#000!important;-webkit-text-fill-color:#000!important;}}'
+    + '.hr-print-page,.hr-batch-page{width:210mm;height:297mm;overflow:hidden;page-break-after:always;break-after:page;box-sizing:border-box;}'
+    + '.hr-print-page:last-child,.hr-batch-page:last-child{page-break-after:auto;break-after:auto;}'
+    + '.hr-note{width:210mm!important;height:297mm!important;min-height:297mm!important;max-width:210mm!important;padding:7mm 16.26mm 25.4mm 17.51mm!important;margin:0!important;border:none!important;box-shadow:none!important;box-sizing:border-box!important;overflow:hidden!important;position:relative!important;}'
+    + '.hr-f06-grid,.hr-f06-entitle,.hr-f06-hr{width:174.6mm!important;max-width:174.6mm!important;box-sizing:border-box!important;}'
     + '.hr-f06-grid th,.hr-f06-grid td,.hr-f06-entitle th,.hr-f06-entitle td,.hr-f06-hr td{border:1px solid #000!important;}'
     + '.hr-f06-sec td,.hr-f06-sec th{border:none!important;border-bottom:1px solid #000!important;}'
-    + '.hr-f06-hr td.hr-f06-comment{height:80pt!important;min-height:80pt!important;vertical-align:top!important;}'
-    + '.hr-f06-doc-foot{right:0!important;bottom:0!important;}'
+    + '.hr-f06-hr td.hr-f06-comment{height:68pt!important;min-height:68pt!important;vertical-align:top!important;}'
+    + '.hr-f06-doc-foot{right:16.26mm!important;bottom:8mm!important;}'
     + '.hr-cell-input,.hr-date-view{color:#000!important;-webkit-text-fill-color:#000!important;display:inline-block;width:100%;font:inherit;}'
     + '.hr-days-out{display:block;white-space:pre-wrap;overflow:visible;height:auto;text-align:center;}'
     + '.hr-date-native,select,input,textarea,button{display:none!important;}'
-    + '.hr-batch-page{page-break-after:always;break-after:page;}'
-    + '.hr-batch-page:last-child{page-break-after:auto;break-after:auto;}'
     + '.hr-batch-scan-img{display:block;width:100%;height:auto;}'
     + '.hr-scan-stage{position:relative;width:100%;}';
 }
@@ -2261,7 +2261,7 @@ function hrOpenPrintFrame_(bodyHtml, title) {
   var base = location.origin + location.pathname.replace(/[^/]+$/, '');
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + hrEsc_(title || 'Leave Request') + '</title>'
     + '<base href="' + String(base).replace(/"/g, '') + '">'
-    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-02-hr-comment">'
+    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-02-hr-word-scale">'
     + '<style>' + hrPrintFrameCss_() + '</style></head><body>' + bodyHtml + '</body></html>';
   var frame = document.getElementById('hrPrintFrame');
   if (!frame) {
@@ -2298,7 +2298,7 @@ function hrPrint_() {
     window.print();
     return;
   }
-  hrOpenPrintFrame_(hrBakePrintClone_(src).outerHTML, 'Leave Request');
+  hrOpenPrintFrame_('<div class="hr-print-page">' + hrBakePrintClone_(src).outerHTML + '</div>', 'Leave Request');
 }
 
 function hrEnterApp_() {

@@ -6,17 +6,15 @@ alwaysApply: true
 
 # HR-F-06 paper is locked
 
-The Leave Request print layout is finished and must stay identical to the official Word file `EW - HR-F-06 Leave request.docx`.
+The Leave Request print layout must stay identical to `EW - HR-F-06 Leave request.docx` on every PC.
 
-Do **not** change shape, size, spacing, or print layout in `hr-leave.html`, `assets/empire-hr.css`, or the print/clone helpers in `assets/empire-hr-leave.js`.
+Do **not** change shape, size, spacing, or print layout unless the user explicitly asks.
 
-Locked (never edit unless the user explicitly asks to unlock the paper):
+Locked measurements:
 
-- A4 portrait and `@page` margins (`7mm 16.26mm 12mm 17.51mm`)
-- Logo size, title size, fonts, table widths, row heights, borders
-- Section order, Approvals 4-cell row, entitlement rows, `HR-F-06` / `Rev.2` footer
-- Print iframe / bake-values print path
-
-Allowed: fill or save data, date *text* format if the user asks, and bugs that do not move or resize anything.
-
-Start/end dates on the paper display as `31-Aug-26` (day, hyphen, title-case month, 2-digit year), centered.
+- A4 `210mm × 297mm`, `@page { margin: 0 }`
+- Sheet padding `7mm 16.26mm 25.4mm 17.51mm` (top right bottom left)
+- Table width `174.6mm` (Word 9900 twips) — never `width: 100%` on print
+- Logo `51.23mm × 25.31mm`, title 14pt, body 10pt Calibri
+- Start/end dates `31-Aug-26`, centered
+- Print iframe / bake-values path; same CSS for one paper and many papers
