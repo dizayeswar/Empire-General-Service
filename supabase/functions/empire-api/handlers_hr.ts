@@ -346,6 +346,47 @@ export async function handleRejectHrLeaveRequest(body: Record<string, unknown>, 
   return { ok: true, success: true, id, row: rowToApi({ ...ex, ...patch }) };
 }
 
+const ARCHIVE_KEYS = new Set([
+  "annual",
+  "bereavement",
+  "lateness",
+  "marriage",
+  "sick",
+  "unpaid",
+  "other",
+]);
+
+export async function handleFileHrLeaveRequests(body: Record<string, unknown>, auth: AuthOk) {
+  if (!canWrite(auth)) {
+    return { ok: false, success: false, error: "not_allowed", message: "Read-only accounts cannot file leave requests." };
+  }
+  const rawIds = Array.isArray(body.ids) ? body.ids : [];
+  const ids = rawIds.map((x) => String(x || "").trim()).filter(Boolean);
+  const archive = String(body.archive || "").trim().toLowerCase();
+  if (!ids.length) {
+    return { ok: false, success: false, error: "missing_ids", message: "Select at least one paper." };
+  }
+  if (archive && !ARCHIVE_KEYS.has(archive)) {
+    return { ok: false, success: false, error: "bad_section", message: "Choose a leave section." };
+  }
+  const completed = new Set(["completed", "processed", "director_approved"]);
+  let filed = 0;
+  for (const id of ids) {
+    const { data: ex } = await sb().from("hr_leave_requests").select("*").eq("id", id).maybeSingle();
+    if (!ex) continue;
+    if (!completed.has(String(ex.status || "").trim().toLowerCase())) continue;
+    const existing = parseEntitlements(ex.entitlements) as Record<string, unknown>;
+    const merged: Record<string, unknown> = { ...existing };
+    if (archive) merged.__archive = archive;
+    else delete merged.__archive;
+    const patch = { entitlements: entitlementsJson(merged), updated_at: isoNow() };
+    const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", id);
+    if (error) throw error;
+    filed++;
+  }
+  return { ok: true, success: true, filed };
+}
+
 type PdfAnnualPerson = {
   empName: string;
   empDepartment: string;

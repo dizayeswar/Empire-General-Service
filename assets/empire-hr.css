@@ -763,6 +763,25 @@
   margin: 0 0 0 12px;
 }
 .hr-nav-sub[hidden] { display: none !important; }
+.hr-nav-archive {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 6px 18px;
+}
+.hr-nav-archive .tab-btn {
+  font-size: 13px;
+  padding: 8px 10px;
+  font-weight: 600;
+}
+.sidebar.collapsed .hr-nav-archive { display: none; }
+.hr-file-select {
+  min-width: 10em;
+  max-width: 16em;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 12px;
+}
 .tab-btn.hr-nav-parent.hr-nav-open:not(.active) {
   border-color: var(--header-accent, #8d015d);
   color: var(--header-accent, #8d015d);

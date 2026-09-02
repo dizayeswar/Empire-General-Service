@@ -34,6 +34,15 @@ var HR_STAGES = [
   { id: 'completed', label: 'Completed' },
   { id: 'rejected', label: 'Rejected' }
 ];
+var HR_ARCHIVE_SECTIONS = [
+  { id: 'annual', label: 'Annual leave' },
+  { id: 'bereavement', label: 'Bereavement' },
+  { id: 'lateness', label: 'Lateness vacations' },
+  { id: 'marriage', label: 'Marriage leave' },
+  { id: 'sick', label: 'Sick leave' },
+  { id: 'unpaid', label: 'Unpaid' },
+  { id: 'other', label: 'Others' }
+];
 
 var _hrRows = [];
 var _hrSaving = false;
@@ -52,6 +61,10 @@ var _hrDoneSelectMode = false;
 var _hrDoneSelected = {};
 var _hrConfirmedSelectMode = false;
 var _hrConfirmedSelected = {};
+var _hrArchiveSection = '';
+var _hrArchiveSelectMode = false;
+var _hrArchiveSelected = {};
+var _hrFileBusy = false;
 
 function hrSelectedIds_() {
   return Object.keys(_hrSelected).filter(function (id) { return !!_hrSelected[id]; });
@@ -116,6 +129,29 @@ function hrCompletedRows_() {
   return (_hrRows || []).filter(function (r) { return hrStageOf_(r) === 'completed'; });
 }
 
+function hrArchiveKey_(row) {
+  var a = row && row.entitlements && row.entitlements.__archive;
+  return String(a || '').trim().toLowerCase();
+}
+
+function hrArchiveMeta_(id) {
+  id = String(id || '').trim().toLowerCase();
+  return HR_ARCHIVE_SECTIONS.find(function (t) { return t.id === id; }) || null;
+}
+
+function hrUnfiledCompletedRows_() {
+  return hrCompletedRows_().filter(function (r) { return !hrArchiveKey_(r); });
+}
+
+function hrFiledRows_(key) {
+  key = String(key || '').trim().toLowerCase();
+  return hrCompletedRows_().filter(function (r) { return hrArchiveKey_(r) === key; });
+}
+
+function hrArchiveSelectedIds_() {
+  return Object.keys(_hrArchiveSelected).filter(function (id) { return !!_hrArchiveSelected[id]; });
+}
+
 function hrToggleDoneSelectMode_(on) {
   _hrDoneSelectMode = on === undefined ? !_hrDoneSelectMode : !!on;
   if (!_hrDoneSelectMode) _hrDoneSelected = {};
@@ -146,7 +182,7 @@ function hrSelectAllDone_(ev) {
   var on = !!(ev && ev.target && ev.target.checked);
   _hrDoneSelected = {};
   if (on) {
-    hrCompletedRows_().forEach(function (r) { _hrDoneSelected[String(r.id)] = true; });
+    hrUnfiledCompletedRows_().forEach(function (r) { _hrDoneSelected[String(r.id)] = true; });
   }
   hrRenderDoneTable_();
 }
@@ -188,6 +224,41 @@ function hrSelectAllConfirmed_(ev) {
     hrCompletedRows_().forEach(function (r) { _hrConfirmedSelected[String(r.id)] = true; });
   }
   hrRenderConfirmedTable_();
+}
+
+function hrToggleArchiveSelectMode_(on) {
+  _hrArchiveSelectMode = on === undefined ? !_hrArchiveSelectMode : !!on;
+  if (!_hrArchiveSelectMode) _hrArchiveSelected = {};
+  hrRenderArchiveTable_();
+}
+
+function hrToggleArchiveRowSelect_(id, ev) {
+  if (ev) ev.stopPropagation();
+  id = String(id || '');
+  if (!id) return;
+  if (_hrArchiveSelected[id]) delete _hrArchiveSelected[id];
+  else _hrArchiveSelected[id] = true;
+  var box = document.getElementById('hrArchiveSel-' + id);
+  if (box) box.checked = !!_hrArchiveSelected[id];
+  var row = box && box.closest('tr');
+  if (row) row.classList.toggle('hr-row-selected', !!_hrArchiveSelected[id]);
+  var n = hrArchiveSelectedIds_().length;
+  var count = document.getElementById('hrArchiveSelectCount');
+  if (count) count.textContent = n ? n + ' selected' : 'Select papers';
+  var all = document.getElementById('hrArchiveSelAll');
+  if (all) {
+    var boxes = document.querySelectorAll('input[data-hr-archive-sel]');
+    all.checked = boxes.length > 0 && n === boxes.length;
+  }
+}
+
+function hrSelectAllArchive_(ev) {
+  var on = !!(ev && ev.target && ev.target.checked);
+  _hrArchiveSelected = {};
+  if (on) {
+    hrFiledRows_(_hrArchiveSection).forEach(function (r) { _hrArchiveSelected[String(r.id)] = true; });
+  }
+  hrRenderArchiveTable_();
 }
 
 function hrWaitImages_(root, cb) {
@@ -292,6 +363,110 @@ function hrPrintSelectedCompleted_() {
 
 function hrPrintSelectedConfirmed_() {
   hrPrintCompletedByIds_(hrConfirmedSelectedIds_(), 'Select at least one confirmed paper first.');
+}
+
+function hrPrintSelectedArchive_() {
+  hrPrintCompletedByIds_(hrArchiveSelectedIds_(), 'Select at least one paper first.');
+}
+
+function hrFileSectionOptions_(exceptId) {
+  exceptId = String(exceptId || '');
+  return HR_ARCHIVE_SECTIONS.map(function (t) {
+    if (t.id === exceptId) return '';
+    return '<option value="' + hrEsc_(t.id) + '">' + hrEsc_(t.label) + '</option>';
+  }).join('');
+}
+
+function hrFileRequests_(ids, archive) {
+  ids = (ids || []).map(function (id) { return String(id || '').trim(); }).filter(Boolean);
+  archive = String(archive || '').trim().toLowerCase();
+  if (!ids.length) return Promise.reject(new Error('Select at least one paper first.'));
+  if (_hrFileBusy) return Promise.reject(new Error('Already moving papers.'));
+  _hrFileBusy = true;
+  return fetchJSONRetry({
+    action: 'fileHrLeaveRequests',
+    token: hrToken_(),
+    ids: ids,
+    archive: archive
+  }, 1, 30000).then(function (d) {
+    _hrFileBusy = false;
+    if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) {
+      throw new Error('Session expired');
+    }
+    if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Could not move papers');
+    return d;
+  }).catch(function (err) {
+    _hrFileBusy = false;
+    throw err;
+  });
+}
+
+function hrFileSelectedCompleted_() {
+  if (hrIsDirectorOnly_() || !hrCanWrite_() || _hrFileBusy) return;
+  var sel = document.getElementById('hrFileSection');
+  var archive = sel ? String(sel.value || '').trim() : '';
+  var ids = hrDoneSelectedIds_();
+  if (!ids.length) { alert('Select at least one completed paper first.'); return; }
+  if (!archive) { alert('Choose a leave section first.'); return; }
+  var meta = hrArchiveMeta_(archive);
+  hrFileRequests_(ids, archive).then(function (d) {
+    _hrDoneSelectMode = false;
+    _hrDoneSelected = {};
+    return hrLoad_(true).then(function () {
+      hrOpenArchive_(null, archive);
+      var n = (d && d.filed) || ids.length;
+      var title = document.getElementById('hrArchiveSummary');
+      if (title) title.textContent = 'Moved ' + n + ' paper' + (n === 1 ? '' : 's') + ' to ' + (meta ? meta.label : archive) + '.';
+    });
+  }).catch(function (err) {
+    alert(err.message || 'Could not move papers.');
+  });
+}
+
+function hrFileSelectedArchive_() {
+  if (hrIsDirectorOnly_() || !hrCanWrite_() || _hrFileBusy) return;
+  var sel = document.getElementById('hrArchiveFileSection');
+  var archive = sel ? String(sel.value || '').trim() : '';
+  var ids = hrArchiveSelectedIds_();
+  if (!ids.length) { alert('Select at least one paper first.'); return; }
+  if (!archive) { alert('Choose a leave section first.'); return; }
+  var meta = hrArchiveMeta_(archive);
+  hrFileRequests_(ids, archive).then(function (d) {
+    _hrArchiveSelectMode = false;
+    _hrArchiveSelected = {};
+    return hrLoad_(true).then(function () {
+      hrOpenArchive_(null, archive);
+      var n = (d && d.filed) || ids.length;
+      var title = document.getElementById('hrArchiveSummary');
+      if (title) title.textContent = 'Moved ' + n + ' paper' + (n === 1 ? '' : 's') + ' to ' + (meta ? meta.label : archive) + '.';
+    });
+  }).catch(function (err) {
+    alert(err.message || 'Could not move papers.');
+  });
+}
+
+function hrReturnSelectedArchive_() {
+  if (hrIsDirectorOnly_() || !hrCanWrite_() || _hrFileBusy) return;
+  var ids = hrArchiveSelectedIds_();
+  if (!ids.length) { alert('Select at least one paper first.'); return; }
+  hrFileRequests_(ids, '').then(function () {
+    _hrArchiveSelectMode = false;
+    _hrArchiveSelected = {};
+    return hrLoad_(true).then(function () {
+      hrSwitchTab_(null, 'done');
+    });
+  }).catch(function (err) {
+    alert(err.message || 'Could not return papers.');
+  });
+}
+
+function hrOpenArchive_(ev, key) {
+  var meta = hrArchiveMeta_(key);
+  if (!meta) return;
+  _hrArchiveSection = meta.id;
+  _hrArchiveSelectMode = false;
+  _hrArchiveSelected = {};
+  hrSwitchTab_(ev, 'archive');
 }
 
 function hrDirectorConfirmRequest_(id) {
@@ -782,6 +957,11 @@ function hrReadEntitlements_() {
       w: _hrScan.w
     };
   }
+  var currentId = hrVal_('hr-id');
+  var current = (_hrRows || []).find(function (r) { return String(r.id) === String(currentId); });
+  if (current && current.entitlements && current.entitlements.__archive) {
+    out.__archive = current.entitlements.__archive;
+  }
   return out;
 }
 
@@ -969,6 +1149,11 @@ function hrEditInList_(id, fromTab) {
 }
 
 function hrReturnToList_() {
+  if (_hrReturnTab === 'archive') {
+    hrSetListEditing_(false);
+    hrOpenArchive_(null, _hrArchiveSection);
+    return;
+  }
   var tab = _hrReturnTab === 'done' || _hrReturnTab === 'confirmed' ? _hrReturnTab : 'list';
   hrSetListEditing_(false);
   hrSwitchTab_(null, tab);
@@ -977,6 +1162,10 @@ function hrReturnToList_() {
 function hrReturnBtnLabel_() {
   if (_hrReturnTab === 'done') return 'Return to completed request';
   if (_hrReturnTab === 'confirmed') return 'Return to director confirmed';
+  if (_hrReturnTab === 'archive') {
+    var meta = hrArchiveMeta_(_hrArchiveSection);
+    return meta ? 'Return to ' + meta.label : 'Return to section';
+  }
   return 'Return to saved requests';
 }
 
@@ -985,6 +1174,7 @@ function hrTabBtnId_(tab) {
   if (tab === 'scan') return 'tabBtnScan';
   if (tab === 'done') return 'tabBtnDone';
   if (tab === 'confirmed') return 'tabBtnConfirmed';
+  if (tab === 'archive') return 'tabBtnArchive-' + (_hrArchiveSection || 'annual');
   return 'tabBtnList';
 }
 
@@ -1062,8 +1252,8 @@ function hrToggleSettings_(e) {
 
 function hrSwitchTab_(ev, tab) {
   hrCloseSettings_();
-  if (_hrListEditing && (tab === 'list' || tab === 'done' || tab === 'confirmed') && ev && ev.currentTarget) hrSetListEditing_(false);
-  else if (tab !== 'list' && tab !== 'done' && tab !== 'confirmed' && _hrListEditing) hrSetListEditing_(false);
+  if (_hrListEditing && (tab === 'list' || tab === 'done' || tab === 'confirmed' || tab === 'archive') && ev && ev.currentTarget) hrSetListEditing_(false);
+  else if (tab !== 'list' && tab !== 'done' && tab !== 'confirmed' && tab !== 'archive' && _hrListEditing) hrSetListEditing_(false);
   document.querySelectorAll('.tab-content').forEach(function (el) { el.classList.remove('active'); });
   document.querySelectorAll('.tab-btn').forEach(function (el) { el.classList.remove('active'); });
   var pane = document.getElementById(tab);
@@ -1073,7 +1263,7 @@ function hrSwitchTab_(ev, tab) {
     var btn = document.getElementById(hrTabBtnId_(tab));
     if (btn) btn.classList.add('active');
   }
-  if (tab === 'form' || tab === 'scan' || tab === 'list' || tab === 'done' || tab === 'confirmed') {
+  if (tab === 'form' || tab === 'scan' || tab === 'list' || tab === 'done' || tab === 'confirmed' || tab === 'archive') {
     hrOpenLeaveNav_();
   }
   if (tab === 'form' && !hrVal_('hr-id') && !hrVal_('hr-empSignedAt')) {
@@ -1087,6 +1277,7 @@ function hrSwitchTab_(ev, tab) {
   if (tab === 'list' && !_hrListEditing) hrRenderTable_();
   if (tab === 'done' && !_hrListEditing) hrRenderDoneTable_();
   if (tab === 'confirmed' && !_hrListEditing) hrRenderConfirmedTable_();
+  if (tab === 'archive' && !_hrListEditing) hrRenderArchiveTable_();
 }
 
 function hrUniqueDepts_() {
@@ -1553,11 +1744,11 @@ function hrRenderDoneTable_() {
   var host = document.getElementById('hrDoneHost');
   var summary = document.getElementById('hrDoneSummary');
   if (!host) return;
-  var completed = hrCompletedRows_();
+  var completed = hrUnfiledCompletedRows_();
   var rejected = (_hrRows || []).filter(function (r) { return hrStageOf_(r) === 'rejected'; });
   var rows = completed.concat(rejected);
   if (summary) {
-    summary.textContent = completed.length + ' completed, ' + rejected.length + ' rejected';
+    summary.textContent = completed.length + ' waiting to file, ' + rejected.length + ' rejected';
   }
   function rowHtml(r, showSel) {
     var rejectedRow = hrStageOf_(r) === 'rejected';
@@ -1602,6 +1793,10 @@ function hrRenderDoneTable_() {
     h += '<div class="hr-stage-acts">';
     if (_hrDoneSelectMode) {
       h += '<span class="hr-select-count" id="hrDoneSelectCount">' + (selN ? selN + ' selected' : 'Select papers') + '</span>';
+      if (hrCanWrite_()) {
+        h += '<select id="hrFileSection" class="hr-file-select"><option value="">Move to…</option>' + hrFileSectionOptions_('') + '</select>';
+        h += '<button type="button" class="hr-btn-confirm" onclick="hrFileSelectedCompleted_()">Move</button>';
+      }
       h += '<button type="button" class="hr-btn-confirm" onclick="hrPrintSelectedCompleted_()">Print / PDF</button>';
       h += '<button type="button" onclick="hrToggleDoneSelectMode_(false)">Cancel</button>';
     } else {
@@ -1611,7 +1806,7 @@ function hrRenderDoneTable_() {
   }
   h += '</div>';
   if (!completed.length) {
-    h += '<p class="hr-stage-empty">Papers the director has signed come here.</p></section>';
+    h += '<p class="hr-stage-empty">Papers the director has signed come here. Select them and move them into a leave type in the sidebar.</p></section>';
   } else {
     h += '<div class="hr-table-wrap"><table class="hr-list-table"><thead><tr>' +
       (showSel ? '<th class="hr-sel-col"><input type="checkbox" id="hrDoneSelAll" onclick="hrSelectAllDone_(event)"' + (completed.length && groupSelN === completed.length ? ' checked' : '') + '></th>' : '') +
@@ -1625,6 +1820,72 @@ function hrRenderDoneTable_() {
     return;
   }
   host.innerHTML = h + rejectedHtml(rejected);
+}
+
+function hrRenderArchiveTable_() {
+  var host = document.getElementById('hrArchiveHost');
+  var summary = document.getElementById('hrArchiveSummary');
+  var title = document.getElementById('hrArchiveTitle');
+  if (!host) return;
+  var meta = hrArchiveMeta_(_hrArchiveSection) || HR_ARCHIVE_SECTIONS[0];
+  _hrArchiveSection = meta.id;
+  if (title) title.textContent = meta.label;
+  var rows = hrFiledRows_(meta.id);
+  if (summary) {
+    summary.textContent = rows.length + ' paper' + (rows.length === 1 ? '' : 's') + ' in ' + meta.label;
+  }
+  var showSel = !hrIsDirectorOnly_() && _hrArchiveSelectMode && rows.length;
+  var selN = hrArchiveSelectedIds_().length;
+  var groupSelN = rows.filter(function (r) { return !!_hrArchiveSelected[String(r.id)]; }).length;
+  var h = '<section class="hr-stage hr-stage-completed">';
+  h += '<div class="hr-stage-head">';
+  h += '<h3 class="hr-stage-title">' + hrEsc_(meta.label) + ' <span>(' + rows.length + ')</span></h3>';
+  if (rows.length && !hrIsDirectorOnly_()) {
+    h += '<div class="hr-stage-acts">';
+    if (_hrArchiveSelectMode) {
+      h += '<span class="hr-select-count" id="hrArchiveSelectCount">' + (selN ? selN + ' selected' : 'Select papers') + '</span>';
+      if (hrCanWrite_()) {
+        h += '<select id="hrArchiveFileSection" class="hr-file-select"><option value="">Move to…</option>' + hrFileSectionOptions_(meta.id) + '</select>';
+        h += '<button type="button" class="hr-btn-confirm" onclick="hrFileSelectedArchive_()">Move</button>';
+        h += '<button type="button" onclick="hrReturnSelectedArchive_()">Return to completed</button>';
+      }
+      h += '<button type="button" class="hr-btn-confirm" onclick="hrPrintSelectedArchive_()">Print / PDF</button>';
+      h += '<button type="button" onclick="hrToggleArchiveSelectMode_(false)">Cancel</button>';
+    } else {
+      h += '<button type="button" onclick="hrToggleArchiveSelectMode_(true)">Select</button>';
+    }
+    h += '</div>';
+  }
+  h += '</div>';
+  if (!rows.length) {
+    h += '<p class="hr-stage-empty">No papers in ' + hrEsc_(meta.label) + ' yet. Select papers in Completed request and move them here.</p></section>';
+    host.innerHTML = h;
+    return;
+  }
+  h += '<div class="hr-table-wrap"><table class="hr-list-table"><thead><tr>' +
+    (showSel ? '<th class="hr-sel-col"><input type="checkbox" id="hrArchiveSelAll" onclick="hrSelectAllArchive_(event)"' + (rows.length && groupSelN === rows.length ? ' checked' : '') + '></th>' : '') +
+    '<th>#</th><th>Employee</th><th>Department</th><th>Type</th><th>Dates</th><th>Days</th><th>Status</th><th></th>' +
+    '</tr></thead><tbody>';
+  rows.forEach(function (r) {
+    var picked = !!_hrArchiveSelected[String(r.id)];
+    h += '<tr' + (showSel && picked ? ' class="hr-row-selected"' : '') + '>' +
+      (showSel
+        ? '<td class="hr-sel-col"><input type="checkbox" id="hrArchiveSel-' + hrEsc_(r.id) + '" data-hr-archive-sel="1" onclick="hrToggleArchiveRowSelect_(\'' + hrEsc_(r.id) + '\',event)"' + (picked ? ' checked' : '') + '></td>'
+        : '') +
+      '<td>' + hrEsc_(r.no || r.num || '') + '</td>' +
+      '<td><strong>' + hrEsc_(r.empName || '—') + '</strong><div style="color:var(--text-soft);font-size:12px;">' + hrEsc_(r.empCode || '') + '</div></td>' +
+      '<td>' + hrEsc_(r.empDepartment || '—') + '</td>' +
+      '<td>' + hrEsc_(r.leaveType || '—') + '</td>' +
+      '<td>' + hrEsc_(hrFmtDate_(r.startDate)) + (r.endDate && r.endDate !== r.startDate ? ' – ' + hrEsc_(hrFmtDate_(r.endDate)) : '') + '</td>' +
+      '<td>' + hrEsc_(r.daysOut || '—') + '</td>' +
+      '<td><span class="hr-badge hr-badge-completed">Completed</span></td>' +
+      '<td><div class="hr-row-acts">' +
+        '<button type="button" class="hr-btn-edit" onclick="hrEditInList_(\'' + hrEsc_(r.id) + '\',\'archive\')">View</button>' +
+        (!showSel ? '<button type="button" onclick="hrPrintRow_(\'' + hrEsc_(r.id) + '\')">Print</button>' : '') +
+      '</div></td></tr>';
+  });
+  h += '</tbody></table></div></section>';
+  host.innerHTML = h;
 }
 
 function hrRenderConfirmedTable_() {
@@ -1695,6 +1956,7 @@ function hrLoad_(force) {
       hrRenderTable_();
       hrRenderDoneTable_();
       hrRenderConfirmedTable_();
+      hrRenderArchiveTable_();
     })
     .catch(function (err) {
       var errHtml = typeof empireErrorHtml === 'function'
@@ -1705,6 +1967,8 @@ function hrLoad_(force) {
       if (doneHost) doneHost.innerHTML = errHtml;
       var confirmedHost = document.getElementById('hrConfirmedHost');
       if (confirmedHost) confirmedHost.innerHTML = errHtml;
+      var archiveHost = document.getElementById('hrArchiveHost');
+      if (archiveHost) archiveHost.innerHTML = errHtml;
     });
 }
 
@@ -2263,7 +2527,7 @@ function hrOpenPrintFrame_(bodyHtml, title) {
   var base = location.origin + location.pathname.replace(/[^/]+$/, '');
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + hrEsc_(title || 'Leave Request') + '</title>'
     + '<base href="' + String(base).replace(/"/g, '') + '">'
-    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-02-hr-dir-sig">'
+    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-02-hr-archive">'
     + '<style>' + hrPrintFrameCss_() + '</style></head><body>' + bodyHtml + '</body></html>';
   var frame = document.getElementById('hrPrintFrame');
   if (!frame) {
@@ -2327,6 +2591,8 @@ function hrEnterApp_() {
     if (scanBtn) scanBtn.style.display = 'none';
     var doneBtn = document.getElementById('tabBtnDone');
     if (doneBtn) doneBtn.style.display = 'none';
+    var archiveNav = document.getElementById('hrArchiveNav');
+    if (archiveNav) archiveNav.style.display = 'none';
     var confirmedBtn = document.getElementById('tabBtnConfirmed');
     if (confirmedBtn) confirmedBtn.style.display = '';
     hrOpenLeaveNav_();

@@ -212,6 +212,7 @@ export const DEPT_BY_ACTION: Record<string, string> = {
   deleteHrLeaveRequest: "hr",
   confirmHrLeaveRequest: "hr",
   rejectHrLeaveRequest: "hr",
+  fileHrLeaveRequests: "hr",
   seedHrPdfAnnualPapers: "hr",
   clearHrLeaveRequests: "hr",
 };
