@@ -312,10 +312,10 @@
 .hr-f06-entitle td,
 .hr-f06-hr td {
   border: 1px solid #000;
-  padding: 1pt 4pt;
+  padding: 0 4pt;
   vertical-align: middle;
   font-size: 10pt;
-  height: 18pt;
+  height: 15pt;
 }
 
 .hr-f06-sec td,
@@ -325,8 +325,8 @@
   font-size: 12pt;
   font-weight: 700;
   text-align: left;
-  height: 22pt;
-  padding: 8pt 2pt 3pt;
+  height: 18pt;
+  padding: 6pt 2pt 2pt;
   background: #fff;
 }
 
@@ -375,7 +375,7 @@
   font-weight: 400 !important;
   color: #000;
   min-width: 0;
-  min-height: 14pt;
+  min-height: 12pt;
 }
 
 .hr-note textarea.hr-days-out {
@@ -460,30 +460,30 @@
 }
 
 .hr-f06-hr td.hr-f06-comment {
-  height: 68pt;
-  min-height: 68pt;
+  height: 56pt;
+  min-height: 56pt;
   padding: 4pt 6pt;
   vertical-align: top;
 }
 .hr-f06-comment {
-  height: 68pt;
-  min-height: 68pt;
+  height: 56pt;
+  min-height: 56pt;
   padding: 4pt 6pt;
   vertical-align: top;
 }
 .hr-f06-comment textarea {
-  min-height: 60pt;
-  height: 60pt;
+  min-height: 48pt;
+  height: 48pt;
   resize: none;
   font-family: inherit;
   font-size: 10pt;
 }
 
-.hr-sig-row td { height: 29pt; }
-.hr-approve-row td { height: 32pt; }
+.hr-sig-row td { height: 24pt; }
+.hr-approve-row td { height: 26pt; }
 
 .hr-f06-hr-foot td {
-  height: 24pt;
+  height: 20pt;
   padding: 2pt 6pt;
   vertical-align: middle;
 }
@@ -495,7 +495,7 @@
   display: inline-flex;
   align-items: center;
   min-width: 40%;
-  min-height: 18pt;
+  min-height: 16pt;
   margin-left: 8pt;
   vertical-align: middle;
 }
@@ -519,7 +519,7 @@
 .hr-date-wrap {
   position: relative;
   display: block;
-  min-height: 22px;
+  min-height: 16px;
   overflow: hidden;
   cursor: pointer;
 }
@@ -549,12 +549,12 @@
 }
 
 .sig-cell {
-  min-height: 29pt;
+  min-height: 24pt;
   cursor: pointer;
 }
 
 .hr-sig-pad {
-  min-height: 18pt;
+  min-height: 16pt;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -562,18 +562,18 @@
 
 .hr-sig-pad img {
   max-width: 95%;
-  max-height: 22pt;
+  max-height: 20pt;
   object-fit: contain;
 }
 
 .hr-sig-pad-director {
-  min-height: 22pt;
+  min-height: 18pt;
   min-width: 0;
   justify-content: center;
 }
 .hr-sig-pad-director img {
   max-width: 100%;
-  max-height: 26pt;
+  max-height: 22pt;
 }
 
 .hr-sig-ghost { min-height: 18px; }
