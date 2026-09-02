@@ -11,3 +11,6 @@ migration-data/
 
 # Supabase CLI local cache
 supabase/.temp/
+
+# Local Word extract used only to match HR-F-06 print layout
+_hr_f06_docx/

@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-30-hr-f06">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-30-hr-f06">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-02-hr-date">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-02-hr-word-print">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -274,9 +274,9 @@
               <h1 class="hr-f06-title">Leave Request</h1>
             </div>
 
-            <p class="hr-f06-h">Employees' Detail:</p>
-            <table class="hr-f06-grid">
+            <table class="hr-f06-grid hr-f06-emp">
               <colgroup><col class="c-lab"><col class="c-val"><col class="c-lab"><col class="c-val"></colgroup>
+              <tr class="hr-f06-sec"><td colspan="4">Employees’ Detail:</td></tr>
               <tr>
                 <td class="lab"><span class="hr-lbl">Name</span></td>
                 <td class="val"><input id="hr-empName" class="hr-cell-input" type="text" autocomplete="name"></td>
@@ -297,33 +297,33 @@
               </tr>
             </table>
 
-            <p class="hr-f06-h">Absence Detail:</p>
             <table class="hr-f06-grid hr-f06-absence">
-              <colgroup><col><col><col></colgroup>
+              <colgroup><col class="c-start"><col class="c-end"><col class="c-days"></colgroup>
+              <tr class="hr-f06-sec"><td colspan="3">Absence Detail:</td></tr>
               <tr>
-                <td class="lab"><span class="hr-lbl">Start Date</span></td>
-                <td class="lab"><span class="hr-lbl">End Date</span></td>
-                <td class="lab"><span class="hr-lbl">Number of days out of the office</span></td>
+                <td class="lab hr-center"><span class="hr-lbl">Start Date</span></td>
+                <td class="lab hr-center"><span class="hr-lbl">End Date</span></td>
+                <td class="lab hr-center"><span class="hr-lbl">Number of days out of the office</span></td>
               </tr>
               <tr>
-                <td class="val">
+                <td class="val hr-center">
                   <span class="hr-date-wrap" onclick="hrOpenPaperDate_('hr-startDate')">
                     <input id="hr-startDate-view" class="hr-cell-input hr-date-view" type="text" placeholder="dd-MMM-yyyy" readonly tabindex="-1">
                     <input id="hr-startDate" class="hr-date-native" type="date" onchange="hrSyncPaperDate_(this);hrOnDatesChange_()">
                   </span>
                 </td>
-                <td class="val">
+                <td class="val hr-center">
                   <span class="hr-date-wrap" onclick="hrOpenPaperDate_('hr-endDate')">
                     <input id="hr-endDate-view" class="hr-cell-input hr-date-view" type="text" placeholder="dd-MMM-yyyy" readonly tabindex="-1">
                     <input id="hr-endDate" class="hr-date-native" type="date" onchange="hrSyncPaperDate_(this);hrOnDatesChange_()">
                   </span>
                 </td>
-                <td class="val"><textarea id="hr-daysOut" class="hr-cell-input hr-days-out" rows="1" oninput="hrOnLeaveType_();hrAutosizeDaysOut_(this)"></textarea></td>
+                <td class="val hr-center"><textarea id="hr-daysOut" class="hr-cell-input hr-days-out" rows="1" oninput="hrOnLeaveType_();hrAutosizeDaysOut_(this)"></textarea></td>
               </tr>
               <tr>
                 <td class="lab"><span class="hr-lbl">Type of Leave</span></td>
                 <td class="val" colspan="2">
-                  <select id="hr-leaveType" class="hr-cell-input" onchange="hrOnLeaveType_()">
+                  <select id="hr-leaveType" class="hr-cell-input hr-paper-select" onchange="hrOnLeaveType_()">
                     <option value="Lateness">Lateness</option>
                     <option value="Annual Leave">Annual leave</option>
                     <option value="Sick leave">Sick leave</option>
@@ -332,10 +332,10 @@
                     <option value="Marriage Leave">Marriage Leave</option>
                     <option value="Other">Other</option>
                   </select>
-                  <input id="hr-leaveOther" class="hr-cell-input" type="text" autocomplete="off" placeholder="Specify" style="display:none;margin-top:4px;">
+                  <input id="hr-leaveOther" class="hr-cell-input" type="text" autocomplete="off" placeholder="Specify" style="display:none;margin-top:2pt;">
                 </td>
               </tr>
-              <tr>
+              <tr class="hr-sig-row">
                 <td class="lab"><span class="hr-lbl">Employee Signature</span></td>
                 <td class="val sig-cell" colspan="2" onclick="hrOpenSig_('emp')">
                   <div class="hr-sig-pad" id="hr-sig-emp"></div>
@@ -344,45 +344,44 @@
               </tr>
             </table>
 
-            <p class="hr-f06-h">Approvals:</p>
-            <table class="hr-f06-grid">
-              <colgroup><col class="c-lab"><col class="c-val"><col class="c-lab"><col class="c-val"></colgroup>
-              <tr>
-                <td class="lab"><span class="hr-lbl">Line Manager</span></td>
+            <table class="hr-f06-grid hr-f06-approvals">
+              <colgroup><col class="c-lm-lab"><col class="c-lm-sig"><col class="c-dir-lab"><col class="c-dir-sig"></colgroup>
+              <tr class="hr-f06-sec"><td colspan="4">Approvals:</td></tr>
+              <tr class="hr-approve-row">
+                <td class="lab hr-center"><span class="hr-lbl">Line Manager</span></td>
                 <td class="val sig-cell" onclick="hrOpenSig_('line')">
                   <div class="hr-sig-pad" id="hr-sig-line"></div>
                   <input id="hr-lineManagerName" class="hr-cell-input hr-sig-ghost" type="text" autocomplete="off" onclick="event.stopPropagation()">
                 </td>
-                <td class="val sig-cell hr-director-box" colspan="2" onclick="hrOpenSig_('director')">
-                  <div class="hr-director-box-inner">
-                    <span class="hr-lbl">Director</span>
-                    <div class="hr-sig-pad hr-sig-pad-director" id="hr-sig-director"></div>
-                  </div>
+                <td class="lab hr-center"><span class="hr-lbl">Director</span></td>
+                <td class="val sig-cell" onclick="hrOpenSig_('director')">
+                  <div class="hr-sig-pad hr-sig-pad-director" id="hr-sig-director"></div>
                   <input id="hr-directorName" type="hidden" autocomplete="off">
                 </td>
               </tr>
             </table>
 
             <div class="hr-f06-blank">
-            <p class="hr-f06-h">Leave Entitlement Detail:</p>
             <table class="hr-f06-entitle">
               <colgroup>
                 <col class="c-type"><col class="c-ann"><col class="c-avail"><col class="c-req"><col class="c-rem">
               </colgroup>
               <thead>
-                <tr>
-                  <th><span class="hr-lbl">Type of Leave</span></th>
-                  <th><span class="hr-lbl">Annual Balance</span></th>
-                  <th><span class="hr-lbl">Available balance</span></th>
-                  <th><span class="hr-lbl">Days requested</span></th>
-                  <th><span class="hr-lbl">Remaining Balance</span></th>
-                </tr>
+              <tr class="hr-f06-sec"><td colspan="5">Leave Entitlement Detail:</td></tr>
+              <tr>
+                <th class="hr-center"><span class="hr-lbl">Type of Leave</span></th>
+                <th class="hr-center"><span class="hr-lbl">Annual Balance</span></th>
+                <th class="hr-center"><span class="hr-lbl">Available balance</span></th>
+                <th class="hr-center"><span class="hr-lbl">Days requested</span></th>
+                <th class="hr-center"><span class="hr-lbl">Remaining Balance</span></th>
+              </tr>
               </thead>
               <tbody id="hrEntitleBody"></tbody>
             </table>
 
-            <p class="hr-f06-h">Human Resources Dept. Comment:</p>
             <table class="hr-f06-hr">
+              <colgroup><col><col></colgroup>
+              <tr class="hr-f06-sec"><td colspan="2">Human Resources Dept. Comment:</td></tr>
               <tr>
                 <td colspan="2" class="hr-f06-comment">
                   <textarea id="hr-hrComment" class="hr-cell-input" rows="5" readonly tabindex="-1"></textarea>
@@ -391,20 +390,22 @@
               <tr class="hr-f06-hr-foot">
                 <td class="sig-line">
                   <span class="hr-lbl">Signature</span>
-                  <span class="dots">
-                    <span class="hr-sig-pad hr-sig-pad-inline" id="hr-sig-hr"></span>
-                    <input id="hr-hrSignature" class="hr-cell-input hr-sig-ghost" type="text" autocomplete="off" readonly tabindex="-1">
-                  </span>
+                  <span class="hr-sig-pad hr-sig-pad-inline" id="hr-sig-hr"></span>
+                  <input id="hr-hrSignature" class="hr-cell-input hr-sig-ghost" type="text" autocomplete="off" readonly tabindex="-1">
                 </td>
                 <td class="date-line">
                   <span class="hr-lbl">Date</span>
                   <span class="hr-date-wrap hr-date-wrap-inline">
-                    <input id="hr-hrSignedAt-view" class="hr-cell-input hr-date-view" type="text" placeholder="dd-MMM-yyyy" readonly tabindex="-1">
+                    <input id="hr-hrSignedAt-view" class="hr-cell-input hr-date-view" type="text" placeholder="" readonly tabindex="-1">
                     <input id="hr-hrSignedAt" class="hr-date-native" type="date" tabindex="-1">
                   </span>
                 </td>
               </tr>
             </table>
+            </div>
+            <div class="hr-f06-doc-foot">
+              <div>HR-F-06</div>
+              <div>Rev.2</div>
             </div>
           </div>
 
@@ -417,7 +418,7 @@
             <button type="button" onclick="hrPrint_()">Print / Save as PDF</button>
             <button type="button" data-hr-form-only="1" onclick="hrClearForm_()">Clear form</button>
           </div>
-          <p class="no-print" style="color:var(--text-soft);font-size:12px;margin-top:10px;">Official form <strong>HR-F-06</strong>. Click a signature box to upload. Prefer <strong>Portrait A4</strong> at 100% scale.</p>
+          <p class="no-print" style="color:var(--text-soft);font-size:12px;margin-top:10px;">Official form <strong>HR-F-06</strong>. In the print window choose <strong>A4</strong>, <strong>Portrait</strong>, and scale <strong>100%</strong> (do not fit to page).</p>
         </div>
       </div>
     </div>
@@ -460,6 +461,6 @@
 <script src="assets/empire-auth.js?v=2026-09-01-dir-esig"></script>
 <script src="assets/empire-core.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-storage.js?v=2026-08-31-hr-scan"></script>
-<script src="assets/empire-hr-leave.js?v=2026-09-02-hr-date"></script>
+<script src="assets/empire-hr-leave.js?v=2026-09-02-hr-word-print"></script>
 </body>
 </html>
