@@ -248,7 +248,7 @@ function hrBatchFormPage_(row, i) {
   var clone = hrMakePaperClone_('hr-batch-' + i + '-' + String(row.id || '').replace(/[^a-zA-Z0-9_-]/g, ''), row.leaveType);
   if (clone) {
     hrFillPaperClone_(clone, row);
-    page.appendChild(clone);
+    page.appendChild(hrBakePrintClone_(clone));
   }
   return page;
 }
@@ -275,21 +275,14 @@ function hrPrintCompletedByIds_(ids, emptyMsg) {
     alert(emptyMsg || 'Select at least one paper first.');
     return;
   }
-  var host = document.getElementById('hrBatchPrint');
-  if (!host) return;
   hrSnapshotPaperTemplate_();
-  host.innerHTML = '';
+  var wrap = document.createElement('div');
   rows.forEach(function (row, i) {
     var scan = row.entitlements && row.entitlements.__scan;
-    host.appendChild(scan && scan.url ? hrBatchScanPage_(row) : hrBatchFormPage_(row, i));
+    wrap.appendChild(scan && scan.url ? hrBatchScanPage_(row) : hrBatchFormPage_(row, i));
   });
-  host.hidden = false;
   hrMsg_('Preparing ' + rows.length + ' paper' + (rows.length === 1 ? '' : 's') + '… In the print window choose Save as PDF.', true);
-  hrWaitImages_(host, function () {
-    document.body.classList.remove('hr-print-scan');
-    document.body.classList.add('hr-print-batch');
-    window.print();
-  });
+  hrOpenPrintFrame_(wrap.innerHTML, rows.length === 1 ? 'Leave Request' : 'Leave Requests');
 }
 
 function hrPrintSelectedCompleted_() {
@@ -2204,55 +2197,68 @@ function hrPrintFieldText_(el) {
   return String(el.value || '');
 }
 
+function hrPaperFieldKey_(el) {
+  return (el && (el.getAttribute('data-hr-id') || el.id)) || '';
+}
+
 function hrBakePrintClone_(src) {
   var clone = src.cloneNode(true);
-  src.querySelectorAll('input, select, textarea').forEach(function (el) {
-    var id = el.id;
-    if (!id) return;
-    var dest = clone.querySelector('[id="' + id.replace(/"/g, '') + '"]');
-    if (!dest || !dest.parentNode) return;
+  var srcFields = src.querySelectorAll('input, select, textarea');
+  var destFields = clone.querySelectorAll('input, select, textarea');
+  var i;
+  for (i = 0; i < srcFields.length; i++) {
+    var el = srcFields[i];
+    var dest = destFields[i];
+    if (!dest || !dest.parentNode) continue;
     if (el.classList.contains('hr-date-native') || el.type === 'hidden' || el.type === 'file') {
       dest.parentNode.removeChild(dest);
-      return;
+      continue;
     }
+    var key = hrPaperFieldKey_(el);
     var span = document.createElement('span');
     span.className = (dest.className || 'hr-cell-input').replace(/\bhr-date-native\b/g, '').trim() || 'hr-cell-input';
-    if (id === 'hr-startDate-view' || id === 'hr-endDate-view') {
-      var native = document.getElementById(id.replace(/-view$/, ''));
+    if (key === 'hr-startDate-view' || key === 'hr-endDate-view') {
+      var nativeKey = key.replace(/-view$/, '');
+      var native = src.querySelector('[data-hr-id="' + nativeKey + '"]');
+      if (!native && el.id) native = src.querySelector('[id="' + el.id.replace(/-view$/, '').replace(/"/g, '') + '"]');
       span.textContent = hrFmtAbsenceDate_(native && native.value) || hrPrintFieldText_(el);
     } else {
       span.textContent = hrPrintFieldText_(el);
     }
     if (el.style && el.style.display) span.style.display = el.style.display;
     dest.parentNode.replaceChild(span, dest);
-  });
+  }
   clone.querySelectorAll('.hr-date-native').forEach(function (el) {
     if (el.parentNode) el.parentNode.removeChild(el);
   });
   return clone;
 }
 
-function hrPrint_() {
-  document.body.classList.remove('hr-print-scan');
-  var src = document.getElementById('hrPrintRoot');
-  if (!src) {
-    window.print();
-    return;
-  }
-  var clone = hrBakePrintClone_(src);
-  var base = location.origin + location.pathname.replace(/[^/]+$/, '');
-  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Leave Request</title>'
-    + '<base href="' + String(base).replace(/"/g, '') + '">'
-    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-02-hr-aug-26">'
-    + '<style>'
-    + '@page{size:A4 portrait;margin:7mm 16.26mm 12mm 17.51mm;}'
+function hrPrintFrameCss_() {
+  return '@page{size:A4 portrait;margin:7mm 16.26mm 12mm 17.51mm;}'
     + 'html,body{margin:0;padding:0;background:#fff;color:#000;}'
+    + '*{color:#000;-webkit-text-fill-color:#000;}'
+    + 'th,td,.hr-lbl,.hr-f06-sec td,.hr-f06-sec th{color:#000!important;-webkit-text-fill-color:#000!important;text-transform:none!important;background:#fff!important;}'
     + '@media print{body *{visibility:visible!important;color:#000!important;-webkit-text-fill-color:#000!important;}}'
     + '.hr-note{width:100%!important;min-height:278mm!important;padding:0!important;margin:0!important;border:none!important;box-shadow:none!important;max-width:none!important;position:relative!important;}'
     + '.hr-f06-doc-foot{right:0!important;bottom:0!important;}'
     + '.hr-cell-input,.hr-date-view{color:#000!important;-webkit-text-fill-color:#000!important;display:inline-block;width:100%;font:inherit;}'
-    + '.hr-date-native{display:none!important;}'
-    + '</style></head><body>' + clone.outerHTML + '</body></html>';
+    + '.hr-days-out{display:block;white-space:pre-wrap;overflow:visible;height:auto;text-align:center;}'
+    + '.hr-date-native,select,input,textarea,button{display:none!important;}'
+    + '.hr-batch-page{page-break-after:always;break-after:page;}'
+    + '.hr-batch-page:last-child{page-break-after:auto;break-after:auto;}'
+    + '.hr-batch-scan-img{display:block;width:100%;height:auto;}'
+    + '.hr-scan-stage{position:relative;width:100%;}';
+}
+
+function hrOpenPrintFrame_(bodyHtml, title) {
+  document.body.classList.remove('hr-print-scan');
+  document.body.classList.remove('hr-print-batch');
+  var base = location.origin + location.pathname.replace(/[^/]+$/, '');
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + hrEsc_(title || 'Leave Request') + '</title>'
+    + '<base href="' + String(base).replace(/"/g, '') + '">'
+    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-02-hr-batch-print">'
+    + '<style>' + hrPrintFrameCss_() + '</style></head><body>' + bodyHtml + '</body></html>';
   var frame = document.getElementById('hrPrintFrame');
   if (!frame) {
     frame = document.createElement('iframe');
@@ -2280,6 +2286,15 @@ function hrPrint_() {
       }
     }, 250);
   });
+}
+
+function hrPrint_() {
+  var src = document.getElementById('hrPrintRoot');
+  if (!src) {
+    window.print();
+    return;
+  }
+  hrOpenPrintFrame_(hrBakePrintClone_(src).outerHTML, 'Leave Request');
 }
 
 function hrEnterApp_() {
