@@ -531,6 +531,7 @@ function hrCanWrite_() {
   return _hrCanWrite;
 }
 var HR_MONTHS_SHORT = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+var HR_MONTHS_TITLE = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 function hrToday_() {
   var d = new Date();
@@ -544,13 +545,24 @@ function hrFmtPaperDate_(iso) {
   if (!day || month < 1 || month > 12) return '';
   return day + '-' + HR_MONTHS_SHORT[month - 1] + '-' + s.slice(0, 4);
 }
+function hrFmtAbsenceDate_(iso) {
+  var s = String(iso || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return '';
+  var day = parseInt(s.slice(8, 10), 10);
+  var month = parseInt(s.slice(5, 7), 10);
+  if (!day || month < 1 || month > 12) return '';
+  return day + '-' + HR_MONTHS_TITLE[month - 1] + '-' + s.slice(2, 4);
+}
 function hrFmtDate_(iso) {
   return hrFmtPaperDate_(iso) || String(iso || '').trim() || '—';
 }
 function hrSyncPaperDate_(el) {
   if (!el || !el.id) return;
   var view = document.getElementById(el.id + '-view');
-  if (view) view.value = hrFmtPaperDate_(el.value);
+  if (!view) return;
+  view.value = (el.id === 'hr-startDate' || el.id === 'hr-endDate')
+    ? hrFmtAbsenceDate_(el.value)
+    : hrFmtPaperDate_(el.value);
 }
 function hrSyncAllPaperDates_() {
   ['hr-startDate', 'hr-endDate', 'hr-hrSignedAt'].forEach(function (id) {
@@ -1306,7 +1318,11 @@ function hrCloneSet_(root, id, v) {
   var val = v == null ? '' : String(v);
   if (el) el.value = val;
   var view = root.querySelector('[data-hr-id="' + id + '-view"]');
-  if (view) view.value = hrFmtPaperDate_(val) || val;
+  if (view) {
+    view.value = (id === 'hr-startDate' || id === 'hr-endDate')
+      ? (hrFmtAbsenceDate_(val) || val)
+      : (hrFmtPaperDate_(val) || val);
+  }
 }
 
 function hrFillPaperClone_(root, row) {
@@ -2201,7 +2217,12 @@ function hrBakePrintClone_(src) {
     }
     var span = document.createElement('span');
     span.className = (dest.className || 'hr-cell-input').replace(/\bhr-date-native\b/g, '').trim() || 'hr-cell-input';
-    span.textContent = hrPrintFieldText_(el);
+    if (id === 'hr-startDate-view' || id === 'hr-endDate-view') {
+      var native = document.getElementById(id.replace(/-view$/, ''));
+      span.textContent = hrFmtAbsenceDate_(native && native.value) || hrPrintFieldText_(el);
+    } else {
+      span.textContent = hrPrintFieldText_(el);
+    }
     if (el.style && el.style.display) span.style.display = el.style.display;
     dest.parentNode.replaceChild(span, dest);
   });
@@ -2222,7 +2243,7 @@ function hrPrint_() {
   var base = location.origin + location.pathname.replace(/[^/]+$/, '');
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Leave Request</title>'
     + '<base href="' + String(base).replace(/"/g, '') + '">'
-    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-02-hr-print-vals">'
+    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-02-hr-aug-26">'
     + '<style>'
     + '@page{size:A4 portrait;margin:7mm 16.26mm 12mm 17.51mm;}'
     + 'html,body{margin:0;padding:0;background:#fff;color:#000;}'
