@@ -553,6 +553,10 @@
   cursor: pointer;
 }
 
+.hr-approve-row td.sig-cell-director {
+  overflow: visible;
+}
+
 .hr-sig-pad {
   min-height: 16pt;
   display: flex;
@@ -570,10 +574,12 @@
   min-height: 18pt;
   min-width: 0;
   justify-content: center;
+  overflow: visible;
 }
 .hr-sig-pad-director img {
   max-width: 100%;
-  max-height: 22pt;
+  max-height: 32pt;
+  object-fit: contain;
 }
 
 .hr-sig-ghost { min-height: 18px; }

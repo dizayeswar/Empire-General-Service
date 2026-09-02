@@ -8,7 +8,7 @@ alwaysApply: true
 
 The Leave Request print layout must stay identical to `EW - HR-F-06 Leave request.docx` on every PC.
 
-Do **not** change shape, size, spacing, or print layout unless the user explicitly asks.
+Do **not** change shape, size, spacing, padding, row heights, or print layout unless the user explicitly asks.
 
 Locked measurements:
 
@@ -16,5 +16,8 @@ Locked measurements:
 - Sheet padding `20mm 16.26mm 25.4mm 17.51mm` (top right bottom left)
 - Table width `174.6mm` (Word 9900 twips) — never `width: 100%` on print
 - Logo `51.23mm × 25.31mm`, title 14pt, body 10pt Calibri
+- Data rows `15pt`, section headings `18pt`, sig `24pt`, approvals `26pt`, HR comment `56pt`, HR foot `20pt`
 - Start/end dates `31-Aug-26`, centered
 - Print iframe / bake-values path; same CSS for one paper and many papers
+
+The director e-signature image size is independent of the paper lock.

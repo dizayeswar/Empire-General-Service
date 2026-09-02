@@ -2252,7 +2252,9 @@ function hrPrintFrameCss_() {
     + '.hr-days-out{display:block;white-space:pre-wrap;overflow:visible;height:auto;text-align:center;}'
     + '.hr-date-native,select,input,textarea,button{display:none!important;}'
     + '.hr-batch-scan-img{display:block;width:100%;height:auto;}'
-    + '.hr-scan-stage{position:relative;width:100%;}';
+    + '.hr-scan-stage{position:relative;width:100%;}'
+    + '.hr-sig-pad-director img{max-height:32pt!important;max-width:100%!important;object-fit:contain!important;}'
+    + '.hr-approve-row td.sig-cell-director{overflow:visible!important;}';
 }
 
 function hrOpenPrintFrame_(bodyHtml, title) {
@@ -2261,7 +2263,7 @@ function hrOpenPrintFrame_(bodyHtml, title) {
   var base = location.origin + location.pathname.replace(/[^/]+$/, '');
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + hrEsc_(title || 'Leave Request') + '</title>'
     + '<base href="' + String(base).replace(/"/g, '') + '">'
-    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-02-hr-top">'
+    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-02-hr-dir-sig">'
     + '<style>' + hrPrintFrameCss_() + '</style></head><body>' + bodyHtml + '</body></html>';
   var frame = document.getElementById('hrPrintFrame');
   if (!frame) {
