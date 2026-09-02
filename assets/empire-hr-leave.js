@@ -2179,6 +2179,38 @@ function hrDelete_() {
   hrDeleteRow_(hrVal_('hr-id'));
 }
 
+function hrPrintFieldText_(el) {
+  if (!el) return '';
+  if (el.tagName === 'SELECT') {
+    var opt = el.options[el.selectedIndex];
+    return opt ? String(opt.text || '') : String(el.value || '');
+  }
+  return String(el.value || '');
+}
+
+function hrBakePrintClone_(src) {
+  var clone = src.cloneNode(true);
+  src.querySelectorAll('input, select, textarea').forEach(function (el) {
+    var id = el.id;
+    if (!id) return;
+    var dest = clone.querySelector('[id="' + id.replace(/"/g, '') + '"]');
+    if (!dest || !dest.parentNode) return;
+    if (el.classList.contains('hr-date-native') || el.type === 'hidden' || el.type === 'file') {
+      dest.parentNode.removeChild(dest);
+      return;
+    }
+    var span = document.createElement('span');
+    span.className = (dest.className || 'hr-cell-input').replace(/\bhr-date-native\b/g, '').trim() || 'hr-cell-input';
+    span.textContent = hrPrintFieldText_(el);
+    if (el.style && el.style.display) span.style.display = el.style.display;
+    dest.parentNode.replaceChild(span, dest);
+  });
+  clone.querySelectorAll('.hr-date-native').forEach(function (el) {
+    if (el.parentNode) el.parentNode.removeChild(el);
+  });
+  return clone;
+}
+
 function hrPrint_() {
   document.body.classList.remove('hr-print-scan');
   var src = document.getElementById('hrPrintRoot');
@@ -2186,31 +2218,19 @@ function hrPrint_() {
     window.print();
     return;
   }
-  var clone = src.cloneNode(true);
-  clone.querySelectorAll('.hr-date-native').forEach(function (el) { el.remove(); });
-  clone.querySelectorAll('select').forEach(function (sel) {
-    var t = document.createElement('span');
-    t.className = 'hr-cell-input';
-    var opt = sel.options[sel.selectedIndex];
-    t.textContent = opt ? opt.text : (sel.value || '');
-    sel.parentNode.replaceChild(t, sel);
-  });
-  clone.querySelectorAll('input, textarea').forEach(function (el) {
-    el.removeAttribute('placeholder');
-    el.setAttribute('readonly', 'readonly');
-  });
+  var clone = hrBakePrintClone_(src);
   var base = location.origin + location.pathname.replace(/[^/]+$/, '');
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Leave Request</title>'
     + '<base href="' + String(base).replace(/"/g, '') + '">'
-    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-02-hr-word-print">'
+    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-02-hr-print-vals">'
     + '<style>'
     + '@page{size:A4 portrait;margin:7mm 16.26mm 12mm 17.51mm;}'
-    + 'html,body{margin:0;padding:0;background:#fff;}'
-    + '@media print{body *{visibility:visible!important;display:revert!important;}}'
+    + 'html,body{margin:0;padding:0;background:#fff;color:#000;}'
+    + '@media print{body *{visibility:visible!important;color:#000!important;-webkit-text-fill-color:#000!important;}}'
     + '.hr-note{width:100%!important;min-height:278mm!important;padding:0!important;margin:0!important;border:none!important;box-shadow:none!important;max-width:none!important;position:relative!important;}'
     + '.hr-f06-doc-foot{right:0!important;bottom:0!important;}'
+    + '.hr-cell-input,.hr-date-view{color:#000!important;-webkit-text-fill-color:#000!important;display:inline-block;width:100%;font:inherit;}'
     + '.hr-date-native{display:none!important;}'
-    + 'input::placeholder{color:transparent!important;}'
     + '</style></head><body>' + clone.outerHTML + '</body></html>';
   var frame = document.getElementById('hrPrintFrame');
   if (!frame) {

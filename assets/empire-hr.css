@@ -826,6 +826,9 @@
     border: none !important;
     box-shadow: none !important;
     background: #fff !important;
+    color: #000 !important;
+    -webkit-text-fill-color: #000 !important;
+    opacity: 1 !important;
   }
   .hr-lbl,
   .hr-f06-h,
