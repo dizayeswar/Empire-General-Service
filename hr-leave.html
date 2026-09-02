@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-30-hr-f06">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-30-hr-f06">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-02-hr-archive">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-02-hr-all">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -75,6 +75,7 @@
             <button class="tab-btn" id="tabBtnArchive-sick" onclick="hrOpenArchive_(event,'sick')"><span class="lbl">Sick leave</span></button>
             <button class="tab-btn" id="tabBtnArchive-unpaid" onclick="hrOpenArchive_(event,'unpaid')"><span class="lbl">Unpaid</span></button>
             <button class="tab-btn" id="tabBtnArchive-other" onclick="hrOpenArchive_(event,'other')"><span class="lbl">Others</span></button>
+            <button class="tab-btn" id="tabBtnArchive-all" onclick="hrOpenArchive_(event,'all')"><span class="lbl">(all)</span></button>
           </div>
         </div>
       </nav>
@@ -160,6 +161,12 @@
         <div class="form-section">
           <h2>Completed request</h2>
           <p class="hr-tab-help">Papers the director has signed or rejected. Select signed papers and <strong>Move</strong> them into a leave type below. Completed request then stays empty of those papers.</p>
+          <div class="form-row filter-toolbar">
+            <div class="form-group filter-grow">
+              <label>Search</label>
+              <input type="text" id="hrDoneSearch" oninput="hrRenderDoneTable_()" placeholder="Name or ID" autocomplete="off">
+            </div>
+          </div>
           <p class="hr-summary" id="hrDoneSummary"></p>
           <div id="hrDoneHost"><p>Loading…</p></div>
         </div>
@@ -167,7 +174,13 @@
       <div id="archive" class="tab-content">
         <div class="form-section">
           <h2 id="hrArchiveTitle">Annual leave</h2>
-          <p class="hr-tab-help">Papers moved here from Completed request. Use <strong>Select</strong> to print several, move them to another type, or return them to Completed request.</p>
+          <p class="hr-tab-help" id="hrArchiveHelp">Papers moved here from Completed request. Use <strong>Select</strong> to print several, move them to another type, or return them to Completed request.</p>
+          <div class="form-row filter-toolbar">
+            <div class="form-group filter-grow">
+              <label>Search</label>
+              <input type="text" id="hrArchiveSearch" oninput="hrRenderArchiveTable_()" placeholder="Name or ID" autocomplete="off">
+            </div>
+          </div>
           <p class="hr-summary" id="hrArchiveSummary"></p>
           <div id="hrArchiveHost"><p>Loading…</p></div>
         </div>
@@ -478,6 +491,6 @@
 <script src="assets/empire-auth.js?v=2026-09-01-dir-esig"></script>
 <script src="assets/empire-core.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-storage.js?v=2026-08-31-hr-scan"></script>
-<script src="assets/empire-hr-leave.js?v=2026-09-02-hr-archive"></script>
+<script src="assets/empire-hr-leave.js?v=2026-09-02-hr-all"></script>
 </body>
 </html>

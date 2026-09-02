@@ -43,6 +43,7 @@ var HR_ARCHIVE_SECTIONS = [
   { id: 'unpaid', label: 'Unpaid' },
   { id: 'other', label: 'Others' }
 ];
+var HR_ARCHIVE_ALL = { id: 'all', label: '(all)' };
 
 var _hrRows = [];
 var _hrSaving = false;
@@ -136,7 +137,16 @@ function hrArchiveKey_(row) {
 
 function hrArchiveMeta_(id) {
   id = String(id || '').trim().toLowerCase();
+  if (id === 'all') return HR_ARCHIVE_ALL;
   return HR_ARCHIVE_SECTIONS.find(function (t) { return t.id === id; }) || null;
+}
+
+function hrMatchNameOrId_(row, q) {
+  q = String(q || '').trim().toLowerCase();
+  if (!q) return true;
+  var name = String((row && row.empName) || '').toLowerCase();
+  var code = String((row && row.empCode) || '').toLowerCase();
+  return name.indexOf(q) !== -1 || code.indexOf(q) !== -1;
 }
 
 function hrUnfiledCompletedRows_() {
@@ -145,7 +155,28 @@ function hrUnfiledCompletedRows_() {
 
 function hrFiledRows_(key) {
   key = String(key || '').trim().toLowerCase();
+  if (key === 'all') {
+    return hrCompletedRows_().filter(function (r) { return !!hrArchiveKey_(r); });
+  }
   return hrCompletedRows_().filter(function (r) { return hrArchiveKey_(r) === key; });
+}
+
+function hrArchiveVisibleRows_() {
+  return hrFiledRows_(_hrArchiveSection).filter(function (r) {
+    return hrMatchNameOrId_(r, hrVal_('hrArchiveSearch'));
+  });
+}
+
+function hrDoneVisibleCompleted_() {
+  return hrUnfiledCompletedRows_().filter(function (r) {
+    return hrMatchNameOrId_(r, hrVal_('hrDoneSearch'));
+  });
+}
+
+function hrDoneVisibleRejected_() {
+  return (_hrRows || []).filter(function (r) {
+    return hrStageOf_(r) === 'rejected' && hrMatchNameOrId_(r, hrVal_('hrDoneSearch'));
+  });
 }
 
 function hrArchiveSelectedIds_() {
@@ -182,7 +213,7 @@ function hrSelectAllDone_(ev) {
   var on = !!(ev && ev.target && ev.target.checked);
   _hrDoneSelected = {};
   if (on) {
-    hrUnfiledCompletedRows_().forEach(function (r) { _hrDoneSelected[String(r.id)] = true; });
+    hrDoneVisibleCompleted_().forEach(function (r) { _hrDoneSelected[String(r.id)] = true; });
   }
   hrRenderDoneTable_();
 }
@@ -256,7 +287,7 @@ function hrSelectAllArchive_(ev) {
   var on = !!(ev && ev.target && ev.target.checked);
   _hrArchiveSelected = {};
   if (on) {
-    hrFiledRows_(_hrArchiveSection).forEach(function (r) { _hrArchiveSelected[String(r.id)] = true; });
+    hrArchiveVisibleRows_().forEach(function (r) { _hrArchiveSelected[String(r.id)] = true; });
   }
   hrRenderArchiveTable_();
 }
@@ -1744,11 +1775,19 @@ function hrRenderDoneTable_() {
   var host = document.getElementById('hrDoneHost');
   var summary = document.getElementById('hrDoneSummary');
   if (!host) return;
-  var completed = hrUnfiledCompletedRows_();
-  var rejected = (_hrRows || []).filter(function (r) { return hrStageOf_(r) === 'rejected'; });
+  var completedAll = hrUnfiledCompletedRows_();
+  var rejectedAll = (_hrRows || []).filter(function (r) { return hrStageOf_(r) === 'rejected'; });
+  var completed = hrDoneVisibleCompleted_();
+  var rejected = hrDoneVisibleRejected_();
+  var q = hrVal_('hrDoneSearch');
   var rows = completed.concat(rejected);
   if (summary) {
-    summary.textContent = completed.length + ' waiting to file, ' + rejected.length + ' rejected';
+    if (q) {
+      summary.textContent = completed.length + ' of ' + completedAll.length + ' waiting to file, ' +
+        rejected.length + ' of ' + rejectedAll.length + ' rejected';
+    } else {
+      summary.textContent = completed.length + ' waiting to file, ' + rejected.length + ' rejected';
+    }
   }
   function rowHtml(r, showSel) {
     var rejectedRow = hrStageOf_(r) === 'rejected';
@@ -1773,7 +1812,9 @@ function hrRenderDoneTable_() {
     var h = '<section class="hr-stage hr-stage-rejected">';
     h += '<h3 class="hr-stage-title">Rejected <span>(' + list.length + ')</span></h3>';
     if (!list.length) {
-      h += '<p class="hr-stage-empty">Papers the director rejected come here, with no e-signature.</p></section>';
+      h += '<p class="hr-stage-empty">' + (q
+        ? 'No rejected papers match that name or ID.'
+        : 'Papers the director rejected come here, with no e-signature.') + '</p></section>';
       return h;
     }
     h += '<div class="hr-table-wrap"><table class="hr-list-table"><thead><tr>' +
@@ -1788,8 +1829,8 @@ function hrRenderDoneTable_() {
   var groupSelN = completed.filter(function (r) { return !!_hrDoneSelected[String(r.id)]; }).length;
   var h = '<section class="hr-stage hr-stage-completed">';
   h += '<div class="hr-stage-head">';
-  h += '<h3 class="hr-stage-title">Completed request <span>(' + completed.length + ')</span></h3>';
-  if (completed.length && !hrIsDirectorOnly_()) {
+  h += '<h3 class="hr-stage-title">Completed request <span>(' + completed.length + (q && completed.length !== completedAll.length ? ' of ' + completedAll.length : '') + ')</span></h3>';
+  if (completedAll.length && !hrIsDirectorOnly_()) {
     h += '<div class="hr-stage-acts">';
     if (_hrDoneSelectMode) {
       h += '<span class="hr-select-count" id="hrDoneSelectCount">' + (selN ? selN + ' selected' : 'Select papers') + '</span>';
@@ -1805,8 +1846,10 @@ function hrRenderDoneTable_() {
     h += '</div>';
   }
   h += '</div>';
-  if (!completed.length) {
+  if (!completedAll.length) {
     h += '<p class="hr-stage-empty">Papers the director has signed come here. Select them and move them into a leave type in the sidebar.</p></section>';
+  } else if (!completed.length) {
+    h += '<p class="hr-stage-empty">No papers match that name or ID.</p></section>';
   } else {
     h += '<div class="hr-table-wrap"><table class="hr-list-table"><thead><tr>' +
       (showSel ? '<th class="hr-sel-col"><input type="checkbox" id="hrDoneSelAll" onclick="hrSelectAllDone_(event)"' + (completed.length && groupSelN === completed.length ? ' checked' : '') + '></th>' : '') +
@@ -1826,26 +1869,39 @@ function hrRenderArchiveTable_() {
   var host = document.getElementById('hrArchiveHost');
   var summary = document.getElementById('hrArchiveSummary');
   var title = document.getElementById('hrArchiveTitle');
+  var help = document.getElementById('hrArchiveHelp');
   if (!host) return;
   var meta = hrArchiveMeta_(_hrArchiveSection) || HR_ARCHIVE_SECTIONS[0];
   _hrArchiveSection = meta.id;
+  var isAll = meta.id === 'all';
   if (title) title.textContent = meta.label;
-  var rows = hrFiledRows_(meta.id);
+  if (help) {
+    help.innerHTML = isAll
+      ? 'Every paper you move into a leave type also appears here. Search by name or ID.'
+      : 'Papers moved here from Completed request. Use <strong>Select</strong> to print several, move them to another type, or return them to Completed request.';
+  }
+  var allRows = hrFiledRows_(meta.id);
+  var rows = hrArchiveVisibleRows_();
+  var q = hrVal_('hrArchiveSearch');
   if (summary) {
-    summary.textContent = rows.length + ' paper' + (rows.length === 1 ? '' : 's') + ' in ' + meta.label;
+    if (q) {
+      summary.textContent = rows.length + ' of ' + allRows.length + ' paper' + (allRows.length === 1 ? '' : 's') + ' matching “' + q + '”';
+    } else {
+      summary.textContent = allRows.length + ' paper' + (allRows.length === 1 ? '' : 's') + ' in ' + meta.label;
+    }
   }
   var showSel = !hrIsDirectorOnly_() && _hrArchiveSelectMode && rows.length;
   var selN = hrArchiveSelectedIds_().length;
   var groupSelN = rows.filter(function (r) { return !!_hrArchiveSelected[String(r.id)]; }).length;
   var h = '<section class="hr-stage hr-stage-completed">';
   h += '<div class="hr-stage-head">';
-  h += '<h3 class="hr-stage-title">' + hrEsc_(meta.label) + ' <span>(' + rows.length + ')</span></h3>';
-  if (rows.length && !hrIsDirectorOnly_()) {
+  h += '<h3 class="hr-stage-title">' + hrEsc_(meta.label) + ' <span>(' + rows.length + (q && rows.length !== allRows.length ? ' of ' + allRows.length : '') + ')</span></h3>';
+  if (allRows.length && !hrIsDirectorOnly_()) {
     h += '<div class="hr-stage-acts">';
     if (_hrArchiveSelectMode) {
       h += '<span class="hr-select-count" id="hrArchiveSelectCount">' + (selN ? selN + ' selected' : 'Select papers') + '</span>';
       if (hrCanWrite_()) {
-        h += '<select id="hrArchiveFileSection" class="hr-file-select"><option value="">Move to…</option>' + hrFileSectionOptions_(meta.id) + '</select>';
+        h += '<select id="hrArchiveFileSection" class="hr-file-select"><option value="">Move to…</option>' + hrFileSectionOptions_(isAll ? '' : meta.id) + '</select>';
         h += '<button type="button" class="hr-btn-confirm" onclick="hrFileSelectedArchive_()">Move</button>';
         h += '<button type="button" onclick="hrReturnSelectedArchive_()">Return to completed</button>';
       }
@@ -1857,17 +1913,25 @@ function hrRenderArchiveTable_() {
     h += '</div>';
   }
   h += '</div>';
+  if (!allRows.length) {
+    h += '<p class="hr-stage-empty">' + (isAll
+      ? 'No filed papers yet. Move papers from Completed request into a leave type, and they also appear here.'
+      : 'No papers in ' + hrEsc_(meta.label) + ' yet. Select papers in Completed request and move them here.') + '</p></section>';
+    host.innerHTML = h;
+    return;
+  }
   if (!rows.length) {
-    h += '<p class="hr-stage-empty">No papers in ' + hrEsc_(meta.label) + ' yet. Select papers in Completed request and move them here.</p></section>';
+    h += '<p class="hr-stage-empty">No papers match that name or ID.</p></section>';
     host.innerHTML = h;
     return;
   }
   h += '<div class="hr-table-wrap"><table class="hr-list-table"><thead><tr>' +
     (showSel ? '<th class="hr-sel-col"><input type="checkbox" id="hrArchiveSelAll" onclick="hrSelectAllArchive_(event)"' + (rows.length && groupSelN === rows.length ? ' checked' : '') + '></th>' : '') +
-    '<th>#</th><th>Employee</th><th>Department</th><th>Type</th><th>Dates</th><th>Days</th><th>Status</th><th></th>' +
+    '<th>#</th><th>Employee</th><th>Department</th>' + (isAll ? '<th>Section</th>' : '') + '<th>Type</th><th>Dates</th><th>Days</th><th>Status</th><th></th>' +
     '</tr></thead><tbody>';
   rows.forEach(function (r) {
     var picked = !!_hrArchiveSelected[String(r.id)];
+    var sec = hrArchiveMeta_(hrArchiveKey_(r));
     h += '<tr' + (showSel && picked ? ' class="hr-row-selected"' : '') + '>' +
       (showSel
         ? '<td class="hr-sel-col"><input type="checkbox" id="hrArchiveSel-' + hrEsc_(r.id) + '" data-hr-archive-sel="1" onclick="hrToggleArchiveRowSelect_(\'' + hrEsc_(r.id) + '\',event)"' + (picked ? ' checked' : '') + '></td>'
@@ -1875,6 +1939,7 @@ function hrRenderArchiveTable_() {
       '<td>' + hrEsc_(r.no || r.num || '') + '</td>' +
       '<td><strong>' + hrEsc_(r.empName || '—') + '</strong><div style="color:var(--text-soft);font-size:12px;">' + hrEsc_(r.empCode || '') + '</div></td>' +
       '<td>' + hrEsc_(r.empDepartment || '—') + '</td>' +
+      (isAll ? '<td>' + hrEsc_(sec ? sec.label : hrArchiveKey_(r) || '—') + '</td>' : '') +
       '<td>' + hrEsc_(r.leaveType || '—') + '</td>' +
       '<td>' + hrEsc_(hrFmtDate_(r.startDate)) + (r.endDate && r.endDate !== r.startDate ? ' – ' + hrEsc_(hrFmtDate_(r.endDate)) : '') + '</td>' +
       '<td>' + hrEsc_(r.daysOut || '—') + '</td>' +
@@ -2527,7 +2592,7 @@ function hrOpenPrintFrame_(bodyHtml, title) {
   var base = location.origin + location.pathname.replace(/[^/]+$/, '');
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + hrEsc_(title || 'Leave Request') + '</title>'
     + '<base href="' + String(base).replace(/"/g, '') + '">'
-    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-02-hr-archive">'
+    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-02-hr-all">'
     + '<style>' + hrPrintFrameCss_() + '</style></head><body>' + bodyHtml + '</body></html>';
   var frame = document.getElementById('hrPrintFrame');
   if (!frame) {
