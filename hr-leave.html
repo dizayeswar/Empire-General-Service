@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-30-hr-f06">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-30-hr-f06">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-03-hr-f06-exact">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-03-hr-f06-edit">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -298,13 +298,36 @@
             <option value="3"></option>
           </datalist>
 
+          <div class="hr-layout-pad no-print" id="hrLayoutPad">
+            <button type="button" id="hrLayoutToggle" onclick="hrLayoutToggle_()">Adjust paper</button>
+            <p class="hr-layout-hint">Click a table, the logo, the title, or All. Then use Top / Bottom / Left / Right to move, and − / + to size. Tell me when it looks right and I will save it for every PC.</p>
+            <div class="hr-layout-tools" id="hrLayoutTools" hidden>
+              <button type="button" onclick="hrLayoutSelect_('all')">All</button>
+              <span class="hr-layout-target" id="hrLayoutTarget">Click something to edit</span>
+              <div class="hr-layout-dpad" aria-label="Move">
+                <button type="button" class="hr-layout-top" onclick="hrLayoutNudge_(0,-1,event)">Top</button>
+                <button type="button" class="hr-layout-left" onclick="hrLayoutNudge_(-1,0,event)">Left</button>
+                <button type="button" class="hr-layout-right" onclick="hrLayoutNudge_(1,0,event)">Right</button>
+                <button type="button" class="hr-layout-bot" onclick="hrLayoutNudge_(0,1,event)">Bottom</button>
+              </div>
+              <div class="hr-layout-size">
+                <button type="button" onclick="hrLayoutScale_(-1,event)" title="Smaller">−</button>
+                <button type="button" onclick="hrLayoutScale_(1,event)" title="Bigger">+</button>
+              </div>
+              <span class="hr-layout-readout" id="hrLayoutReadout"></span>
+              <button type="button" onclick="hrLayoutReset_()">Reset this</button>
+              <button type="button" onclick="hrLayoutResetAll_()">Reset all</button>
+            </div>
+          </div>
+
           <div class="hr-note" id="hrPrintRoot">
-            <div class="hr-f06-head">
+            <div class="hr-f06-sheet" data-hr-edit="all">
+            <div class="hr-f06-head" data-hr-edit="logo">
               <img class="hr-f06-logo" src="assets/hr-f06-logo.png?v=2026-09-03-hr-f06-exact" alt="Empire">
             </div>
-            <h1 class="hr-f06-title">Leave Request</h1>
+            <h1 class="hr-f06-title" data-hr-edit="title">Leave Request</h1>
 
-            <table class="hr-f06-grid hr-f06-emp">
+            <table class="hr-f06-grid hr-f06-emp" data-hr-edit="emp">
               <colgroup><col class="c-lab"><col class="c-val"><col class="c-lab"><col class="c-val"></colgroup>
               <tr class="hr-f06-sec"><td colspan="4">Employees’ Detail:</td></tr>
               <tr>
@@ -327,7 +350,7 @@
               </tr>
             </table>
 
-            <table class="hr-f06-grid hr-f06-absence">
+            <table class="hr-f06-grid hr-f06-absence" data-hr-edit="absence">
               <colgroup><col class="c-start"><col class="c-end"><col class="c-days"></colgroup>
               <tr class="hr-f06-sec"><td colspan="3">Absence Detail:</td></tr>
               <tr>
@@ -374,7 +397,7 @@
               </tr>
             </table>
 
-            <table class="hr-f06-grid hr-f06-approvals">
+            <table class="hr-f06-grid hr-f06-approvals" data-hr-edit="approvals">
               <colgroup><col class="c-lm-lab"><col class="c-lm-sig"><col class="c-dir-lab"><col class="c-dir-sig"></colgroup>
               <tr class="hr-f06-sec"><td colspan="4">Approvals:</td></tr>
               <tr class="hr-approve-row">
@@ -392,7 +415,7 @@
             </table>
 
             <div class="hr-f06-blank">
-            <table class="hr-f06-entitle">
+            <table class="hr-f06-entitle" data-hr-edit="entitle">
               <colgroup>
                 <col class="c-type"><col class="c-ann"><col class="c-avail"><col class="c-req"><col class="c-rem">
               </colgroup>
@@ -409,7 +432,7 @@
               <tbody id="hrEntitleBody"></tbody>
             </table>
 
-            <table class="hr-f06-hr">
+            <table class="hr-f06-hr" data-hr-edit="hr">
               <colgroup><col><col></colgroup>
               <tr class="hr-f06-sec"><td colspan="2">Human Resources Dept. Comment:</td></tr>
               <tr>
@@ -433,9 +456,10 @@
               </tr>
             </table>
             </div>
-            <div class="hr-f06-doc-foot">
+            <div class="hr-f06-doc-foot" data-hr-edit="footer">
               <div>HR-F-06</div>
               <div>Rev.2</div>
+            </div>
             </div>
           </div>
 
@@ -491,6 +515,6 @@
 <script src="assets/empire-auth.js?v=2026-09-01-dir-esig"></script>
 <script src="assets/empire-core.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-storage.js?v=2026-08-31-hr-scan"></script>
-<script src="assets/empire-hr-leave.js?v=2026-09-03-hr-f06-exact"></script>
+<script src="assets/empire-hr-leave.js?v=2026-09-03-hr-f06-edit"></script>
 </body>
 </html>

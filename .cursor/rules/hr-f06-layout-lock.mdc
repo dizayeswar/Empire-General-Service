@@ -25,5 +25,6 @@ Locked measurements (from the Word file):
 - Footer `HR-F-06` / `Rev.2` at `6mm` from the bottom edge
 - **No yellow fill**, no Word watermark, no sample dates — start/end/HR date cells stay blank until filled
 - Print iframe / bake-values path; same CSS for one paper and many papers
+- A local **Adjust paper** editor may move/scale pieces in this browser only. Do not bake those offsets into CSS until the user says to save and lock for every PC.
 
 Filing completed papers into leave-type sections is list-only. Do not change the paper for that feature.
