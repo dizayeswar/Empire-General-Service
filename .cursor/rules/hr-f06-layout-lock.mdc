@@ -8,18 +8,22 @@ alwaysApply: true
 
 The Leave Request print layout must stay identical to `EW - HR-F-06 Leave request.docx` on every PC.
 
-Do **not** change shape, size, spacing, padding, row heights, or print layout unless the user explicitly asks.
+Do **not** change shape, size, spacing, padding, row heights, borders, or print layout unless the user explicitly asks.
 
 Locked measurements (from the Word file):
 
 - A4 `210mm × 297mm`, `@page { margin: 0 }`
-- Logo in header at `7mm` from top, size `51.23mm × 25.31mm`
-- Body top `33.26mm` (title starts here), right `16.26mm`, bottom `25.4mm`, left `17.51mm`
-- Table width `174.6mm` (Word 9900 twips) — never `width: 100%` on print
+- Logo from Word header (`assets/hr-f06-logo.png`) at `7mm` from top, `51.22mm × 25.30mm`
+- Body top `33.27mm` (title starts here), right `16.26mm`, bottom `25.4mm`, left `17.52mm`
+- Title 14pt Calibri `#0D0D0D`; first table top `45.81mm` (title then `7.6mm` gap)
+- Table width `174.63mm` (Word 9900 twips); entitlement `174.54mm` — never `width: 100%` on print
+- Absence columns `34.55% / 30.91% / 34.55%`
+- Cell borders `0.5pt`: **dotted inside**, **solid outside** (Word TableGrid + cell overrides)
 - Title 14pt, section headings 12pt bold, body 10pt Calibri
-- Data rows `18pt`, section headings `22pt`, emp sig `29pt`, approvals `32pt`, HR comment `68pt`, HR foot `24pt`
+- Data rows `18pt`; section headings emp `22.3pt`, absence `24.05pt`, approvals `22.7pt`, entitle `21.85pt`, HR `24.9pt`
+- Emp sig `28.95pt`, approvals `32.1pt`, HR comment `68.1pt`, HR foot `24.45pt`
 - Footer `HR-F-06` / `Rev.2` at `6mm` from the bottom edge
-- Start/end dates `31-Aug-26`, centered
+- **No yellow fill**, no Word watermark, no sample dates — start/end/HR date cells stay blank until filled
 - Print iframe / bake-values path; same CSS for one paper and many papers
 
 Filing completed papers into leave-type sections is list-only. Do not change the paper for that feature.

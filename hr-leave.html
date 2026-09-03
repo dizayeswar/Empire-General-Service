@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-30-hr-f06">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-30-hr-f06">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-03-hr-word">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-03-hr-f06-exact">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -300,7 +300,7 @@
 
           <div class="hr-note" id="hrPrintRoot">
             <div class="hr-f06-head">
-              <img class="hr-f06-logo" src="assets/empire-gin-logo.png?v=2026-08-30-hr-f06" alt="Empire">
+              <img class="hr-f06-logo" src="assets/hr-f06-logo.png?v=2026-09-03-hr-f06-exact" alt="Empire">
             </div>
             <h1 class="hr-f06-title">Leave Request</h1>
 
@@ -338,13 +338,13 @@
               <tr>
                 <td class="val hr-center">
                   <span class="hr-date-wrap" onclick="hrOpenPaperDate_('hr-startDate')">
-                    <input id="hr-startDate-view" class="hr-cell-input hr-date-view" type="text" placeholder="dd-MMM-yy" readonly tabindex="-1">
+                    <input id="hr-startDate-view" class="hr-cell-input hr-date-view" type="text" placeholder="" readonly tabindex="-1" autocomplete="off">
                     <input id="hr-startDate" class="hr-date-native" type="date" onchange="hrSyncPaperDate_(this);hrOnDatesChange_()">
                   </span>
                 </td>
                 <td class="val hr-center">
                   <span class="hr-date-wrap" onclick="hrOpenPaperDate_('hr-endDate')">
-                    <input id="hr-endDate-view" class="hr-cell-input hr-date-view" type="text" placeholder="dd-MMM-yy" readonly tabindex="-1">
+                    <input id="hr-endDate-view" class="hr-cell-input hr-date-view" type="text" placeholder="" readonly tabindex="-1" autocomplete="off">
                     <input id="hr-endDate" class="hr-date-native" type="date" onchange="hrSyncPaperDate_(this);hrOnDatesChange_()">
                   </span>
                 </td>
@@ -491,6 +491,6 @@
 <script src="assets/empire-auth.js?v=2026-09-01-dir-esig"></script>
 <script src="assets/empire-core.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-storage.js?v=2026-08-31-hr-scan"></script>
-<script src="assets/empire-hr-leave.js?v=2026-09-03-hr-word"></script>
+<script src="assets/empire-hr-leave.js?v=2026-09-03-hr-f06-exact"></script>
 </body>
 </html>

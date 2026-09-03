@@ -218,8 +218,8 @@
 .hr-form-msg.err { color: #c5504f; }
 .hr-form-msg.ok { color: #1d9e75; }
 
-/* —— Official HR-F-06 paper (from EW - HR-F-06 Leave request.docx) —— */
-/* A4 210×297mm. Word: header 7mm (logo), body top 33.26mm, right 16.26mm, bottom 25.4mm, left 17.51mm. */
+/* —— Official HR-F-06 paper (EW - HR-F-06 Leave request.docx) —— */
+/* A4 210.01×297mm. Header 7mm, body 33.27 / 16.26 / 25.4 / 17.52 mm. First table 45.81mm from page top. */
 .hr-note {
   background: #fff;
   color: #000;
@@ -227,7 +227,7 @@
   width: 210mm;
   max-width: 100%;
   min-height: 297mm;
-  padding: 33.26mm 16.26mm 25.4mm 17.51mm;
+  padding: 33.27mm 16.26mm 25.4mm 17.52mm;
   box-sizing: border-box;
   box-shadow: 0 2px 10px rgba(0,0,0,.12);
   font-family: Calibri, Arial, Helvetica, sans-serif;
@@ -235,6 +235,8 @@
   line-height: 1.15;
   position: relative;
   overflow: visible;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
 }
 
 .hr-note * { box-sizing: border-box; }
@@ -242,26 +244,28 @@
 .hr-f06-head {
   position: absolute;
   top: 7mm;
-  left: 17.51mm;
+  left: 17.52mm;
   margin: 0;
 }
 
 .hr-f06-logo {
   display: block;
-  height: 25.31mm;
-  width: auto;
-  max-width: 51.23mm;
+  width: 51.22mm;
+  height: 25.30mm;
   object-fit: contain;
   object-position: left center;
   margin: 0;
 }
 
 .hr-f06-title {
-  margin: 0 0 4pt;
+  margin: 0;
+  padding: 0;
+  height: 14pt;
+  line-height: 14pt;
   text-align: center;
   font-size: 14pt;
   font-weight: 400;
-  color: #000;
+  color: #0d0d0d;
 }
 
 .hr-f06-h {
@@ -283,57 +287,112 @@
 .hr-f06-grid,
 .hr-f06-entitle,
 .hr-f06-hr {
-  width: 174.6mm;
+  width: 174.63mm;
   max-width: 100%;
   border-collapse: collapse;
+  border-spacing: 0;
   table-layout: fixed;
-  margin: 0 0 4pt;
+  margin: 0;
   box-sizing: border-box;
+  empty-cells: show;
+  border: none;
 }
 
-.hr-f06-emp col:nth-child(1) { width: 23%; }
-.hr-f06-emp col:nth-child(2) { width: 31%; }
-.hr-f06-emp col:nth-child(3) { width: 23%; }
-.hr-f06-emp col:nth-child(4) { width: 23%; }
+.hr-f06-emp {
+  margin: 7.6mm 0 0;
+}
 
-.hr-f06-absence col.c-start { width: 34%; }
-.hr-f06-absence col.c-end { width: 32%; }
-.hr-f06-absence col.c-days { width: 34%; }
+.hr-f06-absence,
+.hr-f06-approvals {
+  margin: 0 auto;
+}
 
-.hr-f06-approvals col.c-lm-lab { width: 17.3%; }
-.hr-f06-approvals col.c-lm-sig { width: 32.7%; }
-.hr-f06-approvals col.c-dir-lab { width: 16.4%; }
-.hr-f06-approvals col.c-dir-sig { width: 33.6%; }
+.hr-f06-entitle {
+  width: 174.54mm;
+  margin: 1.87mm auto 0;
+}
 
-.hr-f06-entitle col.c-type { width: 16.4%; }
-.hr-f06-entitle col.c-ann { width: 19.9%; }
-.hr-f06-entitle col.c-avail { width: 21.8%; }
-.hr-f06-entitle col.c-req { width: 19.1%; }
-.hr-f06-entitle col.c-rem { width: 22.8%; }
+.hr-f06-emp col:nth-child(1) { width: 23.16%; }
+.hr-f06-emp col:nth-child(2) { width: 30.52%; }
+.hr-f06-emp col:nth-child(3) { width: 23.16%; }
+.hr-f06-emp col:nth-child(4) { width: 23.16%; }
+
+.hr-f06-absence col.c-start { width: 34.55%; }
+.hr-f06-absence col.c-end { width: 30.91%; }
+.hr-f06-absence col.c-days { width: 34.55%; }
+
+.hr-f06-approvals col.c-lm-lab { width: 17.27%; }
+.hr-f06-approvals col.c-lm-sig { width: 32.73%; }
+.hr-f06-approvals col.c-dir-lab { width: 16.36%; }
+.hr-f06-approvals col.c-dir-sig { width: 33.64%; }
+
+.hr-f06-entitle col.c-type { width: 16.45%; }
+.hr-f06-entitle col.c-ann { width: 19.93%; }
+.hr-f06-entitle col.c-avail { width: 21.83%; }
+.hr-f06-entitle col.c-req { width: 19.10%; }
+.hr-f06-entitle col.c-rem { width: 22.69%; }
 
 .hr-f06-grid th,
 .hr-f06-grid td,
 .hr-f06-entitle th,
 .hr-f06-entitle td,
 .hr-f06-hr td {
-  border: 1px solid #000;
-  padding: 1pt 4pt;
+  border: 0.5pt dotted #000;
+  padding: 0 5.4pt;
   vertical-align: middle;
   font-size: 10pt;
   height: 18pt;
+  min-height: 18pt;
+  background: #fff;
+}
+
+.hr-f06-grid tr:not(.hr-f06-sec) td:first-child,
+.hr-f06-entitle tr:not(.hr-f06-sec) th:first-child,
+.hr-f06-entitle tr:not(.hr-f06-sec) td:first-child,
+.hr-f06-hr tr:not(.hr-f06-sec) td:first-child {
+  border-left-style: solid;
+}
+
+.hr-f06-grid tr:not(.hr-f06-sec) td:last-child,
+.hr-f06-entitle tr:not(.hr-f06-sec) th:last-child,
+.hr-f06-entitle tr:not(.hr-f06-sec) td:last-child,
+.hr-f06-hr tr:not(.hr-f06-sec) td:last-child {
+  border-right-style: solid;
+}
+
+.hr-f06-sec + tr td,
+.hr-f06-sec + tr th {
+  border-top-style: solid;
+}
+
+.hr-f06-grid tr:last-child td,
+.hr-f06-entitle tbody tr:last-child td,
+.hr-f06-hr tr:last-child td {
+  border-bottom-style: solid;
 }
 
 .hr-f06-sec td,
 .hr-f06-sec th {
   border: none;
-  border-bottom: 1px solid #000;
+  border-bottom: 0.5pt solid #000;
   font-size: 12pt;
   font-weight: 700;
   text-align: left;
-  height: 22pt;
-  padding: 8pt 2pt 3pt;
+  height: 22.3pt;
+  min-height: 22.3pt;
+  padding: 0 5.4pt;
   background: #fff;
+  vertical-align: middle;
 }
+
+.hr-f06-absence .hr-f06-sec td { height: 24.05pt; min-height: 24.05pt; }
+.hr-f06-approvals .hr-f06-sec td {
+  height: 22.7pt;
+  min-height: 22.7pt;
+  border-bottom-style: dotted;
+}
+.hr-f06-entitle .hr-f06-sec td { height: 21.85pt; min-height: 21.85pt; }
+.hr-f06-hr .hr-f06-sec td { height: 24.9pt; min-height: 24.9pt; }
 
 .hr-center { text-align: center; }
 
@@ -373,14 +432,26 @@
   outline: none;
   background: #fff !important;
   box-shadow: none !important;
-  padding: 0 2pt !important;
+  padding: 0 !important;
   margin: 0;
   font: inherit;
   font-size: 10pt !important;
   font-weight: 400 !important;
   color: #000;
   min-width: 0;
-  min-height: 14pt;
+  min-height: 0;
+}
+.hr-note .hr-cell-input::placeholder {
+  color: transparent !important;
+  opacity: 0 !important;
+}
+.hr-note input:-webkit-autofill,
+.hr-note input:-webkit-autofill:hover,
+.hr-note input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #fff inset !important;
+  box-shadow: 0 0 0 1000px #fff inset !important;
+  -webkit-text-fill-color: #000 !important;
+  background-color: #fff !important;
 }
 
 .hr-note textarea.hr-days-out {
@@ -392,7 +463,7 @@
   word-break: break-word;
   line-height: 1.15;
   text-align: center;
-  min-height: 16pt;
+  min-height: 0;
   height: auto;
 }
 
@@ -465,15 +536,15 @@
 }
 
 .hr-f06-hr td.hr-f06-comment {
-  height: 68pt;
-  min-height: 68pt;
-  padding: 4pt 6pt;
+  height: 68.1pt;
+  min-height: 68.1pt;
+  padding: 0 5.4pt;
   vertical-align: top;
 }
 .hr-f06-comment {
-  height: 68pt;
-  min-height: 68pt;
-  padding: 4pt 6pt;
+  height: 68.1pt;
+  min-height: 68.1pt;
+  padding: 0 5.4pt;
   vertical-align: top;
 }
 .hr-f06-comment textarea {
@@ -482,15 +553,21 @@
   resize: none;
   font-family: inherit;
   font-size: 10pt;
+  background: #fff !important;
 }
 
-.hr-sig-row td { height: 29pt; }
-.hr-approve-row td { height: 32pt; }
+.hr-sig-row td { height: 28.95pt; min-height: 28.95pt; }
+.hr-approve-row td { height: 32.1pt; min-height: 32.1pt; }
 
-.hr-f06-hr-foot td {
-  height: 24pt;
-  padding: 2pt 6pt;
+.hr-f06-hr tr.hr-f06-hr-foot td {
+  height: 24.45pt;
+  min-height: 24.45pt;
+  padding: 0 5.4pt;
   vertical-align: middle;
+  border-top-style: dotted;
+  border-right-style: solid;
+  border-bottom-style: solid;
+  border-left-style: solid;
 }
 
 .hr-f06-hr-foot .sig-line { width: 50%; }
@@ -524,9 +601,10 @@
 .hr-date-wrap {
   position: relative;
   display: block;
-  min-height: 22px;
+  min-height: 0;
   overflow: hidden;
   cursor: pointer;
+  background: #fff;
 }
 
 .hr-date-wrap-inline {
@@ -537,6 +615,11 @@
 
 .hr-date-view {
   pointer-events: none;
+}
+
+.hr-date-view::placeholder {
+  color: transparent !important;
+  opacity: 0 !important;
 }
 
 .hr-date-native {
@@ -550,7 +633,12 @@
   opacity: 0;
   pointer-events: none;
   border: none;
-  background: transparent;
+  background: transparent !important;
+  color: transparent !important;
+  accent-color: #fff;
+}
+.hr-date-native::-webkit-calendar-picker-indicator {
+  opacity: 0;
 }
 
 .sig-cell {
@@ -849,7 +937,7 @@
     height: 297mm !important;
     min-height: 297mm !important;
     margin: 0 !important;
-    padding: 33.26mm 16.26mm 25.4mm 17.51mm !important;
+    padding: 33.27mm 16.26mm 25.4mm 17.52mm !important;
     border: none !important;
     box-shadow: none !important;
     font-size: 10pt !important;
@@ -859,15 +947,25 @@
   .hr-f06-head {
     position: absolute !important;
     top: 7mm !important;
-    left: 17.51mm !important;
+    left: 17.52mm !important;
     margin: 0 !important;
+  }
+  .hr-f06-title {
+    margin: 0 !important;
+    height: 14pt !important;
+    line-height: 14pt !important;
   }
   .hr-f06-grid,
   .hr-f06-entitle,
   .hr-f06-hr {
-    width: 174.6mm !important;
-    max-width: 174.6mm !important;
+    width: 174.63mm !important;
+    max-width: 174.63mm !important;
+    margin: 0 !important;
   }
+  .hr-f06-emp { margin: 7.6mm 0 0 !important; }
+  .hr-f06-absence,
+  .hr-f06-approvals { margin: 0 auto !important; }
+  .hr-f06-entitle { width: 174.54mm !important; max-width: 174.54mm !important; margin: 1.87mm auto 0 !important; }
   .hr-f06-doc-foot {
     right: 16.26mm !important;
     bottom: 6mm !important;
@@ -894,6 +992,7 @@
   .hr-f06-sec td,
   .hr-f06-sec th { font-weight: 700 !important; }
   .hr-note .hr-cell-input { background: #fff !important; }
+  .hr-note input::placeholder { color: transparent !important; opacity: 0 !important; }
   .hr-note textarea.hr-days-out {
     height: auto !important;
     overflow: visible !important;
@@ -973,7 +1072,7 @@
     width: 210mm !important;
     height: 297mm !important;
     min-height: 297mm !important;
-    padding: 33.26mm 16.26mm 25.4mm 17.51mm !important;
+    padding: 33.27mm 16.26mm 25.4mm 17.52mm !important;
     position: relative !important;
     box-sizing: border-box !important;
   }
