@@ -10,16 +10,16 @@ The Leave Request print layout must stay identical to `EW - HR-F-06 Leave reques
 
 Do **not** change shape, size, spacing, padding, row heights, or print layout unless the user explicitly asks.
 
-Locked measurements:
+Locked measurements (from the Word file):
 
 - A4 `210mm × 297mm`, `@page { margin: 0 }`
-- Sheet padding `20mm 16.26mm 25.4mm 17.51mm` (top right bottom left)
+- Logo in header at `7mm` from top, size `51.23mm × 25.31mm`
+- Body top `33.26mm` (title starts here), right `16.26mm`, bottom `25.4mm`, left `17.51mm`
 - Table width `174.6mm` (Word 9900 twips) — never `width: 100%` on print
-- Logo `51.23mm × 25.31mm`, title 14pt, body 10pt Calibri
-- Data rows `15pt`, section headings `18pt`, sig `24pt`, approvals `26pt`, HR comment `56pt`, HR foot `20pt`
+- Title 14pt, section headings 12pt bold, body 10pt Calibri
+- Data rows `18pt`, section headings `22pt`, emp sig `29pt`, approvals `32pt`, HR comment `68pt`, HR foot `24pt`
+- Footer `HR-F-06` / `Rev.2` at `6mm` from the bottom edge
 - Start/end dates `31-Aug-26`, centered
 - Print iframe / bake-values path; same CSS for one paper and many papers
 
-The director e-signature image size is independent of the paper lock.
-
-Filing completed papers into Annual leave / Bereavement / Lateness vacations / Marriage leave / Sick leave / Unpaid / Others is list-only. Do not change the paper for that feature. `(all)` is a combined view of every filed paper.
+Filing completed papers into leave-type sections is list-only. Do not change the paper for that feature.
