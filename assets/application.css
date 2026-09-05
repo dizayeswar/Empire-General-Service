@@ -841,6 +841,9 @@
   background: transparent;
   color: var(--text-soft);
 }
+#appImgModal {
+  z-index: 2600;
+}
 #appImgModal img {
   max-width: 92vw;
   max-height: 88vh;
