@@ -349,7 +349,7 @@
 .hr-f06-entitle th,
 .hr-f06-entitle td,
 .hr-f06-hr td {
-  border: 0.5pt dotted #000;
+  border: 0.5pt dotted #808080;
   padding: 0 5.4pt;
   vertical-align: middle;
   font-size: 10pt;
@@ -386,7 +386,7 @@
 .hr-f06-sec td,
 .hr-f06-sec th {
   border: none;
-  border-bottom: 0.5pt solid #000;
+  border-bottom: 0.5pt solid #808080;
   font-size: 12pt;
   font-weight: 700;
   text-align: left;

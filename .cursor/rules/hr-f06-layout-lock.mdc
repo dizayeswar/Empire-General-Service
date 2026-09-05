@@ -18,7 +18,7 @@ Locked measurements (from the Word file):
 - Title 14pt Calibri `#0D0D0D`; first table top `45.81mm` (title then `7.6mm` gap)
 - Table width `174.63mm` (Word 9900 twips); entitlement `174.54mm` — never `width: 100%` on print
 - Absence columns `34.55% / 30.91% / 34.55%`
-- Cell borders `0.5pt`: **dotted inside**, **solid outside** (Word TableGrid + cell overrides)
+- Cell borders `0.5pt` `#808080`: **dotted inside**, **solid outside** — thin normal lines, not bold black
 - Title 14pt, section headings 12pt bold, body 10pt Calibri
 - Data rows `18pt`; section headings emp `22.3pt`, absence `24.05pt`, approvals `22.7pt`, entitle `21.85pt`, HR `24.9pt`
 - Emp sig `28.95pt`, approvals `32.1pt`, HR comment `68.1pt`, HR foot `24.45pt`
