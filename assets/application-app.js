@@ -1431,17 +1431,16 @@ function appIssueInfoHtml_(r) {
     }
   }
   var h = '<div class="app-detail-grid">'
-    + '<div class="app-detail-card"><label>Apartment</label><strong>' + appEsc_(apt) + '</strong></div>'
+    + '<div class="app-detail-card"><label>Apartment</label><span>' + appEsc_(apt) + '</span></div>'
     + '<div class="app-detail-card"><label>Date opened</label><span>' + appEsc_(appFormatDateTime_(r.createdAt)) + '</span></div>'
     + (open ? '' : ('<div class="app-detail-card"><label>Date fixed</label><span>' + appEsc_(appFormatDateTime_(r.fixedAt)) + '</span></div>'))
-    + '<div class="app-detail-card"><label>Issue</label><strong>' + appEsc_(r.note || '—') + '</strong></div>'
+    + '<div class="app-detail-card"><label>Issue</label><span>' + appEsc_(r.note || '—') + '</span></div>'
     + '<div class="app-detail-card"><label>Phone number</label>'
     + (phone
-      ? ('<strong><a href="tel:' + appEsc_(phone) + '">' + appEsc_(phone) + '</a></strong>')
+      ? ('<span><a href="tel:' + appEsc_(phone) + '">' + appEsc_(phone) + '</a></span>')
       : '<span>—</span>')
     + '</div>'
-    + '<div class="app-detail-card"><label>Status</label><span class="app-issue-badge ' + (open ? 'is-open' : 'is-fixed') + '">'
-    + (open ? 'Not fixed' : 'Fixed') + '</span></div>'
+    + '<div class="app-detail-card"><label>Status</label><span>' + (open ? 'Not fixed' : 'Fixed') + '</span></div>'
     + '</div>'
     + (r.problem ? ('<div class="app-issue-desc"><span>Problem</span>' + appEsc_(r.problem) + '</div>') : '<p class="app-detail-empty">No problem description.</p>')
     + (r.solution ? ('<div class="app-issue-desc"><span>How to solve</span>' + appEsc_(r.solution) + '</div>') : '')

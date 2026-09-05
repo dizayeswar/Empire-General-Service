@@ -951,6 +951,24 @@
   font-size: 11px;
   box-shadow: none;
 }
+#appIssueInfoModal .app-detail-head h2,
+#appIssueInfoBody,
+#appIssueInfoBody .app-detail-card label,
+#appIssueInfoBody .app-detail-card span,
+#appIssueInfoBody .app-detail-card a,
+#appIssueInfoBody .app-issue-desc,
+#appIssueInfoBody .app-issue-desc span,
+#appIssueInfoBody .app-detail-empty,
+#appIssueInfoBody .app-issue-meta {
+  font-weight: 400;
+  color: var(--text);
+}
+#appIssueInfoBody .app-detail-card label,
+#appIssueInfoBody .app-issue-desc span {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 #appIssueInfoBody .app-issue-desc {
   margin: 0 0 12px;
   padding: 12px;
@@ -959,8 +977,6 @@
   background: var(--bg, transparent);
 }
 #appIssueInfoBody .app-detail-card a {
-  color: var(--header-accent, #8d015d);
-  font-weight: 700;
   text-decoration: none;
 }
 #appIssueInfoBody .app-detail-card a:hover {
