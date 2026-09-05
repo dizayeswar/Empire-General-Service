@@ -250,7 +250,7 @@
   height: 297mm;
   padding: 33.27mm 16.26mm 25.4mm 17.52mm;
   box-sizing: border-box;
-  transform-origin: top left;
+  transform-origin: center center;
 }
 
 .hr-f06-head {
@@ -1076,6 +1076,7 @@
     min-height: 297mm !important;
     padding: 33.27mm 16.26mm 25.4mm 17.52mm !important;
     box-sizing: border-box !important;
+    transform-origin: center center !important;
   }
   .hr-f06-head {
     position: absolute !important;

@@ -73,7 +73,7 @@ var _hrLayoutDrag = null;
 var HR_LAYOUT_STORE = 'egs-hr-f06-layout-v1';
 var HR_LAYOUT_KEYS = ['all', 'logo', 'title', 'emp', 'absence', 'approvals', 'entitle', 'hr', 'footer'];
 var HR_LAYOUT_LABELS = {
-  all: 'All',
+  all: 'Whole paper',
   logo: 'Logo',
   title: 'Title',
   emp: 'Employees’ Detail',
@@ -2624,6 +2624,7 @@ function hrPrintFrameCss_() {
     + '.hr-sig-pad-director img{max-height:26pt!important;max-width:100%!important;object-fit:contain!important;}'
     + '.hr-layout-pad,.hr-layout-sel{outline:none!important;}'
     + '[data-hr-edit]{transform-origin:top left!important;}'
+    + '.hr-f06-sheet,[data-hr-edit="all"]{transform-origin:center center!important;}'
     + '.hr-approve-row td.sig-cell-director{overflow:visible!important;}';
 }
 
@@ -2679,7 +2680,7 @@ function hrLayoutApply_() {
     var key = el.getAttribute('data-hr-edit');
     var css = hrLayoutCss_(hrLayoutPiece_(key));
     el.style.transform = css;
-    el.style.transformOrigin = 'top left';
+    el.style.transformOrigin = key === 'all' ? 'center center' : 'top left';
     el.classList.toggle('hr-layout-sel', _hrLayoutOn && key === _hrLayoutSel);
   });
   hrLayoutSyncUi_();
@@ -2704,8 +2705,12 @@ function hrLayoutSyncUi_() {
       return;
     }
     var p = hrLayoutPiece_(_hrLayoutSel);
-    readout.textContent = 'Left ' + (p.x >= 0 ? '+' : '') + p.x.toFixed(1) + ' mm   Top ' +
-      (p.y >= 0 ? '+' : '') + p.y.toFixed(1) + ' mm   Size ' + Math.round(p.s * 100) + '%';
+    if (_hrLayoutSel === 'all') {
+      readout.textContent = 'Zoom ' + Math.round(p.s * 100) + '%  — minus adds white space on all sides';
+    } else {
+      readout.textContent = 'Left ' + (p.x >= 0 ? '+' : '') + p.x.toFixed(1) + ' mm   Top ' +
+        (p.y >= 0 ? '+' : '') + p.y.toFixed(1) + ' mm   Size ' + Math.round(p.s * 100) + '%';
+    }
   }
 }
 function hrLayoutToggle_() {
@@ -2845,7 +2850,7 @@ function hrOpenPrintFrame_(bodyHtml, title) {
   var base = location.origin + location.pathname.replace(/[^/]+$/, '');
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + hrEsc_(title || 'Leave Request') + '</title>'
     + '<base href="' + String(base).replace(/"/g, '') + '">'
-    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-05-hr-f06-solid">'
+    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-05-hr-f06-zoom">'
     + '<style>' + hrPrintFrameCss_() + '</style></head><body>' + bodyHtml + '</body></html>';
   var frame = document.getElementById('hrPrintFrame');
   if (!frame) {

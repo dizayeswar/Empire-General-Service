@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-30-hr-f06">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-30-hr-f06">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-05-hr-f06-solid">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-05-hr-f06-zoom">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -300,9 +300,9 @@
 
           <div class="hr-layout-pad no-print" id="hrLayoutPad">
             <button type="button" id="hrLayoutToggle" onclick="hrLayoutToggle_()">Adjust paper</button>
-            <p class="hr-layout-hint">Click a table, the logo, the title, or All. Then use Top / Bottom / Left / Right to move, and − / + to size. Tell me when it looks right and I will save it for every PC.</p>
+            <p class="hr-layout-hint">Click <strong>Whole paper</strong> (or the white area of the page). Then − zooms everything out so more white space appears on all four sides. + zooms back in. Tables can still be moved one by one.</p>
             <div class="hr-layout-tools" id="hrLayoutTools" hidden>
-              <button type="button" onclick="hrLayoutSelect_('all')">All</button>
+              <button type="button" onclick="hrLayoutSelect_('all')">Whole paper</button>
               <span class="hr-layout-target" id="hrLayoutTarget">Click something to edit</span>
               <div class="hr-layout-dpad" aria-label="Move">
                 <button type="button" class="hr-layout-top" onclick="hrLayoutNudge_(0,-1,event)">Top</button>
@@ -515,6 +515,6 @@
 <script src="assets/empire-auth.js?v=2026-09-01-dir-esig"></script>
 <script src="assets/empire-core.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-storage.js?v=2026-08-31-hr-scan"></script>
-<script src="assets/empire-hr-leave.js?v=2026-09-05-hr-f06-solid"></script>
+<script src="assets/empire-hr-leave.js?v=2026-09-05-hr-f06-zoom"></script>
 </body>
 </html>
