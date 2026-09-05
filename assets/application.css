@@ -982,6 +982,12 @@
 #appIssueInfoBody .app-detail-card a:hover {
   text-decoration: underline;
 }
+#appIssueInfoBody .app-issue-info-wide {
+  grid-column: 1 / -1;
+}
+#appIssueInfoBody .app-issue-info-wide span {
+  white-space: pre-wrap;
+}
 #appIssueInfoBody .app-issue-thumb {
   max-width: 100%;
 }

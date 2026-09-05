@@ -1441,9 +1441,9 @@ function appIssueInfoHtml_(r) {
       : '<span>—</span>')
     + '</div>'
     + '<div class="app-detail-card"><label>Status</label><span>' + (open ? 'Not fixed' : 'Fixed') + '</span></div>'
+    + '<div class="app-detail-card app-issue-info-wide"><label>What\'s the problem</label><span>' + appEsc_(String(r.problem || '').trim() || '—') + '</span></div>'
+    + '<div class="app-detail-card app-issue-info-wide"><label>How to solve the problem</label><span>' + appEsc_(String(r.solution || '').trim() || '—') + '</span></div>'
     + '</div>'
-    + (r.problem ? ('<div class="app-issue-desc"><span>Problem</span>' + appEsc_(r.problem) + '</div>') : '<p class="app-detail-empty">No problem description.</p>')
-    + (r.solution ? ('<div class="app-issue-desc"><span>How to solve</span>' + appEsc_(r.solution) + '</div>') : '')
     + photoHtml
     + '<div class="app-issue-meta">Opened by ' + appEsc_(r.createdBy || '—') + '</div>';
   if (!open) {
