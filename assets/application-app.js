@@ -967,18 +967,65 @@ function appIssueSyncKindUi_() {
   if (inp) inp.placeholder = _appIssueKind === 'portal' ? 'Optional — or leave blank' : 'Search e.g. ES-1-1-01';
 }
 
+function appIssueSeenKey_() {
+  var user = typeof empireGetUser === 'function' ? String(empireGetUser() || '') : '';
+  return 'egs-app-issue-seen:' + user;
+}
+
+function appIssueSeenMap_() {
+  try {
+    var raw = localStorage.getItem(appIssueSeenKey_());
+    var map = raw ? JSON.parse(raw) : {};
+    return map && typeof map === 'object' ? map : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function appIssueIsNew_(id) {
+  if (!id) return false;
+  var map = appIssueSeenMap_();
+  return !map[String(id)];
+}
+
+function appIssueMarkSeen_(id) {
+  if (!id) return;
+  var map = appIssueSeenMap_();
+  var k = String(id);
+  if (map[k]) return;
+  map[k] = Date.now();
+  try { localStorage.setItem(appIssueSeenKey_(), JSON.stringify(map)); } catch (e) {}
+}
+
+function appIssueUnreadCount_(kind) {
+  return _appIssues.filter(function (r) {
+    if (kind && String(r.kind || 'customer') !== kind) return false;
+    return appIssueIsNew_(r.id);
+  }).length;
+}
+
 function appIssueOpenCount_() {
   return _appIssues.filter(function (r) {
     return String(r.status || '') !== 'fixed';
   }).length;
 }
 
-function appIssueUpdateNavCount_() {
-  var el = document.getElementById('appIssueNavCount');
+function appIssuePaintUnreadBadge_(id, n) {
+  var el = document.getElementById(id);
   if (!el) return;
-  var n = appIssueOpenCount_();
   el.hidden = !n;
   el.textContent = String(n);
+}
+
+function appIssueUpdateNavCount_() {
+  var el = document.getElementById('appIssueNavCount');
+  if (el) {
+    var n = appIssueOpenCount_();
+    el.hidden = !n;
+    el.textContent = String(n);
+  }
+  appIssuePaintUnreadBadge_('appIssueUnreadCustomer', appIssueUnreadCount_('customer'));
+  appIssuePaintUnreadBadge_('appIssueUnreadPortal', appIssueUnreadCount_('portal'));
 }
 
 function appIssueUnpack_(r) {
@@ -1348,7 +1395,11 @@ function appIssueAdd_() {
       appNote_((d && (d.message || d.error)) || 'Could not save issue');
       return;
     }
-    if (d.issue) _appIssues.unshift(appIssueUnpack_(d.issue));
+    if (d.issue) {
+      var saved = appIssueUnpack_(d.issue);
+      appIssueMarkSeen_(saved.id);
+      _appIssues.unshift(saved);
+    }
     else appIssueLoad_(true);
     appIssueClearForm_();
     appRenderIssues_();
@@ -1422,8 +1473,9 @@ function appIssueRowHtml_(r) {
   var apt = String(r.propertyId || '').trim() || '—';
   var when = appFormatDateTime_(r.createdAt);
   var note = String(r.note || '').trim() || '—';
-  return '<tr class="app-issue-row" data-issue-id="' + id + '" onclick="appIssueOpenInfo_(\'' + id + '\')">'
-    + '<td><strong>' + appEsc_(apt) + '</strong></td>'
+  var isNew = appIssueIsNew_(r.id);
+  return '<tr class="app-issue-row' + (isNew ? ' is-new' : '') + '" data-issue-id="' + id + '" onclick="appIssueOpenInfo_(\'' + id + '\')">'
+    + '<td>' + (isNew ? '<span class="app-issue-new-dot" title="New"></span>' : '') + '<strong>' + appEsc_(apt) + '</strong></td>'
     + '<td class="app-issue-date">' + appEsc_(when) + '</td>'
     + '<td class="app-issue-title-cell">' + appEsc_(note) + '</td>'
     + '<td class="app-issue-more"><button type="button" onclick="event.stopPropagation();appIssueOpenInfo_(\'' + id + '\')">More info</button></td>'
@@ -1482,6 +1534,7 @@ function appIssueInfoHtml_(r) {
 function appIssueOpenInfo_(id) {
   var r = appIssueFind_(id);
   if (!r) return;
+  appIssueMarkSeen_(r.id);
   _appIssueInfoId = String(r.id);
   var modal = document.getElementById('appIssueInfoModal');
   var title = document.getElementById('appIssueInfoTitle');
@@ -1489,6 +1542,7 @@ function appIssueOpenInfo_(id) {
   if (title) title.textContent = String(r.propertyId || '').trim() || 'Issue';
   if (body) body.innerHTML = appIssueInfoHtml_(r);
   if (modal) modal.classList.add('show');
+  appRenderIssues_();
 }
 
 function appIssueCloseInfo_() {

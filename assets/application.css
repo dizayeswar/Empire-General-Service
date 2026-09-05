@@ -926,6 +926,37 @@
 .app-issue-table tbody tr {
   cursor: pointer;
 }
+.app-issue-kind-btn .app-issue-unread-count {
+  display: inline-flex;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 8px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #25d366;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.app-issue-kind-btn .app-issue-unread-count[hidden] {
+  display: none !important;
+}
+.app-issue-table tbody tr.is-new td {
+  font-weight: 600;
+}
+.app-issue-new-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: #25d366;
+  box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.22);
+  vertical-align: middle;
+}
 .app-issue-table tbody tr:nth-child(even) td {
   background: var(--row-hover, rgba(0,0,0,.02));
 }
