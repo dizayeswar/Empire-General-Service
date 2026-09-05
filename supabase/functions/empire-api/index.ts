@@ -36,7 +36,7 @@ function json(obj: unknown, status = 200) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method === "GET") {
-    return json({ ok: true, msg: "Empire API running (Supabase)", version: "2026-09-05-app-issue-details" });
+    return json({ ok: true, msg: "Empire API running (Supabase)", version: "2026-09-05-app-issue-seen-by" });
   }
   if (req.method !== "POST") return json({ ok: false, error: "Method not allowed" }, 405);
 
@@ -295,6 +295,7 @@ Deno.serve(async (req) => {
       case "getApplicationIssues": return json(await misc.handleGetApplicationIssues(body));
       case "addApplicationIssue": return json(await misc.handleAddApplicationIssue(body, a));
       case "markApplicationIssueFixed": return json(await misc.handleMarkApplicationIssueFixed(body, a));
+      case "markApplicationIssueSeen": return json(await misc.handleMarkApplicationIssueSeen(body, a));
       case "deleteApplicationIssue": return json(await misc.handleDeleteApplicationIssue(body, a));
       case "clearApplicationIssues": return json(await misc.handleClearApplicationIssues(body, a));
       case "updateApplicationCheck": return json(await misc.handleUpdateApplicationCheck(body, a));

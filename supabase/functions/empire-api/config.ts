@@ -173,6 +173,7 @@ export const DEPT_BY_ACTION: Record<string, string> = {
   getApplicationIssues: "application",
   addApplicationIssue: "application",
   markApplicationIssueFixed: "application",
+  markApplicationIssueSeen: "application",
   deleteApplicationIssue: "application",
   clearApplicationIssues: "application",
   updateApplicationCheck: "application",

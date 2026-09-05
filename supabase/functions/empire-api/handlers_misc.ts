@@ -409,6 +409,33 @@ function unpackAppIssueNote_(note: string): { note: string; problem: string; sol
   }
 }
 
+function parseAppIssueSeen_(raw: unknown): { username: string; at: string }[] {
+  let v: unknown = raw;
+  if (typeof v === "string") {
+    const t = v.trim();
+    if (!t) return [];
+    try { v = JSON.parse(t); } catch { return []; }
+  }
+  if (!Array.isArray(v)) return [];
+  const out: { username: string; at: string }[] = [];
+  const seen: Record<string, number> = {};
+  for (const item of v) {
+    let username = "";
+    let at = "";
+    if (typeof item === "string") username = item.trim();
+    else if (item && typeof item === "object") {
+      const rec = item as Record<string, unknown>;
+      username = String(rec.username || rec.user || "").trim();
+      at = String(rec.at || rec.seenAt || "");
+    }
+    const key = username.toLowerCase();
+    if (!username || seen[key]) continue;
+    seen[key] = 1;
+    out.push({ username, at });
+  }
+  return out;
+}
+
 function appIssueToApi_(r: Record<string, unknown>) {
   const packed = unpackAppIssueNote_(String(r.note || ""));
   return {
@@ -427,6 +454,7 @@ function appIssueToApi_(r: Record<string, unknown>) {
     createdAt: r.created_at,
     fixedBy: String(r.fixed_by || ""),
     fixedAt: r.fixed_at,
+    seenBy: parseAppIssueSeen_(r.seen_by ?? r.seenBy),
   };
 }
 
@@ -478,10 +506,11 @@ export async function handleAddApplicationIssue(body: Record<string, unknown>, a
     created_at: now,
     fixed_by: "",
     fixed_at: "",
+    seen_by: "[]",
   };
   let current: Record<string, unknown> = { ...row };
   let lastErr: { message?: string } | null = null;
-  for (let attempt = 0; attempt < 5; attempt++) {
+  for (let attempt = 0; attempt < 6; attempt++) {
     const res = await sb().from("application_issues").insert(current);
     if (!res.error) {
       lastErr = null;
@@ -490,6 +519,10 @@ export async function handleAddApplicationIssue(body: Record<string, unknown>, a
     }
     lastErr = res.error;
     const msg = String(res.error.message || "");
+    if (/seen_by/i.test(msg) && "seen_by" in current) {
+      delete current.seen_by;
+      continue;
+    }
     if (/phone/i.test(msg) && "phone" in current) {
       delete current.phone;
       continue;
@@ -524,6 +557,28 @@ export async function handleMarkApplicationIssueFixed(body: Record<string, unkno
   const { error } = await sb().from("application_issues").update(patch).eq("id", id);
   if (error) throw error;
   return { ok: true, success: true, issue: appIssueToApi_({ ...row, ...patch }) };
+}
+
+export async function handleMarkApplicationIssueSeen(body: Record<string, unknown>, auth: AuthOk) {
+  const id = String(body.id || "").trim();
+  if (!id) return { ok: false, success: false, error: "missing_id" };
+  const username = String(auth.username || body.username || "").trim();
+  if (!username) return { ok: false, success: false, error: "missing_user" };
+  const { data: row } = await sb().from("application_issues").select("*").eq("id", id).maybeSingle();
+  if (!row) return { ok: false, success: false, error: "not_found" };
+  const seen = parseAppIssueSeen_(row.seen_by);
+  const key = username.toLowerCase();
+  if (!seen.some((s) => s.username.toLowerCase() === key)) {
+    seen.push({ username, at: isoNow() });
+    const payload = JSON.stringify(seen);
+    const { error } = await sb().from("application_issues").update({ seen_by: payload }).eq("id", id);
+    if (error && /seen_by/i.test(String(error.message || ""))) {
+      return { ok: true, success: true, issue: appIssueToApi_(row), seenBy: seen.slice(0, -1) };
+    }
+    if (error) throw error;
+    return { ok: true, success: true, issue: appIssueToApi_({ ...row, seen_by: payload }) };
+  }
+  return { ok: true, success: true, issue: appIssueToApi_({ ...row, seen_by: JSON.stringify(seen) }) };
 }
 
 export async function handleDeleteApplicationIssue(body: Record<string, unknown>, auth: AuthOk) {

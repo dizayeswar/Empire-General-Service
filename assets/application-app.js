@@ -982,8 +982,58 @@ function appIssueSeenMap_() {
   }
 }
 
+function appIssueNormalizeSeen_(raw) {
+  var v = raw;
+  if (typeof v === 'string') {
+    try { v = JSON.parse(v); } catch (e) { return []; }
+  }
+  if (!Array.isArray(v)) return [];
+  var out = [];
+  var seen = {};
+  v.forEach(function (item) {
+    var username = '';
+    var at = '';
+    if (typeof item === 'string') username = item.trim();
+    else if (item && typeof item === 'object') {
+      username = String(item.username || item.user || '').trim();
+      at = String(item.at || item.seenAt || '');
+    }
+    var key = username.toLowerCase();
+    if (!username || seen[key]) return;
+    seen[key] = 1;
+    out.push({ username: username, at: at });
+  });
+  return out;
+}
+
+function appIssueSeenUsernames_(r) {
+  return appIssueNormalizeSeen_(r && r.seenBy).map(function (s) { return s.username; });
+}
+
+function appIssueCurrentUser_() {
+  return typeof empireGetUser === 'function' ? String(empireGetUser() || '').trim() : '';
+}
+
+function appIssueRememberMeSeen_(r) {
+  if (!r) return;
+  var user = appIssueCurrentUser_();
+  if (!user) return;
+  var list = appIssueNormalizeSeen_(r.seenBy);
+  var key = user.toLowerCase();
+  if (!list.some(function (s) { return s.username.toLowerCase() === key; })) {
+    list.push({ username: user, at: new Date().toISOString() });
+  }
+  r.seenBy = list;
+  appIssueMarkSeen_(r.id);
+}
+
 function appIssueIsNew_(id) {
   if (!id) return false;
+  var r = appIssueFind_(id);
+  var user = appIssueCurrentUser_().toLowerCase();
+  if (user && appIssueSeenUsernames_(r).some(function (n) { return n.toLowerCase() === user; })) {
+    return false;
+  }
   var map = appIssueSeenMap_();
   return !map[String(id)];
 }
@@ -1046,6 +1096,11 @@ function appIssueUnpack_(r) {
   r.note = note;
   r.problem = problem;
   r.solution = solution;
+  r.seenBy = appIssueNormalizeSeen_(r.seenBy);
+  var user = appIssueCurrentUser_().toLowerCase();
+  if (user && r.seenBy.some(function (s) { return s.username.toLowerCase() === user; })) {
+    appIssueMarkSeen_(r.id);
+  }
   return r;
 }
 
@@ -1420,7 +1475,7 @@ function appIssueMarkFixed_(id) {
       return;
     }
     var i = _appIssues.findIndex(function (x) { return String(x.id) === String(id); });
-    if (i >= 0 && d.issue) _appIssues[i] = d.issue;
+    if (i >= 0 && d.issue) _appIssues[i] = appIssueUnpack_(d.issue);
     else appIssueLoad_(true);
     appRenderIssues_();
   }).catch(function (e) {
@@ -1518,7 +1573,8 @@ function appIssueInfoHtml_(r) {
     + '<div class="app-detail-card app-issue-info-wide"><label>How to solve the problem</label><span>' + appEsc_(String(r.solution || '').trim() || '—') + '</span></div>'
     + '</div>'
     + photoHtml
-    + '<div class="app-issue-meta">Opened by ' + appEsc_(r.createdBy || '—') + '</div>';
+    + '<div class="app-issue-meta">Opened by ' + appEsc_(r.createdBy || '—') + '</div>'
+    + '<div class="app-issue-meta">Seen by: ' + appEsc_(appIssueSeenUsernames_(r).join(', ') || '—') + '</div>';
   if (!open) {
     h += '<div class="app-issue-meta">Fixed by ' + appEsc_(r.fixedBy || '—') + '</div>';
   }
@@ -1534,7 +1590,7 @@ function appIssueInfoHtml_(r) {
 function appIssueOpenInfo_(id) {
   var r = appIssueFind_(id);
   if (!r) return;
-  appIssueMarkSeen_(r.id);
+  appIssueRememberMeSeen_(r);
   _appIssueInfoId = String(r.id);
   var modal = document.getElementById('appIssueInfoModal');
   var title = document.getElementById('appIssueInfoTitle');
@@ -1543,6 +1599,21 @@ function appIssueOpenInfo_(id) {
   if (body) body.innerHTML = appIssueInfoHtml_(r);
   if (modal) modal.classList.add('show');
   appRenderIssues_();
+  fetchJSONRetry({
+    action: 'markApplicationIssueSeen',
+    token: appToken_(),
+    id: r.id
+  }, 1, 20000).then(function (d) {
+    var live = appIssueFind_(_appIssueInfoId || id);
+    if (!live) return;
+    if (d && d.issue) {
+      var updated = appIssueUnpack_(d.issue);
+      Object.keys(updated).forEach(function (k) { live[k] = updated[k]; });
+    }
+    appIssueRememberMeSeen_(live);
+    appIssueRefreshInfo_();
+    appRenderIssues_();
+  }).catch(function () {});
 }
 
 function appIssueCloseInfo_() {
