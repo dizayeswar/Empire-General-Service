@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://script.google.com">
 <title>Application — Door Check — Empire World</title>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/application.css?v=2026-09-02-app-phone-pill">
+<link rel="stylesheet" href="assets/application.css?v=2026-09-05-app-issue-board">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -91,7 +91,7 @@
       <div id="issues" class="tab-content">
         <div class="form-section">
           <h2>Issues</h2>
-          <p style="color:var(--text-soft);font-size:13px;margin:-6px 0 14px;">Log apartment problems with date and time. Open cards stay not-fixed until you mark them Fixed.</p>
+          <p style="color:var(--text-soft);font-size:13px;margin:-6px 0 14px;">Log apartment problems with date and time. The board stays compact — tap More info for phone, description, and photos.</p>
           <div class="app-issue-kind-tabs" role="tablist">
             <button type="button" class="app-issue-kind-btn active" id="appIssueKindCustomer" onclick="appIssueSetKind_('customer')">Customer issues</button>
             <button type="button" class="app-issue-kind-btn" id="appIssueKindPortal" onclick="appIssueSetKind_('portal')">Portal issues</button>
@@ -155,6 +155,15 @@
 <div class="modal" id="appImgModal" onclick="appCloseImg_()">
   <img id="appImgBig" alt="">
 </div>
+<div class="modal" id="appIssueInfoModal" onclick="if(event.target===this)appIssueCloseInfo_()">
+  <div class="modal-box app-detail-modal" onclick="event.stopPropagation()">
+    <div class="app-detail-head">
+      <h2 id="appIssueInfoTitle">Issue</h2>
+      <button type="button" class="app-detail-close" onclick="appIssueCloseInfo_()" aria-label="Close">&times;</button>
+    </div>
+    <div id="appIssueInfoBody"><p>Loading…</p></div>
+  </div>
+</div>
 <div class="modal" id="appRbModal" onclick="if(event.target===this)appRbClose_()">
   <div class="modal-box" style="max-width:720px;" onclick="event.stopPropagation()">
     <h2 style="margin:0 0 6px;">Recycle Bin</h2>
@@ -187,10 +196,11 @@
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-core.js?v=2026-08-19-wh-assign"></script>
-<script src="assets/application-app.js?v=2026-09-01-app-issue-phone"></script>
+<script src="assets/application-app.js?v=2026-09-05-app-issue-board"></script>
 <script>
 function switchTab(ev, tab) {
   if (typeof appCloseSettings_ === 'function') appCloseSettings_();
+  if (typeof appIssueCloseInfo_ === 'function') appIssueCloseInfo_();
   document.querySelectorAll('.tab-content').forEach(function (el) { el.classList.remove('active'); });
   document.querySelectorAll('.tab-btn').forEach(function (el) { el.classList.remove('active'); });
   var pane = document.getElementById(tab);

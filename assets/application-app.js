@@ -66,6 +66,7 @@ var _appIssuePhotoUrl = '';
 var _appIssuePhotoUploading = false;
 var _appIssueSuggestIndex = -1;
 var _appIssueTitleSuggestIndex = -1;
+var _appIssueInfoId = '';
 
 function appToken_() { return empireGetToken() || ''; }
 function appEsc_(s) {
@@ -1387,43 +1388,106 @@ function appCloseImg_() {
   if (modal) modal.classList.remove('show');
 }
 
-function appIssueCardHtml_(r) {
+function appIssueFind_(id) {
+  var want = String(id || '');
+  for (var i = 0; i < _appIssues.length; i++) {
+    if (String(_appIssues[i].id) === want) return _appIssues[i];
+  }
+  return null;
+}
+
+function appIssueRowHtml_(r) {
+  var id = appEsc_(r.id);
+  var apt = String(r.propertyId || '').trim() || '—';
+  var when = appFormatDateTime_(r.createdAt);
+  var note = String(r.note || '').trim() || '—';
+  return '<tr class="app-issue-row" data-issue-id="' + id + '" onclick="appIssueOpenInfo_(\'' + id + '\')">'
+    + '<td><strong>' + appEsc_(apt) + '</strong></td>'
+    + '<td class="app-issue-date">' + appEsc_(when) + '</td>'
+    + '<td class="app-issue-title-cell">' + appEsc_(note) + '</td>'
+    + '<td class="app-issue-more"><button type="button" onclick="event.stopPropagation();appIssueOpenInfo_(\'' + id + '\')">More info</button></td>'
+    + '</tr>';
+}
+
+function appIssueColTableHtml_(rows) {
+  if (!rows.length) return '';
+  return '<div class="app-issue-table-wrap"><table class="app-issue-table"><thead><tr>'
+    + '<th>Apartment</th><th>Date</th><th>Issue</th><th></th>'
+    + '</tr></thead><tbody>'
+    + rows.map(appIssueRowHtml_).join('')
+    + '</tbody></table></div>';
+}
+
+function appIssueInfoHtml_(r) {
   var open = String(r.status || '') !== 'fixed';
   var apt = String(r.propertyId || '').trim() || 'No apartment';
   var phone = appIssueDisplayPhone_(r);
   var photoHtml = '';
   if (r.photo) {
     if (typeof empireThumbImgHtml === 'function') {
-      photoHtml = empireThumbImgHtml(r.photo, 'app-issue-thumb', '', 320).replace('<img ', '<img onclick="appOpenImg_(this.dataset.full||this.src)" ');
+      photoHtml = empireThumbImgHtml(r.photo, 'app-issue-thumb', '', 640).replace('<img ', '<img onclick="appOpenImg_(this.dataset.full||this.src)" ');
     } else {
       photoHtml = '<img class="app-issue-thumb" src="' + appEsc_(r.photo) + '" alt="" onclick="appOpenImg_(this.src)">';
     }
   }
-  var h = '<article class="app-issue-card' + (open ? '' : ' is-fixed') + '">'
-    + '<div class="app-issue-card-top">'
-    + '<strong class="app-issue-apt">' + appEsc_(apt) + '</strong>'
-    + (open
-      ? '<span class="app-issue-badge is-open">Not fixed</span>'
-      : '<span class="app-issue-badge is-fixed">Fixed</span>')
+  var h = '<div class="app-detail-grid">'
+    + '<div class="app-detail-card"><label>Apartment</label><strong>' + appEsc_(apt) + '</strong></div>'
+    + '<div class="app-detail-card"><label>Date opened</label><span>' + appEsc_(appFormatDateTime_(r.createdAt)) + '</span></div>'
+    + (open ? '' : ('<div class="app-detail-card"><label>Date fixed</label><span>' + appEsc_(appFormatDateTime_(r.fixedAt)) + '</span></div>'))
+    + '<div class="app-detail-card"><label>Issue</label><strong>' + appEsc_(r.note || '—') + '</strong></div>'
+    + '<div class="app-detail-card"><label>Phone number</label>'
+    + (phone
+      ? ('<strong><a href="tel:' + appEsc_(phone) + '">' + appEsc_(phone) + '</a></strong>')
+      : '<span>—</span>')
     + '</div>'
-    + (phone ? ('<div class="app-issue-phone">Phone <a href="tel:' + appEsc_(phone) + '">' + appEsc_(phone) + '</a></div>') : '')
-    + '<p class="app-issue-note">' + appEsc_(r.note || '') + '</p>'
-    + (r.problem ? ('<div class="app-issue-desc"><span>Problem</span>' + appEsc_(r.problem) + '</div>') : '')
+    + '<div class="app-detail-card"><label>Status</label><span class="app-issue-badge ' + (open ? 'is-open' : 'is-fixed') + '">'
+    + (open ? 'Not fixed' : 'Fixed') + '</span></div>'
+    + '</div>'
+    + (r.problem ? ('<div class="app-issue-desc"><span>Problem</span>' + appEsc_(r.problem) + '</div>') : '<p class="app-detail-empty">No problem description.</p>')
     + (r.solution ? ('<div class="app-issue-desc"><span>How to solve</span>' + appEsc_(r.solution) + '</div>') : '')
     + photoHtml
-    + '<div class="app-issue-meta">Opened ' + appEsc_(appFormatDateTime_(r.createdAt))
-    + (r.createdBy ? (' · ' + appEsc_(r.createdBy)) : '') + '</div>';
+    + '<div class="app-issue-meta">Opened by ' + appEsc_(r.createdBy || '—') + '</div>';
   if (!open) {
-    h += '<div class="app-issue-meta">Fixed ' + appEsc_(appFormatDateTime_(r.fixedAt))
-      + (r.fixedBy ? (' · ' + appEsc_(r.fixedBy)) : '') + '</div>';
+    h += '<div class="app-issue-meta">Fixed by ' + appEsc_(r.fixedBy || '—') + '</div>';
   }
   h += '<div class="app-issue-card-actions">';
   if (open) {
     h += '<button type="button" class="app-issue-fix-btn" onclick="appIssueMarkFixed_(\'' + appEsc_(r.id) + '\')">Fixed</button>';
   }
   h += '<button type="button" class="app-issue-del-btn" onclick="appIssueDelete_(\'' + appEsc_(r.id) + '\')">Delete</button>';
-  h += '</div></article>';
+  h += '</div>';
   return h;
+}
+
+function appIssueOpenInfo_(id) {
+  var r = appIssueFind_(id);
+  if (!r) return;
+  _appIssueInfoId = String(r.id);
+  var modal = document.getElementById('appIssueInfoModal');
+  var title = document.getElementById('appIssueInfoTitle');
+  var body = document.getElementById('appIssueInfoBody');
+  if (title) title.textContent = String(r.propertyId || '').trim() || 'Issue';
+  if (body) body.innerHTML = appIssueInfoHtml_(r);
+  if (modal) modal.classList.add('show');
+}
+
+function appIssueCloseInfo_() {
+  _appIssueInfoId = '';
+  var modal = document.getElementById('appIssueInfoModal');
+  if (modal) modal.classList.remove('show');
+}
+
+function appIssueRefreshInfo_() {
+  if (!_appIssueInfoId) return;
+  var r = appIssueFind_(_appIssueInfoId);
+  if (!r) {
+    appIssueCloseInfo_();
+    return;
+  }
+  var title = document.getElementById('appIssueInfoTitle');
+  var body = document.getElementById('appIssueInfoBody');
+  if (title) title.textContent = String(r.propertyId || '').trim() || 'Issue';
+  if (body) body.innerHTML = appIssueInfoHtml_(r);
 }
 
 function appRenderIssues_() {
@@ -1441,17 +1505,18 @@ function appRenderIssues_() {
   if (!open.length) {
     h += '<p class="worker-empty">No open ' + appIssueKindLabel_(_appIssueKind).toLowerCase() + ' issues.</p>';
   } else {
-    h += open.map(appIssueCardHtml_).join('');
+    h += appIssueColTableHtml_(open);
   }
   h += '</section><section class="app-issue-col is-fixed-col">'
     + '<h3>Fixed <span>' + fixed.length + '</span></h3>';
   if (!fixed.length) {
     h += '<p class="worker-empty">Nothing marked fixed yet.</p>';
   } else {
-    h += fixed.map(appIssueCardHtml_).join('');
+    h += appIssueColTableHtml_(fixed);
   }
   h += '</section></div>';
   host.innerHTML = h;
+  appIssueRefreshInfo_();
 }
 
 function appEnterApp_() {
@@ -1694,6 +1759,10 @@ function appInit_() {
       if (!ev.target.closest('.app-issue-apt-wrap')) appIssueHideSuggest_();
       if (!ev.target.closest('.app-issue-title-wrap')) appIssueHideTitleSuggest_();
       if (!ev.target.closest('#appSettingsWrap')) appCloseSettings_();
+    });
+    document.addEventListener('keydown', function (ev) {
+      if (ev.key !== 'Escape') return;
+      appIssueCloseInfo_();
     });
   }
   if (!empireAuthPageBoot({
