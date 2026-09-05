@@ -2605,14 +2605,14 @@ function hrPrintFrameCss_() {
     + '.hr-f06-emp{margin:7.6mm 0 0!important;}'
     + '.hr-f06-absence,.hr-f06-approvals{margin:0 auto!important;}'
     + '.hr-f06-entitle{width:174.54mm!important;max-width:174.54mm!important;margin:1.87mm auto 0!important;}'
-    + '.hr-f06-grid th,.hr-f06-grid td,.hr-f06-entitle th,.hr-f06-entitle td,.hr-f06-hr td{border:0.5pt dotted #808080!important;background:#fff!important;}'
+    + '.hr-f06-grid th,.hr-f06-grid td,.hr-f06-entitle th,.hr-f06-entitle td,.hr-f06-hr td{border:0.5pt solid #808080!important;background:#fff!important;}'
     + '.hr-f06-grid tr:not(.hr-f06-sec) td:first-child,.hr-f06-entitle tr:not(.hr-f06-sec) th:first-child,.hr-f06-entitle tr:not(.hr-f06-sec) td:first-child,.hr-f06-hr tr:not(.hr-f06-sec) td:first-child{border-left-style:solid!important;}'
     + '.hr-f06-grid tr:not(.hr-f06-sec) td:last-child,.hr-f06-entitle tr:not(.hr-f06-sec) th:last-child,.hr-f06-entitle tr:not(.hr-f06-sec) td:last-child,.hr-f06-hr tr:not(.hr-f06-sec) td:last-child{border-right-style:solid!important;}'
     + '.hr-f06-sec+tr td,.hr-f06-sec+tr th{border-top-style:solid!important;}'
     + '.hr-f06-grid tr:last-child td,.hr-f06-entitle tbody tr:last-child td,.hr-f06-hr tr:last-child td{border-bottom-style:solid!important;}'
     + '.hr-f06-sec td,.hr-f06-sec th{border:none!important;border-bottom:0.5pt solid #808080!important;}'
-    + '.hr-f06-approvals .hr-f06-sec td{border-bottom-style:dotted!important;}'
-    + '.hr-f06-hr tr.hr-f06-hr-foot td{border-top-style:dotted!important;border-right-style:solid!important;border-bottom-style:solid!important;border-left-style:solid!important;}'
+    + '.hr-f06-approvals .hr-f06-sec td{border-bottom-style:solid!important;}'
+    + '.hr-f06-hr tr.hr-f06-hr-foot td{border-top-style:solid!important;border-right-style:solid!important;border-bottom-style:solid!important;border-left-style:solid!important;}'
     + '.hr-f06-hr td.hr-f06-comment{height:68.1pt!important;min-height:68.1pt!important;vertical-align:top!important;}'
     + '.hr-f06-doc-foot{right:16.26mm!important;bottom:6mm!important;}'
     + '.hr-cell-input,.hr-date-view{color:#000!important;-webkit-text-fill-color:#000!important;display:inline-block;width:100%;font:inherit;background:#fff!important;}'
@@ -2845,7 +2845,7 @@ function hrOpenPrintFrame_(bodyHtml, title) {
   var base = location.origin + location.pathname.replace(/[^/]+$/, '');
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + hrEsc_(title || 'Leave Request') + '</title>'
     + '<base href="' + String(base).replace(/"/g, '') + '">'
-    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-05-hr-f06-line">'
+    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-05-hr-f06-solid">'
     + '<style>' + hrPrintFrameCss_() + '</style></head><body>' + bodyHtml + '</body></html>';
   var frame = document.getElementById('hrPrintFrame');
   if (!frame) {

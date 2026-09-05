@@ -349,7 +349,7 @@
 .hr-f06-entitle th,
 .hr-f06-entitle td,
 .hr-f06-hr td {
-  border: 0.5pt dotted #808080;
+  border: 0.5pt solid #808080;
   padding: 0 5.4pt;
   vertical-align: middle;
   font-size: 10pt;
@@ -401,7 +401,7 @@
 .hr-f06-approvals .hr-f06-sec td {
   height: 22.7pt;
   min-height: 22.7pt;
-  border-bottom-style: dotted;
+  border-bottom-style: solid;
 }
 .hr-f06-entitle .hr-f06-sec td { height: 21.85pt; min-height: 21.85pt; }
 .hr-f06-hr .hr-f06-sec td { height: 24.9pt; min-height: 24.9pt; }
@@ -576,7 +576,7 @@
   min-height: 24.45pt;
   padding: 0 5.4pt;
   vertical-align: middle;
-  border-top-style: dotted;
+  border-top-style: solid;
   border-right-style: solid;
   border-bottom-style: solid;
   border-left-style: solid;
