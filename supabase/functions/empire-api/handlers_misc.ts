@@ -385,7 +385,32 @@ function normalizeAppIssueKind_(raw: unknown): "customer" | "portal" {
   return String(raw || "").trim().toLowerCase() === "portal" ? "portal" : "customer";
 }
 
+const APP_ISSUE_EXTRA_MARK = "\n<!--egs-issue-extra-->";
+
+function packAppIssueNote_(title: string, problem: string, solution: string): string {
+  const extra = { problem: String(problem || ""), solution: String(solution || "") };
+  if (!extra.problem && !extra.solution) return title;
+  return title + APP_ISSUE_EXTRA_MARK + JSON.stringify(extra);
+}
+
+function unpackAppIssueNote_(note: string): { note: string; problem: string; solution: string } {
+  const raw = String(note || "");
+  const i = raw.indexOf(APP_ISSUE_EXTRA_MARK);
+  if (i < 0) return { note: raw, problem: "", solution: "" };
+  try {
+    const extra = JSON.parse(raw.slice(i + APP_ISSUE_EXTRA_MARK.length)) as Record<string, unknown>;
+    return {
+      note: raw.slice(0, i),
+      problem: String(extra.problem || ""),
+      solution: String(extra.solution || ""),
+    };
+  } catch {
+    return { note: raw, problem: "", solution: "" };
+  }
+}
+
 function appIssueToApi_(r: Record<string, unknown>) {
+  const packed = unpackAppIssueNote_(String(r.note || ""));
   return {
     id: String(r.id || ""),
     num: Number(r.num || 0) || 0,
@@ -393,9 +418,9 @@ function appIssueToApi_(r: Record<string, unknown>) {
     project: String(r.project || ""),
     propertyId: String(r.property_id || ""),
     phone: String(r.phone || "").replace(/\D/g, ""),
-    note: String(r.note || ""),
-    problem: String(r.problem || ""),
-    solution: String(r.solution || ""),
+    note: packed.note,
+    problem: String(r.problem || packed.problem || ""),
+    solution: String(r.solution || packed.solution || ""),
     photo: String(r.photo || ""),
     status: String(r.status || "open").toLowerCase() === "fixed" ? "fixed" : "open",
     createdBy: String(r.created_by || ""),
@@ -437,7 +462,7 @@ export async function handleAddApplicationIssue(body: Record<string, unknown>, a
   }
   const num = await nextCounter("issnum_ApplicationIssues");
   const now = isoNow();
-  const row: Record<string, unknown> = {
+  let row: Record<string, unknown> = {
     id: `appiss-${crypto.randomUUID()}`,
     num,
     kind,
@@ -454,14 +479,34 @@ export async function handleAddApplicationIssue(body: Record<string, unknown>, a
     fixed_by: "",
     fixed_at: "",
   };
-  let { error } = await sb().from("application_issues").insert(row);
-  if (error && /problem|solution|phone/i.test(String(error.message || ""))) {
-    delete row.problem;
-    delete row.solution;
-    delete row.phone;
-    ({ error } = await sb().from("application_issues").insert(row));
+  let current: Record<string, unknown> = { ...row };
+  let lastErr: { message?: string } | null = null;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const res = await sb().from("application_issues").insert(current);
+    if (!res.error) {
+      lastErr = null;
+      row = current;
+      break;
+    }
+    lastErr = res.error;
+    const msg = String(res.error.message || "");
+    if (/phone/i.test(msg) && "phone" in current) {
+      delete current.phone;
+      continue;
+    }
+    if (/problem|solution/i.test(msg) && ("problem" in current || "solution" in current)) {
+      current.note = packAppIssueNote_(
+        String(row.note || ""),
+        String(row.problem || ""),
+        String(row.solution || ""),
+      );
+      delete current.problem;
+      delete current.solution;
+      continue;
+    }
+    throw res.error;
   }
-  if (error) throw error;
+  if (lastErr) throw lastErr;
   return { ok: true, success: true, issue: appIssueToApi_(row) };
 }
 

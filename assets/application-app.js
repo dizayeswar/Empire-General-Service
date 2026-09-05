@@ -981,6 +981,27 @@ function appIssueUpdateNavCount_() {
   el.textContent = String(n);
 }
 
+function appIssueUnpack_(r) {
+  if (!r) return r;
+  var note = String(r.note || '');
+  var mark = '\n<!--egs-issue-extra-->';
+  var i = note.indexOf(mark);
+  var problem = String(r.problem || '').trim();
+  var solution = String(r.solution || '').trim();
+  if (i >= 0) {
+    try {
+      var extra = JSON.parse(note.slice(i + mark.length));
+      if (!problem) problem = String((extra && extra.problem) || '');
+      if (!solution) solution = String((extra && extra.solution) || '');
+      note = note.slice(0, i);
+    } catch (e) {}
+  }
+  r.note = note;
+  r.problem = problem;
+  r.solution = solution;
+  return r;
+}
+
 function appIssueLoad_(force) {
   if (!force && _appIssues.length) {
     appRenderIssues_();
@@ -990,7 +1011,7 @@ function appIssueLoad_(force) {
     action: 'getApplicationIssues',
     token: appToken_()
   }, 1, 45000).then(function (d) {
-    _appIssues = (d && Array.isArray(d.issues)) ? d.issues : (Array.isArray(d) ? d : []);
+    _appIssues = ((d && Array.isArray(d.issues)) ? d.issues : (Array.isArray(d) ? d : [])).map(appIssueUnpack_);
     appRenderIssues_();
     return _appIssues;
   }).catch(function (e) {
@@ -1327,7 +1348,7 @@ function appIssueAdd_() {
       appNote_((d && (d.message || d.error)) || 'Could not save issue');
       return;
     }
-    if (d.issue) _appIssues.unshift(d.issue);
+    if (d.issue) _appIssues.unshift(appIssueUnpack_(d.issue));
     else appIssueLoad_(true);
     appIssueClearForm_();
     appRenderIssues_();
