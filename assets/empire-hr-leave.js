@@ -54,7 +54,6 @@ var _hrSigs = { emp: '', line: '', director: '', hr: '' };
 var _hrScan = { url: '', directorSig: '', x: 0.56, y: 0.36, w: 0.2 };
 var _hrScanDrag = null;
 var _hrPaperTemplate = null;
-var _hrPapersReady = false;
 var _hrSelectMode = false;
 var _hrSelected = {};
 var _hrBulkBusy = false;
@@ -89,6 +88,8 @@ function hrToggleRowSelect_(id, ev) {
   if (box) box.checked = !!_hrSelected[id];
   var row = box && box.closest('tr');
   if (row) row.classList.toggle('hr-row-selected', !!_hrSelected[id]);
+  var card = (box && box.closest('.hr-saved-filled-card')) || document.querySelector('.hr-saved-filled-card[data-hr-row="' + id.replace(/"/g, '') + '"]');
+  if (card) card.classList.toggle('hr-row-selected', !!_hrSelected[id]);
   var n = hrSelectedIds_().length;
   var count = document.getElementById('hrSelectCount');
   if (count) count.textContent = n ? n + ' selected' : 'Select papers';
@@ -364,7 +365,7 @@ function hrClearBatchPrint_() {
   }
 }
 
-function hrPrintCompletedByIds_(ids, emptyMsg) {
+function hrPrintRowsByIds_(ids, emptyMsg) {
   ids = ids || [];
   if (!ids.length) {
     alert(emptyMsg || 'Select at least one paper first.');
@@ -372,7 +373,7 @@ function hrPrintCompletedByIds_(ids, emptyMsg) {
   }
   var rows = ids.map(function (id) {
     return _hrRows.find(function (r) { return String(r.id) === String(id); });
-  }).filter(function (r) { return r && hrStageOf_(r) === 'completed'; });
+  }).filter(Boolean);
   if (!rows.length) {
     alert(emptyMsg || 'Select at least one paper first.');
     return;
@@ -383,8 +384,19 @@ function hrPrintCompletedByIds_(ids, emptyMsg) {
     var scan = row.entitlements && row.entitlements.__scan;
     wrap.appendChild(scan && scan.url ? hrBatchScanPage_(row) : hrBatchFormPage_(row, i));
   });
-  hrMsg_('Preparing ' + rows.length + ' paper' + (rows.length === 1 ? '' : 's') + '… In the print window choose Save as PDF.', true);
+  hrMsg_('Preparing ' + rows.length + ' paper' + (rows.length === 1 ? '' : 's') + '… In the print window choose Save as PDF. Each page is the full locked form, including HR.', true);
   hrOpenPrintFrame_(wrap.innerHTML, rows.length === 1 ? 'Leave Request' : 'Leave Requests');
+}
+
+function hrPrintCompletedByIds_(ids, emptyMsg) {
+  hrPrintRowsByIds_(ids, emptyMsg);
+}
+
+function hrPrintVisibleSaved_() {
+  var ids = (_hrSelectMode && hrSelectedIds_().length)
+    ? hrSelectedIds_()
+    : hrFiltered_().map(function (r) { return r.id; });
+  hrPrintRowsByIds_(ids, 'No papers to print.');
 }
 
 function hrPrintSelectedCompleted_() {
@@ -1331,11 +1343,18 @@ function hrFiltered_() {
   var month = hrVal_('hrFilterMonth');
   var q = hrVal_('hrFilterSearch').toLowerCase();
   return _hrRows.filter(function (r) {
-    if (status && String(r.status || '') !== status) return false;
+    var stage = hrStageOf_(r);
+    if (hrIsDirectorOnly_() && stage !== 'pending_director') return false;
+    if (status === 'completed') {
+      if (stage !== 'completed') return false;
+    } else if (status) {
+      if (String(r.status || '') !== status) return false;
+    } else if (stage === 'rejected') {
+      return false;
+    }
     if (type && String(r.leaveType || '') !== type) return false;
     if (dept && String(r.empDepartment || '') !== dept) return false;
     if (month && String(r.startDate || '').slice(0, 7) !== month) return false;
-    if (hrStageOf_(r) === 'completed' || hrStageOf_(r) === 'rejected') return false;
     if (q) {
       var hay = [r.no, r.empName, r.empCode, r.empDepartment, r.empJobTitle, r.leaveType, r.replacement, r.daysOut]
         .join(' ').toLowerCase();
@@ -1348,6 +1367,18 @@ function hrFiltered_() {
 function hrTypeLabel_(id) {
   var found = HR_LEAVE_TYPES.find(function (t) { return t.id === id; });
   return found ? found.label : (id || 'Other');
+}
+
+function hrMatchLeaveType_(row, t) {
+  var s = String((row && row.leaveType) || '').trim();
+  if (!t) return !s;
+  return s === t.id || s.toLowerCase() === t.id.toLowerCase() || s.toLowerCase() === t.label.toLowerCase();
+}
+
+function hrPaperRowSelectable_(r) {
+  var stage = hrStageOf_(r);
+  if (hrIsDirectorOnly_()) return stage === 'pending_director';
+  return hrCanWrite_() && stage === 'inbox';
 }
 
 function hrGroupedByStage_(list) {
@@ -1491,7 +1522,8 @@ function hrNewPaper_(typeId) {
 function hrSnapshotPaperTemplate_() {
   var src = document.getElementById('hrPrintRoot');
   if (!src) return;
-  if (!_hrPaperTemplate) hrRenderEntitlements_(hrEmptyEntitlements_());
+  var body = document.getElementById('hrEntitleBody');
+  if (body && !body.children.length) hrRenderEntitlements_(hrEmptyEntitlements_());
   src = document.getElementById('hrPrintRoot');
   if (!src) return;
   _hrPaperTemplate = src.cloneNode(true);
@@ -1588,77 +1620,74 @@ function hrFillPaperClone_(root, row) {
   }
 }
 
-function hrEnsureSavedPapers_() {
-  var host = document.getElementById('hrSavedPapers');
-  if (!host || _hrPapersReady) return;
-  hrSnapshotPaperTemplate_();
-  host.innerHTML = '';
+function hrLeaveTypeGroups_(list) {
+  var used = {};
+  var groups = [];
   HR_LEAVE_TYPES.forEach(function (t) {
-    var sec = document.createElement('section');
-    sec.className = 'hr-saved-type';
-    sec.setAttribute('data-type', t.id);
-    var slug = String(t.id).replace(/\s+/g, '-');
-    sec.innerHTML =
-      '<div class="hr-saved-type-bar">' +
-        '<h3>' + hrEsc_(t.label) + '</h3>' +
-        '<button type="button" data-hr-new="' + hrEsc_(t.id) + '">New paper</button>' +
-      '</div>' +
-      '<div class="hr-saved-filled" id="hr-filled-' + slug + '"></div>';
-    var btn = sec.querySelector('[data-hr-new]');
-    if (btn) btn.addEventListener('click', function () { hrNewPaper_(t.id); });
-    host.appendChild(sec);
+    var rows = (list || []).filter(function (r) {
+      if (!hrMatchLeaveType_(r, t)) return false;
+      used[String(r.id)] = true;
+      return true;
+    });
+    if (rows.length) groups.push({ id: t.id, label: t.label, rows: rows });
   });
-  _hrPapersReady = true;
+  var leftover = (list || []).filter(function (r) { return !used[String(r.id)]; });
+  if (leftover.length) {
+    var other = groups.find(function (g) { return g.id === 'Other'; });
+    if (other) other.rows = other.rows.concat(leftover);
+    else groups.push({ id: 'Other', label: 'Other', rows: leftover });
+  }
+  return groups;
 }
 
-function hrRenderSavedFilledPapers_(list) {
-  hrEnsureSavedPapers_();
-  var write = hrCanWrite_();
-  HR_LEAVE_TYPES.forEach(function (t) {
-    var slug = String(t.id).replace(/\s+/g, '-');
-    var box = document.getElementById('hr-filled-' + slug);
-    var sec = box && box.closest('.hr-saved-type');
-    if (!box) return;
-    box.innerHTML = '';
-    var rows = (list || []).filter(function (r) {
-      var s = String(r.leaveType || '').trim();
-      return s === t.id || s.toLowerCase() === t.id.toLowerCase() || s.toLowerCase() === t.label.toLowerCase();
-    });
-    if (sec) sec.style.display = '';
-    rows.forEach(function (r) {
-      var card = document.createElement('div');
-      card.className = 'hr-saved-filled-card';
-      var st = String(r.status || 'submitted');
-      card.innerHTML =
-        '<div class="hr-saved-type-bar">' +
-          '<h3>' + hrEsc_(r.empName || t.label) +
-            (r.no || r.num ? ' (#' + hrEsc_(r.no || r.num) + ')' : '') + '</h3>' +
-          '<span class="hr-badge hr-badge-' + hrEsc_(st) + '">' + hrEsc_(HR_STATUS_LABEL[st] || st) + '</span>' +
-          '<button type="button" data-hr-edit="' + hrEsc_(r.id) + '">' + (write ? 'Edit' : 'View') + '</button>' +
-          (write ? '<button type="button" class="hr-btn-del" data-hr-del="' + hrEsc_(r.id) + '">Delete</button>' : '') +
-          '<button type="button" data-hr-print="' + hrEsc_(r.id) + '">Print / PDF</button>' +
-        '</div>';
-      var clone = hrMakePaperClone_('hr-saved-' + String(r.id).replace(/[^a-zA-Z0-9_-]/g, ''), r.leaveType);
-      if (clone) {
-        hrFillPaperClone_(clone, r);
-        card.appendChild(clone);
-      }
-      var editBtn = card.querySelector('[data-hr-edit]');
-      var delBtn = card.querySelector('[data-hr-del]');
-      var printBtn = card.querySelector('[data-hr-print]');
-      if (editBtn) editBtn.addEventListener('click', function (ev) { ev.stopPropagation(); hrEditInList_(r.id); });
-      if (delBtn) delBtn.addEventListener('click', function (ev) { ev.stopPropagation(); hrDeleteRow_(r.id); });
-      if (printBtn) printBtn.addEventListener('click', function (ev) {
-        ev.stopPropagation();
-        hrPrintRow_(r.id);
-      });
-      card.addEventListener('click', function (ev) {
-        if (ev.target.closest('button')) return;
-        hrEditInList_(r.id);
-      });
-      box.appendChild(card);
-    });
+function hrBuildSavedPaperCard_(r) {
+  var staff = hrIsHrStaff_();
+  var director = hrIsDirectorOnly_();
+  var st = String(r.status || 'submitted');
+  var stage = hrStageOf_(r);
+  var canEdit = staff && stage === 'inbox';
+  var canConfirm = (staff && stage === 'inbox') || (director && stage === 'pending_director');
+  var showSel = _hrSelectMode && hrPaperRowSelectable_(r);
+  var picked = !!_hrSelected[String(r.id)];
+  var id = hrEsc_(r.id);
+  var card = document.createElement('div');
+  card.className = 'hr-saved-filled-card' + (showSel && picked ? ' hr-row-selected' : '');
+  card.setAttribute('data-hr-row', String(r.id));
+  card.innerHTML =
+    '<div class="hr-saved-type-bar">' +
+      (showSel
+        ? '<input type="checkbox" id="hrSel-' + id + '" data-hr-sel="1" onclick="hrToggleRowSelect_(\'' + id + '\',event)"' + (picked ? ' checked' : '') + '>'
+        : '') +
+      '<h3>' + hrEsc_(r.empName || 'Leave Request') +
+        (r.no || r.num ? ' (#' + hrEsc_(r.no || r.num) + ')' : '') + '</h3>' +
+      '<span class="hr-badge hr-badge-' + hrEsc_(st) + '">' + hrEsc_(HR_STATUS_LABEL[st] || st) + '</span>' +
+      (r.entitlements && r.entitlements.__scan && r.entitlements.__scan.url ? '<span class="hr-badge">Scan</span>' : '') +
+      '<button type="button" class="hr-btn-edit" onclick="event.stopPropagation();hrEditInList_(\'' + id + '\')">' + (canEdit ? 'Edit' : 'View') + '</button>' +
+      (!showSel && canConfirm ? '<button type="button" class="hr-btn-confirm" onclick="event.stopPropagation();hrConfirmRow_(\'' + id + '\')">Confirm</button>' : '') +
+      (!showSel && director && stage === 'pending_director' ? '<button type="button" class="hr-btn-reject" onclick="event.stopPropagation();hrRejectRow_(\'' + id + '\')">Rejected</button>' : '') +
+      (!showSel && canEdit ? '<button type="button" class="hr-btn-del" onclick="event.stopPropagation();hrDeleteRow_(\'' + id + '\')">Delete</button>' : '') +
+      (r.entitlements && r.entitlements.__scan && r.entitlements.__scan.url
+        ? '<button type="button" onclick="event.stopPropagation();hrOpenScanRow_(\'' + id + '\')">Open scan</button>'
+        : '') +
+      '<button type="button" onclick="event.stopPropagation();hrPrintRow_(\'' + id + '\')">Print</button>' +
+    '</div>';
+  var wrap = document.createElement('div');
+  wrap.className = 'hr-saved-page-wrap';
+  var clone = hrMakePaperClone_('hr-saved-' + String(r.id).replace(/[^a-zA-Z0-9_-]/g, ''), r.leaveType);
+  if (clone) {
+    hrFillPaperClone_(clone, r);
+    wrap.appendChild(clone);
+  }
+  card.appendChild(wrap);
+  card.addEventListener('click', function (ev) {
+    if (ev.target.closest('button') || ev.target.closest('input')) return;
+    if (_hrSelectMode && hrPaperRowSelectable_(r)) {
+      hrToggleRowSelect_(r.id, ev);
+      return;
+    }
+    hrEditInList_(r.id);
   });
+  return card;
 }
 
 function hrRenderKpis_(list) {
@@ -1696,83 +1725,57 @@ function hrRenderTable_() {
   var list = hrFiltered_();
   hrRenderKpis_(list);
   if (summary) {
-    summary.textContent = list.length + ' request' + (list.length === 1 ? '' : 's') +
+    summary.textContent = list.length + ' paper' + (list.length === 1 ? '' : 's') +
       (list.length !== _hrRows.length ? ' of ' + _hrRows.length : '');
   }
-  var staff = hrIsHrStaff_();
   var director = hrIsDirectorOnly_();
-  var groups = hrGroupedByStage_(list);
-  var h = '';
-  groups.forEach(function (g) {
-    var emptyHint = g.type === 'pending_director'
-      ? 'Confirmed papers wait here for the director e-signature.'
-      : 'No leave requests in this section.';
-    h += '<section class="hr-stage hr-stage-' + hrEsc_(g.type) + '">';
-    h += '<div class="hr-stage-head">';
-    h += '<h3 class="hr-stage-title">' + hrEsc_(g.label) + ' <span>(' + g.rows.length + ')</span></h3>';
-    var groupSelN = 0;
-    if (hrCanSelectGroup_(g)) {
-      var selN = hrSelectedIds_().length;
-      groupSelN = g.rows.filter(function (r) { return !!_hrSelected[String(r.id)]; }).length;
-      h += '<div class="hr-stage-acts">';
-      if (_hrSelectMode) {
-        h += '<span class="hr-select-count" id="hrSelectCount">' + (selN ? selN + ' selected' : 'Select papers') + '</span>';
-        if (director) {
-          h += '<button type="button" class="hr-btn-confirm" onclick="hrRunSelectedPending_(\'confirm\')">Confirm</button>';
-          h += '<button type="button" class="hr-btn-reject" onclick="hrRunSelectedPending_(\'reject\')">Rejected</button>';
-        } else {
-          h += '<button type="button" class="hr-btn-confirm" onclick="hrRunSelectedInbox_(\'confirm\')">Confirm</button>';
-          h += '<button type="button" class="hr-btn-del" onclick="hrRunSelectedInbox_(\'delete\')">Delete</button>';
-        }
-        h += '<button type="button" onclick="hrToggleSelectMode_(false)">Cancel</button>';
+  var selectable = list.filter(hrPaperRowSelectable_);
+  var selN = hrSelectedIds_().length;
+  var groupSelN = selectable.filter(function (r) { return !!_hrSelected[String(r.id)]; }).length;
+  var h = '<div class="hr-stage-head hr-saved-head">';
+  h += '<h3 class="hr-stage-title">Saved papers <span>(' + list.length + ')</span></h3>';
+  h += '<div class="hr-stage-acts">';
+  if (list.length) {
+    h += '<button type="button" class="hr-btn-confirm" onclick="hrPrintVisibleSaved_()">Print / PDF</button>';
+  }
+  if (selectable.length) {
+    if (_hrSelectMode) {
+      h += '<span class="hr-select-count" id="hrSelectCount">' + (selN ? selN + ' selected' : 'Select papers') + '</span>';
+      h += '<label class="hr-sel-all"><input type="checkbox" id="hrSelAll" onclick="hrSelectAllVisible_(event)"' +
+        (selectable.length && groupSelN === selectable.length ? ' checked' : '') + '> All</label>';
+      if (director) {
+        h += '<button type="button" class="hr-btn-confirm" onclick="hrRunSelectedPending_(\'confirm\')">Confirm</button>';
+        h += '<button type="button" class="hr-btn-reject" onclick="hrRunSelectedPending_(\'reject\')">Rejected</button>';
       } else {
-        h += '<button type="button" onclick="hrToggleSelectMode_(true)">Select</button>';
+        h += '<button type="button" class="hr-btn-confirm" onclick="hrRunSelectedInbox_(\'confirm\')">Confirm</button>';
+        h += '<button type="button" class="hr-btn-del" onclick="hrRunSelectedInbox_(\'delete\')">Delete</button>';
       }
-      h += '</div>';
+      h += '<button type="button" onclick="hrToggleSelectMode_(false)">Cancel</button>';
+    } else {
+      h += '<button type="button" onclick="hrToggleSelectMode_(true)">Select</button>';
     }
-    h += '</div>';
-    if (!g.rows.length) {
-      h += '<p class="hr-stage-empty">' + emptyHint + '</p>';
-      h += '</section>';
-      return;
-    }
-    var showSel = hrCanSelectGroup_(g) && _hrSelectMode;
-    h += '<div class="hr-table-wrap"><table class="hr-list-table"><thead><tr>' +
-      (showSel ? '<th class="hr-sel-col"><input type="checkbox" id="hrSelAll" onclick="hrSelectAllVisible_(event)"' + (g.rows.length && groupSelN === g.rows.length ? ' checked' : '') + '></th>' : '') +
-      '<th>#</th><th>Employee</th><th>Department</th><th>Type</th><th>Dates</th><th>Days</th><th>Status</th><th></th>' +
-      '</tr></thead><tbody>';
-    g.rows.forEach(function (r) {
-      var st = String(r.status || 'submitted');
-      var stage = hrStageOf_(r);
-      var canEdit = staff && stage === 'inbox';
-      var canConfirm = (staff && stage === 'inbox') || (director && stage === 'pending_director');
-      var picked = !!_hrSelected[String(r.id)];
-      h += '<tr' + (showSel && picked ? ' class="hr-row-selected"' : '') + '>' +
-        (showSel
-          ? '<td class="hr-sel-col"><input type="checkbox" id="hrSel-' + hrEsc_(r.id) + '" data-hr-sel="1" onclick="hrToggleRowSelect_(\'' + hrEsc_(r.id) + '\',event)"' + (picked ? ' checked' : '') + '></td>'
-          : '') +
-        '<td>' + hrEsc_(r.no || r.num || '') + '</td>' +
-        '<td><strong>' + hrEsc_(r.empName || '—') + '</strong><div style="color:var(--text-soft);font-size:12px;">' + hrEsc_(r.empCode || '') + '</div></td>' +
-        '<td>' + hrEsc_(r.empDepartment || '—') + '</td>' +
-        '<td>' + hrEsc_(r.leaveType || '—') + '</td>' +
-        '<td>' + hrEsc_(hrFmtDate_(r.startDate)) + (r.endDate && r.endDate !== r.startDate ? ' – ' + hrEsc_(hrFmtDate_(r.endDate)) : '') +
-          (r.entitlements && r.entitlements.__scan && r.entitlements.__scan.url ? ' <span class="hr-badge">Scan</span>' : '') + '</td>' +
-        '<td>' + hrEsc_(r.daysOut || '—') + '</td>' +
-        '<td><span class="hr-badge hr-badge-' + hrEsc_(st) + '">' + hrEsc_(HR_STATUS_LABEL[st] || st) + '</span></td>' +
-        '<td><div class="hr-row-acts">' +
-          '<button type="button" class="hr-btn-edit" onclick="hrEditInList_(\'' + hrEsc_(r.id) + '\')">' + (canEdit ? 'Edit' : 'View') + '</button>' +
-          (!showSel && canConfirm ? '<button type="button" class="hr-btn-confirm" onclick="hrConfirmRow_(\'' + hrEsc_(r.id) + '\')">Confirm</button>' : '') +
-          (!showSel && director && stage === 'pending_director' ? '<button type="button" class="hr-btn-reject" onclick="hrRejectRow_(\'' + hrEsc_(r.id) + '\')">Rejected</button>' : '') +
-          (!showSel && canEdit ? '<button type="button" class="hr-btn-del" onclick="hrDeleteRow_(\'' + hrEsc_(r.id) + '\')">Delete</button>' : '') +
-          (r.entitlements && r.entitlements.__scan && r.entitlements.__scan.url
-            ? '<button type="button" onclick="hrOpenScanRow_(\'' + hrEsc_(r.id) + '\')">Open scan</button>'
-            : '') +
-          '<button type="button" onclick="hrPrintRow_(\'' + hrEsc_(r.id) + '\')">Print</button>' +
-        '</div></td></tr>';
-    });
-    h += '</tbody></table></div></section>';
-  });
+  }
+  h += '</div></div>';
+  if (!list.length) {
+    h += '<p class="hr-stage-empty">No saved papers yet.</p>';
+    host.innerHTML = h;
+    return;
+  }
   host.innerHTML = h;
+  hrSnapshotPaperTemplate_();
+  var stack = document.createElement('div');
+  stack.className = 'hr-saved-papers';
+  hrLeaveTypeGroups_(list).forEach(function (g) {
+    var sec = document.createElement('section');
+    sec.className = 'hr-saved-type';
+    var title = document.createElement('h3');
+    title.className = 'hr-saved-type-title';
+    title.textContent = g.label + ' (' + g.rows.length + ')';
+    sec.appendChild(title);
+    g.rows.forEach(function (r) { sec.appendChild(hrBuildSavedPaperCard_(r)); });
+    stack.appendChild(sec);
+  });
+  host.appendChild(stack);
 }
 
 function hrRenderDoneTable_() {
@@ -2621,7 +2624,7 @@ function hrOpenPrintFrame_(bodyHtml, title) {
   var base = location.origin + location.pathname.replace(/[^/]+$/, '');
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + hrEsc_(title || 'Leave Request') + '</title>'
     + '<base href="' + String(base).replace(/"/g, '') + '">'
-    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-06-hr-f06-lock">'
+    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-06-hr-f06-saved">'
     + '<style>' + hrPrintFrameCss_() + '</style></head><body>' + bodyHtml + '</body></html>';
   var frame = document.getElementById('hrPrintFrame');
   if (!frame) {
