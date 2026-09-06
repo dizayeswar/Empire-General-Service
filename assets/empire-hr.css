@@ -852,6 +852,7 @@
   background: #fff;
   overflow: hidden;
   box-shadow: 0 2px 10px rgba(0,0,0,.12);
+  position: relative;
 }
 
 .hr-pdf-a4 img {

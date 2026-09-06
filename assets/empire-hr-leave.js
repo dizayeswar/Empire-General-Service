@@ -396,19 +396,112 @@ function hrPdfPageUrl_(n) {
   return 'assets/hr-vacation-pages/page-' + (n < 10 ? '0' : '') + n + '.jpg?v=2026-09-06-28';
 }
 
+function hrVac2Id_(n) {
+  return 'egs-vac2-' + (n < 10 ? '0' : '') + n;
+}
+
+function hrVac2Num_(id) {
+  var m = String(id || '').match(/^egs-vac2-(\d+)$/);
+  return m ? parseInt(m[1], 10) : 0;
+}
+
+function hrVac2Scan_(n, extra) {
+  return Object.assign({
+    url: hrPdfPageUrl_(n),
+    directorSig: '',
+    x: 0.56,
+    y: 0.36,
+    w: 0.2
+  }, extra || {});
+}
+
+function hrFindVac2Row_(n) {
+  var id = hrVac2Id_(n);
+  return (_hrRows || []).find(function (r) { return String(r.id) === id; }) || null;
+}
+
+var _hrVac2Seeding = false;
+
+function hrSeedVac2IfNeeded_() {
+  if (_hrVac2Seeding || hrIsDirectorOnly_() || !hrCanWrite_()) return Promise.resolve();
+  var missing = [];
+  var i;
+  for (i = 1; i <= HR_SAVED_PAGE_COUNT; i++) {
+    if (!hrFindVac2Row_(i)) missing.push(i);
+  }
+  if (!missing.length) return Promise.resolve();
+  _hrVac2Seeding = true;
+  var seq = Promise.resolve();
+  missing.forEach(function (n) {
+    seq = seq.then(function () {
+      return fetchJSONRetry({
+        action: 'addHrLeaveRequest',
+        token: hrToken_(),
+        id: hrVac2Id_(n),
+        empName: 'Paper ' + n,
+        startDate: hrToday_(),
+        endDate: hrToday_(),
+        leaveType: 'Annual Leave',
+        status: 'submitted',
+        entitlements: { __scan: hrVac2Scan_(n), __vac2: n }
+      }, 1, 45000);
+    });
+  });
+  return seq.then(function () {
+    return fetchJSONRetry({ action: 'getHrLeaveRequests', token: hrToken_() }, 1, 45000).then(function (d) {
+      if (d && d.ok !== false) _hrRows = Array.isArray(d.rows) ? d.rows : (Array.isArray(d) ? d : _hrRows);
+    });
+  }).catch(function () {
+    return null;
+  }).then(function () {
+    _hrVac2Seeding = false;
+  });
+}
+
+function hrVac2VisibleRows_() {
+  var out = [];
+  var i;
+  for (i = 1; i <= HR_SAVED_PAGE_COUNT; i++) {
+    var row = hrFindVac2Row_(i);
+    if (hrIsDirectorOnly_()) {
+      if (row && hrStageOf_(row) === 'pending_director') out.push(row);
+      continue;
+    }
+    if (row) {
+      if (hrStageOf_(row) === 'completed' || hrStageOf_(row) === 'rejected') continue;
+      out.push(row);
+    } else {
+      out.push({
+        id: hrVac2Id_(i),
+        empName: 'Paper ' + i,
+        status: 'submitted',
+        entitlements: { __scan: hrVac2Scan_(i) }
+      });
+    }
+  }
+  return out;
+}
+
 function hrPrintPdfPages_(nums) {
   nums = (nums || []).filter(function (n) { return n >= 1 && n <= HR_SAVED_PAGE_COUNT; });
   if (!nums.length) return;
   var wrap = document.createElement('div');
   nums.forEach(function (n) {
-    var page = document.createElement('div');
-    page.className = 'hr-print-page';
-    var img = document.createElement('img');
-    img.src = hrPdfPageUrl_(n);
-    img.alt = 'Leave Request';
-    img.style.cssText = 'display:block;width:210mm;height:297mm;object-fit:fill;';
-    page.appendChild(img);
-    wrap.appendChild(page);
+    var row = hrFindVac2Row_(n);
+    var scan = row && row.entitlements && row.entitlements.__scan;
+    if (scan && scan.url) {
+      wrap.appendChild(hrBatchScanPage_(row));
+      wrap.lastElementChild.className = 'hr-print-page';
+    } else {
+      var page = document.createElement('div');
+      page.className = 'hr-print-page';
+      var img = document.createElement('img');
+      img.src = hrPdfPageUrl_(n);
+      img.alt = 'Leave Request';
+      img.style.cssText = 'display:block;width:210mm;height:297mm;object-fit:fill;';
+      page.appendChild(img);
+      wrap.appendChild(page);
+    }
   });
   hrMsg_('Preparing ' + nums.length + ' paper' + (nums.length === 1 ? '' : 's') + '… In the print window choose Save as PDF.', true);
   hrWaitImages_(wrap, function () {
@@ -416,14 +509,41 @@ function hrPrintPdfPages_(nums) {
   });
 }
 
-function hrPdfPageCard_(n) {
+function hrPdfPageCard_(row) {
+  var n = hrVac2Num_(row && row.id) || 0;
+  var st = String((row && row.status) || 'submitted');
+  var stage = hrStageOf_(row);
   var card = document.createElement('div');
   card.className = 'hr-saved-filled-card hr-pdf-paper';
   var bar = document.createElement('div');
   bar.className = 'hr-saved-type-bar';
-  bar.innerHTML = '<h3>Paper ' + n + '</h3>' +
-    '<button type="button" data-hr-pdf-print="' + n + '">Print / PDF</button>';
-  var printBtn = bar.querySelector('button');
+  var html = '<h3>Paper ' + n + '</h3>' +
+    '<span class="hr-badge hr-badge-' + hrEsc_(st) + '">' + hrEsc_(HR_STATUS_LABEL[st] || st) + '</span>';
+  var real = !!(row && row.id && hrFindVac2Row_(n));
+  if (real && hrIsHrStaff_() && !hrIsDirectorOnly_() && stage === 'inbox') {
+    html += '<button type="button" class="hr-btn-confirm" data-hr-confirm="1">Confirm</button>';
+  }
+  if (real && hrIsDirectorOnly_() && stage === 'pending_director') {
+    html += '<button type="button" data-hr-sign="1">Sign</button>';
+    html += '<button type="button" class="hr-btn-confirm" data-hr-confirm="1">Confirm</button>';
+  }
+  html += '<button type="button" data-hr-pdf-print="1">Print / PDF</button>';
+  bar.innerHTML = html;
+  var confirmBtn = bar.querySelector('[data-hr-confirm]');
+  if (confirmBtn) {
+    confirmBtn.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      hrConfirmRow_(row.id);
+    });
+  }
+  var signBtn = bar.querySelector('[data-hr-sign]');
+  if (signBtn) {
+    signBtn.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      hrOpenScanRow_(row.id);
+    });
+  }
+  var printBtn = bar.querySelector('[data-hr-pdf-print]');
   if (printBtn) {
     printBtn.addEventListener('click', function (ev) {
       ev.stopPropagation();
@@ -433,18 +553,28 @@ function hrPdfPageCard_(n) {
   var paper = document.createElement('div');
   paper.className = 'hr-pdf-a4';
   var img = document.createElement('img');
-  img.src = hrPdfPageUrl_(n);
+  var scan = row && row.entitlements && row.entitlements.__scan;
+  img.src = (scan && scan.url) || hrPdfPageUrl_(n);
   img.alt = 'Leave Request paper ' + n;
   paper.appendChild(img);
+  if (scan && scan.directorSig) {
+    var sig = document.createElement('img');
+    sig.className = 'hr-scan-dir-sig';
+    sig.alt = 'Director e-signature';
+    sig.src = scan.directorSig;
+    sig.style.left = ((Number(scan.x) || 0.56) * 100) + '%';
+    sig.style.top = ((Number(scan.y) || 0.36) * 100) + '%';
+    sig.style.width = ((Number(scan.w) || 0.2) * 100) + '%';
+    paper.style.position = 'relative';
+    paper.appendChild(sig);
+  }
   card.appendChild(bar);
   card.appendChild(paper);
   return card;
 }
 
 function hrPrintVisibleSaved_() {
-  var nums = [];
-  var i;
-  for (i = 1; i <= HR_SAVED_PAGE_COUNT; i++) nums.push(i);
+  var nums = hrVac2VisibleRows_().map(function (r) { return hrVac2Num_(r.id); }).filter(Boolean);
   hrPrintPdfPages_(nums);
 }
 
@@ -583,6 +713,9 @@ function hrDirectorConfirmRequest_(id) {
     entitlements: Object.assign({}, hrVal_('hr-id') === id ? hrReadEntitlements_() : (row.entitlements || {}))
   };
   extra.entitlements.__sigs = Object.assign({}, extra.entitlements.__sigs || {}, { director: sig });
+  if (extra.entitlements.__scan && extra.entitlements.__scan.url) {
+    extra.entitlements.__scan = Object.assign({}, extra.entitlements.__scan, { directorSig: sig });
+  }
   return fetchJSONRetry(extra, 1, 30000).then(function (d) {
     if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) {
       throw new Error('Session expired');
@@ -1495,6 +1628,8 @@ function hrApplyPaperLock_() {
   if (delBtn) delBtn.style.display = showDel ? '' : 'none';
   if (confirmBtn) confirmBtn.style.display = showConfirm ? '' : 'none';
   if (confirmBtn2) confirmBtn2.style.display = showConfirm ? '' : 'none';
+  var scanConfirm = document.getElementById('hrScanConfirmBtn');
+  if (scanConfirm) scanConfirm.style.display = showConfirm ? '' : 'none';
   if (rejectBtn) rejectBtn.style.display = showReject ? '' : 'none';
   if (rejectBtn2) rejectBtn2.style.display = showReject ? '' : 'none';
 }
@@ -1803,16 +1938,29 @@ function hrRenderTable_() {
     deptEl.value = keep;
   }
   hrRenderKpis_(hrFiltered_());
-  if (summary) summary.textContent = HR_SAVED_PAGE_COUNT + ' separate papers';
+  var rows = hrVac2VisibleRows_();
+  if (summary) {
+    summary.textContent = hrIsDirectorOnly_()
+      ? (rows.length ? rows.length + ' paper' + (rows.length === 1 ? '' : 's') + ' waiting for your signature' : 'No papers waiting for your signature')
+      : rows.length + ' separate papers';
+  }
   host.innerHTML = '<div class="hr-stage-head hr-saved-head">' +
-    '<h3 class="hr-stage-title">Saved requests <span>(' + HR_SAVED_PAGE_COUNT + ' papers)</span></h3>' +
+    '<h3 class="hr-stage-title">Saved requests <span>(' + rows.length + ')</span></h3>' +
     '</div>';
+  if (!rows.length) {
+    var empty = document.createElement('p');
+    empty.className = 'hr-stage-empty';
+    empty.textContent = hrIsDirectorOnly_()
+      ? 'When HR confirms a paper, it appears here for you to sign.'
+      : 'Loading papers…';
+    host.appendChild(empty);
+    return;
+  }
   var stack = document.createElement('div');
   stack.className = 'hr-saved-papers';
-  var i;
-  for (i = 1; i <= HR_SAVED_PAGE_COUNT; i++) {
-    stack.appendChild(hrPdfPageCard_(i));
-  }
+  rows.forEach(function (r) {
+    stack.appendChild(hrPdfPageCard_(r));
+  });
   host.appendChild(stack);
 }
 
@@ -2062,10 +2210,12 @@ function hrLoad_(force) {
       if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) return;
       if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Could not load');
       _hrRows = Array.isArray(d.rows) ? d.rows : (Array.isArray(d) ? d : []);
-      hrRenderTable_();
-      hrRenderDoneTable_();
-      hrRenderConfirmedTable_();
-      hrRenderArchiveTable_();
+      return hrSeedVac2IfNeeded_().then(function () {
+        hrRenderTable_();
+        hrRenderDoneTable_();
+        hrRenderConfirmedTable_();
+        hrRenderArchiveTable_();
+      });
     })
     .catch(function (err) {
       hrRenderTable_();
@@ -2661,7 +2811,7 @@ function hrOpenPrintFrame_(bodyHtml, title) {
   var base = location.origin + location.pathname.replace(/[^/]+$/, '');
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + hrEsc_(title || 'Leave Request') + '</title>'
     + '<base href="' + String(base).replace(/"/g, '') + '">'
-    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-06-28p">'
+    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-06-28p-confirm">'
     + '<style>' + hrPrintFrameCss_() + '</style></head><body>' + bodyHtml + '</body></html>';
   var frame = document.getElementById('hrPrintFrame');
   if (!frame) {
