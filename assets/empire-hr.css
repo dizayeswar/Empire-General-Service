@@ -819,43 +819,21 @@
   max-width: 210mm;
 }
 
-.hr-saved-type-title {
-  margin: 0 0 14px;
-  font-size: 18px;
-  font-weight: 700;
-}
-
-.hr-saved-page-wrap {
-  overflow-x: auto;
+.hr-saved-head {
+  margin-bottom: 16px;
 }
 
 #hrTableHost .hr-saved-papers {
   max-width: none;
 }
 
-#hrTableHost .hr-paper-pdf.hr-note {
+#hrTableHost .hr-saved-filled-card .hr-note {
   width: 210mm;
   max-width: 210mm;
   height: 297mm;
   min-height: 297mm;
   overflow: hidden;
-}
-
-.hr-saved-filled-card.hr-row-selected {
-  outline: 2px solid #8d015d;
-  outline-offset: 6px;
-}
-
-.hr-sel-all {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  user-select: none;
-}
-
-.hr-saved-head {
-  margin-bottom: 16px;
+  cursor: default;
 }
 
 .hr-saved-type-bar {
