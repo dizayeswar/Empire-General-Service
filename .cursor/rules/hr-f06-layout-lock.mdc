@@ -6,9 +6,9 @@ alwaysApply: true
 
 # HR-F-06 paper is locked
 
-The Leave Request print layout must stay identical to `EW - HR-F-06 Leave request.docx` on every PC.
+The Leave Request print layout must stay identical to `EW - HR-F-06 Leave request.docx` on every PC, with the baked Adjust-paper offsets below.
 
-Do **not** change shape, size, spacing, padding, row heights, borders, or print layout unless the user explicitly asks.
+Do **not** change shape, size, spacing, padding, row heights, borders, transforms, or print layout unless the user explicitly asks.
 
 Locked measurements (from the Word file):
 
@@ -25,6 +25,6 @@ Locked measurements (from the Word file):
 - Footer `HR-F-06` / `Rev.2` at `6mm` from the bottom edge
 - **No yellow fill**, no Word watermark, no sample dates — start/end/HR date cells stay blank until filled
 - Print iframe / bake-values path; same CSS for one paper and many papers
-- A local **Adjust paper** editor may move/scale pieces in this browser only. Whole-paper − / + zooms from the page centre (more white space on all sides). Do not bake those offsets into CSS until the user says to save and lock for every PC.
+- **No Adjust paper editor.** Baked lock (2026-09-06): sheet `scale(0.94)` from centre; logo `translate(2mm, 4.5mm) scale(0.94)`; emp `translate(1mm, -1.5mm)`; absence `translate(0, 2.5mm)`; approvals `translate(0, 5.5mm)`; entitle `translate(0, 7.5mm)`; HR `translate(0, 13.5mm)`; footer `translate(0, -13mm)`
 
 Filing completed papers into leave-type sections is list-only. Do not change the paper for that feature.

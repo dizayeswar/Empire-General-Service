@@ -250,6 +250,7 @@
   height: 297mm;
   padding: 33.27mm 16.26mm 25.4mm 17.52mm;
   box-sizing: border-box;
+  transform: scale(0.94);
   transform-origin: center center;
 }
 
@@ -258,6 +259,8 @@
   top: 7mm;
   left: 17.52mm;
   margin: 0;
+  transform: translate(2mm, 4.5mm) scale(0.94);
+  transform-origin: top left;
 }
 
 .hr-f06-logo {
@@ -312,17 +315,22 @@
 
 .hr-f06-emp {
   margin: 7.6mm 0 0;
+  transform: translate(1mm, -1.5mm);
 }
 
 .hr-f06-absence,
 .hr-f06-approvals {
   margin: 0 auto;
 }
+.hr-f06-absence { transform: translate(0, 2.5mm); }
+.hr-f06-approvals { transform: translate(0, 5.5mm); }
 
 .hr-f06-entitle {
   width: 174.54mm;
   margin: 1.87mm auto 0;
+  transform: translate(0, 7.5mm);
 }
+.hr-f06-hr { transform: translate(0, 13.5mm); }
 
 .hr-f06-emp col:nth-child(1) { width: 23.16%; }
 .hr-f06-emp col:nth-child(2) { width: 30.52%; }
@@ -618,6 +626,7 @@
   font-size: 10pt;
   line-height: 1.2;
   color: #000;
+  transform: translate(0, -13mm);
 }
 
 .hr-date-wrap {
@@ -951,119 +960,6 @@
   transform-origin: top left;
 }
 
-.hr-layout-pad {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 14px;
-  align-items: center;
-  margin: 0 0 12px;
-  padding: 12px 14px;
-  border: 2px solid #8d015d;
-  border-radius: 14px;
-  background: #fff;
-  color: #111;
-}
-.hr-layout-pad[hidden] { display: none !important; }
-.hr-layout-pad strong { font-size: 14px; }
-.hr-layout-pad .hr-layout-hint {
-  margin: 0;
-  font-size: 12px;
-  color: var(--text-soft, #555);
-  flex: 1 1 180px;
-}
-.hr-layout-dump {
-  width: 100%;
-  min-height: 4.5em;
-  font: 12px/1.35 Consolas, "Courier New", monospace;
-  padding: 8px 10px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  background: #fafafa;
-  color: #111;
-  resize: vertical;
-}
-.hr-layout-tools {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-  align-items: center;
-  width: 100%;
-}
-.hr-layout-tools[hidden] { display: none !important; }
-.hr-layout-target {
-  min-width: 9em;
-  font-weight: 700;
-  color: #8d015d;
-}
-.hr-layout-readout {
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  color: #333;
-}
-.hr-layout-dpad {
-  display: grid;
-  grid-template-columns: 52px 52px 52px;
-  grid-template-rows: 36px 36px 36px;
-  gap: 4px;
-}
-.hr-layout-dpad button {
-  min-width: 0;
-  padding: 0 4px;
-  font-size: 12px;
-  font-weight: 700;
-}
-.hr-layout-dpad .hr-layout-top { grid-column: 2; grid-row: 1; }
-.hr-layout-dpad .hr-layout-left { grid-column: 1; grid-row: 2; }
-.hr-layout-dpad .hr-layout-right { grid-column: 3; grid-row: 2; }
-.hr-layout-dpad .hr-layout-bot { grid-column: 2; grid-row: 3; }
-.hr-layout-size {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-.hr-layout-size button {
-  min-width: 44px;
-  font-size: 20px;
-  font-weight: 700;
-  line-height: 1;
-}
-.hr-note.hr-layout-on {
-  user-select: none;
-}
-.hr-note.hr-layout-on [data-hr-edit]:not([data-hr-edit="all"]) {
-  cursor: grab;
-  outline: 1px dashed rgba(141, 1, 93, 0.4);
-  outline-offset: 2px;
-}
-.hr-note.hr-layout-on [data-hr-edit="all"] {
-  cursor: default;
-}
-.hr-note.hr-layout-on [data-hr-edit].hr-layout-sel {
-  outline: 2px solid #8d015d;
-  outline-offset: 3px;
-  z-index: 2;
-}
-.hr-note.hr-layout-on [data-hr-edit="all"].hr-layout-sel {
-  outline: 2px dashed #8d015d;
-  outline-offset: -3px;
-}
-.hr-note.hr-layout-on.hr-layout-dragging [data-hr-edit] { cursor: grabbing; }
-.hr-note.hr-layout-on input,
-.hr-note.hr-layout-on select,
-.hr-note.hr-layout-on textarea,
-.hr-note.hr-layout-on .hr-sig-pad,
-.hr-note.hr-layout-on .hr-date-wrap {
-  pointer-events: none !important;
-}
-
-@media print {
-  .hr-layout-pad { display: none !important; }
-  .hr-layout-sel,
-  .hr-note.hr-layout-on [data-hr-edit] {
-    outline: none !important;
-  }
-}
-
 .hr-batch-print { display: none; }
 
 @media print {
@@ -1097,6 +993,7 @@
     min-height: 297mm !important;
     padding: 33.27mm 16.26mm 25.4mm 17.52mm !important;
     box-sizing: border-box !important;
+    transform: scale(0.94) !important;
     transform-origin: center center !important;
   }
   .hr-f06-head {
@@ -1104,6 +1001,8 @@
     top: 7mm !important;
     left: 17.52mm !important;
     margin: 0 !important;
+    transform: translate(2mm, 4.5mm) scale(0.94) !important;
+    transform-origin: top left !important;
   }
   .hr-f06-title {
     margin: 0 !important;
@@ -1117,13 +1016,17 @@
     max-width: 174.63mm !important;
     margin: 0 !important;
   }
-  .hr-f06-emp { margin: 7.6mm 0 0 !important; }
+  .hr-f06-emp { margin: 7.6mm 0 0 !important; transform: translate(1mm, -1.5mm) !important; }
   .hr-f06-absence,
   .hr-f06-approvals { margin: 0 auto !important; }
-  .hr-f06-entitle { width: 174.54mm !important; max-width: 174.54mm !important; margin: 1.87mm auto 0 !important; }
+  .hr-f06-absence { transform: translate(0, 2.5mm) !important; }
+  .hr-f06-approvals { transform: translate(0, 5.5mm) !important; }
+  .hr-f06-entitle { width: 174.54mm !important; max-width: 174.54mm !important; margin: 1.87mm auto 0 !important; transform: translate(0, 7.5mm) !important; }
+  .hr-f06-hr { transform: translate(0, 13.5mm) !important; }
   .hr-f06-doc-foot {
     right: 16.26mm !important;
     bottom: 6mm !important;
+    transform: translate(0, -13mm) !important;
   }
   .no-print,
   .hr-toolbar,
