@@ -294,7 +294,7 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
       ...existing,
       __sigs: { ...existingSigs, director: directorSig },
     };
-    const dirBox = { x: 0.55, y: 0.40, w: 0.22 };
+    const dirBox = { x: 0.55, y: 0.40, w: 0.22, h: 0.08 };
     const incomingScan = incoming.__scan && typeof incoming.__scan === "object" && !Array.isArray(incoming.__scan)
       ? incoming.__scan as Record<string, unknown>
       : null;
@@ -305,9 +305,12 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
       const scan = { ...(existingScan || {}), ...(incomingScan || {}), directorSig };
       const sx = Number(scan.x);
       const sy = Number(scan.y);
-      if (!Number.isFinite(sx) || sx === 0.56) scan.x = dirBox.x;
-      if (!Number.isFinite(sy) || sy === 0.36) scan.y = dirBox.y;
-      if (!scan.w) scan.w = dirBox.w;
+      const sw = Number(scan.w);
+      const sh = Number(scan.h);
+      if (!Number.isFinite(sx)) scan.x = dirBox.x;
+      if (!Number.isFinite(sy)) scan.y = dirBox.y;
+      if (!Number.isFinite(sw) || sw <= 0) scan.w = dirBox.w;
+      if (!Number.isFinite(sh) || sh <= 0) scan.h = dirBox.h;
       merged.__scan = scan;
     }
     const patch = {

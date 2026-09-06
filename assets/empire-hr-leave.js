@@ -52,7 +52,7 @@ var _hrCanWrite = true;
 var _hrListEditing = false;
 var _hrReturnTab = 'list';
 var _hrSigs = { emp: '', line: '', director: '', hr: '' };
-var _hrScan = { url: '', directorSig: '', x: 0.55, y: 0.40, w: 0.22 };
+var _hrScan = { url: '', directorSig: '', x: 0.55, y: 0.40, w: 0.22, h: 0.08 };
 var _hrScanDrag = null;
 var _hrPaperTemplate = null;
 var _hrPapersReady = false;
@@ -339,6 +339,8 @@ function hrBatchScanPage_(row) {
     sig.style.left = ((Number(scan.x) || 0.55) * 100) + '%';
     sig.style.top = ((Number(scan.y) || 0.40) * 100) + '%';
     sig.style.width = ((Number(scan.w) || 0.22) * 100) + '%';
+    sig.style.height = ((Number(scan.h) || 0.08) * 100) + '%';
+    sig.style.objectFit = 'contain';
     stage.appendChild(sig);
   }
   page.appendChild(stage);
@@ -412,7 +414,8 @@ function hrVac2Scan_(n, extra) {
     directorSig: '',
     x: pos.x,
     y: pos.y,
-    w: pos.w
+    w: pos.w,
+    h: pos.h
   }, extra || {});
 }
 
@@ -566,6 +569,8 @@ function hrPdfPageCard_(row) {
     sig.style.left = ((Number(scan.x) || 0.55) * 100) + '%';
     sig.style.top = ((Number(scan.y) || 0.40) * 100) + '%';
     sig.style.width = ((Number(scan.w) || 0.22) * 100) + '%';
+    sig.style.height = ((Number(scan.h) || 0.08) * 100) + '%';
+    sig.style.objectFit = 'contain';
     paper.style.position = 'relative';
     paper.appendChild(sig);
   }
@@ -712,22 +717,14 @@ function hrDirectorConfirmRequest_(id) {
       (typeof empireGetUser === 'function' ? empireGetUser() : ''),
     directorSignedAt: (hrVal_('hr-id') === id ? hrVal_('hr-directorSignedAt') : row.directorSignedAt) || hrToday_()
   };
-  if (hrVal_('hr-id') === id && _hrScan && _hrScan.url) {
-    extra.entitlements = {
-      __scan: {
-        url: _hrScan.url,
-        directorSig: sig || _hrScan.directorSig || '',
-        x: _hrScan.x,
-        y: _hrScan.y,
-        w: _hrScan.w
-      }
-    };
-  }
+  var scanPay = hrScanPayloadForConfirm_(row, sig);
+  if (scanPay) extra.entitlements = { __scan: scanPay };
   return fetchJSONRetry(extra, 1, 30000).then(function (d) {
     if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) {
       throw new Error('Session expired');
     }
     if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Confirm failed');
+    if (scanPay) hrSaveDirSigPlace_(scanPay);
     return d;
   });
 }
@@ -904,9 +901,12 @@ function hrApplyAccountDirectorSig_(row) {
   if (_hrScan && _hrScan.url && !_hrScan.directorSig) {
     var pos = hrDirectorBoxPos_();
     _hrScan.directorSig = saved;
-    if (_hrScan.x == null || Number(_hrScan.x) === 0.56) _hrScan.x = pos.x;
-    if (_hrScan.y == null || Number(_hrScan.y) === 0.36) _hrScan.y = pos.y;
-    if (!_hrScan.w) _hrScan.w = pos.w;
+    if (hrScanLooksDefault_(_hrScan)) {
+      _hrScan.x = pos.x;
+      _hrScan.y = pos.y;
+      _hrScan.w = pos.w;
+      _hrScan.h = pos.h;
+    }
   }
   if (!hrVal_('hr-directorName')) {
     hrSet_('hr-directorName', typeof empireGetUser === 'function' ? empireGetUser() : '');
@@ -932,7 +932,71 @@ function hrDirectorCanSign_(row) {
 }
 
 function hrDirectorBoxPos_() {
-  return { x: 0.55, y: 0.40, w: 0.22 };
+  return hrLoadDirSigPlace_() || { x: 0.55, y: 0.40, w: 0.22, h: 0.08 };
+}
+
+var HR_DIR_SIG_PLACE_KEY = 'egs-hr-dir-sig-place';
+
+function hrNormScanPlace_(raw) {
+  raw = raw || {};
+  var x = Number(raw.x);
+  var y = Number(raw.y);
+  var w = Number(raw.w);
+  var h = Number(raw.h);
+  if (!isFinite(x)) x = 0.55;
+  if (!isFinite(y)) y = 0.40;
+  if (!isFinite(w) || w <= 0) w = 0.22;
+  if (!isFinite(h) || h <= 0) h = 0.08;
+  w = Math.max(0.06, Math.min(0.6, w));
+  h = Math.max(0.03, Math.min(0.35, h));
+  x = Math.max(0, Math.min(1 - w, x));
+  y = Math.max(0, Math.min(1 - h, y));
+  return { x: x, y: y, w: w, h: h };
+}
+
+function hrScanLooksDefault_(scan) {
+  var x = Number(scan && scan.x);
+  var y = Number(scan && scan.y);
+  var w = Number(scan && scan.w);
+  if (!isFinite(x) || !isFinite(y)) return true;
+  if (x === 0.56 && y === 0.36) return true;
+  if (x === 0.55 && y === 0.40 && (!isFinite(w) || w === 0.22 || w === 0.2)) return true;
+  return false;
+}
+
+function hrLoadDirSigPlace_() {
+  try {
+    var o = JSON.parse(localStorage.getItem(HR_DIR_SIG_PLACE_KEY) || '');
+    if (!o || typeof o !== 'object') return null;
+    return hrNormScanPlace_(o);
+  } catch (err) {
+    return null;
+  }
+}
+
+function hrSaveDirSigPlace_(place) {
+  try {
+    localStorage.setItem(HR_DIR_SIG_PLACE_KEY, JSON.stringify(hrNormScanPlace_(place || _hrScan)));
+  } catch (err) { /* ignore */ }
+}
+
+function hrScanPayloadForConfirm_(row, sig) {
+  var live = String(hrVal_('hr-id') || '') === String((row && row.id) || '') && _hrScan && _hrScan.url;
+  var scan = live ? _hrScan : (row && row.entitlements && row.entitlements.__scan);
+  if (!scan || !scan.url) return null;
+  var lock = hrLoadDirSigPlace_();
+  var pos = live ? hrNormScanPlace_(_hrScan) : (lock || hrNormScanPlace_(scan));
+  if (live) hrSaveDirSigPlace_(pos);
+  else if (lock) hrSaveDirSigPlace_(lock);
+  else hrSaveDirSigPlace_(pos);
+  return {
+    url: scan.url,
+    directorSig: sig || scan.directorSig || '',
+    x: pos.x,
+    y: pos.y,
+    w: pos.w,
+    h: pos.h
+  };
 }
 
 function hrDirectorSigForConfirm_(row) {
@@ -1208,7 +1272,8 @@ function hrReadEntitlements_() {
       directorSig: _hrScan.directorSig || _hrSigs.director || '',
       x: _hrScan.x,
       y: _hrScan.y,
-      w: _hrScan.w
+      w: _hrScan.w,
+      h: _hrScan.h
     };
   }
   var currentId = hrVal_('hr-id');
@@ -1305,7 +1370,17 @@ function hrFillForm_(row) {
     if (ents.__scan.x != null) _hrScan.x = Number(ents.__scan.x) || _hrScan.x;
     if (ents.__scan.y != null) _hrScan.y = Number(ents.__scan.y) || _hrScan.y;
     if (ents.__scan.w != null) _hrScan.w = Number(ents.__scan.w) || _hrScan.w;
+    if (ents.__scan.h != null) _hrScan.h = Number(ents.__scan.h) || _hrScan.h;
     if (_hrScan.directorSig && !_hrSigs.director) _hrSigs.director = _hrScan.directorSig;
+    if (hrStageOf_(row) !== 'completed' && hrStageOf_(row) !== 'rejected' && hrScanLooksDefault_(_hrScan)) {
+      var lock = hrLoadDirSigPlace_();
+      if (lock) {
+        _hrScan.x = lock.x;
+        _hrScan.y = lock.y;
+        _hrScan.w = lock.w;
+        _hrScan.h = lock.h;
+      }
+    }
   }
   if (hrStageOf_(row) === 'rejected') {
     _hrSigs.director = '';
@@ -2296,7 +2371,7 @@ function hrLoad_(force) {
 
 function hrEmptyScan_() {
   var pos = hrDirectorBoxPos_();
-  return { url: '', directorSig: '', x: pos.x, y: pos.y, w: pos.w };
+  return { url: '', directorSig: '', x: pos.x, y: pos.y, w: pos.w, h: pos.h };
 }
 
 function hrSyncScanFields_() {
@@ -2311,45 +2386,78 @@ function hrScanStatusText_() {
   return _hrScan.directorSig ? 'Scan attached — director signed' : 'Scan attached — add director e-signature';
 }
 
+function hrScanCanEdit_() {
+  if (!_hrScan.directorSig) return false;
+  var st = hrVal_('hr-status');
+  var stage = hrStageOf_({ status: st });
+  if (stage === 'completed' || stage === 'rejected') return false;
+  return hrCanWrite_() || hrDirectorCanSign_();
+}
+
+function hrApplyScanSigBox_() {
+  var box = document.getElementById('hrScanDirBox');
+  var sig = document.getElementById('hrScanDirSig');
+  var target = document.getElementById('hrScanTarget');
+  var pos = hrNormScanPlace_(_hrScan);
+  _hrScan.x = pos.x;
+  _hrScan.y = pos.y;
+  _hrScan.w = pos.w;
+  _hrScan.h = pos.h;
+  if (target) {
+    target.style.left = (pos.x * 100) + '%';
+    target.style.top = (pos.y * 100) + '%';
+    target.style.width = (pos.w * 100) + '%';
+    target.style.height = (pos.h * 100) + '%';
+    target.style.display = _hrScan.directorSig ? 'none' : '';
+  }
+  if (!box) return;
+  box.style.left = (pos.x * 100) + '%';
+  box.style.top = (pos.y * 100) + '%';
+  box.style.width = (pos.w * 100) + '%';
+  box.style.height = (pos.h * 100) + '%';
+  var canEdit = hrScanCanEdit_();
+  box.classList.toggle('hr-scan-dir-edit', canEdit);
+  box.classList.toggle('hr-scan-dir-locked', !canEdit);
+  if (sig) {
+    sig.style.left = '0';
+    sig.style.top = '0';
+    sig.style.width = '100%';
+    sig.style.height = '100%';
+  }
+}
+
 function hrRenderScan_() {
   var wrap = document.getElementById('hrScanStageWrap');
   var img = document.getElementById('hrScanImg');
   var sig = document.getElementById('hrScanDirSig');
+  var box = document.getElementById('hrScanDirBox');
   var hint = document.getElementById('hrScanHint');
   var status = document.getElementById('hrScanFormStatus');
-  var target = document.getElementById('hrScanTarget');
   if (status) status.textContent = hrScanStatusText_();
   if (!wrap || !img) return;
   if (!_hrScan.url) {
     wrap.style.display = 'none';
     img.removeAttribute('src');
+    if (box) box.hidden = true;
     if (sig) { sig.hidden = true; sig.removeAttribute('src'); }
     if (hint) hint.textContent = 'No paper yet. Scan or upload the leave form, then put the director e-signature on the Director box.';
     return;
   }
   wrap.style.display = '';
-  img.src = _hrScan.url;
-  if (target) {
-    target.style.left = (_hrScan.x * 100) + '%';
-    target.style.top = (_hrScan.y * 100) + '%';
-    target.style.width = Math.max(_hrScan.w * 100, 18) + '%';
+  if (img.src !== _hrScan.url) img.src = _hrScan.url;
+  if (sig && _hrScan.directorSig) {
+    if (sig.getAttribute('src') !== _hrScan.directorSig) sig.src = _hrScan.directorSig;
+    sig.hidden = false;
+    if (box) box.hidden = false;
+  } else {
+    if (sig) { sig.hidden = true; sig.removeAttribute('src'); }
+    if (box) box.hidden = true;
   }
-  if (sig) {
-    if (_hrScan.directorSig) {
-      sig.src = _hrScan.directorSig;
-      sig.hidden = false;
-      sig.style.left = (_hrScan.x * 100) + '%';
-      sig.style.top = (_hrScan.y * 100) + '%';
-      sig.style.width = (_hrScan.w * 100) + '%';
-    } else {
-      sig.hidden = true;
-      sig.removeAttribute('src');
-    }
-  }
+  hrApplyScanSigBox_();
   if (hint) {
-    hint.textContent = _hrScan.directorSig
-      ? 'Drag the director e-signature onto the Director box, then Save.'
-      : 'Scan loaded. Add the director e-signature only.';
+    if (!_hrScan.directorSig) hint.textContent = 'Scan loaded. Add the director e-signature only.';
+    else if (hrScanCanEdit_()) hint.textContent = 'Drag to move. Use the corners to resize. Confirm locks this size and place for every paper.';
+    else hint.textContent = 'Director e-signature is locked on this paper.';
   }
 }
 
@@ -2358,16 +2466,37 @@ function hrApplyDirectorOnly_(dataUrl, openPickerDone) {
   if (!url) return;
   _hrSigs.director = url;
   _hrScan.directorSig = url;
+  var pos = hrDirectorBoxPos_();
+  if (hrScanLooksDefault_(_hrScan)) {
+    _hrScan.x = pos.x;
+    _hrScan.y = pos.y;
+    _hrScan.w = pos.w;
+    _hrScan.h = pos.h;
+  }
   hrSet_('hr-directorSignedAt', hrToday_());
   hrSet_('hr-directorStatus', 'approved');
   hrRenderSig_('director');
   hrRenderScan_();
-  if (openPickerDone) hrMsg_('Director e-signature placed. Drag it onto the Director box if needed.', true);
+  if (openPickerDone) hrMsg_('Drag to move. Use the corners to resize, then Confirm.', true);
 }
 
 function hrOpenScanDirectorSig_() {
-  if (!hrCanWrite_()) return;
   if (!_hrScan.url) { hrMsg_('Scan or upload the paper first.', false); return; }
+  if (_hrScan.directorSig) {
+    hrMsg_(hrScanCanEdit_()
+      ? 'Drag to move. Use the corners to resize. Confirm locks it.'
+      : 'Director e-signature is locked on this paper.', true);
+    return;
+  }
+  var saved = hrAccountDirectorSig_();
+  if (saved) {
+    hrApplyDirectorOnly_(saved, true);
+    return;
+  }
+  if (!hrCanWrite_()) {
+    hrMsg_('Your director e-signature is not on this account yet.', false);
+    return;
+  }
   var inp = document.getElementById('hr-scan-dir-sig');
   if (inp) inp.click();
 }
@@ -2432,6 +2561,7 @@ function hrOnScanFile_(e) {
       _hrScan.x = pos.x;
       _hrScan.y = pos.y;
       _hrScan.w = pos.w;
+      _hrScan.h = pos.h;
     }
     hrRenderScan_();
     var finish = function (url) {
@@ -2487,13 +2617,26 @@ function hrPrintScan_() {
   setTimeout(function () { document.body.classList.remove('hr-print-scan'); }, 400);
 }
 
-function hrScanDirPointerDown_(ev) {
-  if (!hrCanWrite_() || !_hrScan.directorSig) return;
+function hrScanDirPointerDown_(ev, handle) {
+  if (!hrScanCanEdit_()) return;
   ev.preventDefault();
+  ev.stopPropagation();
   var stage = document.getElementById('hrScanStage');
   if (!stage) return;
-  _hrScanDrag = { stage: stage };
-  if (stage.setPointerCapture && ev.pointerId != null) {
+  var rec = stage.getBoundingClientRect();
+  if (!rec.width || !rec.height) return;
+  var pos = hrNormScanPlace_(_hrScan);
+  _hrScanDrag = {
+    stage: stage,
+    handle: handle || 'move',
+    px: (ev.clientX - rec.left) / rec.width,
+    py: (ev.clientY - rec.top) / rec.height,
+    x: pos.x,
+    y: pos.y,
+    w: pos.w,
+    h: pos.h
+  };
+  if (ev.currentTarget && ev.pointerId != null && ev.currentTarget.setPointerCapture) {
     try { ev.currentTarget.setPointerCapture(ev.pointerId); } catch (err) {}
   }
 }
@@ -2502,9 +2645,30 @@ function hrScanDirPointerMove_(ev) {
   if (!_hrScanDrag) return;
   var rec = _hrScanDrag.stage.getBoundingClientRect();
   if (!rec.width || !rec.height) return;
-  _hrScan.x = Math.max(0, Math.min(0.82, (ev.clientX - rec.left) / rec.width - _hrScan.w / 2));
-  _hrScan.y = Math.max(0, Math.min(0.9, (ev.clientY - rec.top) / rec.height - 0.03));
-  hrRenderScan_();
+  var px = (ev.clientX - rec.left) / rec.width;
+  var py = (ev.clientY - rec.top) / rec.height;
+  var dx = px - _hrScanDrag.px;
+  var dy = py - _hrScanDrag.py;
+  var x = _hrScanDrag.x;
+  var y = _hrScanDrag.y;
+  var w = _hrScanDrag.w;
+  var h = _hrScanDrag.h;
+  var handle = _hrScanDrag.handle;
+  if (handle === 'move') {
+    x = _hrScanDrag.x + dx;
+    y = _hrScanDrag.y + dy;
+  } else {
+    if (handle.indexOf('w') !== -1) { x = _hrScanDrag.x + dx; w = _hrScanDrag.w - dx; }
+    if (handle.indexOf('e') !== -1) { w = _hrScanDrag.w + dx; }
+    if (handle.indexOf('n') !== -1) { y = _hrScanDrag.y + dy; h = _hrScanDrag.h - dy; }
+    if (handle.indexOf('s') !== -1) { h = _hrScanDrag.h + dy; }
+  }
+  var next = hrNormScanPlace_({ x: x, y: y, w: w, h: h });
+  _hrScan.x = next.x;
+  _hrScan.y = next.y;
+  _hrScan.w = next.w;
+  _hrScan.h = next.h;
+  hrApplyScanSigBox_();
 }
 
 function hrScanDirPointerUp_() {
@@ -2512,13 +2676,17 @@ function hrScanDirPointerUp_() {
 }
 
 function hrBindScanDrag_() {
-  var sig = document.getElementById('hrScanDirSig');
-  if (!sig || sig.getAttribute('data-bound')) return;
-  sig.setAttribute('data-bound', '1');
-  sig.addEventListener('pointerdown', hrScanDirPointerDown_);
-  sig.addEventListener('pointermove', hrScanDirPointerMove_);
-  sig.addEventListener('pointerup', hrScanDirPointerUp_);
-  sig.addEventListener('pointercancel', hrScanDirPointerUp_);
+  var box = document.getElementById('hrScanDirBox');
+  if (!box || box.getAttribute('data-bound')) return;
+  box.setAttribute('data-bound', '1');
+  box.addEventListener('dragstart', function (ev) { ev.preventDefault(); });
+  box.addEventListener('pointerdown', function (ev) {
+    var handle = ev.target && ev.target.getAttribute && ev.target.getAttribute('data-handle');
+    hrScanDirPointerDown_(ev, handle || 'move');
+  });
+  window.addEventListener('pointermove', hrScanDirPointerMove_);
+  window.addEventListener('pointerup', hrScanDirPointerUp_);
+  window.addEventListener('pointercancel', hrScanDirPointerUp_);
 }
 
 var HR_TRASH_SHEETS = ['HrLeaveRequests'];
@@ -2863,7 +3031,10 @@ function hrPrintFrameCss_() {
     + '.hr-date-native,select,input,textarea,button{display:none!important;}'
     + '.hr-batch-scan-img{display:block;width:100%;height:auto;}'
     + '.hr-scan-stage{position:relative;width:100%;}'
-    + '.hr-scan-dir-sig{position:absolute;left:55%;top:40%;width:22%;height:auto;}'
+    + '.hr-scan-dir-box{position:absolute;box-sizing:border-box;}'
+    + '.hr-scan-dir-box .hr-scan-dir-sig{position:static;width:100%!important;height:100%!important;object-fit:contain!important;left:auto;top:auto;}'
+    + '.hr-scan-dir-sig{position:absolute;height:auto;object-fit:contain;}'
+    + '.hr-scan-handle,.hr-scan-target{display:none!important;}'
     + '.hr-sig-pad img,.hr-sig-pad-director img{max-height:26pt!important;max-width:100%!important;object-fit:contain!important;display:block!important;}'
     + '.hr-approve-row td.sig-cell-director{overflow:visible!important;}';
 }
@@ -2878,7 +3049,7 @@ function hrOpenPrintFrame_(bodyHtml, title) {
   var base = location.origin + location.pathname.replace(/[^/]+$/, '');
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + hrEsc_(title || 'Leave Request') + '</title>'
     + '<base href="' + String(base).replace(/"/g, '') + '">'
-    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-06-dir-sig">'
+    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-06-dir-place">'
     + '<style>' + hrPrintFrameCss_() + '</style></head><body>' + bodyHtml + '</body></html>';
   var frame = document.getElementById('hrPrintFrame');
   if (!frame) {

@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-30-hr-f06">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-30-hr-f06">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-06-dir-sig">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-06-dir-place">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -217,7 +217,13 @@
             <div class="hr-scan-stage" id="hrScanStage">
               <img id="hrScanImg" alt="Scanned leave form">
               <div class="hr-scan-target" id="hrScanTarget">Director</div>
-              <img class="hr-scan-dir-sig" id="hrScanDirSig" alt="Director e-signature" hidden>
+              <div class="hr-scan-dir-box" id="hrScanDirBox" hidden>
+                <img class="hr-scan-dir-sig" id="hrScanDirSig" alt="Director e-signature" draggable="false">
+                <span class="hr-scan-handle" data-handle="nw"></span>
+                <span class="hr-scan-handle" data-handle="ne"></span>
+                <span class="hr-scan-handle" data-handle="sw"></span>
+                <span class="hr-scan-handle" data-handle="se"></span>
+              </div>
             </div>
           </div>
         </div>
@@ -495,6 +501,6 @@
 <script src="assets/empire-auth.js?v=2026-09-01-dir-esig"></script>
 <script src="assets/empire-core.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-storage.js?v=2026-08-31-hr-scan"></script>
-<script src="assets/empire-hr-leave.js?v=2026-09-06-dir-sig"></script>
+<script src="assets/empire-hr-leave.js?v=2026-09-06-dir-place"></script>
 </body>
 </html>
