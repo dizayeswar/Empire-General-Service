@@ -1406,6 +1406,11 @@ function hrTabBtnId_(tab) {
 function hrPrintRow_(id) {
   var row = _hrRows.find(function (r) { return String(r.id) === String(id); });
   if (!row) return;
+  var scan = row.entitlements && row.entitlements.__scan;
+  if (scan && scan.url) {
+    hrPrintRowsByIds_([row.id]);
+    return;
+  }
   if (!(_hrListEditing && hrVal_('hr-id') === String(id))) hrFillForm_(row);
   setTimeout(hrPrint_, 80);
 }
@@ -1645,11 +1650,15 @@ function hrConfirmRow_(id) {
         hrMsg_('Sent back to HR as Completed.', true);
         hrSetListEditing_(false);
         return hrLoad_(true).then(function () {
-          hrSwitchTab_(null, 'confirmed');
+          hrSwitchTab_(null, hrIsDirectorOnly_() ? 'confirmed' : 'done');
         });
       })
       .catch(function (err) {
-        if (String(err && err.message || '').indexOf('e-signature') !== -1 && hrVal_('hr-id') !== id) hrEditInList_(id);
+        if (String(err && err.message || '').indexOf('e-signature') !== -1 && hrVal_('hr-id') !== id) {
+          var need = _hrRows.find(function (r) { return String(r.id) === id; });
+          if (need && need.entitlements && need.entitlements.__scan && need.entitlements.__scan.url) hrOpenScanRow_(id);
+          else hrEditInList_(id);
+        }
         hrMsg_(err.message || 'Confirm failed.', false);
       });
     return;
@@ -1937,31 +1946,52 @@ function hrRenderTable_() {
     }).join('');
     deptEl.value = keep;
   }
+  var rows = hrIsDirectorOnly_() ? hrPaperList_() : hrFiltered_();
   hrRenderKpis_(hrFiltered_());
-  var rows = hrVac2VisibleRows_();
   if (summary) {
-    summary.textContent = hrIsDirectorOnly_()
-      ? (rows.length ? rows.length + ' paper' + (rows.length === 1 ? '' : 's') + ' waiting for your signature' : 'No papers waiting for your signature')
-      : rows.length + ' separate papers';
+    summary.textContent = rows.length + ' saved request' + (rows.length === 1 ? '' : 's');
   }
-  host.innerHTML = '<div class="hr-stage-head hr-saved-head">' +
-    '<h3 class="hr-stage-title">Saved requests <span>(' + rows.length + ')</span></h3>' +
-    '</div>';
+  var h = '<section class="hr-stage">';
+  h += '<div class="hr-stage-head hr-saved-head">';
+  h += '<h3 class="hr-stage-title">Saved requests <span>(' + rows.length + ')</span></h3>';
+  h += '</div>';
   if (!rows.length) {
-    var empty = document.createElement('p');
-    empty.className = 'hr-stage-empty';
-    empty.textContent = hrIsDirectorOnly_()
+    h += '<p class="hr-stage-empty">' + (hrIsDirectorOnly_()
       ? 'When HR confirms a paper, it appears here for you to sign.'
-      : 'Loading papers…';
-    host.appendChild(empty);
+      : 'No saved requests yet.') + '</p></section>';
+    host.innerHTML = h;
     return;
   }
-  var stack = document.createElement('div');
-  stack.className = 'hr-saved-papers';
+  h += '<div class="hr-table-wrap"><table class="hr-list-table hr-board-table"><thead><tr>' +
+    '<th>#</th><th>Employee</th><th>Department</th><th>Type</th><th>Dates</th><th>Days</th><th>Status</th><th></th>' +
+    '</tr></thead><tbody>';
   rows.forEach(function (r) {
-    stack.appendChild(hrPdfPageCard_(r));
+    var id = hrEsc_(r.id);
+    var stage = hrStageOf_(r);
+    var st = String(r.status || 'submitted');
+    var canHrConfirm = hrIsHrStaff_() && !hrIsDirectorOnly_() && stage === 'inbox';
+    var canDirConfirm = hrIsDirectorOnly_() && stage === 'pending_director';
+    var statusCell = (canHrConfirm || canDirConfirm)
+      ? '<button type="button" class="hr-btn-confirm-board" onclick="event.stopPropagation();hrConfirmRow_(\'' + id + '\')">Confirm</button>'
+      : '<span class="hr-badge hr-badge-' + hrEsc_(st) + '">' + hrEsc_(HR_STATUS_LABEL[st] || st) + '</span>';
+    var openFn = (r.entitlements && r.entitlements.__scan && r.entitlements.__scan.url)
+      ? 'hrOpenScanRow_'
+      : 'hrEditInList_';
+    h += '<tr>' +
+      '<td>' + hrEsc_(r.no || r.num || '') + '</td>' +
+      '<td><strong>' + hrEsc_(r.empName || '—') + '</strong><div style="color:var(--text-soft);font-size:12px;">' + hrEsc_(r.empCode || '') + '</div></td>' +
+      '<td>' + hrEsc_(r.empDepartment || '—') + '</td>' +
+      '<td>' + hrEsc_(r.leaveType || '—') + '</td>' +
+      '<td>' + hrEsc_(hrFmtDate_(r.startDate)) + (r.endDate && r.endDate !== r.startDate ? ' – ' + hrEsc_(hrFmtDate_(r.endDate)) : '') + '</td>' +
+      '<td>' + hrEsc_(r.daysOut || '—') + '</td>' +
+      '<td>' + statusCell + '</td>' +
+      '<td><div class="hr-row-acts">' +
+        '<button type="button" class="hr-btn-edit" onclick="event.stopPropagation();' + openFn + '(\'' + id + '\',\'list\')">View</button>' +
+        '<button type="button" onclick="event.stopPropagation();hrPrintRow_(\'' + id + '\')">Print</button>' +
+      '</div></td></tr>';
   });
-  host.appendChild(stack);
+  h += '</tbody></table></div></section>';
+  host.innerHTML = h;
 }
 
 function hrRenderDoneTable_() {
@@ -2407,6 +2437,7 @@ function hrSaveFromScan_() {
 function hrOpenScanRow_(id) {
   var row = _hrRows.find(function (r) { return String(r.id) === String(id); });
   if (!row) return;
+  _hrReturnTab = 'list';
   hrFillForm_(row);
   hrSetListEditing_(false);
   hrSwitchTab_(null, 'scan');
@@ -2811,7 +2842,7 @@ function hrOpenPrintFrame_(bodyHtml, title) {
   var base = location.origin + location.pathname.replace(/[^/]+$/, '');
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + hrEsc_(title || 'Leave Request') + '</title>'
     + '<base href="' + String(base).replace(/"/g, '') + '">'
-    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-06-28p-confirm">'
+    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-06-board-confirm">'
     + '<style>' + hrPrintFrameCss_() + '</style></head><body>' + bodyHtml + '</body></html>';
   var frame = document.getElementById('hrPrintFrame');
   if (!frame) {
