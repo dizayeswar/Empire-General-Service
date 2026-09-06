@@ -302,7 +302,13 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
       ? existing.__scan as Record<string, unknown>
       : null;
     if (existingScan || incomingScan) {
-      const scan = { ...(existingScan || {}), ...(incomingScan || {}), directorSig };
+      const scan = { ...(existingScan || {}), ...(incomingScan || {}) };
+      scan.directorSig = directorSig;
+      const existingUrl = String((existingScan && existingScan.url) || "").trim();
+      const incomingUrl = String((incomingScan && incomingScan.url) || "").trim();
+      if (existingUrl && (!incomingUrl || incomingUrl.startsWith("data:"))) {
+        scan.url = existingUrl;
+      }
       const sx = Number(scan.x);
       const sy = Number(scan.y);
       const sw = Number(scan.w);

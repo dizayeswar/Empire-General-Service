@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-30-hr-f06">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-30-hr-f06">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-06-dir-place">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-06-scan-view">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -204,11 +204,14 @@
             </div>
           </div>
           <div class="hr-scan-toolbar">
+            <button type="button" id="hrScanReturnBtn" onclick="hrReturnToList_()" style="display:none;">Return to saved requests</button>
+            <span id="hrScanWriteActs">
             <button type="button" onclick="document.getElementById('hr-scan-cam').click()">Scan with camera</button>
             <button type="button" onclick="document.getElementById('hr-scan-file').click()">Upload scan</button>
-            <button type="button" id="hrScanDirBtn" onclick="hrOpenScanDirectorSig_()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Director e-signature</button>
             <button type="button" onclick="hrClearScan_()">Remove scan</button>
             <button type="button" onclick="hrSaveFromScan_()">Save</button>
+            </span>
+            <button type="button" id="hrScanDirBtn" onclick="hrOpenScanDirectorSig_()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Director e-signature</button>
             <button type="button" id="hrScanConfirmBtn" onclick="hrConfirmRow_()" class="hr-btn-confirm" style="display:none;">Confirm</button>
             <button type="button" onclick="hrPrintScan_()">Print signed scan</button>
           </div>
@@ -501,6 +504,6 @@
 <script src="assets/empire-auth.js?v=2026-09-01-dir-esig"></script>
 <script src="assets/empire-core.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-storage.js?v=2026-08-31-hr-scan"></script>
-<script src="assets/empire-hr-leave.js?v=2026-09-06-dir-place"></script>
+<script src="assets/empire-hr-leave.js?v=2026-09-06-scan-view"></script>
 </body>
 </html>
