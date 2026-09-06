@@ -1636,6 +1636,15 @@ function hrBuildBakedSavedPaper_(r) {
   return page;
 }
 
+function hrBuildBlankSavedPaper_() {
+  var page = document.createElement('div');
+  page.className = 'hr-saved-filled-card';
+  var clone = hrMakePaperClone_('hr-saved-blank', '');
+  if (!clone) return page;
+  page.appendChild(hrBakePrintClone_(clone));
+  return page;
+}
+
 function hrEnsureSavedPapers_() {
   var host = document.getElementById('hrSavedPapers');
   if (!host || _hrPapersReady) return;
@@ -1745,97 +1754,35 @@ function hrRenderTable_() {
   var papers = hrPaperList_();
   hrRenderKpis_(list);
   if (summary) {
-    summary.textContent = papers.length + ' paper' + (papers.length === 1 ? '' : 's') +
-      (papers.length !== _hrRows.length ? ' of ' + _hrRows.length : '');
+    summary.textContent = papers.length
+      ? (papers.length + ' paper' + (papers.length === 1 ? '' : 's') +
+        (papers.length !== _hrRows.length ? ' of ' + _hrRows.length : ''))
+      : 'Locked paper ready. Save a leave request and it will appear here with the writing filled in.';
   }
-  var staff = hrIsHrStaff_();
-  var director = hrIsDirectorOnly_();
-  var groups = hrGroupedByStage_(list);
-  var h = '';
-  groups.forEach(function (g) {
-    var emptyHint = g.type === 'pending_director'
-      ? 'Confirmed papers wait here for the director e-signature.'
-      : 'No leave requests in this section.';
-    h += '<section class="hr-stage hr-stage-' + hrEsc_(g.type) + '">';
-    h += '<div class="hr-stage-head">';
-    h += '<h3 class="hr-stage-title">' + hrEsc_(g.label) + ' <span>(' + g.rows.length + ')</span></h3>';
-    var groupSelN = 0;
-    if (hrCanSelectGroup_(g)) {
-      var selN = hrSelectedIds_().length;
-      groupSelN = g.rows.filter(function (r) { return !!_hrSelected[String(r.id)]; }).length;
-      h += '<div class="hr-stage-acts">';
-      if (_hrSelectMode) {
-        h += '<span class="hr-select-count" id="hrSelectCount">' + (selN ? selN + ' selected' : 'Select papers') + '</span>';
-        if (director) {
-          h += '<button type="button" class="hr-btn-confirm" onclick="hrRunSelectedPending_(\'confirm\')">Confirm</button>';
-          h += '<button type="button" class="hr-btn-reject" onclick="hrRunSelectedPending_(\'reject\')">Rejected</button>';
-        } else {
-          h += '<button type="button" class="hr-btn-confirm" onclick="hrRunSelectedInbox_(\'confirm\')">Confirm</button>';
-          h += '<button type="button" class="hr-btn-del" onclick="hrRunSelectedInbox_(\'delete\')">Delete</button>';
-        }
-        h += '<button type="button" onclick="hrToggleSelectMode_(false)">Cancel</button>';
-      } else {
-        h += '<button type="button" onclick="hrToggleSelectMode_(true)">Select</button>';
-      }
-      h += '</div>';
-    }
-    h += '</div>';
-    if (!g.rows.length) {
-      h += '<p class="hr-stage-empty">' + emptyHint + '</p>';
-      h += '</section>';
-      return;
-    }
-    var showSel = hrCanSelectGroup_(g) && _hrSelectMode;
-    h += '<div class="hr-table-wrap"><table class="hr-list-table"><thead><tr>' +
-      (showSel ? '<th class="hr-sel-col"><input type="checkbox" id="hrSelAll" onclick="hrSelectAllVisible_(event)"' + (g.rows.length && groupSelN === g.rows.length ? ' checked' : '') + '></th>' : '') +
-      '<th>#</th><th>Employee</th><th>Department</th><th>Type</th><th>Dates</th><th>Days</th><th>Status</th><th></th>' +
-      '</tr></thead><tbody>';
-    g.rows.forEach(function (r) {
-      var st = String(r.status || 'submitted');
-      var stage = hrStageOf_(r);
-      var canEdit = staff && stage === 'inbox';
-      var canConfirm = (staff && stage === 'inbox') || (director && stage === 'pending_director');
-      var picked = !!_hrSelected[String(r.id)];
-      h += '<tr' + (showSel && picked ? ' class="hr-row-selected"' : '') + '>' +
-        (showSel
-          ? '<td class="hr-sel-col"><input type="checkbox" id="hrSel-' + hrEsc_(r.id) + '" data-hr-sel="1" onclick="hrToggleRowSelect_(\'' + hrEsc_(r.id) + '\',event)"' + (picked ? ' checked' : '') + '></td>'
-          : '') +
-        '<td>' + hrEsc_(r.no || r.num || '') + '</td>' +
-        '<td><strong>' + hrEsc_(r.empName || '—') + '</strong><div style="color:var(--text-soft);font-size:12px;">' + hrEsc_(r.empCode || '') + '</div></td>' +
-        '<td>' + hrEsc_(r.empDepartment || '—') + '</td>' +
-        '<td>' + hrEsc_(r.leaveType || '—') + '</td>' +
-        '<td>' + hrEsc_(hrFmtDate_(r.startDate)) + (r.endDate && r.endDate !== r.startDate ? ' – ' + hrEsc_(hrFmtDate_(r.endDate)) : '') +
-          (r.entitlements && r.entitlements.__scan && r.entitlements.__scan.url ? ' <span class="hr-badge">Scan</span>' : '') + '</td>' +
-        '<td>' + hrEsc_(r.daysOut || '—') + '</td>' +
-        '<td><span class="hr-badge hr-badge-' + hrEsc_(st) + '">' + hrEsc_(HR_STATUS_LABEL[st] || st) + '</span></td>' +
-        '<td><div class="hr-row-acts">' +
-          '<button type="button" class="hr-btn-edit" onclick="hrEditInList_(\'' + hrEsc_(r.id) + '\')">' + (canEdit ? 'Edit' : 'View') + '</button>' +
-          (!showSel && canConfirm ? '<button type="button" class="hr-btn-confirm" onclick="hrConfirmRow_(\'' + hrEsc_(r.id) + '\')">Confirm</button>' : '') +
-          (!showSel && director && stage === 'pending_director' ? '<button type="button" class="hr-btn-reject" onclick="hrRejectRow_(\'' + hrEsc_(r.id) + '\')">Rejected</button>' : '') +
-          (!showSel && canEdit ? '<button type="button" class="hr-btn-del" onclick="hrDeleteRow_(\'' + hrEsc_(r.id) + '\')">Delete</button>' : '') +
-          (r.entitlements && r.entitlements.__scan && r.entitlements.__scan.url
-            ? '<button type="button" onclick="hrOpenScanRow_(\'' + hrEsc_(r.id) + '\')">Open scan</button>'
-            : '') +
-          '<button type="button" onclick="hrPrintRow_(\'' + hrEsc_(r.id) + '\')">Print</button>' +
-        '</div></td></tr>';
-    });
-    h += '</tbody></table></div></section>';
-  });
+  var head = '<div class="hr-stage-head hr-saved-head">' +
+    '<h3 class="hr-stage-title">Leave Request paper' +
+      (papers.length ? ' <span>(' + papers.length + ')</span>' : '') + '</h3>' +
+    '<div class="hr-stage-acts">' +
+      (papers.length ? '<button type="button" class="hr-btn-confirm" onclick="hrPrintVisibleSaved_()">Print / PDF</button>' : '') +
+    '</div></div>';
+  host.innerHTML = head;
+  var stack = document.createElement('div');
+  stack.className = 'hr-saved-papers';
   try {
     hrSnapshotPaperTemplate_();
     if (!_hrPaperTemplate) throw new Error('paper template missing');
-    if (!papers.length) {
-      host.innerHTML = '<p class="hr-stage-empty">No papers to show. Each saved leave request appears here as the locked form with its writing filled in.</p>';
-      return;
+    if (papers.length) {
+      papers.forEach(function (r) { stack.appendChild(hrBuildBakedSavedPaper_(r)); });
+    } else {
+      stack.appendChild(hrBuildBlankSavedPaper_());
     }
-    host.innerHTML = '<div class="hr-stage-head hr-saved-head"><h3 class="hr-stage-title">Saved papers <span>(' + papers.length + ')</span></h3><div class="hr-stage-acts"><button type="button" class="hr-btn-confirm" onclick="hrPrintVisibleSaved_()">Print / PDF</button></div></div>';
-    var stack = document.createElement('div');
-    stack.className = 'hr-saved-papers';
-    papers.forEach(function (r) { stack.appendChild(hrBuildBakedSavedPaper_(r)); });
-    host.appendChild(stack);
   } catch (err) {
-    host.innerHTML = h;
+    var fail = document.createElement('p');
+    fail.className = 'hr-stage-empty';
+    fail.textContent = 'Could not draw the paper here. Open Leave request in the sidebar to see the locked form.';
+    stack.appendChild(fail);
   }
+  host.appendChild(stack);
 }
 
 function hrRenderDoneTable_() {
@@ -2684,7 +2631,7 @@ function hrOpenPrintFrame_(bodyHtml, title) {
   var base = location.origin + location.pathname.replace(/[^/]+$/, '');
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + hrEsc_(title || 'Leave Request') + '</title>'
     + '<base href="' + String(base).replace(/"/g, '') + '">'
-    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-06-hr-f06-write">'
+    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-06-hr-f06-visible">'
     + '<style>' + hrPrintFrameCss_() + '</style></head><body>' + bodyHtml + '</body></html>';
   var frame = document.getElementById('hrPrintFrame');
   if (!frame) {
@@ -2773,6 +2720,7 @@ function hrLogout_() {
 function hrInit_() {
   hrBindScanDrag_();
   hrLayoutInit_();
+  hrRenderEntitlements_(hrEmptyEntitlements_());
   document.addEventListener('click', function (e) {
     var wrap = document.getElementById('hrSettingsWrap');
     if (!wrap || !wrap.classList.contains('open')) return;
