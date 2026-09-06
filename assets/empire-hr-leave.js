@@ -104,20 +104,19 @@ function hrSelectableStage_() {
   return hrIsDirectorOnly_() ? 'pending_director' : 'inbox';
 }
 
-function hrCanSelectGroup_(g) {
-  if (!g || !g.rows.length) return false;
-  if (hrIsDirectorOnly_()) return g.type === 'pending_director';
-  return hrCanWrite_() && g.type === 'inbox';
+function hrCanSelectRow_(r) {
+  var stage = hrStageOf_(r);
+  if (hrIsDirectorOnly_()) return stage === 'pending_director';
+  return hrCanWrite_() && stage === 'inbox';
 }
 
 function hrSelectAllVisible_(ev) {
   if (_hrBulkBusy) return;
   var on = !!(ev && ev.target && ev.target.checked);
-  var stage = hrSelectableStage_();
   _hrSelected = {};
   if (on) {
-    hrFiltered_().forEach(function (r) {
-      if (hrStageOf_(r) === stage) _hrSelected[String(r.id)] = true;
+    (hrIsDirectorOnly_() ? hrPaperList_() : hrFiltered_()).forEach(function (r) {
+      if (hrCanSelectRow_(r)) _hrSelected[String(r.id)] = true;
     });
   }
   hrRenderTable_();
@@ -856,13 +855,18 @@ function hrRunBulkIds_(ids, requestFn, msgs) {
 
 function hrRunSelectedInbox_(kind) {
   if (_hrBulkBusy || !hrCanWrite_() || hrIsDirectorOnly_()) return;
-  var ids = hrSelectedIds_();
+  var confirmKind = kind === 'confirm';
+  var ids = hrSelectedIds_().filter(function (id) {
+    var row = _hrRows.find(function (r) { return String(r.id) === String(id); });
+    if (!row) return false;
+    if (confirmKind) return hrStageOf_(row) === 'inbox';
+    return hrCanSelectRow_(row);
+  });
   if (!ids.length) {
-    hrMsg_('Select at least one paper first.', false);
+    hrMsg_(confirmKind ? 'Select papers that still need Confirm.' : 'Select at least one paper first.', false);
     return;
   }
   var n = ids.length;
-  var confirmKind = kind === 'confirm';
   var detail = confirmKind
     ? 'Confirm ' + n + ' selected paper' + (n === 1 ? '' : 's') + '? They go to Pending Director.'
     : 'Delete ' + n + ' selected paper' + (n === 1 ? '' : 's') + '? They move to the Recycle Bin.';
@@ -2102,6 +2106,26 @@ function hrRenderTable_() {
   var h = '<section class="hr-stage">';
   h += '<div class="hr-stage-head hr-saved-head">';
   h += '<h3 class="hr-stage-title">Saved requests <span>(' + rows.length + ')</span></h3>';
+  var selectable = rows.filter(hrCanSelectRow_);
+  var showSel = _hrSelectMode && selectable.length;
+  var selN = hrSelectedIds_().length;
+  var groupSelN = selectable.filter(function (r) { return !!_hrSelected[String(r.id)]; }).length;
+  if (selectable.length) {
+    h += '<div class="hr-stage-acts">';
+    if (showSel) {
+      h += '<span class="hr-select-count" id="hrSelectCount">' + (selN ? selN + ' selected' : 'Select papers') + '</span>';
+      if (hrIsDirectorOnly_()) {
+        h += '<button type="button" class="hr-btn-confirm" onclick="hrRunSelectedPending_(\'confirm\')">Confirm selected</button>';
+      } else {
+        h += '<button type="button" class="hr-btn-confirm" onclick="hrRunSelectedInbox_(\'confirm\')">Confirm selected</button>';
+        h += '<button type="button" class="hr-btn-reject" onclick="hrRunSelectedInbox_(\'delete\')">Delete selected</button>';
+      }
+      h += '<button type="button" onclick="hrToggleSelectMode_(false)">Cancel</button>';
+    } else {
+      h += '<button type="button" onclick="hrToggleSelectMode_(true)">Select</button>';
+    }
+    h += '</div>';
+  }
   h += '</div>';
   if (!rows.length) {
     h += '<p class="hr-stage-empty">' + (hrIsDirectorOnly_()
@@ -2111,6 +2135,7 @@ function hrRenderTable_() {
     return;
   }
   h += '<div class="hr-table-wrap"><table class="hr-list-table hr-board-table"><thead><tr>' +
+    (showSel ? '<th class="hr-sel-col"><input type="checkbox" id="hrSelAll" onclick="hrSelectAllVisible_(event)"' + (selectable.length && groupSelN === selectable.length ? ' checked' : '') + '></th>' : '') +
     '<th>#</th><th>Employee</th><th>Department</th><th>Type</th><th>Dates</th><th>Days</th><th>Status</th><th></th>' +
     '</tr></thead><tbody>';
   rows.forEach(function (r) {
@@ -2119,13 +2144,20 @@ function hrRenderTable_() {
     var st = String(r.status || 'submitted');
     var canHrConfirm = hrIsHrStaff_() && !hrIsDirectorOnly_() && stage === 'inbox';
     var canDirConfirm = hrIsDirector_() && stage === 'pending_director';
-    var statusCell = (canHrConfirm || canDirConfirm)
+    var canSel = showSel && hrCanSelectRow_(r);
+    var picked = !!_hrSelected[String(r.id)];
+    var statusCell = (canHrConfirm || canDirConfirm) && !showSel
       ? '<button type="button" class="hr-btn-confirm-board" onclick="event.stopPropagation();hrConfirmRow_(\'' + id + '\')">Confirm</button>'
       : '<span class="hr-badge hr-badge-' + hrEsc_(st) + '">' + hrEsc_(HR_STATUS_LABEL[st] || st) + '</span>';
     var openFn = (r.entitlements && r.entitlements.__scan && r.entitlements.__scan.url)
       ? 'hrOpenScanRow_'
       : 'hrEditInList_';
-    h += '<tr>' +
+    h += '<tr' + (canSel && picked ? ' class="hr-row-selected"' : '') + '>' +
+      (showSel
+        ? '<td class="hr-sel-col">' + (canSel
+          ? '<input type="checkbox" id="hrSel-' + id + '" data-hr-sel="1" onclick="hrToggleRowSelect_(\'' + id + '\',event)"' + (picked ? ' checked' : '') + '>'
+          : '') + '</td>'
+        : '') +
       '<td>' + hrEsc_(r.no || r.num || '') + '</td>' +
       '<td><strong>' + hrEsc_(r.empName || '—') + '</strong><div style="color:var(--text-soft);font-size:12px;">' + hrEsc_(r.empCode || '') + '</div></td>' +
       '<td>' + hrEsc_(r.empDepartment || '—') + '</td>' +
@@ -2135,7 +2167,7 @@ function hrRenderTable_() {
       '<td>' + statusCell + '</td>' +
       '<td><div class="hr-row-acts">' +
         '<button type="button" class="hr-btn-edit" onclick="event.stopPropagation();' + openFn + '(\'' + id + '\',\'list\')">View</button>' +
-        '<button type="button" onclick="event.stopPropagation();hrPrintRow_(\'' + id + '\')">Print</button>' +
+        (!showSel ? '<button type="button" onclick="event.stopPropagation();hrPrintRow_(\'' + id + '\')">Print</button>' : '') +
       '</div></td></tr>';
   });
   h += '</tbody></table></div></section>';
@@ -3119,7 +3151,7 @@ function hrOpenPrintFrame_(bodyHtml, title) {
   var base = location.origin + location.pathname.replace(/[^/]+$/, '');
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + hrEsc_(title || 'Leave Request') + '</title>'
     + '<base href="' + String(base).replace(/"/g, '') + '">'
-    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-06-scan-view">'
+    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-06-select">'
     + '<style>' + hrPrintFrameCss_() + '</style></head><body>' + bodyHtml + '</body></html>';
   var frame = document.getElementById('hrPrintFrame');
   if (!frame) {

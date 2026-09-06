@@ -65,7 +65,16 @@
   align-items: center;
   gap: 6px;
 }
-.hr-stage-acts button { padding: 6px 12px; font-size: 12px; }
+.hr-stage-acts .hr-btn-confirm {
+  color: #fff;
+  background: #1d9e75;
+  border-color: #1d9e75;
+}
+.hr-stage-acts .hr-btn-reject {
+  color: #fff;
+  background: #C5504F;
+  border-color: #C5504F;
+}
 .hr-select-count {
   font-size: 12px;
   color: var(--text-soft);
