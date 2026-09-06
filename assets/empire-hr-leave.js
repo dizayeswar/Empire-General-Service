@@ -44,6 +44,7 @@ var HR_ARCHIVE_SECTIONS = [
   { id: 'other', label: 'Others' }
 ];
 var HR_ARCHIVE_ALL = { id: 'all', label: '(all)' };
+var HR_SAVED_PAGE_COUNT = 21;
 
 var _hrRows = [];
 var _hrSaving = false;
@@ -392,8 +393,29 @@ function hrPrintCompletedByIds_(ids, emptyMsg) {
 }
 
 function hrPrintVisibleSaved_() {
-  var ids = hrPaperList_().map(function (r) { return r.id; });
-  hrPrintRowsByIds_(ids, 'No papers to print.');
+  hrSnapshotPaperTemplate_();
+  if (!_hrPaperTemplate) {
+    alert('Could not prepare the papers.');
+    return;
+  }
+  var papers = hrPaperList_();
+  var wrap = document.createElement('div');
+  var i;
+  for (i = 0; i < HR_SAVED_PAGE_COUNT; i++) {
+    var row = papers[i];
+    var page = document.createElement('div');
+    page.className = 'hr-batch-page';
+    if (row) {
+      var scan = row.entitlements && row.entitlements.__scan;
+      page.appendChild(scan && scan.url ? hrBatchScanPage_(row) : hrBatchFormPage_(row, i));
+    } else {
+      var clone = hrMakePaperClone_('hr-print-p' + (i + 1), '');
+      if (clone) page.appendChild(hrBakePrintClone_(clone));
+    }
+    wrap.appendChild(page);
+  }
+  hrMsg_('Preparing 21 papers… In the print window choose Save as PDF. Each page is the full locked form, including HR.', true);
+  hrOpenPrintFrame_(wrap.innerHTML, 'Leave Requests');
 }
 
 function hrPrintSelectedCompleted_() {
@@ -1636,10 +1658,10 @@ function hrBuildBakedSavedPaper_(r) {
   return page;
 }
 
-function hrBuildBlankSavedPaper_() {
+function hrBuildBlankSavedPaper_(prefix) {
   var page = document.createElement('div');
   page.className = 'hr-saved-filled-card';
-  var clone = hrMakePaperClone_('hr-saved-blank', '');
+  var clone = hrMakePaperClone_(prefix || 'hr-saved-blank', '');
   if (!clone) return page;
   page.appendChild(hrBakePrintClone_(clone));
   return page;
@@ -1754,32 +1776,28 @@ function hrRenderTable_() {
   var papers = hrPaperList_();
   hrRenderKpis_(list);
   if (summary) {
-    summary.textContent = papers.length
-      ? (papers.length + ' paper' + (papers.length === 1 ? '' : 's') +
-        (papers.length !== _hrRows.length ? ' of ' + _hrRows.length : ''))
-      : 'Locked paper ready. Save a leave request and it will appear here with the writing filled in.';
+    summary.textContent = '21 locked Leave Request pages. HR is on every page.';
   }
-  var head = '<div class="hr-stage-head hr-saved-head">' +
-    '<h3 class="hr-stage-title">Leave Request paper' +
-      (papers.length ? ' <span>(' + papers.length + ')</span>' : '') + '</h3>' +
+  host.innerHTML = '<div class="hr-stage-head hr-saved-head">' +
+    '<h3 class="hr-stage-title">Saved requests <span>(21 pages)</span></h3>' +
     '<div class="hr-stage-acts">' +
-      (papers.length ? '<button type="button" class="hr-btn-confirm" onclick="hrPrintVisibleSaved_()">Print / PDF</button>' : '') +
+      '<button type="button" class="hr-btn-confirm" onclick="hrPrintVisibleSaved_()">Print / PDF</button>' +
     '</div></div>';
-  host.innerHTML = head;
   var stack = document.createElement('div');
   stack.className = 'hr-saved-papers';
   try {
     hrSnapshotPaperTemplate_();
     if (!_hrPaperTemplate) throw new Error('paper template missing');
-    if (papers.length) {
-      papers.forEach(function (r) { stack.appendChild(hrBuildBakedSavedPaper_(r)); });
-    } else {
-      stack.appendChild(hrBuildBlankSavedPaper_());
+    var i;
+    for (i = 0; i < HR_SAVED_PAGE_COUNT; i++) {
+      stack.appendChild(papers[i]
+        ? hrBuildBakedSavedPaper_(papers[i])
+        : hrBuildBlankSavedPaper_('hr-saved-p' + (i + 1)));
     }
   } catch (err) {
     var fail = document.createElement('p');
     fail.className = 'hr-stage-empty';
-    fail.textContent = 'Could not draw the paper here. Open Leave request in the sidebar to see the locked form.';
+    fail.textContent = 'Could not draw the 21 papers. Open Leave request in the sidebar to see the locked form.';
     stack.appendChild(fail);
   }
   host.appendChild(stack);
@@ -2631,7 +2649,7 @@ function hrOpenPrintFrame_(bodyHtml, title) {
   var base = location.origin + location.pathname.replace(/[^/]+$/, '');
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + hrEsc_(title || 'Leave Request') + '</title>'
     + '<base href="' + String(base).replace(/"/g, '') + '">'
-    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-06-hr-f06-visible">'
+    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-06-hr-f06-21p">'
     + '<style>' + hrPrintFrameCss_() + '</style></head><body>' + bodyHtml + '</body></html>';
   var frame = document.getElementById('hrPrintFrame');
   if (!frame) {
