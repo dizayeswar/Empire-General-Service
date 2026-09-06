@@ -392,30 +392,40 @@ function hrPrintCompletedByIds_(ids, emptyMsg) {
   hrPrintRowsByIds_(ids, emptyMsg);
 }
 
+function hrPdfPageUrl_(n) {
+  return 'assets/hr-vacation-pages/page-' + (n < 10 ? '0' : '') + n + '.jpg';
+}
+
+function hrPdfPageCard_(n) {
+  var card = document.createElement('div');
+  card.className = 'hr-saved-filled-card';
+  var paper = document.createElement('div');
+  paper.className = 'hr-pdf-a4';
+  var img = document.createElement('img');
+  img.src = hrPdfPageUrl_(n);
+  img.alt = 'Vacations.pdf page ' + n;
+  paper.appendChild(img);
+  card.appendChild(paper);
+  return card;
+}
+
 function hrPrintVisibleSaved_() {
-  hrSnapshotPaperTemplate_();
-  if (!_hrPaperTemplate) {
-    alert('Could not prepare the papers.');
-    return;
-  }
-  var papers = hrPaperList_();
   var wrap = document.createElement('div');
   var i;
-  for (i = 0; i < HR_SAVED_PAGE_COUNT; i++) {
-    var row = papers[i];
+  for (i = 1; i <= HR_SAVED_PAGE_COUNT; i++) {
     var page = document.createElement('div');
-    page.className = 'hr-batch-page';
-    if (row) {
-      var scan = row.entitlements && row.entitlements.__scan;
-      page.appendChild(scan && scan.url ? hrBatchScanPage_(row) : hrBatchFormPage_(row, i));
-    } else {
-      var clone = hrMakePaperClone_('hr-print-p' + (i + 1), '');
-      if (clone) page.appendChild(hrBakePrintClone_(clone));
-    }
+    page.className = 'hr-print-page';
+    var img = document.createElement('img');
+    img.src = hrPdfPageUrl_(i);
+    img.alt = 'Leave Request';
+    img.style.cssText = 'display:block;width:210mm;height:297mm;object-fit:fill;';
+    page.appendChild(img);
     wrap.appendChild(page);
   }
-  hrMsg_('Preparing 21 papers… In the print window choose Save as PDF. Each page is the full locked form, including HR.', true);
-  hrOpenPrintFrame_(wrap.innerHTML, 'Leave Requests');
+  hrMsg_('Preparing 21 papers from Vacations.pdf… In the print window choose Save as PDF.', true);
+  hrWaitImages_(wrap, function () {
+    hrOpenPrintFrame_(wrap.innerHTML, 'Vacations');
+  });
 }
 
 function hrPrintSelectedCompleted_() {
@@ -1772,12 +1782,8 @@ function hrRenderTable_() {
     }).join('');
     deptEl.value = keep;
   }
-  var list = hrFiltered_();
-  var papers = hrPaperList_();
-  hrRenderKpis_(list);
-  if (summary) {
-    summary.textContent = '21 locked Leave Request pages. HR is on every page.';
-  }
+  hrRenderKpis_(hrFiltered_());
+  if (summary) summary.textContent = '21 pages from Vacations.pdf';
   host.innerHTML = '<div class="hr-stage-head hr-saved-head">' +
     '<h3 class="hr-stage-title">Saved requests <span>(21 pages)</span></h3>' +
     '<div class="hr-stage-acts">' +
@@ -1785,20 +1791,9 @@ function hrRenderTable_() {
     '</div></div>';
   var stack = document.createElement('div');
   stack.className = 'hr-saved-papers';
-  try {
-    hrSnapshotPaperTemplate_();
-    if (!_hrPaperTemplate) throw new Error('paper template missing');
-    var i;
-    for (i = 0; i < HR_SAVED_PAGE_COUNT; i++) {
-      stack.appendChild(papers[i]
-        ? hrBuildBakedSavedPaper_(papers[i])
-        : hrBuildBlankSavedPaper_('hr-saved-p' + (i + 1)));
-    }
-  } catch (err) {
-    var fail = document.createElement('p');
-    fail.className = 'hr-stage-empty';
-    fail.textContent = 'Could not draw the 21 papers. Open Leave request in the sidebar to see the locked form.';
-    stack.appendChild(fail);
+  var i;
+  for (i = 1; i <= HR_SAVED_PAGE_COUNT; i++) {
+    stack.appendChild(hrPdfPageCard_(i));
   }
   host.appendChild(stack);
 }
@@ -2043,8 +2038,7 @@ function hrRenderConfirmedTable_() {
 }
 
 function hrLoad_(force) {
-  var host = document.getElementById('hrTableHost');
-  if (host && !_hrRows.length) host.innerHTML = typeof empireLoadingHtml === 'function' ? empireLoadingHtml('Loading leave requests…') : '<p>Loading…</p>';
+  hrRenderTable_();
   return fetchJSONRetry({ action: 'getHrLeaveRequests', token: hrToken_() }, force ? 1 : 2, 45000)
     .then(function (d) {
       if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) return;
@@ -2056,10 +2050,10 @@ function hrLoad_(force) {
       hrRenderArchiveTable_();
     })
     .catch(function (err) {
+      hrRenderTable_();
       var errHtml = typeof empireErrorHtml === 'function'
         ? empireErrorHtml(err.message || 'Could not load leave requests.', 'Try Refresh.')
         : '<p>' + hrEsc_(err.message || 'Load failed') + '</p>';
-      if (host) host.innerHTML = errHtml;
       var doneHost = document.getElementById('hrDoneHost');
       if (doneHost) doneHost.innerHTML = errHtml;
       var confirmedHost = document.getElementById('hrConfirmedHost');
@@ -2649,7 +2643,7 @@ function hrOpenPrintFrame_(bodyHtml, title) {
   var base = location.origin + location.pathname.replace(/[^/]+$/, '');
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + hrEsc_(title || 'Leave Request') + '</title>'
     + '<base href="' + String(base).replace(/"/g, '') + '">'
-    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-06-hr-f06-21p">'
+    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-06-pdf-saved">'
     + '<style>' + hrPrintFrameCss_() + '</style></head><body>' + bodyHtml + '</body></html>';
   var frame = document.getElementById('hrPrintFrame');
   if (!frame) {
