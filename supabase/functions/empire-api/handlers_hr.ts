@@ -282,7 +282,7 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
     const existingSigs = existing.__sigs && typeof existing.__sigs === "object" && !Array.isArray(existing.__sigs)
       ? existing.__sigs as Record<string, string>
       : {};
-    let directorSig = String(incomingSigs.director || body.directorSignature || existingSigs.director || "").trim();
+    let directorSig = String(body.directorSignature || incomingSigs.director || existingSigs.director || "").trim();
     if (!directorSig) {
       const u = await getUser(auth.username);
       directorSig = String((u && u.signature) || "").trim();
@@ -290,8 +290,26 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
     if (!directorSig) {
       return { ok: false, success: false, error: "missing_signature", message: "Add your e-signature in the Director box first." };
     }
-    const merged: Record<string, unknown> = { ...existing, ...incoming, __sigs: { ...existingSigs, ...incomingSigs, director: directorSig } };
-    if (existing.__scan && !incoming.__scan) merged.__scan = existing.__scan;
+    const merged: Record<string, unknown> = {
+      ...existing,
+      __sigs: { ...existingSigs, director: directorSig },
+    };
+    const dirBox = { x: 0.55, y: 0.40, w: 0.22 };
+    const incomingScan = incoming.__scan && typeof incoming.__scan === "object" && !Array.isArray(incoming.__scan)
+      ? incoming.__scan as Record<string, unknown>
+      : null;
+    const existingScan = existing.__scan && typeof existing.__scan === "object" && !Array.isArray(existing.__scan)
+      ? existing.__scan as Record<string, unknown>
+      : null;
+    if (existingScan || incomingScan) {
+      const scan = { ...(existingScan || {}), ...(incomingScan || {}), directorSig };
+      const sx = Number(scan.x);
+      const sy = Number(scan.y);
+      if (!Number.isFinite(sx) || sx === 0.56) scan.x = dirBox.x;
+      if (!Number.isFinite(sy) || sy === 0.36) scan.y = dirBox.y;
+      if (!scan.w) scan.w = dirBox.w;
+      merged.__scan = scan;
+    }
     const patch = {
       status: "completed",
       director_name: String(body.directorName || auth.username || "").trim(),

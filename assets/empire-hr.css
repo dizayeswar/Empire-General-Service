@@ -820,9 +820,9 @@
 
 .hr-scan-dir-sig {
   position: absolute;
-  left: 56%;
-  top: 36%;
-  width: 20%;
+  left: 55%;
+  top: 40%;
+  width: 22%;
   height: auto;
   cursor: grab;
   touch-action: none;
