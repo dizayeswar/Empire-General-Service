@@ -971,6 +971,17 @@
   color: var(--text-soft, #555);
   flex: 1 1 180px;
 }
+.hr-layout-dump {
+  width: 100%;
+  min-height: 4.5em;
+  font: 12px/1.35 Consolas, "Courier New", monospace;
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: #fafafa;
+  color: #111;
+  resize: vertical;
+}
 .hr-layout-tools {
   display: flex;
   flex-wrap: wrap;

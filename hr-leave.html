@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-30-hr-f06">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-30-hr-f06">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-06-hr-f06-th">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-06-hr-f06-copy">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -300,7 +300,9 @@
 
           <div class="hr-layout-pad no-print" id="hrLayoutPad">
             <button type="button" id="hrLayoutToggle" onclick="hrLayoutToggle_()">Adjust paper</button>
-            <p class="hr-layout-hint">Click <strong>Whole paper</strong> (or the white area of the page). Then − zooms everything out so more white space appears on all four sides. + zooms back in. Tables can still be moved one by one.</p>
+            <button type="button" onclick="hrLayoutCopyLock_()">Copy lock numbers</button>
+            <p class="hr-layout-hint">To save this layout for every PC: click <strong>Copy lock numbers</strong>, then paste in the chat.</p>
+            <textarea class="hr-layout-dump" id="hrLayoutDump" readonly rows="4" spellcheck="false"></textarea>
             <div class="hr-layout-tools" id="hrLayoutTools" hidden>
               <button type="button" onclick="hrLayoutSelect_('all')">Whole paper</button>
               <span class="hr-layout-target" id="hrLayoutTarget">Click something to edit</span>
@@ -515,6 +517,6 @@
 <script src="assets/empire-auth.js?v=2026-09-01-dir-esig"></script>
 <script src="assets/empire-core.js?v=2026-08-30-hr-f06"></script>
 <script src="assets/empire-storage.js?v=2026-08-31-hr-scan"></script>
-<script src="assets/empire-hr-leave.js?v=2026-09-06-hr-f06-th"></script>
+<script src="assets/empire-hr-leave.js?v=2026-09-06-hr-f06-copy"></script>
 </body>
 </html>

@@ -2673,6 +2673,29 @@ function hrLayoutCss_(piece) {
   if (!x && !y && s === 1) return '';
   return 'translate(' + x + 'mm,' + y + 'mm) scale(' + s + ')';
 }
+function hrLayoutJson_() {
+  if (!_hrLayout) hrLayoutLoad_();
+  return JSON.stringify(_hrLayout || hrLayoutEmpty_());
+}
+function hrLayoutCopyLock_() {
+  var text = hrLayoutJson_();
+  var dump = document.getElementById('hrLayoutDump');
+  if (dump) {
+    dump.value = text;
+    dump.focus();
+    dump.select();
+  }
+  function ok() { hrMsg_('Numbers copied. Paste them in the chat.', true); }
+  function fail() { hrMsg_('Copy the text in the box, then paste it in the chat.', false); }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(ok).catch(fail);
+  } else {
+    try {
+      var done = document.execCommand('copy');
+      if (done) ok(); else fail();
+    } catch (err) { fail(); }
+  }
+}
 function hrLayoutApply_() {
   var root = document.getElementById('hrPrintRoot');
   if (!root || !_hrLayout) return;
@@ -2684,6 +2707,8 @@ function hrLayoutApply_() {
     el.classList.toggle('hr-layout-sel', _hrLayoutOn && key === _hrLayoutSel);
   });
   hrLayoutSyncUi_();
+  var dump = document.getElementById('hrLayoutDump');
+  if (dump && !dump.matches(':focus')) dump.value = hrLayoutJson_();
 }
 function hrLayoutSyncUi_() {
   var tools = document.getElementById('hrLayoutTools');
@@ -2850,7 +2875,7 @@ function hrOpenPrintFrame_(bodyHtml, title) {
   var base = location.origin + location.pathname.replace(/[^/]+$/, '');
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + hrEsc_(title || 'Leave Request') + '</title>'
     + '<base href="' + String(base).replace(/"/g, '') + '">'
-    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-06-hr-f06-th">'
+    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-06-hr-f06-copy">'
     + '<style>' + hrPrintFrameCss_() + '</style></head><body>' + bodyHtml + '</body></html>';
   var frame = document.getElementById('hrPrintFrame');
   if (!frame) {
