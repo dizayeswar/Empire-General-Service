@@ -814,7 +814,7 @@
 .hr-saved-papers {
   display: flex;
   flex-direction: column;
-  gap: 36px;
+  gap: 56px;
   margin: 8px 0 28px;
   max-width: 210mm;
 }
@@ -834,6 +834,14 @@
   min-height: 297mm;
   overflow: hidden;
   cursor: default;
+}
+
+.hr-pdf-paper {
+  cursor: default;
+  width: 210mm;
+  max-width: 210mm;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .hr-pdf-a4 {

@@ -44,7 +44,7 @@ var HR_ARCHIVE_SECTIONS = [
   { id: 'other', label: 'Others' }
 ];
 var HR_ARCHIVE_ALL = { id: 'all', label: '(all)' };
-var HR_SAVED_PAGE_COUNT = 21;
+var HR_SAVED_PAGE_COUNT = 28;
 
 var _hrRows = [];
 var _hrSaving = false;
@@ -393,39 +393,59 @@ function hrPrintCompletedByIds_(ids, emptyMsg) {
 }
 
 function hrPdfPageUrl_(n) {
-  return 'assets/hr-vacation-pages/page-' + (n < 10 ? '0' : '') + n + '.jpg?v=2026-09-06';
+  return 'assets/hr-vacation-pages/page-' + (n < 10 ? '0' : '') + n + '.jpg?v=2026-09-06-28';
+}
+
+function hrPrintPdfPages_(nums) {
+  nums = (nums || []).filter(function (n) { return n >= 1 && n <= HR_SAVED_PAGE_COUNT; });
+  if (!nums.length) return;
+  var wrap = document.createElement('div');
+  nums.forEach(function (n) {
+    var page = document.createElement('div');
+    page.className = 'hr-print-page';
+    var img = document.createElement('img');
+    img.src = hrPdfPageUrl_(n);
+    img.alt = 'Leave Request';
+    img.style.cssText = 'display:block;width:210mm;height:297mm;object-fit:fill;';
+    page.appendChild(img);
+    wrap.appendChild(page);
+  });
+  hrMsg_('Preparing ' + nums.length + ' paper' + (nums.length === 1 ? '' : 's') + '… In the print window choose Save as PDF.', true);
+  hrWaitImages_(wrap, function () {
+    hrOpenPrintFrame_(wrap.innerHTML, nums.length === 1 ? 'Leave Request' : 'Leave Requests');
+  });
 }
 
 function hrPdfPageCard_(n) {
   var card = document.createElement('div');
-  card.className = 'hr-saved-filled-card';
+  card.className = 'hr-saved-filled-card hr-pdf-paper';
+  var bar = document.createElement('div');
+  bar.className = 'hr-saved-type-bar';
+  bar.innerHTML = '<h3>Paper ' + n + '</h3>' +
+    '<button type="button" data-hr-pdf-print="' + n + '">Print / PDF</button>';
+  var printBtn = bar.querySelector('button');
+  if (printBtn) {
+    printBtn.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      hrPrintPdfPages_([n]);
+    });
+  }
   var paper = document.createElement('div');
   paper.className = 'hr-pdf-a4';
   var img = document.createElement('img');
   img.src = hrPdfPageUrl_(n);
-  img.alt = 'Vacations.pdf page ' + n;
+  img.alt = 'Leave Request paper ' + n;
   paper.appendChild(img);
+  card.appendChild(bar);
   card.appendChild(paper);
   return card;
 }
 
 function hrPrintVisibleSaved_() {
-  var wrap = document.createElement('div');
+  var nums = [];
   var i;
-  for (i = 1; i <= HR_SAVED_PAGE_COUNT; i++) {
-    var page = document.createElement('div');
-    page.className = 'hr-print-page';
-    var img = document.createElement('img');
-    img.src = hrPdfPageUrl_(i);
-    img.alt = 'Leave Request';
-    img.style.cssText = 'display:block;width:210mm;height:297mm;object-fit:fill;';
-    page.appendChild(img);
-    wrap.appendChild(page);
-  }
-  hrMsg_('Preparing 21 papers from Vacations.pdf… In the print window choose Save as PDF.', true);
-  hrWaitImages_(wrap, function () {
-    hrOpenPrintFrame_(wrap.innerHTML, 'Vacations');
-  });
+  for (i = 1; i <= HR_SAVED_PAGE_COUNT; i++) nums.push(i);
+  hrPrintPdfPages_(nums);
 }
 
 function hrPrintSelectedCompleted_() {
@@ -1783,12 +1803,10 @@ function hrRenderTable_() {
     deptEl.value = keep;
   }
   hrRenderKpis_(hrFiltered_());
-  if (summary) summary.textContent = '21 pages from Vacations.pdf';
+  if (summary) summary.textContent = HR_SAVED_PAGE_COUNT + ' separate papers';
   host.innerHTML = '<div class="hr-stage-head hr-saved-head">' +
-    '<h3 class="hr-stage-title">Saved requests <span>(21 pages)</span></h3>' +
-    '<div class="hr-stage-acts">' +
-      '<button type="button" class="hr-btn-confirm" onclick="hrPrintVisibleSaved_()">Print / PDF</button>' +
-    '</div></div>';
+    '<h3 class="hr-stage-title">Saved requests <span>(' + HR_SAVED_PAGE_COUNT + ' papers)</span></h3>' +
+    '</div>';
   var stack = document.createElement('div');
   stack.className = 'hr-saved-papers';
   var i;
@@ -2643,7 +2661,7 @@ function hrOpenPrintFrame_(bodyHtml, title) {
   var base = location.origin + location.pathname.replace(/[^/]+$/, '');
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + hrEsc_(title || 'Leave Request') + '</title>'
     + '<base href="' + String(base).replace(/"/g, '') + '">'
-    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-06-pdf-saved">'
+    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-06-28p">'
     + '<style>' + hrPrintFrameCss_() + '</style></head><body>' + bodyHtml + '</body></html>';
   var frame = document.getElementById('hrPrintFrame');
   if (!frame) {
