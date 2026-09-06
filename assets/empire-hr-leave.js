@@ -393,7 +393,7 @@ function hrPrintCompletedByIds_(ids, emptyMsg) {
 }
 
 function hrPdfPageUrl_(n) {
-  return 'assets/hr-vacation-pages/page-' + (n < 10 ? '0' : '') + n + '.jpg';
+  return 'assets/hr-vacation-pages/page-' + (n < 10 ? '0' : '') + n + '.jpg?v=2026-09-06';
 }
 
 function hrPdfPageCard_(n) {

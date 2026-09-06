@@ -15,7 +15,6 @@ supabase/.temp/
 # Local Word extract used only to match HR-F-06 print layout
 _hr_f06_docx/
 
-# Filled employee leave scans — keep on this PC only
+# Filled employee leave PDF source — keep on this PC only
 assets/hr-vacations.pdf
-assets/hr-vacation-pages/
 _extract-vacation-jpegs.js
