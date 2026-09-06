@@ -783,12 +783,14 @@ function hrRunSelectedPending_(kind) {
     ? verb + ' ' + n + ' selected paper' + (n === 1 ? '' : 's') + '? They go to HR as Rejected, with no e-signature.'
     : verb + ' ' + n + ' selected paper' + (n === 1 ? '' : 's') + '? Your e-signature is applied to each.';
   var go = function () {
-    hrRunBulkIds_(ids, kind === 'reject' ? hrDirectorRejectRequest_ : hrDirectorConfirmRequest_, {
-      working: verb + 'ing ' + n + '…',
-      done: kind === 'reject'
-        ? 'Sent ' + n + ' back to HR as Rejected, without an e-signature.'
-        : 'Sent ' + n + ' back to HR as Completed.',
-      tab: kind === 'reject' ? 'list' : 'confirmed'
+    if (kind === 'confirm') {
+      hrDirectorConfirmSelected_(ids);
+      return;
+    }
+    hrRunBulkIds_(ids, hrDirectorRejectRequest_, {
+      working: 'Rejecting ' + n + '…',
+      done: 'Sent ' + n + ' back to HR as Rejected, without an e-signature.',
+      tab: 'list'
     });
   };
   if (typeof uiConfirm === 'function') {
@@ -796,6 +798,61 @@ function hrRunSelectedPending_(kind) {
     return;
   }
   if (confirm(detail)) go();
+}
+
+function hrDirectorConfirmSelected_(ids) {
+  ids = (ids || []).map(function (id) { return String(id || '').trim(); }).filter(Boolean);
+  if (!ids.length || _hrBulkBusy) return;
+  var n = ids.length;
+  var who = typeof empireGetUser === 'function' ? empireGetUser() : '';
+  var when = hrToday_();
+  var sig = hrAccountDirectorSig_();
+  _hrBulkBusy = true;
+  hrMsg_('Confirming ' + n + '…', true);
+  ids.forEach(function (id) {
+    var row = _hrRows.find(function (r) { return String(r.id) === id; });
+    if (!row || hrStageOf_(row) !== 'pending_director') return;
+    row.status = 'completed';
+    row.directorStatus = 'approved';
+    row.directorName = who;
+    row.directorSignedAt = when;
+    if (sig) {
+      if (!row.entitlements || typeof row.entitlements !== 'object') row.entitlements = {};
+      if (!row.entitlements.__sigs || typeof row.entitlements.__sigs !== 'object') row.entitlements.__sigs = {};
+      row.entitlements.__sigs.director = sig;
+    }
+  });
+  _hrSelectMode = false;
+  _hrSelected = {};
+  hrSwitchTab_(null, 'confirmed');
+  hrRenderTable_();
+  hrRenderConfirmedTable_();
+  var extra = {
+    action: 'confirmHrLeaveRequests',
+    token: hrToken_(),
+    ids: ids,
+    directorName: who,
+    directorSignedAt: when
+  };
+  var place = hrLoadDirSigPlace_();
+  if (place) extra.scanPlace = place;
+  fetchJSONRetry(extra, 1, 60000)
+    .then(function (d) {
+      if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) return;
+      if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Confirm failed');
+      var got = Number(d.confirmed || (d.ids && d.ids.length) || n);
+      hrMsg_('Sent ' + got + ' to Director confirmed.', true);
+      return hrLoad_(true).then(function () {
+        hrSwitchTab_(null, 'confirmed');
+      });
+    })
+    .catch(function (err) {
+      hrMsg_(err.message || 'Confirm failed.', false);
+      return hrLoad_(true);
+    })
+    .then(function () {
+      _hrBulkBusy = false;
+    });
 }
 
 function hrStaffConfirmRequest_(id) {
@@ -3151,7 +3208,7 @@ function hrOpenPrintFrame_(bodyHtml, title) {
   var base = location.origin + location.pathname.replace(/[^/]+$/, '');
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + hrEsc_(title || 'Leave Request') + '</title>'
     + '<base href="' + String(base).replace(/"/g, '') + '">'
-    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-06-select">'
+    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-06-fast-confirm">'
     + '<style>' + hrPrintFrameCss_() + '</style></head><body>' + bodyHtml + '</body></html>';
   var frame = document.getElementById('hrPrintFrame');
   if (!frame) {

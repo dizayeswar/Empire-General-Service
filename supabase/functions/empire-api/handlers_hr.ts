@@ -256,6 +256,82 @@ export async function handleClearHrLeaveRequests(body: Record<string, unknown>, 
   return { ok: true, success: true, cleared: count };
 }
 
+function parseScanPlace(raw: unknown): { x: number; y: number; w: number; h: number } | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const o = raw as Record<string, unknown>;
+  const x = Number(o.x);
+  const y = Number(o.y);
+  const w = Number(o.w);
+  const h = Number(o.h);
+  if (![x, y, w, h].every((n) => Number.isFinite(n) && n >= 0)) return null;
+  return { x, y, w, h };
+}
+
+function directorConfirmPatch(
+  ex: Record<string, unknown>,
+  directorSig: string,
+  auth: AuthOk,
+  extra: Record<string, unknown>,
+) {
+  const incoming = parseEntitlements(extra.entitlements) as Record<string, unknown>;
+  const existing = parseEntitlements(ex.entitlements) as Record<string, unknown>;
+  const incomingSigs = incoming.__sigs && typeof incoming.__sigs === "object" && !Array.isArray(incoming.__sigs)
+    ? incoming.__sigs as Record<string, string>
+    : {};
+  const existingSigs = existing.__sigs && typeof existing.__sigs === "object" && !Array.isArray(existing.__sigs)
+    ? existing.__sigs as Record<string, string>
+    : {};
+  const merged: Record<string, unknown> = {
+    ...existing,
+    __sigs: { ...existingSigs, ...incomingSigs, director: directorSig },
+  };
+  const dirBox = parseScanPlace(extra.scanPlace) || { x: 0.55, y: 0.40, w: 0.22, h: 0.08 };
+  const incomingScan = incoming.__scan && typeof incoming.__scan === "object" && !Array.isArray(incoming.__scan)
+    ? incoming.__scan as Record<string, unknown>
+    : null;
+  const existingScan = existing.__scan && typeof existing.__scan === "object" && !Array.isArray(existing.__scan)
+    ? existing.__scan as Record<string, unknown>
+    : null;
+  if (existingScan || incomingScan) {
+    const scan = { ...(existingScan || {}), ...(incomingScan || {}) };
+    const existingUrl = String((existingScan && existingScan.url) || "").trim();
+    const incomingUrl = String((incomingScan && incomingScan.url) || "").trim();
+    if (existingUrl && (!incomingUrl || incomingUrl.startsWith("data:"))) scan.url = existingUrl;
+    if (parseScanPlace(extra.scanPlace)) {
+      scan.x = dirBox.x;
+      scan.y = dirBox.y;
+      scan.w = dirBox.w;
+      scan.h = dirBox.h;
+    }
+    const sx = Number(scan.x);
+    const sy = Number(scan.y);
+    const sw = Number(scan.w);
+    const sh = Number(scan.h);
+    if (!Number.isFinite(sx)) scan.x = dirBox.x;
+    if (!Number.isFinite(sy)) scan.y = dirBox.y;
+    if (!Number.isFinite(sw) || sw <= 0) scan.w = dirBox.w;
+    if (!Number.isFinite(sh) || sh <= 0) scan.h = dirBox.h;
+    merged.__scan = scan;
+  }
+  return {
+    status: "completed",
+    director_name: String(extra.directorName || auth.username || "").trim(),
+    director_signed_at: String(extra.directorSignedAt || "").trim() || isoNow().slice(0, 10),
+    director_status: "approved",
+    entitlements: entitlementsJson(merged),
+    updated_at: isoNow(),
+  };
+}
+
+async function resolveDirectorSignature(body: Record<string, unknown>, auth: AuthOk, existingSig = "") {
+  let directorSig = String(body.directorSignature || existingSig || "").trim();
+  if (!directorSig) {
+    const u = await getUser(auth.username);
+    directorSig = String((u && u.signature) || "").trim();
+  }
+  return directorSig;
+}
+
 export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>, auth: AuthOk) {
   const id = String(body.id || "").trim();
   if (!id) return { ok: false, success: false, error: "missing_id", message: "Request id is required." };
@@ -274,59 +350,19 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
   }
 
   if (director && status === "pending_director") {
-    const incoming = parseEntitlements(body.entitlements) as Record<string, unknown>;
     const existing = parseEntitlements(ex.entitlements) as Record<string, unknown>;
-    const incomingSigs = incoming.__sigs && typeof incoming.__sigs === "object" && !Array.isArray(incoming.__sigs)
-      ? incoming.__sigs as Record<string, string>
-      : {};
     const existingSigs = existing.__sigs && typeof existing.__sigs === "object" && !Array.isArray(existing.__sigs)
       ? existing.__sigs as Record<string, string>
       : {};
-    let directorSig = String(body.directorSignature || incomingSigs.director || existingSigs.director || "").trim();
-    if (!directorSig) {
-      const u = await getUser(auth.username);
-      directorSig = String((u && u.signature) || "").trim();
-    }
+    const incoming = parseEntitlements(body.entitlements) as Record<string, unknown>;
+    const incomingSigs = incoming.__sigs && typeof incoming.__sigs === "object" && !Array.isArray(incoming.__sigs)
+      ? incoming.__sigs as Record<string, string>
+      : {};
+    const directorSig = await resolveDirectorSignature(body, auth, incomingSigs.director || existingSigs.director || "");
     if (!directorSig) {
       return { ok: false, success: false, error: "missing_signature", message: "Add your e-signature in the Director box first." };
     }
-    const merged: Record<string, unknown> = {
-      ...existing,
-      __sigs: { ...existingSigs, director: directorSig },
-    };
-    const dirBox = { x: 0.55, y: 0.40, w: 0.22, h: 0.08 };
-    const incomingScan = incoming.__scan && typeof incoming.__scan === "object" && !Array.isArray(incoming.__scan)
-      ? incoming.__scan as Record<string, unknown>
-      : null;
-    const existingScan = existing.__scan && typeof existing.__scan === "object" && !Array.isArray(existing.__scan)
-      ? existing.__scan as Record<string, unknown>
-      : null;
-    if (existingScan || incomingScan) {
-      const scan = { ...(existingScan || {}), ...(incomingScan || {}) };
-      scan.directorSig = directorSig;
-      const existingUrl = String((existingScan && existingScan.url) || "").trim();
-      const incomingUrl = String((incomingScan && incomingScan.url) || "").trim();
-      if (existingUrl && (!incomingUrl || incomingUrl.startsWith("data:"))) {
-        scan.url = existingUrl;
-      }
-      const sx = Number(scan.x);
-      const sy = Number(scan.y);
-      const sw = Number(scan.w);
-      const sh = Number(scan.h);
-      if (!Number.isFinite(sx)) scan.x = dirBox.x;
-      if (!Number.isFinite(sy)) scan.y = dirBox.y;
-      if (!Number.isFinite(sw) || sw <= 0) scan.w = dirBox.w;
-      if (!Number.isFinite(sh) || sh <= 0) scan.h = dirBox.h;
-      merged.__scan = scan;
-    }
-    const patch = {
-      status: "completed",
-      director_name: String(body.directorName || auth.username || "").trim(),
-      director_signed_at: String(body.directorSignedAt || "").trim() || isoNow().slice(0, 10),
-      director_status: "approved",
-      entitlements: entitlementsJson(merged),
-      updated_at: isoNow(),
-    };
+    const patch = directorConfirmPatch(ex, directorSig, auth, body);
     const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", id);
     if (error) throw error;
     return { ok: true, success: true, id, row: rowToApi({ ...ex, ...patch }) };
@@ -336,6 +372,35 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
     return { ok: false, success: false, error: "not_allowed", message: "Not allowed." };
   }
   return { ok: false, success: false, error: "bad_status", message: "This paper cannot be confirmed in its current status." };
+}
+
+export async function handleConfirmHrLeaveRequests(body: Record<string, unknown>, auth: AuthOk) {
+  if (!isHrDirector(auth)) {
+    return { ok: false, success: false, error: "not_allowed", message: "Only the director can confirm these papers." };
+  }
+  const raw = Array.isArray(body.ids) ? body.ids : [];
+  const ids = [...new Set(raw.map((v) => String(v || "").trim()).filter(Boolean))].slice(0, 80);
+  if (!ids.length) return { ok: false, success: false, error: "missing_id", message: "Select at least one paper." };
+  const directorSig = await resolveDirectorSignature(body, auth);
+  if (!directorSig) {
+    return { ok: false, success: false, error: "missing_signature", message: "Add your e-signature in the Director box first." };
+  }
+  const { data: rows, error } = await sb().from("hr_leave_requests").select("*").in("id", ids);
+  if (error) throw error;
+  const pending = (rows || []).filter((r) => String(r.status || "") === "pending_director");
+  const extra = {
+    directorName: String(body.directorName || auth.username || "").trim(),
+    directorSignedAt: String(body.directorSignedAt || "").trim(),
+    scanPlace: body.scanPlace,
+  };
+  const confirmed: string[] = [];
+  await Promise.all(pending.map(async (ex) => {
+    const patch = directorConfirmPatch(ex, directorSig, auth, extra);
+    const { error: upErr } = await sb().from("hr_leave_requests").update(patch).eq("id", String(ex.id || ""));
+    if (upErr) throw upErr;
+    confirmed.push(String(ex.id || ""));
+  }));
+  return { ok: true, success: true, confirmed: confirmed.length, ids: confirmed };
 }
 
 export async function handleRejectHrLeaveRequest(body: Record<string, unknown>, auth: AuthOk) {
