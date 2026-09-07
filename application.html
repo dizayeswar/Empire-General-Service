@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://script.google.com">
 <title>Application — Door Check — Empire World</title>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/application.css?v=2026-09-07-app-issue-restore">
+<link rel="stylesheet" href="assets/application.css?v=2026-09-07-app-issue-photos">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -114,8 +114,8 @@
               </div>
               <div class="form-group">
                 <label>Photo</label>
-                <button type="button" onclick="document.getElementById('appIssuePhotoFile').click()">Add photo</button>
-                <input type="file" id="appIssuePhotoFile" accept="image/*" style="display:none" onchange="appIssuePickPhoto_(event)">
+                <button type="button" onclick="document.getElementById('appIssuePhotoFile').click()">Add photos</button>
+                <input type="file" id="appIssuePhotoFile" accept="image/*" multiple style="display:none" onchange="appIssuePickPhoto_(event)">
               </div>
               <div class="form-group">
                 <label>&nbsp;</label>
@@ -132,9 +132,9 @@
                 <textarea id="appIssueSolution" rows="2" placeholder="What should be done" spellcheck="true" lang="en" autocorrect="on" autocapitalize="sentences" autocomplete="on" oninput="appIssueAutocorrect_(this)" onblur="appIssueAutocorrect_(this, true)"></textarea>
               </div>
             </div>
-            <div class="image-upload app-issue-paste" id="appIssuePasteArea" tabindex="0" onclick="this.focus()" onpaste="appIssuePastePhoto_(event)">Click here and paste a picture (Ctrl+V)</div>
+            <div class="image-upload app-issue-paste" id="appIssuePasteArea" tabindex="0" onclick="this.focus()" onpaste="appIssuePastePhoto_(event)">Click here and paste pictures (Ctrl+V) — you can add more than one</div>
             <p id="appIssuePhotoStatus" class="app-issue-photo-status"></p>
-            <img id="appIssuePhotoPreview" class="app-issue-photo-preview" alt="" hidden>
+            <div id="appIssuePhotoPreview" class="app-issue-photo-preview" hidden></div>
           </div>
           <div id="appIssueHost" class="app-issue-host"><p>Loading…</p></div>
         </div>
@@ -196,7 +196,7 @@
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-auth.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-core.js?v=2026-08-19-wh-assign"></script>
-<script src="assets/application-app.js?v=2026-09-07-app-issue-restore"></script>
+<script src="assets/application-app.js?v=2026-09-07-app-issue-photos"></script>
 <script>
 function switchTab(ev, tab) {
   if (typeof appCloseSettings_ === 'function') appCloseSettings_();

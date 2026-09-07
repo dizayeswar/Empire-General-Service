@@ -409,6 +409,28 @@ function unpackAppIssueNote_(note: string): { note: string; problem: string; sol
   }
 }
 
+function parseAppIssuePhotos_(raw: unknown): string[] {
+  if (Array.isArray(raw)) {
+    return raw.map((u) => String(u || "").trim()).filter(Boolean);
+  }
+  const s = String(raw || "").trim();
+  if (!s) return [];
+  if (s.startsWith("[")) {
+    try {
+      const a = JSON.parse(s);
+      if (Array.isArray(a)) return parseAppIssuePhotos_(a);
+    } catch { /* ignore */ }
+  }
+  if (s.includes("\n")) return s.split(/\n+/).map((u) => u.trim()).filter(Boolean);
+  return [s];
+}
+
+function packAppIssuePhotos_(urls: string[]): string {
+  if (!urls.length) return "";
+  if (urls.length === 1) return urls[0];
+  return JSON.stringify(urls);
+}
+
 function parseAppIssueSeen_(raw: unknown): { username: string; at: string }[] {
   let v: unknown = raw;
   if (typeof v === "string") {
@@ -448,7 +470,8 @@ function appIssueToApi_(r: Record<string, unknown>) {
     note: packed.note,
     problem: String(r.problem || packed.problem || ""),
     solution: String(r.solution || packed.solution || ""),
-    photo: String(r.photo || ""),
+    photo: packAppIssuePhotos_(parseAppIssuePhotos_(r.photo)),
+    photos: parseAppIssuePhotos_(r.photo),
     status: String(r.status || "open").toLowerCase() === "fixed" ? "fixed" : "open",
     createdBy: String(r.created_by || ""),
     createdAt: r.created_at,
@@ -481,7 +504,7 @@ export async function handleAddApplicationIssue(body: Record<string, unknown>, a
   const problem = String(body.problem || "").trim();
   const solution = String(body.solution || "").trim();
   const phone = String(body.phone || "").replace(/\D/g, "");
-  const photo = String(body.photo || "").trim();
+  const photo = packAppIssuePhotos_(parseAppIssuePhotos_(body.photos ?? body.photo));
   if (kind === "customer" && !propertyId) {
     return { ok: false, success: false, error: "missing_apartment", message: "Pick an apartment for a customer issue." };
   }
@@ -738,7 +761,7 @@ export async function handleGetTrash(body: Record<string, unknown>) {
             propertyId: apt,
             issueType: title,
             project: String(r.project || ""),
-            photo: String(r.photo || ""),
+            photo: parseAppIssuePhotos_(r.photo)[0] || "",
             status: String(r.status || ""),
             kind,
             problem: String(r.problem || ""),
