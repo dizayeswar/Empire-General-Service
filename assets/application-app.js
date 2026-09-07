@@ -1709,6 +1709,27 @@ function appToggleSettings_(e) {
   panel.hidden = !open;
 }
 
+function appRbNormalizeItem_(it) {
+  if (!it || typeof it !== 'object') return it || {};
+  var out = it;
+  var preview = String(it.issueType || it.preview || '').trim();
+  if (preview.charAt(0) === '{') {
+    try {
+      var o = JSON.parse(preview);
+      if (o && typeof o === 'object') {
+        out = Object.assign({}, it);
+        if (!out.propertyId) out.propertyId = o.property_id || o.propertyId || '';
+        if (!out.issueType || String(out.issueType).charAt(0) === '{') out.issueType = o.note || '';
+        if (!out.kind) out.kind = o.kind || 'customer';
+        if (!out.status) out.status = o.status || '';
+        if (!out.phone) out.phone = o.phone || '';
+        if (!out.photo) out.photo = o.photo || '';
+      }
+    } catch (e) {}
+  }
+  return out;
+}
+
 function appRbOpen_() {
   var m = document.getElementById('appRbModal');
   if (m) m.classList.add('show');
@@ -1721,6 +1742,7 @@ function appRbClose_() {
 }
 
 function appRbItemHtml_(it) {
+  it = appRbNormalizeItem_(it);
   var when = appFormatDateTime_(it.deletedAt);
   var how = it.reason === 'reset' ? 'Reset' : 'Delete';
   var title = appEsc_(it.issueType || it.preview || 'Issue');
@@ -1777,6 +1799,7 @@ function appRbRestore_(id) {
       token: appToken_()
     }, 1, 30000).then(function (d) {
       if (d && d.ok === false) throw new Error(d.message || d.error || 'Restore failed');
+      if (!d.restored) throw new Error(d.message || 'Could not restore this issue.');
       appRbLoad_();
       appIssueLoad_(true);
     }).catch(function (e) {
@@ -1812,6 +1835,7 @@ function appRbRestoreAll_() {
       token: appToken_()
     }, 1, 60000).then(function (d) {
       if (d && d.ok === false) throw new Error(d.message || d.error || 'Restore failed');
+      if (!d.restored) throw new Error(d.message || 'Could not restore the issues.');
       appRbLoad_();
       appIssueLoad_(true);
     }).catch(function (e) {
