@@ -1032,11 +1032,8 @@ function appIssueIsNew_(id) {
   if (!id) return false;
   var r = appIssueFind_(id);
   var user = appIssueCurrentUser_().toLowerCase();
-  if (user && appIssueSeenUsernames_(r).some(function (n) { return n.toLowerCase() === user; })) {
-    return false;
-  }
-  var map = appIssueSeenMap_();
-  return !map[String(id)];
+  if (!r || !user) return !appIssueSeenMap_()[String(id)];
+  return !appIssueSeenUsernames_(r).some(function (n) { return n.toLowerCase() === user; });
 }
 
 function appIssueMarkSeen_(id) {
@@ -1519,7 +1516,6 @@ function appIssueAdd_() {
     }
     if (d.issue) {
       var saved = appIssueUnpack_(d.issue);
-      appIssueMarkSeen_(saved.id);
       _appIssues.unshift(saved);
     }
     else appIssueLoad_(true);
