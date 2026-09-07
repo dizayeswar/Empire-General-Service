@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://script.google.com">
     <link rel="preconnect" href="https://api.imgbb.com">
     <title>Empire General Service — Login</title>
-    <link rel="stylesheet" href="assets/empire-hub.css?v=2026-08-27-ups-v2">
+    <link rel="stylesheet" href="assets/empire-hub.css?v=2026-09-07-charging">
 </head>
 <body class="login-landing">
     <div class="topbar">
@@ -64,18 +64,19 @@
         <footer>Prepared by <strong>Swar Dizayee</strong></footer>
     </div>
 
-    <script src="config.js?v=2026-08-31-hr-dir"></script>
-    <script src="assets/empire-api.js?v=2026-08-27-ups-v2"></script>
-    <script src="assets/empire-auth.js?v=2026-08-31-hr-dir"></script>
-    <script src="assets/empire-core.js?v=2026-08-27-ups-v2"></script>
-    <script src="assets/empire-sw-update.js?v=2026-08-27-ups-v2"></script>
-    <script src="assets/empire-hub-stats.js?v=2026-08-27-ups-v2"></script>
+    <script src="config.js?v=2026-09-07-charging"></script>
+    <script src="assets/empire-api.js?v=2026-09-07-charging"></script>
+    <script src="assets/empire-auth.js?v=2026-09-07-charging"></script>
+    <script src="assets/empire-core.js?v=2026-09-07-charging"></script>
+    <script src="assets/empire-sw-update.js?v=2026-09-07-charging"></script>
+    <script src="assets/empire-hub-stats.js?v=2026-09-07-charging"></script>
     <script>
         const categories = [
             { icon:'🧹', name:'Cleaning Department', desc:'Daily reports, issues found on rounds & more.', link:'cleaning.html', active:true, accessDept:'cleaning', expandable:true },
             { icon:'🏗️', name:'Civil Department', desc:'Daily maintenance jobs, monthly reports & civil issues — all in one place.', link:'civil-department.html', active:true, accessDept:'civil department,civil issue' },
             { icon:'⛑️', name:'HSE Inspections', desc:'Fire safety equipment checks.', link:'hse-inspection.html', active:true, accessDept:'hse' },
             { icon:'⚡', name:'Electrical Department', desc:'Jobs, field reports, electric minus, monthly reports & electric issues.', link:'electrical.html', active:true, accessDept:'electrical department,electric issue' },
+            { icon:'🔌', name:'Charging Electricity', desc:'Apartment electricity charges — T1 national and T2 generator.', link:'charging-electricity.html', active:true, accessDept:'charging' },
             { icon:'🔋', name:'UPS Checklist', desc:'Monthly UPS inspections — register, checklist, history & summary.', link:'ups.html', active:true, accessDept:'ups' },
             { icon:'📦', name:'Warehouse', desc:'Goods Issue Note — SP materials, signatures & print.', link:'warehouse.html', active:true, accessDept:'warehouse' },
             { icon:'🛡️', name:'A.S.A.A.S', desc:'West Wing corridor storage — log items, track returns & warehouse.', link:'asaas.html', active:true, accessDept:'asaas' },
@@ -282,6 +283,7 @@
             if (summary.electricIssue) mapped['electrical department,electric issue'] = summary.electricIssue;
             if (summary.ups) mapped.ups = summary.ups;
             if (summary.hr) mapped.hr = summary.hr;
+            mapped.charging = summary.charging || { label: 'Not live yet', level: 'muted' };
             applyHubTileStats('#grid .tile[data-dept]:not(.tile-expandable)', mapped);
             var cleaning = summary && summary.cleaning;
             if (!cleaning) return;

@@ -999,6 +999,9 @@ export async function handleGetSummary(body: Record<string, unknown>) {
       lastActivity: last,
     };
   }
+  if (allow("charging")) {
+    summary.charging = { open: 0, level: "muted", label: "Not live yet", lastActivity: "" };
+  }
   return { ok: true, summary, generatedAt: isoNow() };
 }
 

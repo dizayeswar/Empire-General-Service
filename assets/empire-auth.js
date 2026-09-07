@@ -238,6 +238,7 @@ function empireCanAccessDept(requiredDept) {
     asaas: ['asaas'],
     application: ['application'],
     ups: ['ups'],
+    charging: ['charging'],
     warehouse: [
       'warehouse_desk', 'warehouse_assigned', 'warehouse_done', 'warehouse_invoices',
       'warehouse_sig_auth', 'warehouse_sig_issued', 'warehouse_sig_received'
@@ -326,6 +327,7 @@ var EMPIRE_DEPT_HOME = {
   asaas: 'asaas.html',
   application: 'application.html',
   ups: 'ups.html',
+  charging: 'charging-electricity.html',
   hr: 'hr-department.html'
 };
 

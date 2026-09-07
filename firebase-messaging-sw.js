@@ -1,5 +1,5 @@
 /* Empire EGS — service worker (cache + Firebase background push) */
-var CACHE_VERSION = '2026-09-06-fast-confirm';
+var CACHE_VERSION = '2026-09-07-charging';
 var CACHE_NAME = 'empire-egs-' + CACHE_VERSION;
 var NOTIFY_ICON = 'https://dizayeswar.github.io/Empire-General-Service/icons/icon-192.png';
 var NOTIFY_BASE = 'https://dizayeswar.github.io/Empire-General-Service/civil-issue.html';
@@ -56,6 +56,7 @@ var PRECACHE = [
   './ups.html',
   './hr-department.html',
   './hr-leave.html',
+  './charging-electricity.html',
   './config.js',
   './manifest.webmanifest',
   './logo.png',
@@ -91,6 +92,8 @@ var PRECACHE = [
   './assets/ups-seed.json',
   './assets/empire-hr.css',
   './assets/empire-hr-leave.js',
+  './assets/empire-charging.css',
+  './assets/empire-charging.js',
   './assets/empire-storage.js'
 ];
 
@@ -193,6 +196,7 @@ function offlineNavigateFallback_(request) {
     if (path.indexOf('electrical') !== -1) return caches.match('./electrical.html');
     if (path.indexOf('hr-leave') !== -1) return caches.match('./hr-leave.html');
     if (path.indexOf('hr-department') !== -1) return caches.match('./hr-department.html');
+    if (path.indexOf('charging-electricity') !== -1) return caches.match('./charging-electricity.html');
     return caches.match('./index.html');
   });
 }

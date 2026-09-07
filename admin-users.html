@@ -155,11 +155,11 @@
     <div id="usersTableHost"></div>
   </div>
 
-  <script src="config.js?v=2026-09-01-dir-esig"></script>
-  <script src="assets/empire-api.js?v=2026-08-31-hr-dir"></script>
-  <script src="assets/empire-auth.js?v=2026-09-01-dir-esig"></script>
-  <script src="assets/empire-core.js?v=2026-08-22-access"></script>
-  <script src="assets/empire-sw-update.js?v=2026-08-22-access"></script>
+  <script src="config.js?v=2026-09-07-charging"></script>
+  <script src="assets/empire-api.js?v=2026-09-07-charging"></script>
+  <script src="assets/empire-auth.js?v=2026-09-07-charging"></script>
+  <script src="assets/empire-core.js?v=2026-09-07-charging"></script>
+  <script src="assets/empire-sw-update.js?v=2026-09-07-charging"></script>
   <script>
     var allUsers = [];
     var editingUsername = null;
@@ -178,9 +178,10 @@
       { key: 'asaas', label: 'A.S.A.A.S', n: 9 },
       { key: 'application', label: 'Application', n: 10 },
       { key: 'ups', label: 'UPS Checklist', n: 11 },
-      { key: 'hr', label: 'HR Department (leave requests)', n: 12 },
+      { key: 'charging', label: 'Charging Electricity', n: 12 },
+      { key: 'hr', label: 'HR Department (leave requests)', n: 13 },
       { key: 'hr_director', label: 'HR — Pending Director', n: '', child: true, parent: 'hr' },
-      { key: 'warehouse', label: 'Warehouse', n: 13, group: true },
+      { key: 'warehouse', label: 'Warehouse', n: 14, group: true },
       { key: 'warehouse_desk', label: 'Full desk (GIN / SP / create)', child: true, parent: 'warehouse' },
       { key: 'warehouse_assigned', label: 'Assigned notes only', child: true, parent: 'warehouse' },
       { key: 'warehouse_done', label: 'Done (after signing)', child: true, parent: 'warehouse' },
@@ -242,7 +243,7 @@
       var a = readAccessFromForm();
       var workerOnly = (a.civil_issue !== 'none' || a.electric_issue !== 'none') &&
         a.civil_department === 'none' && a.electrical_department === 'none' &&
-        a.cleaning === 'none' && a.hr === 'none' && a.hr_director === 'none' && a.warehouse_desk === 'none' && a.admin === 'none';
+        a.cleaning === 'none' && a.hr === 'none' && a.hr_director === 'none' && a.charging === 'none' && a.warehouse_desk === 'none' && a.admin === 'none';
       var cleaning = a.cleaning !== 'none';
       var tradeEl = document.getElementById('tradeField');
       var projEl = document.getElementById('projectsField');
@@ -357,7 +358,7 @@
       var access = readAccessFromForm();
       var workerPhone = (access.civil_issue !== 'none' || access.electric_issue !== 'none') &&
         access.civil_department === 'none' && access.electrical_department === 'none' &&
-        access.cleaning === 'none' && access.hr === 'none' && access.warehouse_desk === 'none' && access.admin === 'none';
+        access.cleaning === 'none' && access.hr === 'none' && access.charging === 'none' && access.warehouse_desk === 'none' && access.admin === 'none';
       return {
         username: document.getElementById('f-username').value.trim(),
         password: document.getElementById('f-password').value,
@@ -463,7 +464,8 @@
       var workerPhone = !!p.trade || (
         (p.moduleAccess.civil_issue !== 'none' || p.moduleAccess.electric_issue !== 'none') &&
         p.moduleAccess.civil_department === 'none' && p.moduleAccess.electrical_department === 'none' &&
-        p.moduleAccess.hr === 'none' && p.moduleAccess.hr_director === 'none'
+        p.moduleAccess.hr === 'none' && p.moduleAccess.hr_director === 'none' &&
+        p.moduleAccess.charging === 'none'
       );
       if (workerPhone && document.getElementById('tradeField').style.display !== 'none' && !p.trade) {
         setMsg('formMsg', 'Workers need a Trade (plumber, wood, electric…).', false);

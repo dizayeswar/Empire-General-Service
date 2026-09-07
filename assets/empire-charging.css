@@ -1,0 +1,57 @@
+/* Charging Electricity desk */
+
+.chg-lead {
+  color: var(--text-soft);
+  font-size: 13px;
+  margin: -6px 0 14px;
+}
+
+.chg-banner {
+  background: #faf6f8;
+  border: 2px solid #e6d6df;
+  color: #8d015d;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 1.45;
+  margin-bottom: 18px;
+}
+
+html[data-theme='dark'] .chg-banner {
+  background: rgba(160, 50, 125, 0.22);
+  border-color: #a0327d;
+  color: #f3d4e8;
+}
+
+.chg-form .chg-grow {
+  flex: 2 1 220px;
+}
+
+.chg-actions {
+  margin-top: 8px;
+}
+
+.chg-btn-disabled,
+.chg-btn-disabled:disabled {
+  color: #fff;
+  background: #9aa3b2;
+  border-color: #9aa3b2;
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+html[data-theme='dark'] .chg-btn-disabled,
+html[data-theme='dark'] .chg-btn-disabled:disabled {
+  background: #5b6478;
+  border-color: #5b6478;
+}
+
+.chg-empty {
+  background: var(--panel);
+  border: 2px dashed var(--card-border);
+  border-radius: 12px;
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--text-soft);
+  font-size: 14px;
+}
