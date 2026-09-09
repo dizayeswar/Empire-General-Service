@@ -1000,7 +1000,33 @@ export async function handleGetSummary(body: Record<string, unknown>) {
     };
   }
   if (allow("charging")) {
-    summary.charging = { open: 0, level: "muted", label: "Not live yet", lastActivity: "" };
+    try {
+      const rows = await selectAllRows<{
+        status?: string;
+        retry_requested?: boolean;
+        updated_at?: string;
+        created_at?: string;
+      }>("charging_requests", {
+        columns: "status,retry_requested,updated_at,created_at",
+      });
+      const waiting = rows.filter((r) => String(r.status || "") !== "charged").length;
+      const last = rows.reduce((acc, r) => {
+        const t = String(r.updated_at || r.created_at || "");
+        return t > acc ? t : acc;
+      }, "");
+      summary.charging = {
+        open: waiting,
+        level: waiting ? "warn" : "muted",
+        label: waiting
+          ? waiting + " waiting"
+          : rows.length
+          ? rows.length + " charged"
+          : "No charges yet",
+        lastActivity: last,
+      };
+    } catch {
+      summary.charging = { open: 0, level: "muted", label: "Charging desk", lastActivity: "" };
+    }
   }
   return { ok: true, summary, generatedAt: isoNow() };
 }

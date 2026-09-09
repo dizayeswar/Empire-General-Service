@@ -15,7 +15,7 @@ Web dashboards for Empire World departments: cleaning, civil, electrical, HSE, a
 | **Cleaning issues** | `civil-issue.html`, `fire-issue.html`, `electric-issue.html` |
 | **Civil** | `civil-department.html` — jobs, monthly reports & civil issues (merged desk like Electrical); workers use `civil-issue.html` |
 | **Electrical** | `electrical.html` — electrical jobs, field reports & electric issues |
-| **Charging Electricity** | `charging-electricity.html` — apartment electricity charges (website desk; NovaSys charging not live yet) |
+| **Charging Electricity** | `charging-electricity.html` — live charge log (RU, unit, T1/T2, amount, invoice or cause). Nova Pay stays on the laptop robot. |
 | **Charge robot** | `charge-robot/` — local NovaSys electricity charge tool (laptop only, not the live site). See `charge-robot/CHARGE-ROBOT.md` |
 | **HSE** | `hse-inspection.html` — fire safety equipment inspections |
 

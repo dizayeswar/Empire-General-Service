@@ -17,6 +17,7 @@ import * as ups from "./handlers_ups.ts";
 import * as minus from "./handlers_minus.ts";
 import * as warehouse from "./handlers_warehouse.ts";
 import * as hr from "./handlers_hr.ts";
+import * as charging from "./handlers_charging.ts";
 import * as storage from "./handlers_storage.ts";
 import * as users from "./handlers_users.ts";
 
@@ -36,7 +37,7 @@ function json(obj: unknown, status = 200) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method === "GET") {
-    return json({ ok: true, msg: "Empire API running (Supabase)", version: "2026-09-05-app-issue-seen-by" });
+    return json({ ok: true, msg: "Empire API running (Supabase)", version: "2026-09-09-charging-dash" });
   }
   if (req.method !== "POST") return json({ ok: false, error: "Method not allowed" }, 405);
 
@@ -342,6 +343,11 @@ Deno.serve(async (req) => {
       case "fileHrLeaveRequests": return json(await hr.handleFileHrLeaveRequests(body, a));
       case "seedHrPdfAnnualPapers": return json(await hr.handleSeedHrPdfAnnualPapers(body, a));
       case "clearHrLeaveRequests": return json(await hr.handleClearHrLeaveRequests(body, a));
+
+      case "getChargingRequests": return json(await charging.handleGetChargingRequests(body, a));
+      case "getChargingRetryQueue": return json(await charging.handleGetChargingRetryQueue(body, a));
+      case "saveChargingRequest": return json(await charging.handleSaveChargingRequest(body, a));
+      case "requestChargingRetry": return json(await charging.handleRequestChargingRetry(body, a));
 
       case "getTrash": return json(await misc.handleGetTrash(body));
       case "restoreTrash": return json(await misc.handleRestoreTrash(body));

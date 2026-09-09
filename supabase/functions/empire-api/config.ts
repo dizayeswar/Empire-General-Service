@@ -69,6 +69,7 @@ export const SHEET_TO_TABLE: Record<string, string> = {
   WarehouseGoodsIssues: "warehouse_goods_issues",
   WarehouseInvoices: "warehouse_invoices",
   HrLeaveRequests: "hr_leave_requests",
+  ChargingRequests: "charging_requests",
   Trash: "trash",
   WorkerLocations: "worker_locations",
   WorkerPushTokens: "worker_push_tokens",
@@ -217,6 +218,10 @@ export const DEPT_BY_ACTION: Record<string, string> = {
   fileHrLeaveRequests: "hr",
   seedHrPdfAnnualPapers: "hr",
   clearHrLeaveRequests: "hr",
+  getChargingRequests: "charging",
+  getChargingRetryQueue: "charging",
+  saveChargingRequest: "charging",
+  requestChargingRetry: "charging",
 };
 
 export const TRASH_ACTIONS: Record<string, number> = {
