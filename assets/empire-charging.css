@@ -1,4 +1,69 @@
-/* Charging Electricity — live charge log */
+.chg-bot-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  border: 2px solid #C5504F;
+  background: rgba(197, 80, 79, 0.08);
+}
+.chg-bot-bar.is-on {
+  border-color: #1d9e75;
+  background: rgba(29, 158, 117, 0.10);
+}
+.chg-bot-copy {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+.chg-bot-dot {
+  width: 12px;
+  height: 12px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: #C5504F;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 4px rgba(197, 80, 79, 0.18);
+}
+.chg-bot-bar.is-on .chg-bot-dot {
+  background: #1d9e75;
+  box-shadow: 0 0 0 4px rgba(29, 158, 117, 0.18);
+}
+.chg-bot-copy strong {
+  display: block;
+  font-size: 15px;
+}
+.chg-bot-copy span {
+  display: block;
+  font-size: 13px;
+  color: var(--text-soft);
+  line-height: 1.4;
+}
+.chg-bot-toggle {
+  flex: 0 0 auto;
+  color: #fff;
+  background: #1d9e75;
+  border: 1px solid #1d9e75;
+  border-radius: 999px;
+  padding: 10px 20px;
+  font-weight: 800;
+  font-size: 14px;
+  cursor: pointer;
+}
+.chg-bot-bar.is-on .chg-bot-toggle {
+  background: #C5504F;
+  border-color: #C5504F;
+}
+.chg-bot-toggle:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.chg-pill.stopped { background: rgba(107, 114, 128, 0.16); color: #4b5563; }
 
 .chg-desk h2 {
   margin-bottom: 6px;
@@ -439,6 +504,13 @@ html[data-theme='dark'] .chg-pill.no_row,
 html[data-theme='dark'] .chg-pill.ambiguous,
 html[data-theme='dark'] .chg-pill.phone_none,
 html[data-theme='dark'] .chg-pill.phone_many { color: #f0a8a7; }
+html[data-theme='dark'] .chg-pill.stopped { color: #d1d5db; }
+html[data-theme='dark'] .chg-bot-bar {
+  background: rgba(197, 80, 79, 0.18);
+}
+html[data-theme='dark'] .chg-bot-bar.is-on {
+  background: rgba(29, 158, 117, 0.16);
+}
 html[data-theme='dark'] .chg-pill.retry { color: #f3d4e8; }
 html[data-theme='dark'] .chg-drawer-backdrop { background: rgba(0, 0, 0, 0.62); }
 

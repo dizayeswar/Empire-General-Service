@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="manifest" href="manifest.webmanifest?v=2026-09-09-chg-bin">
+<link rel="manifest" href="manifest.webmanifest?v=2026-09-09-chg-bot">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Charging Electricity — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-09-09-chg-bin">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-09-chg-bin">
-<link rel="stylesheet" href="assets/empire-charging.css?v=2026-09-09-chg-bin">
+<link rel="stylesheet" href="assets/empire.css?v=2026-09-09-chg-bot">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-09-chg-bot">
+<link rel="stylesheet" href="assets/empire-charging.css?v=2026-09-09-chg-bot">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -73,6 +73,16 @@
     </aside>
 
     <div class="main-area">
+      <div class="chg-bot-bar is-off" id="chgBotBar">
+        <div class="chg-bot-copy">
+          <span class="chg-bot-dot" aria-hidden="true"></span>
+          <div>
+            <strong id="chgBotLabel">Bot Off</strong>
+            <span id="chgBotHint">Stopped. No Pay, no SET PIN, Try failed again does nothing.</span>
+          </div>
+        </div>
+        <button type="button" class="chg-bot-toggle" id="chgBotToggle" onclick="chgToggleBot_()" style="display:none;">Turn On</button>
+      </div>
       <div id="dash" class="tab-content active">
         <div class="form-section chg-desk">
           <div class="chg-head">
@@ -108,6 +118,7 @@
                 <option value="ambiguous">More than one Nova row</option>
                 <option value="phone_none">Phone search found none</option>
                 <option value="phone_many">Phone search found more than one</option>
+                <option value="stopped">Stopped</option>
               </select>
             </div>
           </div>
@@ -182,12 +193,12 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-09-09-chg-bin"></script>
-<script src="assets/empire-api.js?v=2026-09-09-chg-bin"></script>
-<script src="assets/empire-auth.js?v=2026-09-09-chg-bin"></script>
-<script src="assets/empire-core.js?v=2026-09-09-chg-bin"></script>
-<script src="assets/empire-storage.js?v=2026-09-09-chg-bin"></script>
-<script src="assets/empire-sw-update.js?v=2026-09-09-chg-bin"></script>
-<script src="assets/empire-charging.js?v=2026-09-09-chg-bin"></script>
+<script src="config.js?v=2026-09-09-chg-bot"></script>
+<script src="assets/empire-api.js?v=2026-09-09-chg-bot"></script>
+<script src="assets/empire-auth.js?v=2026-09-09-chg-bot"></script>
+<script src="assets/empire-core.js?v=2026-09-09-chg-bot"></script>
+<script src="assets/empire-storage.js?v=2026-09-09-chg-bot"></script>
+<script src="assets/empire-sw-update.js?v=2026-09-09-chg-bot"></script>
+<script src="assets/empire-charging.js?v=2026-09-09-chg-bot"></script>
 </body>
 </html>

@@ -220,6 +220,8 @@ export const DEPT_BY_ACTION: Record<string, string> = {
   clearHrLeaveRequests: "hr",
   getChargingRequests: "charging",
   getChargingRetryQueue: "charging",
+  getChargingBotStatus: "charging",
+  setChargingBotEnabled: "charging",
   saveChargingRequest: "charging",
   requestChargingRetry: "charging",
   deleteChargingRequest: "charging",

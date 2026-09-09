@@ -6,6 +6,8 @@ var CHG_ROWS_ = [];
 var CHG_COUNTS_ = { total: 0, charged: 0, waiting: 0, retryQueued: 0 };
 var CHG_FILTER_KPI_ = '';
 var CHG_TIMER_ = null;
+var CHG_BOT_TIMER_ = null;
+var CHG_BOT_ = { enabled: false, updatedBy: '', updatedAt: '' };
 var CHG_LOADING_ = false;
 
 var CHG_STATUS_LABEL = {
@@ -14,7 +16,8 @@ var CHG_STATUS_LABEL = {
   no_row: 'No row in Nova',
   ambiguous: 'More than one Nova row',
   phone_none: 'Phone search found none',
-  phone_many: 'Phone search found more than one'
+  phone_many: 'Phone search found more than one',
+  stopped: 'Stopped'
 };
 
 function chgEsc_(s) {
@@ -62,8 +65,10 @@ function chgEnterApp_() {
   var who = document.getElementById('whoLabel');
   if (who) who.textContent = 'Logged in as: ' + (empireGetUser() || '');
   chgShowStaffTools_();
+  chgApplyBotBar_();
   chgLoad_(true);
   chgStartAutoRefresh_();
+  chgStartBotPoll_();
 }
 
 function chgHandleLogin_(e) {
@@ -79,6 +84,10 @@ function chgLogout_() {
     clearInterval(CHG_TIMER_);
     CHG_TIMER_ = null;
   }
+  if (CHG_BOT_TIMER_) {
+    clearInterval(CHG_BOT_TIMER_);
+    CHG_BOT_TIMER_ = null;
+  }
   empireAuthLogout({ redirect: 'index.html', reload: false });
 }
 
@@ -87,6 +96,17 @@ function chgCanWrite_() {
   if (role === 'admin') return true;
   if (role === 'viewer') return false;
   return typeof empireModuleLevel === 'function' && empireModuleLevel('charging') === 'write';
+}
+
+function chgIsAdmin_() {
+  if (typeof empireIsAdminRole === 'function') return empireIsAdminRole();
+  var role = String(typeof empireGetRole === 'function' ? empireGetRole() : '').toLowerCase();
+  if (role === 'admin') return true;
+  return typeof empireModuleLevel === 'function' && empireModuleLevel('admin') === 'write';
+}
+
+function chgBotOn_() {
+  return !!CHG_BOT_.enabled;
 }
 
 function chgToken_() {
@@ -239,7 +259,7 @@ function chgRowOpen_(id) {
     : '<div class="chg-invoice-missing">No invoice picture — this RU was not charged.</div>';
   var retryBtn = '';
   var delBtn = '';
-  if (chgCanWrite_() && chgIsWaiting_(row) && !row.retryRequested) {
+  if (chgCanWrite_() && chgBotOn_() && chgIsWaiting_(row) && !row.retryRequested) {
     var ru = chgSafeRu_(row.ru);
     if (ru) {
       retryBtn = '<button type="button" class="chg-retry-btn" onclick="chgRetryOne_(\'' + ru + '\')">Queue this RU for retry</button>';
@@ -341,10 +361,10 @@ function chgRender_() {
   ['chgRetryBtnDash', 'chgRetryBtnWait'].forEach(function (id) {
     var btn = document.getElementById(id);
     if (!btn) return;
-    btn.disabled = !canWrite || !(CHG_COUNTS_.waiting > 0);
-    btn.title = canWrite
-      ? 'Queue every waiting RU for the laptop robot'
-      : 'Write access required';
+    btn.disabled = !canWrite || !chgBotOn_() || !(CHG_COUNTS_.waiting > 0);
+    if (!chgBotOn_()) btn.title = 'The bot is Off. Try failed again does nothing.';
+    else if (!canWrite) btn.title = 'Write access required';
+    else btn.title = 'Queue every waiting RU for the laptop robot';
   });
 
   var dashRows = chgFiltered_();
@@ -402,6 +422,7 @@ function chgLoad_(force) {
       if (!d || !d.ok) throw new Error((d && (d.message || d.error)) || 'Could not load charging rows.');
       CHG_ROWS_ = d.rows || [];
       CHG_COUNTS_ = d.counts || CHG_COUNTS_;
+      if (d.bot) chgSetBot_(d.bot);
       chgRender_();
     })
     .catch(function (e) {
@@ -428,6 +449,9 @@ function chgStartAutoRefresh_() {
 }
 
 function chgTryFailedAgain_() {
+  if (!chgBotOn_()) {
+    return uiAlert('The bot is Off. Try failed again does nothing until an admin turns it On.');
+  }
   if (!chgCanWrite_()) {
     return uiAlert('You can view this desk, but you cannot queue retries.');
   }
@@ -455,6 +479,90 @@ function chgTryFailedAgain_() {
     });
   }).catch(function (e) {
     uiAlert((e && e.message) || 'Could not queue retries.');
+  });
+}
+
+function chgSetBot_(bot) {
+  CHG_BOT_ = {
+    enabled: !!(bot && bot.enabled),
+    updatedBy: bot && bot.updatedBy ? String(bot.updatedBy) : '',
+    updatedAt: bot && bot.updatedAt ? String(bot.updatedAt) : ''
+  };
+  chgApplyBotBar_();
+}
+
+function chgApplyBotBar_() {
+  var bar = document.getElementById('chgBotBar');
+  var label = document.getElementById('chgBotLabel');
+  var hint = document.getElementById('chgBotHint');
+  var btn = document.getElementById('chgBotToggle');
+  var on = chgBotOn_();
+  if (bar) bar.classList.toggle('is-on', on);
+  if (bar) bar.classList.toggle('is-off', !on);
+  if (label) label.textContent = on ? 'Bot On' : 'Bot Off';
+  if (hint) {
+    hint.textContent = on
+      ? 'The bot may process RUs: Nova, invoice, SET PIN, and the dashboard.'
+      : 'Stopped. No Pay, no SET PIN. Try failed again does nothing.';
+    if (CHG_BOT_.updatedBy) {
+      hint.textContent += ' Last change: ' + chgFormatDt_(CHG_BOT_.updatedAt) + ' by ' + CHG_BOT_.updatedBy + '.';
+    }
+  }
+  if (btn) {
+    btn.style.display = chgIsAdmin_() ? '' : 'none';
+    btn.textContent = on ? 'Turn Off' : 'Turn On';
+    btn.disabled = false;
+  }
+}
+
+function chgPollBot_() {
+  var token = chgToken_();
+  if (!token) return;
+  fetchJSONRetry({ action: 'getChargingBotStatus', token: token }, 1, 20000).then(function (d) {
+    if (!d || !d.ok || !d.bot) return;
+    var was = chgBotOn_();
+    chgSetBot_(d.bot);
+    if (was !== chgBotOn_()) chgRender_();
+  }).catch(function () {});
+}
+
+function chgStartBotPoll_() {
+  if (CHG_BOT_TIMER_) clearInterval(CHG_BOT_TIMER_);
+  CHG_BOT_TIMER_ = setInterval(function () {
+    if (document.hidden) return;
+    chgPollBot_();
+  }, 8000);
+}
+
+function chgToggleBot_() {
+  if (!chgIsAdmin_()) {
+    return uiAlert('Only an admin can turn the bot on or off.');
+  }
+  var next = !chgBotOn_();
+  var msg = next
+    ? 'Turn the bot On?\n\nIt will process RUs on the laptop: Nova Pay, invoice, and SET PIN. This can take money.'
+    : 'Turn the bot Off now?\n\nIt stops at once. No Pay, no SET PIN. The current RU is saved as waiting with cause Stopped.';
+  uiConfirm(msg, {
+    okLabel: next ? 'Turn On' : 'Turn Off',
+    danger: !next
+  }).then(function (ok) {
+    if (!ok) return;
+    var btn = document.getElementById('chgBotToggle');
+    if (btn) btn.disabled = true;
+    return fetchJSONRetry({
+      action: 'setChargingBotEnabled',
+      token: chgToken_(),
+      enabled: next
+    }, 1, 30000).then(function (d) {
+      if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) return;
+      if (!d || !d.ok) throw new Error((d && (d.message || d.error)) || 'Could not change the bot switch.');
+      chgSetBot_(d.bot || { enabled: next });
+      chgRender_();
+    }).catch(function (e) {
+      uiAlert((e && e.message) || 'Could not change the bot switch.');
+    }).then(function () {
+      if (btn) btn.disabled = false;
+    });
   });
 }
 
@@ -707,6 +815,9 @@ function chgDoReset_() {
 }
 
 function chgRetryOne_(ru) {
+  if (!chgBotOn_()) {
+    return uiAlert('The bot is Off. Try failed again does nothing until an admin turns it On.');
+  }
   if (!chgCanWrite_()) return;
   fetchJSONRetry({
     action: 'requestChargingRetry',

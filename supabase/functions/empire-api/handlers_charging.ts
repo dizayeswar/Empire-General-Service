@@ -4,6 +4,8 @@ import { isoNow, sb, selectAllRows, trashRows } from "./db.ts";
 import { moduleLevel, normalizeRole } from "./helpers.ts";
 
 const TABLE = "charging_requests";
+const BOT_TABLE = "charging_bot_state";
+const BOT_ID = "default";
 
 const STATUSES = [
   "charged",
@@ -12,6 +14,7 @@ const STATUSES = [
   "ambiguous",
   "phone_none",
   "phone_many",
+  "stopped",
 ] as const;
 
 type ChargeStatus = (typeof STATUSES)[number];
@@ -35,7 +38,14 @@ const STATUS_ALIASES: Record<string, ChargeStatus> = {
   phone_search_none: "phone_none",
   phone_many: "phone_many",
   phone_search_many: "phone_many",
+  stopped: "stopped",
+  stop: "stopped",
 };
+
+function isAdmin(auth: AuthOk): boolean {
+  if (normalizeRole(auth.role) === "admin") return true;
+  return moduleLevel(auth.moduleAccess, "admin") === "write";
+}
 
 function canRead(auth: AuthOk): boolean {
   if (normalizeRole(auth.role) === "admin") return true;
@@ -155,19 +165,70 @@ function countsFrom(rows: Record<string, unknown>[]) {
     ambiguous: by("ambiguous"),
     phoneNone: by("phone_none"),
     phoneMany: by("phone_many"),
+    stopped: by("stopped"),
   };
+}
+
+function botToApi(r: Record<string, unknown> | null) {
+  return {
+    enabled: !!(r && r.enabled),
+    updatedBy: r ? String(r.updated_by || "") : "",
+    updatedAt: r ? String(r.updated_at || "") : "",
+  };
+}
+
+async function readBotRow(): Promise<Record<string, unknown>> {
+  const { data, error } = await sb().from(BOT_TABLE).select("*").eq("id", BOT_ID).maybeSingle();
+  if (error) throw error;
+  if (data) return data as Record<string, unknown>;
+  const ins = await sb()
+    .from(BOT_TABLE)
+    .insert({ id: BOT_ID, enabled: false, updated_by: "", updated_at: isoNow() })
+    .select("*")
+    .single();
+  if (ins.error) throw ins.error;
+  return ins.data as Record<string, unknown>;
+}
+
+async function botEnabled(): Promise<boolean> {
+  const row = await readBotRow();
+  return !!row.enabled;
 }
 
 export async function handleGetChargingRequests(_body: Record<string, unknown>, auth: AuthOk) {
   if (!canRead(auth)) return deny("Charging Electricity access required.");
   const rows = await selectAllRows<Record<string, unknown>>(TABLE);
   rows.sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
+  const bot = await readBotRow();
   return {
     ok: true,
     success: true,
     rows: rows.map(rowToApi),
     counts: countsFrom(rows),
+    bot: botToApi(bot),
   };
+}
+
+export async function handleGetChargingBotStatus(_body: Record<string, unknown>, auth: AuthOk) {
+  if (!canRead(auth)) return deny("Charging Electricity access required.");
+  const bot = await readBotRow();
+  return { ok: true, success: true, bot: botToApi(bot) };
+}
+
+export async function handleSetChargingBotEnabled(body: Record<string, unknown>, auth: AuthOk) {
+  if (!isAdmin(auth)) return deny("Only an admin can turn the charging bot on or off.");
+  const enabled = body.enabled === true || String(body.enabled || "").toLowerCase() === "true" || body.enabled === 1;
+  const now = isoNow();
+  const username = String(auth.username || "").trim();
+  const payload = {
+    id: BOT_ID,
+    enabled,
+    updated_by: username,
+    updated_at: now,
+  };
+  const { data, error } = await sb().from(BOT_TABLE).upsert(payload).select("*").single();
+  if (error) throw error;
+  return { ok: true, success: true, bot: botToApi(data as Record<string, unknown>) };
 }
 
 export async function handleGetChargingRetryQueue(_body: Record<string, unknown>, auth: AuthOk) {
@@ -176,11 +237,14 @@ export async function handleGetChargingRetryQueue(_body: Record<string, unknown>
     filter: (q) => q.eq("retry_requested", true).neq("status", "charged"),
   });
   rows.sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")));
+  const bot = await readBotRow();
   return {
     ok: true,
     success: true,
     rows: rows.map(rowToApi),
     count: rows.length,
+    bot: botToApi(bot),
+    enabled: !!bot.enabled,
   };
 }
 
@@ -201,7 +265,7 @@ export async function handleSaveChargingRequest(body: Record<string, unknown>, a
   const status = normStatus(body.status);
   if (!status) {
     return bad(
-      "Status must be charged, cannot_charge, no_row, ambiguous, phone_none, or phone_many.",
+      "Status must be charged, cannot_charge, no_row, ambiguous, phone_none, phone_many, or stopped.",
     );
   }
 
@@ -279,6 +343,9 @@ export async function handleSaveChargingRequest(body: Record<string, unknown>, a
 
 export async function handleRequestChargingRetry(body: Record<string, unknown>, auth: AuthOk) {
   if (!canWrite(auth)) return deny("Write access required to queue retries.");
+  if (!(await botEnabled())) {
+    return deny("The bot is Off. Turn it On first. Try failed again does nothing while Off.");
+  }
 
   const now = isoNow();
   const username = String(auth.username || "").trim();
