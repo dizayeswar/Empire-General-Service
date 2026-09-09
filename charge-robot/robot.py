@@ -266,16 +266,51 @@ class NovaSysRobot:
             edits = []
         return combos, edits
 
-    def _tariff_combo(self, dlg):
-        combos, _ = self._combo_and_edits(dlg)
-        for cand in combos:
-            text = (cand.window_text() or "").upper()
-            name = (cand.element_info.name or "").upper()
-            if "T1" in text or "T2" in text or "TARIFF" in name:
-                return cand
-        if combos:
-            return combos[0]
+    def _win32_create_payment(self):
+        app32 = Application(backend="win32").connect(handle=self.win.handle)
+        for w in app32.windows():
+            try:
+                if w.window_text() == "Create payment":
+                    return w
+            except Exception:
+                continue
         return None
+
+    def _win32_tariff_combo(self):
+        pay = self._win32_create_payment()
+        if pay is None:
+            return None
+        for d in pay.descendants():
+            try:
+                if "COMBOBOX" in (d.class_name() or "").upper() and d.is_visible():
+                    return d
+            except Exception:
+                continue
+        return None
+
+    def _win32_amount_edit(self):
+        pay = self._win32_create_payment()
+        if pay is None:
+            return None
+        zero = None
+        typed = None
+        for d in pay.descendants():
+            try:
+                if "EDIT" not in (d.class_name() or "").upper() or not d.is_visible():
+                    continue
+                text = (d.window_text() or "").strip()
+                if "kWh" in text or "IQD" in text or " " in text:
+                    continue
+                if text in {"0.00", "0.0", "0"}:
+                    if zero is None:
+                        zero = d
+                    continue
+                digits = text.replace(",", "").replace(".", "")
+                if digits.isdigit() and len(digits) >= 4:
+                    typed = d
+            except Exception:
+                continue
+        return typed or zero
 
     @staticmethod
     def _shown_tariff(raw: str) -> str:
@@ -286,17 +321,31 @@ class NovaSysRobot:
             return "T2"
         return ""
 
-    def _read_tariff(self, dlg) -> str:
-        combo = self._tariff_combo(dlg)
+    def _read_tariff(self, dlg=None) -> str:
+        combo = self._win32_tariff_combo()
         if combo is None:
             return ""
         return self._shown_tariff(combo.window_text() or "")
+
+    def _click_tariff_dropdown_item(self, combo, wanted: str) -> None:
+        rect = combo.rectangle()
+        click(coords=(rect.right - 10, (rect.top + rect.bottom) // 2))
+        time.sleep(0.2)
+        try:
+            combo.select(wanted)
+            time.sleep(0.2)
+            return
+        except Exception:
+            pass
+        offset = 16 if wanted == "T1" else 38
+        click(coords=((rect.left + rect.right) // 2, rect.bottom + offset))
+        time.sleep(0.25)
 
     def _set_tariff(self, dlg, tariff: str) -> None:
         wanted = tariff.strip().upper()
         if wanted not in {"T1", "T2"}:
             raise RuntimeError("Tariff must be T1 or T2.")
-        combo = self._tariff_combo(dlg)
+        combo = self._win32_tariff_combo()
         if combo is None:
             raise RuntimeError("Could not find Payment for tariff.")
 
@@ -305,79 +354,76 @@ class NovaSysRobot:
             self.log(f"Tariff already {wanted}.")
             return
 
-        rect = combo.rectangle()
-        click(coords=_center(rect))
-        time.sleep(0.25)
-        send_keys("^a{BACKSPACE}")
-        send_keys(wanted)
-        send_keys("{ENTER}")
-        time.sleep(0.4)
+        self._click_tariff_dropdown_item(combo, wanted)
         shown = self._shown_tariff(combo.window_text() or "")
         if shown != wanted:
-            click(coords=(rect.right - 8, (rect.top + rect.bottom) // 2))
-            time.sleep(0.3)
-            send_keys(wanted)
-            send_keys("{ENTER}")
-            time.sleep(0.4)
-            shown = self._shown_tariff(combo.window_text() or "")
-
-        if shown != wanted:
             raise RuntimeError(
-                f"Tariff box still shows {shown or 'blank'}, needed {wanted}. Stopped before Pay."
+                f"Tariff dropdown still shows {shown or 'blank'}, needed {wanted}. Stopped before Pay."
             )
-        self.log(f"Tariff box now {wanted}.")
+        self.log(f"Tariff dropdown now {wanted}.")
 
-    def _read_amount(self, dlg) -> str:
-        _, edits = self._combo_and_edits(dlg)
-        box = None
-        for edit in edits:
-            name = (edit.element_info.name or "").lower()
-            if "payment amount" in name or "amount" in name:
-                box = edit
-                break
-        if box is None and edits:
-            box = edits[-2] if len(edits) >= 2 else edits[-1]
+    def _read_amount(self, dlg=None) -> str:
+        box = self._win32_amount_edit()
         if box is None:
             return ""
         raw = (box.window_text() or "").replace(",", "").strip()
         return raw.split(".")[0].replace(" ", "")
 
-    def _require_payment_matches(self, dlg, tariff: str, amount: str) -> None:
+    def _win32_apartment(self) -> str:
+        pay = self._win32_create_payment()
+        if pay is None:
+            return ""
+        for d in pay.descendants():
+            try:
+                if "EDIT" not in (d.class_name() or "").upper() or not d.is_visible():
+                    continue
+                text = (d.window_text() or "").strip()
+                if text.upper().startswith(("ES-", "WW-")):
+                    return text
+            except Exception:
+                continue
+        return ""
+
+    def _require_payment_matches(self, dlg, tariff: str, amount: str, apartment: str = "") -> None:
         wanted_t = tariff.strip().upper()
         wanted_a = str(amount).strip().replace(",", "").split(".")[0]
-        shown_t = self._read_tariff(dlg)
-        shown_a = self._read_amount(dlg)
+        shown_t = self._read_tariff()
+        shown_a = self._read_amount()
+        shown_apt = self._win32_apartment()
+        if apartment and apartment.strip().upper() not in shown_apt.upper():
+            raise RuntimeError(
+                f"Will not Pay: apartment is {shown_apt or 'blank'}, needed {apartment}."
+            )
         if shown_t != wanted_t:
             raise RuntimeError(
-                f"Will not Pay: tariff box is {shown_t or 'blank'}, needed {wanted_t}."
+                f"Will not Pay: tariff dropdown is {shown_t or 'blank'}, needed {wanted_t}."
             )
         if shown_a != wanted_a:
             raise RuntimeError(
                 f"Will not Pay: amount box is {shown_a or 'blank'}, needed {wanted_a}."
             )
-        self.log(f"Checked Create payment: {shown_t} {shown_a}.")
+        self.log(f"Double-checked Create payment: {shown_apt} {shown_t} {shown_a}.")
 
     def _set_amount(self, dlg, amount: str) -> None:
-        _, edits = self._combo_and_edits(dlg)
-        box = None
-        for edit in edits:
-            name = (edit.element_info.name or "").lower()
-            if "payment amount" in name or "amount" in name:
-                box = edit
-                break
-        if box is None and edits:
-            # Amount is the editable money field, not the date/readings.
-            box = edits[-2] if len(edits) >= 2 else edits[-1]
+        box = self._win32_amount_edit()
         if box is None:
             raise RuntimeError("Could not find Payment amount.")
-
+        wanted = str(amount).strip()
         click(coords=_center(box.rectangle()))
-        time.sleep(0.15)
-        send_keys("^a{BACKSPACE}")
         time.sleep(0.1)
-        send_keys(str(amount))
-        self.log(f"Entered payment amount {amount}.")
-        time.sleep(0.3)
+        try:
+            box.set_edit_text("")
+            box.set_edit_text(wanted)
+        except Exception:
+            send_keys("^a{BACKSPACE}")
+            send_keys(wanted)
+        time.sleep(0.2)
+        shown = self._read_amount()
+        if shown != wanted.split(".")[0]:
+            raise RuntimeError(
+                f"Amount box still shows {shown or 'blank'}, needed {wanted}. Stopped before Pay."
+            )
+        self.log(f"Amount box now {shown}.")
 
     def _click_dialog_pay(self, dlg) -> None:
         btn = dlg.child_window(title="Pay", control_type="Button")
@@ -440,7 +486,7 @@ class NovaSysRobot:
             dlg = self._create_payment_dialog()
             self._set_tariff(dlg, result.tariff)
             self._set_amount(dlg, result.amount)
-            self._require_payment_matches(dlg, result.tariff, result.amount)
+            self._require_payment_matches(dlg, result.tariff, result.amount, result.apartment)
 
             shot = self.screenshot("before-pay")
             result.screenshot = str(shot)
@@ -449,7 +495,7 @@ class NovaSysRobot:
                 self.log("Dry run: stopped before Pay. Check Create payment, then Cancel.")
                 result.ok = True
             else:
-                self._require_payment_matches(dlg, result.tariff, result.amount)
+                self._require_payment_matches(dlg, result.tariff, result.amount, result.apartment)
                 self._click_dialog_pay(dlg)
                 self._maximize_invoice()
                 shot = self.screenshot("receipt")

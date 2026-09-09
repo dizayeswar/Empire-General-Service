@@ -35,7 +35,7 @@ About 35 charges/day. Receipt is paper **and** on-screen Invoice preview. Receip
 - App: **NovaSys EnergySale** (leave it open; login not part of the robot)
 - T1 = national electricity (default). T2 = generator. Price change ignored.
 - Robot fields only: **Payment for tariff** and **Payment amount** (delete `0.00`, then type money)
-- Nova Create payment often opens on **T2**. Never trust a typed change. Read the tariff box (and amount) after setting. If it is not the needed T1/T2, **stop — do not Pay**.
+- Nova Create payment often opens on **T2**. Tariff is a **dropdown only** — never type T1/T2. Click the list, then **read** the box. Also read amount (and apartment). If anything is wrong, **stop — do not Pay**.
 - Pay dropdown: **Automatic** only (Manual is locked)
 - After Pay: Invoice / PAYMENT RECEIPT → Maximize (button next to X)
 - Confirm step required. Practice mode stops before Pay.
