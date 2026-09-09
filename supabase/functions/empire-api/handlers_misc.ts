@@ -409,6 +409,28 @@ function unpackAppIssueNote_(note: string): { note: string; problem: string; sol
   }
 }
 
+function parseAppIssuePhotos_(raw: unknown): string[] {
+  if (Array.isArray(raw)) {
+    return raw.map((u) => String(u || "").trim()).filter(Boolean);
+  }
+  const s = String(raw || "").trim();
+  if (!s) return [];
+  if (s.startsWith("[")) {
+    try {
+      const a = JSON.parse(s);
+      if (Array.isArray(a)) return parseAppIssuePhotos_(a);
+    } catch { /* ignore */ }
+  }
+  if (s.includes("\n")) return s.split(/\n+/).map((u) => u.trim()).filter(Boolean);
+  return [s];
+}
+
+function packAppIssuePhotos_(urls: string[]): string {
+  if (!urls.length) return "";
+  if (urls.length === 1) return urls[0];
+  return JSON.stringify(urls);
+}
+
 function parseAppIssueSeen_(raw: unknown): { username: string; at: string }[] {
   let v: unknown = raw;
   if (typeof v === "string") {
@@ -448,7 +470,8 @@ function appIssueToApi_(r: Record<string, unknown>) {
     note: packed.note,
     problem: String(r.problem || packed.problem || ""),
     solution: String(r.solution || packed.solution || ""),
-    photo: String(r.photo || ""),
+    photo: packAppIssuePhotos_(parseAppIssuePhotos_(r.photo)),
+    photos: parseAppIssuePhotos_(r.photo),
     status: String(r.status || "open").toLowerCase() === "fixed" ? "fixed" : "open",
     createdBy: String(r.created_by || ""),
     createdAt: r.created_at,
@@ -481,7 +504,7 @@ export async function handleAddApplicationIssue(body: Record<string, unknown>, a
   const problem = String(body.problem || "").trim();
   const solution = String(body.solution || "").trim();
   const phone = String(body.phone || "").replace(/\D/g, "");
-  const photo = String(body.photo || "").trim();
+  const photo = packAppIssuePhotos_(parseAppIssuePhotos_(body.photos ?? body.photo));
   if (kind === "customer" && !propertyId) {
     return { ok: false, success: false, error: "missing_apartment", message: "Pick an apartment for a customer issue." };
   }
@@ -606,6 +629,75 @@ export async function handleClearApplicationIssues(body: Record<string, unknown>
   return { ok: true, success: true, cleared: count };
 }
 
+function parseTrashRowJson_(raw: unknown): unknown {
+  let v: unknown = raw;
+  if (typeof v === "string") {
+    const t = v.trim();
+    if (!t) return raw;
+    try { v = JSON.parse(t); } catch { return raw; }
+  }
+  return v;
+}
+
+function unknownColumnName_(message: string): string {
+  const m = String(message || "").match(/Could not find the '([^']+)' column/i)
+    || String(message || "").match(/column ['\"]([^'\"]+)['\"] of relation/i)
+    || String(message || "").match(/\b([a-z_][a-z0-9_]*) does not exist/i);
+  return m ? m[1] : "";
+}
+
+async function upsertIgnoringUnknownColumns_(table: string, payload: Record<string, unknown>) {
+  let current = { ...payload };
+  let lastErr: { message?: string } | null = null;
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const { error } = await sb().from(table).upsert(current);
+    if (!error) return;
+    lastErr = error;
+    const col = unknownColumnName_(String(error.message || ""));
+    if (col && col in current) {
+      delete current[col];
+      continue;
+    }
+    const msg = String(error.message || "");
+    if (/seen_by/i.test(msg) && "seen_by" in current) { delete current.seen_by; continue; }
+    if (/phone/i.test(msg) && "phone" in current) { delete current.phone; continue; }
+    if (/problem|solution/i.test(msg) && ("problem" in current || "solution" in current)) {
+      delete current.problem;
+      delete current.solution;
+      continue;
+    }
+    throw error;
+  }
+  if (lastErr) throw lastErr;
+}
+
+function applicationIssueFromTrash_(raw: unknown): Record<string, unknown> | null {
+  const parsed = parseTrashRowJson_(raw);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+  const r = parsed as Record<string, unknown>;
+  const id = String(r.id || "").trim();
+  if (!id) return null;
+  const seenRaw = r.seen_by ?? r.seenBy;
+  return {
+    id,
+    num: Number(r.num || 0) || 0,
+    kind: String(r.kind || "customer") || "customer",
+    project: String(r.project || ""),
+    property_id: String(r.property_id || r.propertyId || ""),
+    note: String(r.note || ""),
+    photo: String(r.photo || ""),
+    status: String(r.status || "open") || "open",
+    created_by: String(r.created_by || r.createdBy || ""),
+    created_at: String(r.created_at || r.createdAt || ""),
+    fixed_by: String(r.fixed_by || r.fixedBy || ""),
+    fixed_at: String(r.fixed_at || r.fixedAt || ""),
+    phone: String(r.phone || "").replace(/\D/g, ""),
+    problem: String(r.problem || ""),
+    solution: String(r.solution || ""),
+    seen_by: typeof seenRaw === "string" ? seenRaw : JSON.stringify(parseAppIssueSeen_(seenRaw)),
+  };
+}
+
 export async function handleGetTrash(body: Record<string, unknown>) {
   const filter = body.sheets as string[] | null;
   const data = await selectAllRows("trash");
@@ -616,7 +708,7 @@ export async function handleGetTrash(body: Record<string, unknown>) {
     let preview = "";
     let meta: Record<string, unknown> = {};
     try {
-      const arr = row.row_json;
+      const arr = parseTrashRowJson_(row.row_json);
       if (Array.isArray(arr) && (src === "CivilIssues" || src === "ElectricIssues" || src === "FireIssues")) {
         meta = {
           num: Number(arr[15] || 0) || 0,
@@ -659,7 +751,7 @@ export async function handleGetTrash(body: Record<string, unknown>) {
         } else if (src === "ApplicationIssues") {
           const r = arr as Record<string, unknown>;
           const title = String(r.note || "").trim();
-          const apt = String(r.property_id || "").trim();
+          const apt = String(r.property_id || r.propertyId || "").trim();
           const kind = String(r.kind || "customer");
           const parts = [];
           if (apt) parts.push(apt);
@@ -669,7 +761,7 @@ export async function handleGetTrash(body: Record<string, unknown>) {
             propertyId: apt,
             issueType: title,
             project: String(r.project || ""),
-            photo: String(r.photo || ""),
+            photo: parseAppIssuePhotos_(r.photo)[0] || "",
             status: String(r.status || ""),
             kind,
             problem: String(r.problem || ""),
@@ -727,9 +819,13 @@ export async function handleRestoreTrash(body: Record<string, unknown>) {
     if (!match) continue;
     const table = SHEET_TO_TABLE[src];
     if (!table || table === "trash") continue;
-    const arr = row.row_json;
+    const arr = parseTrashRowJson_(row.row_json);
     try {
-      if (Array.isArray(arr) && (src === "CivilIssues" || src === "ElectricIssues" || src === "FireIssues" || src === "HseInspections")) {
+      if (src === "ApplicationIssues") {
+        const payload = applicationIssueFromTrash_(arr);
+        if (!payload) throw new Error("bad_application_issue");
+        await upsertIgnoringUnknownColumns_(table, payload);
+      } else if (Array.isArray(arr) && (src === "CivilIssues" || src === "ElectricIssues" || src === "FireIssues" || src === "HseInspections")) {
         // restore from sheet column array into object
         const obj: Record<string, unknown> = {
           id: String(arr[0] || ""),
@@ -765,15 +861,20 @@ export async function handleRestoreTrash(body: Record<string, unknown>) {
             transferred_by: String(arr[27] || ""),
           });
         }
-        await sb().from(table).upsert(obj);
+        await upsertIgnoringUnknownColumns_(table, obj);
       } else if (arr && typeof arr === "object" && !Array.isArray(arr)) {
-        await sb().from(table).upsert(arr as Record<string, unknown>);
+        await upsertIgnoringUnknownColumns_(table, arr as Record<string, unknown>);
+      } else {
+        throw new Error("bad_trash_row");
       }
       restored++;
-      toDelete.push(row.trash_id);
+      toDelete.push(String(row.trash_id || ""));
     } catch { /* skip bad rows */ }
   }
-  if (toDelete.length) await sb().from("trash").delete().in("trash_id", toDelete);
+  if (toDelete.length) await sb().from("trash").delete().in("trash_id", toDelete.filter(Boolean));
+  if (!restored) {
+    return { ok: false, success: false, restored: 0, error: "restore_failed", message: "Could not restore. The issue data did not match the table." };
+  }
   return { ok: true, success: true, restored };
 }
 

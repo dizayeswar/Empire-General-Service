@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-20-wh-signer">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-08-27-range-copy">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-09-08-bulk-done">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -248,10 +248,15 @@
         <div class="wh-app wh-saved-app">
           <div class="form-section">
             <h2>Saved Goods Issue Notes</h2>
-            <p class="wh-tab-help">Notes still in progress. Click <strong>Done</strong> when finished — they move to <strong>Assignment</strong>, then you can <strong>Assign</strong>.</p>
+            <p class="wh-tab-help">Notes still in progress. Click <strong>Done</strong> when finished — they move to <strong>Assignment</strong>, then you can <strong>Assign</strong>. Use <strong>Select</strong> to tick several notes and <strong>Done selected</strong> to finish them together.</p>
             <div class="wh-toolbar no-print" style="margin-bottom:12px;">
               <button type="button" onclick="whLoadSavedList()">Refresh</button>
               <button type="button" onclick="whStartNew()">New</button>
+              <button type="button" id="whSelectBtn" onclick="whToggleSelectMode_(true)" hidden>Select</button>
+              <span class="wh-select-count" id="whSelectCount" hidden>Select notes</span>
+              <button type="button" id="whSelectAllBtn" onclick="whSelectAllOpen_(true)" hidden>Select all</button>
+              <button type="button" id="whDoneSelectedBtn" class="wh-btn-done-selected" onclick="whMarkSelectedDone_()" hidden>Done selected</button>
+              <button type="button" id="whSelectCancelBtn" onclick="whToggleSelectMode_(false)" hidden>Cancel</button>
             </div>
             <div id="whSavedList">Loading…</div>
           </div>
@@ -594,6 +599,9 @@ var _whEsigPickFor = '';
 var _whSpFilter = 'both';
 var _whReceiverMode = false;
 var _whAssigneesCache = [];
+var _whSelectMode = false;
+var _whSelected = {};
+var _whBulkBusy = false;
 
 function whUiConfirm_(msg, opts){
   if(typeof uiConfirm==='function') return uiConfirm(msg, opts);
@@ -1927,10 +1935,17 @@ function whRenderSavedList(){
   whSetBadge('whSavedBadge', _whReceiverMode ? 0 : parts.openCount);
   whSetBadge('whDoneBadge', _whReceiverMode ? parts.doneCount : parts.unassignedCount);
   whSetBadge('whClosedBadge', parts.closedCount);
+  if(_whReceiverMode){
+    _whSelectMode=false;
+    _whSelected={};
+  }
+  whPruneSelected_();
 
   var savedBox=document.getElementById('whSavedList');
   if(savedBox && !_whReceiverMode){
     if(!parts.openCount){
+      _whSelectMode=false;
+      _whSelected={};
       savedBox.innerHTML = typeof empireEmptyHtml==='function'
         ? empireEmptyHtml('No open notes', 'Save a Goods Issue Note here, then click Done when finished.')
         : '<p>No open notes.</p>';
@@ -1942,6 +1957,8 @@ function whRenderSavedList(){
       savedBox.innerHTML=h;
     }
   }
+  whSyncSelectBar_(parts.openCount);
+  whSyncSelectUi_();
 
   var doneBox=document.getElementById('whDoneList');
   if(doneBox){
@@ -2089,6 +2106,7 @@ function whSavedSectionHtml_(title, items, mode){
   mode = mode===true ? 'assign' : (mode===false ? 'open' : String(mode||'open'));
   var isAssign=mode==='assign';
   var isClosed=mode==='closed';
+  var showSel=!!_whSelectMode && !isAssign && !isClosed && !_whReceiverMode;
   var h='<div class="wh-saved-section'+(isAssign||isClosed?' wh-saved-section-done':'')+'">'
     +'<h3 class="wh-saved-section-title">'+whEsc(title)
     +' <span class="wh-saved-section-count">('+items.length+')</span></h3>';
@@ -2098,12 +2116,15 @@ function whSavedSectionHtml_(title, items, mode){
     return h;
   }
   h+='<div class="wh-saved-table-wrap"><table class="wh-saved-table"><thead><tr>'
+    +(showSel?'<th class="wh-sel-col"><input type="checkbox" data-wh-sel-all="1" title="Select all in this list"></th>':'')
     +'<th>#</th><th>Date</th><th>Request No.</th><th>Requester</th><th>Property</th>'
     +((isAssign||isClosed)?'<th>Assigned</th>':'')
     +'<th></th>'
     +'</tr></thead><tbody>';
   items.forEach(function(it){
-    var id=whEsc(String(it.id||''));
+    var rawId=String(it.id||'');
+    var id=whEsc(rawId);
+    var picked=showSel && !!_whSelected[rawId];
     var acts='';
     if(isClosed){
       acts='<button type="button" data-wh-act="view" data-wh-id="'+id+'">View</button> '
@@ -2127,7 +2148,8 @@ function whSavedSectionHtml_(title, items, mode){
         +'<button type="button" data-wh-act="print" data-wh-id="'+id+'">Print</button> '
         +(_whReceiverMode?'':('<button type="button" data-wh-act="delete" data-wh-id="'+id+'">Delete</button> '));
     }
-    h+='<tr>'
+    h+='<tr'+(picked?' class="wh-row-selected"':'')+'>'
+      +(showSel?'<td class="wh-sel-col"><input type="checkbox" data-wh-sel="1" data-wh-id="'+id+'"'+(picked?' checked':'')+'></td>':'')
       +'<td>'+(it.num||'—')+'</td>'
       +'<td>'+whEsc(whFmtDate(it.requestDate)||it.requestDate||'—')+'</td>'
       +'<td>'+whEsc(it.requestNo||'—')+'</td>'
@@ -2160,10 +2182,224 @@ function whBindListClicks_(boxId){
     else if(act==='print') whPrintSaved(id);
     else if(act==='delete') whDeleteSaved(id);
   });
+  box.addEventListener('change', function(e){
+    var t=e.target;
+    if(!t || t.tagName!=='INPUT' || t.type!=='checkbox' || !box.contains(t)) return;
+    if(_whBulkBusy){
+      if(t.getAttribute('data-wh-sel')==='1') t.checked=!!_whSelected[t.getAttribute('data-wh-id')||''];
+      else whSyncSelectUi_();
+      return;
+    }
+    if(t.getAttribute('data-wh-sel-all')==='1') whToggleSectionSelect_(t);
+    else if(t.getAttribute('data-wh-sel')==='1') whToggleRowSelect_(t.getAttribute('data-wh-id')||'', t.checked);
+  });
 }
 function whBindSavedListClicks_(){ whBindListClicks_('whSavedList'); }
 function whBindDoneListClicks_(){ whBindListClicks_('whDoneList'); }
 function whBindClosedListClicks_(){ whBindListClicks_('whClosedList'); }
+function whOpenSelectableIds_(){
+  var parts=whPartitionSaved_();
+  return parts.openInternal.concat(parts.openExternal, parts.openOther).map(function(it){
+    return String(it && it.id || '');
+  }).filter(Boolean);
+}
+function whSelectedOpenIds_(){
+  var live=whOpenSelectableIds_();
+  var set={};
+  live.forEach(function(id){ set[id]=true; });
+  return Object.keys(_whSelected).filter(function(id){ return !!_whSelected[id] && !!set[id]; });
+}
+function whPruneSelected_(){
+  var live={};
+  whOpenSelectableIds_().forEach(function(id){
+    if(_whSelected[id]) live[id]=true;
+  });
+  _whSelected=live;
+}
+function whToggleSelectMode_(on){
+  if(_whBulkBusy) return;
+  _whSelectMode = on===undefined ? !_whSelectMode : !!on;
+  if(!_whSelectMode) _whSelected={};
+  whRenderSavedList();
+}
+function whToggleRowSelect_(id, checked){
+  if(_whBulkBusy) return;
+  id=String(id||'');
+  if(!id) return;
+  if(checked) _whSelected[id]=true;
+  else delete _whSelected[id];
+  whSyncSelectUi_();
+}
+function whToggleSectionSelect_(cb){
+  if(_whBulkBusy || !cb) return;
+  var on=!!cb.checked;
+  var table=cb.closest ? cb.closest('table') : null;
+  if(!table) return;
+  table.querySelectorAll('input[data-wh-sel]').forEach(function(el){
+    var id=el.getAttribute('data-wh-id')||'';
+    if(!id) return;
+    if(on) _whSelected[id]=true;
+    else delete _whSelected[id];
+  });
+  whSyncSelectUi_();
+}
+function whSelectAllOpen_(on){
+  if(_whBulkBusy) return;
+  var ids=whOpenSelectableIds_();
+  if(on===undefined){
+    on=ids.some(function(id){ return !_whSelected[id]; });
+  }
+  ids.forEach(function(id){
+    if(on) _whSelected[id]=true;
+    else delete _whSelected[id];
+  });
+  whSyncSelectUi_();
+}
+function whSyncSelectBar_(openCount){
+  if(openCount==null){
+    try { openCount=whPartitionSaved_().openCount; } catch(e){ openCount=0; }
+  }
+  var has= !_whReceiverMode && openCount>0;
+  var on=!!_whSelectMode && has;
+  if(!has && _whSelectMode){
+    _whSelectMode=false;
+    _whSelected={};
+    on=false;
+  }
+  var n=whSelectedOpenIds_().length;
+  var selBtn=document.getElementById('whSelectBtn');
+  var count=document.getElementById('whSelectCount');
+  var allBtn=document.getElementById('whSelectAllBtn');
+  var doneBtn=document.getElementById('whDoneSelectedBtn');
+  var cancel=document.getElementById('whSelectCancelBtn');
+  if(selBtn){
+    selBtn.hidden=!has || on;
+    selBtn.disabled=!!_whBulkBusy;
+  }
+  if(count){
+    count.hidden=!on;
+    count.textContent=n ? (n+' selected') : 'Select notes';
+  }
+  if(allBtn){
+    allBtn.hidden=!on;
+    allBtn.disabled=!!_whBulkBusy;
+  }
+  if(doneBtn){
+    doneBtn.hidden=!on;
+    doneBtn.disabled=!n || _whBulkBusy;
+  }
+  if(cancel){
+    cancel.hidden=!on;
+    cancel.disabled=!!_whBulkBusy;
+  }
+}
+function whSyncSelectUi_(){
+  var n=whSelectedOpenIds_().length;
+  var count=document.getElementById('whSelectCount');
+  if(count) count.textContent=n ? (n+' selected') : 'Select notes';
+  var doneBtn=document.getElementById('whDoneSelectedBtn');
+  if(doneBtn) doneBtn.disabled=!n || _whBulkBusy;
+  var savedBox=document.getElementById('whSavedList');
+  if(!savedBox) return;
+  savedBox.querySelectorAll('table.wh-saved-table').forEach(function(table){
+    var boxes=table.querySelectorAll('input[data-wh-sel]');
+    var all=table.querySelector('input[data-wh-sel-all]');
+    var checked=0;
+    boxes.forEach(function(el){
+      var id=el.getAttribute('data-wh-id')||'';
+      var picked=!!_whSelected[id];
+      el.checked=picked;
+      var tr=el.closest('tr');
+      if(tr) tr.classList.toggle('wh-row-selected', picked);
+      if(picked) checked++;
+    });
+    if(all){
+      all.checked=boxes.length>0 && checked===boxes.length;
+      all.indeterminate=checked>0 && checked<boxes.length;
+    }
+  });
+}
+function whApplyDoneLocal_(it){
+  if(!it) return;
+  var p=Object.assign({}, it.payload||{}, {
+    done:true,
+    status:'done',
+    doneAt:new Date().toISOString(),
+    doneBy: typeof empireGetUser==='function' ? empireGetUser() : ''
+  });
+  if(!p.requester) p.requester=it.requester||'';
+  if(!p.requestNo) p.requestNo=it.requestNo||'';
+  if(!p.requestDate) p.requestDate=it.requestDate||'';
+  if(!p.issueType) p.issueType=it.issueType||'';
+  if(!p.property) p.property=it.propertyCode||'';
+  it.payload=p;
+  it.done=true;
+  it.doneAt=p.doneAt;
+  it.doneBy=p.doneBy;
+  whLocalUpsert(it);
+  if(_whEditingId && String(it.id)===String(_whEditingId)){
+    whSetFormLocked(true);
+    var t=document.getElementById('whFormTitle');
+    if(t) t.textContent='Goods Issue Note (Done — view only)';
+  }
+}
+function whPostMarkDone_(id){
+  var token=typeof empireGetToken==='function' ? empireGetToken() : '';
+  return fetchJSONRetry({ action:'markWarehouseGinDone', token:token, id:String(id||'') }, 2, 30000).then(function(d){
+    if(!(d && (d.ok||d.success))) throw new Error((d && (d.message||d.error)) || 'Mark done failed');
+    return d;
+  });
+}
+function whMarkSelectedDone_(){
+  if(_whReceiverMode){ alert('Receiver accounts cannot mark notes Done.'); return; }
+  if(_whBulkBusy) return;
+  var ids=whSelectedOpenIds_();
+  if(!ids.length){
+    alert('Select at least one note first.');
+    return;
+  }
+  var msg=ids.length===1
+    ? 'Mark this Goods Issue Note as Done?\n\nIt will move to Assignment. You can Assign who signs Received by next.'
+    : 'Mark '+ids.length+' Goods Issue Notes as Done?\n\nThey will move to Assignment. You can Assign who signs Received by next.';
+  whUiConfirm_(msg).then(function(ok){
+    if(!ok) return;
+    _whBulkBusy=true;
+    var doneBtn=document.getElementById('whDoneSelectedBtn');
+    if(doneBtn){
+      doneBtn.disabled=true;
+      doneBtn.textContent='Working…';
+    }
+    whSyncSelectBar_();
+    var failed=[];
+    var jobs=ids.map(function(id){
+      var it=whFindSaved(id);
+      if(!it || whIsItemDone(it)) return Promise.resolve();
+      whApplyDoneLocal_(it);
+      return whPostMarkDone_(id).catch(function(err){
+        console.warn('markWarehouseGinDone', err);
+        failed.push(id);
+      });
+    });
+    Promise.all(jobs).finally(function(){
+      _whBulkBusy=false;
+      if(doneBtn) doneBtn.textContent='Done selected';
+      _whSelectMode=false;
+      _whSelected={};
+      whLoadSavedList();
+      if(!failed.length){
+        alert(ids.length===1
+          ? 'Moved to Assignment. Click Assign to choose who signs Received by.'
+          : 'Moved '+ids.length+' notes to Assignment. Click Assign to choose who signs Received by.');
+        whSwitchTab(null,'done');
+      } else {
+        var okCount=ids.length-failed.length;
+        alert(okCount
+          ? 'Marked '+okCount+' as Done. Could not save '+failed.length+' note'+(failed.length===1?'':'s')+' to the server.'
+          : 'Could not save Done to the server.');
+      }
+    });
+  });
+}
 function whFindSaved(id){
   id=String(id||'');
   for(var i=0;i<_whSavedCache.length;i++){
@@ -2329,6 +2565,7 @@ function whPickAssignee_(users){
 }
 function whMarkDone(id){
   if(_whReceiverMode){ alert('Receiver accounts cannot mark notes Done.'); return; }
+  if(_whBulkBusy) return;
   id=String(id||'');
   var it=whFindSaved(id);
   if(!it){ alert('Note not found.'); return; }
@@ -2338,31 +2575,8 @@ function whMarkDone(id){
   }
   whUiConfirm_('Mark this Goods Issue Note as Done?\n\nIt will move to Assignment. You can Assign who signs Received by next.').then(function(ok){
     if(!ok) return;
-    var p=Object.assign({}, it.payload||{}, {
-      done:true,
-      status:'done',
-      doneAt:new Date().toISOString(),
-      doneBy: typeof empireGetUser==='function' ? empireGetUser() : ''
-    });
-    if(!p.requester) p.requester=it.requester||'';
-    if(!p.requestNo) p.requestNo=it.requestNo||'';
-    if(!p.requestDate) p.requestDate=it.requestDate||'';
-    if(!p.issueType) p.issueType=it.issueType||'';
-    if(!p.property) p.property=it.propertyCode||'';
-    it.payload=p;
-    it.done=true;
-    it.doneAt=p.doneAt;
-    it.doneBy=p.doneBy;
-    whLocalUpsert(it);
-    if(_whEditingId===id){
-      whSetFormLocked(true);
-      var t=document.getElementById('whFormTitle');
-      if(t) t.textContent='Goods Issue Note (Done — view only)';
-    }
-    var token=typeof empireGetToken==='function' ? empireGetToken() : '';
-    fetchJSONRetry({ action:'markWarehouseGinDone', token:token, id:id }, 2, 30000).then(function(d){
-      if(!(d && (d.ok||d.success))) throw new Error((d && (d.message||d.error)) || 'Mark done failed');
-    }).catch(function(err){
+    whApplyDoneLocal_(it);
+    whPostMarkDone_(id).catch(function(err){
       console.warn('markWarehouseGinDone', err);
       alert('Could not save Done to server: '+(err && err.message ? err.message : err));
     }).finally(function(){

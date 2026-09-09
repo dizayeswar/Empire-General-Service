@@ -14,6 +14,38 @@
 }
 .wh-toolbar .wh-spacer { flex: 1; }
 .wh-toolbar button { font-family: inherit; cursor: pointer; }
+.wh-select-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-soft, #666);
+}
+.wh-btn-done-selected {
+  color: #1b5e20 !important;
+  border-color: #81c784 !important;
+  background: #e8f5e9 !important;
+}
+.wh-btn-done-selected:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+.wh-sel-col {
+  width: 36px;
+  text-align: center;
+  vertical-align: middle;
+}
+.wh-sel-col input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent2, #8d015d);
+  cursor: pointer;
+}
+.wh-saved-table tbody tr.wh-row-selected td {
+  background: rgba(141, 1, 93, 0.08);
+}
+.wh-saved-table tbody tr.wh-row-selected:hover td {
+  background: rgba(141, 1, 93, 0.12);
+}
 .wh-autosave-status {
   font-size: 12px;
   font-weight: 600;
@@ -192,6 +224,18 @@ html[data-theme="dark"] .wh-saved-table th {
   background: #0d4a85;
   color: #e8eef6;
 }
+html[data-theme="dark"] .wh-select-count { color: #b0bec5; }
+html[data-theme="dark"] .wh-btn-done-selected {
+  color: #c8e6c9 !important;
+  border-color: #2e7d32 !important;
+  background: rgba(46, 125, 50, 0.35) !important;
+}
+html[data-theme="dark"] .wh-saved-table tbody tr.wh-row-selected td {
+  background: rgba(141, 1, 93, 0.28);
+}
+html[data-theme="dark"] .wh-saved-table tbody tr.wh-row-selected:hover td {
+  background: rgba(141, 1, 93, 0.38);
+}
 html[data-theme="dark"] .wh-saved-table tbody tr:hover td {
   background: rgba(160, 50, 125, 0.22);
 }
@@ -247,6 +291,13 @@ body.wh-receiver-mode #tab-wh-sigs,
 body.wh-receiver-mode #tab-wh-done,
 body.wh-receiver-mode #tab-wh-closed {
   display: flex !important;
+}
+body.wh-receiver-mode #whSelectBtn,
+body.wh-receiver-mode #whSelectAllBtn,
+body.wh-receiver-mode #whDoneSelectedBtn,
+body.wh-receiver-mode #whSelectCancelBtn,
+body.wh-receiver-mode #whSelectCount {
+  display: none !important;
 }
 body.wh-receiver-mode .wh-toolbar button[onclick="whStartNew()"],
 body.wh-receiver-mode .wh-toolbar button[onclick="whClearForm()"],

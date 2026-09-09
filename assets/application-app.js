@@ -62,8 +62,9 @@ var _appPendingDaily = null;
 var _appPendingDailyLoading = null;
 var _appIssues = [];
 var _appIssueKind = 'customer';
-var _appIssuePhotoUrl = '';
-var _appIssuePhotoUploading = false;
+var _appIssuePhotoUrls = [];
+var _appIssuePhotoUploading = 0;
+var APP_ISSUE_PHOTO_MAX = 12;
 var _appIssueSuggestIndex = -1;
 var _appIssueTitleSuggestIndex = -1;
 var _appIssueInfoId = '';
@@ -1031,11 +1032,8 @@ function appIssueIsNew_(id) {
   if (!id) return false;
   var r = appIssueFind_(id);
   var user = appIssueCurrentUser_().toLowerCase();
-  if (user && appIssueSeenUsernames_(r).some(function (n) { return n.toLowerCase() === user; })) {
-    return false;
-  }
-  var map = appIssueSeenMap_();
-  return !map[String(id)];
+  if (!r || !user) return !appIssueSeenMap_()[String(id)];
+  return !appIssueSeenUsernames_(r).some(function (n) { return n.toLowerCase() === user; });
 }
 
 function appIssueMarkSeen_(id) {
@@ -1096,6 +1094,8 @@ function appIssueUnpack_(r) {
   r.note = note;
   r.problem = problem;
   r.solution = solution;
+  r.photos = appIssueParsePhotos_(r.photos || r.photo);
+  r.photo = appIssuePackPhotos_(r.photos);
   r.seenBy = appIssueNormalizeSeen_(r.seenBy);
   var user = appIssueCurrentUser_().toLowerCase();
   if (user && r.seenBy.some(function (s) { return s.username.toLowerCase() === user; })) {
@@ -1313,49 +1313,117 @@ function appIssueResolveProject_(propertyId) {
   return '';
 }
 
+function appIssueParsePhotos_(raw) {
+  if (Array.isArray(raw)) {
+    return raw.map(function (u) { return String(u || '').trim(); }).filter(Boolean);
+  }
+  var s = String(raw || '').trim();
+  if (!s) return [];
+  if (s.charAt(0) === '[') {
+    try {
+      var a = JSON.parse(s);
+      if (Array.isArray(a)) return appIssueParsePhotos_(a);
+    } catch (e) {}
+  }
+  if (s.indexOf('\n') >= 0) {
+    return s.split(/\n+/).map(function (u) { return u.trim(); }).filter(Boolean);
+  }
+  return [s];
+}
+
+function appIssuePackPhotos_(urls) {
+  var list = appIssueParsePhotos_(urls);
+  if (!list.length) return '';
+  if (list.length === 1) return list[0];
+  return JSON.stringify(list);
+}
+
 function appIssuePickPhoto_(ev) {
-  var file = ev.target.files && ev.target.files[0];
+  var files = ev.target.files ? Array.prototype.slice.call(ev.target.files) : [];
   ev.target.value = '';
-  appIssueUploadPhoto_(file);
+  files.forEach(function (file) {
+    if (file && String(file.type || '').indexOf('image') === 0) appIssueUploadPhoto_(file);
+  });
 }
 
 function appIssuePastePhoto_(ev) {
+  var files = [];
   var items = ev.clipboardData && ev.clipboardData.items;
-  if (!items) return;
-  for (var i = 0; i < items.length; i++) {
-    if (items[i].type && items[i].type.indexOf('image') !== -1) {
-      ev.preventDefault();
-      appIssueUploadPhoto_(items[i].getAsFile());
-      return;
+  if (items) {
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].type && items[i].type.indexOf('image') !== -1) {
+        var f = items[i].getAsFile();
+        if (f) files.push(f);
+      }
     }
   }
+  if (!files.length && ev.clipboardData && ev.clipboardData.files) {
+    for (var j = 0; j < ev.clipboardData.files.length; j++) {
+      if (String(ev.clipboardData.files[j].type || '').indexOf('image') === 0) {
+        files.push(ev.clipboardData.files[j]);
+      }
+    }
+  }
+  if (!files.length) return;
+  ev.preventDefault();
+  files.forEach(appIssueUploadPhoto_);
+}
+
+function appIssueRemovePhoto_(idx) {
+  _appIssuePhotoUrls.splice(idx, 1);
+  appIssueRenderPhotos_();
+}
+
+function appIssueRenderPhotos_() {
+  var host = document.getElementById('appIssuePhotoPreview');
+  var status = document.getElementById('appIssuePhotoStatus');
+  var area = document.getElementById('appIssuePasteArea');
+  var n = _appIssuePhotoUrls.length;
+  var uploading = _appIssuePhotoUploading > 0;
+  if (status) {
+    if (uploading) status.textContent = n ? (n + ' ready — uploading more…') : 'Uploading photo…';
+    else status.textContent = n ? (n + ' photo' + (n === 1 ? '' : 's') + ' ready') : '';
+  }
+  if (area) {
+    if (uploading) area.textContent = 'Uploading photo…';
+    else if (n) area.textContent = 'Paste or add another picture';
+    else area.textContent = 'Click here and paste pictures (Ctrl+V) — you can add more than one';
+  }
+  if (!host) return;
+  if (!n) {
+    host.innerHTML = '';
+    host.hidden = true;
+    return;
+  }
+  host.hidden = false;
+  host.innerHTML = _appIssuePhotoUrls.map(function (url, i) {
+    return '<span class="app-issue-photo-chip">'
+      + '<img src="' + appEsc_(url) + '" alt="" onclick="appOpenImg_(this.src)">'
+      + '<button type="button" class="app-issue-photo-remove" title="Remove" onclick="event.stopPropagation();appIssueRemovePhoto_(' + i + ')">×</button>'
+      + '</span>';
+  }).join('');
 }
 
 function appIssueUploadPhoto_(file) {
   if (!file) return;
-  var status = document.getElementById('appIssuePhotoStatus');
-  var preview = document.getElementById('appIssuePhotoPreview');
-  var area = document.getElementById('appIssuePasteArea');
-  if (status) status.textContent = 'Uploading photo…';
-  if (area) area.textContent = 'Uploading photo…';
-  _appIssuePhotoUploading = true;
-  if (typeof empireCompressImage !== 'function') {
-    _appIssuePhotoUploading = false;
-    if (status) status.textContent = 'Photo upload is not available.';
-    if (area) area.textContent = 'Click here and paste a picture (Ctrl+V)';
+  if (_appIssuePhotoUrls.length + _appIssuePhotoUploading >= APP_ISSUE_PHOTO_MAX) {
+    appNote_('You can add up to ' + APP_ISSUE_PHOTO_MAX + ' pictures on one issue.');
     return;
   }
+  if (typeof empireCompressImage !== 'function') {
+    appNote_('Photo upload is not available.');
+    return;
+  }
+  _appIssuePhotoUploading += 1;
+  appIssueRenderPhotos_();
   empireCompressImage(file, 'application-issues', function (url) {
-    _appIssuePhotoUploading = false;
-    if (url) {
-      _appIssuePhotoUrl = url;
-      if (status) status.textContent = 'Photo ready';
-      if (area) area.textContent = 'Picture pasted — click to replace, or paste again';
-      if (preview) { preview.src = url; preview.hidden = false; }
-    } else {
+    _appIssuePhotoUploading = Math.max(0, _appIssuePhotoUploading - 1);
+    if (url) _appIssuePhotoUrls.push(url);
+    else if (!_appIssuePhotoUrls.length && _appIssuePhotoUploading === 0) {
+      var status = document.getElementById('appIssuePhotoStatus');
       if (status) status.textContent = (_lastEmpireUploadError || 'Photo upload failed');
-      if (area) area.textContent = 'Click here and paste a picture (Ctrl+V)';
     }
+    appIssueRenderPhotos_();
   }, { maxSize: 1400, quality: 0.7 });
 }
 
@@ -1365,18 +1433,14 @@ function appIssueClearForm_() {
   var note = document.getElementById('appIssueNote');
   var problem = document.getElementById('appIssueProblem');
   var solution = document.getElementById('appIssueSolution');
-  var status = document.getElementById('appIssuePhotoStatus');
-  var preview = document.getElementById('appIssuePhotoPreview');
   if (apt) apt.value = '';
   if (phone) phone.value = '';
   if (note) note.value = '';
   if (problem) problem.value = '';
   if (solution) solution.value = '';
-  if (status) status.textContent = '';
-  if (preview) { preview.hidden = true; preview.src = ''; }
-  var area = document.getElementById('appIssuePasteArea');
-  if (area) area.textContent = 'Click here and paste a picture (Ctrl+V)';
-  _appIssuePhotoUrl = '';
+  _appIssuePhotoUrls = [];
+  _appIssuePhotoUploading = 0;
+  appIssueRenderPhotos_();
   appIssueHideSuggest_();
   appIssueHideTitleSuggest_();
 }
@@ -1416,7 +1480,7 @@ function appIssueAutocorrect_(el, fromBlur) {
 }
 
 function appIssueAdd_() {
-  if (_appIssuePhotoUploading) {
+  if (_appIssuePhotoUploading > 0) {
     appNote_('Wait for the photo to finish uploading.');
     return;
   }
@@ -1444,7 +1508,7 @@ function appIssueAdd_() {
     problem: problem,
     solution: solution,
     phone: phone,
-    photo: _appIssuePhotoUrl || ''
+    photo: appIssuePackPhotos_(_appIssuePhotoUrls)
   }, 2, 45000).then(function (d) {
     if (!d || d.ok === false) {
       appNote_((d && (d.message || d.error)) || 'Could not save issue');
@@ -1452,7 +1516,6 @@ function appIssueAdd_() {
     }
     if (d.issue) {
       var saved = appIssueUnpack_(d.issue);
-      appIssueMarkSeen_(saved.id);
       _appIssues.unshift(saved);
     }
     else appIssueLoad_(true);
@@ -1550,13 +1613,18 @@ function appIssueInfoHtml_(r) {
   var open = String(r.status || '') !== 'fixed';
   var apt = String(r.propertyId || '').trim() || 'No apartment';
   var phone = appIssueDisplayPhone_(r);
+  var photos = appIssueParsePhotos_(r.photos || r.photo);
   var photoHtml = '';
-  if (r.photo) {
-    if (typeof empireThumbImgHtml === 'function') {
-      photoHtml = empireThumbImgHtml(r.photo, 'app-issue-thumb', '', 640).replace('<img ', '<img onclick="appOpenImg_(this.dataset.full||this.src)" ');
-    } else {
-      photoHtml = '<img class="app-issue-thumb" src="' + appEsc_(r.photo) + '" alt="" onclick="appOpenImg_(this.src)">';
-    }
+  if (photos.length) {
+    photoHtml = '<div class="app-issue-info-photos">';
+    photos.forEach(function (url) {
+      if (typeof empireThumbImgHtml === 'function') {
+        photoHtml += empireThumbImgHtml(url, 'app-issue-thumb', '', 640).replace('<img ', '<img onclick="appOpenImg_(this.dataset.full||this.src)" ');
+      } else {
+        photoHtml += '<img class="app-issue-thumb" src="' + appEsc_(url) + '" alt="" onclick="appOpenImg_(this.src)">';
+      }
+    });
+    photoHtml += '</div>';
   }
   var h = '<div class="app-detail-grid">'
     + '<div class="app-detail-card"><label>Apartment</label><span>' + appEsc_(apt) + '</span></div>'
@@ -1709,6 +1777,27 @@ function appToggleSettings_(e) {
   panel.hidden = !open;
 }
 
+function appRbNormalizeItem_(it) {
+  if (!it || typeof it !== 'object') return it || {};
+  var out = it;
+  var preview = String(it.issueType || it.preview || '').trim();
+  if (preview.charAt(0) === '{') {
+    try {
+      var o = JSON.parse(preview);
+      if (o && typeof o === 'object') {
+        out = Object.assign({}, it);
+        if (!out.propertyId) out.propertyId = o.property_id || o.propertyId || '';
+        if (!out.issueType || String(out.issueType).charAt(0) === '{') out.issueType = o.note || '';
+        if (!out.kind) out.kind = o.kind || 'customer';
+        if (!out.status) out.status = o.status || '';
+        if (!out.phone) out.phone = o.phone || '';
+        if (!out.photo) out.photo = o.photo || '';
+      }
+    } catch (e) {}
+  }
+  return out;
+}
+
 function appRbOpen_() {
   var m = document.getElementById('appRbModal');
   if (m) m.classList.add('show');
@@ -1721,13 +1810,15 @@ function appRbClose_() {
 }
 
 function appRbItemHtml_(it) {
+  it = appRbNormalizeItem_(it);
   var when = appFormatDateTime_(it.deletedAt);
   var how = it.reason === 'reset' ? 'Reset' : 'Delete';
   var title = appEsc_(it.issueType || it.preview || 'Issue');
   var apt = appEsc_(it.propertyId || '');
   var kind = String(it.kind || 'customer') === 'portal' ? 'Portal' : 'Customer';
   var tid = appEsc_(it.trashId);
-  var photo = String(it.photo || '').trim();
+  var photo = appIssueParsePhotos_(it.photo)[0] || String(it.photo || '').trim();
+  if (photo.charAt(0) === '[') photo = '';
   var thumb = photo
     ? '<img class="rb-thumb" src="' + appEsc_(photo) + '" alt="" loading="lazy" onclick="appOpenImg_(this.src)">'
     : '';
@@ -1777,6 +1868,7 @@ function appRbRestore_(id) {
       token: appToken_()
     }, 1, 30000).then(function (d) {
       if (d && d.ok === false) throw new Error(d.message || d.error || 'Restore failed');
+      if (!d.restored) throw new Error(d.message || 'Could not restore this issue.');
       appRbLoad_();
       appIssueLoad_(true);
     }).catch(function (e) {
@@ -1812,6 +1904,7 @@ function appRbRestoreAll_() {
       token: appToken_()
     }, 1, 60000).then(function (d) {
       if (d && d.ok === false) throw new Error(d.message || d.error || 'Restore failed');
+      if (!d.restored) throw new Error(d.message || 'Could not restore the issues.');
       appRbLoad_();
       appIssueLoad_(true);
     }).catch(function (e) {
