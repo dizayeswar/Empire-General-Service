@@ -348,6 +348,8 @@ Deno.serve(async (req) => {
       case "getChargingRetryQueue": return json(await charging.handleGetChargingRetryQueue(body, a));
       case "saveChargingRequest": return json(await charging.handleSaveChargingRequest(body, a));
       case "requestChargingRetry": return json(await charging.handleRequestChargingRetry(body, a));
+      case "deleteChargingRequest": return json(await charging.handleDeleteChargingRequest(body, a));
+      case "clearChargingRequests": return json(await charging.handleClearChargingRequests(body, a));
 
       case "getTrash": return json(await misc.handleGetTrash(body));
       case "restoreTrash": return json(await misc.handleRestoreTrash(body));

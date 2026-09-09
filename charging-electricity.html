@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="manifest" href="manifest.webmanifest?v=2026-09-09-chg-dash">
+<link rel="manifest" href="manifest.webmanifest?v=2026-09-09-chg-bin">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Charging Electricity — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-09-09-chg-dash">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-09-chg-dash">
-<link rel="stylesheet" href="assets/empire-charging.css?v=2026-09-09-chg-dash">
+<link rel="stylesheet" href="assets/empire.css?v=2026-09-09-chg-bin">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-09-chg-bin">
+<link rel="stylesheet" href="assets/empire-charging.css?v=2026-09-09-chg-bin">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -58,11 +58,16 @@
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
           <span class="lbl">Charged</span>
         </button>
+        <button class="tab-btn" id="chgBinTabBtn" onclick="chgSwitchTab_(event,'bin')" style="display:none;">
+          <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 19H4.815a1.83 1.83 0 0 1-1.57-.881 1.785 1.785 0 0 1-.004-1.784L7.196 9.5"/><path d="M11 19h8.203a1.83 1.83 0 0 0 1.556-.89 1.784 1.784 0 0 0 0-1.775l-1.226-2.12"/><path d="m14 16-3 3 3 3"/><path d="M8.293 13.596 7.196 9.5 3.1 10.598"/><path d="m9.344 5.811 1.093-1.892A1.83 1.83 0 0 1 11.985 3a1.784 1.784 0 0 1 1.546.888l3.943 6.843"/><path d="m13.378 9.633 4.096 1.098 1.097-4.096"/></svg></span>
+          <span class="lbl">Recycle Bin</span>
+        </button>
       </nav>
       <div class="side-actions">
         <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle theme"><span class="nav-icon theme-icon"></span> <span class="lbl">Theme</span></button>
         <button onclick="chgLoad_(true)"><span class="nav-icon spin-icon" id="navRefreshIcon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> <span class="lbl">Refresh</span></button>
         <button onclick="location.href='index.html'"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg></span> <span class="lbl">Hub</span></button>
+        <button type="button" id="chgResetBtn" onclick="chgOpenResetModal_()" style="display:none;color:#fff;background:#C5734F;border-color:#C5734F;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 5H3"/><path d="M7 12H3"/><path d="M7 19H3"/><path d="M12 18a5 5 0 0 0 9-3 4.5 4.5 0 0 0-4.5-4.5c-1.33 0-2.54.54-3.41 1.41L11 14"/><path d="M11 10v4h4"/></svg></span> <span class="lbl">Reset Data</span></button>
         <button onclick="chgLogout_()" style="color:#fff;background:#C5504F;border-color:#C5504F;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg></span> <span class="lbl">Logout</span></button>
       </div>
     </aside>
@@ -81,7 +86,7 @@
           <div class="chg-toolbar">
             <div class="form-group chg-search-wrap">
               <label for="chgSearch">Search</label>
-              <input id="chgSearch" type="search" placeholder="RU, unit, note…" autocomplete="off" oninput="chgRender_()">
+              <input id="chgSearch" class="chg-search" type="search" placeholder="RU, unit, note…" autocomplete="off" oninput="chgRender_()">
             </div>
             <div class="form-group">
               <label for="chgFilterType">Electricity</label>
@@ -131,6 +136,23 @@
           <div id="chgChargedList"></div>
         </div>
       </div>
+
+      <div id="bin" class="tab-content">
+        <div class="form-section chg-desk">
+          <div class="chg-head">
+            <div>
+              <h2>Recycle Bin</h2>
+              <p class="chg-lead">Deleted charge rows. Restore puts them back on the dashboard. Empty bin deletes them forever.</p>
+            </div>
+            <div class="chg-bin-acts">
+              <button type="button" onclick="chgRbLoad_(true)">Refresh</button>
+              <button type="button" class="chg-restore-all" onclick="chgRbRestoreAll_()">Restore all</button>
+              <button type="button" class="chg-empty-bin" onclick="chgRbEmpty_()">Empty bin</button>
+            </div>
+          </div>
+          <div id="chgRbList"></div>
+        </div>
+      </div>
       <footer>Prepared by <strong>Swar Dizayee</strong></footer>
     </div>
   </div>
@@ -146,12 +168,26 @@
   <img id="chgLightboxImg" alt="Invoice">
 </div>
 
-<script src="config.js?v=2026-09-09-chg-dash"></script>
-<script src="assets/empire-api.js?v=2026-09-09-chg-dash"></script>
-<script src="assets/empire-auth.js?v=2026-09-09-chg-dash"></script>
-<script src="assets/empire-core.js?v=2026-09-09-chg-dash"></script>
-<script src="assets/empire-storage.js?v=2026-09-09-chg-dash"></script>
-<script src="assets/empire-sw-update.js?v=2026-09-09-chg-dash"></script>
-<script src="assets/empire-charging.js?v=2026-09-09-chg-dash"></script>
+<div class="modal" id="chgResetModal" onclick="if(event.target===this)chgCloseResetModal_()" style="display:none;z-index:1600;">
+  <div class="modal-box" style="max-width:460px;">
+    <h2 style="margin:0 0 10px;color:var(--text);">Reset charging data</h2>
+    <p style="color:var(--text-soft);font-size:14px;margin:0 0 14px;line-height:1.5;">Moves <strong>every RU</strong> into the Recycle Bin. You can restore them from there. This does not take money and does not change Nova.</p>
+    <label style="color:var(--text);font-weight:600;font-size:14px;">Reset password</label>
+    <input type="password" id="chgResetPwInput" placeholder="Enter password" onkeydown="if(event.key==='Enter')chgDoReset_()" style="width:100%;margin-top:6px;padding:12px 18px;border:2px solid var(--input-border);border-radius:999px;background:var(--input-bg);color:var(--text);font-size:14px;box-sizing:border-box;">
+    <div id="chgResetMsg" style="min-height:18px;margin-top:10px;font-size:13px;font-weight:600;"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+      <button type="button" onclick="chgCloseResetModal_()">Cancel</button>
+      <button type="button" onclick="chgDoReset_()" style="color:#fff;background:#C5504F;border-color:#C5504F;">Move all to Recycle Bin</button>
+    </div>
+  </div>
+</div>
+
+<script src="config.js?v=2026-09-09-chg-bin"></script>
+<script src="assets/empire-api.js?v=2026-09-09-chg-bin"></script>
+<script src="assets/empire-auth.js?v=2026-09-09-chg-bin"></script>
+<script src="assets/empire-core.js?v=2026-09-09-chg-bin"></script>
+<script src="assets/empire-storage.js?v=2026-09-09-chg-bin"></script>
+<script src="assets/empire-sw-update.js?v=2026-09-09-chg-bin"></script>
+<script src="assets/empire-charging.js?v=2026-09-09-chg-bin"></script>
 </body>
 </html>

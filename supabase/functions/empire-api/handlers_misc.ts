@@ -768,6 +768,25 @@ export async function handleGetTrash(body: Record<string, unknown>) {
             solution: String(r.solution || ""),
             phone: String(r.phone || ""),
           };
+        } else if (src === "ChargingRequests") {
+          const r = arr as Record<string, unknown>;
+          const ru = String(r.ru || "").trim();
+          const unit = String(r.unit_id || r.unitId || "").trim();
+          const status = String(r.status || "").trim();
+          const amount = String(r.amount || "").trim();
+          const parts = [];
+          if (ru) parts.push(ru);
+          if (unit) parts.push(unit);
+          if (status) parts.push(status);
+          if (amount) parts.push(amount);
+          preview = parts.join(" · ") || "Charge request";
+          meta = {
+            ru,
+            unitId: unit,
+            status,
+            amount,
+            invoiceUrl: String(r.invoice_url || r.invoiceUrl || ""),
+          };
         } else if (src === "HrLeaveRequests") {
           const r = arr as Record<string, unknown>;
           const name = String(r.emp_name || "").trim();

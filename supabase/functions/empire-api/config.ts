@@ -222,6 +222,8 @@ export const DEPT_BY_ACTION: Record<string, string> = {
   getChargingRetryQueue: "charging",
   saveChargingRequest: "charging",
   requestChargingRetry: "charging",
+  deleteChargingRequest: "charging",
+  clearChargingRequests: "charging",
 };
 
 export const TRASH_ACTIONS: Record<string, number> = {

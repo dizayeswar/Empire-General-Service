@@ -1,5 +1,6 @@
 /* Charging Electricity — live charge log dashboard */
 
+var CHG_TRASH_SHEETS = ['ChargingRequests'];
 var CHG_DEPT = 'charging';
 var CHG_ROWS_ = [];
 var CHG_COUNTS_ = { total: 0, charged: 0, waiting: 0, retryQueued: 0 };
@@ -46,6 +47,8 @@ function chgSwitchTab_(event, tab) {
     CHG_FILTER_KPI_ = '';
     var st3 = document.getElementById('chgFilterStatus');
     if (st3) st3.value = '';
+  } else if (tab === 'bin') {
+    chgRbLoad_(true);
   }
   chgRender_();
 }
@@ -58,6 +61,7 @@ function chgEnterApp_() {
   if (typeof empireAuthMarkLoginVisible === 'function') empireAuthMarkLoginVisible(false);
   var who = document.getElementById('whoLabel');
   if (who) who.textContent = 'Logged in as: ' + (empireGetUser() || '');
+  chgShowStaffTools_();
   chgLoad_(true);
   chgStartAutoRefresh_();
 }
@@ -234,11 +238,15 @@ function chgRowOpen_(id) {
     ? '<img class="chg-invoice-full" src="' + chgEsc_(inv) + '" alt="Invoice" onclick="chgOpenLightboxRow_(\'' + safeId + '\')">'
     : '<div class="chg-invoice-missing">No invoice picture — this RU was not charged.</div>';
   var retryBtn = '';
+  var delBtn = '';
   if (chgCanWrite_() && chgIsWaiting_(row) && !row.retryRequested) {
     var ru = chgSafeRu_(row.ru);
     if (ru) {
       retryBtn = '<button type="button" class="chg-retry-btn" onclick="chgRetryOne_(\'' + ru + '\')">Queue this RU for retry</button>';
     }
+  }
+  if (chgCanWrite_() && safeId) {
+    delBtn = '<button type="button" class="chg-del-btn" onclick="chgDeleteOne_(\'' + safeId + '\')">Move to Recycle Bin</button>';
   }
   drawer.innerHTML =
     '<div class="chg-drawer-bar"><div><h3 id="chgDrawerTitle">' + chgEsc_(row.ru) + '</h3>' +
@@ -256,7 +264,7 @@ function chgRowOpen_(id) {
     '<dt>Saved by</dt><dd>' + chgEsc_(row.createdBy || '—') + '</dd>' +
     '</dl>' +
     invoiceBlock +
-    '<div class="chg-drawer-acts">' + retryBtn + '</div>';
+    '<div class="chg-drawer-acts">' + retryBtn + delBtn + '</div>';
   root.hidden = false;
 }
 
@@ -450,6 +458,254 @@ function chgTryFailedAgain_() {
   });
 }
 
+function chgShowStaffTools_() {
+  var show = chgCanWrite_();
+  var binTab = document.getElementById('chgBinTabBtn');
+  var reset = document.getElementById('chgResetBtn');
+  if (binTab) binTab.style.display = show ? '' : 'none';
+  if (reset) reset.style.display = show ? '' : 'none';
+}
+
+function chgSafeTrashId_(id) {
+  var s = String(id || '');
+  return /^[a-zA-Z0-9-]+$/.test(s) ? s : '';
+}
+
+function chgRbItems_(d) {
+  if (Array.isArray(d)) return d;
+  if (d && Array.isArray(d.items)) return d.items;
+  return [];
+}
+
+function chgRbItemHtml_(it) {
+  var tid = chgSafeTrashId_(it.trashId);
+  if (!tid) return '';
+  var when = chgFormatDt_(it.deletedAt);
+  var how = it.reason === 'reset'
+    ? '<span class="rb-how reset">Reset</span>'
+    : '<span class="rb-how">Delete</span>';
+  var st = String(it.status || '');
+  var status = st
+    ? '<span class="chg-pill ' + chgEsc_(st) + '">' + chgEsc_(chgStatusLabel_(st)) + '</span>'
+    : '';
+  var locParts = [];
+  if (it.unitId) locParts.push(String(it.unitId));
+  if (it.amount) locParts.push(chgFormatAmt_(it.amount));
+  var loc = chgEsc_(locParts.join(' · '));
+  return '<div class="rb-item">'
+    + '<div class="rb-body">'
+    + '<div class="rb-title">' + chgEsc_(it.ru || it.preview || 'Charge request') + ' ' + status + '</div>'
+    + (loc ? '<div class="rb-loc">' + loc + '</div>' : '')
+    + '<div class="rb-meta">' + chgEsc_(when) + (it.deletedBy ? (' · ' + chgEsc_(it.deletedBy)) : '') + ' · ' + how + '</div>'
+    + '</div>'
+    + '<div class="rb-actions">'
+    + '<button type="button" class="rb-restore" onclick="chgRbRestore_(\'' + tid + '\')">Restore</button>'
+    + '<button type="button" class="rb-purge" onclick="chgRbPurge_(\'' + tid + '\')" title="Delete forever">✕</button>'
+    + '</div></div>';
+}
+
+function chgRbLoad_(force) {
+  if (!chgCanWrite_()) return;
+  var box = document.getElementById('chgRbList');
+  if (!box) return;
+  box.innerHTML = typeof empireLoadingHtml === 'function'
+    ? empireLoadingHtml('Loading Recycle Bin…')
+    : '<p>Loading…</p>';
+  fetchJSONRetry({
+    action: 'getTrash',
+    dept: CHG_DEPT,
+    sheets: CHG_TRASH_SHEETS,
+    token: chgToken_()
+  }, force ? 2 : 1, 30000).then(function (d) {
+    if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) return;
+    if (d && d.ok === false) throw new Error(d.message || d.error || 'Could not load Recycle Bin.');
+    var items = chgRbItems_(d);
+    if (!items.length) {
+      box.innerHTML = chgEmptyDesk_('The bin is empty', 'Deleted or reset RUs appear here until you restore them or empty the bin.');
+      return;
+    }
+    box.innerHTML = '<div class="rb-items">' + items.map(chgRbItemHtml_).join('') + '</div>';
+  }).catch(function (e) {
+    box.innerHTML = typeof empireErrorHtml === 'function'
+      ? empireErrorHtml((e && e.message) || 'Could not load Recycle Bin.')
+      : '<p>' + chgEsc_((e && e.message) || 'Could not load') + '</p>';
+  });
+}
+
+function chgRbRestore_(id) {
+  var tid = chgSafeTrashId_(id);
+  if (!tid || !chgCanWrite_()) return;
+  var go = function () {
+    fetchJSONRetry({
+      action: 'restoreTrash',
+      dept: CHG_DEPT,
+      sheets: CHG_TRASH_SHEETS,
+      trashIds: [tid],
+      token: chgToken_()
+    }, 1, 30000).then(function (d) {
+      if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) return;
+      if (d && d.ok === false) throw new Error(d.message || d.error || 'Restore failed.');
+      chgRbLoad_(true);
+      return chgLoad_(true);
+    }).catch(function (e) {
+      uiAlert((e && e.message) || 'Restore failed.');
+    });
+  };
+  uiConfirm('Restore this RU to the dashboard?').then(function (ok) { if (ok) go(); });
+}
+
+function chgRbPurge_(id) {
+  var tid = chgSafeTrashId_(id);
+  if (!tid || !chgCanWrite_()) return;
+  var go = function () {
+    fetchJSONRetry({
+      action: 'purgeTrash',
+      dept: CHG_DEPT,
+      sheets: CHG_TRASH_SHEETS,
+      trashIds: [tid],
+      token: chgToken_()
+    }, 1, 30000).then(function (d) {
+      if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) return;
+      if (d && d.ok === false) throw new Error(d.message || d.error || 'Could not delete forever.');
+      chgRbLoad_(true);
+    }).catch(function (e) {
+      uiAlert((e && e.message) || 'Could not delete forever.');
+    });
+  };
+  uiConfirm('Delete this RU forever? This cannot be undone.', { danger: true }).then(function (ok) { if (ok) go(); });
+}
+
+function chgRbRestoreAll_() {
+  if (!chgCanWrite_()) return;
+  if (!document.querySelector('#chgRbList .rb-item')) {
+    uiAlert('The bin is empty.');
+    return;
+  }
+  var go = function () {
+    fetchJSONRetry({
+      action: 'restoreTrash',
+      dept: CHG_DEPT,
+      sheets: CHG_TRASH_SHEETS,
+      token: chgToken_()
+    }, 1, 60000).then(function (d) {
+      if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) return;
+      if (d && d.ok === false) throw new Error(d.message || d.error || 'Restore all failed.');
+      chgRbLoad_(true);
+      return chgLoad_(true);
+    }).catch(function (e) {
+      uiAlert((e && e.message) || 'Restore all failed.');
+    });
+  };
+  uiConfirm('Restore everything in the Recycle Bin?').then(function (ok) { if (ok) go(); });
+}
+
+function chgRbEmpty_() {
+  if (!chgCanWrite_()) return;
+  if (!document.querySelector('#chgRbList .rb-item')) {
+    uiAlert('The bin is empty.');
+    return;
+  }
+  var go = function () {
+    fetchJSONRetry({
+      action: 'purgeTrash',
+      dept: CHG_DEPT,
+      sheets: CHG_TRASH_SHEETS,
+      token: chgToken_()
+    }, 1, 60000).then(function (d) {
+      if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) return;
+      if (d && d.ok === false) throw new Error(d.message || d.error || 'Empty bin failed.');
+      chgRbLoad_(true);
+    }).catch(function (e) {
+      uiAlert((e && e.message) || 'Empty bin failed.');
+    });
+  };
+  uiConfirm('Empty the Recycle Bin? This deletes every item forever.', { danger: true }).then(function (ok) { if (ok) go(); });
+}
+
+function chgDeleteOne_(id) {
+  var safeId = chgSafeId_(id);
+  if (!safeId || !chgCanWrite_()) return;
+  var go = function () {
+    fetchJSONRetry({
+      action: 'deleteChargingRequest',
+      token: chgToken_(),
+      id: safeId
+    }, 1, 30000).then(function (d) {
+      if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) return;
+      if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Could not move to Recycle Bin.');
+      chgCloseDrawer_();
+      return chgLoad_(true).then(function () {
+        var bin = document.getElementById('bin');
+        if (bin && bin.classList.contains('active')) chgRbLoad_(true);
+      });
+    }).catch(function (e) {
+      uiAlert((e && e.message) || 'Could not move to Recycle Bin.');
+    });
+  };
+  uiConfirm('Move this RU to the Recycle Bin?').then(function (ok) { if (ok) go(); });
+}
+
+function chgOpenResetModal_() {
+  if (!chgCanWrite_()) return;
+  var m = document.getElementById('chgResetModal');
+  var pw = document.getElementById('chgResetPwInput');
+  var msg = document.getElementById('chgResetMsg');
+  if (pw) pw.value = '';
+  if (msg) msg.textContent = '';
+  if (m) m.style.display = 'flex';
+  if (pw) setTimeout(function () { pw.focus(); }, 50);
+}
+
+function chgCloseResetModal_() {
+  var m = document.getElementById('chgResetModal');
+  if (m) m.style.display = 'none';
+}
+
+function chgDoReset_() {
+  var pwEl = document.getElementById('chgResetPwInput');
+  var msg = document.getElementById('chgResetMsg');
+  if (!pwEl || !msg) return;
+  var pw = String(pwEl.value || '');
+  if (!pw) {
+    msg.style.color = '#C5504F';
+    msg.textContent = 'Please enter the password.';
+    return;
+  }
+  msg.style.color = 'var(--text-soft)';
+  msg.textContent = 'Moving to Recycle Bin…';
+  fetchJSONRetry({
+    action: 'clearChargingRequests',
+    token: chgToken_(),
+    resetPassword: pw,
+    username: typeof empireGetUser === 'function' ? empireGetUser() : ''
+  }, 1, 60000).then(function (d) {
+    if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) return;
+    if (d && d.error === 'bad_password') {
+      msg.style.color = '#C5504F';
+      msg.textContent = 'Wrong password — nothing was deleted.';
+      return;
+    }
+    if (d && d.error === 'not_allowed') {
+      msg.style.color = '#C5504F';
+      msg.textContent = 'Not allowed.';
+      return;
+    }
+    if (d && d.ok === false) {
+      msg.style.color = '#C5504F';
+      msg.textContent = d.message || d.error || 'Reset failed.';
+      return;
+    }
+    msg.style.color = '#1d9e75';
+    msg.textContent = 'Moved ' + (d.cleared || 0) + ' RU' + ((d.cleared || 0) === 1 ? '' : 's') + ' to the Recycle Bin.';
+    chgLoad_(true);
+    chgRbLoad_(true);
+    setTimeout(chgCloseResetModal_, 900);
+  }).catch(function (e) {
+    msg.style.color = '#C5504F';
+    msg.textContent = (e && e.message) || 'Reset failed.';
+  });
+}
+
 function chgRetryOne_(ru) {
   if (!chgCanWrite_()) return;
   fetchJSONRetry({
@@ -469,6 +725,7 @@ document.addEventListener('keydown', function (e) {
   if (e.key === 'Escape') {
     chgCloseLightbox_(e);
     chgCloseDrawer_();
+    chgCloseResetModal_();
   }
 });
 

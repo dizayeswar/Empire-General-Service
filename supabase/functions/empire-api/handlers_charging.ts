@@ -1,5 +1,6 @@
 import { AuthOk } from "./auth.ts";
-import { isoNow, sb, selectAllRows } from "./db.ts";
+import { resetPasswordOk } from "./config.ts";
+import { isoNow, sb, selectAllRows, trashRows } from "./db.ts";
 import { moduleLevel, normalizeRole } from "./helpers.ts";
 
 const TABLE = "charging_requests";
@@ -315,4 +316,32 @@ export async function handleRequestChargingRetry(body: Record<string, unknown>, 
   if (error) throw error;
   const queued = (data || []).length;
   return { ok: true, success: true, queued };
+}
+
+export async function handleDeleteChargingRequest(body: Record<string, unknown>, auth: AuthOk) {
+  if (!canWrite(auth)) return deny("Write access required to delete charging rows.");
+  const id = String(body.id || "").trim();
+  if (!id) return bad("Request id is required.");
+  const { data: ex, error: findErr } = await sb().from(TABLE).select("*").eq("id", id).maybeSingle();
+  if (findErr) throw findErr;
+  if (!ex) return { ok: false, success: false, error: "not_found", message: "That RU is not on the dashboard." };
+  await trashRows("ChargingRequests", [ex], "delete", String(auth.username || body.username || ""));
+  const { error } = await sb().from(TABLE).delete().eq("id", id);
+  if (error) throw error;
+  return { ok: true, success: true, id, trashed: true };
+}
+
+export async function handleClearChargingRequests(body: Record<string, unknown>, auth: AuthOk) {
+  if (!canWrite(auth)) return deny("Write access required to reset charging data.");
+  if (!resetPasswordOk(body)) {
+    return { ok: false, success: false, error: "bad_password", message: "Wrong password." };
+  }
+  const rows = await selectAllRows<Record<string, unknown>>(TABLE);
+  const count = rows.length;
+  if (count) {
+    await trashRows("ChargingRequests", rows, "reset", String(auth.username || body.username || ""));
+    const { error } = await sb().from(TABLE).delete().gte("id", "");
+    if (error) throw error;
+  }
+  return { ok: true, success: true, cleared: count };
 }

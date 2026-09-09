@@ -100,6 +100,46 @@
 .chg-search-wrap {
   flex: 2 1 220px;
 }
+.chg-search-wrap input.chg-search,
+#chgSearch {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 999px;
+  padding: 12px 18px;
+  border: 2px solid var(--input-border);
+  background: var(--input-bg);
+  color: var(--text);
+  font-size: var(--fs-body, 14px);
+  font-weight: 600;
+  -webkit-appearance: none;
+  appearance: none;
+  outline: none;
+}
+.chg-search-wrap input.chg-search:focus,
+#chgSearch:focus {
+  border-color: #8d015d;
+  box-shadow: 0 0 0 3px rgba(141, 1, 93, 0.12);
+}
+
+.chg-bin-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chg-restore-all {
+  color: #fff !important;
+  background: #1d9e75 !important;
+  border-color: #1d9e75 !important;
+}
+.chg-empty-bin,
+.chg-del-btn {
+  color: #fff !important;
+  background: #C5504F !important;
+  border-color: #C5504F !important;
+}
+.chg-del-btn {
+  font-size: 13px;
+}
 
 .chg-summary {
   font-size: 13px;
