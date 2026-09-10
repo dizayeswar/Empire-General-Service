@@ -52,7 +52,7 @@ var _hrCanWrite = true;
 var _hrListEditing = false;
 var _hrReturnTab = 'list';
 var _hrSigs = { emp: '', line: '', director: '', hr: '' };
-var _hrScan = { url: '', directorSig: '', x: 0.70, y: 0.406, w: 0.17, h: 0.032 };
+var _hrScan = { url: '', directorSig: '', x: 0.695, y: 0.402, w: 0.175, h: 0.036 };
 var _hrScanDrag = null;
 var _hrPaperTemplate = null;
 var _hrPapersReady = false;
@@ -998,7 +998,7 @@ function hrDirectorCanSign_(row) {
   return hrIsDirector_() && st === 'pending_director';
 }
 
-var HR_DIR_CELL = { x: 0.70, y: 0.406, w: 0.17, h: 0.032 };
+var HR_DIR_CELL = { x: 0.695, y: 0.402, w: 0.175, h: 0.036 };
 var HR_DIR_SIG_PLACE_KEY = 'egs-hr-dir-sig-place';
 
 function hrDirectorCellPos_() {
@@ -1007,7 +1007,7 @@ function hrDirectorCellPos_() {
 
 function hrDirectorBoxPos_() {
   var saved = hrLoadDirSigPlace_();
-  if (saved && !hrScanLooksDefault_(saved) && !hrScanPlaceOversized_(saved)) return saved;
+  if (saved && hrScanInDirectorCell_(saved)) return saved;
   return hrDirectorCellPos_();
 }
 
@@ -1051,9 +1051,24 @@ function hrScanPlaceOversized_(scan) {
   return false;
 }
 
+function hrScanInDirectorCell_(scan) {
+  var x = Number(scan && scan.x);
+  var y = Number(scan && scan.y);
+  var w = Number(scan && scan.w);
+  var h = Number(scan && scan.h);
+  if (!isFinite(x) || !isFinite(y)) return false;
+  if (x < 0.64 || x > 0.78) return false;
+  if (y < 0.385 || y > 0.425) return false;
+  if (isFinite(h) && (h < 0.02 || h > 0.05)) return false;
+  if (isFinite(w) && (w < 0.10 || w > 0.24)) return false;
+  return true;
+}
+
 function hrScanDisplayPlace_(scan) {
-  if (hrScanLooksDefault_(scan) || hrScanPlaceOversized_(scan)) return hrDirectorCellPos_();
-  return hrNormScanPlace_(scan);
+  if (hrScanInDirectorCell_(scan) && !hrScanLooksDefault_(scan) && !hrScanPlaceOversized_(scan)) {
+    return hrNormScanPlace_(scan);
+  }
+  return hrDirectorCellPos_();
 }
 
 function hrMountDirSig_(parent, scan) {
@@ -1489,8 +1504,8 @@ function hrFillForm_(row) {
     if (ents.__scan.w != null) _hrScan.w = Number(ents.__scan.w) || _hrScan.w;
     if (ents.__scan.h != null) _hrScan.h = Number(ents.__scan.h) || _hrScan.h;
     if (_hrScan.directorSig && !_hrSigs.director) _hrSigs.director = _hrScan.directorSig;
-    if (hrScanLooksDefault_(_hrScan) || hrScanPlaceOversized_(_hrScan)) {
-      var lock = hrDirectorBoxPos_();
+    if (hrScanLooksDefault_(_hrScan) || hrScanPlaceOversized_(_hrScan) || !hrScanInDirectorCell_(_hrScan)) {
+      var lock = hrDirectorCellPos_();
       _hrScan.x = lock.x;
       _hrScan.y = lock.y;
       _hrScan.w = lock.w;
@@ -2549,7 +2564,7 @@ function hrApplyScanSigBox_() {
   var box = document.getElementById('hrScanDirBox');
   var sig = document.getElementById('hrScanDirSig');
   var target = document.getElementById('hrScanTarget');
-  var pos = hrNormScanPlace_(_hrScan);
+  var pos = hrScanCanEdit_() ? hrNormScanPlace_(_hrScan) : hrScanDisplayPlace_(_hrScan);
   _hrScan.x = pos.x;
   _hrScan.y = pos.y;
   _hrScan.w = pos.w;
@@ -3213,7 +3228,7 @@ function hrPrintFrameCss_() {
     + '.hr-days-out{display:block;white-space:pre-wrap;overflow:visible;height:auto;text-align:center;}'
     + '.hr-date-native,select,input,textarea,button{display:none!important;}'
     + '.hr-batch-scan-img{display:block;width:100%;height:auto;}'
-    + '.hr-scan-stage{position:relative;width:100%;}'
+    + '.hr-scan-stage{position:relative;width:100%;aspect-ratio:210/297;}'
     + '.hr-scan-dir-box{position:absolute;box-sizing:border-box;overflow:hidden;}'
     + '.hr-scan-dir-box .hr-scan-dir-sig{position:static;width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important;left:auto;top:auto;}'
     + '.hr-scan-dir-sig{position:absolute;max-width:100%;max-height:100%;object-fit:contain;}'
@@ -3232,7 +3247,7 @@ function hrOpenPrintFrame_(bodyHtml, title) {
   var base = location.origin + location.pathname.replace(/[^/]+$/, '');
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + hrEsc_(title || 'Leave Request') + '</title>'
     + '<base href="' + String(base).replace(/"/g, '') + '">'
-    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-10-dir-box">'
+    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-10-dir-box2">'
     + '<style>' + hrPrintFrameCss_() + '</style></head><body>' + bodyHtml + '</body></html>';
   var frame = document.getElementById('hrPrintFrame');
   if (!frame) {
