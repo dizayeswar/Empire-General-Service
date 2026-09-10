@@ -1586,26 +1586,29 @@ function appIssueFind_(id) {
   return null;
 }
 
-function appIssueRowHtml_(r) {
+function appIssueRowHtml_(r, withFixed) {
   var id = appEsc_(r.id);
   var apt = String(r.propertyId || '').trim() || '—';
-  var when = appFormatDateTime_(r.createdAt);
+  var opened = appFormatDateTime_(r.createdAt);
   var note = String(r.note || '').trim() || '—';
   var isNew = appIssueIsNew_(r.id);
   return '<tr class="app-issue-row' + (isNew ? ' is-new' : '') + '" data-issue-id="' + id + '" onclick="appIssueOpenInfo_(\'' + id + '\')">'
     + '<td>' + (isNew ? '<span class="app-issue-new-dot" title="New"></span>' : '') + '<strong>' + appEsc_(apt) + '</strong></td>'
-    + '<td class="app-issue-date">' + appEsc_(when) + '</td>'
+    + '<td class="app-issue-date">' + appEsc_(opened) + '</td>'
+    + (withFixed ? ('<td class="app-issue-date">' + appEsc_(appFormatDateTime_(r.fixedAt)) + '</td>') : '')
     + '<td class="app-issue-title-cell">' + appEsc_(note) + '</td>'
     + '<td class="app-issue-more"><button type="button" onclick="event.stopPropagation();appIssueOpenInfo_(\'' + id + '\')">More info</button></td>'
     + '</tr>';
 }
 
-function appIssueColTableHtml_(rows) {
+function appIssueColTableHtml_(rows, withFixed) {
   if (!rows.length) return '';
   return '<div class="app-issue-table-wrap"><table class="app-issue-table"><thead><tr>'
-    + '<th>Apartment</th><th>Date</th><th>Issue</th><th></th>'
+    + '<th>Apartment</th><th>Date</th>'
+    + (withFixed ? '<th>Date fixed</th>' : '')
+    + '<th>Issue</th><th></th>'
     + '</tr></thead><tbody>'
-    + rows.map(appIssueRowHtml_).join('')
+    + rows.map(function (r) { return appIssueRowHtml_(r, withFixed); }).join('')
     + '</tbody></table></div>';
 }
 
@@ -1725,7 +1728,7 @@ function appRenderIssues_() {
   if (!fixed.length) {
     h += '<p class="worker-empty">Nothing marked fixed yet.</p>';
   } else {
-    h += appIssueColTableHtml_(fixed);
+    h += appIssueColTableHtml_(fixed, true);
   }
   h += '</section></div>';
   host.innerHTML = h;
