@@ -52,12 +52,14 @@ About 35 charges/day. Receipt is paper **and** on-screen Invoice preview. Receip
 8. Maximize Invoice
 9. Receipt after that = later
 
-If a login box appears while NovaSys is already open, do **not** type a password. Click this order:
+If a login box appears, do **not** type a password:
 
-1. **Login to the NovaSyS** (User filled, password empty) → **Cancel**
-2. **Logging in to NovaSyS** (password already filled, Remember my password checked) → **OK**
+1. **Login to the NovaSyS** (user **swar**, password empty) → **Cancel**
+2. **Close Nova**, then **open Nova** again
 3. **Attention!** "The data base version … is obsolete! Continue anyway?" → **Yes**
 4. Home page is normal — continue the charge (Payments TOU Tariff)
+
+Never OK the empty login. Never OK the “Logging in to NovaSys” box.
 
 ## Tested 7 Sep 2026
 
@@ -70,7 +72,7 @@ Blocked: Pay looked disabled after a login popup. Do not type the password from 
 - Website charge video / click list
 - Building list (which buildings are website vs Novasys)
 - What to do with the receipt after it is full screen
-- Login popup while NovaSys is open: Cancel → OK (saved password) → Yes on obsolete database — locked 8 Sep 2026
+- Login popup: Cancel empty swar → close Nova → open Nova → Yes on obsolete database — locked 10 Sep 2026
 
 ## Files
 

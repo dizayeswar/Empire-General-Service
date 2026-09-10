@@ -11,7 +11,8 @@ Wrong apartment = real money. Never type or send a NovaSys password.
 ## Who works
 
 - Laptop `watch_open.py` refreshes Open every ~2 min. No AI on empty ticks.
-- Wake this charging chat only for a **new chargeable** RU. Bot **Off** = stop (no Pay, no SET PIN).
+- **Plan B (now):** on a new chargeable RU the laptop opens it and fills Create payment, then **stops before Pay** and wakes this chat. Say **Pay** only if the picture matches. Hard RUs also wake this chat.
+- Bot **Off** = stop (no Pay, no SET PIN).
 - One RU at a time, oldest first. Finish it before the next. Other tabs (HR / Sheets) do not touch ADB or Nova.
 - Spoken “close” = **SET PIN** only. Never tap **Close request**. After success, tap **Ok** only.
 
@@ -34,7 +35,7 @@ Wrong apartment = real money. Never type or send a NovaSys password.
 - Tariff is a **dropdown only**. Never type T1/T2. Nova often opens on T2.
 - Before Pay, the Create payment boxes must show the same **apartment + T1/T2 + amount**. Else stop.
 - T1 = 156 IQD/kWh. T2 = 480 IQD/kWh.
-- Login popups: Cancel (empty) → OK (saved password) → Yes (`&Yes` obsolete DB). Never type the password. Do not hammer OK while login is still filling.
+- Login: if user **swar** and password **empty** → **Cancel**, then **close Nova** and **open Nova** again. When **Attention!** “data base version is obsolete” appears → **Yes**. Never type the password. Never OK the empty login. Never OK the “Logging in” box.
 - Charged dashboard rows need an invoice URL. Waiting rows need a note. Unique on `ru`. Set `started_at` when the RU starts.
 
 ## Commands

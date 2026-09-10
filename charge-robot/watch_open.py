@@ -149,19 +149,26 @@ def main() -> int:
     if not fresh:
         gone = [ru for ru in list(alerted) if ru not in {c["ru"] for c in chargeable}]
         if gone:
-            # RU left Open (charged/closed). Keep in alerted so a unique RU is never re-woken.
             pass
         save_state({"alerted": sorted(alerted)})
         return 0
 
-    for c in fresh:
-        alerted.add(c["ru"])
+    c = fresh[0]
+    alerted.add(c["ru"])
     save_state({"alerted": sorted(alerted)})
-    summary = "; ".join(
-        f"{c['ru']} {c.get('unit') or '?'} {c.get('money') or '?'}" for c in fresh
+    summary = f"{c['ru']} {c.get('unit') or '?'} {c.get('money') or '?'}"
+    log(f"PLANB {summary}")
+    r = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "charge_easy.py"),
+            c["ru"],
+            c.get("unit") or "",
+        ],
+        cwd=str(ROOT),
     )
-    print(WAKE % summary, flush=True)
-    log(f"WAKE {summary}")
+    if r.returncode not in (0, 2):
+        log(f"PLANB charge_easy exit {r.returncode}")
     return 0
 
 
