@@ -1005,9 +1005,18 @@ function hrDirectorCellPos_() {
   return { x: HR_DIR_CELL.x, y: HR_DIR_CELL.y, w: HR_DIR_CELL.w, h: HR_DIR_CELL.h };
 }
 
+function hrScanPlaceTooLow_(scan) {
+  var y = Number(scan && scan.y);
+  return isFinite(y) && y > 0.445;
+}
+
+function hrScanNeedsSnap_(scan) {
+  return hrScanLooksDefault_(scan) || hrScanPlaceOversized_(scan) || hrScanPlaceTooLow_(scan);
+}
+
 function hrDirectorBoxPos_() {
   var saved = hrLoadDirSigPlace_();
-  if (saved && hrScanInDirectorCell_(saved)) return saved;
+  if (saved && !hrScanNeedsSnap_(saved)) return saved;
   return hrDirectorCellPos_();
 }
 
@@ -1051,24 +1060,9 @@ function hrScanPlaceOversized_(scan) {
   return false;
 }
 
-function hrScanInDirectorCell_(scan) {
-  var x = Number(scan && scan.x);
-  var y = Number(scan && scan.y);
-  var w = Number(scan && scan.w);
-  var h = Number(scan && scan.h);
-  if (!isFinite(x) || !isFinite(y)) return false;
-  if (x < 0.64 || x > 0.78) return false;
-  if (y < 0.385 || y > 0.425) return false;
-  if (isFinite(h) && (h < 0.02 || h > 0.05)) return false;
-  if (isFinite(w) && (w < 0.10 || w > 0.24)) return false;
-  return true;
-}
-
 function hrScanDisplayPlace_(scan) {
-  if (hrScanInDirectorCell_(scan) && !hrScanLooksDefault_(scan) && !hrScanPlaceOversized_(scan)) {
-    return hrNormScanPlace_(scan);
-  }
-  return hrDirectorCellPos_();
+  if (hrScanNeedsSnap_(scan)) return hrDirectorCellPos_();
+  return hrNormScanPlace_(scan);
 }
 
 function hrMountDirSig_(parent, scan) {
@@ -1504,7 +1498,7 @@ function hrFillForm_(row) {
     if (ents.__scan.w != null) _hrScan.w = Number(ents.__scan.w) || _hrScan.w;
     if (ents.__scan.h != null) _hrScan.h = Number(ents.__scan.h) || _hrScan.h;
     if (_hrScan.directorSig && !_hrSigs.director) _hrSigs.director = _hrScan.directorSig;
-    if (hrScanLooksDefault_(_hrScan) || hrScanPlaceOversized_(_hrScan) || !hrScanInDirectorCell_(_hrScan)) {
+    if (hrScanNeedsSnap_(_hrScan)) {
       var lock = hrDirectorCellPos_();
       _hrScan.x = lock.x;
       _hrScan.y = lock.y;
@@ -3228,7 +3222,7 @@ function hrPrintFrameCss_() {
     + '.hr-days-out{display:block;white-space:pre-wrap;overflow:visible;height:auto;text-align:center;}'
     + '.hr-date-native,select,input,textarea,button{display:none!important;}'
     + '.hr-batch-scan-img{display:block;width:100%;height:auto;}'
-    + '.hr-scan-stage{position:relative;width:100%;aspect-ratio:210/297;}'
+    + '.hr-scan-stage{position:relative;width:100%;}'
     + '.hr-scan-dir-box{position:absolute;box-sizing:border-box;overflow:hidden;}'
     + '.hr-scan-dir-box .hr-scan-dir-sig{position:static;width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important;left:auto;top:auto;}'
     + '.hr-scan-dir-sig{position:absolute;max-width:100%;max-height:100%;object-fit:contain;}'
@@ -3247,7 +3241,7 @@ function hrOpenPrintFrame_(bodyHtml, title) {
   var base = location.origin + location.pathname.replace(/[^/]+$/, '');
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + hrEsc_(title || 'Leave Request') + '</title>'
     + '<base href="' + String(base).replace(/"/g, '') + '">'
-    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-10-dir-box2">'
+    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-10-dir-box3">'
     + '<style>' + hrPrintFrameCss_() + '</style></head><body>' + bodyHtml + '</body></html>';
   var frame = document.getElementById('hrPrintFrame');
   if (!frame) {
