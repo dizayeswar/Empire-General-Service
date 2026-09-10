@@ -265,6 +265,11 @@
   font-weight: 600;
   white-space: nowrap;
 }
+.chg-dur {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
 .chg-note-cell {
   max-width: 220px;
   color: var(--text-soft);

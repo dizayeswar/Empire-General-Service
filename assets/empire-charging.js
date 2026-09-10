@@ -133,6 +133,19 @@ function chgFormatDt_(iso) {
   }
 }
 
+function chgDurationLabel_(row) {
+  if (!row || String(row.status) !== 'charged') return '—';
+  var a = Date.parse(String(row.startedAt || ''));
+  var b = Date.parse(String(row.chargedAt || ''));
+  if (!a || !b || b < a) return '—';
+  var mins = Math.round((b - a) / 60000);
+  if (mins < 1) return '< 1 min';
+  if (mins < 60) return mins + ' min';
+  var h = Math.floor(mins / 60);
+  var m = mins % 60;
+  return m ? (h + ' h ' + m + ' min') : (h + ' h');
+}
+
 function chgFormatAmt_(raw) {
   var n = String(raw || '').replace(/\D/g, '');
   if (!n) return '—';
@@ -275,7 +288,9 @@ function chgRowOpen_(id) {
     '<dl class="chg-dl">' +
     '<dt>Saved</dt><dd>' + chgEsc_(chgFormatDt_(row.createdAt)) + '</dd>' +
     '<dt>Updated</dt><dd>' + chgEsc_(chgFormatDt_(row.updatedAt)) + '</dd>' +
-    (row.chargedAt ? '<dt>Charged</dt><dd>' + chgEsc_(chgFormatDt_(row.chargedAt)) + '</dd>' : '') +
+    (row.startedAt ? '<dt>Started</dt><dd>' + chgEsc_(chgFormatDt_(row.startedAt)) + '</dd>' : '') +
+    (row.chargedAt ? '<dt>Finished</dt><dd>' + chgEsc_(chgFormatDt_(row.chargedAt)) + '</dd>' : '') +
+    '<dt>Duration</dt><dd>' + chgEsc_(chgDurationLabel_(row)) + '</dd>' +
     '<dt>Unit</dt><dd class="chg-unit">' + chgEsc_(row.unitId || '—') + '</dd>' +
     '<dt>Nova search</dt><dd class="chg-unit">' + chgEsc_(row.novaSearch || '—') + '</dd>' +
     '<dt>Electricity</dt><dd>' + chgEsc_(chgTypeLabel_(row)) + '</dd>' +
@@ -326,6 +341,7 @@ function chgTableHtml_(rows) {
       '<td class="chg-type">' + chgEsc_(chgTypeLabel_(row)) + '</td>' +
       '<td class="chg-amt">' + chgEsc_(chgFormatAmt_(row.amount)) + '</td>' +
       '<td>' + chgPillHtml_(row) + '</td>' +
+      '<td class="chg-dur">' + chgEsc_(chgDurationLabel_(row)) + '</td>' +
       '<td' + (String(row.invoiceUrl || '').trim() ? ' onclick="event.stopPropagation();chgOpenLightboxRow_(\'' + chgSafeId_(row.id) + '\')"' : '') + '>' + chgThumbHtml_(row) + '</td>' +
       '<td class="chg-note-cell">' + chgEsc_(row.note || '') + '</td>' +
       '</tr>';
@@ -338,12 +354,13 @@ function chgTableHtml_(rows) {
       chgPillHtml_(row) + '</div></div>' +
       '<div class="chg-card-row"><span>' + chgEsc_(chgFormatDt_(row.createdAt)) + '</span>' +
       '<span>' + chgEsc_(chgTypeLabel_(row)) + '</span>' +
-      '<span>' + chgEsc_(chgFormatAmt_(row.amount)) + '</span></div>' +
+      '<span>' + chgEsc_(chgFormatAmt_(row.amount)) + '</span>' +
+      '<span>' + chgEsc_(chgDurationLabel_(row)) + '</span></div>' +
       (row.note ? '<div class="chg-card-note">' + chgEsc_(row.note) + '</div>' : '') +
       '</button>';
   }).join('');
   return '<div class="chg-table-wrap"><table class="chg-table"><thead><tr>' +
-    '<th>Saved</th><th>RU</th><th>Unit</th><th>Type</th><th>Amount</th><th>Status</th><th>Invoice</th><th>Cause</th>' +
+    '<th>Saved</th><th>RU</th><th>Unit</th><th>Type</th><th>Amount</th><th>Status</th><th>Duration</th><th>Invoice</th><th>Cause</th>' +
     '</tr></thead><tbody>' + body + '</tbody></table></div>' +
     '<div class="chg-cards">' + cards + '</div>';
 }

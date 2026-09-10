@@ -146,10 +146,19 @@ function rowToApi(r: Record<string, unknown>) {
     source: r.source || "nova",
     createdBy: r.created_by || "",
     updatedBy: r.updated_by || "",
+    startedAt: r.started_at || "",
     chargedAt: r.charged_at || "",
     createdAt: r.created_at || "",
     updatedAt: r.updated_at || "",
   };
+}
+
+function parseIso(raw: unknown): string | null {
+  const s = String(raw || "").trim();
+  if (!s) return null;
+  const ms = Date.parse(s);
+  if (!Number.isFinite(ms)) return null;
+  return new Date(ms).toISOString();
 }
 
 function countsFrom(rows: Record<string, unknown>[]) {
@@ -294,6 +303,9 @@ export async function handleSaveChargingRequest(body: Record<string, unknown>, a
     status === "charged"
       ? (prev && prev.charged_at ? prev.charged_at : now)
       : null;
+  const startedAt =
+    parseIso(body.startedAt || body.started_at) ||
+    (prev && prev.started_at ? String(prev.started_at) : null);
 
   const payload: Record<string, unknown> = {
     ru,
@@ -309,6 +321,7 @@ export async function handleSaveChargingRequest(body: Record<string, unknown>, a
     source,
     updated_by: username,
     updated_at: now,
+    started_at: startedAt,
     charged_at: chargedAt,
   };
 
