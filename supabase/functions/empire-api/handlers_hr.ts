@@ -285,7 +285,7 @@ function directorConfirmPatch(
     ...existing,
     __sigs: { ...existingSigs, ...incomingSigs, director: directorSig },
   };
-  const dirBox = parseScanPlace(extra.scanPlace) || { x: 0.55, y: 0.40, w: 0.22, h: 0.08 };
+  const dirBox = parseScanPlace(extra.scanPlace) || { x: 0.70, y: 0.406, w: 0.17, h: 0.032 };
   const incomingScan = incoming.__scan && typeof incoming.__scan === "object" && !Array.isArray(incoming.__scan)
     ? incoming.__scan as Record<string, unknown>
     : null;

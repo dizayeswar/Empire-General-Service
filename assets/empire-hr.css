@@ -813,10 +813,10 @@
 
 .hr-scan-target {
   position: absolute;
-  left: 55%;
-  top: 40%;
-  width: 22%;
-  height: 8%;
+  left: 70%;
+  top: 40.6%;
+  width: 17%;
+  height: 3.2%;
   border: 1px dashed #8d015d;
   color: #8d015d;
   font-size: 11px;
@@ -829,12 +829,13 @@
 
 .hr-scan-dir-box {
   position: absolute;
-  left: 55%;
-  top: 40%;
-  width: 22%;
-  height: 8%;
+  left: 70%;
+  top: 40.6%;
+  width: 17%;
+  height: 3.2%;
   z-index: 2;
   box-sizing: border-box;
+  overflow: hidden;
   cursor: grab;
   touch-action: none;
 }
@@ -852,6 +853,8 @@
   display: block;
   width: 100%;
   height: 100%;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: contain;
   pointer-events: none;
   user-select: none;
@@ -924,12 +927,19 @@
   object-fit: fill;
 }
 
+.hr-batch-scan-page .hr-scan-dir-box,
+.hr-pdf-a4 .hr-scan-dir-box {
+  position: absolute;
+  overflow: hidden;
+  box-sizing: border-box;
+  pointer-events: none;
+}
 .hr-batch-scan-page .hr-scan-dir-sig,
 .hr-pdf-a4 .hr-scan-dir-sig {
-  position: absolute;
+  position: static;
   display: block;
-  width: auto;
-  height: auto;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   pointer-events: none;
 }
@@ -1221,6 +1231,7 @@
   body.hr-print-scan .hr-scan-dir-box {
     outline: none !important;
     cursor: default !important;
+    overflow: hidden !important;
   }
 
   body.hr-print-batch #hrPrintRoot,

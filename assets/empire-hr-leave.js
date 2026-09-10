@@ -52,7 +52,7 @@ var _hrCanWrite = true;
 var _hrListEditing = false;
 var _hrReturnTab = 'list';
 var _hrSigs = { emp: '', line: '', director: '', hr: '' };
-var _hrScan = { url: '', directorSig: '', x: 0.55, y: 0.40, w: 0.22, h: 0.08 };
+var _hrScan = { url: '', directorSig: '', x: 0.70, y: 0.406, w: 0.17, h: 0.032 };
 var _hrScanDrag = null;
 var _hrPaperTemplate = null;
 var _hrPapersReady = false;
@@ -331,19 +331,7 @@ function hrBatchScanPage_(row) {
   img.alt = row.empName || 'Scanned leave form';
   img.src = scan.url;
   stage.appendChild(img);
-  var directorSig = scan.directorSig || '';
-  if (directorSig) {
-    var sig = document.createElement('img');
-    sig.className = 'hr-scan-dir-sig';
-    sig.alt = 'Director e-signature';
-    sig.src = directorSig;
-    sig.style.left = ((Number(scan.x) || 0.55) * 100) + '%';
-    sig.style.top = ((Number(scan.y) || 0.40) * 100) + '%';
-    sig.style.width = ((Number(scan.w) || 0.22) * 100) + '%';
-    sig.style.height = ((Number(scan.h) || 0.08) * 100) + '%';
-    sig.style.objectFit = 'contain';
-    stage.appendChild(sig);
-  }
+  hrMountDirSig_(stage, scan);
   page.appendChild(stage);
   return page;
 }
@@ -588,17 +576,8 @@ function hrPdfPageCard_(row) {
   img.alt = 'Leave Request paper ' + n;
   paper.appendChild(img);
   if (scan && scan.directorSig) {
-    var sig = document.createElement('img');
-    sig.className = 'hr-scan-dir-sig';
-    sig.alt = 'Director e-signature';
-    sig.src = scan.directorSig;
-    sig.style.left = ((Number(scan.x) || 0.55) * 100) + '%';
-    sig.style.top = ((Number(scan.y) || 0.40) * 100) + '%';
-    sig.style.width = ((Number(scan.w) || 0.22) * 100) + '%';
-    sig.style.height = ((Number(scan.h) || 0.08) * 100) + '%';
-    sig.style.objectFit = 'contain';
     paper.style.position = 'relative';
-    paper.appendChild(sig);
+    hrMountDirSig_(paper, scan);
   }
   card.appendChild(bar);
   card.appendChild(paper);
@@ -1019,22 +998,30 @@ function hrDirectorCanSign_(row) {
   return hrIsDirector_() && st === 'pending_director';
 }
 
-function hrDirectorBoxPos_() {
-  return hrLoadDirSigPlace_() || { x: 0.55, y: 0.40, w: 0.22, h: 0.08 };
+var HR_DIR_CELL = { x: 0.70, y: 0.406, w: 0.17, h: 0.032 };
+var HR_DIR_SIG_PLACE_KEY = 'egs-hr-dir-sig-place';
+
+function hrDirectorCellPos_() {
+  return { x: HR_DIR_CELL.x, y: HR_DIR_CELL.y, w: HR_DIR_CELL.w, h: HR_DIR_CELL.h };
 }
 
-var HR_DIR_SIG_PLACE_KEY = 'egs-hr-dir-sig-place';
+function hrDirectorBoxPos_() {
+  var saved = hrLoadDirSigPlace_();
+  if (saved && !hrScanLooksDefault_(saved) && !hrScanPlaceOversized_(saved)) return saved;
+  return hrDirectorCellPos_();
+}
 
 function hrNormScanPlace_(raw) {
   raw = raw || {};
+  var cell = hrDirectorCellPos_();
   var x = Number(raw.x);
   var y = Number(raw.y);
   var w = Number(raw.w);
   var h = Number(raw.h);
-  if (!isFinite(x)) x = 0.55;
-  if (!isFinite(y)) y = 0.40;
-  if (!isFinite(w) || w <= 0) w = 0.22;
-  if (!isFinite(h) || h <= 0) h = 0.08;
+  if (!isFinite(x)) x = cell.x;
+  if (!isFinite(y)) y = cell.y;
+  if (!isFinite(w) || w <= 0) w = cell.w;
+  if (!isFinite(h) || h <= 0) h = cell.h;
   w = Math.max(0.04, Math.min(0.8, w));
   h = Math.max(0.02, Math.min(0.5, h));
   x = Math.max(0, Math.min(1 - w, x));
@@ -1046,10 +1033,45 @@ function hrScanLooksDefault_(scan) {
   var x = Number(scan && scan.x);
   var y = Number(scan && scan.y);
   var w = Number(scan && scan.w);
+  var h = Number(scan && scan.h);
   if (!isFinite(x) || !isFinite(y)) return true;
   if (x === 0.56 && y === 0.36) return true;
   if (x === 0.55 && y === 0.40 && (!isFinite(w) || w === 0.22 || w === 0.2)) return true;
+  if (h === 0.08 && (x === 0.55 || x === 0.56)) return true;
   return false;
+}
+
+function hrScanPlaceOversized_(scan) {
+  var w = Number(scan && scan.w);
+  var h = Number(scan && scan.h);
+  var x = Number(scan && scan.x);
+  if (isFinite(h) && h > 0.055) return true;
+  if (isFinite(w) && w > 0.28) return true;
+  if (isFinite(x) && x < 0.60) return true;
+  return false;
+}
+
+function hrScanDisplayPlace_(scan) {
+  if (hrScanLooksDefault_(scan) || hrScanPlaceOversized_(scan)) return hrDirectorCellPos_();
+  return hrNormScanPlace_(scan);
+}
+
+function hrMountDirSig_(parent, scan) {
+  if (!parent || !scan || !scan.directorSig) return null;
+  var pos = hrScanDisplayPlace_(scan);
+  var box = document.createElement('div');
+  box.className = 'hr-scan-dir-box hr-scan-dir-locked';
+  box.style.left = (pos.x * 100) + '%';
+  box.style.top = (pos.y * 100) + '%';
+  box.style.width = (pos.w * 100) + '%';
+  box.style.height = (pos.h * 100) + '%';
+  var sig = document.createElement('img');
+  sig.className = 'hr-scan-dir-sig';
+  sig.alt = 'Director e-signature';
+  sig.src = scan.directorSig;
+  box.appendChild(sig);
+  parent.appendChild(box);
+  return box;
 }
 
 function hrLoadDirSigPlace_() {
@@ -1078,7 +1100,7 @@ function hrScanPayloadForConfirm_(row, sig) {
   var live = samePaper && _hrScan.url;
   var scan = live ? _hrScan : rowScan;
   if (!scan || !scan.url) return null;
-  var pos = live ? hrNormScanPlace_(_hrScan) : (hrLoadDirSigPlace_() || hrNormScanPlace_(scan));
+  var pos = hrScanDisplayPlace_(live ? _hrScan : (hrLoadDirSigPlace_() || scan));
   hrSaveDirSigPlace_(pos);
   var url = String(scan.url || '');
   if ((!url || url.indexOf('data:') === 0) && rowScan && rowScan.url && rowScan.url.indexOf('data:') !== 0) {
@@ -1467,14 +1489,12 @@ function hrFillForm_(row) {
     if (ents.__scan.w != null) _hrScan.w = Number(ents.__scan.w) || _hrScan.w;
     if (ents.__scan.h != null) _hrScan.h = Number(ents.__scan.h) || _hrScan.h;
     if (_hrScan.directorSig && !_hrSigs.director) _hrSigs.director = _hrScan.directorSig;
-    if (hrStageOf_(row) !== 'completed' && hrStageOf_(row) !== 'rejected' && hrScanLooksDefault_(_hrScan)) {
-      var lock = hrLoadDirSigPlace_();
-      if (lock) {
-        _hrScan.x = lock.x;
-        _hrScan.y = lock.y;
-        _hrScan.w = lock.w;
-        _hrScan.h = lock.h;
-      }
+    if (hrScanLooksDefault_(_hrScan) || hrScanPlaceOversized_(_hrScan)) {
+      var lock = hrDirectorBoxPos_();
+      _hrScan.x = lock.x;
+      _hrScan.y = lock.y;
+      _hrScan.w = lock.w;
+      _hrScan.h = lock.h;
     }
   }
   if (hrStageOf_(row) === 'rejected') {
@@ -2576,6 +2596,10 @@ function hrRenderScan_() {
   }
   wrap.style.display = '';
   if (img.src !== _hrScan.url) img.src = _hrScan.url;
+  if (!img.getAttribute('data-hr-sig-load')) {
+    img.setAttribute('data-hr-sig-load', '1');
+    img.addEventListener('load', function () { hrApplyScanSigBox_(); });
+  }
   if (sig && _hrScan.directorSig) {
     if (sig.getAttribute('src') !== _hrScan.directorSig) sig.src = _hrScan.directorSig;
     sig.hidden = false;
@@ -2599,7 +2623,7 @@ function hrApplyDirectorOnly_(dataUrl, openPickerDone) {
   _hrSigs.director = url;
   _hrScan.directorSig = url;
   var pos = hrDirectorBoxPos_();
-  if (hrScanLooksDefault_(_hrScan)) {
+  if (hrScanLooksDefault_(_hrScan) || hrScanPlaceOversized_(_hrScan)) {
     _hrScan.x = pos.x;
     _hrScan.y = pos.y;
     _hrScan.w = pos.w;
@@ -3190,9 +3214,9 @@ function hrPrintFrameCss_() {
     + '.hr-date-native,select,input,textarea,button{display:none!important;}'
     + '.hr-batch-scan-img{display:block;width:100%;height:auto;}'
     + '.hr-scan-stage{position:relative;width:100%;}'
-    + '.hr-scan-dir-box{position:absolute;box-sizing:border-box;}'
-    + '.hr-scan-dir-box .hr-scan-dir-sig{position:static;width:100%!important;height:100%!important;object-fit:contain!important;left:auto;top:auto;}'
-    + '.hr-scan-dir-sig{position:absolute;height:auto;object-fit:contain;}'
+    + '.hr-scan-dir-box{position:absolute;box-sizing:border-box;overflow:hidden;}'
+    + '.hr-scan-dir-box .hr-scan-dir-sig{position:static;width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important;left:auto;top:auto;}'
+    + '.hr-scan-dir-sig{position:absolute;max-width:100%;max-height:100%;object-fit:contain;}'
     + '.hr-scan-handle,.hr-scan-target{display:none!important;}'
     + '.hr-sig-pad img,.hr-sig-pad-director img{max-height:26pt!important;max-width:100%!important;object-fit:contain!important;display:block!important;}'
     + '.hr-approve-row td.sig-cell-director{overflow:visible!important;}';
@@ -3208,7 +3232,7 @@ function hrOpenPrintFrame_(bodyHtml, title) {
   var base = location.origin + location.pathname.replace(/[^/]+$/, '');
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + hrEsc_(title || 'Leave Request') + '</title>'
     + '<base href="' + String(base).replace(/"/g, '') + '">'
-    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-06-fast-confirm">'
+    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-10-dir-box">'
     + '<style>' + hrPrintFrameCss_() + '</style></head><body>' + bodyHtml + '</body></html>';
   var frame = document.getElementById('hrPrintFrame');
   if (!frame) {
