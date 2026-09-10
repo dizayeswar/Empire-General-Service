@@ -331,7 +331,7 @@ function hrBatchScanPage_(row) {
   img.alt = row.empName || 'Scanned leave form';
   img.src = scan.url;
   stage.appendChild(img);
-  hrMountDirSig_(stage, scan);
+  hrMountDirSig_(stage, scan, row);
   page.appendChild(stage);
   return page;
 }
@@ -396,8 +396,55 @@ function hrVac2Num_(id) {
   return m ? parseInt(m[1], 10) : 0;
 }
 
+/* Per-page Director cell on Annual leave scans (page-01…28). Crops differ. */
+var HR_VAC2_DIR_MEDIAN = { x: 0.7053, y: 0.4409, w: 0.1633, h: 0.027 };
+var HR_VAC2_DIR_BOX = {
+  1: { x: 0.7053, y: 0.4409, w: 0.1633, h: 0.027 },
+  2: { x: 0.7017, y: 0.4073, w: 0.1685, h: 0.028 },
+  3: { x: 0.7076, y: 0.4382, w: 0.163, h: 0.0273 },
+  4: { x: 0.7013, y: 0.4084, w: 0.1681, h: 0.0273 },
+  5: { x: 0.7074, y: 0.4459, w: 0.1633, h: 0.0273 },
+  6: { x: 0.7052, y: 0.4082, w: 0.1685, h: 0.028 },
+  7: { x: 0.701, y: 0.4073, w: 0.1669, h: 0.0275 },
+  8: { x: 0.7053, y: 0.4457, w: 0.1633, h: 0.027 },
+  9: { x: 0.7036, y: 0.4459, w: 0.1629, h: 0.027 },
+  10: { x: 0.7048, y: 0.4462, w: 0.1629, h: 0.0267 },
+  11: { x: 0.7053, y: 0.4409, w: 0.1633, h: 0.027 },
+  12: { x: 0.7043, y: 0.408, w: 0.1691, h: 0.0277 },
+  13: { x: 0.703, y: 0.4077, w: 0.1685, h: 0.028 },
+  14: { x: 0.7062, y: 0.4401, w: 0.1635, h: 0.0273 },
+  15: { x: 0.7056, y: 0.4409, w: 0.1628, h: 0.0267 },
+  16: { x: 0.7016, y: 0.408, w: 0.1679, h: 0.0279 },
+  17: { x: 0.7053, y: 0.4461, w: 0.1631, h: 0.027 },
+  18: { x: 0.7024, y: 0.4412, w: 0.1629, h: 0.0273 },
+  19: { x: 0.7069, y: 0.4443, w: 0.1631, h: 0.027 },
+  20: { x: 0.7028, y: 0.4452, w: 0.1684, h: 0.0273 },
+  21: { x: 0.709, y: 0.4421, w: 0.1633, h: 0.027 },
+  22: { x: 0.7056, y: 0.4422, w: 0.1626, h: 0.0269 },
+  23: { x: 0.7082, y: 0.442, w: 0.1635, h: 0.027 },
+  24: { x: 0.7048, y: 0.4404, w: 0.1629, h: 0.0269 },
+  25: { x: 0.7062, y: 0.4408, w: 0.1633, h: 0.0269 },
+  26: { x: 0.7053, y: 0.4409, w: 0.1633, h: 0.027 },
+  27: { x: 0.7085, y: 0.4422, w: 0.1632, h: 0.027 },
+  28: { x: 0.7062, y: 0.4398, w: 0.1638, h: 0.0269 }
+};
+
+function hrVac2DirBox_(n) {
+  var box = HR_VAC2_DIR_BOX[Number(n) || 0] || HR_VAC2_DIR_MEDIAN;
+  return { x: box.x, y: box.y, w: box.w, h: box.h };
+}
+
+function hrVac2PageOf_(scan, row) {
+  var n = hrVac2Num_(row && row.id);
+  if (n) return n;
+  var url = String((scan && scan.url) || '');
+  var m = url.match(/hr-vacation-pages\/page-(\d+)/i);
+  if (m) return parseInt(m[1], 10);
+  return hrVac2Num_(typeof hrVal_ === 'function' ? hrVal_('hr-id') : '');
+}
+
 function hrVac2Scan_(n, extra) {
-  var pos = hrDirectorBoxPos_();
+  var pos = hrVac2DirBox_(n);
   return Object.assign({
     url: hrPdfPageUrl_(n),
     directorSig: '',
@@ -577,7 +624,7 @@ function hrPdfPageCard_(row) {
   paper.appendChild(img);
   if (scan && scan.directorSig) {
     paper.style.position = 'relative';
-    hrMountDirSig_(paper, scan);
+    hrMountDirSig_(paper, scan, row);
   }
   card.appendChild(bar);
   card.appendChild(paper);
@@ -1015,6 +1062,8 @@ function hrScanNeedsSnap_(scan) {
 }
 
 function hrDirectorBoxPos_() {
+  var n = hrVac2PageOf_(_hrScan);
+  if (n) return hrVac2DirBox_(n);
   var saved = hrLoadDirSigPlace_();
   if (saved && !hrScanNeedsSnap_(saved)) return saved;
   return hrDirectorCellPos_();
@@ -1060,14 +1109,16 @@ function hrScanPlaceOversized_(scan) {
   return false;
 }
 
-function hrScanDisplayPlace_(scan) {
+function hrScanDisplayPlace_(scan, row) {
+  var n = hrVac2PageOf_(scan, row);
+  if (n) return hrVac2DirBox_(n);
   if (hrScanNeedsSnap_(scan)) return hrDirectorCellPos_();
   return hrNormScanPlace_(scan);
 }
 
-function hrMountDirSig_(parent, scan) {
+function hrMountDirSig_(parent, scan, row) {
   if (!parent || !scan || !scan.directorSig) return null;
-  var pos = hrScanDisplayPlace_(scan);
+  var pos = hrScanDisplayPlace_(scan, row);
   var box = document.createElement('div');
   box.className = 'hr-scan-dir-box hr-scan-dir-locked';
   box.style.left = (pos.x * 100) + '%';
@@ -1109,7 +1160,7 @@ function hrScanPayloadForConfirm_(row, sig) {
   var live = samePaper && _hrScan.url;
   var scan = live ? _hrScan : rowScan;
   if (!scan || !scan.url) return null;
-  var pos = hrScanDisplayPlace_(live ? _hrScan : (hrLoadDirSigPlace_() || scan));
+  var pos = hrScanDisplayPlace_(live ? _hrScan : (hrLoadDirSigPlace_() || scan), row);
   hrSaveDirSigPlace_(pos);
   var url = String(scan.url || '');
   if ((!url || url.indexOf('data:') === 0) && rowScan && rowScan.url && rowScan.url.indexOf('data:') !== 0) {
@@ -1498,8 +1549,9 @@ function hrFillForm_(row) {
     if (ents.__scan.w != null) _hrScan.w = Number(ents.__scan.w) || _hrScan.w;
     if (ents.__scan.h != null) _hrScan.h = Number(ents.__scan.h) || _hrScan.h;
     if (_hrScan.directorSig && !_hrSigs.director) _hrSigs.director = _hrScan.directorSig;
-    if (hrScanNeedsSnap_(_hrScan)) {
-      var lock = hrDirectorCellPos_();
+    var vac2 = hrVac2PageOf_(_hrScan, row);
+    if (vac2 || hrScanNeedsSnap_(_hrScan)) {
+      var lock = vac2 ? hrVac2DirBox_(vac2) : hrDirectorCellPos_();
       _hrScan.x = lock.x;
       _hrScan.y = lock.y;
       _hrScan.w = lock.w;
@@ -2558,7 +2610,9 @@ function hrApplyScanSigBox_() {
   var box = document.getElementById('hrScanDirBox');
   var sig = document.getElementById('hrScanDirSig');
   var target = document.getElementById('hrScanTarget');
-  var pos = hrScanCanEdit_() ? hrNormScanPlace_(_hrScan) : hrScanDisplayPlace_(_hrScan);
+  var pos = (hrScanCanEdit_() && !hrVac2PageOf_(_hrScan))
+    ? hrNormScanPlace_(_hrScan)
+    : hrScanDisplayPlace_(_hrScan);
   _hrScan.x = pos.x;
   _hrScan.y = pos.y;
   _hrScan.w = pos.w;
@@ -3241,7 +3295,7 @@ function hrOpenPrintFrame_(bodyHtml, title) {
   var base = location.origin + location.pathname.replace(/[^/]+$/, '');
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + hrEsc_(title || 'Leave Request') + '</title>'
     + '<base href="' + String(base).replace(/"/g, '') + '">'
-    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-10-dir-box3">'
+    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-10-dir-box4">'
     + '<style>' + hrPrintFrameCss_() + '</style></head><body>' + bodyHtml + '</body></html>';
   var frame = document.getElementById('hrPrintFrame');
   if (!frame) {
