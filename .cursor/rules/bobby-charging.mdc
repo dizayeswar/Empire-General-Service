@@ -1,0 +1,43 @@
+---
+description: Empire charging robot Bobby — phone RU, Nova Pay, SET PIN. Use for charge-robot, Charging Electricity, Open requests, or Nova. Not for HR or Sheets.
+globs: charge-robot/**,charging-electricity.html,assets/empire-charging.js,assets/empire-charging.css
+alwaysApply: false
+---
+
+# Bobby charging (Nova + phone)
+
+Wrong apartment = real money. Never type or send a NovaSys password.
+
+## Who works
+
+- Laptop `watch_open.py` refreshes Open every ~2 min. No AI on empty ticks.
+- Wake this charging chat only for a **new chargeable** RU. Bot **Off** = stop (no Pay, no SET PIN).
+- One RU at a time, oldest first. Finish it before the next. Other tabs (HR / Sheets) do not touch ADB or Nova.
+- Spoken “close” = **SET PIN** only. Never tap **Close request**. After success, tap **Ok** only.
+
+## Phone
+
+- App `com.abacuscambridge.empireworldErbil`. Refresh = Home → Requests.
+- **RU-#####** is unique. Charge once per RU.
+- Items: **IQD before the dot, no comma.** Ignore **Qty**. Ignore **FM-…**. Ignore a 50 K header if the line IQD is different. Example: Qty 2 + `IQD 100000.0` → Pay **100000**.
+- National → **T1**. Generator → **T2**.
+- Attachments = **Invoice paper photo only** (window titled Invoice, not Nova’s payments grid). Remarks empty. PIN always `Charged`.
+
+## Nova vs overseas
+
+- **Nova:** `ES-` and `WW-12` … `WW-15`. Search as the phone except ES4 `ES-4-17-02` → `ES4-17-2` and ES6 `ES-6-{floor}-{apt}` (floors 2–24, apts 1–6).
+- **Overseas (ignore, no charge, no dashboard):** `RV-`, `RA-`, `WD-`, `WW-1` … `WW-11`.
+- Charge only if first column is **green circle + white tick**. Ignore orange/red **row fill**. Grey clock / red X = no Pay, no SET PIN; still save dashboard with the cause. Trust the search screenshot if pixels say pending.
+
+## Pay
+
+- Tariff is a **dropdown only**. Never type T1/T2. Nova often opens on T2.
+- Before Pay, the Create payment boxes must show the same **apartment + T1/T2 + amount**. Else stop.
+- T1 = 156 IQD/kWh. T2 = 480 IQD/kWh.
+- Login popups: Cancel (empty) → OK (saved password) → Yes (`&Yes` obsolete DB). Never type the password. Do not hammer OK while login is still filling.
+- Charged dashboard rows need an invoice URL. Waiting rows need a note. Unique on `ru`. Set `started_at` when the RU starts.
+
+## Commands
+
+- **Bobby stop watching** → stop the laptop watch (no Home → Requests, no Pay, no SET PIN).
+- **Start watching Bobby** → start the watch again.
