@@ -87,9 +87,20 @@ def push_invoice(dest_name: str) -> None:
     )
 
 
+def ru_invoice_name(ru: str) -> str:
+    digits = "".join(ch for ch in ru if ch.isdigit())
+    return f"invoice-RU-{digits}.jpg"
+
+
 def main() -> None:
+    from bot_switch import require_bot_on
+
+    require_bot_on()
     ru = sys.argv[1]
-    dest_name = sys.argv[2]
+    dest_name = ru_invoice_name(ru)
+    if len(sys.argv) > 2 and ru.replace("RU-", "") in sys.argv[2]:
+        dest_name = sys.argv[2]
+    print("attach-file", dest_name)
     push_invoice(dest_name)
 
     root = dump("fin0")

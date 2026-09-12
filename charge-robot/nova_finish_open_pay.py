@@ -12,6 +12,9 @@ AMOUNT = sys.argv[3]
 
 
 def main() -> None:
+    from bot_switch import require_bot_on
+
+    require_bot_on()
     bot = NovaSysRobot()
     bot.connect()
     dlg = bot._create_payment_dialog()

@@ -93,12 +93,33 @@ def parse_cards(texts: list[str]) -> list[dict]:
     return cards
 
 
+def leave_request_detail(texts: list[str]) -> list[str]:
+    """Request Detail / Items uses its own bottom tabs. Home (134,2144) and
+    Requests (405,2144) hit those tabs and never reach the Open list."""
+    for i in range(8):
+        joined = " ".join(texts)
+        stuck = (
+            "Request ID" in texts
+            or "SET PIN" in texts
+            or ("Request Detail" in texts and "Buy - RU-" not in joined and "Open" not in texts)
+        )
+        if not stuck:
+            return texts
+        tap(79, 185)
+        time.sleep(0.7)
+        texts = dump_texts(f"watch-back{i}")
+    return texts
+
+
 def refresh_open() -> list[str]:
+    texts = dump_texts("watch0")
+    texts = leave_request_detail(texts)
     tap(134, 2144)
     time.sleep(2)
     tap(405, 2144)
     time.sleep(18)
     texts = dump_texts("watch")
+    texts = leave_request_detail(texts)
     if "Getting Requests..." in texts:
         time.sleep(10)
         texts = dump_texts("watchb")
@@ -109,6 +130,7 @@ def refresh_open() -> list[str]:
         if "Getting Requests..." in texts:
             time.sleep(8)
             texts = dump_texts("watchd")
+        texts = leave_request_detail(texts)
     return texts
 
 
@@ -132,7 +154,33 @@ def log(msg: str) -> None:
         f.write(line + "\n")
 
 
+def nova_busy() -> str:
+    """Invoice or Create payment still open = do not start another RU."""
+    try:
+        from pywinauto import Desktop
+
+        d32 = Desktop(backend="win32")
+        for title in ("Invoice", "Create payment"):
+            w = d32.window(title=title)
+            if w.exists(timeout=0.2) and w.is_visible():
+                return title
+    except Exception:
+        pass
+    return ""
+
+
 def main() -> int:
+    from bot_switch import bot_is_on
+
+    if not bot_is_on():
+        log("BOT_OFF stop (no refresh, no PLANB, no Pay, no SET PIN)")
+        return 3
+
+    busy = nova_busy()
+    if busy:
+        log(f"WAIT {busy} still open — no next RU")
+        return 0
+
     texts = refresh_open()
     cards = parse_cards(texts)
     chargeable = [c for c in cards if c.get("ru") and not is_overseas(c.get("unit") or "")]
@@ -153,7 +201,8 @@ def main() -> int:
         save_state({"alerted": sorted(alerted)})
         return 0
 
-    c = fresh[0]
+    # Visible list is newest at the top. Take the oldest card on this screen.
+    c = fresh[-1]
     alerted.add(c["ru"])
     save_state({"alerted": sorted(alerted)})
     summary = f"{c['ru']} {c.get('unit') or '?'} {c.get('money') or '?'}"

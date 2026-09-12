@@ -132,6 +132,9 @@ def prep_create_pay(apartment: str, tariff: str, amount: str) -> Path:
 
 
 def main() -> int:
+    from bot_switch import require_bot_on
+
+    require_bot_on()
     ru = sys.argv[1]
     unit = sys.argv[2] if len(sys.argv) > 2 else ""
     print(f"PLANB START {ru} {unit}")

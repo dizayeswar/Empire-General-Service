@@ -520,7 +520,7 @@ function chgApplyBotBar_() {
   if (hint) {
     hint.textContent = on
       ? 'The bot may process RUs: Nova, invoice, SET PIN, and the dashboard.'
-      : 'Stopped. No Pay, no SET PIN. Try failed again does nothing.';
+      : 'Stopped. Laptop watch, Pay, SET PIN, and this desk all stop. Try failed again does nothing.';
     if (CHG_BOT_.updatedBy) {
       hint.textContent += ' Last change: ' + chgFormatDt_(CHG_BOT_.updatedAt) + ' by ' + CHG_BOT_.updatedBy + '.';
     }
@@ -558,7 +558,7 @@ function chgToggleBot_() {
   var next = !chgBotOn_();
   var msg = next
     ? 'Turn the bot On?\n\nIt will process RUs on the laptop: Nova Pay, invoice, and SET PIN. This can take money.'
-    : 'Turn the bot Off now?\n\nIt stops at once. No Pay, no SET PIN. The current RU is saved as waiting with cause Stopped.';
+    : 'Turn the bot Off now?\n\nIt stops everything: laptop watch, Pay, SET PIN, and the charging chat. No money after this.';
   uiConfirm(msg, {
     okLabel: next ? 'Turn On' : 'Turn Off',
     danger: !next

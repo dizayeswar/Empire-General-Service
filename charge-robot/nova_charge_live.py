@@ -16,6 +16,9 @@ AMOUNT = sys.argv[3] if len(sys.argv) > 3 else ""
 
 
 def main() -> None:
+    from bot_switch import require_bot_on
+
+    require_bot_on()
     if not APARTMENT or TARIFF not in {"T1", "T2"} or not AMOUNT:
         raise SystemExit("usage: nova_charge_live.py ES-3-5-01 T2 50000")
     bot = NovaSysRobot()

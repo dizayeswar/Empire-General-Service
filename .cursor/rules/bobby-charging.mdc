@@ -12,23 +12,31 @@ Wrong apartment = real money. Never type or send a NovaSys password.
 
 - Laptop `watch_open.py` refreshes Open every ~2 min. No AI on empty ticks.
 - **Plan B (now):** on a new chargeable RU the laptop opens it and fills Create payment, then **stops before Pay** and wakes this chat. Say **Pay** only if the picture matches. Hard RUs also wake this chat.
-- Bot **Off** = stop (no Pay, no SET PIN).
-- One RU at a time, oldest first. Finish it before the next. Other tabs (HR / Sheets) do not touch ADB or Nova.
+- **Website Bot Off = everything off.** No Home → Requests, no PLANB, no Pay, no SET PIN. This chat stops. Same as **Bobby stop watching**. If the switch cannot be read, treat as Off.
+- One RU at a time, **oldest first**. Finish it (Pay + attach + SET PIN + Ok, **or** cannot_charge + Back) before the next.
+- **Watch waits.** Do not open the next RU, do not run PLANB, while **Invoice** or **Create payment** is open, or while SET PIN on the current RU is not finished. Two jobs on one phone is how the wrong paper gets attached.
+- Other tabs (HR / Sheets) do not touch ADB or Nova.
 - Spoken “close” = **SET PIN** only. Never tap **Close request**. After success, tap **Ok** only.
 
 ## Phone
 
-- App `com.abacuscambridge.empireworldErbil`. Refresh = Home → Requests.
+- App `com.abacuscambridge.empireworldErbil`. Refresh = Home → Requests **only when the main Staff bar is showing** (Home / Requests / Tasks / Account).
+- After **grey / red X / cannot_charge / any fail**: **Back (Navigate up)** off Request Detail / Items **before** the next refresh. Fail does not SET PIN, so the phone stays on that RU until we leave it.
+- Request Detail / Items use their own bottom tabs. Home `(134,2144)` and Requests `(405,2144)` hit those tabs and **never** reach the Open list. That is why `open=0` can be a lie.
+- A dump with `Request ID` / `SET PIN` / `Request Detail` and **no** `Buy - RU-` is **not** an empty Open list. Back first, then Home → Requests, then read cards. Grey skips **that RU only**; other Open RUs still get done.
+- Do not spam Back from Home — that opens **Exit Application**. Tap **NO** if it appears.
 - **RU-#####** is unique. Charge once per RU.
 - Items: **IQD before the dot, no comma.** Ignore **Qty**. Ignore **FM-…**. Ignore a 50 K header if the line IQD is different. Example: Qty 2 + `IQD 100000.0` → Pay **100000**.
 - National → **T1**. Generator → **T2**.
 - Attachments = **Invoice paper photo only** (window titled Invoice, not Nova’s payments grid). Remarks empty. PIN always `Charged`.
+- Attach file name is **`invoice-RU-######.jpg`** (the RU, not the apartment). Push that new file, pick **only that name** in Gallery. Never tap a leftover `IMG_…` or an old `invoice-WW-…` / `invoice-ES-…`.
+- Before SET PIN, the paper on the request must show this RU’s **apartment + amount** (and 156 vs 480). If it does not match, stop — do not SET PIN.
 
 ## Nova vs overseas
 
 - **Nova:** `ES-` and `WW-12` … `WW-15`. Search as the phone except ES4 `ES-4-17-02` → `ES4-17-2` and ES6 `ES-6-{floor}-{apt}` (floors 2–24, apts 1–6).
 - **Overseas (ignore, no charge, no dashboard):** `RV-`, `RA-`, `WD-`, `WW-1` … `WW-11`.
-- Charge only if first column is **green circle + white tick**. Ignore orange/red **row fill**. Grey clock / red X = no Pay, no SET PIN; still save dashboard with the cause. Trust the search screenshot if pixels say pending.
+- Charge only if first column is **green circle + white tick**. Ignore orange/red **row fill**. Grey clock / red X = no Pay, no SET PIN; still save dashboard with the cause; then **leave that request** and keep watching. Trust the search screenshot if pixels say pending.
 
 ## Pay
 
@@ -41,4 +49,5 @@ Wrong apartment = real money. Never type or send a NovaSys password.
 ## Commands
 
 - **Bobby stop watching** → stop the laptop watch (no Home → Requests, no Pay, no SET PIN).
-- **Start watching Bobby** → start the watch again.
+- **Start watching Bobby** → start `watch_loop.ps1` (exits when the website Bot is Off).
+- Website **Turn Off** → laptop watch exits; Pay / SET PIN / PLANB refuse to run; this chat does not continue a charge.
