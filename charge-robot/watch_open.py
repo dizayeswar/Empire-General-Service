@@ -27,8 +27,8 @@ WAKE = (
     "AGENT_LOOP_WAKE_new_rus "
     '{"prompt":"NEW chargeable Open RU(s) on the Empire phone. Bot Off = stop '
     "(no Pay, no SET PIN). Skip overseas RV-/RA-/WD-/WW-1..WW-11. One RU at a time, "
-    "oldest first. Green circle+tick only. Dropdown T1/T2, confirm apartment/tariff/amount "
-    'before Pay, invoice, PIN Charged, SET PIN, Ok. Target 3-5 min. Cards: %s"}'
+    "oldest first. Green circle+tick only. Dropdown T1/T2. Pay only if apartment/tariff/amount "
+    'match, then invoice, PIN Charged, SET PIN, Ok. Target 3-5 min. Cards: %s"}'
 )
 
 

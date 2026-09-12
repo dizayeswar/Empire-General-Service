@@ -11,7 +11,7 @@ Wrong apartment = real money. Never type or send a NovaSys password.
 ## Who works
 
 - Laptop `watch_open.py` refreshes Open every ~2 min. No AI on empty ticks.
-- **Plan B (now):** on a new chargeable RU the laptop opens it and fills Create payment, then **stops before Pay** and wakes this chat. Say **Pay** only if the picture matches. Hard RUs also wake this chat.
+- **Auto Pay:** on a new chargeable RU the laptop opens it, fills Create payment, and **Pays only if apartment + T1/T2 + amount match**. Then attach + SET PIN + Ok. Do not wait for this chat to say Pay. Wake this chat after success or fail (dashboard). Hard RUs also wake this chat. Recheck Bot Off and the boxes immediately before Pay.
 - **Website Bot Off = everything off.** No Home → Requests, no PLANB, no Pay, no SET PIN. This chat stops. Same as **Bobby stop watching**. If the switch cannot be read, treat as Off.
 - One RU at a time, **oldest first**. Finish it (Pay + attach + SET PIN + Ok, **or** cannot_charge + Back) before the next.
 - **Watch waits.** Do not open the next RU, do not run PLANB, while **Invoice** or **Create payment** is open, or while SET PIN on the current RU is not finished. Two jobs on one phone is how the wrong paper gets attached.

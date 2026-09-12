@@ -519,7 +519,7 @@ function chgApplyBotBar_() {
   if (label) label.textContent = on ? 'Bot On' : 'Bot Off';
   if (hint) {
     hint.textContent = on
-      ? 'The bot may process RUs: Nova, invoice, SET PIN, and the dashboard.'
+      ? 'The bot may process RUs: Nova Pay, invoice, SET PIN, and the dashboard. It pays only if apartment, tariff, and amount match.'
       : 'Stopped. Laptop watch, Pay, SET PIN, and this desk all stop. Try failed again does nothing.';
     if (CHG_BOT_.updatedBy) {
       hint.textContent += ' Last change: ' + chgFormatDt_(CHG_BOT_.updatedAt) + ' by ' + CHG_BOT_.updatedBy + '.';

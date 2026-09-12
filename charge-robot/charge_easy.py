@@ -1,4 +1,4 @@
-"""Plan B phase 1: open RU, fill Create payment, stop. Never clicks Pay."""
+"""Auto charge: fill Create payment, Pay only if boxes match, then attach + SET PIN."""
 from __future__ import annotations
 
 import re
@@ -12,7 +12,7 @@ from pywinauto.mouse import click
 
 from nova_check_unit import search as nova_search
 from nova_login import handle_login_locked
-from nova_search_filter import find_win, shot
+from nova_search_filter import find_win, grab_invoice, shot
 from robot import NovaSysRobot
 
 ROOT = Path(__file__).resolve().parent
@@ -26,7 +26,7 @@ ADB = (
 
 def wake(reason: str, detail: str) -> None:
     prompt = (
-        "PLAN B. Bot Off = stop (no Pay, no SET PIN). "
+        "AUTO PAY. Bot Off = stop (no Pay, no SET PIN). "
         f"{reason} {detail}"
     )
     print(f"AGENT_LOOP_WAKE_new_rus {{\"prompt\":{prompt!r}}}", flush=True)
@@ -100,7 +100,9 @@ def icon_ok(verdict: str, shot_path: Path) -> bool:
     return red == 0 and green >= 15
 
 
-def prep_create_pay(apartment: str, tariff: str, amount: str) -> Path:
+def charge_and_pay(apartment: str, tariff: str, amount: str) -> Path:
+    from bot_switch import require_bot_on
+
     bot = NovaSysRobot()
     bot.connect()
     handle_login_locked(6)
@@ -127,8 +129,29 @@ def prep_create_pay(apartment: str, tariff: str, amount: str) -> Path:
     before = shot(win, f"BEFORE-PAY-{apartment}-{tariff}-{amount}")
     print("before-pay", before)
     print("WIN32", bot._win32_apartment(), bot._read_tariff(), bot._read_amount())
-    print("STOPPED BEFORE PAY")
-    return before
+    require_bot_on()
+    bot._require_payment_matches(dlg, tariff, amount, apartment)
+    print("CLICKING PAY NOW", apartment, tariff, amount)
+    bot._click_dialog_pay(dlg)
+    bot._maximize_invoice()
+    receipt = grab_invoice(f"INVOICE-{apartment}")
+    print("receipt", receipt)
+    return receipt
+
+
+def finish_phone(ru: str) -> None:
+    r = subprocess.run(
+        [sys.executable, str(ROOT / "phone_finish_ru.py"), ru],
+        cwd=str(ROOT),
+    )
+    if r.returncode != 0:
+        raise RuntimeError(f"attach or SET PIN failed exit {r.returncode}")
+
+
+def close_invoice() -> None:
+    bot = NovaSysRobot()
+    bot.connect()
+    bot._close_invoice_if_open()
 
 
 def main() -> int:
@@ -147,11 +170,10 @@ def main() -> int:
         if not icon_ok(verdict, path):
             wake("not green tick", f"{ru} {apt} {verdict} {path}")
             return 2
-        prep_create_pay(apt, tariff, amount)
-        wake(
-            "STOPPED BEFORE PAY. Look at Create payment. Say Pay if apartment T1/T2 amount match.",
-            f"{ru} {apt} {tariff} {amount}",
-        )
+        charge_and_pay(apt, tariff, amount)
+        finish_phone(ru)
+        close_invoice()
+        wake("AUTO PAID + SET PIN", f"{ru} {apt} {tariff} {amount}")
         return 0
     except Exception as exc:
         wake("laptop stopped", f"{ru} {unit} {exc}")
