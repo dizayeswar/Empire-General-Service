@@ -103,6 +103,7 @@ def icon_ok(verdict: str, shot_path: Path) -> bool:
 def charge_and_pay(apartment: str, tariff: str, amount: str) -> Path:
     from bot_switch import require_bot_on
 
+    require_bot_on()
     bot = NovaSysRobot()
     bot.connect()
     handle_login_locked(6)
@@ -129,7 +130,6 @@ def charge_and_pay(apartment: str, tariff: str, amount: str) -> Path:
     before = shot(win, f"BEFORE-PAY-{apartment}-{tariff}-{amount}")
     print("before-pay", before)
     print("WIN32", bot._win32_apartment(), bot._read_tariff(), bot._read_amount())
-    require_bot_on()
     bot._require_payment_matches(dlg, tariff, amount, apartment)
     print("CLICKING PAY NOW", apartment, tariff, amount)
     bot._click_dialog_pay(dlg)
@@ -165,6 +165,10 @@ def main() -> int:
         tariff, amount = items_from_phone(ru)
         print(f"ITEMS {tariff} {amount}")
         apt = nova_query(unit)
+        handle_login_locked(20)
+        bot = NovaSysRobot()
+        bot.connect()
+        bot._open_payments()
         verdict, path = nova_search(apt)
         print(f"SEARCH {apt} {verdict} {path}")
         if not icon_ok(verdict, path):

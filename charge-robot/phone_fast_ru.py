@@ -44,10 +44,12 @@ def click_ok_if_done(texts: list[str]) -> list[str]:
 def main() -> None:
     from bot_switch import require_bot_on
 
-    require_bot_on()
     ru = sys.argv[1]
     texts = click_ok_if_done(dump("fast0"))
-    if ru in texts and ("Request ID" in texts or "Request Detail" in texts):
+    require_bot_on()
+    if ru in texts and (
+        "Request ID" in texts or "Request Detail" in texts or "SET PIN" in texts
+    ):
         print("ALREADY OPEN")
         for t in texts:
             print(t)

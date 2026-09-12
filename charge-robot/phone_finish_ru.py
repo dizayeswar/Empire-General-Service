@@ -106,6 +106,11 @@ def main() -> None:
     root = dump("fin0")
     t = texts(root)
     if ru not in t:
+        tap(134, 2144)
+        time.sleep(0.8)
+        root = dump("fin0b")
+        t = texts(root)
+    if ru not in t:
         raise SystemExit(f"phone is not on {ru}: {t[:12]}")
 
     adb("shell", "input", "swipe", "540", "1700", "540", "600", "200")
