@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-20-wh-signer">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-09-08-bulk-done">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-09-13-viewer">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -559,7 +559,7 @@
 <script src="config.js?v=2026-08-23-arrow-nav"></script>
 <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
 <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
-<script src="assets/empire-auth.js?v=2026-08-20-wh-reset"></script>
+<script src="assets/empire-auth.js?v=2026-09-13-viewer"></script>
 <script src="assets/empire-core.js?v=2026-08-20-wh-reset"></script>
 <script src="assets/empire-sw-update.js?v=2026-08-20-wh-reset"></script>
 <script src="assets/empire-warehouse-sp.js?v=2026-08-19-wh-assign"></script>
@@ -598,6 +598,7 @@ var _whEsigs = [];
 var _whEsigPickFor = '';
 var _whSpFilter = 'both';
 var _whReceiverMode = false;
+var _whViewOnly = false;
 var _whAssigneesCache = [];
 var _whSelectMode = false;
 var _whSelected = {};
@@ -616,6 +617,41 @@ function whIsReceiverMode_(){
   if(typeof empireIsWarehouseSigner==='function') return empireIsWarehouseSigner();
   var role=String(typeof empireGetRole==='function' ? empireGetRole() : '').toLowerCase().replace(/[\s-]+/g,'_');
   return role==='warehouse_receiver' || role==='receiver';
+}
+function whModuleAccessEmpty_(){
+  if(typeof empireGetModuleAccess!=='function') return true;
+  var o=empireGetModuleAccess();
+  return !o || !Object.keys(o).length;
+}
+function whCanWriteDesk_(){
+  if(typeof empireIsAdminRole==='function' && empireIsAdminRole()) return true;
+  var role=String(typeof empireGetRole==='function' ? empireGetRole() : '').toLowerCase().replace(/[\s-]+/g,'_');
+  if(role==='viewer' || role==='warehouse_receiver' || role==='receiver') return false;
+  if(typeof empireModuleLevel==='function' && !whModuleAccessEmpty_()){
+    return empireModuleLevel('warehouse_desk')==='write';
+  }
+  return role==='admin' || role==='editor';
+}
+function whCanWriteInvoices_(){
+  if(typeof empireIsAdminRole==='function' && empireIsAdminRole()) return true;
+  var role=String(typeof empireGetRole==='function' ? empireGetRole() : '').toLowerCase().replace(/[\s-]+/g,'_');
+  if(role==='viewer' || role==='warehouse_receiver' || role==='receiver') return false;
+  if(typeof empireModuleLevel==='function' && !whModuleAccessEmpty_()){
+    if(empireModuleLevel('warehouse_invoices')==='write') return true;
+    return empireModuleLevel('warehouse_desk')==='write';
+  }
+  return role==='admin' || role==='editor';
+}
+function whWriteBlocked_(what){
+  if(_whReceiverMode){
+    alert('Receiver accounts cannot '+(what||'do that')+'.');
+    return true;
+  }
+  if(_whViewOnly){
+    alert('View only — this account cannot '+(what||'change warehouse data')+'.');
+    return true;
+  }
+  return false;
 }
 function whSigSlots_(){
   if(typeof empireGetWarehouseSigSections==='function'){
@@ -723,6 +759,28 @@ function whApplyReceiverShell_(){
     whSwitchTab(null,'done');
   }
 }
+function whApplyViewOnlyShell_(){
+  _whViewOnly = !_whReceiverMode && !whCanWriteDesk_();
+  document.body.classList.toggle('wh-view-only', _whViewOnly);
+  if(!_whViewOnly) return;
+  var sub=document.querySelector('.side-title p');
+  if(sub) sub.textContent='Goods Issue Notes — view & print';
+  var sigsBtn=document.getElementById('tab-wh-sigs');
+  if(sigsBtn){
+    var sigLbl=sigsBtn.querySelector('.lbl');
+    if(sigLbl) sigLbl.textContent='Signatures';
+  }
+  var esigCreate=document.getElementById('whEsigCreateBox');
+  if(esigCreate) esigCreate.style.display='none';
+  var esigTitle=document.getElementById('whEsigTitle');
+  if(esigTitle) esigTitle.textContent='Signatures';
+  var savedHelp=document.querySelector('#wh-tab-saved .wh-tab-help');
+  if(savedHelp) savedHelp.innerHTML='View and print only. This account cannot create, edit, or mark notes Done.';
+  var invListHelp=document.querySelector('#wh-tab-invoices .wh-tab-help');
+  if(invListHelp) invListHelp.innerHTML='Saved invoices — view and print only.';
+  whSetFormLocked(true);
+  if(!_whReceiverMode) whSwitchTab(null,'saved');
+}
 
 function handleLogin(e){ empireAuthLogin(e, 'warehouse', { onSuccess: function(){ enterApp(); } }); }
 function logout(){ empireAuthLogout({ redirect: 'index.html', reload: false }); }
@@ -736,8 +794,11 @@ function enterApp(){
   var u=empireGetUser(); var role=empireGetRole()||'';
   if(wl) wl.textContent = u ? ('Logged in as: '+u+(role?(' ('+role+')'):'')) : '';
   _whReceiverMode = whIsReceiverMode_();
+  _whViewOnly = !_whReceiverMode && !whCanWriteDesk_();
+  document.body.classList.toggle('wh-view-only', _whViewOnly);
   whInit();
   whApplyReceiverShell_();
+  whApplyViewOnlyShell_();
   whBindSettingsOutside_();
   whLoadSavedList();
 }
@@ -748,7 +809,7 @@ window.addEventListener('load', function(){
 function whSwitchTab(e, tab){
   var cur=document.querySelector('.dept-tab-content.active');
   var leavingNote=cur && cur.id==='wh-tab-note' && tab!=='note';
-  if(leavingNote && !_whFormLocked && !_whReceiverMode && !whSwitchTab._flushing){
+  if(leavingNote && !_whFormLocked && !_whReceiverMode && !_whViewOnly && !whSwitchTab._flushing){
     whSwitchTab._flushing=true;
     // Local flush only (fast). Server sync in background — never block the tab switch.
     try { whAutoSaveLocal_(true); } catch (err) {}
@@ -779,6 +840,7 @@ function whApplyTab_(e, tab){
   if(tab==='sigs') whEsigLoad();
   if(tab==='invoice'){
     if(_whReceiverMode){ whApplyTab_(null,'done'); return; }
+    if(_whViewOnly || !whCanWriteInvoices_()){ whApplyTab_(null,'invoices'); return; }
     whInvEnsureDefaults_();
   }
   if(tab==='invoices'){
@@ -807,7 +869,7 @@ function whInit(){
   // Layout editing UI removed — shared positions still load/apply from server.
   _whLayoutEdit = false;
   // Restore unfinished draft so Request Date (and the rest) stay as you left them.
-  if(!_whEditingId) whDraftRestore_();
+  if(!_whEditingId && !_whViewOnly && !_whReceiverMode) whDraftRestore_();
   whDraftBind_();
   whEsigLoad();
   document.addEventListener('click', function(e){
@@ -846,7 +908,7 @@ function whPayloadFinger_(p){
   } catch(e){ return String(Date.now()); }
 }
 function whAutoSaveSchedule_(){
-  if(_whFormLocked || _whReceiverMode) return;
+  if(_whFormLocked || _whReceiverMode || _whViewOnly) return;
   if(_whDraftTimer) clearTimeout(_whDraftTimer);
   whAutoSaveSetStatus_('Editing…');
   _whDraftTimer=setTimeout(function(){
@@ -888,7 +950,7 @@ function whCacheUpsert_(item){
 }
 /** Fast path: memory + small draft. Optionally touch localStorage list. */
 function whAutoSaveLocal_(persistStorage){
-  if(_whFormLocked || _whReceiverMode) return null;
+  if(_whFormLocked || _whReceiverMode || _whViewOnly) return null;
   var payload=whCollectPayload();
   var has=whFormHasContent_();
   if(!has && !_whEditingId){
@@ -947,7 +1009,7 @@ function whAutoSaveLocal_(persistStorage){
 }
 function whAutoSaveServer_(opts){
   opts=opts||{};
-  if(_whFormLocked || _whReceiverMode) return Promise.resolve();
+  if(_whFormLocked || _whReceiverMode || _whViewOnly) return Promise.resolve();
   if(_whAutoSaveBusy){ _whAutoSavePending=true; return Promise.resolve(); }
   // If a first create is already in flight, wait — do not insert another blank/typed twin.
   if(_whCreateInFlight){
@@ -1117,6 +1179,7 @@ function whLayoutSyncFromServer_(){
   }).catch(function(){});
 }
 function whLayoutPublishToServer_(quiet){
+  if(_whViewOnly || _whReceiverMode) return;
   var token=typeof empireGetToken==='function' ? empireGetToken() : '';
   if(!token || typeof fetchJSONRetry!=='function'){
     if(!quiet) alert('Login required to save layout for all PCs.');
@@ -1451,7 +1514,7 @@ function whOpenBlankNote_(){
   whSwitchTab(null,'note');
 }
 function whStartNew(){
-  if(_whReceiverMode){ alert('Receiver accounts cannot create new notes.'); return; }
+  if(whWriteBlocked_('create new notes')) return;
   if(whFormHasContent_() && !_whFormLocked){
     whUiConfirm_('Start a new Goods Issue Note?\n\nClick OK only after you have Saved the current one if you still need it under Saved Notes.').then(function(ok){
       if(ok) whOpenBlankNote_();
@@ -1630,6 +1693,7 @@ function whSyncLocalDone_(id, extra){
   whLocalUpsert(it);
 }
 function whSave(){
+  if(_whViewOnly){ alert('View only — this account cannot save notes.'); return; }
   if(_whFormLocked){
     alert('This Goods Issue Note is Done and cannot be edited.\n\nOpen Assignment to Assign who signs Received by.');
     whSwitchTab(null,'done');
@@ -1881,11 +1945,11 @@ function whLoadSavedList(){
   whBindDoneListClicks_();
   whBindClosedListClicks_();
   var token=typeof empireGetToken==='function' ? empireGetToken() : '';
-  var local=_whReceiverMode ? [] : whLocalRead();
+  var local=(_whReceiverMode || _whViewOnly) ? [] : whLocalRead();
   fetchJSONRetry({ action:'getWarehouseGins', token:token }, 2, 60000).then(function(d){
     var server=(d && (d.items||d.data||d.rows)) || [];
     if(!Array.isArray(server)) server=[];
-    if(!_whReceiverMode){
+    if(!_whReceiverMode && !_whViewOnly){
       try { local=whPruneLocalOrphans_(server); } catch(e){ local=whLocalRead(); }
     }
     _whSavedCache=whMergeLists(server, local);
@@ -2106,7 +2170,7 @@ function whSavedSectionHtml_(title, items, mode){
   mode = mode===true ? 'assign' : (mode===false ? 'open' : String(mode||'open'));
   var isAssign=mode==='assign';
   var isClosed=mode==='closed';
-  var showSel=!!_whSelectMode && !isAssign && !isClosed && !_whReceiverMode;
+  var showSel=!!_whSelectMode && !isAssign && !isClosed && !_whReceiverMode && !_whViewOnly;
   var h='<div class="wh-saved-section'+(isAssign||isClosed?' wh-saved-section-done':'')+'">'
     +'<h3 class="wh-saved-section-title">'+whEsc(title)
     +' <span class="wh-saved-section-count">('+items.length+')</span></h3>';
@@ -2137,16 +2201,18 @@ function whSavedSectionHtml_(title, items, mode){
         } else {
           acts+='<button type="button" data-wh-act="close" data-wh-id="'+id+'" title="Upload your signature first" style="opacity:.55;">Done (sign first)</button> ';
         }
-      } else {
+      } else if(!_whViewOnly){
         acts+='<button type="button" data-wh-act="assign" data-wh-id="'+id+'">'+(it.assignedTo?'Reassign':'Assign')+'</button> ';
         acts+='<button type="button" data-wh-act="delete" data-wh-id="'+id+'">Delete</button> ';
       }
       acts+='<button type="button" data-wh-act="print" data-wh-id="'+id+'">Print</button> ';
     } else {
-      acts='<button type="button" data-wh-act="open" data-wh-id="'+id+'">Open</button> '
-        +'<button type="button" data-wh-act="done" data-wh-id="'+id+'">Done</button> '
-        +'<button type="button" data-wh-act="print" data-wh-id="'+id+'">Print</button> '
-        +(_whReceiverMode?'':('<button type="button" data-wh-act="delete" data-wh-id="'+id+'">Delete</button> '));
+      acts='<button type="button" data-wh-act="open" data-wh-id="'+id+'">Open</button> ';
+      if(!_whViewOnly){
+        acts+='<button type="button" data-wh-act="done" data-wh-id="'+id+'">Done</button> ';
+      }
+      acts+='<button type="button" data-wh-act="print" data-wh-id="'+id+'">Print</button> '
+        +((_whReceiverMode||_whViewOnly)?'':('<button type="button" data-wh-act="delete" data-wh-id="'+id+'">Delete</button> '));
     }
     h+='<tr'+(picked?' class="wh-row-selected"':'')+'>'
       +(showSel?'<td class="wh-sel-col"><input type="checkbox" data-wh-sel="1" data-wh-id="'+id+'"'+(picked?' checked':'')+'></td>':'')
@@ -2217,6 +2283,7 @@ function whPruneSelected_(){
   _whSelected=live;
 }
 function whToggleSelectMode_(on){
+  if(_whViewOnly || _whReceiverMode) return;
   if(_whBulkBusy) return;
   _whSelectMode = on===undefined ? !_whSelectMode : !!on;
   if(!_whSelectMode) _whSelected={};
@@ -2259,7 +2326,7 @@ function whSyncSelectBar_(openCount){
   if(openCount==null){
     try { openCount=whPartitionSaved_().openCount; } catch(e){ openCount=0; }
   }
-  var has= !_whReceiverMode && openCount>0;
+  var has= !_whReceiverMode && !_whViewOnly && openCount>0;
   var on=!!_whSelectMode && has;
   if(!has && _whSelectMode){
     _whSelectMode=false;
@@ -2351,7 +2418,7 @@ function whPostMarkDone_(id){
   });
 }
 function whMarkSelectedDone_(){
-  if(_whReceiverMode){ alert('Receiver accounts cannot mark notes Done.'); return; }
+  if(whWriteBlocked_('mark notes Done')) return;
   if(_whBulkBusy) return;
   var ids=whSelectedOpenIds_();
   if(!ids.length){
@@ -2408,20 +2475,22 @@ function whFindSaved(id){
   return null;
 }
 function whSetFormLocked(locked){
+  if(_whViewOnly) locked=true;
   _whFormLocked=!!locked;
-  if(!_whFormLocked && !_whReceiverMode) whLinesSelClear_();
+  if(!_whFormLocked && !_whReceiverMode && !_whViewOnly) whLinesSelClear_();
   var root=document.getElementById('whPrintRoot');
   if(root) root.classList.toggle('wh-form-locked', _whFormLocked);
   var banner=document.getElementById('whDoneBanner');
   if(banner){
     banner.hidden=!_whFormLocked;
-    if(_whFormLocked && whIsItemClosed(whFindSaved(_whEditingId))) banner.textContent='Done — view only';
+    if(_whViewOnly) banner.textContent='View only';
+    else if(_whFormLocked && whIsItemClosed(whFindSaved(_whEditingId))) banner.textContent='Done — view only';
     else if(_whFormLocked && _whReceiverMode) banner.textContent='Assigned to you — sign: '+whSigSlotsLabel_();
     else if(_whFormLocked) banner.textContent='In Assignment — view only';
   }
   ['whSaveBtn','whSaveBtn2'].forEach(function(id){
     var b=document.getElementById(id);
-    if(b) b.disabled=_whFormLocked || _whReceiverMode;
+    if(b) b.disabled=_whFormLocked || _whReceiverMode || _whViewOnly;
   });
   var signerDone=document.getElementById('whSignerDoneBtn');
   if(signerDone){
@@ -2434,7 +2503,7 @@ function whSetFormLocked(locked){
     root.querySelectorAll('input,button.wh-type-btn,textarea,select').forEach(function(el){
       if(el.closest('.wh-sig-actions')) return;
       if(el.type==='hidden') return;
-      var lock=_whFormLocked || _whReceiverMode;
+      var lock=_whFormLocked || _whReceiverMode || _whViewOnly;
       var isTextish = el.tagName==='TEXTAREA' ||
         (el.tagName==='INPUT' && ['text','search','tel','url','email','password','number','decimal',''].indexOf(String(el.type||'text').toLowerCase())!==-1) ||
         (el.tagName==='INPUT' && (el.inputMode==='decimal' || el.inputMode==='numeric'));
@@ -2564,7 +2633,7 @@ function whPickAssignee_(users){
   });
 }
 function whMarkDone(id){
-  if(_whReceiverMode){ alert('Receiver accounts cannot mark notes Done.'); return; }
+  if(whWriteBlocked_('mark notes Done')) return;
   if(_whBulkBusy) return;
   id=String(id||'');
   var it=whFindSaved(id);
@@ -2587,7 +2656,7 @@ function whMarkDone(id){
   });
 }
 function whAssignDone(id){
-  if(_whReceiverMode){ alert('Receiver accounts cannot assign notes.'); return; }
+  if(whWriteBlocked_('assign notes')) return;
   id=String(id||'');
   var it=whFindSaved(id);
   if(!it){ alert('Note not found.'); return; }
@@ -2747,7 +2816,7 @@ function whPrintSaved(id){
   setTimeout(function(){ whPrint(); }, 50);
 }
 function whDeleteSaved(id){
-  if(_whReceiverMode){ alert('Receiver accounts cannot delete notes.'); return; }
+  if(whWriteBlocked_('delete notes')) return;
   whUiConfirm_('Delete this saved Goods Issue Note? It will move to the Recycle Bin.', { danger:true }).then(function(ok){
     if(!ok) return;
     id=String(id||'');
@@ -3526,6 +3595,7 @@ function whInvCollectPayload_(){
 }
 function whInvSave(){
   if(_whReceiverMode){ alert('Signers cannot save invoices.'); return; }
+  if(_whViewOnly || !whCanWriteInvoices_()){ alert('View only — this account cannot save invoices.'); return; }
   if(_whInvViewOnly){ alert('Saved invoices are view only. Click New to create another.'); return; }
   var payload=whInvCollectPayload_();
   if(!payload.invoiceNo){ alert('Enter Invoice No.'); var el=document.getElementById('wh-inv-number'); if(el) el.focus(); return; }
@@ -4079,7 +4149,7 @@ function whInvRenderList_(items){
       +'<td>'+whEsc(r.propertyCode||'—')+'</td>'
       +'<td class="wh-saved-actions">'
       +'<button type="button" data-wh-inv-act="view" data-wh-inv-id="'+whEsc(r.id)+'">View</button> '
-      +'<button type="button" data-wh-inv-act="delete" data-wh-inv-id="'+whEsc(r.id)+'">Delete</button>'
+      +((_whViewOnly||!whCanWriteInvoices_())?'':'<button type="button" data-wh-inv-act="delete" data-wh-inv-id="'+whEsc(r.id)+'">Delete</button>')
       +'</td></tr>';
   });
   h+='</tbody></table></div>';
@@ -4183,6 +4253,7 @@ function whInvView(id){
   whSwitchTab(null,'invoice');
 }
 function whInvDelete(id){
+  if(_whViewOnly || !whCanWriteInvoices_()){ alert('View only — this account cannot delete invoices.'); return; }
   id=String(id||'');
   if(!id) return;
   whUiConfirm_('Delete this warehouse invoice?', { danger:true }).then(function(ok){
@@ -4755,6 +4826,7 @@ function whEsigBindList_(){
     if(!it) return;
     if(act==='delete'){
       if(_whReceiverMode){ alert('Signers cannot delete signatures.'); return; }
+      if(_whViewOnly){ alert('View only — this account cannot change signatures.'); return; }
       whEsigUnlock_(it, function(){
         whUiConfirm_('Delete electronic signature "'+(it.name||'')+'"?', { danger:true }).then(function(ok){
           if(!ok) return;
@@ -4813,6 +4885,10 @@ function whEsigBindList_(){
 function whEsigSave(){
   if(_whReceiverMode){
     alert('Signers cannot create new signatures. Ask warehouse staff to add one.');
+    return;
+  }
+  if(_whViewOnly){
+    alert('View only — this account cannot create signatures.');
     return;
   }
   var nameEl=document.getElementById('whEsigName');
@@ -5025,6 +5101,7 @@ document.addEventListener('keydown', function(e){
   }
 });
 function whClearForm(skipConfirm){
+  if(_whViewOnly){ alert('View only — this account cannot clear or edit notes.'); return; }
   var run=function(){
     whSetFormLocked(false);
     _whEditingId='';

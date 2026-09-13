@@ -306,6 +306,25 @@ body.wh-receiver-mode #whSaveBtn2,
 body.wh-receiver-mode .wh-actions-print button[onclick="whClearForm()"] {
   display: none !important;
 }
+body.wh-view-only .wh-toolbar button[onclick="whStartNew()"],
+body.wh-view-only .wh-toolbar button[onclick="whClearForm()"],
+body.wh-view-only #whSaveBtn,
+body.wh-view-only #whSaveBtn2,
+body.wh-view-only .wh-actions-print button[onclick="whClearForm()"],
+body.wh-view-only #whSelectBtn,
+body.wh-view-only #whSelectAllBtn,
+body.wh-view-only #whDoneSelectedBtn,
+body.wh-view-only #whSelectCancelBtn,
+body.wh-view-only #whSelectCount,
+body.wh-view-only #tab-wh-invoice,
+body.wh-view-only #whEsigCreateBox,
+body.wh-view-only #whInvSaveBtn,
+body.wh-view-only .wh-saved-actions button[data-wh-act="done"],
+body.wh-view-only .wh-saved-actions button[data-wh-act="delete"],
+body.wh-view-only .wh-saved-actions button[data-wh-act="assign"],
+body.wh-view-only .wh-saved-actions button[data-wh-inv-act="delete"] {
+  display: none !important;
+}
 html[data-theme="dark"] .wh-done-banner {
   background: rgba(46, 125, 50, 0.35);
   color: #c8e6c9;

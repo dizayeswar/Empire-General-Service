@@ -111,7 +111,7 @@ function empireModuleLevel(key) {
 }
 
 function empireIsWarehouseSigner() {
-  if (empireModuleLevel('warehouse_desk') === 'write') return false;
+  if (empireModuleLevel('warehouse_desk') !== 'none') return false;
   if (
     empireModuleLevel('warehouse_assigned') !== 'none' ||
     empireModuleLevel('warehouse_done') !== 'none' ||

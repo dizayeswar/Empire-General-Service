@@ -90,7 +90,8 @@ export function isWarehouseSigner(
 ): boolean {
   const access = parseModuleAccess(moduleAccess);
   if (moduleAccessHasAny_(access)) {
-    if (moduleLevel(access, "warehouse_desk") === "write") return false;
+    // Desk access (read or write) is the full GIN list — not assigned-only signer mode.
+    if (moduleLevel(access, "warehouse_desk") !== "none") return false;
     return (
       moduleLevel(access, "warehouse_assigned") !== "none" ||
       moduleLevel(access, "warehouse_done") !== "none" ||
@@ -104,6 +105,36 @@ export function isWarehouseSigner(
   // Full warehouse desk users must never get the locked "Assigned to me" shell.
   if (dept != null && String(dept).trim() !== "" && isWarehouseStaff(r, dept)) return false;
   return parseWarehouseSigSections(warehouseSigSections, role).length > 0;
+}
+
+export function isAdminAccount(role: unknown, moduleAccess?: unknown): boolean {
+  return normalizeRole(role) === "admin" || moduleLevel(moduleAccess, "admin") === "write";
+}
+
+/** Full GIN desk write (not viewer, not assigned-only signer). */
+export function canWriteWarehouseDesk(
+  role: unknown,
+  dept: unknown,
+  moduleAccess?: unknown,
+  warehouseSigSections?: unknown,
+): boolean {
+  if (normalizeRole(role) === "viewer") return false;
+  if (isWarehouseSigner(role, warehouseSigSections, dept, moduleAccess)) return false;
+  if (isAdminAccount(role, moduleAccess)) return true;
+  return isWarehouseStaff(role, dept, moduleAccess);
+}
+
+export function canWriteWarehouseInvoices(
+  role: unknown,
+  dept: unknown,
+  moduleAccess?: unknown,
+  warehouseSigSections?: unknown,
+): boolean {
+  if (normalizeRole(role) === "viewer") return false;
+  if (isWarehouseSigner(role, warehouseSigSections, dept, moduleAccess)) return false;
+  if (isAdminAccount(role, moduleAccess)) return true;
+  if (moduleLevel(moduleAccess, "warehouse_invoices") === "write") return true;
+  return isWarehouseStaff(role, dept, moduleAccess);
 }
 
 export type AccessLevel = "none" | "read" | "write";

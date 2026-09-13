@@ -4,6 +4,8 @@ import { resetPasswordOk } from "./config.ts";
 import {
   isWarehouseSigner,
   parseWarehouseSigSections,
+  canWriteWarehouseDesk,
+  canWriteWarehouseInvoices,
   type WarehouseSigSlot,
 } from "./helpers.ts";
 
@@ -19,6 +21,33 @@ function isWarehouseSignerAuth(auth: AuthOk): boolean {
     auth.warehouseSigSections?.join(",") || "",
     auth.dept,
     auth.moduleAccess,
+  );
+}
+
+function denyViewOnly_(message?: string) {
+  return {
+    ok: false,
+    success: false,
+    error: "forbidden",
+    message: message || "View only — this account cannot change warehouse data.",
+  };
+}
+
+function canWriteDeskAuth(auth: AuthOk): boolean {
+  return canWriteWarehouseDesk(
+    auth.role,
+    auth.dept,
+    auth.moduleAccess,
+    auth.warehouseSigSections?.join(","),
+  );
+}
+
+function canWriteInvoicesAuth(auth: AuthOk): boolean {
+  return canWriteWarehouseInvoices(
+    auth.role,
+    auth.dept,
+    auth.moduleAccess,
+    auth.warehouseSigSections?.join(","),
   );
 }
 
@@ -76,6 +105,7 @@ export async function handleSaveWarehouseGin(body: Record<string, unknown>, auth
       message: "Warehouse signer accounts can only upload their allowed signature on notes assigned to them.",
     };
   }
+  if (!canWriteDeskAuth(auth)) return denyViewOnly_();
   const payload = (body.payload && typeof body.payload === "object")
     ? body.payload as GinPayload
     : {};
@@ -159,6 +189,7 @@ export async function handleDeleteWarehouseGin(body: Record<string, unknown>, au
   if (isWarehouseSignerAuth(auth)) {
     return { ok: false, success: false, error: "forbidden", message: "Receiver accounts cannot delete notes." };
   }
+  if (!canWriteDeskAuth(auth)) return denyViewOnly_();
   const id = String(body.id || "").trim();
   if (!id) return { ok: false, success: false, error: "missing_id" };
   const { data: row } = await sb().from("warehouse_goods_issues").select("*").eq("id", id).maybeSingle();
@@ -311,6 +342,7 @@ export async function handleMarkWarehouseGinDone(body: Record<string, unknown>, 
   if (isWarehouseSignerAuth(auth)) {
     return { ok: false, success: false, error: "forbidden", message: "Receiver accounts cannot mark notes Done." };
   }
+  if (!canWriteDeskAuth(auth)) return denyViewOnly_();
   const id = String(body.id || "").trim();
   if (!id) return { ok: false, success: false, error: "missing_id" };
   const { data: ex } = await sb().from("warehouse_goods_issues").select("id,payload").eq("id", id).maybeSingle();
@@ -427,6 +459,7 @@ export async function handleAssignWarehouseGin(body: Record<string, unknown>, au
   if (isWarehouseSignerAuth(auth)) {
     return { ok: false, success: false, error: "forbidden", message: "Receiver accounts cannot assign notes." };
   }
+  if (!canWriteDeskAuth(auth)) return denyViewOnly_();
   const id = String(body.id || "").trim();
   const assignedTo = String(body.assignedTo || "").trim();
   if (!id) return { ok: false, success: false, error: "missing_id" };
@@ -610,6 +643,7 @@ export async function handleGetWarehouseLayout(_body: Record<string, unknown>) {
 }
 
 export async function handleSaveWarehouseLayout(body: Record<string, unknown>, auth: AuthOk) {
+  if (isWarehouseSignerAuth(auth) || !canWriteDeskAuth(auth)) return denyViewOnly_();
   const layout = (body.layout && typeof body.layout === "object")
     ? body.layout as Record<string, unknown>
     : {};
@@ -672,6 +706,9 @@ export async function handleGetWarehouseSignatures(_body: Record<string, unknown
 }
 
 export async function handleSaveWarehouseSignatures(body: Record<string, unknown>, auth: AuthOk) {
+  if (isWarehouseSignerAuth(auth) || !canWriteDeskAuth(auth)) {
+    return denyViewOnly_("View only — this account cannot change saved signatures.");
+  }
   const items = normalizeSigList({ items: body.items });
   // Cap size / count to protect ui_settings row
   if (items.length > 40) {
@@ -778,6 +815,7 @@ export async function handleSaveWarehouseInvoice(body: Record<string, unknown>, 
   if (isWarehouseSignerAuth(auth)) {
     return { ok: false, success: false, error: "forbidden", message: "Signers cannot save warehouse invoices." };
   }
+  if (!canWriteInvoicesAuth(auth)) return denyViewOnly_();
   const payload = (body.payload && typeof body.payload === "object")
     ? body.payload as InvPayload
     : {};
@@ -852,6 +890,7 @@ export async function handleDeleteWarehouseInvoice(body: Record<string, unknown>
   if (isWarehouseSignerAuth(auth)) {
     return { ok: false, success: false, error: "forbidden", message: "Signers cannot delete warehouse invoices." };
   }
+  if (!canWriteInvoicesAuth(auth)) return denyViewOnly_();
   const id = String(body.id || "").trim();
   if (!id) return { ok: false, success: false, error: "missing_id" };
   const { data: row } = await sb().from("warehouse_invoices").select("*").eq("id", id).maybeSingle();
