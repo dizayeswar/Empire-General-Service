@@ -177,9 +177,14 @@ def main() -> None:
     if not sp:
         raise SystemExit("no SET PIN")
     tap(*center(sp))
-    time.sleep(1.2)
-    root = dump("fin7")
-    t = texts(root)
+    t = []
+    root = None
+    for i in range(8):
+        time.sleep(1.0 if i else 1.2)
+        root = dump(f"fin7{i}")
+        t = texts(root)
+        if "Request Completed" in t or "Request was completed successfully!" in t:
+            break
     print("AFTER")
     for x in t:
         print(x)
@@ -190,6 +195,8 @@ def main() -> None:
         else:
             tap(827, 1313)
         print("OK clicked — request finished")
+    else:
+        raise SystemExit(f"SET PIN did not finish: {t[:16]}")
 
 
 if __name__ == "__main__":
