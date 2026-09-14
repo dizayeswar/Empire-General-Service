@@ -210,6 +210,8 @@ export const DEPT_BY_ACTION: Record<string, string> = {
   getWarehouseInvoices: "warehouse",
   saveWarehouseInvoice: "warehouse",
   deleteWarehouseInvoice: "warehouse",
+  getWarehouseInvoiceBooks: "warehouse",
+  saveWarehouseInvoiceBooks: "warehouse",
   getHrLeaveRequests: "hr",
   addHrLeaveRequest: "hr",
   updateHrLeaveRequest: "hr",

@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-20-wh-signer">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-09-14-wide-list">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-09-14-inv-books">
 </head>
 <body class="auth-login-visible wh-page">
 <div class="login-page show" id="loginPage">
@@ -477,7 +477,7 @@
         <div class="wh-app wh-saved-app">
           <div class="form-section">
             <h2>Warehouse Invoices</h2>
-            <p class="wh-tab-help">Saved receipt vouchers. Each invoice is one row. No SP → item description is <strong>Work Wages</strong>. View only — cannot edit after save. Billing month: <strong>26th – 25th</strong>.</p>
+            <p class="wh-tab-help">Saved receipt vouchers. Each invoice is one row. Paper books have <strong>48–50 pages</strong> (one invoice per page). The list below stays <strong>monthly (26th – 25th)</strong>. When a book is finished, <strong>Handle</strong> it to keep that book’s cash total.</p>
             <div class="wh-toolbar no-print" style="margin-bottom:12px;gap:8px;flex-wrap:wrap;align-items:center;">
               <label for="whInvListMonth" style="font-size:13px;font-weight:600;margin:0;">Month</label>
               <input type="month" id="whInvListMonth" class="wh-inv-month" onchange="whInvListOnMonthChange()">
@@ -490,8 +490,10 @@
               <button type="button" id="whInvListFilterAC" class="wh-sp-filter" onclick="whInvListSetDept('AC')">AC</button>
               <button type="button" id="whInvListFilterMDM" class="wh-sp-filter" onclick="whInvListSetDept('MDM')">MDM</button>
               <input type="search" id="whInvListSearch" class="wh-inv-search" placeholder="Search SP, desc, COM, RV, name, property…" oninput="whInvListOnSearch()" autocomplete="off">
+              <button type="button" id="whInvListClearBook" class="wh-sp-filter" onclick="whInvListClearBook()" hidden>All books</button>
               <button type="button" onclick="whInvLoadList(true)">Refresh</button>
             </div>
+            <div id="whInvBooks"></div>
             <p class="wh-sp-summary" id="whInvListSummary"></p>
             <div id="whInvList"><p class="wh-saved-empty">Loading…</p></div>
           </div>
@@ -566,6 +568,25 @@
       <button type="button" onclick="whRbClose()">Close</button>
     </div>
     <div id="whRbList"><p style="color:var(--text-faint);">Loading…</p></div>
+  </div>
+</div>
+
+<div id="whInvBookModal" class="modal" onclick="if(event.target===this)whInvBookModalClose()" style="display:none;z-index:1700;">
+  <div class="modal-box" style="max-width:460px;">
+    <h2 style="margin:0 0 8px;color:var(--text);">Handle invoice book</h2>
+    <p id="whInvBookModalLead" style="color:var(--text-soft);font-size:14px;margin:0 0 12px;line-height:1.45;"></p>
+    <p style="font-weight:600;margin:0 0 8px;">Pages in this book</p>
+    <div class="wh-inv-book-pages" id="whInvBookPageBtns">
+      <button type="button" class="wh-sp-filter" data-wh-book-pages="48" onclick="whInvBookPickPages(48)">48</button>
+      <button type="button" class="wh-sp-filter" data-wh-book-pages="49" onclick="whInvBookPickPages(49)">49</button>
+      <button type="button" class="wh-sp-filter active" data-wh-book-pages="50" onclick="whInvBookPickPages(50)">50</button>
+    </div>
+    <p id="whInvBookModalCash" class="wh-inv-book-modal-cash"></p>
+    <p id="whInvBookModalWarn" class="wh-inv-book-modal-warn" hidden></p>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+      <button type="button" onclick="whInvBookModalClose()">Cancel</button>
+      <button type="button" id="whInvBookModalGo" onclick="whInvBookConfirmHandle()" style="color:#fff;background:#1d9e75;border-color:#1d9e75;">Handle book</button>
+    </div>
   </div>
 </div>
 
@@ -809,7 +830,7 @@ function whApplyViewOnlyShell_(){
   var sapHelp=document.getElementById('whSapHelp');
   if(sapHelp) sapHelp.innerHTML='View and print only. This account cannot edit SAP copies.';
   var invListHelp=document.querySelector('#wh-tab-invoices .wh-tab-help');
-  if(invListHelp) invListHelp.innerHTML='Saved invoices — view and print only.';
+  if(invListHelp) invListHelp.innerHTML='Saved invoices — view and print only. Book cash totals are visible; this account cannot Handle a book.';
   whSetFormLocked(true);
   if(!_whReceiverMode) whSwitchTab(null,'saved');
 }
@@ -4000,6 +4021,12 @@ var _whInvSpRows=0;
 var _whInvEditingId='';
 var _whInvCache=[];
 var _whInvViewOnly=false;
+var _whInvBooksSaved=[];
+var _whInvListBookStart=0;
+var _whInvListBookEnd=0;
+var _whInvBookPending=null;
+var _whInvBookPagesPick=50;
+var WH_INV_BOOK_PAGES=50;
 function whInvSyncSpUi_(){
   var table=document.getElementById('whInvSpTable');
   var empty=document.getElementById('whInvSpEmpty');
@@ -4186,20 +4213,28 @@ function whInvSave(){
 }
 function whInvLoadList(force){
   var box=document.getElementById('whInvList');
+  var booksBox=document.getElementById('whInvBooks');
   if(box && (!_whInvCache.length || force)) box.innerHTML='<p class="wh-saved-empty">Loading…</p>';
+  if(booksBox && (!_whInvCache.length || force)) booksBox.innerHTML='<p class="wh-saved-empty">Loading books…</p>';
   var token=typeof empireGetToken==='function' ? empireGetToken() : '';
   if(!token || typeof fetchJSONRetry!=='function'){
+    _whInvBooksSaved=[];
     whInvRenderList_([]);
     return;
   }
-  fetchJSONRetry({ action:'getWarehouseInvoices', token:token }, 2, 30000).then(function(d){
+  var invP=fetchJSONRetry({ action:'getWarehouseInvoices', token:token }, 2, 30000);
+  var bookP=fetchJSONRetry({ action:'getWarehouseInvoiceBooks', token:token }, 2, 30000).catch(function(){ return { ok:true, books:[] }; });
+  Promise.all([invP, bookP]).then(function(res){
+    var d=res[0], b=res[1];
     if(!(d && (d.ok||d.success))) throw new Error((d && (d.message||d.error)) || 'Load failed');
     _whInvCache=Array.isArray(d.items) ? d.items : [];
+    _whInvBooksSaved=Array.isArray(b && b.books) ? b.books : [];
     whInvRenderList_(_whInvCache);
     if(typeof whInvSpUsageRender_==='function') whInvSpUsageRender_();
     if(typeof whInvAmtRender_==='function') whInvAmtRender_();
   }).catch(function(err){
     if(box) box.innerHTML='<p class="wh-saved-empty">Could not load invoices: '+whEsc(err && err.message ? err.message : err)+'</p>';
+    if(booksBox) booksBox.innerHTML='';
   });
 }
 var _whInvSpFilter='';
@@ -4597,14 +4632,377 @@ function whInvSheetRows_(items){
   });
   return rows;
 }
+function whInvRvNum_(s){
+  var t=String(s||'').replace(/[^\d]/g,'');
+  if(!t) return 0;
+  var n=parseInt(t,10);
+  return (isFinite(n) && n>0) ? n : 0;
+}
+function whInvBookWindowStart_(rv){
+  return Math.floor((rv-1)/WH_INV_BOOK_PAGES)*WH_INV_BOOK_PAGES + 1;
+}
+function whInvNormalizeSavedBooks_(raw){
+  var out=[];
+  (Array.isArray(raw)?raw:[]).forEach(function(b){
+    if(!b) return;
+    var start=Math.floor(Number(b.startRv)||0);
+    if(start<1) return;
+    var pages=Math.floor(Number(b.pageCount)||0);
+    if(pages!==48 && pages!==49 && pages!==50) pages=WH_INV_BOOK_PAGES;
+    var end=Math.floor(Number(b.endRv)||0);
+    if(end<start) end=start+pages-1;
+    out.push({
+      id: String(b.id||('whbook-'+start)),
+      startRv: start,
+      endRv: end,
+      pageCount: pages,
+      handled: b.handled!==false,
+      handledAt: String(b.handledAt||''),
+      handledBy: String(b.handledBy||'')
+    });
+  });
+  out.sort(function(a,b){ return a.startRv-b.startRv; });
+  return out;
+}
+function whInvInvoiceMoney_(it){
+  var p=(it && it.payload) || {};
+  return {
+    usd: whInvParseMoney_(it.amountUsd||p.amountUsd||''),
+    iqd: whInvParseMoney_(it.amountIqd||p.amountIqd||'')
+  };
+}
+function whInvEmptyBook_(start, end, pageCount, saved){
+  return {
+    id: saved && saved.id ? saved.id : ('whbook-'+start),
+    startRv: start,
+    endRv: end,
+    pageCount: pageCount || (end-start+1),
+    handled: !!(saved && saved.handled),
+    handledAt: (saved && saved.handledAt) || '',
+    handledBy: (saved && saved.handledBy) || '',
+    pages: 0,
+    invoices: 0,
+    usd: 0,
+    iqd: 0,
+    rvs: {},
+    items: []
+  };
+}
+function whInvAddToBook_(book, it, rv){
+  var m=whInvInvoiceMoney_(it);
+  book.usd += m.usd;
+  book.iqd += m.iqd;
+  book.invoices += 1;
+  book.items.push(it);
+  if(rv && !book.rvs[rv]){
+    book.rvs[rv]=true;
+    book.pages += 1;
+  }
+}
+function whInvCoveredSaved_(handled, rv){
+  for(var i=0;i<handled.length;i++){
+    if(rv>=handled[i].startRv && rv<=handled[i].endRv) return handled[i];
+  }
+  return null;
+}
+function whInvShiftStartPastHandled_(handled, start){
+  var changed=true;
+  while(changed){
+    changed=false;
+    for(var i=0;i<handled.length;i++){
+      var h=handled[i];
+      if(start>=h.startRv && start<=h.endRv){
+        start=h.endRv+1;
+        changed=true;
+      }
+    }
+  }
+  return start;
+}
+function whInvNextGapEnd_(handled, start){
+  var end=start+WH_INV_BOOK_PAGES-1;
+  for(var i=0;i<handled.length;i++){
+    var h=handled[i];
+    if(h.startRv>start && h.startRv<=end) end=h.startRv-1;
+  }
+  return end;
+}
+function whInvBuildBooks_(items){
+  var handled=whInvNormalizeSavedBooks_(_whInvBooksSaved);
+  var books=[];
+  handled.forEach(function(h){
+    books.push(whInvEmptyBook_(h.startRv, h.endRv, h.pageCount, h));
+  });
+  var leftover=[];
+  (items||[]).forEach(function(it){
+    if(!it) return;
+    var p=it.payload||{};
+    leftover.push({ it:it, rv:whInvRvNum_(it.invoiceNo||p.invoiceNo) });
+  });
+  var openPairs=[];
+  leftover.forEach(function(row){
+    var it=row.it, rv=row.rv;
+    if(!rv) return;
+    var hit=null;
+    for(var i=0;i<books.length;i++){
+      if(rv>=books[i].startRv && rv<=books[i].endRv){ hit=books[i]; break; }
+    }
+    if(hit) whInvAddToBook_(hit, it, rv);
+    else openPairs.push(row);
+  });
+  openPairs.sort(function(a,b){ return a.rv-b.rv; });
+  var i=0;
+  while(i<openPairs.length){
+    var rv=openPairs[i].rv;
+    if(whInvCoveredSaved_(handled, rv)){ i++; continue; }
+    var start=whInvBookWindowStart_(rv);
+    start=whInvShiftStartPastHandled_(handled, start);
+    if(start>rv) start=whInvShiftStartPastHandled_(handled, rv);
+    if(start>rv && whInvCoveredSaved_(handled, rv)){ i++; continue; }
+    if(start>rv) start=rv;
+    var end=whInvNextGapEnd_(handled, start);
+    if(end<start){ i++; continue; }
+    var book=whInvEmptyBook_(start, end, end-start+1, null);
+    books.push(book);
+    while(i<openPairs.length && openPairs[i].rv<=end){
+      if(openPairs[i].rv>=start) whInvAddToBook_(book, openPairs[i].it, openPairs[i].rv);
+      i++;
+    }
+  }
+  books.sort(function(a,b){ return a.startRv-b.startRv; });
+  books.forEach(function(b, idx){ b.bookNo=idx+1; });
+  return books;
+}
+function whInvBookNoForRv_(books, rv){
+  if(!rv) return 0;
+  for(var i=0;i<(books||[]).length;i++){
+    if(rv>=books[i].startRv && rv<=books[i].endRv) return books[i].bookNo||0;
+  }
+  return 0;
+}
+function whInvBookPreview_(book, pages){
+  var start=book.startRv;
+  var end=start+pages-1;
+  var usd=0, iqd=0, invoices=0, filled=0, rvs={};
+  (book.items||[]).forEach(function(it){
+    var p=it.payload||{};
+    var rv=whInvRvNum_(it.invoiceNo||p.invoiceNo);
+    if(rv<start || rv>end) return;
+    var m=whInvInvoiceMoney_(it);
+    usd+=m.usd; iqd+=m.iqd; invoices+=1;
+    if(rv && !rvs[rv]){ rvs[rv]=true; filled+=1; }
+  });
+  return { startRv:start, endRv:end, pages:pages, filled:filled, invoices:invoices, usd:usd, iqd:iqd };
+}
+function whInvFindBook_(startRv){
+  var books=whInvBuildBooks_(_whInvCache);
+  startRv=Number(startRv)||0;
+  for(var i=0;i<books.length;i++){
+    if(books[i].startRv===startRv) return books[i];
+  }
+  return null;
+}
+function whInvListSetBook(startRv, endRv){
+  startRv=Number(startRv)||0;
+  endRv=Number(endRv)||0;
+  if(_whInvListBookStart===startRv && _whInvListBookEnd===endRv){
+    whInvListClearBook();
+    return;
+  }
+  _whInvListBookStart=startRv;
+  _whInvListBookEnd=endRv;
+  _whInvListMonth='';
+  var monthEl=document.getElementById('whInvListMonth');
+  if(monthEl) monthEl.value='';
+  var clearBtn=document.getElementById('whInvListClearBook');
+  if(clearBtn) clearBtn.hidden=false;
+  whInvRenderList_(_whInvCache);
+}
+function whInvListClearBook(){
+  _whInvListBookStart=0;
+  _whInvListBookEnd=0;
+  var clearBtn=document.getElementById('whInvListClearBook');
+  if(clearBtn) clearBtn.hidden=true;
+  if(!_whInvListMonth){
+    _whInvListMonth=whInvCurrentBillingMonth_();
+    var el=document.getElementById('whInvListMonth');
+    if(el) el.value=_whInvListMonth;
+  }
+  whInvRenderList_(_whInvCache);
+}
+function whInvRenderBooks_(){
+  var box=document.getElementById('whInvBooks');
+  if(!box) return;
+  var books=whInvBuildBooks_(_whInvCache);
+  if(!books.length){
+    box.innerHTML='';
+    return;
+  }
+  var canHandle=!_whViewOnly && !_whReceiverMode && whCanWriteInvoices_();
+  var h='<div class="wh-inv-books">';
+  h+='<h3 class="wh-saved-section-title" style="margin-top:0;">Invoice books</h3>';
+  h+='<p class="wh-inv-books-help">Each paper book is 48–50 invoices (R V numbers). Cash is the whole book, not only this month. Click a book to see its pages. When a book is finished, Handle it.</p>';
+  h+='<div class="wh-saved-table-wrap"><table class="wh-saved-table wh-inv-books-table"><thead><tr>';
+  h+='<th>Book</th><th>R V from–to</th><th>Pages</th><th>Invoices</th><th>Amount USD</th><th>Amount IQD</th><th>Status</th><th></th>';
+  h+='</tr></thead><tbody>';
+  var shown=books.slice().sort(function(a,b){ return b.startRv-a.startRv; });
+  shown.forEach(function(b){
+    var selected=_whInvListBookStart===b.startRv && _whInvListBookEnd===b.endRv;
+    var ready=!b.handled && b.pages>=48;
+    var st=b.handled
+      ? '<span class="wh-inv-status book-handled">Handled</span>'
+      : (ready
+        ? '<span class="wh-inv-status book-ready">Ready to handle</span>'
+        : '<span class="wh-inv-status book-open">Open '+b.pages+'/'+b.pageCount+'</span>');
+    var rowClass='wh-inv-book-row'+(b.handled?' wh-inv-book-handled':' wh-inv-book-open')+(ready?' wh-inv-book-ready':'')+(selected?' is-selected':'');
+    var acts='<button type="button" data-wh-book-act="select" data-wh-book-start="'+b.startRv+'" data-wh-book-end="'+b.endRv+'">Show</button> ';
+    if(canHandle && !b.handled){
+      acts+='<button type="button" data-wh-book-act="handle" data-wh-book-start="'+b.startRv+'">Handle</button>';
+    } else if(canHandle && b.handled){
+      acts+='<button type="button" data-wh-book-act="undo" data-wh-book-start="'+b.startRv+'">Undo</button>';
+    }
+    h+='<tr class="'+rowClass+'" data-wh-book-act="select" data-wh-book-start="'+b.startRv+'" data-wh-book-end="'+b.endRv+'">';
+    h+='<td><strong>'+whEsc(String(b.bookNo))+'</strong></td>';
+    h+='<td>'+whEsc(String(b.startRv)+' – '+String(b.endRv))+'</td>';
+    h+='<td>'+whEsc(String(b.pages)+' / '+String(b.pageCount))+'</td>';
+    h+='<td>'+whEsc(String(b.invoices))+'</td>';
+    h+='<td class="wh-inv-book-cash">'+whEsc(whInvFmtMoney_(b.usd))+'</td>';
+    h+='<td class="wh-inv-book-cash">'+whEsc(whInvFmtMoney_(b.iqd))+'</td>';
+    h+='<td>'+st+'</td>';
+    h+='<td class="wh-saved-actions">'+acts+'</td>';
+    h+='</tr>';
+  });
+  h+='</tbody></table></div></div>';
+  box.innerHTML=h;
+  whInvBindBooks_();
+}
+function whInvBindBooks_(){
+  var box=document.getElementById('whInvBooks');
+  if(!box || box._whInvBooksBound) return;
+  box._whInvBooksBound=true;
+  box.addEventListener('click', function(e){
+    var el=e.target && e.target.closest ? e.target.closest('[data-wh-book-act]') : null;
+    if(!el || !box.contains(el)) return;
+    var act=el.getAttribute('data-wh-book-act');
+    var start=Number(el.getAttribute('data-wh-book-start')||0);
+    var end=Number(el.getAttribute('data-wh-book-end')||0);
+    if(act==='select') whInvListSetBook(start, end);
+    else if(act==='handle'){ e.stopPropagation(); whInvBookOpenHandle(start); }
+    else if(act==='undo'){ e.stopPropagation(); whInvBookUndo(start); }
+  });
+}
+function whInvBookPickPages(n){
+  n=Number(n)||50;
+  if(n!==48 && n!==49 && n!==50) n=50;
+  _whInvBookPagesPick=n;
+  document.querySelectorAll('#whInvBookPageBtns [data-wh-book-pages]').forEach(function(btn){
+    btn.classList.toggle('active', Number(btn.getAttribute('data-wh-book-pages'))===n);
+  });
+  whInvBookModalSync_();
+}
+function whInvBookModalSync_(){
+  var book=_whInvBookPending;
+  if(!book) return;
+  var prev=whInvBookPreview_(book, _whInvBookPagesPick);
+  var lead=document.getElementById('whInvBookModalLead');
+  var cash=document.getElementById('whInvBookModalCash');
+  var warn=document.getElementById('whInvBookModalWarn');
+  if(lead){
+    lead.textContent='Book '+book.bookNo+' · R V '+prev.startRv+' – '+prev.endRv
+      +' · '+prev.filled+' page'+(prev.filled===1?'':'s')+' saved';
+  }
+  if(cash){
+    cash.innerHTML='Cash of this book: <strong>USD '+whEsc(whInvFmtMoney_(prev.usd))
+      +'</strong> · <strong>IQD '+whEsc(whInvFmtMoney_(prev.iqd))+'</strong>';
+  }
+  if(warn){
+    if(prev.filled < _whInvBookPagesPick){
+      warn.hidden=false;
+      warn.textContent='Only '+prev.filled+' of '+_whInvBookPagesPick+' pages are saved. You can still Handle if this paper book is finished.';
+    } else {
+      warn.hidden=true;
+      warn.textContent='';
+    }
+  }
+}
+function whInvBookOpenHandle(startRv){
+  if(_whViewOnly || _whReceiverMode || !whCanWriteInvoices_()){ alert('View only — this account cannot handle books.'); return; }
+  var book=whInvFindBook_(startRv);
+  if(!book || book.handled) return;
+  _whInvBookPending=book;
+  var guess=book.pages;
+  if(guess!==48 && guess!==49 && guess!==50) guess=50;
+  whInvBookPickPages(guess);
+  var modal=document.getElementById('whInvBookModal');
+  if(modal) modal.style.display='flex';
+}
+function whInvBookModalClose(){
+  _whInvBookPending=null;
+  var modal=document.getElementById('whInvBookModal');
+  if(modal) modal.style.display='none';
+}
+function whInvBookConfirmHandle(){
+  var book=_whInvBookPending;
+  if(!book) return;
+  var pages=_whInvBookPagesPick;
+  if(pages!==48 && pages!==49 && pages!==50) pages=50;
+  var prev=whInvBookPreview_(book, pages);
+  var next=whInvNormalizeSavedBooks_(_whInvBooksSaved).filter(function(b){
+    return b.endRv < prev.startRv || b.startRv > prev.endRv;
+  });
+  next.push({
+    id: book.id || ('whbook-'+prev.startRv),
+    startRv: prev.startRv,
+    endRv: prev.endRv,
+    pageCount: pages,
+    handled: true,
+    handledAt: new Date().toISOString(),
+    handledBy: (typeof empireGetUser==='function' ? empireGetUser() : '') || ''
+  });
+  var go=document.getElementById('whInvBookModalGo');
+  if(go){ go.disabled=true; go.textContent='Saving…'; }
+  whInvSaveHandledBooks_(next).then(function(){
+    whInvBookModalClose();
+  }).catch(function(err){
+    alert('Could not handle book: '+(err && err.message ? err.message : err));
+  }).finally(function(){
+    if(go){ go.disabled=false; go.textContent='Handle book'; }
+  });
+}
+function whInvBookUndo(startRv){
+  if(_whViewOnly || _whReceiverMode || !whCanWriteInvoices_()) return;
+  var book=whInvFindBook_(startRv);
+  if(!book || !book.handled) return;
+  if(!confirm('Undo Handle for Book '+book.bookNo+' (R V '+book.startRv+' – '+book.endRv+')? Cash stays — the book becomes Open again.')) return;
+  var next=whInvNormalizeSavedBooks_(_whInvBooksSaved).filter(function(b){
+    return b.startRv!==book.startRv;
+  });
+  whInvSaveHandledBooks_(next).catch(function(err){
+    alert('Could not undo: '+(err && err.message ? err.message : err));
+  });
+}
+function whInvSaveHandledBooks_(books){
+  var token=typeof empireGetToken==='function' ? empireGetToken() : '';
+  if(!token || typeof fetchJSONRetry!=='function') return Promise.reject(new Error('Not logged in.'));
+  return fetchJSONRetry({ action:'saveWarehouseInvoiceBooks', token:token, books:books }, 2, 30000).then(function(d){
+    if(!(d && (d.ok||d.success))) throw new Error((d && (d.message||d.error)) || 'Save failed');
+    _whInvBooksSaved=Array.isArray(d.books) ? d.books : books;
+    whInvRenderList_(_whInvCache);
+    return d;
+  });
+}
 var _whInvListDept='';
 var _whInvListMonth='';
 var _whInvListSearch='';
+var _whInvListMonthInit=false;
 function whInvListEnsureMonth_(){
   var el=document.getElementById('whInvListMonth');
   if(!el) return;
-  if(!_whInvListMonth) _whInvListMonth=whInvCurrentBillingMonth_();
-  if(el.value!==_whInvListMonth) el.value=_whInvListMonth;
+  if(!_whInvListMonthInit){
+    _whInvListMonthInit=true;
+    if(!_whInvListMonth) _whInvListMonth=whInvCurrentBillingMonth_();
+  }
+  if(_whInvListMonth && el.value!==_whInvListMonth) el.value=_whInvListMonth;
 }
 function whInvListOnMonthChange(){
   var el=document.getElementById('whInvListMonth');
@@ -4641,15 +5039,26 @@ function whInvRenderList_(items){
     badge.style.display=n ? '' : 'none';
     badge.textContent=String(n);
   }
+  whInvRenderBooks_();
+  var clearBtn=document.getElementById('whInvListClearBook');
+  if(clearBtn) clearBtn.hidden=!(_whInvListBookStart && _whInvListBookEnd);
   whInvListEnsureMonth_();
   var monthEl=document.getElementById('whInvListMonth');
   if(monthEl && _whInvListMonth) monthEl.value=_whInvListMonth;
+  if(monthEl && !_whInvListMonth) monthEl.value='';
+  var books=whInvBuildBooks_(all);
   var rows=whInvSheetRows_(all);
   if(_whInvListMonth){
     rows=rows.filter(function(r){ return whInvBillingMonth_(r.date)===_whInvListMonth; });
   }
   if(_whInvListDept){
     rows=rows.filter(function(r){ return String(r.department||'').toUpperCase()===_whInvListDept; });
+  }
+  if(_whInvListBookStart && _whInvListBookEnd){
+    rows=rows.filter(function(r){
+      var rv=whInvRvNum_(r.invoiceNo);
+      return rv>=_whInvListBookStart && rv<=_whInvListBookEnd;
+    });
   }
   if(_whInvListSearch){
     rows=rows.filter(function(r){
@@ -4661,9 +5070,17 @@ function whInvRenderList_(items){
   if(sum){
     var filterLabel=_whInvListDept ? ('Dept '+_whInvListDept) : 'All departments';
     var monthLabel=_whInvListMonth ? (' · month '+_whInvListMonth+' (26th–25th)') : ' · all months';
+    var bookLabel=(_whInvListBookStart && _whInvListBookEnd) ? (' · book R V '+_whInvListBookStart+'–'+_whInvListBookEnd) : '';
     var searchLabel=_whInvListSearch ? (' · search "'+_whInvListSearch+'"') : '';
     var pendingN=rows.filter(function(r){ return r.linkStatus==='pending'; }).length;
-    sum.textContent=filterLabel+monthLabel+searchLabel+' · showing '+rows.length+' of '+all.length+(pendingN?(' · '+pendingN+' pending in dept'):'');
+    var usd=0, iqd=0;
+    rows.forEach(function(r){
+      usd+=whInvParseMoney_(r.amountUsd);
+      iqd+=whInvParseMoney_(r.amountIqd);
+    });
+    sum.textContent=filterLabel+monthLabel+bookLabel+searchLabel+' · showing '+rows.length+' of '+all.length
+      +(pendingN?(' · '+pendingN+' pending in dept'):'')
+      +' · USD '+whInvFmtMoney_(usd)+' · IQD '+whInvFmtMoney_(iqd);
   }
   if(!all.length){
     box.innerHTML=typeof empireEmptyHtml==='function'
@@ -4673,12 +5090,12 @@ function whInvRenderList_(items){
   }
   if(!rows.length){
     box.innerHTML=typeof empireEmptyHtml==='function'
-      ? empireEmptyHtml('No matching invoices', 'Try another month, department, or search.')
+      ? empireEmptyHtml('No matching invoices', 'Try another month, department, book, or search.')
       : '<p class="wh-saved-empty">No matching invoices.</p>';
     return;
   }
   var h='<div class="wh-saved-table-wrap"><table class="wh-saved-table wh-inv-sheet"><thead><tr>'
-    +'<th>#</th><th>SP</th><th>Item description</th><th>COM</th><th>Dept</th><th>Status</th><th>Qty</th>'
+    +'<th>#</th><th>Book</th><th>SP</th><th>Item description</th><th>COM</th><th>Dept</th><th>Status</th><th>Qty</th>'
     +'<th>Amount USD</th><th>Amount IQD</th><th>R V num</th><th>Date</th><th>Name</th><th>Property</th><th></th>'
     +'</tr></thead><tbody>';
   rows.forEach(function(r, idx){
@@ -4688,8 +5105,10 @@ function whInvRenderList_(items){
       : (st==='linked'
         ? '<span class="wh-inv-status linked" title="Invoice No. found in department">Linked</span>'
         : '<span class="wh-inv-status na">—</span>');
+    var bookNo=whInvBookNoForRv_(books, whInvRvNum_(r.invoiceNo));
     h+='<tr'+(st==='pending'?' class="wh-inv-row-pending"':'')+'>'
       +'<td>'+(r.num||(idx+1))+'</td>'
+      +'<td>'+(bookNo||'—')+'</td>'
       +'<td class="wh-inv-multi">'+whEsc(r.sp||'—').replace(/\n/g,'<br>')+'</td>'
       +'<td class="wh-inv-multi" style="max-width:200px;word-break:break-word;">'+whEsc(r.desc||'—').replace(/\n/g,'<br>')+'</td>'
       +'<td>'+whEsc(r.company||'—')+'</td>'

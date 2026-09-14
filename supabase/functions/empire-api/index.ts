@@ -334,6 +334,8 @@ Deno.serve(async (req) => {
       case "getWarehouseInvoices": return json(await warehouse.handleGetWarehouseInvoices(body, a));
       case "saveWarehouseInvoice": return json(await warehouse.handleSaveWarehouseInvoice(body, a));
       case "deleteWarehouseInvoice": return json(await warehouse.handleDeleteWarehouseInvoice(body, a));
+      case "getWarehouseInvoiceBooks": return json(await warehouse.handleGetWarehouseInvoiceBooks(body, a));
+      case "saveWarehouseInvoiceBooks": return json(await warehouse.handleSaveWarehouseInvoiceBooks(body, a));
 
       case "getHrLeaveRequests": return json(await hr.handleGetHrLeaveRequests(a));
       case "addHrLeaveRequest": return json(await hr.handleAddHrLeaveRequest(body, a));

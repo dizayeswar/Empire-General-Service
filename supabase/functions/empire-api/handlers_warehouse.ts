@@ -1155,3 +1155,75 @@ export async function handleDeleteWarehouseInvoice(body: Record<string, unknown>
   if (error) throw error;
   return { ok: true, success: true, id, trashed: true };
 }
+
+const INV_BOOKS_KEY = "warehouse_invoice_books";
+
+type InvBookSaved = {
+  id: string;
+  startRv: number;
+  endRv: number;
+  pageCount: number;
+  handled: boolean;
+  handledAt: string;
+  handledBy: string;
+};
+
+function sanitizeInvBooks_(raw: unknown, auth: AuthOk, now: string): InvBookSaved[] {
+  const arr = Array.isArray(raw) ? raw : [];
+  const out: InvBookSaved[] = [];
+  for (const row of arr) {
+    if (!row || typeof row !== "object") continue;
+    const b = row as Record<string, unknown>;
+    const start = Math.floor(Number(b.startRv) || 0);
+    if (start < 1) continue;
+    let pages = Math.floor(Number(b.pageCount) || 0);
+    if (pages !== 48 && pages !== 49 && pages !== 50) pages = 50;
+    let end = Math.floor(Number(b.endRv) || 0);
+    if (end < start) end = start + pages - 1;
+    out.push({
+      id: String(b.id || `whbook-${start}`).slice(0, 80),
+      startRv: start,
+      endRv: end,
+      pageCount: pages,
+      handled: b.handled !== false,
+      handledAt: String(b.handledAt || now).slice(0, 40),
+      handledBy: String(b.handledBy || auth.username || "").slice(0, 80),
+    });
+    if (out.length >= 400) break;
+  }
+  out.sort((a, b) => a.startRv - b.startRv);
+  return out;
+}
+
+export async function handleGetWarehouseInvoiceBooks(_body: Record<string, unknown>, auth: AuthOk) {
+  if (isWarehouseSignerAuth(auth)) {
+    return { ok: false, success: false, error: "forbidden", message: "Signers cannot view warehouse invoices." };
+  }
+  const { data } = await sb().from("ui_settings").select("settings,updated_at").eq("key", INV_BOOKS_KEY).maybeSingle();
+  const settings = (data?.settings && typeof data.settings === "object")
+    ? data.settings as Record<string, unknown>
+    : {};
+  const books = sanitizeInvBooks_(settings.books, auth, "");
+  return {
+    ok: true,
+    success: true,
+    books,
+    updatedAt: String(data?.updated_at || ""),
+  };
+}
+
+export async function handleSaveWarehouseInvoiceBooks(body: Record<string, unknown>, auth: AuthOk) {
+  if (isWarehouseSignerAuth(auth)) {
+    return { ok: false, success: false, error: "forbidden", message: "Signers cannot change warehouse invoices." };
+  }
+  if (!canWriteInvoicesAuth(auth)) return denyViewOnly_();
+  const now = isoNow();
+  const books = sanitizeInvBooks_(body.books, auth, now);
+  const { error } = await sb().from("ui_settings").upsert({
+    key: INV_BOOKS_KEY,
+    settings: { books },
+    updated_at: now,
+  });
+  if (error) throw error;
+  return { ok: true, success: true, books, updatedAt: now, savedBy: String(auth.username || "") };
+}
