@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-20-wh-signer">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-09-14-sap">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-09-14-sap-done">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -305,7 +305,7 @@
         <div class="wh-app wh-saved-app">
           <div class="form-section">
             <h2>SAP</h2>
-            <p class="wh-tab-help" id="whSapHelp">Separate copies of notes marked <strong>Done</strong>. Click <strong>Edit</strong> to change a SAP copy. That does not change Assignment, Saved Notes, invoices, or SP Usage.</p>
+            <p class="wh-tab-help" id="whSapHelp">Separate copies of notes marked <strong>Done</strong> in Saved Notes. Click the green <strong>Done</strong> button to mark a SAP copy finished — that mark stays in SAP only and does not change Assignment or other forms.</p>
             <div class="wh-toolbar no-print" style="margin-bottom:12px;">
               <button type="button" onclick="whLoadSavedList()">Refresh</button>
             </div>
@@ -1021,6 +1021,11 @@ function whAutoSaveLocal_(persistStorage){
     payload.sapSourceId=String(sp.sapSourceId || (String(id).indexOf('whsap-')===0 ? id.slice(6) : '') || '');
     if(sp.sapCreatedAt) payload.sapCreatedAt=sp.sapCreatedAt;
     if(sp.sapCreatedBy) payload.sapCreatedBy=sp.sapCreatedBy;
+    if(sp.sapDone || (prev && prev.sapDone)){
+      payload.sapDone=true;
+      if(sp.sapDoneAt) payload.sapDoneAt=sp.sapDoneAt;
+      if(sp.sapDoneBy) payload.sapDoneBy=sp.sapDoneBy;
+    }
   }
   var item={
     id:id,
@@ -1763,6 +1768,11 @@ function whSave(){
     payload.sapSourceId=String(sp.sapSourceId || (String(_whEditingId).indexOf('whsap-')===0 ? String(_whEditingId).slice(6) : '') || '');
     if(sp.sapCreatedAt) payload.sapCreatedAt=sp.sapCreatedAt;
     if(sp.sapCreatedBy) payload.sapCreatedBy=sp.sapCreatedBy;
+    if(sp.sapDone || (existing && existing.sapDone)){
+      payload.sapDone=true;
+      if(sp.sapDoneAt) payload.sapDoneAt=sp.sapDoneAt;
+      if(sp.sapDoneBy) payload.sapDoneBy=sp.sapDoneBy;
+    }
   }
   // If this id is already Done in our list, do not call Save — go to Assignment.
   if(existing && whIsItemDone(existing) && !editingSap){
@@ -1910,6 +1920,9 @@ function whNormalizeListItem(it){
     updatedAt:String(it.updatedAt||it.createdAt||''),
     kind: isSap ? 'sap' : '',
     sapSourceId:String(it.sapSourceId||p.sapSourceId||''),
+    sapDone: isSap && !!(it.sapDone || p.sapDone),
+    sapDoneAt:String(it.sapDoneAt||p.sapDoneAt||''),
+    sapDoneBy:String(it.sapDoneBy||p.sapDoneBy||''),
     done:done,
     doneAt:String(it.doneAt||p.doneAt||''),
     doneBy:String(it.doneBy||p.doneBy||''),
@@ -1984,6 +1997,15 @@ function whMergeLists(serverItems, localItems){
       delete merged.payload.status;
       delete merged.payload.assignedTo;
       delete merged.payload.assignedAt;
+      var sapDone=!!(prev.sapDone || n.sapDone || (prev.payload&&prev.payload.sapDone) || (n.payload&&n.payload.sapDone) || merged.payload.sapDone);
+      merged.sapDone=sapDone;
+      if(sapDone){
+        merged.payload.sapDone=true;
+        merged.sapDoneAt=newer.sapDoneAt || older.sapDoneAt || merged.payload.sapDoneAt || '';
+        merged.sapDoneBy=newer.sapDoneBy || older.sapDoneBy || merged.payload.sapDoneBy || '';
+        if(merged.sapDoneAt) merged.payload.sapDoneAt=merged.sapDoneAt;
+        if(merged.sapDoneBy) merged.payload.sapDoneBy=merged.sapDoneBy;
+      }
     }
     merged.localOnly=!!(prev.localOnly && n.localOnly);
     map[n.id]=merged;
@@ -2005,12 +2027,14 @@ function whPartitionSaved_(){
   var assignInternal=[], assignExternal=[], assignOther=[];
   var closedInternal=[], closedExternal=[], closedOther=[];
   var sapInternal=[], sapExternal=[], sapOther=[];
+  var sapDoneInternal=[], sapDoneExternal=[], sapDoneOther=[];
   (_whSavedCache||[]).forEach(function(it){
     var t=whNormIssueType_(it.issueType || (it.payload && it.payload.issueType) || '');
     if(whIsSapItem_(it)){
-      if(t==='internal') sapInternal.push(it);
-      else if(t==='external') sapExternal.push(it);
-      else sapOther.push(it);
+      var sapDone=whIsSapDone_(it);
+      if(t==='internal') (sapDone?sapDoneInternal:sapInternal).push(it);
+      else if(t==='external') (sapDone?sapDoneExternal:sapExternal).push(it);
+      else (sapDone?sapDoneOther:sapOther).push(it);
       return;
     }
     var closed=whIsItemClosed(it);
@@ -2034,15 +2058,19 @@ function whPartitionSaved_(){
   var assignAll=assignInternal.concat(assignExternal, assignOther);
   var closedAll=closedInternal.concat(closedExternal, closedOther);
   var sapAll=sapInternal.concat(sapExternal, sapOther);
+  var sapDoneAll=sapDoneInternal.concat(sapDoneExternal, sapDoneOther);
   return {
     openInternal:openInternal, openExternal:openExternal, openOther:openOther,
     doneInternal:assignInternal, doneExternal:assignExternal, doneOther:assignOther,
     closedInternal:closedInternal, closedExternal:closedExternal, closedOther:closedOther,
     sapInternal:sapInternal, sapExternal:sapExternal, sapOther:sapOther,
+    sapDoneInternal:sapDoneInternal, sapDoneExternal:sapDoneExternal, sapDoneOther:sapDoneOther,
     openCount: openInternal.length+openExternal.length+openOther.length,
     doneCount: assignAll.length,
     closedCount: closedAll.length,
-    sapCount: sapAll.length,
+    sapCount: sapAll.length+sapDoneAll.length,
+    sapOpenCount: sapAll.length,
+    sapDoneCount: sapDoneAll.length,
     unassignedCount: assignAll.filter(function(it){
       return !String(it.assignedTo||'').trim();
     }).length
@@ -2116,7 +2144,7 @@ function whRenderSavedList(){
   whSetBadge('whSavedBadge', _whReceiverMode ? 0 : parts.openCount);
   whSetBadge('whDoneBadge', _whReceiverMode ? parts.doneCount : parts.unassignedCount);
   whSetBadge('whClosedBadge', parts.closedCount);
-  whSetBadge('whSapBadge', _whReceiverMode ? 0 : parts.sapCount);
+  whSetBadge('whSapBadge', _whReceiverMode ? 0 : parts.sapOpenCount);
   if(_whReceiverMode){
     _whSelectMode=false;
     _whAssignSelectMode=false;
@@ -2202,9 +2230,14 @@ function whRenderSavedList(){
         : '<p>No SAP copies yet.</p>';
     } else {
       var sh='';
-      sh+=whSavedSectionHtml_('Internal', parts.sapInternal, 'sap');
-      sh+=whSavedSectionHtml_('External', parts.sapExternal, 'sap');
+      if(parts.sapInternal.length) sh+=whSavedSectionHtml_('Internal', parts.sapInternal, 'sap');
+      if(parts.sapExternal.length) sh+=whSavedSectionHtml_('External', parts.sapExternal, 'sap');
       if(parts.sapOther.length) sh+=whSavedSectionHtml_('No type selected', parts.sapOther, 'sap');
+      if(parts.sapDoneCount){
+        if(parts.sapDoneInternal.length) sh+=whSavedSectionHtml_('Done — Internal', parts.sapDoneInternal, 'sap');
+        if(parts.sapDoneExternal.length) sh+=whSavedSectionHtml_('Done — External', parts.sapDoneExternal, 'sap');
+        if(parts.sapDoneOther.length) sh+=whSavedSectionHtml_('Done — no type selected', parts.sapDoneOther, 'sap');
+      }
       sapBox.innerHTML=sh;
     }
   }
@@ -2337,12 +2370,17 @@ function whSavedSectionHtml_(title, items, mode){
     var picked=showSel && !!_whSelected[rawId];
     var acts='';
     if(isSap){
+      var sapDone=whIsSapDone_(it);
       if(_whViewOnly){
         acts='<button type="button" data-wh-act="view" data-wh-id="'+id+'">View</button> ';
       } else {
         acts='<button type="button" data-wh-act="edit" data-wh-id="'+id+'">Edit</button> ';
+        if(!sapDone){
+          acts+='<button type="button" data-wh-act="sapdone" data-wh-id="'+id+'">Done</button> ';
+        }
       }
       acts+='<button type="button" data-wh-act="print" data-wh-id="'+id+'">Print</button> ';
+      if(sapDone) acts+='<span class="wh-sap-done-tag">Done</span> ';
     } else if(isClosed){
       acts='<button type="button" data-wh-act="view" data-wh-id="'+id+'">View</button> '
         +'<button type="button" data-wh-act="print" data-wh-id="'+id+'">Print</button> ';
@@ -2370,7 +2408,10 @@ function whSavedSectionHtml_(title, items, mode){
       acts+='<button type="button" data-wh-act="print" data-wh-id="'+id+'">Print</button> '
         +((_whReceiverMode||_whViewOnly)?'':('<button type="button" data-wh-act="delete" data-wh-id="'+id+'">Delete</button> '));
     }
-    h+='<tr'+(picked?' class="wh-row-selected"':'')+'>'
+    var rowClass=[];
+    if(picked) rowClass.push('wh-row-selected');
+    if(isSap && whIsSapDone_(it)) rowClass.push('wh-sap-done-row');
+    h+='<tr'+(rowClass.length?' class="'+rowClass.join(' ')+'"':'')+'>'
       +(showSel?'<td class="wh-sel-col"><input type="checkbox" data-wh-sel="1" data-wh-id="'+id+'"'+(picked?' checked':'')+'></td>':'')
       +'<td>'+(it.num||'—')+'</td>'
       +'<td>'+whEsc(whFmtDate(it.requestDate)||it.requestDate||'—')+'</td>'
@@ -2399,6 +2440,7 @@ function whBindListClicks_(boxId){
     e.preventDefault();
     if(act==='open' || act==='view') whOpenSaved(id);
     else if(act==='edit') whOpenSaved(id, { sapEdit:true });
+    else if(act==='sapdone') whMarkSapDone(id);
     else if(act==='done') whMarkDone(id);
     else if(act==='close') whCloseAssigned(id);
     else if(act==='assign') whAssignDone(id);
@@ -2803,6 +2845,66 @@ function whIsSapItem_(it){
   if(!it) return false;
   var p=it.payload||{};
   return String(it.kind||p.kind||'').toLowerCase()==='sap' || String(it.id||'').indexOf('whsap-')===0;
+}
+function whIsSapDone_(it){
+  if(!whIsSapItem_(it)) return false;
+  var p=it.payload||{};
+  return !!(it.sapDone || p.sapDone);
+}
+function whApplySapDoneLocal_(it){
+  if(!it) return;
+  var now=new Date().toISOString();
+  var who=typeof empireGetUser==='function' ? empireGetUser() : '';
+  var p=Object.assign({}, it.payload||{}, {
+    kind:'sap',
+    sapDone:true,
+    sapDoneAt:now,
+    sapDoneBy:who
+  });
+  delete p.done;
+  delete p.status;
+  it.payload=p;
+  it.sapDone=true;
+  it.sapDoneAt=now;
+  it.sapDoneBy=who;
+  it.done=false;
+  it.closed=false;
+  it.updatedAt=now;
+  whCacheUpsert_(it);
+  try { whLocalUpsert(it); } catch(e){}
+}
+function whMarkSapDone(id){
+  if(whWriteBlocked_('mark SAP copies Done')) return;
+  id=String(id||'');
+  var it=whFindSaved(id);
+  if(!it){ alert('Note not found.'); return; }
+  if(!whIsSapItem_(it)){
+    alert('This Done mark is only for SAP copies.');
+    return;
+  }
+  if(whIsSapDone_(it)){
+    alert('This SAP copy is already marked Done.');
+    return;
+  }
+  whUiConfirm_('Mark this SAP copy as Done?\n\nThis is only a mark in SAP. Assignment, Saved Notes, invoices, and SP Usage stay unchanged.').then(function(ok){
+    if(!ok) return;
+    function finishOk_(){
+      whApplySapDoneLocal_(it);
+      whLoadSavedList();
+    }
+    var token=typeof empireGetToken==='function' ? empireGetToken() : '';
+    if(!token || it.localOnly){
+      finishOk_();
+      return;
+    }
+    fetchJSONRetry({ action:'markWarehouseSapDone', token:token, id:id }, 2, 30000).then(function(d){
+      if(!(d && (d.ok||d.success))) throw new Error((d && (d.message||d.error)) || 'Could not mark Done');
+      finishOk_();
+    }).catch(function(err){
+      console.warn('markWarehouseSapDone', err);
+      alert('Could not save the SAP Done mark to the server: '+(err && err.message ? err.message : err));
+    });
+  });
 }
 function whSapIdFor_(id){
   id=String(id||'');

@@ -179,6 +179,9 @@ function rowToApi(r: Record<string, unknown>) {
     updatedAt: String(r.updated_at || ""),
     kind: isSap ? "sap" : "",
     sapSourceId: String(payload.sapSourceId || ""),
+    sapDone: isSap && payload.sapDone === true,
+    sapDoneAt: isSap ? String(payload.sapDoneAt || "") : "",
+    sapDoneBy: isSap ? String(payload.sapDoneBy || "") : "",
     done,
     doneAt: String(payload.doneAt || ""),
     doneBy: String(payload.doneBy || ""),
@@ -267,6 +270,15 @@ export async function handleSaveWarehouseGin(body: Record<string, unknown>, auth
           (id.indexOf("whsap-") === 0 ? id.slice(6) : "");
         if (existingPayload.sapCreatedAt) nextPayload.sapCreatedAt = existingPayload.sapCreatedAt;
         if (existingPayload.sapCreatedBy) nextPayload.sapCreatedBy = existingPayload.sapCreatedBy;
+        if (existingPayload.sapDone === true || nextPayload.sapDone === true) {
+          nextPayload.sapDone = true;
+          if (existingPayload.sapDoneAt) nextPayload.sapDoneAt = existingPayload.sapDoneAt;
+          if (existingPayload.sapDoneBy) nextPayload.sapDoneBy = existingPayload.sapDoneBy;
+        } else {
+          delete nextPayload.sapDone;
+          delete nextPayload.sapDoneAt;
+          delete nextPayload.sapDoneBy;
+        }
       } else {
         delete nextPayload.done;
         delete nextPayload.doneAt;
@@ -513,6 +525,52 @@ export async function handleMarkWarehouseGinDone(body: Record<string, unknown>, 
   if (error) throw error;
   await insertSapCopy_({ ...ex, payload }, auth);
   return { ok: true, success: true, id, done: true, doneAt: now };
+}
+
+/** SAP-only Done mark. Does not move or change Assignment / Saved Notes / invoices. */
+export async function handleMarkWarehouseSapDone(body: Record<string, unknown>, auth: AuthOk) {
+  if (isWarehouseSignerAuth(auth)) {
+    return {
+      ok: false,
+      success: false,
+      error: "forbidden",
+      message: "Receiver accounts cannot mark SAP copies Done.",
+    };
+  }
+  if (!canWriteDeskAuth(auth)) return denyViewOnly_();
+  const id = String(body.id || "").trim();
+  if (!id) return { ok: false, success: false, error: "missing_id" };
+  const { data: ex } = await sb().from("warehouse_goods_issues").select("id,payload").eq("id", id).maybeSingle();
+  if (!ex) return { ok: false, success: false, error: "not_found" };
+  const existingPayload = (ex.payload && typeof ex.payload === "object")
+    ? ex.payload as GinPayload
+    : {};
+  if (!payloadIsSap_(existingPayload) && id.indexOf("whsap-") !== 0) {
+    return {
+      ok: false,
+      success: false,
+      error: "not_sap",
+      message: "Only SAP copies can use this Done mark. Assignment is unchanged.",
+    };
+  }
+  if (existingPayload.sapDone === true) {
+    return { ok: true, success: true, id, alreadySapDone: true };
+  }
+  const now = isoNow();
+  const payload = stripWorkflowFlags_({ ...existingPayload });
+  payload.kind = "sap";
+  if (existingPayload.sapSourceId) payload.sapSourceId = existingPayload.sapSourceId;
+  if (existingPayload.sapCreatedAt) payload.sapCreatedAt = existingPayload.sapCreatedAt;
+  if (existingPayload.sapCreatedBy) payload.sapCreatedBy = existingPayload.sapCreatedBy;
+  payload.sapDone = true;
+  payload.sapDoneAt = now;
+  payload.sapDoneBy = String(auth.username || "");
+  const { error } = await sb().from("warehouse_goods_issues").update({
+    payload,
+    updated_at: now,
+  }).eq("id", id);
+  if (error) throw error;
+  return { ok: true, success: true, id, sapDone: true, sapDoneAt: now };
 }
 
 /** Move a Done (Assignment) note back to Saved Notes so warehouse can edit it again. */
