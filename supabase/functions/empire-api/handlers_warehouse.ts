@@ -375,6 +375,51 @@ export async function handleMarkWarehouseGinDone(body: Record<string, unknown>, 
   return { ok: true, success: true, id, done: true, doneAt: now };
 }
 
+/** Move a Done (Assignment) note back to Saved Notes so warehouse can edit it again. */
+export async function handleReopenWarehouseGin(body: Record<string, unknown>, auth: AuthOk) {
+  if (isWarehouseSignerAuth(auth)) {
+    return {
+      ok: false,
+      success: false,
+      error: "forbidden",
+      message: "Receiver accounts cannot move notes back to Saved Notes.",
+    };
+  }
+  if (!canWriteDeskAuth(auth)) return denyViewOnly_();
+  const id = String(body.id || "").trim();
+  if (!id) return { ok: false, success: false, error: "missing_id" };
+  const { data: ex } = await sb().from("warehouse_goods_issues").select("id,payload").eq("id", id).maybeSingle();
+  if (!ex) return { ok: false, success: false, error: "not_found" };
+  const existingPayload = (ex.payload && typeof ex.payload === "object")
+    ? ex.payload as GinPayload
+    : {};
+  if (existingPayload.closed === true || existingPayload.status === "closed") {
+    return {
+      ok: false,
+      success: false,
+      error: "closed",
+      message: "This note is already in Done (signed). It cannot go back to Saved Notes.",
+    };
+  }
+  if (!(existingPayload.done === true || existingPayload.status === "done")) {
+    return { ok: true, success: true, id, alreadyOpen: true };
+  }
+  const payload = { ...existingPayload };
+  delete payload.done;
+  delete payload.doneAt;
+  delete payload.doneBy;
+  delete payload.assignedTo;
+  delete payload.assignedAt;
+  if (payload.status === "done") delete payload.status;
+  const now = isoNow();
+  const { error } = await sb().from("warehouse_goods_issues").update({
+    payload,
+    updated_at: now,
+  }).eq("id", id);
+  if (error) throw error;
+  return { ok: true, success: true, id, reopened: true };
+}
+
 /** Move an assigned note into Done (view-only). Only the assigned signer can do this after signing. */
 export async function handleCloseWarehouseGin(body: Record<string, unknown>, auth: AuthOk) {
   if (!isWarehouseSignerAuth(auth)) {

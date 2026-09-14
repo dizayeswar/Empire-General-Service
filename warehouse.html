@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-20-wh-signer">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-09-13-viewer">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-09-14-return-saved">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -127,6 +127,7 @@
             <button type="button" id="whSaveBtn" onclick="whSave()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Save</button>
             <button type="button" id="whSignerDoneBtn" onclick="whCloseAssigned(_whEditingId)" style="display:none;color:#fff;background:#1d9e75;border-color:#1d9e75;">Done</button>
             <button type="button" onclick="whPrint()">Print / Save as PDF</button>
+            <button type="button" id="whReturnSavedBtn" onclick="whReturnToSaved(_whEditingId)" hidden>Saved Notes</button>
           </div>
 
           <div class="wh-note" id="whPrintRoot">
@@ -238,6 +239,7 @@
             <button type="button" onclick="whStartNew()">New</button>
             <button type="button" id="whSaveBtn2" onclick="whSave()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Save</button>
             <button type="button" onclick="whPrint()">Print / Save as PDF</button>
+            <button type="button" id="whReturnSavedBtn2" onclick="whReturnToSaved(_whEditingId)" hidden>Saved Notes</button>
             <button type="button" onclick="whClearForm()">Clear form</button>
           </div>
           <p class="no-print" style="color:var(--text-soft);font-size:12px;margin-top:10px;">Changes <strong>auto-save</strong> as you type (also when you leave this tab). Use <strong>Save</strong> when finished to clear the sheet for the next note. Prefer <strong>Portrait A4</strong> at 100% scale.</p>
@@ -267,7 +269,7 @@
         <div class="wh-app wh-saved-app">
           <div class="form-section">
             <h2 id="whAssignTitle">Assignment</h2>
-            <p class="wh-tab-help" id="whDoneHelp">Finished notes waiting for assignment / signature. After the signer uploads their signature and clicks <strong>Done</strong>, the note moves to <strong>Done</strong> (view only) for warehouse and for them.</p>
+            <p class="wh-tab-help" id="whDoneHelp">Finished notes waiting for assignment / signature. After the signer uploads their signature and clicks <strong>Done</strong>, the note moves to <strong>Done</strong> (view only). Click <strong>Saved Notes</strong> next to Print to send a note back if it still needs editing.</p>
             <div class="wh-toolbar no-print" style="margin-bottom:12px;">
               <button type="button" onclick="whLoadSavedList()">Refresh</button>
             </div>
@@ -2206,6 +2208,9 @@ function whSavedSectionHtml_(title, items, mode){
         acts+='<button type="button" data-wh-act="delete" data-wh-id="'+id+'">Delete</button> ';
       }
       acts+='<button type="button" data-wh-act="print" data-wh-id="'+id+'">Print</button> ';
+      if(!_whReceiverMode && !_whViewOnly){
+        acts+='<button type="button" data-wh-act="reopen" data-wh-id="'+id+'">Saved Notes</button> ';
+      }
     } else {
       acts='<button type="button" data-wh-act="open" data-wh-id="'+id+'">Open</button> ';
       if(!_whViewOnly){
@@ -2246,6 +2251,7 @@ function whBindListClicks_(boxId){
     else if(act==='close') whCloseAssigned(id);
     else if(act==='assign') whAssignDone(id);
     else if(act==='print') whPrintSaved(id);
+    else if(act==='reopen') whReturnToSaved(id);
     else if(act==='delete') whDeleteSaved(id);
   });
   box.addEventListener('change', function(e){
@@ -2499,6 +2505,7 @@ function whSetFormLocked(locked){
     signerDone.style.display = show ? '' : 'none';
     signerDone.disabled = !show;
   }
+  whSyncReturnSavedBtn_();
   if(root){
     root.querySelectorAll('input,button.wh-type-btn,textarea,select').forEach(function(el){
       if(el.closest('.wh-sig-actions')) return;
@@ -2652,6 +2659,80 @@ function whMarkDone(id){
       whLoadSavedList();
       alert('Moved to Assignment. Click Assign to choose who signs Received by.');
       whSwitchTab(null,'done');
+    });
+  });
+}
+function whCanReturnToSaved_(it){
+  return !!(it && whIsItemDone(it) && !whIsItemClosed(it));
+}
+function whSyncReturnSavedBtn_(){
+  var it=whFindSaved(_whEditingId);
+  var show=!_whReceiverMode && !_whViewOnly && whCanReturnToSaved_(it);
+  ['whReturnSavedBtn','whReturnSavedBtn2'].forEach(function(id){
+    var b=document.getElementById(id);
+    if(b) b.hidden=!show;
+  });
+}
+function whApplyReopenLocal_(it){
+  if(!it) return;
+  var p=Object.assign({}, it.payload||{});
+  delete p.done;
+  delete p.doneAt;
+  delete p.doneBy;
+  delete p.assignedTo;
+  delete p.assignedAt;
+  if(p.status==='done') delete p.status;
+  it.payload=p;
+  it.done=false;
+  it.doneAt='';
+  it.doneBy='';
+  it.assignedTo='';
+  it.assignedAt='';
+  it.closed=false;
+  it.updatedAt=new Date().toISOString();
+  whLocalUpsert(it);
+  if(_whEditingId && String(it.id)===String(_whEditingId)){
+    whSetFormLocked(false);
+    whUpdateFormTitle();
+  }
+}
+function whReturnToSaved(id){
+  if(whWriteBlocked_('move notes back to Saved Notes')) return;
+  id=String(id||'');
+  var it=whFindSaved(id);
+  if(!it){ alert('Note not found.'); return; }
+  if(whIsItemClosed(it)){
+    alert('This note is already in Done (signed). It cannot go back to Saved Notes.');
+    return;
+  }
+  if(!whIsItemDone(it)){
+    alert('This note is already in Saved Notes.');
+    whSwitchTab(null,'saved');
+    return;
+  }
+  var who=String(it.assignedTo||'').trim();
+  var msg=who
+    ? 'Move this note back to Saved Notes?\n\nIt will leave Assignment. Assignment to "'+who+'" will be cleared, and you can edit it again.'
+    : 'Move this note back to Saved Notes?\n\nIt will leave Assignment and you can edit it again.';
+  whUiConfirm_(msg).then(function(ok){
+    if(!ok) return;
+    function finishOk_(){
+      whApplyReopenLocal_(it);
+      whLoadSavedList();
+      alert('Moved back to Saved Notes. You can edit it there.');
+      whSwitchTab(null,'saved');
+    }
+    var token=typeof empireGetToken==='function' ? empireGetToken() : '';
+    if(!token || it.localOnly){
+      finishOk_();
+      return;
+    }
+    fetchJSONRetry({ action:'reopenWarehouseGin', token:token, id:id }, 2, 30000).then(function(d){
+      if(!(d && (d.ok||d.success))) throw new Error((d && (d.message||d.error)) || 'Could not move the note');
+      finishOk_();
+    }).catch(function(err){
+      console.warn('reopenWarehouseGin', err);
+      alert('Could not save to server: '+(err && err.message ? err.message : err));
     });
   });
 }

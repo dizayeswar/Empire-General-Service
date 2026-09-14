@@ -208,6 +208,11 @@
   color: #c62828;
   border-color: #ef9a9a;
 }
+.wh-saved-actions button[data-wh-act="reopen"] {
+  color: #6a1b9a;
+  border-color: #ce93d8;
+  background: #f3e5f5;
+}
 
 /* Dark mode — readable tables & buttons */
 html[data-theme="dark"] .wh-saved-table {
@@ -262,6 +267,11 @@ html[data-theme="dark"] .wh-saved-actions button[data-wh-act="delete"] {
   color: #ffcdd2;
   background: #6b1c1c;
   border-color: #e57373;
+}
+html[data-theme="dark"] .wh-saved-actions button[data-wh-act="reopen"] {
+  color: #f3e5f5;
+  background: #4a148c;
+  border-color: #ce93d8;
 }
 .wh-sp-filter.active {
   color: #fff;
@@ -322,6 +332,9 @@ body.wh-view-only #whInvSaveBtn,
 body.wh-view-only .wh-saved-actions button[data-wh-act="done"],
 body.wh-view-only .wh-saved-actions button[data-wh-act="delete"],
 body.wh-view-only .wh-saved-actions button[data-wh-act="assign"],
+body.wh-view-only .wh-saved-actions button[data-wh-act="reopen"],
+body.wh-view-only #whReturnSavedBtn,
+body.wh-view-only #whReturnSavedBtn2,
 body.wh-view-only .wh-saved-actions button[data-wh-inv-act="delete"] {
   display: none !important;
 }
