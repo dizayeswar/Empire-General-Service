@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-20-wh-signer">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-09-14-return-saved">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-09-14-assign-select">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -269,9 +269,14 @@
         <div class="wh-app wh-saved-app">
           <div class="form-section">
             <h2 id="whAssignTitle">Assignment</h2>
-            <p class="wh-tab-help" id="whDoneHelp">Finished notes waiting for assignment / signature. After the signer uploads their signature and clicks <strong>Done</strong>, the note moves to <strong>Done</strong> (view only). Click <strong>Saved Notes</strong> next to Print to send a note back if it still needs editing.</p>
+            <p class="wh-tab-help" id="whDoneHelp">Finished notes waiting for assignment / signature. After the signer uploads their signature and clicks <strong>Done</strong>, the note moves to <strong>Done</strong> (view only). Use <strong>Select</strong> to send several back to Saved Notes, or click <strong>Saved Notes</strong> next to Print for one note.</p>
             <div class="wh-toolbar no-print" style="margin-bottom:12px;">
               <button type="button" onclick="whLoadSavedList()">Refresh</button>
+              <button type="button" id="whAssignSelectBtn" onclick="whToggleAssignSelectMode_(true)" hidden>Select</button>
+              <span class="wh-select-count" id="whAssignSelectCount" hidden>Select notes</span>
+              <button type="button" id="whAssignSelectAllBtn" onclick="whSelectAllAssign_(true)" hidden>Select all</button>
+              <button type="button" id="whAssignReturnSelectedBtn" class="wh-btn-return-selected" onclick="whReturnSelectedToSaved_()" hidden>Saved Notes selected</button>
+              <button type="button" id="whAssignSelectCancelBtn" onclick="whToggleAssignSelectMode_(false)" hidden>Cancel</button>
             </div>
             <div id="whDoneList">Loading…</div>
           </div>
@@ -603,6 +608,7 @@ var _whReceiverMode = false;
 var _whViewOnly = false;
 var _whAssigneesCache = [];
 var _whSelectMode = false;
+var _whAssignSelectMode = false;
 var _whSelected = {};
 var _whBulkBusy = false;
 
@@ -2003,6 +2009,7 @@ function whRenderSavedList(){
   whSetBadge('whClosedBadge', parts.closedCount);
   if(_whReceiverMode){
     _whSelectMode=false;
+    _whAssignSelectMode=false;
     _whSelected={};
   }
   whPruneSelected_();
@@ -2010,8 +2017,10 @@ function whRenderSavedList(){
   var savedBox=document.getElementById('whSavedList');
   if(savedBox && !_whReceiverMode){
     if(!parts.openCount){
-      _whSelectMode=false;
-      _whSelected={};
+      if(_whSelectMode){
+        _whSelectMode=false;
+        if(!_whAssignSelectMode) _whSelected={};
+      }
       savedBox.innerHTML = typeof empireEmptyHtml==='function'
         ? empireEmptyHtml('No open notes', 'Save a Goods Issue Note here, then click Done when finished.')
         : '<p>No open notes.</p>';
@@ -2024,11 +2033,14 @@ function whRenderSavedList(){
     }
   }
   whSyncSelectBar_(parts.openCount);
-  whSyncSelectUi_();
 
   var doneBox=document.getElementById('whDoneList');
   if(doneBox){
     if(!parts.doneCount){
+      if(_whAssignSelectMode){
+        _whAssignSelectMode=false;
+        if(!_whSelectMode) _whSelected={};
+      }
       doneBox.innerHTML = typeof empireEmptyHtml==='function'
         ? empireEmptyHtml(_whReceiverMode ? 'Nothing assigned yet' : 'No notes in Assignment',
             _whReceiverMode
@@ -2047,6 +2059,8 @@ function whRenderSavedList(){
       doneBox.innerHTML=dh;
     }
   }
+  whSyncAssignSelectBar_(parts.doneCount);
+  whSyncSelectUi_();
 
   var closedBox=document.getElementById('whClosedList');
   if(closedBox){
@@ -2172,7 +2186,10 @@ function whSavedSectionHtml_(title, items, mode){
   mode = mode===true ? 'assign' : (mode===false ? 'open' : String(mode||'open'));
   var isAssign=mode==='assign';
   var isClosed=mode==='closed';
-  var showSel=!!_whSelectMode && !isAssign && !isClosed && !_whReceiverMode && !_whViewOnly;
+  var showSel= !_whReceiverMode && !_whViewOnly && (
+    (!!_whSelectMode && !isAssign && !isClosed) ||
+    (!!_whAssignSelectMode && isAssign)
+  );
   var h='<div class="wh-saved-section'+(isAssign||isClosed?' wh-saved-section-done':'')+'">'
     +'<h3 class="wh-saved-section-title">'+whEsc(title)
     +' <span class="wh-saved-section-count">('+items.length+')</span></h3>';
@@ -2275,15 +2292,30 @@ function whOpenSelectableIds_(){
     return String(it && it.id || '');
   }).filter(Boolean);
 }
+function whAssignSelectableIds_(){
+  var parts=whPartitionSaved_();
+  return parts.doneInternal.concat(parts.doneExternal, parts.doneOther).filter(function(it){
+    return it && it.id && !whIsItemClosed(it);
+  }).map(function(it){
+    return String(it.id);
+  }).filter(Boolean);
+}
 function whSelectedOpenIds_(){
   var live=whOpenSelectableIds_();
   var set={};
   live.forEach(function(id){ set[id]=true; });
   return Object.keys(_whSelected).filter(function(id){ return !!_whSelected[id] && !!set[id]; });
 }
+function whSelectedAssignIds_(){
+  var live=whAssignSelectableIds_();
+  var set={};
+  live.forEach(function(id){ set[id]=true; });
+  return Object.keys(_whSelected).filter(function(id){ return !!_whSelected[id] && !!set[id]; });
+}
 function whPruneSelected_(){
+  var ids=_whAssignSelectMode ? whAssignSelectableIds_() : (_whSelectMode ? whOpenSelectableIds_() : []);
   var live={};
-  whOpenSelectableIds_().forEach(function(id){
+  ids.forEach(function(id){
     if(_whSelected[id]) live[id]=true;
   });
   _whSelected=live;
@@ -2291,8 +2323,25 @@ function whPruneSelected_(){
 function whToggleSelectMode_(on){
   if(_whViewOnly || _whReceiverMode) return;
   if(_whBulkBusy) return;
-  _whSelectMode = on===undefined ? !_whSelectMode : !!on;
+  var next=on===undefined ? !_whSelectMode : !!on;
+  if(_whAssignSelectMode){
+    _whAssignSelectMode=false;
+    _whSelected={};
+  }
+  _whSelectMode=next;
   if(!_whSelectMode) _whSelected={};
+  whRenderSavedList();
+}
+function whToggleAssignSelectMode_(on){
+  if(_whViewOnly || _whReceiverMode) return;
+  if(_whBulkBusy) return;
+  var next=on===undefined ? !_whAssignSelectMode : !!on;
+  if(_whSelectMode){
+    _whSelectMode=false;
+    _whSelected={};
+  }
+  _whAssignSelectMode=next;
+  if(!_whAssignSelectMode) _whSelected={};
   whRenderSavedList();
 }
 function whToggleRowSelect_(id, checked){
@@ -2328,6 +2377,18 @@ function whSelectAllOpen_(on){
   });
   whSyncSelectUi_();
 }
+function whSelectAllAssign_(on){
+  if(_whBulkBusy) return;
+  var ids=whAssignSelectableIds_();
+  if(on===undefined){
+    on=ids.some(function(id){ return !_whSelected[id]; });
+  }
+  ids.forEach(function(id){
+    if(on) _whSelected[id]=true;
+    else delete _whSelected[id];
+  });
+  whSyncSelectUi_();
+}
 function whSyncSelectBar_(openCount){
   if(openCount==null){
     try { openCount=whPartitionSaved_().openCount; } catch(e){ openCount=0; }
@@ -2336,7 +2397,7 @@ function whSyncSelectBar_(openCount){
   var on=!!_whSelectMode && has;
   if(!has && _whSelectMode){
     _whSelectMode=false;
-    _whSelected={};
+    if(!_whAssignSelectMode) _whSelected={};
     on=false;
   }
   var n=whSelectedOpenIds_().length;
@@ -2366,15 +2427,47 @@ function whSyncSelectBar_(openCount){
     cancel.disabled=!!_whBulkBusy;
   }
 }
-function whSyncSelectUi_(){
-  var n=whSelectedOpenIds_().length;
-  var count=document.getElementById('whSelectCount');
-  if(count) count.textContent=n ? (n+' selected') : 'Select notes';
-  var doneBtn=document.getElementById('whDoneSelectedBtn');
-  if(doneBtn) doneBtn.disabled=!n || _whBulkBusy;
-  var savedBox=document.getElementById('whSavedList');
-  if(!savedBox) return;
-  savedBox.querySelectorAll('table.wh-saved-table').forEach(function(table){
+function whSyncAssignSelectBar_(doneCount){
+  if(doneCount==null){
+    try { doneCount=whPartitionSaved_().doneCount; } catch(e){ doneCount=0; }
+  }
+  var has= !_whReceiverMode && !_whViewOnly && doneCount>0;
+  var on=!!_whAssignSelectMode && has;
+  if(!has && _whAssignSelectMode){
+    _whAssignSelectMode=false;
+    if(!_whSelectMode) _whSelected={};
+    on=false;
+  }
+  var n=whSelectedAssignIds_().length;
+  var selBtn=document.getElementById('whAssignSelectBtn');
+  var count=document.getElementById('whAssignSelectCount');
+  var allBtn=document.getElementById('whAssignSelectAllBtn');
+  var returnBtn=document.getElementById('whAssignReturnSelectedBtn');
+  var cancel=document.getElementById('whAssignSelectCancelBtn');
+  if(selBtn){
+    selBtn.hidden=!has || on;
+    selBtn.disabled=!!_whBulkBusy;
+  }
+  if(count){
+    count.hidden=!on;
+    count.textContent=n ? (n+' selected') : 'Select notes';
+  }
+  if(allBtn){
+    allBtn.hidden=!on;
+    allBtn.disabled=!!_whBulkBusy;
+  }
+  if(returnBtn){
+    returnBtn.hidden=!on;
+    returnBtn.disabled=!n || _whBulkBusy;
+  }
+  if(cancel){
+    cancel.hidden=!on;
+    cancel.disabled=!!_whBulkBusy;
+  }
+}
+function whSyncSelectTablesIn_(box){
+  if(!box) return;
+  box.querySelectorAll('table.wh-saved-table').forEach(function(table){
     var boxes=table.querySelectorAll('input[data-wh-sel]');
     var all=table.querySelector('input[data-wh-sel-all]');
     var checked=0;
@@ -2391,6 +2484,23 @@ function whSyncSelectUi_(){
       all.indeterminate=checked>0 && checked<boxes.length;
     }
   });
+}
+function whSyncSelectUi_(){
+  if(_whAssignSelectMode){
+    var n=whSelectedAssignIds_().length;
+    var count=document.getElementById('whAssignSelectCount');
+    if(count) count.textContent=n ? (n+' selected') : 'Select notes';
+    var returnBtn=document.getElementById('whAssignReturnSelectedBtn');
+    if(returnBtn) returnBtn.disabled=!n || _whBulkBusy;
+    whSyncSelectTablesIn_(document.getElementById('whDoneList'));
+    return;
+  }
+  var nOpen=whSelectedOpenIds_().length;
+  var openCount=document.getElementById('whSelectCount');
+  if(openCount) openCount.textContent=nOpen ? (nOpen+' selected') : 'Select notes';
+  var doneBtn=document.getElementById('whDoneSelectedBtn');
+  if(doneBtn) doneBtn.disabled=!nOpen || _whBulkBusy;
+  whSyncSelectTablesIn_(document.getElementById('whSavedList'));
 }
 function whApplyDoneLocal_(it){
   if(!it) return;
@@ -2696,6 +2806,13 @@ function whApplyReopenLocal_(it){
     whUpdateFormTitle();
   }
 }
+function whPostReopen_(id){
+  var token=typeof empireGetToken==='function' ? empireGetToken() : '';
+  return fetchJSONRetry({ action:'reopenWarehouseGin', token:token, id:String(id||'') }, 2, 30000).then(function(d){
+    if(!(d && (d.ok||d.success))) throw new Error((d && (d.message||d.error)) || 'Could not move the note');
+    return d;
+  });
+}
 function whReturnToSaved(id){
   if(whWriteBlocked_('move notes back to Saved Notes')) return;
   id=String(id||'');
@@ -2727,12 +2844,67 @@ function whReturnToSaved(id){
       finishOk_();
       return;
     }
-    fetchJSONRetry({ action:'reopenWarehouseGin', token:token, id:id }, 2, 30000).then(function(d){
-      if(!(d && (d.ok||d.success))) throw new Error((d && (d.message||d.error)) || 'Could not move the note');
+    whPostReopen_(id).then(function(){
       finishOk_();
     }).catch(function(err){
       console.warn('reopenWarehouseGin', err);
       alert('Could not save to server: '+(err && err.message ? err.message : err));
+    });
+  });
+}
+function whReturnSelectedToSaved_(){
+  if(whWriteBlocked_('move notes back to Saved Notes')) return;
+  if(_whBulkBusy) return;
+  var ids=whSelectedAssignIds_();
+  if(!ids.length){
+    alert('Select at least one note first.');
+    return;
+  }
+  var msg=ids.length===1
+    ? 'Move this note back to Saved Notes?\n\nIt will leave Assignment. Any assignment will be cleared, and you can edit it again.'
+    : 'Move '+ids.length+' notes back to Saved Notes?\n\nThey will leave Assignment. Any assignments will be cleared, and you can edit them again.';
+  whUiConfirm_(msg).then(function(ok){
+    if(!ok) return;
+    _whBulkBusy=true;
+    var btn=document.getElementById('whAssignReturnSelectedBtn');
+    if(btn){
+      btn.disabled=true;
+      btn.textContent='Working…';
+    }
+    whSyncAssignSelectBar_();
+    var token=typeof empireGetToken==='function' ? empireGetToken() : '';
+    var failed=[];
+    var jobs=ids.map(function(id){
+      var it=whFindSaved(id);
+      if(!it || !whCanReturnToSaved_(it)) return Promise.resolve();
+      if(!token || it.localOnly){
+        whApplyReopenLocal_(it);
+        return Promise.resolve();
+      }
+      return whPostReopen_(id).then(function(){
+        whApplyReopenLocal_(it);
+      }).catch(function(err){
+        console.warn('reopenWarehouseGin', err);
+        failed.push(id);
+      });
+    });
+    Promise.all(jobs).finally(function(){
+      _whBulkBusy=false;
+      if(btn) btn.textContent='Saved Notes selected';
+      _whAssignSelectMode=false;
+      _whSelected={};
+      whLoadSavedList();
+      var okCount=ids.length-failed.length;
+      if(!failed.length){
+        alert(ids.length===1
+          ? 'Moved back to Saved Notes. You can edit it there.'
+          : 'Moved '+ids.length+' notes back to Saved Notes. You can edit them there.');
+        whSwitchTab(null,'saved');
+      } else {
+        alert(okCount
+          ? 'Moved '+okCount+' notes. Could not move '+failed.length+'.'
+          : 'Could not save to the server.');
+      }
     });
   });
 }

@@ -29,6 +29,16 @@
   cursor: not-allowed;
   transform: none;
 }
+.wh-btn-return-selected {
+  color: #6a1b9a !important;
+  border-color: #ce93d8 !important;
+  background: #f3e5f5 !important;
+}
+.wh-btn-return-selected:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
 .wh-sel-col {
   width: 36px;
   text-align: center;
@@ -235,6 +245,11 @@ html[data-theme="dark"] .wh-btn-done-selected {
   border-color: #2e7d32 !important;
   background: rgba(46, 125, 50, 0.35) !important;
 }
+html[data-theme="dark"] .wh-btn-return-selected {
+  color: #f3e5f5 !important;
+  border-color: #ce93d8 !important;
+  background: rgba(74, 20, 140, 0.55) !important;
+}
 html[data-theme="dark"] .wh-saved-table tbody tr.wh-row-selected td {
   background: rgba(141, 1, 93, 0.28);
 }
@@ -306,7 +321,12 @@ body.wh-receiver-mode #whSelectBtn,
 body.wh-receiver-mode #whSelectAllBtn,
 body.wh-receiver-mode #whDoneSelectedBtn,
 body.wh-receiver-mode #whSelectCancelBtn,
-body.wh-receiver-mode #whSelectCount {
+body.wh-receiver-mode #whSelectCount,
+body.wh-receiver-mode #whAssignSelectBtn,
+body.wh-receiver-mode #whAssignSelectAllBtn,
+body.wh-receiver-mode #whAssignReturnSelectedBtn,
+body.wh-receiver-mode #whAssignSelectCancelBtn,
+body.wh-receiver-mode #whAssignSelectCount {
   display: none !important;
 }
 body.wh-receiver-mode .wh-toolbar button[onclick="whStartNew()"],
@@ -326,6 +346,11 @@ body.wh-view-only #whSelectAllBtn,
 body.wh-view-only #whDoneSelectedBtn,
 body.wh-view-only #whSelectCancelBtn,
 body.wh-view-only #whSelectCount,
+body.wh-view-only #whAssignSelectBtn,
+body.wh-view-only #whAssignSelectAllBtn,
+body.wh-view-only #whAssignReturnSelectedBtn,
+body.wh-view-only #whAssignSelectCancelBtn,
+body.wh-view-only #whAssignSelectCount,
 body.wh-view-only #tab-wh-invoice,
 body.wh-view-only #whEsigCreateBox,
 body.wh-view-only #whInvSaveBtn,
