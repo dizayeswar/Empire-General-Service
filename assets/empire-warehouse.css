@@ -162,6 +162,9 @@
 .wh-saved-section-done .wh-saved-section-title {
   color: #2e7d32;
 }
+.wh-saved-section-sap .wh-saved-section-title {
+  color: #1565c0;
+}
 .wh-saved-actions button[data-wh-act="done"] {
   color: #1b5e20;
   border-color: #81c784;
@@ -223,6 +226,11 @@
   border-color: #ce93d8;
   background: #f3e5f5;
 }
+.wh-saved-actions button[data-wh-act="edit"] {
+  color: #0d47a1;
+  border-color: #90caf9;
+  background: #e3f2fd;
+}
 
 /* Dark mode — readable tables & buttons */
 html[data-theme="dark"] .wh-saved-table {
@@ -268,6 +276,9 @@ html[data-theme="dark"] .wh-saved-section-count {
 html[data-theme="dark"] .wh-saved-section-done .wh-saved-section-title {
   color: #81c784;
 }
+html[data-theme="dark"] .wh-saved-section-sap .wh-saved-section-title {
+  color: #90caf9;
+}
 html[data-theme="dark"] .wh-saved-actions button {
   color: #fff;
   background: #0d4a85;
@@ -288,6 +299,11 @@ html[data-theme="dark"] .wh-saved-actions button[data-wh-act="reopen"] {
   background: #4a148c;
   border-color: #ce93d8;
 }
+html[data-theme="dark"] .wh-saved-actions button[data-wh-act="edit"] {
+  color: #e3f2fd;
+  background: #0d47a1;
+  border-color: #90caf9;
+}
 .wh-sp-filter.active {
   color: #fff;
   background: var(--accent2, #8d015d);
@@ -307,7 +323,8 @@ html[data-theme="dark"] .wh-sp-summary {
   color: #cfe0ff;
 }
 body.wh-receiver-mode #tab-wh-note,
-body.wh-receiver-mode #tab-wh-saved {
+body.wh-receiver-mode #tab-wh-saved,
+body.wh-receiver-mode #tab-wh-sap {
   display: none !important;
 }
 /* Signers keep: Assigned, Done, SP Usage, Signatures */
@@ -358,6 +375,7 @@ body.wh-view-only .wh-saved-actions button[data-wh-act="done"],
 body.wh-view-only .wh-saved-actions button[data-wh-act="delete"],
 body.wh-view-only .wh-saved-actions button[data-wh-act="assign"],
 body.wh-view-only .wh-saved-actions button[data-wh-act="reopen"],
+body.wh-view-only .wh-saved-actions button[data-wh-act="edit"],
 body.wh-view-only #whReturnSavedBtn,
 body.wh-view-only #whReturnSavedBtn2,
 body.wh-view-only .wh-saved-actions button[data-wh-inv-act="delete"] {

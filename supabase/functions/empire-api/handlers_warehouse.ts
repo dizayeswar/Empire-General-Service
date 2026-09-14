@@ -51,10 +51,119 @@ function canWriteInvoicesAuth(auth: AuthOk): boolean {
   );
 }
 
+function payloadIsSap_(p: GinPayload) {
+  return String(p.kind || "").trim().toLowerCase() === "sap";
+}
+
+function sapIdForSource_(id: string) {
+  const s = String(id || "").trim();
+  if (!s) return "";
+  return s.indexOf("whsap-") === 0 ? s : "whsap-" + s;
+}
+
+function ginIsDoneOrClosed_(p: GinPayload) {
+  return p.done === true || p.status === "done" || p.closed === true || p.status === "closed";
+}
+
+function stripWorkflowFlags_(p: GinPayload) {
+  const next = { ...p };
+  delete next.done;
+  delete next.doneAt;
+  delete next.doneBy;
+  delete next.closed;
+  delete next.closedAt;
+  delete next.closedBy;
+  delete next.assignedTo;
+  delete next.assignedAt;
+  if (next.status === "done" || next.status === "closed") delete next.status;
+  return next;
+}
+
+function sapPayloadFromRow_(row: Record<string, unknown>, auth: AuthOk, now: string): GinPayload {
+  const src = (row.payload && typeof row.payload === "object")
+    ? JSON.parse(JSON.stringify(row.payload)) as GinPayload
+    : {};
+  const next = stripWorkflowFlags_(src);
+  next.kind = "sap";
+  next.sapSourceId = String(row.id || "");
+  next.sapCreatedAt = String(src.sapCreatedAt || now);
+  next.sapCreatedBy = String(src.sapCreatedBy || auth.username || "");
+  return next;
+}
+
+function denySapCopy_(message?: string) {
+  return {
+    ok: false,
+    success: false,
+    error: "sap_copy",
+    message: message || "SAP copies are separate. Open SAP to edit them — Assignment and other forms stay unchanged.",
+  };
+}
+
+async function insertSapCopy_(row: Record<string, unknown>, auth: AuthOk) {
+  const id = String(row.id || "").trim();
+  if (!id) return null;
+  const payload = (row.payload && typeof row.payload === "object") ? row.payload as GinPayload : {};
+  if (payloadIsSap_(payload)) return null;
+  const sapId = sapIdForSource_(id);
+  const now = isoNow();
+  const insert = {
+    id: sapId,
+    num: Number(row.num || 0) || 0,
+    request_no: String(row.request_no || ""),
+    request_date: String(row.request_date || ""),
+    requester: String(row.requester || ""),
+    company: String(row.company || ""),
+    issue_type: String(row.issue_type || ""),
+    property_code: String(row.property_code || ""),
+    store_keeper: String(row.store_keeper || ""),
+    payload: sapPayloadFromRow_(row, auth, now),
+    created_by: String(auth.username || ""),
+    created_at: now,
+    updated_at: now,
+  };
+  const { error } = await sb().from("warehouse_goods_issues").insert(insert);
+  if (error) {
+    const code = String((error as { code?: string }).code || "");
+    const msg = String(error.message || "");
+    if (code === "23505" || /duplicate/i.test(msg)) return null;
+    throw error;
+  }
+  return insert;
+}
+
+async function ensureSapCopies_(rows: Record<string, unknown>[], auth: AuthOk) {
+  const sapIds = new Set<string>();
+  const sapSources = new Set<string>();
+  for (const r of rows) {
+    const p = (r.payload && typeof r.payload === "object") ? r.payload as GinPayload : {};
+    if (!payloadIsSap_(p)) continue;
+    sapIds.add(String(r.id || ""));
+    const src = String(p.sapSourceId || "");
+    if (src) sapSources.add(src);
+  }
+  const created: Record<string, unknown>[] = [];
+  for (const r of rows) {
+    const p = (r.payload && typeof r.payload === "object") ? r.payload as GinPayload : {};
+    if (payloadIsSap_(p) || !ginIsDoneOrClosed_(p)) continue;
+    const id = String(r.id || "");
+    if (!id) continue;
+    if (sapSources.has(id) || sapIds.has(sapIdForSource_(id))) continue;
+    const inserted = await insertSapCopy_(r, auth);
+    if (inserted) {
+      created.push(inserted);
+      sapIds.add(String(inserted.id || ""));
+      sapSources.add(id);
+    }
+  }
+  return created;
+}
+
 function rowToApi(r: Record<string, unknown>) {
   const payload = (r.payload && typeof r.payload === "object") ? r.payload as GinPayload : {};
-  const done = payload.done === true || payload.status === "done";
-  const closed = payload.closed === true || payload.status === "closed";
+  const isSap = payloadIsSap_(payload);
+  const done = !isSap && (payload.done === true || payload.status === "done");
+  const closed = !isSap && (payload.closed === true || payload.status === "closed");
   return {
     id: String(r.id || ""),
     num: Number(r.num || 0) || 0,
@@ -68,6 +177,8 @@ function rowToApi(r: Record<string, unknown>) {
     createdBy: String(r.created_by || ""),
     createdAt: String(r.created_at || ""),
     updatedAt: String(r.updated_at || ""),
+    kind: isSap ? "sap" : "",
+    sapSourceId: String(payload.sapSourceId || ""),
     done,
     doneAt: String(payload.doneAt || ""),
     doneBy: String(payload.doneBy || ""),
@@ -81,11 +192,16 @@ function rowToApi(r: Record<string, unknown>) {
 }
 
 export async function handleGetWarehouseGins(_body: Record<string, unknown>, auth: AuthOk) {
-  const data = await selectAllRows<Record<string, unknown>>("warehouse_goods_issues");
+  let data = await selectAllRows<Record<string, unknown>>("warehouse_goods_issues");
+  if (canWriteDeskAuth(auth) && !isWarehouseSignerAuth(auth)) {
+    const extra = await ensureSapCopies_(data, auth);
+    if (extra.length) data = data.concat(extra);
+  }
   let out = data.map(rowToApi);
   if (isWarehouseSignerAuth(auth)) {
     const me = String(auth.username || "").trim().toLowerCase();
     out = out.filter((it) => {
+      if (it.kind === "sap") return false;
       if (!it.done) return false;
       return String(it.assignedTo || "").trim().toLowerCase() === me;
     });
@@ -134,7 +250,9 @@ export async function handleSaveWarehouseGin(body: Record<string, unknown>, auth
       const existingPayload = (ex.payload && typeof ex.payload === "object")
         ? ex.payload as GinPayload
         : {};
-      if (existingPayload.done === true || existingPayload.status === "done") {
+      const isSap = payloadIsSap_(existingPayload) || id.indexOf("whsap-") === 0;
+      if (!isSap && (existingPayload.done === true || existingPayload.status === "done" ||
+          existingPayload.closed === true || existingPayload.status === "closed")) {
         return {
           ok: false,
           success: false,
@@ -142,12 +260,21 @@ export async function handleSaveWarehouseGin(body: Record<string, unknown>, auth
           message: "This Goods Issue Note is marked Done and cannot be edited.",
         };
       }
-      // Preserve done flags if client somehow sends them; new saves stay open.
-      const nextPayload = { ...payload };
-      delete nextPayload.done;
-      delete nextPayload.doneAt;
-      delete nextPayload.doneBy;
-      delete nextPayload.status;
+      const nextPayload = isSap ? stripWorkflowFlags_({ ...payload }) : { ...payload };
+      if (isSap) {
+        nextPayload.kind = "sap";
+        nextPayload.sapSourceId = String(existingPayload.sapSourceId || "").trim() ||
+          (id.indexOf("whsap-") === 0 ? id.slice(6) : "");
+        if (existingPayload.sapCreatedAt) nextPayload.sapCreatedAt = existingPayload.sapCreatedAt;
+        if (existingPayload.sapCreatedBy) nextPayload.sapCreatedBy = existingPayload.sapCreatedBy;
+      } else {
+        delete nextPayload.done;
+        delete nextPayload.doneAt;
+        delete nextPayload.doneBy;
+        delete nextPayload.status;
+        delete nextPayload.kind;
+        delete nextPayload.sapSourceId;
+      }
       const { error } = await sb().from("warehouse_goods_issues").update({
         request_no: requestNo,
         request_date: requestDate,
@@ -160,12 +287,20 @@ export async function handleSaveWarehouseGin(body: Record<string, unknown>, auth
         updated_at: now,
       }).eq("id", id);
       if (error) throw error;
-      return { ok: true, success: true, id, num: Number(ex.num || 0) || 0, updated: true };
+      return { ok: true, success: true, id, num: Number(ex.num || 0) || 0, updated: true, sap: isSap };
+    }
+    if (id.indexOf("whsap-") === 0) {
+      return { ok: false, success: false, error: "not_found", message: "SAP copy not found." };
     }
   }
 
   id = id || `whgin-${Date.now()}`;
   const num = await nextCounter("whgin_WarehouseGoodsIssues");
+  const insertPayload = stripWorkflowFlags_({ ...payload });
+  delete insertPayload.kind;
+  delete insertPayload.sapSourceId;
+  delete insertPayload.sapCreatedAt;
+  delete insertPayload.sapCreatedBy;
   const { error } = await sb().from("warehouse_goods_issues").insert({
     id,
     num,
@@ -176,7 +311,7 @@ export async function handleSaveWarehouseGin(body: Record<string, unknown>, auth
     issue_type: issueType,
     property_code: propertyCode,
     store_keeper: storeKeeper,
-    payload,
+    payload: insertPayload,
     created_by: String(auth.username || ""),
     created_at: now,
     updated_at: now,
@@ -345,12 +480,16 @@ export async function handleMarkWarehouseGinDone(body: Record<string, unknown>, 
   if (!canWriteDeskAuth(auth)) return denyViewOnly_();
   const id = String(body.id || "").trim();
   if (!id) return { ok: false, success: false, error: "missing_id" };
-  const { data: ex } = await sb().from("warehouse_goods_issues").select("id,payload").eq("id", id).maybeSingle();
+  const { data: ex } = await sb().from("warehouse_goods_issues").select("*").eq("id", id).maybeSingle();
   if (!ex) return { ok: false, success: false, error: "not_found" };
   const existingPayload = (ex.payload && typeof ex.payload === "object")
     ? ex.payload as GinPayload
     : {};
+  if (payloadIsSap_(existingPayload) || id.indexOf("whsap-") === 0) {
+    return denySapCopy_("SAP copies cannot be marked Done. They stay in SAP only.");
+  }
   if (existingPayload.done === true || existingPayload.status === "done") {
+    await insertSapCopy_(ex, auth);
     return {
       ok: true,
       success: true,
@@ -372,6 +511,7 @@ export async function handleMarkWarehouseGinDone(body: Record<string, unknown>, 
     updated_at: now,
   }).eq("id", id);
   if (error) throw error;
+  await insertSapCopy_({ ...ex, payload }, auth);
   return { ok: true, success: true, id, done: true, doneAt: now };
 }
 
@@ -393,6 +533,9 @@ export async function handleReopenWarehouseGin(body: Record<string, unknown>, au
   const existingPayload = (ex.payload && typeof ex.payload === "object")
     ? ex.payload as GinPayload
     : {};
+  if (payloadIsSap_(existingPayload) || id.indexOf("whsap-") === 0) {
+    return denySapCopy_("SAP copies stay in SAP. Assignment notes are returned from Assignment.");
+  }
   if (existingPayload.closed === true || existingPayload.status === "closed") {
     return {
       ok: false,
@@ -437,6 +580,9 @@ export async function handleCloseWarehouseGin(body: Record<string, unknown>, aut
   const existingPayload = (ex.payload && typeof ex.payload === "object")
     ? ex.payload as GinPayload
     : {};
+  if (payloadIsSap_(existingPayload) || id.indexOf("whsap-") === 0) {
+    return denySapCopy_("SAP copies cannot be closed. Sign the Assignment note instead.");
+  }
   if (!(existingPayload.done === true || existingPayload.status === "done")) {
     return {
       ok: false,
@@ -521,6 +667,9 @@ export async function handleAssignWarehouseGin(body: Record<string, unknown>, au
   const existingPayload = (ex.payload && typeof ex.payload === "object")
     ? ex.payload as GinPayload
     : {};
+  if (payloadIsSap_(existingPayload) || id.indexOf("whsap-") === 0) {
+    return denySapCopy_("SAP copies cannot be assigned. Assign from Assignment.");
+  }
   if (!(existingPayload.done === true || existingPayload.status === "done")) {
     return {
       ok: false,
@@ -606,6 +755,9 @@ export async function handleSaveWarehouseGinReceivedSig(body: Record<string, unk
   const existingPayload = (ex.payload && typeof ex.payload === "object")
     ? ex.payload as GinPayload
     : {};
+  if (payloadIsSap_(existingPayload) || id.indexOf("whsap-") === 0) {
+    return denySapCopy_("Sign the Assignment note. SAP copies keep their own fields.");
+  }
   const done = existingPayload.done === true || existingPayload.status === "done";
   if (!done) {
     return { ok: false, success: false, error: "not_done", message: "Only Done notes can receive a signature." };

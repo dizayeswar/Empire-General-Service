@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-08-20-wh-signer">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-09-14-assign-select">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-09-14-sap">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -64,6 +64,11 @@
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
           <span class="lbl">Done</span>
           <span class="side-nav-badge" id="whClosedBadge" style="display:none;"></span>
+        </button>
+        <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-sap" onclick="whSwitchTab(event,'sap')">
+          <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg></span>
+          <span class="lbl">SAP</span>
+          <span class="side-nav-badge" id="whSapBadge" style="display:none;"></span>
         </button>
         <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-spusage" onclick="whSwitchTab(event,'spusage')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"/><path d="m15 9 6-6"/></svg></span>
@@ -250,7 +255,7 @@
         <div class="wh-app wh-saved-app">
           <div class="form-section">
             <h2>Saved Goods Issue Notes</h2>
-            <p class="wh-tab-help">Notes still in progress. Click <strong>Done</strong> when finished — they move to <strong>Assignment</strong>, then you can <strong>Assign</strong>. Use <strong>Select</strong> to tick several notes and <strong>Done selected</strong> to finish them together.</p>
+            <p class="wh-tab-help">Notes still in progress. Click <strong>Done</strong> when finished — they move to <strong>Assignment</strong>, and a separate copy is added to <strong>SAP</strong>. Use <strong>Select</strong> to tick several notes and <strong>Done selected</strong> to finish them together.</p>
             <div class="wh-toolbar no-print" style="margin-bottom:12px;">
               <button type="button" onclick="whLoadSavedList()">Refresh</button>
               <button type="button" onclick="whStartNew()">New</button>
@@ -292,6 +297,19 @@
               <button type="button" onclick="whLoadSavedList()">Refresh</button>
             </div>
             <div id="whClosedList">Loading…</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="wh-tab-sap" class="tab-content dept-tab-content">
+        <div class="wh-app wh-saved-app">
+          <div class="form-section">
+            <h2>SAP</h2>
+            <p class="wh-tab-help" id="whSapHelp">Separate copies of notes marked <strong>Done</strong>. Click <strong>Edit</strong> to change a SAP copy. That does not change Assignment, Saved Notes, invoices, or SP Usage.</p>
+            <div class="wh-toolbar no-print" style="margin-bottom:12px;">
+              <button type="button" onclick="whLoadSavedList()">Refresh</button>
+            </div>
+            <div id="whSapList">Loading…</div>
           </div>
         </div>
       </div>
@@ -736,6 +754,8 @@ function whApplyReceiverShell_(){
   }
   var closedBtn=document.getElementById('tab-wh-closed');
   if(closedBtn) closedBtn.style.display = '';
+  var sapBtn=document.getElementById('tab-wh-sap');
+  if(sapBtn) sapBtn.style.display = _whReceiverMode ? 'none' : '';
   var assignTitle=document.getElementById('whAssignTitle');
   if(assignTitle) assignTitle.textContent = _whReceiverMode ? 'Assigned to me' : 'Assignment';
   var closedTitle=document.getElementById('whClosedTitle');
@@ -784,6 +804,8 @@ function whApplyViewOnlyShell_(){
   if(esigTitle) esigTitle.textContent='Signatures';
   var savedHelp=document.querySelector('#wh-tab-saved .wh-tab-help');
   if(savedHelp) savedHelp.innerHTML='View and print only. This account cannot create, edit, or mark notes Done.';
+  var sapHelp=document.getElementById('whSapHelp');
+  if(sapHelp) sapHelp.innerHTML='View and print only. This account cannot edit SAP copies.';
   var invListHelp=document.querySelector('#wh-tab-invoices .wh-tab-help');
   if(invListHelp) invListHelp.innerHTML='Saved invoices — view and print only.';
   whSetFormLocked(true);
@@ -840,7 +862,10 @@ function whApplyTab_(e, tab){
     _whEsigPickFor='';
     whEsigUpdatePickHelp_();
   }
-  if(tab==='saved' || tab==='done' || tab==='closed') whLoadSavedList();
+  if(tab==='saved' || tab==='done' || tab==='closed' || tab==='sap'){
+    if(tab==='sap' && _whReceiverMode){ whApplyTab_(null,'done'); return; }
+    whLoadSavedList();
+  }
   if(tab==='spusage'){
     if(_whReceiverMode){ whApplyTab_(null,'done'); return; }
     whSpUsageRefresh();
@@ -971,7 +996,7 @@ function whAutoSaveLocal_(persistStorage){
     return _whEditingId;
   }
   var prev=_whEditingId ? whFindSaved(_whEditingId) : null;
-  if(prev && whIsItemDone(prev)){
+  if(prev && whIsItemDone(prev) && !whIsSapItem_(prev)){
     whAutoSaveSetStatus_('');
     return null;
   }
@@ -990,6 +1015,13 @@ function whAutoSaveLocal_(persistStorage){
       received: cs.received || ps.received || ''
     };
   }
+  if(whIsSapItem_(prev) || String(id).indexOf('whsap-')===0){
+    var sp=prev && prev.payload ? prev.payload : {};
+    payload.kind='sap';
+    payload.sapSourceId=String(sp.sapSourceId || (String(id).indexOf('whsap-')===0 ? id.slice(6) : '') || '');
+    if(sp.sapCreatedAt) payload.sapCreatedAt=sp.sapCreatedAt;
+    if(sp.sapCreatedBy) payload.sapCreatedBy=sp.sapCreatedBy;
+  }
   var item={
     id:id,
     num:prev && prev.num ? prev.num : 0,
@@ -1004,6 +1036,7 @@ function whAutoSaveLocal_(persistStorage){
     updatedAt:new Date().toISOString(),
     done:false,
     payload:payload,
+    kind: payload.kind==='sap' ? 'sap' : '',
     localOnly: !!(prev && prev.localOnly) || String(id).indexOf('local-whgin-')===0
   };
   whCacheUpsert_(item);
@@ -1026,7 +1059,7 @@ function whAutoSaveServer_(opts){
   var id=whAutoSaveLocal_(true);
   if(!id) return Promise.resolve();
   var it=whFindSaved(id);
-  if(!it || whIsItemDone(it)) return Promise.resolve();
+  if(!it || (whIsItemDone(it) && !whIsSapItem_(it))) return Promise.resolve();
   var payload=it.payload||whCollectPayload();
   var token=typeof empireGetToken==='function' ? empireGetToken() : '';
   if(!token || typeof fetchJSONRetry!=='function'){
@@ -1502,6 +1535,11 @@ function whLayoutReset(){
 function whUpdateFormTitle(){
   var t=document.getElementById('whFormTitle');
   if(!t) return;
+  var it=_whEditingId ? whFindSaved(_whEditingId) : null;
+  if(whIsSapItem_(it) || String(_whEditingId||'').indexOf('whsap-')===0){
+    t.textContent = _whViewOnly ? 'SAP copy (view only)' : 'SAP copy (editing)';
+    return;
+  }
   t.textContent = _whEditingId ? 'Goods Issue Note (editing saved)' : 'Goods Issue Note';
 }
 function whFormHasContent_(){
@@ -1717,15 +1755,40 @@ function whSave(){
     alert('Enter at least Requester or Request No. before saving.');
     return;
   }
-  // If this id is already Done in our list, do not call Save — go to Done Notes.
-  if(_whEditingId){
-    var existing=whFindSaved(_whEditingId);
-    if(existing && whIsItemDone(existing)){
-      alert('This note is already Done. Use Assignment → Assign.');
-      whOpenBlankNote_();
-      whSwitchTab(null,'done');
-      return;
-    }
+  var existing=_whEditingId ? whFindSaved(_whEditingId) : null;
+  var editingSap=whIsSapItem_(existing) || String(_whEditingId||'').indexOf('whsap-')===0;
+  if(editingSap){
+    var sp=existing && existing.payload ? existing.payload : {};
+    payload.kind='sap';
+    payload.sapSourceId=String(sp.sapSourceId || (String(_whEditingId).indexOf('whsap-')===0 ? String(_whEditingId).slice(6) : '') || '');
+    if(sp.sapCreatedAt) payload.sapCreatedAt=sp.sapCreatedAt;
+    if(sp.sapCreatedBy) payload.sapCreatedBy=sp.sapCreatedBy;
+  }
+  // If this id is already Done in our list, do not call Save — go to Assignment.
+  if(existing && whIsItemDone(existing) && !editingSap){
+    alert('This note is already Done. Use Assignment → Assign.');
+    whOpenBlankNote_();
+    whSwitchTab(null,'done');
+    return;
+  }
+  function sapItem_(id, localOnly){
+    return {
+      id:id,
+      num:(existing && existing.num) || 0,
+      requestNo:payload.requestNo,
+      requestDate:payload.requestDate,
+      requester:payload.requester,
+      company:payload.company,
+      issueType:payload.issueType,
+      propertyCode:payload.property,
+      storeKeeper:payload.storeKeeper,
+      createdBy: (existing && existing.createdBy) || (typeof empireGetUser==='function' ? empireGetUser() : ''),
+      updatedAt: new Date().toISOString(),
+      done:false,
+      kind:'sap',
+      payload:payload,
+      localOnly:!!localOnly
+    };
   }
   whSetSaveBusy(true);
   var token=typeof empireGetToken==='function' ? empireGetToken() : '';
@@ -1744,6 +1807,17 @@ function whSave(){
   };
   fetchJSONRetry(body, 2, 90000).then(function(d){
     if(d && (d.ok||d.success) && d.id){
+      if(editingSap){
+        var sap=sapItem_(d.id, false);
+        sap.num=d.num||sap.num||0;
+        whLocalUpsert(sap);
+        whCacheUpsert_(sap);
+        _whEditingId=String(d.id);
+        whUpdateFormTitle();
+        whLoadSavedList();
+        alert('Saved to SAP.\n\nAssignment, Saved Notes, invoices, and SP Usage are unchanged.');
+        return;
+      }
       whLocalUpsert({
         id:d.id,
         num:d.num||0,
@@ -1767,7 +1841,7 @@ function whSave(){
     throw new Error((d && (d.message||d.error)) || 'Save failed');
   }).catch(function(err){
     var msg=String(err && err.message || err || 'Save failed');
-    if(/cannot be edited|marked Done/i.test(msg)){
+    if(!editingSap && /cannot be edited|marked Done/i.test(msg)){
       whSyncLocalDone_(_whEditingId);
       whAfterSaveToSavedNotes_();
       whSwitchTab(null,'done');
@@ -1780,6 +1854,12 @@ function whSave(){
     }
     // Fallback: keep a full copy on this browser if API/table is not ready yet.
     var id=_whEditingId || ('local-whgin-'+Date.now());
+    if(editingSap){
+      whLocalUpsert(sapItem_(id, true));
+      whCacheUpsert_(sapItem_(id, true));
+      alert('Saved on this device to SAP.\n\nAssignment and other forms are unchanged.\n\n('+msg+')');
+      return;
+    }
     whLocalUpsert({
       id:id,
       num:0,
@@ -1810,8 +1890,10 @@ function whNormalizeListItem(it){
   if(!it) return null;
   var p=it.payload || {};
   if(typeof p!=='object' || !p) p={};
-  var done = !!(it.done || p.done || p.status==='done' || p.status==='closed' || it.closed || p.closed);
-  var closed = !!(it.closed || p.closed || p.status==='closed');
+  var isSap = String(it.kind||p.kind||'').toLowerCase()==='sap' || String(it.id||'').indexOf('whsap-')===0;
+  if(isSap) p.kind='sap';
+  var done = !isSap && !!(it.done || p.done || p.status==='done' || p.status==='closed' || it.closed || p.closed);
+  var closed = !isSap && !!(it.closed || p.closed || p.status==='closed');
   var issueType=whNormIssueType_(it.issueType||p.issueType||p.issue_type||'');
   if(issueType && !whNormIssueType_(p.issueType)) p.issueType=issueType;
   return {
@@ -1826,6 +1908,8 @@ function whNormalizeListItem(it){
     storeKeeper:String(it.storeKeeper||p.storeKeeper||''),
     createdBy:String(it.createdBy||''),
     updatedAt:String(it.updatedAt||it.createdAt||''),
+    kind: isSap ? 'sap' : '',
+    sapSourceId:String(it.sapSourceId||p.sapSourceId||''),
     done:done,
     doneAt:String(it.doneAt||p.doneAt||''),
     doneBy:String(it.doneBy||p.doneBy||''),
@@ -1889,6 +1973,18 @@ function whMergeLists(serverItems, localItems){
       if(merged.payload.status!=='closed') merged.payload.status='done';
       if(merged.assignedTo) merged.payload.assignedTo=merged.assignedTo;
     }
+    if(whIsSapItem_(merged) || whIsSapItem_(n) || whIsSapItem_(prev)){
+      merged.kind='sap';
+      merged.done=false;
+      merged.closed=false;
+      merged.assignedTo='';
+      merged.payload=Object.assign({}, merged.payload||{}, { kind:'sap' });
+      delete merged.payload.done;
+      delete merged.payload.closed;
+      delete merged.payload.status;
+      delete merged.payload.assignedTo;
+      delete merged.payload.assignedAt;
+    }
     merged.localOnly=!!(prev.localOnly && n.localOnly);
     map[n.id]=merged;
   }
@@ -1908,8 +2004,15 @@ function whPartitionSaved_(){
   var openInternal=[], openExternal=[], openOther=[];
   var assignInternal=[], assignExternal=[], assignOther=[];
   var closedInternal=[], closedExternal=[], closedOther=[];
+  var sapInternal=[], sapExternal=[], sapOther=[];
   (_whSavedCache||[]).forEach(function(it){
     var t=whNormIssueType_(it.issueType || (it.payload && it.payload.issueType) || '');
+    if(whIsSapItem_(it)){
+      if(t==='internal') sapInternal.push(it);
+      else if(t==='external') sapExternal.push(it);
+      else sapOther.push(it);
+      return;
+    }
     var closed=whIsItemClosed(it);
     var done=whIsItemDone(it);
     if(closed){
@@ -1930,13 +2033,16 @@ function whPartitionSaved_(){
   });
   var assignAll=assignInternal.concat(assignExternal, assignOther);
   var closedAll=closedInternal.concat(closedExternal, closedOther);
+  var sapAll=sapInternal.concat(sapExternal, sapOther);
   return {
     openInternal:openInternal, openExternal:openExternal, openOther:openOther,
     doneInternal:assignInternal, doneExternal:assignExternal, doneOther:assignOther,
     closedInternal:closedInternal, closedExternal:closedExternal, closedOther:closedOther,
+    sapInternal:sapInternal, sapExternal:sapExternal, sapOther:sapOther,
     openCount: openInternal.length+openExternal.length+openOther.length,
     doneCount: assignAll.length,
     closedCount: closedAll.length,
+    sapCount: sapAll.length,
     unassignedCount: assignAll.filter(function(it){
       return !String(it.assignedTo||'').trim();
     }).length
@@ -1946,12 +2052,15 @@ function whLoadSavedList(){
   var savedBox=document.getElementById('whSavedList');
   var doneBox=document.getElementById('whDoneList');
   var closedBox=document.getElementById('whClosedList');
+  var sapBox=document.getElementById('whSapList');
   if(savedBox) savedBox.innerHTML = typeof empireLoadingHtml==='function' ? empireLoadingHtml('Loading saved notes…') : 'Loading…';
   if(doneBox) doneBox.innerHTML = typeof empireLoadingHtml==='function' ? empireLoadingHtml('Loading assignment…') : 'Loading…';
   if(closedBox) closedBox.innerHTML = typeof empireLoadingHtml==='function' ? empireLoadingHtml('Loading done notes…') : 'Loading…';
+  if(sapBox) sapBox.innerHTML = typeof empireLoadingHtml==='function' ? empireLoadingHtml('Loading SAP…') : 'Loading…';
   whBindSavedListClicks_();
   whBindDoneListClicks_();
   whBindClosedListClicks_();
+  whBindSapListClicks_();
   var token=typeof empireGetToken==='function' ? empireGetToken() : '';
   var local=(_whReceiverMode || _whViewOnly) ? [] : whLocalRead();
   fetchJSONRetry({ action:'getWarehouseGins', token:token }, 2, 60000).then(function(d){
@@ -1966,7 +2075,7 @@ function whLoadSavedList(){
     if(_whReceiverMode){
       var me=String(typeof empireGetUser==='function' ? empireGetUser() : '').toLowerCase();
       _whSavedCache=_whSavedCache.filter(function(it){
-        return whIsItemDone(it) && String(it.assignedTo||'').toLowerCase()===me;
+        return !whIsSapItem_(it) && whIsItemDone(it) && String(it.assignedTo||'').toLowerCase()===me;
       });
     }
     whRenderSavedList();
@@ -2007,6 +2116,7 @@ function whRenderSavedList(){
   whSetBadge('whSavedBadge', _whReceiverMode ? 0 : parts.openCount);
   whSetBadge('whDoneBadge', _whReceiverMode ? parts.doneCount : parts.unassignedCount);
   whSetBadge('whClosedBadge', parts.closedCount);
+  whSetBadge('whSapBadge', _whReceiverMode ? 0 : parts.sapCount);
   if(_whReceiverMode){
     _whSelectMode=false;
     _whAssignSelectMode=false;
@@ -2083,6 +2193,22 @@ function whRenderSavedList(){
       closedBox.innerHTML=ch;
     }
   }
+
+  var sapBox=document.getElementById('whSapList');
+  if(sapBox && !_whReceiverMode){
+    if(!parts.sapCount){
+      sapBox.innerHTML = typeof empireEmptyHtml==='function'
+        ? empireEmptyHtml('No SAP copies yet', 'When you click Done in Saved Notes, a separate copy appears here. Editing it does not change Assignment or other forms.')
+        : '<p>No SAP copies yet.</p>';
+    } else {
+      var sh='';
+      sh+=whSavedSectionHtml_('Internal', parts.sapInternal, 'sap');
+      sh+=whSavedSectionHtml_('External', parts.sapExternal, 'sap');
+      if(parts.sapOther.length) sh+=whSavedSectionHtml_('No type selected', parts.sapOther, 'sap');
+      sapBox.innerHTML=sh;
+    }
+  }
+
   if(!_whReceiverMode) whRenderSpUsage_();
 }
 function whParseQty_(q){
@@ -2114,7 +2240,7 @@ function whSpUsageBuild_(filter){
   var map={};
   var me=String(typeof empireGetUser==='function' ? empireGetUser() : '').toLowerCase();
   (_whSavedCache||[]).forEach(function(it){
-    if(!it || !whIsItemDone(it)) return;
+    if(!it || whIsSapItem_(it) || !whIsItemDone(it)) return;
     // Receivers: only notes assigned to them (their Done / Assigned list).
     if(_whReceiverMode){
       if(String(it.assignedTo||'').toLowerCase()!==me) return;
@@ -2182,15 +2308,16 @@ function whRenderSpUsage_(){
   box.innerHTML=h;
 }
 function whSavedSectionHtml_(title, items, mode){
-  // mode: 'open' | 'assign' | 'closed'
+  // mode: 'open' | 'assign' | 'closed' | 'sap'
   mode = mode===true ? 'assign' : (mode===false ? 'open' : String(mode||'open'));
   var isAssign=mode==='assign';
   var isClosed=mode==='closed';
+  var isSap=mode==='sap';
   var showSel= !_whReceiverMode && !_whViewOnly && (
-    (!!_whSelectMode && !isAssign && !isClosed) ||
+    (!!_whSelectMode && !isAssign && !isClosed && !isSap) ||
     (!!_whAssignSelectMode && isAssign)
   );
-  var h='<div class="wh-saved-section'+(isAssign||isClosed?' wh-saved-section-done':'')+'">'
+  var h='<div class="wh-saved-section'+(isSap?' wh-saved-section-sap':(isAssign||isClosed?' wh-saved-section-done':''))+'">'
     +'<h3 class="wh-saved-section-title">'+whEsc(title)
     +' <span class="wh-saved-section-count">('+items.length+')</span></h3>';
   if(!items.length){
@@ -2209,7 +2336,14 @@ function whSavedSectionHtml_(title, items, mode){
     var id=whEsc(rawId);
     var picked=showSel && !!_whSelected[rawId];
     var acts='';
-    if(isClosed){
+    if(isSap){
+      if(_whViewOnly){
+        acts='<button type="button" data-wh-act="view" data-wh-id="'+id+'">View</button> ';
+      } else {
+        acts='<button type="button" data-wh-act="edit" data-wh-id="'+id+'">Edit</button> ';
+      }
+      acts+='<button type="button" data-wh-act="print" data-wh-id="'+id+'">Print</button> ';
+    } else if(isClosed){
       acts='<button type="button" data-wh-act="view" data-wh-id="'+id+'">View</button> '
         +'<button type="button" data-wh-act="print" data-wh-id="'+id+'">Print</button> ';
     } else if(isAssign){
@@ -2264,6 +2398,7 @@ function whBindListClicks_(boxId){
     if(!id) return;
     e.preventDefault();
     if(act==='open' || act==='view') whOpenSaved(id);
+    else if(act==='edit') whOpenSaved(id, { sapEdit:true });
     else if(act==='done') whMarkDone(id);
     else if(act==='close') whCloseAssigned(id);
     else if(act==='assign') whAssignDone(id);
@@ -2286,6 +2421,7 @@ function whBindListClicks_(boxId){
 function whBindSavedListClicks_(){ whBindListClicks_('whSavedList'); }
 function whBindDoneListClicks_(){ whBindListClicks_('whDoneList'); }
 function whBindClosedListClicks_(){ whBindListClicks_('whClosedList'); }
+function whBindSapListClicks_(){ whBindListClicks_('whSapList'); }
 function whOpenSelectableIds_(){
   var parts=whPartitionSaved_();
   return parts.openInternal.concat(parts.openExternal, parts.openOther).map(function(it){
@@ -2520,6 +2656,7 @@ function whApplyDoneLocal_(it){
   it.doneAt=p.doneAt;
   it.doneBy=p.doneBy;
   whLocalUpsert(it);
+  whCloneToSap_(it);
   if(_whEditingId && String(it.id)===String(_whEditingId)){
     whSetFormLocked(true);
     var t=document.getElementById('whFormTitle');
@@ -2542,8 +2679,8 @@ function whMarkSelectedDone_(){
     return;
   }
   var msg=ids.length===1
-    ? 'Mark this Goods Issue Note as Done?\n\nIt will move to Assignment. You can Assign who signs Received by next.'
-    : 'Mark '+ids.length+' Goods Issue Notes as Done?\n\nThey will move to Assignment. You can Assign who signs Received by next.';
+    ? 'Mark this Goods Issue Note as Done?\n\nIt will move to Assignment, and a separate copy will be added to SAP.'
+    : 'Mark '+ids.length+' Goods Issue Notes as Done?\n\nThey will move to Assignment, and separate copies will be added to SAP.';
   whUiConfirm_(msg).then(function(ok){
     if(!ok) return;
     _whBulkBusy=true;
@@ -2571,8 +2708,8 @@ function whMarkSelectedDone_(){
       whLoadSavedList();
       if(!failed.length){
         alert(ids.length===1
-          ? 'Moved to Assignment. Click Assign to choose who signs Received by.'
-          : 'Moved '+ids.length+' notes to Assignment. Click Assign to choose who signs Received by.');
+          ? 'Moved to Assignment and SAP. Click Assign on Assignment. SAP is a separate copy you can edit.'
+          : 'Moved '+ids.length+' notes to Assignment and SAP. Click Assign on Assignment. SAP copies do not change Assignment.');
         whSwitchTab(null,'done');
       } else {
         var okCount=ids.length-failed.length;
@@ -2600,6 +2737,7 @@ function whSetFormLocked(locked){
   if(banner){
     banner.hidden=!_whFormLocked;
     if(_whViewOnly) banner.textContent='View only';
+    else if(_whFormLocked && whIsSapItem_(whFindSaved(_whEditingId))) banner.textContent='SAP copy — view only';
     else if(_whFormLocked && whIsItemClosed(whFindSaved(_whEditingId))) banner.textContent='Done — view only';
     else if(_whFormLocked && _whReceiverMode) banner.textContent='Assigned to you — sign: '+whSigSlotsLabel_();
     else if(_whFormLocked) banner.textContent='In Assignment — view only';
@@ -2661,17 +2799,72 @@ function whSetFormLocked(locked){
     });
   }
 }
-function whIsItemDone(it){
+function whIsSapItem_(it){
   if(!it) return false;
+  var p=it.payload||{};
+  return String(it.kind||p.kind||'').toLowerCase()==='sap' || String(it.id||'').indexOf('whsap-')===0;
+}
+function whSapIdFor_(id){
+  id=String(id||'');
+  if(!id) return '';
+  return id.indexOf('whsap-')===0 ? id : 'whsap-'+id;
+}
+function whCloneToSap_(it){
+  if(!it || !it.id || whIsSapItem_(it)) return null;
+  var sapId=whSapIdFor_(it.id);
+  var existing=whFindSaved(sapId);
+  if(existing) return existing;
+  var p={};
+  try { p=JSON.parse(JSON.stringify(it.payload||{})); } catch(e){ p=Object.assign({}, it.payload||{}); }
+  delete p.done;
+  delete p.doneAt;
+  delete p.doneBy;
+  delete p.closed;
+  delete p.closedAt;
+  delete p.closedBy;
+  delete p.assignedTo;
+  delete p.assignedAt;
+  if(p.status==='done' || p.status==='closed') delete p.status;
+  p.kind='sap';
+  p.sapSourceId=String(it.id);
+  p.sapCreatedAt=new Date().toISOString();
+  p.sapCreatedBy=typeof empireGetUser==='function' ? empireGetUser() : '';
+  var sap={
+    id:sapId,
+    num:it.num||0,
+    requestNo:it.requestNo||'',
+    requestDate:it.requestDate||'',
+    requester:it.requester||'',
+    company:it.company||'',
+    issueType:it.issueType||'',
+    propertyCode:it.propertyCode||'',
+    storeKeeper:it.storeKeeper||'',
+    createdBy:p.sapCreatedBy||'',
+    updatedAt:p.sapCreatedAt,
+    kind:'sap',
+    sapSourceId:String(it.id),
+    done:false,
+    closed:false,
+    assignedTo:'',
+    payload:p,
+    localOnly:!!it.localOnly
+  };
+  whCacheUpsert_(sap);
+  try { whLocalUpsert(sap); } catch(e){}
+  return sap;
+}
+function whIsItemDone(it){
+  if(!it || whIsSapItem_(it)) return false;
   var p=it.payload||{};
   return !!(it.done || p.done || p.status==='done' || it.closed || p.closed || p.status==='closed');
 }
 function whIsItemClosed(it){
-  if(!it) return false;
+  if(!it || whIsSapItem_(it)) return false;
   var p=it.payload||{};
   return !!(it.closed || p.closed || p.status==='closed');
 }
-function whOpenSaved(id){
+function whOpenSaved(id, opts){
+  opts=opts||{};
   var it=whFindSaved(id);
   if(!it){ alert('Note not found.'); return; }
   var payload=it.payload;
@@ -2692,19 +2885,24 @@ function whOpenSaved(id){
       sigs:{ auth:'', issued:'', received:'' }
     };
   }
-  if(whIsItemClosed(it)){
+  var sap=whIsSapItem_(it);
+  if(!sap && whIsItemClosed(it)){
     payload=Object.assign({}, payload, { closed:true, status:'closed', done:true });
-  } else if(whIsItemDone(it)){
+  } else if(!sap && whIsItemDone(it)){
     payload=Object.assign({}, payload, { done:true, status: payload.status==='closed' ? 'closed' : 'done' });
   }
   _whEditingId=String(it.id);
   whApplyPayload(payload);
-  whSetFormLocked(whIsItemDone(it) || whIsItemClosed(it) || _whReceiverMode);
+  var lock = sap
+    ? (_whViewOnly || _whReceiverMode)
+    : (_whReceiverMode || whIsItemDone(it) || whIsItemClosed(it));
+  whSetFormLocked(lock);
   whUpdateFormTitle();
   if(_whFormLocked){
     var t=document.getElementById('whFormTitle');
     if(t){
-      if(whIsItemClosed(it)) t.textContent='Goods Issue Note (Done — view only)';
+      if(sap) t.textContent='SAP copy (view only)';
+      else if(whIsItemClosed(it)) t.textContent='Goods Issue Note (Done — view only)';
       else if(_whReceiverMode) t.textContent='Goods Issue Note (Assigned — sign only)';
       else t.textContent='Goods Issue Note (Assignment — view only)';
     }
@@ -2759,7 +2957,7 @@ function whMarkDone(id){
     alert('This note is already Done.');
     return;
   }
-  whUiConfirm_('Mark this Goods Issue Note as Done?\n\nIt will move to Assignment. You can Assign who signs Received by next.').then(function(ok){
+  whUiConfirm_('Mark this Goods Issue Note as Done?\n\nIt will move to Assignment, and a separate copy will be added to SAP. Editing SAP does not change Assignment.').then(function(ok){
     if(!ok) return;
     whApplyDoneLocal_(it);
     whPostMarkDone_(id).catch(function(err){
@@ -2767,7 +2965,7 @@ function whMarkDone(id){
       alert('Could not save Done to server: '+(err && err.message ? err.message : err));
     }).finally(function(){
       whLoadSavedList();
-      alert('Moved to Assignment. Click Assign to choose who signs Received by.');
+      alert('Moved to Assignment and SAP. Click Assign on Assignment. SAP is a separate copy you can edit.');
       whSwitchTab(null,'done');
     });
   });
