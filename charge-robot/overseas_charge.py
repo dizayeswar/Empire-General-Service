@@ -1,6 +1,7 @@
 """STS Vending charge for one overseas RU. Never type a password."""
 from __future__ import annotations
 
+import re
 import sys
 import threading
 import time
@@ -125,14 +126,25 @@ def open_sts(win):
 
 def selector_rows(items, unit: str) -> list:
     want = (unit or "").strip().replace(" ", "").upper()
+    skip = {
+        "CUSTOMER NAME",
+        "CUSTOMER",
+        "ISKRAEMECO",
+        "SCHEME TYPE",
+        "TYPE",
+        "METER",
+        "NAME",
+        "STATUS",
+    }
     by_y: dict[int, list] = {}
     for ctrl, text, el, r in items:
         if ctrl != "DataItem":
             continue
         t = (text or "").strip()
-        if not t or t.upper() in {"CUSTOMER NAME", "CUSTOMER", "ISKRAEMECO"}:
+        if not t or t.upper() in skip:
             continue
-        if r.top < 420:
+        key = t.replace(" ", "").upper()
+        if not re.match(r"^(WW|RV|RA|WD)-", key):
             continue
         by_y.setdefault(r.top // 10, []).append((t, r))
     rows = []
