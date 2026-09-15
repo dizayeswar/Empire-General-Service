@@ -72,9 +72,12 @@ def invoice_image() -> Image.Image:
 
 def push_invoice(dest_name: str) -> None:
     dest = SHOT / dest_name
-    im = invoice_image()
-    w, h = im.size
-    im.crop((w // 2 - 300, 50, w // 2 + 340, h - 40)).convert("RGB").save(dest, quality=90)
+    if dest.exists() and dest.stat().st_size > 2000:
+        print("invoice-source existing", dest)
+    else:
+        im = invoice_image()
+        w, h = im.size
+        im.crop((w // 2 - 300, 50, w // 2 + 340, h - 40)).convert("RGB").save(dest, quality=90)
     adb("push", str(dest), f"/sdcard/DCIM/Camera/{dest_name}")
     adb(
         "shell",

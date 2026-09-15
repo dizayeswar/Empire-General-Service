@@ -34,13 +34,12 @@ Wrong apartment = real money. Never type or send a NovaSys or overseas password.
 
 ## Nova vs overseas
 
-- **Nova (live now):** `ES-` and `WW-12` … `WW-15`. Search as the phone except ES4 `ES-4-17-02` → `ES4-17-2` and ES6 `ES-6-{floor}-{apt}` (floors 2–24, apts 1–6).
-- **Overseas (saved, do not charge until the user says `bobby start overseas too`):** `RV-`, `RA-`, `WD-`, `WW-1` … `WW-11`. Skip like before. Watch does not PLANB them. No STS Vending, no Recharge, no overseas SET PIN.
-- When overseas is live: oldest first across Nova **and** overseas, one RU at a time. Customer Selector **none or more than one row** → skip that RU (dashboard `no_row` / `ambiguous`), next RU. Save charged and skipped overseas rows on Charging Electricity with **source `overseas`**. Dashboard shows **Nova** or **Overseas**. No National/Generator.
+- **Nova:** `ES-` and `WW-12` … `WW-15`. Search as the phone except ES4 `ES-4-17-02` → `ES4-17-2` and ES6 `ES-6-{floor}-{apt}` (floors 2–24, apts 1–6).
+- **Overseas (live):** `RV-`, `RA-`, `WD-`, `WW-1` … `WW-11`. STS Vending. Oldest first across Nova **and** overseas, one RU at a time. Customer Selector **none or more than one row** → skip that RU (dashboard `no_row` / `ambiguous`), next RU. Save charged and skipped overseas rows on Charging Electricity with **source `overseas`**. Dashboard shows **Nova** or **Overseas**. No National/Generator.
 - Keep-awake may still click **Home** every 4 minutes so Edge stays logged in. Login page → **Sign In** only (saved password). Never type the password. That is not charging.
-- Charge only if first column is **green circle + white tick**. Ignore orange/red **row fill**. Grey clock (**pending**): click **Refresh** once (toolbar next to Pay, or F5), then look again. If it is green, Pay as usual. If it is still pending after that one refresh, no Pay, no SET PIN; save dashboard; leave that request; keep watching. Red X = no refresh, no Pay; save dashboard and leave. Trust the search screenshot if pixels say pending.
+- **Nova only:** Charge only if first column is **green circle + white tick**. Ignore orange/red **row fill**. Grey clock (**pending**): click **Refresh** once (toolbar next to Pay, or F5), then look again. If it is green, Pay as usual. If it is still pending after that one refresh, no Pay, no SET PIN; save dashboard; leave that request; keep watching. Red X = no refresh, no Pay; save dashboard and leave. Trust the search screenshot if pixels say pending.
 
-## Overseas process (locked — wait for `bobby start overseas too`)
+## Overseas process (locked)
 
 Site: Edge **Overseas Integration Platform** (`empire.pswla.com`). First screen after login = Home Page.
 
@@ -66,6 +65,6 @@ Site: Edge **Overseas Integration Platform** (`empire.pswla.com`). First screen 
 ## Commands
 
 - **Bobby stop watching** → stop the laptop watch (no Home → Requests, no Pay, no SET PIN).
-- **Start watching Bobby** → start `watch_loop.ps1` (exits when the website Bot is Off). Nova only until overseas is started.
-- **bobby start overseas too** → then (and only then) charge overseas RUs with the locked STS Vending process. Until that phrase, skip overseas.
+- **Start watching Bobby** → start `watch_loop.ps1` (exits when the website Bot is Off). Nova and overseas.
+- **bobby start overseas too** → already live. Charge overseas RUs with the locked STS Vending process.
 - Website **Turn Off** → laptop watch exits; overseas keep exits; Pay / SET PIN / PLANB refuse to run; this chat does not continue a charge.
