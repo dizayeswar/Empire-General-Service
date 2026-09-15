@@ -701,6 +701,7 @@ function upsEnterApp_() {
   if (resetBtn && upsIsAdmin_()) resetBtn.style.display = '';
   upsPopulateFilters_();
   upsLoad_(false);
+  if (typeof empireApplySectionNav === 'function') empireApplySectionNav();
 }
 
 function upsHandleLogin_(e) {

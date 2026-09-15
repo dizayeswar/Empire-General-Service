@@ -1746,6 +1746,7 @@ function appEnterApp_() {
   appPopulateFilters_();
   appEnsureSeedMeta_();
   appLoad_(true);
+  if (typeof empireApplySectionNav === 'function') empireApplySectionNav();
 }
 
 function appHandleLogin_(e) {

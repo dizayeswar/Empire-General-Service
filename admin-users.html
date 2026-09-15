@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="manifest" href="manifest.webmanifest?v=2026-08-22-inv-link">
+  <link rel="manifest" href="manifest.webmanifest?v=2026-09-15-sec-acc">
   <meta name="theme-color" content="#8d015d">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="icon" href="logo-light.png" type="image/png">
   <title>Users — Admin — Empire EGS</title>
-  <link rel="stylesheet" href="assets/empire.css?v=2026-09-15-chg-acc">
+  <link rel="stylesheet" href="assets/empire.css?v=2026-09-15-sec-acc">
   <style>
     .admin-users-wrap { max-width: 1100px; margin: 0 auto; padding: 16px 18px 40px; }
     .admin-users-head { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; justify-content:space-between; margin-bottom:18px; }
@@ -94,7 +94,7 @@
 
     <div id="userFormCard" class="admin-form-card" style="display:none;">
       <h2 id="formTitle" style="font-size:16px;margin:0 0 12px;">New user</h2>
-      <p class="admin-role-help">Click a module with sections to open its list. Set <strong>No Access / Read / Read/Write</strong> on each section — for example Charging Electricity (Dashboard, Summary, Waiting, Charged, Recycle Bin, Bot, Reset). <strong>Pending Director</strong> can be given to only one user.</p>
+      <p class="admin-role-help">Click a module to open its real sections. Set <strong>No Access / Read / Read/Write</strong> on each one. <strong>Pending Director</strong> can be given to only one user.</p>
       <div class="admin-form-grid">
         <label>Username<input id="f-username" autocomplete="off" placeholder="e.g. himdad"></label>
         <label>Password<input id="f-password" type="password" autocomplete="new-password" placeholder="min 4 characters"></label>
@@ -157,11 +157,11 @@
     <div id="usersTableHost"></div>
   </div>
 
-  <script src="config.js?v=2026-09-15-chg-acc"></script>
-  <script src="assets/empire-api.js?v=2026-09-15-chg-acc"></script>
-  <script src="assets/empire-auth.js?v=2026-09-15-chg-acc"></script>
-  <script src="assets/empire-core.js?v=2026-09-15-chg-acc"></script>
-  <script src="assets/empire-sw-update.js?v=2026-09-15-chg-acc"></script>
+  <script src="config.js?v=2026-09-15-sec-acc"></script>
+  <script src="assets/empire-api.js?v=2026-09-15-sec-acc"></script>
+  <script src="assets/empire-auth.js?v=2026-09-15-sec-acc"></script>
+  <script src="assets/empire-core.js?v=2026-09-15-sec-acc"></script>
+  <script src="assets/empire-sw-update.js?v=2026-09-15-sec-acc"></script>
   <script>
     var allUsers = [];
     var editingUsername = null;
@@ -169,17 +169,67 @@
     var _pendingSig = undefined;
 
     var ACCESS_MODULES = [
-      { key: 'admin', label: 'Admin (Users)', n: 1 },
-      { key: 'cleaning', label: 'Cleaning Department', n: 2 },
-      { key: 'civil_department', label: 'Civil Department (desk)', n: 3 },
-      { key: 'civil_issue', label: 'Civil Issue (worker phone)', n: 4 },
-      { key: 'electrical_department', label: 'Electrical Department (desk)', n: 5 },
-      { key: 'electric_issue', label: 'Electric Issue (worker phone)', n: 6 },
-      { key: 'hse', label: 'HSE Inspections', n: 7 },
-      { key: 'fire', label: 'Fire Fighting & Mechanical', n: 8 },
-      { key: 'asaas', label: 'A.S.A.A.S', n: 9 },
-      { key: 'application', label: 'Application', n: 10 },
-      { key: 'ups', label: 'UPS Checklist', n: 11 },
+      { key: 'admin_mod', label: 'Admin', n: 1, group: true },
+      { key: 'admin', label: 'Users', child: true, parent: 'admin_mod' },
+      { key: 'cleaning', label: 'Cleaning Department', n: 2, group: true },
+      { key: 'cleaning_dash', label: 'Dashboard', child: true, parent: 'cleaning' },
+      { key: 'cleaning_analytics', label: 'Analytics', child: true, parent: 'cleaning' },
+      { key: 'cleaning_monthly', label: 'Monthly Report', child: true, parent: 'cleaning' },
+      { key: 'cleaning_ec', label: 'Empire Complex', child: true, parent: 'cleaning' },
+      { key: 'cleaning_es', label: 'Empire Square', child: true, parent: 'cleaning' },
+      { key: 'cleaning_wd', label: 'West Diamond', child: true, parent: 'cleaning' },
+      { key: 'cleaning_ww', label: 'West Wing', child: true, parent: 'cleaning' },
+      { key: 'cleaning_ww2', label: '(New) West Wing', child: true, parent: 'cleaning' },
+      { key: 'cleaning_ra', label: 'Royal Apartment', child: true, parent: 'cleaning' },
+      { key: 'civil_department', label: 'Civil Department (desk)', n: 3, group: true },
+      { key: 'civil_jobs', label: 'Jobs', child: true, parent: 'civil_department' },
+      { key: 'civil_field', label: 'Field Reports', child: true, parent: 'civil_department' },
+      { key: 'civil_add', label: 'Add', child: true, parent: 'civil_department' },
+      { key: 'civil_report', label: 'Report', child: true, parent: 'civil_department' },
+      { key: 'civil_analytics', label: 'Analytics', child: true, parent: 'civil_department' },
+      { key: 'civil_issue', label: 'Civil Issue (worker phone)', n: 4, group: true },
+      { key: 'civil_iss_list', label: 'Issues', child: true, parent: 'civil_issue' },
+      { key: 'civil_iss_add', label: 'Add Issue', child: true, parent: 'civil_issue' },
+      { key: 'civil_iss_analytics', label: 'Analytics', child: true, parent: 'civil_issue' },
+      { key: 'civil_iss_not', label: 'Not Civil Dept', child: true, parent: 'civil_issue' },
+      { key: 'civil_iss_delay', label: 'Needs 1+ Month', child: true, parent: 'civil_issue' },
+      { key: 'civil_iss_gps', label: 'GPS', child: true, parent: 'civil_issue' },
+      { key: 'electrical_department', label: 'Electrical Department (desk)', n: 5, group: true },
+      { key: 'elec_jobs', label: 'Jobs', child: true, parent: 'electrical_department' },
+      { key: 'elec_field', label: 'Field Reports', child: true, parent: 'electrical_department' },
+      { key: 'elec_add', label: 'Add', child: true, parent: 'electrical_department' },
+      { key: 'elec_report', label: 'Report', child: true, parent: 'electrical_department' },
+      { key: 'elec_analytics', label: 'Analytics', child: true, parent: 'electrical_department' },
+      { key: 'elec_minus', label: 'Electric Minus', child: true, parent: 'electrical_department' },
+      { key: 'electric_issue', label: 'Electric Issue (worker phone)', n: 6, group: true },
+      { key: 'elec_iss_list', label: 'Issues', child: true, parent: 'electric_issue' },
+      { key: 'elec_iss_add', label: 'Add Issue', child: true, parent: 'electric_issue' },
+      { key: 'elec_iss_analytics', label: 'Analytics', child: true, parent: 'electric_issue' },
+      { key: 'elec_iss_not', label: 'Not Electric Dept', child: true, parent: 'electric_issue' },
+      { key: 'elec_iss_delay', label: 'Needs 1+ Month', child: true, parent: 'electric_issue' },
+      { key: 'elec_iss_gps', label: 'GPS', child: true, parent: 'electric_issue' },
+      { key: 'hse', label: 'HSE Inspections', n: 7, group: true },
+      { key: 'hse_log', label: 'Log', child: true, parent: 'hse' },
+      { key: 'hse_add', label: 'Add Check', child: true, parent: 'hse' },
+      { key: 'hse_monthly', label: 'Monthly Check', child: true, parent: 'hse' },
+      { key: 'hse_analytics', label: 'Analytics', child: true, parent: 'hse' },
+      { key: 'fire', label: 'Fire Fighting & Mechanical', n: 8, group: true },
+      { key: 'fire_list', label: 'Issues', child: true, parent: 'fire' },
+      { key: 'fire_add', label: 'Add Issue', child: true, parent: 'fire' },
+      { key: 'fire_analytics', label: 'Analytics', child: true, parent: 'fire' },
+      { key: 'asaas', label: 'A.S.A.A.S', n: 9, group: true },
+      { key: 'asaas_list', label: 'All items', child: true, parent: 'asaas' },
+      { key: 'asaas_analytics', label: 'Analytics', child: true, parent: 'asaas' },
+      { key: 'application', label: 'Application', n: 10, group: true },
+      { key: 'app_door', label: 'Door check', child: true, parent: 'application' },
+      { key: 'app_summary', label: 'Summary', child: true, parent: 'application' },
+      { key: 'app_issues', label: 'Issues', child: true, parent: 'application' },
+      { key: 'ups', label: 'UPS Checklist', n: 11, group: true },
+      { key: 'ups_register', label: 'Register', child: true, parent: 'ups' },
+      { key: 'ups_checklist', label: 'Monthly checklist', child: true, parent: 'ups' },
+      { key: 'ups_history', label: 'History', child: true, parent: 'ups' },
+      { key: 'ups_summary', label: 'Summary', child: true, parent: 'ups' },
+      { key: 'ups_add', label: 'Add unit', child: true, parent: 'ups' },
       { key: 'charging', label: 'Charging Electricity', n: 12, group: true },
       { key: 'charging_dash', label: 'Dashboard', child: true, parent: 'charging' },
       { key: 'charging_summary', label: 'Summary', child: true, parent: 'charging' },
@@ -202,17 +252,16 @@
     ];
 
     function resetExpandedGroups(access) {
-      _expandedGroups = { charging: false, hr_mod: false, warehouse: true };
+      _expandedGroups = {};
+      ACCESS_MODULES.forEach(function (m) {
+        if (m.group) _expandedGroups[m.key] = false;
+      });
+      _expandedGroups.warehouse = true;
       if (!access) return;
-      if (accessAnyCharging(access)) _expandedGroups.charging = true;
-      if ((access.hr && access.hr !== 'none') || (access.hr_director && access.hr_director !== 'none')) {
-        _expandedGroups.hr_mod = true;
-      }
-      var wh = ['warehouse_desk', 'warehouse_assigned', 'warehouse_done', 'warehouse_invoices',
-        'warehouse_sig_auth', 'warehouse_sig_issued', 'warehouse_sig_received'];
-      if (wh.some(function (k) { return access[k] && access[k] !== 'none'; })) {
-        _expandedGroups.warehouse = true;
-      }
+      ACCESS_MODULES.forEach(function (m) {
+        if (!m.child || !m.parent) return;
+        if (access[m.key] && access[m.key] !== 'none') _expandedGroups[m.parent] = true;
+      });
     }
 
     function isGroupExpanded(key) {
@@ -224,11 +273,16 @@
       renderAccessMatrix(readAccessFromForm());
     }
 
-    function accessAnyCharging(a) {
-      return ['charging', 'charging_dash', 'charging_summary', 'charging_waiting', 'charging_charged',
-        'charging_bin', 'charging_bot', 'charging_reset'].some(function (k) {
-        return a[k] && a[k] !== 'none';
+    function hasAccess(a, keyOrGroup) {
+      if (!a) return false;
+      if (a[keyOrGroup] && a[keyOrGroup] !== 'none') return true;
+      return ACCESS_MODULES.some(function (m) {
+        return m.child && m.parent === keyOrGroup && a[m.key] && a[m.key] !== 'none';
       });
+    }
+
+    function accessAnyCharging(a) {
+      return hasAccess(a, 'charging');
     }
 
     function emptyAccess() {
@@ -287,11 +341,11 @@
 
     function onAccessChange() {
       var a = readAccessFromForm();
-      var workerOnly = (a.civil_issue !== 'none' || a.electric_issue !== 'none') &&
-        a.civil_department === 'none' && a.electrical_department === 'none' &&
-        a.cleaning === 'none' && a.hr === 'none' && a.hr_director === 'none' &&
-        !accessAnyCharging(a) && a.warehouse_desk === 'none' && a.admin === 'none';
-      var cleaning = a.cleaning !== 'none';
+      var workerOnly = (hasAccess(a, 'civil_issue') || hasAccess(a, 'electric_issue')) &&
+        !hasAccess(a, 'civil_department') && !hasAccess(a, 'electrical_department') &&
+        !hasAccess(a, 'cleaning') && !hasAccess(a, 'hr') && !hasAccess(a, 'hr_director') &&
+        !accessAnyCharging(a) && !hasAccess(a, 'warehouse_desk') && !hasAccess(a, 'admin');
+      var cleaning = hasAccess(a, 'cleaning');
       var tradeEl = document.getElementById('tradeField');
       var projEl = document.getElementById('projectsField');
       if (tradeEl) tradeEl.style.display = workerOnly ? '' : 'none';
@@ -332,6 +386,8 @@
       } else if (kind === 'hr_director') {
         a.hr_director = 'write';
       }
+      if (typeof empireFoldModuleAccess === 'function') a = empireFoldModuleAccess(a);
+      else if (typeof empireFoldChargingAccess === 'function') a = empireFoldChargingAccess(a);
       resetExpandedGroups(a);
       renderAccessMatrix(a);
       document.getElementById('f-username').focus();
@@ -386,7 +442,8 @@
       document.getElementById('userFormCard').style.display = '';
       var a = emptyAccess();
       var src = u.moduleAccess || {};
-      if (typeof empireFoldChargingAccess === 'function') src = empireFoldChargingAccess(src);
+      if (typeof empireFoldModuleAccess === 'function') src = empireFoldModuleAccess(src);
+      else if (typeof empireFoldChargingAccess === 'function') src = empireFoldChargingAccess(src);
       Object.keys(a).forEach(function (k) {
         if (src[k]) a[k] = src[k];
       });
@@ -403,18 +460,35 @@
       editingUsername = null;
     }
 
+    function projectsFromCleaningAccess(access) {
+      var map = {
+        cleaning_ec: 'ec', cleaning_es: 'es', cleaning_wd: 'wd',
+        cleaning_ww: 'ww', cleaning_ww2: 'ww2', cleaning_ra: 'ra'
+      };
+      var got = [];
+      Object.keys(map).forEach(function (k) {
+        if (access[k] && access[k] !== 'none') got.push(map[k]);
+      });
+      if (!got.length) return document.getElementById('f-projects').value.trim();
+      if (got.length === 6) return '';
+      return got.join(',');
+    }
+
     function formPayload() {
       var access = readAccessFromForm();
-      var workerPhone = (access.civil_issue !== 'none' || access.electric_issue !== 'none') &&
-        access.civil_department === 'none' && access.electrical_department === 'none' &&
-        access.cleaning === 'none' && access.hr === 'none' && !accessAnyCharging(access) &&
-        access.warehouse_desk === 'none' && access.admin === 'none';
+      var workerPhone = (hasAccess(access, 'civil_issue') || hasAccess(access, 'electric_issue')) &&
+        !hasAccess(access, 'civil_department') && !hasAccess(access, 'electrical_department') &&
+        !hasAccess(access, 'cleaning') && !hasAccess(access, 'hr') && !hasAccess(access, 'hr_director') &&
+        !accessAnyCharging(access) &&
+        !hasAccess(access, 'warehouse_desk') && !hasAccess(access, 'admin');
       return {
         username: document.getElementById('f-username').value.trim(),
         password: document.getElementById('f-password').value,
         moduleAccess: access,
         trade: workerPhone ? document.getElementById('f-trade').value : '',
-        projects: document.getElementById('f-projects').value.trim()
+        projects: hasAccess(access, 'cleaning')
+          ? projectsFromCleaningAccess(access)
+          : document.getElementById('f-projects').value.trim()
       };
     }
 
@@ -512,9 +586,9 @@
         return;
       }
       var workerPhone = !!p.trade || (
-        (p.moduleAccess.civil_issue !== 'none' || p.moduleAccess.electric_issue !== 'none') &&
-        p.moduleAccess.civil_department === 'none' && p.moduleAccess.electrical_department === 'none' &&
-        p.moduleAccess.hr === 'none' && p.moduleAccess.hr_director === 'none' &&
+        (hasAccess(p.moduleAccess, 'civil_issue') || hasAccess(p.moduleAccess, 'electric_issue')) &&
+        !hasAccess(p.moduleAccess, 'civil_department') && !hasAccess(p.moduleAccess, 'electrical_department') &&
+        !hasAccess(p.moduleAccess, 'hr') && !hasAccess(p.moduleAccess, 'hr_director') &&
         !accessAnyCharging(p.moduleAccess)
       );
       if (workerPhone && document.getElementById('tradeField').style.display !== 'none' && !p.trade) {

@@ -142,15 +142,64 @@ export type AccessLevel = "none" | "read" | "write";
 export const MODULE_ACCESS_KEYS = [
   "admin",
   "cleaning",
+  "cleaning_dash",
+  "cleaning_analytics",
+  "cleaning_monthly",
+  "cleaning_ec",
+  "cleaning_es",
+  "cleaning_wd",
+  "cleaning_ww",
+  "cleaning_ww2",
+  "cleaning_ra",
   "civil_department",
+  "civil_jobs",
+  "civil_field",
+  "civil_add",
+  "civil_report",
+  "civil_analytics",
   "civil_issue",
+  "civil_iss_list",
+  "civil_iss_add",
+  "civil_iss_analytics",
+  "civil_iss_not",
+  "civil_iss_delay",
+  "civil_iss_gps",
   "electrical_department",
+  "elec_jobs",
+  "elec_field",
+  "elec_add",
+  "elec_report",
+  "elec_analytics",
+  "elec_minus",
   "electric_issue",
+  "elec_iss_list",
+  "elec_iss_add",
+  "elec_iss_analytics",
+  "elec_iss_not",
+  "elec_iss_delay",
+  "elec_iss_gps",
   "hse",
+  "hse_log",
+  "hse_add",
+  "hse_monthly",
+  "hse_analytics",
   "fire",
+  "fire_list",
+  "fire_add",
+  "fire_analytics",
   "asaas",
+  "asaas_list",
+  "asaas_analytics",
   "application",
+  "app_door",
+  "app_summary",
+  "app_issues",
   "ups",
+  "ups_register",
+  "ups_checklist",
+  "ups_history",
+  "ups_summary",
+  "ups_add",
   "charging",
   "charging_dash",
   "charging_summary",
@@ -176,15 +225,64 @@ export type ModuleAccessMap = Record<ModuleAccessKey, AccessLevel>;
 const MODULE_DEPTS: Record<ModuleAccessKey, string[]> = {
   admin: [],
   cleaning: ["cleaning"],
+  cleaning_dash: ["cleaning"],
+  cleaning_analytics: ["cleaning"],
+  cleaning_monthly: ["cleaning"],
+  cleaning_ec: ["cleaning"],
+  cleaning_es: ["cleaning"],
+  cleaning_wd: ["cleaning"],
+  cleaning_ww: ["cleaning"],
+  cleaning_ww2: ["cleaning"],
+  cleaning_ra: ["cleaning"],
   civil_department: ["civil department"],
+  civil_jobs: ["civil department"],
+  civil_field: ["civil department"],
+  civil_add: ["civil department"],
+  civil_report: ["civil department"],
+  civil_analytics: ["civil department"],
   civil_issue: ["civil issue"],
+  civil_iss_list: ["civil issue"],
+  civil_iss_add: ["civil issue"],
+  civil_iss_analytics: ["civil issue"],
+  civil_iss_not: ["civil issue"],
+  civil_iss_delay: ["civil issue"],
+  civil_iss_gps: ["civil issue"],
   electrical_department: ["electrical department"],
+  elec_jobs: ["electrical department"],
+  elec_field: ["electrical department"],
+  elec_add: ["electrical department"],
+  elec_report: ["electrical department"],
+  elec_analytics: ["electrical department"],
+  elec_minus: ["electrical department"],
   electric_issue: ["electric issue"],
+  elec_iss_list: ["electric issue"],
+  elec_iss_add: ["electric issue"],
+  elec_iss_analytics: ["electric issue"],
+  elec_iss_not: ["electric issue"],
+  elec_iss_delay: ["electric issue"],
+  elec_iss_gps: ["electric issue"],
   hse: ["hse"],
+  hse_log: ["hse"],
+  hse_add: ["hse"],
+  hse_monthly: ["hse"],
+  hse_analytics: ["hse"],
   fire: ["fire"],
+  fire_list: ["fire"],
+  fire_add: ["fire"],
+  fire_analytics: ["fire"],
   asaas: ["asaas"],
+  asaas_list: ["asaas"],
+  asaas_analytics: ["asaas"],
   application: ["application"],
+  app_door: ["application"],
+  app_summary: ["application"],
+  app_issues: ["application"],
   ups: ["ups"],
+  ups_register: ["ups"],
+  ups_checklist: ["ups"],
+  ups_history: ["ups"],
+  ups_summary: ["ups"],
+  ups_add: ["ups"],
   charging: ["charging"],
   charging_dash: ["charging"],
   charging_summary: ["charging"],
@@ -227,49 +325,143 @@ export const CHARGING_SECTION_KEYS = [
   "charging_reset",
 ] as const;
 
+type SectionFoldGroup = {
+  parent: ModuleAccessKey;
+  children: ModuleAccessKey[];
+  skipOnLegacy?: ModuleAccessKey[];
+  writeOnlyOnLegacy?: ModuleAccessKey[];
+};
+
+const SECTION_FOLD_GROUPS: SectionFoldGroup[] = [
+  {
+    parent: "cleaning",
+    children: [
+      "cleaning_dash", "cleaning_analytics", "cleaning_monthly",
+      "cleaning_ec", "cleaning_es", "cleaning_wd", "cleaning_ww", "cleaning_ww2", "cleaning_ra",
+    ],
+  },
+  {
+    parent: "civil_department",
+    children: ["civil_jobs", "civil_field", "civil_add", "civil_report", "civil_analytics"],
+  },
+  {
+    parent: "civil_issue",
+    children: [
+      "civil_iss_list", "civil_iss_add", "civil_iss_analytics",
+      "civil_iss_not", "civil_iss_delay", "civil_iss_gps",
+    ],
+  },
+  {
+    parent: "electrical_department",
+    children: ["elec_jobs", "elec_field", "elec_add", "elec_report", "elec_analytics", "elec_minus"],
+  },
+  {
+    parent: "electric_issue",
+    children: [
+      "elec_iss_list", "elec_iss_add", "elec_iss_analytics",
+      "elec_iss_not", "elec_iss_delay", "elec_iss_gps",
+    ],
+  },
+  { parent: "hse", children: ["hse_log", "hse_add", "hse_monthly", "hse_analytics"] },
+  { parent: "fire", children: ["fire_list", "fire_add", "fire_analytics"] },
+  { parent: "asaas", children: ["asaas_list", "asaas_analytics"] },
+  { parent: "application", children: ["app_door", "app_summary", "app_issues"] },
+  { parent: "ups", children: ["ups_register", "ups_checklist", "ups_history", "ups_summary", "ups_add"] },
+  {
+    parent: "charging",
+    children: [
+      "charging_dash", "charging_summary", "charging_waiting", "charging_charged",
+      "charging_bin", "charging_bot", "charging_reset",
+    ],
+    skipOnLegacy: ["charging_bot"],
+    writeOnlyOnLegacy: ["charging_bin", "charging_reset"],
+  },
+];
+
+const CLEANING_PROJECT_KEYS: Record<string, ModuleAccessKey> = {
+  ec: "cleaning_ec",
+  es: "cleaning_es",
+  wd: "cleaning_wd",
+  ww: "cleaning_ww",
+  ww2: "cleaning_ww2",
+  ra: "cleaning_ra",
+};
+
 export function maxAccessLevel(...levels: AccessLevel[]): AccessLevel {
   if (levels.some((l) => l === "write")) return "write";
   if (levels.some((l) => l === "read")) return "read";
   return "none";
 }
 
-/** Expand legacy `charging` into sections, and keep `charging` as the max of its children. */
-export function foldChargingAccess(a: ModuleAccessMap): ModuleAccessMap {
-  const anyChild = CHARGING_SECTION_KEYS.some((k) => a[k] !== "none");
-  if (!anyChild && a.charging !== "none") {
-    const lvl = a.charging;
-    a.charging_dash = lvl;
-    a.charging_summary = lvl;
-    a.charging_waiting = lvl;
-    a.charging_charged = lvl;
-    if (lvl === "write") {
-      a.charging_bin = "write";
-      a.charging_reset = "write";
+/** Expand legacy parent keys into sections, and keep each parent as the max of its children. */
+export function foldModuleSectionAccess(a: ModuleAccessMap): ModuleAccessMap {
+  for (const g of SECTION_FOLD_GROUPS) {
+    const anyChild = g.children.some((k) => a[k] !== "none");
+    if (!anyChild && a[g.parent] !== "none") {
+      const lvl = a[g.parent];
+      for (const k of g.children) {
+        if (g.skipOnLegacy && g.skipOnLegacy.indexOf(k) !== -1) continue;
+        if (g.writeOnlyOnLegacy && g.writeOnlyOnLegacy.indexOf(k) !== -1) {
+          if (lvl === "write") a[k] = "write";
+          continue;
+        }
+        a[k] = lvl;
+      }
     }
+    a[g.parent] = maxAccessLevel(a[g.parent], ...g.children.map((k) => a[k]));
   }
-  a.charging = maxAccessLevel(a.charging, ...CHARGING_SECTION_KEYS.map((k) => a[k]));
+  return a;
+}
+
+export function foldChargingAccess(a: ModuleAccessMap): ModuleAccessMap {
+  return foldModuleSectionAccess(a);
+}
+
+/** If the user is scoped to some cleaning projects, drop the other project sections. */
+export function applyCleaningProjectScopeToAccess(
+  a: ModuleAccessMap,
+  projectsField: unknown,
+): ModuleAccessMap {
+  const scoped = normalizeProjectsField(projectsField, "cleaning");
+  if (!scoped.length) return a;
+  const anyProj = Object.keys(CLEANING_PROJECT_KEYS).some((code) => a[CLEANING_PROJECT_KEYS[code]] !== "none");
+  if (!anyProj) return a;
+  for (const code of Object.keys(CLEANING_PROJECT_KEYS)) {
+    if (scoped.indexOf(code) === -1) a[CLEANING_PROJECT_KEYS[code]] = "none";
+  }
+  a.cleaning = maxAccessLevel(
+    a.cleaning_dash,
+    a.cleaning_analytics,
+    a.cleaning_monthly,
+    a.cleaning_ec,
+    a.cleaning_es,
+    a.cleaning_wd,
+    a.cleaning_ww,
+    a.cleaning_ww2,
+    a.cleaning_ra,
+  );
   return a;
 }
 
 export function parseModuleAccess(raw: unknown): ModuleAccessMap {
   const out = emptyModuleAccess();
-  if (!raw) return foldChargingAccess(out);
+  if (!raw) return foldModuleSectionAccess(out);
   let obj: Record<string, unknown> = {};
   if (typeof raw === "string") {
     try {
       obj = JSON.parse(raw || "{}");
     } catch (_e) {
-      return foldChargingAccess(out);
+      return foldModuleSectionAccess(out);
     }
   } else if (typeof raw === "object") {
     obj = raw as Record<string, unknown>;
   } else {
-    return foldChargingAccess(out);
+    return foldModuleSectionAccess(out);
   }
   for (const k of MODULE_ACCESS_KEYS) {
     if (obj[k] != null) out[k] = normalizeAccessLevel(obj[k]);
   }
-  return foldChargingAccess(out);
+  return foldModuleSectionAccess(out);
 }
 
 function moduleAccessHasAny_(access: ModuleAccessMap): boolean {
@@ -374,8 +566,11 @@ export function synthesizeModuleAccessFromLegacy(
 
 export function resolveModuleAccessForUser(user: Record<string, unknown>): ModuleAccessMap {
   const parsed = parseModuleAccess(user.module_access);
-  if (moduleAccessHasAny_(parsed)) return parsed;
-  return synthesizeModuleAccessFromLegacy(user.role, user.dept, user.warehouse_sig_sections);
+  if (moduleAccessHasAny_(parsed)) {
+    return applyCleaningProjectScopeToAccess(parsed, user.projects);
+  }
+  const legacy = synthesizeModuleAccessFromLegacy(user.role, user.dept, user.warehouse_sig_sections);
+  return applyCleaningProjectScopeToAccess(legacy, user.projects);
 }
 
 function accessHasDeskWrite_(a: ModuleAccessMap): boolean {

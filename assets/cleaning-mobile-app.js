@@ -1746,6 +1746,7 @@
     loadPhotos(true).then(function () { syncOffline(true); });
     startPhotosAutoSync();
     setTimeout(function () { startGps(); }, 2500);
+    if (typeof empireApplySectionNav === 'function') empireApplySectionNav();
   }
 
   function handleLogin(e) {

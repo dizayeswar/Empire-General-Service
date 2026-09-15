@@ -94,7 +94,7 @@ function empireGetModuleAccess() {
   try {
     var o = JSON.parse(empireAuthLs('moduleAccess') || '{}');
     if (!o || typeof o !== 'object') return {};
-    return empireFoldChargingAccess(o);
+    return empireFoldModuleAccess(o);
   } catch (e) {
     return {};
   }
@@ -105,33 +105,109 @@ var EMPIRE_CHARGING_SECTIONS = [
   'charging_bin', 'charging_bot', 'charging_reset'
 ];
 
-function empireFoldChargingAccess(src) {
+var EMPIRE_SECTION_FOLD_GROUPS = [
+  {
+    parent: 'cleaning',
+    children: [
+      'cleaning_dash', 'cleaning_analytics', 'cleaning_monthly',
+      'cleaning_ec', 'cleaning_es', 'cleaning_wd', 'cleaning_ww', 'cleaning_ww2', 'cleaning_ra'
+    ]
+  },
+  { parent: 'civil_department', children: ['civil_jobs', 'civil_field', 'civil_add', 'civil_report', 'civil_analytics'] },
+  {
+    parent: 'civil_issue',
+    children: ['civil_iss_list', 'civil_iss_add', 'civil_iss_analytics', 'civil_iss_not', 'civil_iss_delay', 'civil_iss_gps']
+  },
+  {
+    parent: 'electrical_department',
+    children: ['elec_jobs', 'elec_field', 'elec_add', 'elec_report', 'elec_analytics', 'elec_minus']
+  },
+  {
+    parent: 'electric_issue',
+    children: ['elec_iss_list', 'elec_iss_add', 'elec_iss_analytics', 'elec_iss_not', 'elec_iss_delay', 'elec_iss_gps']
+  },
+  { parent: 'hse', children: ['hse_log', 'hse_add', 'hse_monthly', 'hse_analytics'] },
+  { parent: 'fire', children: ['fire_list', 'fire_add', 'fire_analytics'] },
+  { parent: 'asaas', children: ['asaas_list', 'asaas_analytics'] },
+  { parent: 'application', children: ['app_door', 'app_summary', 'app_issues'] },
+  { parent: 'ups', children: ['ups_register', 'ups_checklist', 'ups_history', 'ups_summary', 'ups_add'] },
+  {
+    parent: 'charging',
+    children: EMPIRE_CHARGING_SECTIONS,
+    skipOnLegacy: ['charging_bot'],
+    writeOnlyOnLegacy: ['charging_bin', 'charging_reset']
+  }
+];
+
+function empireAccessRank_(v) {
+  v = String(v || 'none').trim().toLowerCase();
+  if (v === 'write') return 2;
+  if (v === 'read') return 1;
+  return 0;
+}
+
+function empireMaxAccessLevel_() {
+  var max = 0;
+  for (var i = 0; i < arguments.length; i++) {
+    var r = empireAccessRank_(arguments[i]);
+    if (r > max) max = r;
+  }
+  return max === 2 ? 'write' : (max === 1 ? 'read' : 'none');
+}
+
+function empireFoldModuleAccess(src) {
   var o = src && typeof src === 'object' ? src : {};
   var out = {};
   Object.keys(o).forEach(function (k) { out[k] = o[k]; });
-  var anyChild = EMPIRE_CHARGING_SECTIONS.some(function (k) {
-    var v = String(out[k] || 'none').toLowerCase();
-    return v === 'read' || v === 'write';
-  });
-  var parent = String(out.charging || 'none').trim().toLowerCase();
-  if (!anyChild && (parent === 'read' || parent === 'write')) {
-    out.charging_dash = parent;
-    out.charging_summary = parent;
-    out.charging_waiting = parent;
-    out.charging_charged = parent;
-    if (parent === 'write') {
-      out.charging_bin = 'write';
-      out.charging_reset = 'write';
+  EMPIRE_SECTION_FOLD_GROUPS.forEach(function (g) {
+    var anyChild = g.children.some(function (k) {
+      return empireAccessRank_(out[k]) > 0;
+    });
+    var parent = String(out[g.parent] || 'none').trim().toLowerCase();
+    if (!anyChild && (parent === 'read' || parent === 'write')) {
+      g.children.forEach(function (k) {
+        if (g.skipOnLegacy && g.skipOnLegacy.indexOf(k) !== -1) return;
+        if (g.writeOnlyOnLegacy && g.writeOnlyOnLegacy.indexOf(k) !== -1) {
+          if (parent === 'write') out[k] = 'write';
+          return;
+        }
+        out[k] = parent;
+      });
     }
-  }
-  var max = parent === 'write' ? 'write' : (parent === 'read' ? 'read' : 'none');
-  EMPIRE_CHARGING_SECTIONS.forEach(function (k) {
-    var v = String(out[k] || 'none').toLowerCase();
-    if (v === 'write') max = 'write';
-    else if (v === 'read' && max !== 'write') max = 'read';
+    var levels = [out[g.parent]];
+    g.children.forEach(function (k) { levels.push(out[k]); });
+    out[g.parent] = empireMaxAccessLevel_.apply(null, levels);
   });
-  out.charging = max;
   return out;
+}
+
+function empireFoldChargingAccess(src) {
+  return empireFoldModuleAccess(src);
+}
+
+function empireApplySectionNav() {
+  try {
+    var nodes = document.querySelectorAll('[data-access-key]');
+    if (!nodes.length) return;
+    var isAdmin = typeof empireIsAdminRole === 'function' && empireIsAdminRole();
+    nodes.forEach(function (el) {
+      var key = el.getAttribute('data-access-key');
+      if (!key) return;
+      var ok = isAdmin || empireModuleLevel(key) !== 'none';
+      if (ok) return;
+      el.style.display = 'none';
+      el.classList.remove('active');
+    });
+    var activeBtn = document.querySelector('.side-nav .tab-btn.active, .cm-tab.active, .worker-tab-btn.active');
+    if (activeBtn && activeBtn.style.display === 'none') {
+      var next = null;
+      document.querySelectorAll('.side-nav .tab-btn[data-access-key], .cm-tab[data-access-key], .worker-tab-btn[data-access-key]').forEach(function (b) {
+        if (next || b.style.display === 'none') return;
+        next = b;
+      });
+      if (next) next.click();
+    }
+  } catch (e) {}
 }
 
 function empireGetSignature() {
@@ -263,16 +339,27 @@ function empireCanAccessDept(requiredDept) {
   var list = empireParseDeptList(empireGetTokenDept());
   if (list.indexOf('all') !== -1) return true;
   var moduleKeysByDept = {
-    cleaning: ['cleaning'],
-    'civil department': ['civil_department'],
-    'civil issue': ['civil_issue'],
-    'electrical department': ['electrical_department'],
-    'electric issue': ['electric_issue'],
-    hse: ['hse'],
-    fire: ['fire'],
-    asaas: ['asaas'],
-    application: ['application'],
-    ups: ['ups'],
+    cleaning: [
+      'cleaning', 'cleaning_dash', 'cleaning_analytics', 'cleaning_monthly',
+      'cleaning_ec', 'cleaning_es', 'cleaning_wd', 'cleaning_ww', 'cleaning_ww2', 'cleaning_ra'
+    ],
+    'civil department': ['civil_department', 'civil_jobs', 'civil_field', 'civil_add', 'civil_report', 'civil_analytics'],
+    'civil issue': [
+      'civil_issue', 'civil_iss_list', 'civil_iss_add', 'civil_iss_analytics',
+      'civil_iss_not', 'civil_iss_delay', 'civil_iss_gps'
+    ],
+    'electrical department': [
+      'electrical_department', 'elec_jobs', 'elec_field', 'elec_add', 'elec_report', 'elec_analytics', 'elec_minus'
+    ],
+    'electric issue': [
+      'electric_issue', 'elec_iss_list', 'elec_iss_add', 'elec_iss_analytics',
+      'elec_iss_not', 'elec_iss_delay', 'elec_iss_gps'
+    ],
+    hse: ['hse', 'hse_log', 'hse_add', 'hse_monthly', 'hse_analytics'],
+    fire: ['fire', 'fire_list', 'fire_add', 'fire_analytics'],
+    asaas: ['asaas', 'asaas_list', 'asaas_analytics'],
+    application: ['application', 'app_door', 'app_summary', 'app_issues'],
+    ups: ['ups', 'ups_register', 'ups_checklist', 'ups_history', 'ups_summary', 'ups_add'],
     charging: [
       'charging', 'charging_dash', 'charging_summary', 'charging_waiting', 'charging_charged',
       'charging_bin', 'charging_bot', 'charging_reset'
@@ -685,6 +772,7 @@ function empireAuthPageBoot(opts) {
   empireAuthMarkLoginVisible(false);
   if (typeof opts.onEnter === 'function') opts.onEnter();
   else if (main) main.classList.add('show');
+  if (typeof empireApplySectionNav === 'function') empireApplySectionNav();
   return true;
 }
 
@@ -741,6 +829,7 @@ function empireAuthRefreshPerms(onUpdate) {
         }
         if (d.signature != null) empireAuthSet('signature', String(d.signature || ''));
         if (typeof onUpdate === 'function') onUpdate(d);
+        if (typeof empireApplySectionNav === 'function') empireApplySectionNav();
       } else if (empireAuthHandleInvalidSession_(d)) {
         return;
       }

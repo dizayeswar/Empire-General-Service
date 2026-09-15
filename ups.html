@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-28-ups-inspect">
+<link rel="manifest" href="manifest.webmanifest?v=2026-09-15-sec-acc">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>UPS Checklist — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-28-ups-inspect">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-08-28-ups-inspect">
-<link rel="stylesheet" href="assets/empire-ups.css?v=2026-08-28-ups-inspect">
+<link rel="stylesheet" href="assets/empire.css?v=2026-09-15-sec-acc">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-15-sec-acc">
+<link rel="stylesheet" href="assets/empire-ups.css?v=2026-09-15-sec-acc">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -46,23 +46,23 @@
       </div>
       <p id="whoLabel"></p>
       <nav class="side-nav">
-        <button class="tab-btn active" onclick="upsSwitchTab_(event,'list')">
+        <button class="tab-btn active" data-access-key="ups_register" onclick="upsSwitchTab_(event,'list')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span>
           <span class="lbl">Register</span>
         </button>
-        <button class="tab-btn" onclick="upsSwitchTab_(event,'checklist')">
+        <button class="tab-btn" data-access-key="ups_checklist" onclick="upsSwitchTab_(event,'checklist')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
           <span class="lbl">Monthly checklist</span>
         </button>
-        <button class="tab-btn" onclick="upsSwitchTab_(event,'history')">
+        <button class="tab-btn" data-access-key="ups_history" onclick="upsSwitchTab_(event,'history')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>
           <span class="lbl">History</span>
         </button>
-        <button class="tab-btn" onclick="upsSwitchTab_(event,'summary')">
+        <button class="tab-btn" data-access-key="ups_summary" onclick="upsSwitchTab_(event,'summary')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 11h8"/><path d="M7 16h12"/><path d="M7 6h3"/></svg></span>
           <span class="lbl">Summary</span>
         </button>
-        <button class="tab-btn" onclick="upsSwitchTab_(event,'add')">
+        <button class="tab-btn" data-access-key="ups_add" onclick="upsSwitchTab_(event,'add')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span>
           <span class="lbl">Add unit</span>
         </button>
@@ -231,10 +231,10 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-08-28-ups-inspect"></script>
-<script src="assets/empire-api.js?v=2026-08-28-ups-inspect"></script>
-<script src="assets/empire-auth.js?v=2026-08-28-ups-inspect"></script>
-<script src="assets/empire-core.js?v=2026-08-28-ups-inspect"></script>
-<script src="assets/empire-ups-app.js?v=2026-08-28-ups-inspect"></script>
+<script src="config.js?v=2026-09-15-sec-acc"></script>
+<script src="assets/empire-api.js?v=2026-09-15-sec-acc"></script>
+<script src="assets/empire-auth.js?v=2026-09-15-sec-acc"></script>
+<script src="assets/empire-core.js?v=2026-09-15-sec-acc"></script>
+<script src="assets/empire-ups-app.js?v=2026-09-15-sec-acc"></script>
 </body>
 </html>

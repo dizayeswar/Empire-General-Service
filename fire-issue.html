@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-assign">
+<link rel="manifest" href="manifest.webmanifest?v=2026-09-15-sec-acc">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://script.google.com">
 <link rel="preconnect" href="https://api.imgbb.com">
 <title>Fire Fighting & Mechanical — Empire World</title>
-<link rel="stylesheet" href="assets/empire.css?v=2026-08-22-rb-select">
+<link rel="stylesheet" href="assets/empire.css?v=2026-09-15-sec-acc">
 </head>
 <body>
 <div class="login-page show" id="loginPage">
@@ -43,9 +43,9 @@
       </div>
       <p id="whoLabel"></p>
       <nav class="side-nav">
-        <button class="tab-btn active" onclick="switchTab(event,'list')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span> <span class="lbl">Issues</span></button>
-        <button class="tab-btn" onclick="switchTab(event,'add')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span> <span class="lbl">Add Issue</span></button>
-        <button class="tab-btn" onclick="switchTab(event,'analytics')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 11h8"/><path d="M7 16h12"/><path d="M7 6h3"/></svg></span> <span class="lbl">Analytics</span></button>
+        <button class="tab-btn active" data-access-key="fire_list" onclick="switchTab(event,'list')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span> <span class="lbl">Issues</span></button>
+        <button class="tab-btn" data-access-key="fire_add" onclick="switchTab(event,'add')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span> <span class="lbl">Add Issue</span></button>
+        <button class="tab-btn" data-access-key="fire_analytics" onclick="switchTab(event,'analytics')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 11h8"/><path d="M7 16h12"/><path d="M7 6h3"/></svg></span> <span class="lbl">Analytics</span></button>
       </nav>
       <div class="side-actions">
         <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span> <span class="lbl">Theme</span></button>
@@ -114,16 +114,16 @@
 </div>
 <div class="modal" id="issueModal" onclick="if(event.target===this)closeIssueModal()"><div class="modal-box" id="issueBox"></div></div>
 <div class="modal" id="imgModal" onclick="closeImg()"><img id="imgBig" style="max-width:92%;max-height:92%;border-radius:10px;"></div>
-<script src="config.js?v=2026-08-22-wa-empty"></script>
-<script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
-<script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
-<script src="assets/empire-auth.js?v=2026-08-19-wh-assign"></script>
-<script src="assets/empire-core.js?v=2026-08-19-wh-assign"></script>
-<script src="assets/issue-configs.js?v=2026-08-19-wh-assign"></script>
+<script src="config.js?v=2026-09-15-sec-acc"></script>
+<script src="assets/empire-storage.js?v=2026-09-15-sec-acc"></script>
+<script src="assets/empire-api.js?v=2026-09-15-sec-acc"></script>
+<script src="assets/empire-auth.js?v=2026-09-15-sec-acc"></script>
+<script src="assets/empire-core.js?v=2026-09-15-sec-acc"></script>
+<script src="assets/issue-configs.js?v=2026-09-15-sec-acc"></script>
 <script>ISSUE_CFG=ISSUE_CONFIGS.fire;</script>
-<script src="assets/issue-tracker.js?v=2026-08-22-wa-empty"></script>
-<script src="assets/issue-excel-export.js?v=2026-08-19-wh-assign"></script>
-<script src="assets/issue-recycle-bin.js?v=2026-08-22-rb-select"></script>
+<script src="assets/issue-tracker.js?v=2026-09-15-sec-acc"></script>
+<script src="assets/issue-excel-export.js?v=2026-09-15-sec-acc"></script>
+<script src="assets/issue-recycle-bin.js?v=2026-09-15-sec-acc"></script>
 <div id="resetModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1600;align-items:center;justify-content:center;">
   <div style="background:var(--panel);border:2px solid var(--card-border);border-radius:14px;max-width:440px;width:92%;padding:28px;box-shadow:0 10px 40px var(--shadow);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
     <h2 style="margin:0 0 10px;color:var(--text);">⚠️ Reset Fire Fighting Data</h2>

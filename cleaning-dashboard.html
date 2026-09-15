@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="manifest" href="manifest.webmanifest?v=2026-08-19-wh-assign">
+    <link rel="manifest" href="manifest.webmanifest?v=2026-09-15-sec-acc">
     <meta name="theme-color" content="#8d015d">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,8 +13,8 @@
     <link rel="preconnect" href="https://script.google.com">
     <link rel="preconnect" href="https://api.imgbb.com">
     <title>Empire World Dashboard</title>
-    <link rel="stylesheet" href="assets/empire.css?v=2026-08-19-wh-assign">
-<link rel="stylesheet" href="assets/empire-cleaning.css?v=2026-08-19-wh-assign">
+    <link rel="stylesheet" href="assets/empire.css?v=2026-09-15-sec-acc">
+<link rel="stylesheet" href="assets/empire-cleaning.css?v=2026-09-15-sec-acc">
 </head>
 <body>
     <div class="login-page show" id="loginPage">
@@ -43,16 +43,16 @@
           </div>
           <p id="whoLabel"></p>
           <nav class="side-nav">
-            <button class="tab-btn active" onclick="switchTab(event, 'all')" title="Dashboard"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg></span> <span class="lbl">Dashboard</span></button>
-            <button class="tab-btn" onclick="switchTab(event, 'analytics')" title="Analytics"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 11h8"/><path d="M7 16h12"/><path d="M7 6h3"/></svg></span> <span class="lbl">Analytics</span></button>
-            <button class="tab-btn" onclick="switchTab(event, 'monthly')" title="Monthly Report"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span> <span class="lbl">Monthly Report</span></button>
+            <button class="tab-btn active" data-access-key="cleaning_dash" onclick="switchTab(event, 'all')" title="Dashboard"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg></span> <span class="lbl">Dashboard</span></button>
+            <button class="tab-btn" data-access-key="cleaning_analytics" onclick="switchTab(event, 'analytics')" title="Analytics"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 11h8"/><path d="M7 16h12"/><path d="M7 6h3"/></svg></span> <span class="lbl">Analytics</span></button>
+            <button class="tab-btn" data-access-key="cleaning_monthly" onclick="switchTab(event, 'monthly')" title="Monthly Report"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span> <span class="lbl">Monthly Report</span></button>
             <div class="side-nav-label lbl">Projects</div>
-            <button class="tab-btn" data-cleaning-proj="ec" onclick="switchTab(event, 'empire-complex')" title="Empire Complex"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 12h4"/><path d="M10 8h4"/><path d="M14 21v-3a2 2 0 0 0-4 0v3"/><path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2"/><path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/></svg></span> <span class="lbl">Empire Complex</span></button>
-            <button class="tab-btn" data-cleaning-proj="es" onclick="switchTab(event, 'empire-square')" title="Empire Square"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 12h4"/><path d="M10 8h4"/><path d="M14 21v-3a2 2 0 0 0-4 0v3"/><path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2"/><path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/></svg></span> <span class="lbl">Empire Square</span></button>
-            <button class="tab-btn" data-cleaning-proj="wd" onclick="switchTab(event, 'west-diamond')" title="West Diamond"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 12h4"/><path d="M10 8h4"/><path d="M14 21v-3a2 2 0 0 0-4 0v3"/><path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2"/><path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/></svg></span> <span class="lbl">West Diamond</span></button>
-            <button class="tab-btn" data-cleaning-proj="ww" onclick="switchTab(event, 'west-wing')" title="West Wing"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 12h4"/><path d="M10 8h4"/><path d="M14 21v-3a2 2 0 0 0-4 0v3"/><path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2"/><path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/></svg></span> <span class="lbl">West Wing</span></button>
-            <button class="tab-btn" data-cleaning-proj="ww2" onclick="switchTab(event, 'new-west-wing')" title="(New) West Wing"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 12h4"/><path d="M10 8h4"/><path d="M14 21v-3a2 2 0 0 0-4 0v3"/><path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2"/><path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/></svg></span> <span class="lbl">(New) West Wing</span></button>
-            <button class="tab-btn" data-cleaning-proj="ra" onclick="switchTab(event, 'royal-apartment')" title="Royal Apartment"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 12h4"/><path d="M10 8h4"/><path d="M14 21v-3a2 2 0 0 0-4 0v3"/><path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2"/><path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/></svg></span> <span class="lbl">Royal Apartment</span></button>
+            <button class="tab-btn" data-access-key="cleaning_ec" data-cleaning-proj="ec" onclick="switchTab(event, 'empire-complex')" title="Empire Complex"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 12h4"/><path d="M10 8h4"/><path d="M14 21v-3a2 2 0 0 0-4 0v3"/><path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2"/><path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/></svg></span> <span class="lbl">Empire Complex</span></button>
+            <button class="tab-btn" data-access-key="cleaning_es" data-cleaning-proj="es" onclick="switchTab(event, 'empire-square')" title="Empire Square"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 12h4"/><path d="M10 8h4"/><path d="M14 21v-3a2 2 0 0 0-4 0v3"/><path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2"/><path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/></svg></span> <span class="lbl">Empire Square</span></button>
+            <button class="tab-btn" data-access-key="cleaning_wd" data-cleaning-proj="wd" onclick="switchTab(event, 'west-diamond')" title="West Diamond"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 12h4"/><path d="M10 8h4"/><path d="M14 21v-3a2 2 0 0 0-4 0v3"/><path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2"/><path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/></svg></span> <span class="lbl">West Diamond</span></button>
+            <button class="tab-btn" data-access-key="cleaning_ww" data-cleaning-proj="ww" onclick="switchTab(event, 'west-wing')" title="West Wing"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 12h4"/><path d="M10 8h4"/><path d="M14 21v-3a2 2 0 0 0-4 0v3"/><path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2"/><path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/></svg></span> <span class="lbl">West Wing</span></button>
+            <button class="tab-btn" data-access-key="cleaning_ww2" data-cleaning-proj="ww2" onclick="switchTab(event, 'new-west-wing')" title="(New) West Wing"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 12h4"/><path d="M10 8h4"/><path d="M14 21v-3a2 2 0 0 0-4 0v3"/><path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2"/><path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/></svg></span> <span class="lbl">(New) West Wing</span></button>
+            <button class="tab-btn" data-access-key="cleaning_ra" data-cleaning-proj="ra" onclick="switchTab(event, 'royal-apartment')" title="Royal Apartment"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 12h4"/><path d="M10 8h4"/><path d="M14 21v-3a2 2 0 0 0-4 0v3"/><path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2"/><path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/></svg></span> <span class="lbl">Royal Apartment</span></button>
           </nav>
           <div class="side-actions">
             <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode" title="Toggle dark or light mode"><span class="nav-icon theme-icon"></span> <span class="lbl">Theme</span></button>
@@ -80,13 +80,13 @@
         </div>
       </div>
     </div>
-    <script src="config.js?v=2026-08-31-cleaning-reset"></script>
-    <script src="assets/empire-storage.js?v=2026-08-19-wh-assign"></script>
-    <script src="assets/empire-api.js?v=2026-08-19-wh-assign"></script>
-    <script src="assets/empire-auth.js?v=2026-08-19-wh-assign"></script>
-    <script src="assets/empire-core.js?v=2026-08-19-wh-assign"></script>
-    <script src="assets/empire-sw-update.js?v=2026-08-31-cleaning-reset"></script>
-    <script src="assets/empire-offline-queue.js?v=2026-08-19-wh-assign"></script>
+    <script src="config.js?v=2026-09-15-sec-acc"></script>
+    <script src="assets/empire-storage.js?v=2026-09-15-sec-acc"></script>
+    <script src="assets/empire-api.js?v=2026-09-15-sec-acc"></script>
+    <script src="assets/empire-auth.js?v=2026-09-15-sec-acc"></script>
+    <script src="assets/empire-core.js?v=2026-09-15-sec-acc"></script>
+    <script src="assets/empire-sw-update.js?v=2026-09-15-sec-acc"></script>
+    <script src="assets/empire-offline-queue.js?v=2026-09-15-sec-acc"></script>
     <script>
         /* ===== Themed dialogs (checkmark icons; shared theme/sidebar come from empire-core.js) ===== */
         (function(){
@@ -125,6 +125,7 @@
           if (filterProject !== 'ALL' && allowed.indexOf(filterProject) === -1) filterProject = 'ALL';
           buildProjectFilterBoxes();
           if (!allAccess && allowed.length === 1) switchTabToProject(PROJECT_TAB_MAP[allowed[0]]);
+          if (typeof empireApplySectionNav === 'function') empireApplySectionNav();
         }
         const buildingInfo = {ec:{count:6,buildings:'EC1-EC6',avgFloors:'5-6'},es:{count:5,buildings:'ES1-ES6',avgFloors:'23-28'},wd:{count:3,buildings:'WD-A, WD-B, WD-C',avgFloors:'25-27'},ww:{count:11,buildings:'WW1-WW11',avgFloors:'10-26'},ww2:{count:4,buildings:'WW12-WW15',avgFloors:'32'},ra:{count:32,buildings:'RA-A1-A12, RA-B1-B12, RA-C1-C8',avgFloors:'11-14'}};
         const CHECK_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>';
@@ -1597,6 +1598,7 @@
             var backLink = document.getElementById('loginBackLink');
             if (backLink) backLink.style.display = (cleaningOnly || p.categories === false) ? 'none' : '';
             ensureCleaningActiveTab();
+            if (typeof empireApplySectionNav === 'function') empireApplySectionNav();
             var wl = document.getElementById('whoLabel');
             if(wl) {
               var label = u ? ('Logged in as: '+u+(role?(' ('+role+')'):'')) : '';

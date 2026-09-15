@@ -190,6 +190,7 @@ function asaasEnterMobile_() {
   asaasPopulateApartments_();
   asaasRenderLogItemBlocks_();
   asaasLoadItems_(true);
+  if (typeof empireApplySectionNav === 'function') empireApplySectionNav();
 }
 function asaasEnterOffice_() {
   document.body.classList.remove('asaas-mobile-mode');
@@ -201,6 +202,7 @@ function asaasEnterOffice_() {
   var wl = document.getElementById('asaasWhoLabel');
   if (wl) wl.textContent = 'Logged in as: ' + (empireGetUser() || '') + (empireGetRole() ? (' (' + empireGetRole() + ')') : '');
   asaasLoadItems_(true);
+  if (typeof empireApplySectionNav === 'function') empireApplySectionNav();
 }
 
 function asaasRouteView_() {

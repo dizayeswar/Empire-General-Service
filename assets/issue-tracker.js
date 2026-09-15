@@ -2495,6 +2495,7 @@ function applyPerms(){ if(window.tsPerm) window.tsPerm(); if(window.tsLoadGlobal
   syncWorkerLocationsUi();
   var rb=document.querySelector((ISSUE_CFG.tabNavScope||'.side-nav')+' button[onclick*="openIssueResetModal"], #btnReset, button[onclick="openResetModal()"]'); if(rb && p.reset!==true) rb.style.display='none'; var tb=document.getElementById('btnIssueTrash'); if(!tb) tb=document.getElementById('btnTrash'); if(tb && p.reset!==true) tb.style.display='none';
   var wl=document.getElementById('whoLabel'); if(wl){ var u=empireGetUser()||''; var role=empireGetRole()||''; wl.textContent = u ? ('Logged in as: '+u+(role?(' ('+role+')'):'')) : ''; }
+  if (typeof empireApplySectionNav === 'function') empireApplySectionNav();
 }
 var _issueRouteLock = false;
 function routeCivilIssueView_() {
