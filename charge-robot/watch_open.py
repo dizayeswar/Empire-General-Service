@@ -26,10 +26,11 @@ ADB = (
 WAKE = (
     "AGENT_LOOP_WAKE_new_rus "
     '{"prompt":"NEW chargeable Open RU(s) on the Empire phone. Bot Off = stop '
-    "(no Pay, no SET PIN). Skip overseas RV-/RA-/WD-/WW-1..WW-11. One RU at a time, "
-    "oldest first. Green circle+tick only. Dropdown T1/T2. Pay only if apartment/tariff/amount "
-    'match, then invoice, PIN Charged, SET PIN, Ok. Target 3-5 min. Cards: %s"}'
+    "(no Pay, no SET PIN). Nova and overseas, one RU at a time, oldest first. "
+    "Overseas = STS Vending. Green circle+tick for Nova only. Pay / Recharge only if "
+    'unit and amount match, then invoice, PIN Charged, SET PIN, Ok. Cards: %s"}'
 )
+OVERSEAS_LIVE = ROOT / "overseas_live.on"
 
 
 def adb(*args: str) -> str:
@@ -63,6 +64,39 @@ def is_overseas(unit: str) -> bool:
         if 1 <= n <= 11:
             return True
     return False
+
+
+def overseas_live() -> bool:
+    return OVERSEAS_LIVE.exists()
+
+
+def overseas_busy() -> str:
+    """STS Vending, Customer Selector, pay confirm, or invoice PDF still open."""
+    try:
+        from pywinauto import Desktop
+
+        d = Desktop(backend="uia")
+        for w in d.windows():
+            title = w.window_text() or ""
+            if "rechargePrint" in title:
+                return "overseas invoice"
+            if "Overseas" not in title and "empire.pswla" not in title:
+                continue
+            for c in w.descendants():
+                name = c.window_text() or ""
+                ctrl = c.element_info.control_type
+                low = name.lower()
+                if ctrl == "TabItem" and name.startswith("STS Vending"):
+                    return "STS Vending"
+                if "rechargePrint" in name:
+                    return "overseas invoice"
+                if "are you sure you want to pay" in low or "want to pay for" in low:
+                    return "overseas pay confirm"
+                if "customer selector" in low:
+                    return "Customer Selector"
+    except Exception:
+        pass
+    return ""
 
 
 def parse_cards(texts: list[str]) -> list[dict]:
@@ -172,19 +206,37 @@ def nova_busy() -> str:
 def main() -> int:
     from bot_switch import bot_is_on
 
-    if not bot_is_on():
+    on = bot_is_on()
+    if on is False:
         log("BOT_OFF stop (no refresh, no PLANB, no Pay, no SET PIN)")
         return 3
+    if on is None:
+        log("BOT_SWITCH unread — no PLANB this tick")
+        return 0
+
+    if overseas_live():
+        log("OVERSEAS LIVE")
 
     busy = nova_busy()
+    if not busy and overseas_live():
+        busy = overseas_busy()
+    if not busy:
+        focus = adb("shell", "dumpsys", "window")
+        for ln in focus.splitlines():
+            if ("mCurrentFocus" in ln or "mFocusedApp" in ln) and "UCropActivity" in ln:
+                busy = "Edit Photo"
+                break
     if busy:
         log(f"WAIT {busy} still open — no next RU")
         return 0
 
     texts = refresh_open()
     cards = parse_cards(texts)
-    chargeable = [c for c in cards if c.get("ru") and not is_overseas(c.get("unit") or "")]
     overseas = [c for c in cards if is_overseas(c.get("unit") or "")]
+    if overseas_live():
+        chargeable = [c for c in cards if c.get("ru")]
+    else:
+        chargeable = [c for c in cards if c.get("ru") and not is_overseas(c.get("unit") or "")]
     state = load_state()
     alerted = set(state.get("alerted") or [])
     fresh = [c for c in chargeable if c["ru"] not in alerted]
@@ -207,18 +259,29 @@ def main() -> int:
     save_state({"alerted": sorted(alerted)})
     summary = f"{c['ru']} {c.get('unit') or '?'} {c.get('money') or '?'}"
     log(f"PLANB {summary}")
+    script = "overseas_charge.py" if is_overseas(c.get("unit") or "") else "charge_easy.py"
     r = subprocess.run(
         [
             sys.executable,
-            str(ROOT / "charge_easy.py"),
+            str(ROOT / script),
             c["ru"],
             c.get("unit") or "",
         ],
         cwd=str(ROOT),
     )
+    if r.returncode == 3:
+        return 3
+    if r.returncode == 4:
+        alerted.discard(c["ru"])
+        save_state({"alerted": sorted(alerted)})
+        log(f"PLANB retry next tick {c['ru']}")
+        return 10
     if r.returncode not in (0, 2):
-        log(f"PLANB charge_easy exit {r.returncode}")
-    return 0
+        alerted.discard(c["ru"])
+        save_state({"alerted": sorted(alerted)})
+        log(f"PLANB {script} exit {r.returncode}")
+        return 10
+    return 10
 
 
 if __name__ == "__main__":

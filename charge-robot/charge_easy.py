@@ -4,6 +4,7 @@ from __future__ import annotations
 import re
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -80,6 +81,39 @@ def items_from_phone(ru: str) -> tuple[str, str]:
     return tariff, amount
 
 
+def click_nova_refresh() -> None:
+    """Toolbar Refresh next to Pay (also F5). One click only."""
+    from pywinauto.keyboard import send_keys
+
+    bot = NovaSysRobot()
+    bot.connect()
+    win = find_win()
+    win.set_focus()
+    time.sleep(0.15)
+    try:
+        btn = bot._main().child_window(title="Refresh", control_type="Button")
+        if btn.exists(timeout=0.6) and btn.is_visible():
+            btn.click_input()
+            print("Clicked Nova Refresh")
+            time.sleep(1.6)
+            return
+    except Exception:
+        pass
+    try:
+        pay = bot._main().child_window(title="Pay", control_type="Button")
+        pay.wait("exists", timeout=4)
+        rect = pay.rectangle()
+        click(coords=(rect.left - 28, (rect.top + rect.bottom) // 2))
+        print("Clicked Nova Refresh beside Pay")
+        time.sleep(1.6)
+        return
+    except Exception:
+        pass
+    send_keys("{F5}")
+    print("Nova Refresh F5")
+    time.sleep(1.6)
+
+
 def icon_ok(verdict: str, shot_path: Path) -> bool:
     if verdict == "green":
         return True
@@ -100,10 +134,24 @@ def icon_ok(verdict: str, shot_path: Path) -> bool:
     return red == 0 and green >= 15
 
 
+def _keep_request_awake(stop: threading.Event) -> None:
+    """Wake the screen only. Do not tap Home — that leaves Request Detail."""
+    adb = str(ADB)
+    while not stop.wait(15):
+        try:
+            subprocess.run(
+                [adb, "shell", "input", "keyevent", "224"],
+                timeout=8,
+                capture_output=True,
+            )
+        except Exception:
+            pass
+
+
 def charge_and_pay(apartment: str, tariff: str, amount: str) -> Path:
     from bot_switch import require_bot_on
 
-    require_bot_on()
+    require_bot_on(fresh=True)
     bot = NovaSysRobot()
     bot.connect()
     handle_login_locked(6)
@@ -140,6 +188,12 @@ def charge_and_pay(apartment: str, tariff: str, amount: str) -> Path:
 
 
 def finish_phone(ru: str) -> None:
+    reopen = subprocess.run(
+        [sys.executable, str(ROOT / "phone_fast_ru.py"), ru],
+        cwd=str(ROOT),
+    )
+    if reopen.returncode != 0:
+        raise RuntimeError(f"reopen {ru} before SET PIN failed exit {reopen.returncode}")
     r = subprocess.run(
         [sys.executable, str(ROOT / "phone_finish_ru.py"), ru],
         cwd=str(ROOT),
@@ -164,21 +218,51 @@ def main() -> int:
     try:
         tariff, amount = items_from_phone(ru)
         print(f"ITEMS {tariff} {amount}")
-        apt = nova_query(unit)
-        handle_login_locked(20)
-        bot = NovaSysRobot()
-        bot.connect()
-        bot._open_payments()
-        verdict, path = nova_search(apt)
-        print(f"SEARCH {apt} {verdict} {path}")
-        if not icon_ok(verdict, path):
-            wake("not green tick", f"{ru} {apt} {verdict} {path}")
-            return 2
-        charge_and_pay(apt, tariff, amount)
-        finish_phone(ru)
+        stay = threading.Event()
+        keeper = threading.Thread(target=_keep_request_awake, args=(stay,), daemon=True)
+        keeper.start()
+        try:
+            apt = nova_query(unit)
+            handle_login_locked(20)
+            bot = NovaSysRobot()
+            bot.connect()
+            bot._open_payments()
+            verdict, path = nova_search(apt)
+            print(f"SEARCH {apt} {verdict} {path}")
+            if not icon_ok(verdict, path):
+                if verdict == "red_x":
+                    wake("not green tick", f"{ru} {apt} {verdict} {path}")
+                    return 2
+                print("pending — Refresh once beside Pay")
+                click_nova_refresh()
+                verdict, path = nova_search(apt)
+                print(f"SEARCH after refresh {apt} {verdict} {path}")
+                if not icon_ok(verdict, path):
+                    wake("not green tick", f"{ru} {apt} {verdict} {path}")
+                    return 2
+            charge_and_pay(apt, tariff, amount)
+        finally:
+            stay.set()
+            keeper.join(timeout=2)
+        last_pin = None
+        for attempt in range(2):
+            try:
+                finish_phone(ru)
+                last_pin = None
+                break
+            except Exception as exc:
+                last_pin = exc
+                print("SET PIN retry", attempt + 1, exc)
+        if last_pin is not None:
+            raise last_pin
         close_invoice()
         wake("AUTO PAID + SET PIN", f"{ru} {apt} {tariff} {amount}")
         return 0
+    except SystemExit as exc:
+        if exc.code == 4:
+            wake("laptop stopped", f"{ru} {unit} bot switch unread")
+            return 4
+        raise
     except Exception as exc:
         wake("laptop stopped", f"{ru} {unit} {exc}")
         return 2

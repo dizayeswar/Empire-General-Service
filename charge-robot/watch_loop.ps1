@@ -8,5 +8,9 @@ while ($true) {
     Write-Host "BOT_OFF - laptop watch stopped"
     break
   }
-  Start-Sleep -Seconds 120
+  if ($LASTEXITCODE -eq 10) {
+    Start-Sleep -Seconds 8
+  } else {
+    Start-Sleep -Seconds 25
+  }
 }

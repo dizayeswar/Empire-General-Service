@@ -53,6 +53,15 @@ def center(b):
     return ((b[0] + b[2]) // 2, (b[1] + b[3]) // 2)
 
 
+def on_edit_photo() -> bool:
+    """True only if Edit Photo is the focused screen. UCrop stays in dumpsys after close."""
+    for ln in adb("shell", "dumpsys", "window").splitlines():
+        if "mCurrentFocus" in ln or "mFocusedApp" in ln:
+            if "UCropActivity" in ln:
+                return True
+    return False
+
+
 def invoice_image() -> Image.Image:
     """Use the Invoice paper window. Never crop Nova's payments grid."""
     try:
@@ -72,9 +81,12 @@ def invoice_image() -> Image.Image:
 
 def push_invoice(dest_name: str) -> None:
     dest = SHOT / dest_name
-    im = invoice_image()
-    w, h = im.size
-    im.crop((w // 2 - 300, 50, w // 2 + 340, h - 40)).convert("RGB").save(dest, quality=90)
+    if dest.exists() and dest.stat().st_size > 2000:
+        print("invoice-source existing", dest)
+    else:
+        im = invoice_image()
+        w, h = im.size
+        im.crop((w // 2 - 300, 50, w // 2 + 340, h - 40)).convert("RGB").save(dest, quality=90)
     adb("push", str(dest), f"/sdcard/DCIM/Camera/{dest_name}")
     adb(
         "shell",
@@ -142,14 +154,26 @@ def main() -> None:
         raise SystemExit(f"{dest_name} not in gallery")
     tap((picked[0] + picked[2]) // 2, (picked[1] + picked[3] * 3) // 4)
     time.sleep(1.2)
-    focus = adb("shell", "dumpsys", "window")
-    if "UCropActivity" in focus:
+    if on_edit_photo():
         adb("shell", "settings", "put", "global", "policy_control", "immersive.status=*")
-        time.sleep(0.4)
-        tap(1031, 65)
-        time.sleep(2.0)
+        time.sleep(0.45)
+        root = dump("fin-crop")
+        crop = None
+        for n in root.iter("node"):
+            if (n.attrib.get("content-desc") or "") == "Crop":
+                b = n.attrib.get("bounds") or ""
+                nums = [int(x) for x in b.replace("][", ",").replace("[", "").replace("]", "").split(",") if x]
+                if len(nums) == 4:
+                    crop = nums
+                    break
+        if crop:
+            tap(*center(crop))
+        tap(1020, 110)
+        time.sleep(1.8)
         adb("shell", "settings", "delete", "global", "policy_control")
-        time.sleep(0.8)
+        time.sleep(0.6)
+        if on_edit_photo():
+            raise SystemExit("Edit Photo still open after Crop")
 
     root = dump("fin4")
     t = texts(root)
