@@ -182,7 +182,24 @@ def grab_pdf_invoice(ru: str) -> Path:
     img = ImageGrab.grab(bbox=(r.left, r.top, r.right, r.bottom), all_screens=True)
     img.convert("RGB").save(dest, quality=92)
     print("overseas-invoice", dest)
+    close_pdf_tab(win)
     return dest
+
+
+def close_pdf_tab(win=None) -> bool:
+    """Close the rechargePrint Edge tab. Tab X click misses; Ctrl+W after focusing the tab works."""
+    win = win or edge()
+    win.set_focus()
+    items = named(win)
+    for ctrl, text, el, r in items:
+        if ctrl == "TabItem" and "rechargePrint" in text:
+            click_rect(r)
+            time.sleep(0.25)
+            send_keys("^w")
+            time.sleep(0.6)
+            print("closed overseas invoice PDF tab")
+            return True
+    return False
 
 
 def type_amount(items, amount: str) -> None:
@@ -290,6 +307,7 @@ def sts_search_and_recharge(unit: str, amount: str, restarted: bool = False) -> 
 
 
 def finish_overseas(ru: str) -> None:
+    close_pdf_tab()
     win = edge()
     win.set_focus()
     items = named(win)
@@ -334,6 +352,7 @@ def main() -> int:
     except Exception as exc:
         wake("laptop stopped", f"{ru} {unit} overseas {exc}")
         try:
+            close_pdf_tab()
             close_sts_tab(edge())
             click_home(edge())
         except Exception:

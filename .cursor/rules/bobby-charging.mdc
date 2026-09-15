@@ -50,7 +50,7 @@ Site: Edge **Overseas Integration Platform** (`empire.pswla.com`). First screen 
 5. Amount starts `0.00` — delete the zeros, **type** the phone IQD. Do not click `50000` / `100000` / `150000` / `200000`.
 6. **Recharge** only. Never **Pay Arrears Only**. Confirm **Are you sure you want to pay for that?** → **Ok**. `.00` on the amount is fine.
 7. Invoice **PDF** page opens (narrow Invoice paper, not Nova Payment Receipt). Save **`invoice-RU-######.jpg`** (the RU, not the unit). Push to the phone. Gallery: pick **only that name**. Then SET PIN.
-8. Back on overseas: **Recharge successfully!** → **Ok**. Leftover Customer Name is that unit — do not recharge again. **X** on the STS Vending tab → Home Page.
+8. Close the Invoice PDF **Edge tab** (`rechargePrint`, Ctrl+W) so the watch is not stuck. Then **Recharge successfully!** → **Ok**. Leftover Customer Name is that unit — do not recharge again. **X** on the STS Vending tab → Home Page.
 9. Inside STS Vending, do search + amount + Recharge without sitting still. If a tab jumps while about to type the Unit ID, start STS Vending again (only if it happened).
 10. No National / Generator on this site. Phone National or Generator still gets charged the same way.
 
