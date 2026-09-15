@@ -506,9 +506,7 @@ body.wh-view-only #whAssignSelectAllBtn,
 body.wh-view-only #whAssignReturnSelectedBtn,
 body.wh-view-only #whAssignSelectCancelBtn,
 body.wh-view-only #whAssignSelectCount,
-body.wh-view-only #tab-wh-invoice,
 body.wh-view-only #whEsigCreateBox,
-body.wh-view-only #whInvSaveBtn,
 body.wh-view-only .wh-saved-actions button[data-wh-act="done"],
 body.wh-view-only .wh-saved-actions button[data-wh-act="delete"],
 body.wh-view-only .wh-saved-actions button[data-wh-act="assign"],
@@ -516,8 +514,11 @@ body.wh-view-only .wh-saved-actions button[data-wh-act="reopen"],
 body.wh-view-only .wh-saved-actions button[data-wh-act="edit"],
 body.wh-view-only .wh-saved-actions button[data-wh-act="sapdone"],
 body.wh-view-only #whReturnSavedBtn,
-body.wh-view-only #whReturnSavedBtn2,
-body.wh-view-only .wh-saved-actions button[data-wh-inv-act="delete"] {
+body.wh-view-only #whReturnSavedBtn2 {
+  display: none !important;
+}
+body.wh-inv-view-only #whInvSaveBtn,
+body.wh-inv-view-only .wh-saved-actions button[data-wh-inv-act="delete"] {
   display: none !important;
 }
 html[data-theme="dark"] .wh-done-banner {

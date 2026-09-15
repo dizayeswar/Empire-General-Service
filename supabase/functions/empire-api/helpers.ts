@@ -75,7 +75,7 @@ export function isWarehouseStaff(
 ): boolean {
   const access = parseModuleAccess(moduleAccess);
   if (moduleAccessHasAny_(access)) {
-    return moduleLevel(access, "warehouse_desk") === "write";
+    return warehouseGinWrite_(access);
   }
   const r = normalizeRole(role);
   if (r !== "admin" && r !== "editor") return false;
@@ -90,8 +90,7 @@ export function isWarehouseSigner(
 ): boolean {
   const access = parseModuleAccess(moduleAccess);
   if (moduleAccessHasAny_(access)) {
-    // Desk access (read or write) is the full GIN list — not assigned-only signer mode.
-    if (moduleLevel(access, "warehouse_desk") !== "none") return false;
+    if (warehouseStaffNav_(access)) return false;
     return (
       moduleLevel(access, "warehouse_assigned") !== "none" ||
       moduleLevel(access, "warehouse_done") !== "none" ||
@@ -133,7 +132,9 @@ export function canWriteWarehouseInvoices(
   if (normalizeRole(role) === "viewer") return false;
   if (isWarehouseSigner(role, warehouseSigSections, dept, moduleAccess)) return false;
   if (isAdminAccount(role, moduleAccess)) return true;
-  if (moduleLevel(moduleAccess, "warehouse_invoices") === "write") return true;
+  const access = parseModuleAccess(moduleAccess);
+  if (warehouseInvoiceWrite_(access)) return true;
+  if (moduleAccessHasAny_(access)) return false;
   return isWarehouseStaff(role, dept, moduleAccess);
 }
 
@@ -209,9 +210,17 @@ export const MODULE_ACCESS_KEYS = [
   "charging_bot",
   "charging_reset",
   "warehouse_desk",
+  "warehouse_note",
+  "warehouse_saved",
   "warehouse_assigned",
   "warehouse_done",
+  "warehouse_sap",
+  "warehouse_spusage",
+  "warehouse_sigs",
+  "warehouse_invoice",
   "warehouse_invoices",
+  "warehouse_invsp",
+  "warehouse_invamount",
   "warehouse_sig_auth",
   "warehouse_sig_issued",
   "warehouse_sig_received",
@@ -292,9 +301,17 @@ const MODULE_DEPTS: Record<ModuleAccessKey, string[]> = {
   charging_bot: ["charging"],
   charging_reset: ["charging"],
   warehouse_desk: ["warehouse"],
+  warehouse_note: ["warehouse"],
+  warehouse_saved: ["warehouse"],
   warehouse_assigned: ["warehouse"],
   warehouse_done: ["warehouse"],
+  warehouse_sap: ["warehouse"],
+  warehouse_spusage: ["warehouse"],
+  warehouse_sigs: ["warehouse"],
+  warehouse_invoice: ["warehouse"],
   warehouse_invoices: ["warehouse"],
+  warehouse_invsp: ["warehouse"],
+  warehouse_invamount: ["warehouse"],
   warehouse_sig_auth: ["warehouse"],
   warehouse_sig_issued: ["warehouse"],
   warehouse_sig_received: ["warehouse"],
@@ -330,6 +347,7 @@ type SectionFoldGroup = {
   children: ModuleAccessKey[];
   skipOnLegacy?: ModuleAccessKey[];
   writeOnlyOnLegacy?: ModuleAccessKey[];
+  stickyParent?: boolean;
 };
 
 const SECTION_FOLD_GROUPS: SectionFoldGroup[] = [
@@ -376,7 +394,42 @@ const SECTION_FOLD_GROUPS: SectionFoldGroup[] = [
     skipOnLegacy: ["charging_bot"],
     writeOnlyOnLegacy: ["charging_bin", "charging_reset"],
   },
+  {
+    parent: "warehouse_desk",
+    children: [
+      "warehouse_note", "warehouse_saved", "warehouse_sap", "warehouse_spusage",
+      "warehouse_sigs",
+    ],
+  },
+  {
+    parent: "warehouse_invoices",
+    children: ["warehouse_invoice", "warehouse_invsp", "warehouse_invamount"],
+    stickyParent: true,
+  },
 ];
+
+const WAREHOUSE_GIN_KEYS: ModuleAccessKey[] = [
+  "warehouse_note", "warehouse_saved", "warehouse_sap", "warehouse_spusage", "warehouse_sigs",
+];
+const WAREHOUSE_INV_KEYS: ModuleAccessKey[] = [
+  "warehouse_invoice", "warehouse_invoices", "warehouse_invsp", "warehouse_invamount",
+];
+
+function warehouseAnyWrite_(a: ModuleAccessMap, keys: ModuleAccessKey[]): boolean {
+  return keys.some((k) => a[k] === "write");
+}
+function warehouseAnyAccess_(a: ModuleAccessMap, keys: ModuleAccessKey[]): boolean {
+  return keys.some((k) => a[k] !== "none");
+}
+function warehouseGinWrite_(a: ModuleAccessMap): boolean {
+  return warehouseAnyWrite_(a, WAREHOUSE_GIN_KEYS);
+}
+function warehouseInvoiceWrite_(a: ModuleAccessMap): boolean {
+  return warehouseAnyWrite_(a, WAREHOUSE_INV_KEYS);
+}
+function warehouseStaffNav_(a: ModuleAccessMap): boolean {
+  return warehouseAnyAccess_(a, WAREHOUSE_GIN_KEYS) || warehouseAnyAccess_(a, WAREHOUSE_INV_KEYS);
+}
 
 const CLEANING_PROJECT_KEYS: Record<string, ModuleAccessKey> = {
   ec: "cleaning_ec",
@@ -408,7 +461,9 @@ export function foldModuleSectionAccess(a: ModuleAccessMap): ModuleAccessMap {
         a[k] = lvl;
       }
     }
-    a[g.parent] = maxAccessLevel(a[g.parent], ...g.children.map((k) => a[k]));
+    if (!g.stickyParent) {
+      a[g.parent] = maxAccessLevel(a[g.parent], ...g.children.map((k) => a[k]));
+    }
   }
   return a;
 }
@@ -593,7 +648,8 @@ function accessHasDeskWrite_(a: ModuleAccessMap): boolean {
     a.charging_reset === "write" ||
     a.hr === "write" ||
     a.warehouse_desk === "write" ||
-    a.warehouse_invoices === "write"
+    warehouseGinWrite_(a) ||
+    warehouseInvoiceWrite_(a)
   );
 }
 
@@ -615,7 +671,7 @@ function accessWorkerOnly_(a: ModuleAccessMap): boolean {
     a.charging_waiting !== "none" || a.charging_charged !== "none" || a.charging_bin !== "none" ||
     a.charging_bot !== "none" || a.charging_reset !== "none" ||
     a.hr !== "none" || a.hr_director !== "none" ||
-    a.warehouse_desk !== "none" || a.warehouse_invoices !== "none";
+    a.warehouse_desk !== "none" || warehouseStaffNav_(a);
   return !deskRead;
 }
 
@@ -638,9 +694,7 @@ export function deriveAccountFromModuleAccess(
   let dept = [...depts].join(",");
 
   const sections: WarehouseSigSlot[] = [];
-  if (a.warehouse_desk === "write") {
-    // Full desk — not an assigned-only signer.
-  } else {
+  if (!warehouseGinWrite_(a)) {
     if (a.warehouse_sig_auth !== "none") sections.push("auth");
     if (a.warehouse_sig_issued !== "none") sections.push("issued");
     if (a.warehouse_sig_received !== "none") sections.push("received");
@@ -660,11 +714,13 @@ export function deriveAccountFromModuleAccess(
     a.civil_issue === "none" &&
     a.electric_issue === "none" &&
     a.warehouse_desk === "none" &&
+    !warehouseStaffNav_(a) &&
     a.warehouse_assigned === "none"
   ) {
     role = "cleaning_supervisor";
   } else if (
     a.warehouse_desk === "none" &&
+    !warehouseStaffNav_(a) &&
     (a.warehouse_assigned !== "none" || a.warehouse_done !== "none" || sections.length) &&
     !accessHasDeskWrite_(a) &&
     a.civil_issue === "none" &&
@@ -675,10 +731,13 @@ export function deriveAccountFromModuleAccess(
   else if (anyAccess) role = "viewer";
   else role = "editor";
 
-  const signer = sections.length > 0 ||
-    (role === "warehouse_receiver") ||
-    (a.warehouse_desk === "none" && (a.warehouse_assigned !== "none" || a.warehouse_done !== "none"));
-  dept = ensureWarehouseInDept(dept, signer && a.warehouse_desk !== "write");
+  const signer = !warehouseStaffNav_(a) && (
+    sections.length > 0 ||
+    role === "warehouse_receiver" ||
+    a.warehouse_assigned !== "none" ||
+    a.warehouse_done !== "none"
+  );
+  dept = ensureWarehouseInDept(dept, signer);
 
   const rp = computePerms(role, opts?.hide);
   if (anyAccess && !anyWrite && role !== "admin") {

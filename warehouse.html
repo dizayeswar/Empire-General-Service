@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-09-15-sec-acc">
+<link rel="manifest" href="manifest.webmanifest?v=2026-09-15-wh-sec">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-09-15-sec-acc">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-15-sec-acc">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-09-15-sec-acc">
+<link rel="stylesheet" href="assets/empire.css?v=2026-09-15-wh-sec">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-15-wh-sec">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-09-15-wh-sec">
 </head>
 <body class="auth-login-visible wh-page">
 <div class="login-page show" id="loginPage">
@@ -47,54 +47,54 @@
       <p id="whoLabel"></p>
       <div class="wh-side-scroll">
       <nav class="side-nav side-nav-dept">
-        <button type="button" class="tab-btn dept-tab-btn active" id="tab-wh-note" onclick="whSwitchTab(event,'note')">
+        <button type="button" class="tab-btn dept-tab-btn active" id="tab-wh-note" data-access-key="warehouse_note" onclick="whSwitchTab(event,'note')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span>
           <span class="lbl">Goods Issue Note</span>
         </button>
-        <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-saved" onclick="whSwitchTab(event,'saved')">
+        <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-saved" data-access-key="warehouse_saved" onclick="whSwitchTab(event,'saved')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span>
           <span class="lbl">Saved Notes</span>
           <span class="side-nav-badge" id="whSavedBadge" style="display:none;"></span>
         </button>
-        <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-done" onclick="whSwitchTab(event,'done')">
+        <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-done" data-access-key="warehouse_assigned" onclick="whSwitchTab(event,'done')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg></span>
           <span class="lbl">Assignment</span>
           <span class="side-nav-badge" id="whDoneBadge" style="display:none;"></span>
         </button>
-        <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-closed" onclick="whSwitchTab(event,'closed')">
+        <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-closed" data-access-key="warehouse_done" onclick="whSwitchTab(event,'closed')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
           <span class="lbl">Done</span>
           <span class="side-nav-badge" id="whClosedBadge" style="display:none;"></span>
         </button>
-        <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-sap" onclick="whSwitchTab(event,'sap')">
+        <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-sap" data-access-key="warehouse_sap" onclick="whSwitchTab(event,'sap')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg></span>
           <span class="lbl">SAP</span>
           <span class="side-nav-badge" id="whSapBadge" style="display:none;"></span>
         </button>
-        <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-spusage" onclick="whSwitchTab(event,'spusage')">
+        <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-spusage" data-access-key="warehouse_spusage" onclick="whSwitchTab(event,'spusage')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"/><path d="m15 9 6-6"/></svg></span>
           <span class="lbl">SP Usage</span>
         </button>
-        <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-sigs" onclick="whSwitchTab(event,'sigs')">
+        <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-sigs" data-access-key="warehouse_sigs" onclick="whSwitchTab(event,'sigs')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></span>
           <span class="lbl">Create Signature</span>
         </button>
       </nav>
       <nav class="side-nav-issue side-nav-invoice" id="whInvoiceNav" aria-label="Invoices">
-        <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-invoice" onclick="whSwitchTab(event,'invoice')">
+        <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-invoice" data-access-key="warehouse_invoice" onclick="whSwitchTab(event,'invoice')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6"/><path d="M16 12h-6"/><path d="M10 16h4"/></svg></span>
           <span class="lbl">New Invoice</span>
         </button>
-        <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-invoices" onclick="whSwitchTab(event,'invoices')">
+        <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-invoices" data-access-key="warehouse_invoices" onclick="whSwitchTab(event,'invoices')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span>
           <span class="lbl">Warehouse Invoices</span>
           <span class="side-nav-badge" id="whInvBadge" style="display:none;"></span>
         </button>
-        <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-invspusage" onclick="whSwitchTab(event,'invspusage')">
+        <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-invspusage" data-access-key="warehouse_invsp" onclick="whSwitchTab(event,'invspusage')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"/><path d="m15 9 6-6"/></svg></span>
           <span class="lbl">Invoice SP Usage</span>
         </button>
-        <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-invamount" onclick="whSwitchTab(event,'invamount')">
+        <button type="button" class="tab-btn dept-tab-btn" id="tab-wh-invamount" data-access-key="warehouse_invamount" onclick="whSwitchTab(event,'invamount')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
           <span class="lbl">Invoice Amount</span>
         </button>
@@ -157,7 +157,7 @@
               </div>
               <div class="wh-top-right">
                 <div class="wh-logo-wrap" data-wh-layout="logo">
-                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-09-15-sec-acc" alt="Empire">
+                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-09-15-wh-sec" alt="Empire">
                 </div>
                 <div class="wh-req-block" data-wh-layout="reqBlock">
                   <div class="wh-line"><strong>Request No.:</strong><input id="wh-request-no" class="wh-cell-input" type="text" autocomplete="off"></div>
@@ -604,13 +604,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-09-15-sec-acc"></script>
-<script src="assets/empire-storage.js?v=2026-09-15-sec-acc"></script>
-<script src="assets/empire-api.js?v=2026-09-15-sec-acc"></script>
-<script src="assets/empire-auth.js?v=2026-09-15-sec-acc"></script>
-<script src="assets/empire-core.js?v=2026-09-15-sec-acc"></script>
-<script src="assets/empire-sw-update.js?v=2026-09-15-sec-acc"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-09-15-sec-acc"></script>
+<script src="config.js?v=2026-09-15-wh-sec"></script>
+<script src="assets/empire-storage.js?v=2026-09-15-wh-sec"></script>
+<script src="assets/empire-api.js?v=2026-09-15-wh-sec"></script>
+<script src="assets/empire-auth.js?v=2026-09-15-wh-sec"></script>
+<script src="assets/empire-core.js?v=2026-09-15-wh-sec"></script>
+<script src="assets/empire-sw-update.js?v=2026-09-15-wh-sec"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-09-15-wh-sec"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_COMPANIES = ['CAI','MEP','AC','MDM','CLEANING','GM','AGRICULTURE','EM NET'];
@@ -672,24 +672,23 @@ function whModuleAccessEmpty_(){
   var o=empireGetModuleAccess();
   return !o || !Object.keys(o).length;
 }
-function whCanWriteDesk_(){
+function whCanWriteSection_(key){
   if(typeof empireIsAdminRole==='function' && empireIsAdminRole()) return true;
   var role=String(typeof empireGetRole==='function' ? empireGetRole() : '').toLowerCase().replace(/[\s-]+/g,'_');
   if(role==='viewer' || role==='warehouse_receiver' || role==='receiver') return false;
   if(typeof empireModuleLevel==='function' && !whModuleAccessEmpty_()){
-    return empireModuleLevel('warehouse_desk')==='write';
+    return empireModuleLevel(key)==='write';
   }
   return role==='admin' || role==='editor';
 }
+function whCanWriteDesk_(){
+  return whCanWriteSection_('warehouse_note') || whCanWriteSection_('warehouse_saved') ||
+    whCanWriteSection_('warehouse_sap') || whCanWriteSection_('warehouse_spusage') ||
+    whCanWriteSection_('warehouse_sigs') || whCanWriteSection_('warehouse_desk');
+}
 function whCanWriteInvoices_(){
-  if(typeof empireIsAdminRole==='function' && empireIsAdminRole()) return true;
-  var role=String(typeof empireGetRole==='function' ? empireGetRole() : '').toLowerCase().replace(/[\s-]+/g,'_');
-  if(role==='viewer' || role==='warehouse_receiver' || role==='receiver') return false;
-  if(typeof empireModuleLevel==='function' && !whModuleAccessEmpty_()){
-    if(empireModuleLevel('warehouse_invoices')==='write') return true;
-    return empireModuleLevel('warehouse_desk')==='write';
-  }
-  return role==='admin' || role==='editor';
+  return whCanWriteSection_('warehouse_invoice') || whCanWriteSection_('warehouse_invoices') ||
+    whCanWriteSection_('warehouse_invsp') || whCanWriteSection_('warehouse_invamount');
 }
 function whWriteBlocked_(what){
   if(_whReceiverMode){
@@ -813,26 +812,26 @@ function whApplyReceiverShell_(){
 function whApplyViewOnlyShell_(){
   _whViewOnly = !_whReceiverMode && !whCanWriteDesk_();
   document.body.classList.toggle('wh-view-only', _whViewOnly);
+  document.body.classList.toggle('wh-inv-view-only', !_whReceiverMode && !whCanWriteInvoices_());
   if(!_whViewOnly) return;
   var sub=document.querySelector('.side-title p');
   if(sub) sub.textContent='Goods Issue Notes — view & print';
   var sigsBtn=document.getElementById('tab-wh-sigs');
   if(sigsBtn){
     var sigLbl=sigsBtn.querySelector('.lbl');
-    if(sigLbl) sigLbl.textContent='Signatures';
+    if(sigLbl && !whCanWriteSection_('warehouse_sigs')) sigLbl.textContent='Signatures';
   }
   var esigCreate=document.getElementById('whEsigCreateBox');
-  if(esigCreate) esigCreate.style.display='none';
+  if(esigCreate && !whCanWriteSection_('warehouse_sigs')) esigCreate.style.display='none';
   var esigTitle=document.getElementById('whEsigTitle');
-  if(esigTitle) esigTitle.textContent='Signatures';
+  if(esigTitle && !whCanWriteSection_('warehouse_sigs')) esigTitle.textContent='Signatures';
   var savedHelp=document.querySelector('#wh-tab-saved .wh-tab-help');
   if(savedHelp) savedHelp.innerHTML='View and print only. This account cannot create, edit, or mark notes Done.';
   var sapHelp=document.getElementById('whSapHelp');
-  if(sapHelp) sapHelp.innerHTML='View and print only. This account cannot edit SAP copies.';
+  if(sapHelp && !whCanWriteSection_('warehouse_sap')) sapHelp.innerHTML='View and print only. This account cannot edit SAP copies.';
   var invListHelp=document.querySelector('#wh-tab-invoices .wh-tab-help');
-  if(invListHelp) invListHelp.innerHTML='Saved invoices — view and print only. Book cash totals are visible; this account cannot Handle a book.';
+  if(invListHelp && !whCanWriteInvoices_()) invListHelp.innerHTML='Saved invoices — view and print only. Book cash totals are visible; this account cannot Handle a book.';
   whSetFormLocked(true);
-  if(!_whReceiverMode) whSwitchTab(null,'saved');
 }
 
 function handleLogin(e){ empireAuthLogin(e, 'warehouse', { onSuccess: function(){ enterApp(); } }); }
@@ -849,9 +848,11 @@ function enterApp(){
   _whReceiverMode = whIsReceiverMode_();
   _whViewOnly = !_whReceiverMode && !whCanWriteDesk_();
   document.body.classList.toggle('wh-view-only', _whViewOnly);
+  document.body.classList.toggle('wh-inv-view-only', !_whReceiverMode && !whCanWriteInvoices_());
   whInit();
   whApplyReceiverShell_();
   whApplyViewOnlyShell_();
+  if(typeof empireApplySectionNav==='function') empireApplySectionNav();
   whBindSettingsOutside_();
   whLoadSavedList();
 }
@@ -896,7 +897,7 @@ function whApplyTab_(e, tab){
   if(tab==='sigs') whEsigLoad();
   if(tab==='invoice'){
     if(_whReceiverMode){ whApplyTab_(null,'done'); return; }
-    if(_whViewOnly || !whCanWriteInvoices_()){ whApplyTab_(null,'invoices'); return; }
+    if(!whCanWriteInvoices_()){ whApplyTab_(null,'invoices'); return; }
     whInvEnsureDefaults_();
   }
   if(tab==='invoices'){
@@ -4177,7 +4178,7 @@ function whInvCollectPayload_(){
 }
 function whInvSave(){
   if(_whReceiverMode){ alert('Signers cannot save invoices.'); return; }
-  if(_whViewOnly || !whCanWriteInvoices_()){ alert('View only — this account cannot save invoices.'); return; }
+  if(!whCanWriteInvoices_()){ alert('View only — this account cannot save invoices.'); return; }
   if(_whInvViewOnly){ alert('Saved invoices are view only. Click New to create another.'); return; }
   var payload=whInvCollectPayload_();
   if(!payload.invoiceNo){ alert('Enter Invoice No.'); var el=document.getElementById('wh-inv-number'); if(el) el.focus(); return; }
@@ -4838,7 +4839,7 @@ function whInvRenderBooks_(){
     box.innerHTML='';
     return;
   }
-  var canHandle=!_whViewOnly && !_whReceiverMode && whCanWriteInvoices_();
+  var canHandle=!_whReceiverMode && whCanWriteInvoices_();
   var h='<div class="wh-inv-books">';
   h+='<h3 class="wh-saved-section-title" style="margin-top:0;">Invoice books</h3>';
   h+='<p class="wh-inv-books-help">Each paper book is 48–50 invoices (R V numbers). Cash is the whole book, not only this month. Click a book to see its pages. When a book is finished, Handle it.</p>';
@@ -4926,7 +4927,7 @@ function whInvBookModalSync_(){
   }
 }
 function whInvBookOpenHandle(startRv){
-  if(_whViewOnly || _whReceiverMode || !whCanWriteInvoices_()){ alert('View only — this account cannot handle books.'); return; }
+  if(_whReceiverMode || !whCanWriteInvoices_()){ alert('View only — this account cannot handle books.'); return; }
   var book=whInvFindBook_(startRv);
   if(!book || book.handled) return;
   _whInvBookPending=book;
@@ -4970,7 +4971,7 @@ function whInvBookConfirmHandle(){
   });
 }
 function whInvBookUndo(startRv){
-  if(_whViewOnly || _whReceiverMode || !whCanWriteInvoices_()) return;
+  if(_whReceiverMode || !whCanWriteInvoices_()) return;
   var book=whInvFindBook_(startRv);
   if(!book || !book.handled) return;
   if(!confirm('Undo Handle for Book '+book.bookNo+' (R V '+book.startRv+' – '+book.endRv+')? Cash stays — the book becomes Open again.')) return;
@@ -5123,7 +5124,7 @@ function whInvRenderList_(items){
       +'<td>'+whEsc(r.propertyCode||'—')+'</td>'
       +'<td class="wh-saved-actions">'
       +'<button type="button" data-wh-inv-act="view" data-wh-inv-id="'+whEsc(r.id)+'">View</button> '
-      +((_whViewOnly||!whCanWriteInvoices_())?'':'<button type="button" data-wh-inv-act="delete" data-wh-inv-id="'+whEsc(r.id)+'">Delete</button>')
+      +((!whCanWriteInvoices_())?'':'<button type="button" data-wh-inv-act="delete" data-wh-inv-id="'+whEsc(r.id)+'">Delete</button>')
       +'</td></tr>';
   });
   h+='</tbody></table></div>';
@@ -5227,7 +5228,7 @@ function whInvView(id){
   whSwitchTab(null,'invoice');
 }
 function whInvDelete(id){
-  if(_whViewOnly || !whCanWriteInvoices_()){ alert('View only — this account cannot delete invoices.'); return; }
+  if(!whCanWriteInvoices_()){ alert('View only — this account cannot delete invoices.'); return; }
   id=String(id||'');
   if(!id) return;
   whUiConfirm_('Delete this warehouse invoice?', { danger:true }).then(function(ok){

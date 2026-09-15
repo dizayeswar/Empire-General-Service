@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="manifest" href="manifest.webmanifest?v=2026-09-15-sec-acc">
+  <link rel="manifest" href="manifest.webmanifest?v=2026-09-15-wh-sec">
   <meta name="theme-color" content="#8d015d">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="icon" href="logo-light.png" type="image/png">
   <title>Users — Admin — Empire EGS</title>
-  <link rel="stylesheet" href="assets/empire.css?v=2026-09-15-sec-acc">
+  <link rel="stylesheet" href="assets/empire.css?v=2026-09-15-wh-sec">
   <style>
     .admin-users-wrap { max-width: 1100px; margin: 0 auto; padding: 16px 18px 40px; }
     .admin-users-head { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; justify-content:space-between; margin-bottom:18px; }
@@ -157,15 +157,15 @@
     <div id="usersTableHost"></div>
   </div>
 
-  <script src="config.js?v=2026-09-15-sec-acc"></script>
-  <script src="assets/empire-api.js?v=2026-09-15-sec-acc"></script>
-  <script src="assets/empire-auth.js?v=2026-09-15-sec-acc"></script>
-  <script src="assets/empire-core.js?v=2026-09-15-sec-acc"></script>
-  <script src="assets/empire-sw-update.js?v=2026-09-15-sec-acc"></script>
+  <script src="config.js?v=2026-09-15-wh-sec"></script>
+  <script src="assets/empire-api.js?v=2026-09-15-wh-sec"></script>
+  <script src="assets/empire-auth.js?v=2026-09-15-wh-sec"></script>
+  <script src="assets/empire-core.js?v=2026-09-15-wh-sec"></script>
+  <script src="assets/empire-sw-update.js?v=2026-09-15-wh-sec"></script>
   <script>
     var allUsers = [];
     var editingUsername = null;
-    var _expandedGroups = { charging: false, hr_mod: false, warehouse: true };
+    var _expandedGroups = { charging: false, hr_mod: false, warehouse: false };
     var _pendingSig = undefined;
 
     var ACCESS_MODULES = [
@@ -242,10 +242,17 @@
       { key: 'hr', label: 'Leave requests', child: true, parent: 'hr_mod' },
       { key: 'hr_director', label: 'Pending Director', child: true, parent: 'hr_mod' },
       { key: 'warehouse', label: 'Warehouse', n: 14, group: true },
-      { key: 'warehouse_desk', label: 'Full desk (GIN / SP / create)', child: true, parent: 'warehouse' },
-      { key: 'warehouse_assigned', label: 'Assigned notes only', child: true, parent: 'warehouse' },
-      { key: 'warehouse_done', label: 'Done (after signing)', child: true, parent: 'warehouse' },
-      { key: 'warehouse_invoices', label: 'Invoices', child: true, parent: 'warehouse' },
+      { key: 'warehouse_note', label: 'Goods Issue Note', child: true, parent: 'warehouse' },
+      { key: 'warehouse_saved', label: 'Saved Notes', child: true, parent: 'warehouse' },
+      { key: 'warehouse_assigned', label: 'Assignment', child: true, parent: 'warehouse' },
+      { key: 'warehouse_done', label: 'Done', child: true, parent: 'warehouse' },
+      { key: 'warehouse_sap', label: 'SAP', child: true, parent: 'warehouse' },
+      { key: 'warehouse_spusage', label: 'SP Usage', child: true, parent: 'warehouse' },
+      { key: 'warehouse_sigs', label: 'Create Signature', child: true, parent: 'warehouse' },
+      { key: 'warehouse_invoice', label: 'New Invoice', child: true, parent: 'warehouse' },
+      { key: 'warehouse_invoices', label: 'Warehouse Invoices', child: true, parent: 'warehouse' },
+      { key: 'warehouse_invsp', label: 'Invoice SP Usage', child: true, parent: 'warehouse' },
+      { key: 'warehouse_invamount', label: 'Invoice Amount', child: true, parent: 'warehouse' },
       { key: 'warehouse_sig_auth', label: 'Sign: Authorized by', child: true, parent: 'warehouse' },
       { key: 'warehouse_sig_issued', label: 'Sign: Issued by', child: true, parent: 'warehouse' },
       { key: 'warehouse_sig_received', label: 'Sign: Received by', child: true, parent: 'warehouse' }
@@ -256,7 +263,6 @@
       ACCESS_MODULES.forEach(function (m) {
         if (m.group) _expandedGroups[m.key] = false;
       });
-      _expandedGroups.warehouse = true;
       if (!access) return;
       ACCESS_MODULES.forEach(function (m) {
         if (!m.child || !m.parent) return;
@@ -344,7 +350,7 @@
       var workerOnly = (hasAccess(a, 'civil_issue') || hasAccess(a, 'electric_issue')) &&
         !hasAccess(a, 'civil_department') && !hasAccess(a, 'electrical_department') &&
         !hasAccess(a, 'cleaning') && !hasAccess(a, 'hr') && !hasAccess(a, 'hr_director') &&
-        !accessAnyCharging(a) && !hasAccess(a, 'warehouse_desk') && !hasAccess(a, 'admin');
+        !accessAnyCharging(a) && !hasAccess(a, 'warehouse') && !hasAccess(a, 'admin');
       var cleaning = hasAccess(a, 'cleaning');
       var tradeEl = document.getElementById('tradeField');
       var projEl = document.getElementById('projectsField');
@@ -376,9 +382,17 @@
         a.civil_department = 'write';
       } else if (kind === 'warehouse_desk') {
         a.warehouse_desk = 'write';
+        a.warehouse_note = 'write';
+        a.warehouse_saved = 'write';
         a.warehouse_assigned = 'write';
         a.warehouse_done = 'write';
+        a.warehouse_sap = 'write';
+        a.warehouse_spusage = 'write';
+        a.warehouse_sigs = 'write';
+        a.warehouse_invoice = 'write';
         a.warehouse_invoices = 'write';
+        a.warehouse_invsp = 'write';
+        a.warehouse_invamount = 'write';
       } else if (kind === 'admin_full') {
         ACCESS_MODULES.forEach(function (m) {
           if (!m.group && m.key !== 'hr_director') a[m.key] = 'write';
@@ -480,7 +494,7 @@
         !hasAccess(access, 'civil_department') && !hasAccess(access, 'electrical_department') &&
         !hasAccess(access, 'cleaning') && !hasAccess(access, 'hr') && !hasAccess(access, 'hr_director') &&
         !accessAnyCharging(access) &&
-        !hasAccess(access, 'warehouse_desk') && !hasAccess(access, 'admin');
+        !hasAccess(access, 'warehouse') && !hasAccess(access, 'admin');
       return {
         username: document.getElementById('f-username').value.trim(),
         password: document.getElementById('f-password').value,
@@ -655,8 +669,11 @@
       var bits = [];
       var chargingKids = ['charging_dash', 'charging_summary', 'charging_waiting', 'charging_charged', 'charging_bin', 'charging_bot', 'charging_reset'];
       var hasChgChild = chargingKids.some(function (k) { return a[k] && a[k] !== 'none'; });
+      var whKids = ['warehouse_note', 'warehouse_saved', 'warehouse_assigned', 'warehouse_done', 'warehouse_sap', 'warehouse_spusage', 'warehouse_sigs', 'warehouse_invoice', 'warehouse_invoices', 'warehouse_invsp', 'warehouse_invamount'];
+      var hasWhChild = whKids.some(function (k) { return a[k] && a[k] !== 'none'; });
       Object.keys(a).forEach(function (k) {
         if (k === 'charging' && hasChgChild) return;
+        if (k === 'warehouse_desk' && hasWhChild) return;
         if (a[k] && a[k] !== 'none') bits.push(k.replace(/_/g, ' ') + ':' + a[k]);
       });
       return bits.slice(0, 8).join(' · ') + (bits.length > 8 ? '…' : '');

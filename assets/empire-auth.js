@@ -136,6 +136,18 @@ var EMPIRE_SECTION_FOLD_GROUPS = [
     children: EMPIRE_CHARGING_SECTIONS,
     skipOnLegacy: ['charging_bot'],
     writeOnlyOnLegacy: ['charging_bin', 'charging_reset']
+  },
+  {
+    parent: 'warehouse_desk',
+    children: [
+      'warehouse_note', 'warehouse_saved', 'warehouse_sap', 'warehouse_spusage',
+      'warehouse_sigs'
+    ]
+  },
+  {
+    parent: 'warehouse_invoices',
+    children: ['warehouse_invoice', 'warehouse_invsp', 'warehouse_invamount'],
+    stickyParent: true
   }
 ];
 
@@ -174,9 +186,11 @@ function empireFoldModuleAccess(src) {
         out[k] = parent;
       });
     }
-    var levels = [out[g.parent]];
-    g.children.forEach(function (k) { levels.push(out[k]); });
-    out[g.parent] = empireMaxAccessLevel_.apply(null, levels);
+    if (!g.stickyParent) {
+      var levels = [out[g.parent]];
+      g.children.forEach(function (k) { levels.push(out[k]); });
+      out[g.parent] = empireMaxAccessLevel_.apply(null, levels);
+    }
   });
   return out;
 }
@@ -198,10 +212,10 @@ function empireApplySectionNav() {
       el.style.display = 'none';
       el.classList.remove('active');
     });
-    var activeBtn = document.querySelector('.side-nav .tab-btn.active, .cm-tab.active, .worker-tab-btn.active');
+    var activeBtn = document.querySelector('.side-nav .tab-btn.active, .side-nav-issue .tab-btn.active, .cm-tab.active, .worker-tab-btn.active');
     if (activeBtn && activeBtn.style.display === 'none') {
       var next = null;
-      document.querySelectorAll('.side-nav .tab-btn[data-access-key], .cm-tab[data-access-key], .worker-tab-btn[data-access-key]').forEach(function (b) {
+      document.querySelectorAll('.side-nav .tab-btn[data-access-key], .side-nav-issue .tab-btn[data-access-key], .cm-tab[data-access-key], .worker-tab-btn[data-access-key]').forEach(function (b) {
         if (next || b.style.display === 'none') return;
         next = b;
       });
@@ -222,7 +236,13 @@ function empireModuleLevel(key) {
 }
 
 function empireIsWarehouseSigner() {
-  if (empireModuleLevel('warehouse_desk') !== 'none') return false;
+  var staffKeys = [
+    'warehouse_note', 'warehouse_saved', 'warehouse_sap', 'warehouse_spusage', 'warehouse_sigs',
+    'warehouse_invoice', 'warehouse_invoices', 'warehouse_invsp', 'warehouse_invamount'
+  ];
+  for (var i = 0; i < staffKeys.length; i++) {
+    if (empireModuleLevel(staffKeys[i]) !== 'none') return false;
+  }
   if (
     empireModuleLevel('warehouse_assigned') !== 'none' ||
     empireModuleLevel('warehouse_done') !== 'none' ||
@@ -365,7 +385,9 @@ function empireCanAccessDept(requiredDept) {
       'charging_bin', 'charging_bot', 'charging_reset'
     ],
     warehouse: [
-      'warehouse_desk', 'warehouse_assigned', 'warehouse_done', 'warehouse_invoices',
+      'warehouse_desk', 'warehouse_note', 'warehouse_saved', 'warehouse_assigned', 'warehouse_done',
+      'warehouse_sap', 'warehouse_spusage', 'warehouse_sigs',
+      'warehouse_invoice', 'warehouse_invoices', 'warehouse_invsp', 'warehouse_invamount',
       'warehouse_sig_auth', 'warehouse_sig_issued', 'warehouse_sig_received'
     ],
     hr: ['hr', 'hr_director']
