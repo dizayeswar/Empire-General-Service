@@ -206,9 +206,13 @@ def nova_busy() -> str:
 def main() -> int:
     from bot_switch import bot_is_on
 
-    if not bot_is_on():
+    on = bot_is_on()
+    if on is False:
         log("BOT_OFF stop (no refresh, no PLANB, no Pay, no SET PIN)")
         return 3
+    if on is None:
+        log("BOT_SWITCH unread — no PLANB this tick")
+        return 0
 
     if overseas_live():
         log("OVERSEAS LIVE")
@@ -259,9 +263,19 @@ def main() -> int:
         ],
         cwd=str(ROOT),
     )
+    if r.returncode == 3:
+        return 3
+    if r.returncode == 4:
+        alerted.discard(c["ru"])
+        save_state({"alerted": sorted(alerted)})
+        log(f"PLANB retry next tick {c['ru']}")
+        return 10
     if r.returncode not in (0, 2):
+        alerted.discard(c["ru"])
+        save_state({"alerted": sorted(alerted)})
         log(f"PLANB {script} exit {r.returncode}")
-    return 0
+        return 10
+    return 10
 
 
 if __name__ == "__main__":

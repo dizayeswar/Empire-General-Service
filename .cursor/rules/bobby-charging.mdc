@@ -10,7 +10,7 @@ Wrong apartment = real money. Never type or send a NovaSys or overseas password.
 
 ## Who works
 
-- Laptop `watch_open.py` refreshes Open every ~60s. No AI on empty ticks. During Nova Pay the phone stays on that RU (wake + Request Detail). Before SET PIN, reopen the RU if the phone left it.
+- Laptop `watch_open.py` refreshes Open every ~25s when idle, and ~8s after a charge. No AI on empty ticks. During Nova Pay the phone stays on that RU (wake the screen only — do not tap Home). Before SET PIN, reopen the RU if the phone left it.
 - **Auto Pay:** on a new chargeable RU the laptop opens it, fills Create payment, and **Pays only if apartment + T1/T2 + amount match**. Then attach + SET PIN + Ok. Do not wait for this chat to say Pay. Wake this chat after success or fail (dashboard). Hard RUs also wake this chat. Recheck Bot Off and the boxes immediately before Pay.
 - **Website Bot Off = everything off.** No Home → Requests, no PLANB, no Pay, no SET PIN. This chat stops. Same as **Bobby stop watching**. If the switch cannot be read, treat as Off.
 - One RU at a time, **oldest first**. Finish it (Pay + attach + SET PIN + Ok, **or** cannot_charge + Back) before the next.

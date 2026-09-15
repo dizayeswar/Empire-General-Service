@@ -349,7 +349,7 @@ def sts_search_and_recharge(unit: str, amount: str, restarted: bool = False) -> 
     time.sleep(1.6)
     items = named(edge())
     type_amount(items, amount)
-    require_bot_on()
+    require_bot_on(fresh=True)
     _, r = find(items, "Hyperlink", "Recharge")
     if r is None:
         raise RuntimeError("Recharge not found")
@@ -406,10 +406,31 @@ def main() -> int:
         grab_pdf_invoice(ru)
         stay.set()
         keeper.join(timeout=2)
-        finish_phone(ru)
+        last_pin = None
+        for attempt in range(2):
+            try:
+                finish_phone(ru)
+                last_pin = None
+                break
+            except Exception as exc:
+                last_pin = exc
+                print("SET PIN retry", attempt + 1, exc)
+        if last_pin is not None:
+            raise last_pin
         finish_overseas(ru)
         wake("AUTO PAID + SET PIN", f"{ru} {unit} overseas {amount}")
         return 0
+    except SystemExit as exc:
+        if exc.code == 4:
+            wake("laptop stopped", f"{ru} {unit} overseas bot switch unread")
+            try:
+                close_pdf_tab()
+                close_sts_tab(edge())
+                click_home(edge())
+            except Exception:
+                pass
+            return 4
+        raise
     except Exception as exc:
         wake("laptop stopped", f"{ru} {unit} overseas {exc}")
         try:
