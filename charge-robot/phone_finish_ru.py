@@ -53,6 +53,15 @@ def center(b):
     return ((b[0] + b[2]) // 2, (b[1] + b[3]) // 2)
 
 
+def on_edit_photo() -> bool:
+    """True only if Edit Photo is the focused screen. UCrop stays in dumpsys after close."""
+    for ln in adb("shell", "dumpsys", "window").splitlines():
+        if "mCurrentFocus" in ln or "mFocusedApp" in ln:
+            if "UCropActivity" in ln:
+                return True
+    return False
+
+
 def invoice_image() -> Image.Image:
     """Use the Invoice paper window. Never crop Nova's payments grid."""
     try:
@@ -145,8 +154,9 @@ def main() -> None:
         raise SystemExit(f"{dest_name} not in gallery")
     tap((picked[0] + picked[2]) // 2, (picked[1] + picked[3] * 3) // 4)
     time.sleep(1.2)
-    focus = adb("shell", "dumpsys", "window")
-    if "UCropActivity" in focus:
+    if on_edit_photo():
+        adb("shell", "settings", "put", "global", "policy_control", "immersive.status=*")
+        time.sleep(0.45)
         root = dump("fin-crop")
         crop = None
         for n in root.iter("node"):
@@ -158,11 +168,11 @@ def main() -> None:
                     break
         if crop:
             tap(*center(crop))
-        else:
-            tap(1031, 65)
-        time.sleep(1.4)
-        focus = adb("shell", "dumpsys", "window")
-        if "UCropActivity" in focus:
+        tap(1020, 110)
+        time.sleep(1.8)
+        adb("shell", "settings", "delete", "global", "policy_control")
+        time.sleep(0.6)
+        if on_edit_photo():
             raise SystemExit("Edit Photo still open after Crop")
 
     root = dump("fin4")

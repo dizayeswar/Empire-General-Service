@@ -222,8 +222,10 @@ def main() -> int:
         busy = overseas_busy()
     if not busy:
         focus = adb("shell", "dumpsys", "window")
-        if "UCropActivity" in focus:
-            busy = "Edit Photo"
+        for ln in focus.splitlines():
+            if ("mCurrentFocus" in ln or "mFocusedApp" in ln) and "UCropActivity" in ln:
+                busy = "Edit Photo"
+                break
     if busy:
         log(f"WAIT {busy} still open — no next RU")
         return 0
