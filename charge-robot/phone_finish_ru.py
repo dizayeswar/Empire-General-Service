@@ -147,12 +147,23 @@ def main() -> None:
     time.sleep(1.2)
     focus = adb("shell", "dumpsys", "window")
     if "UCropActivity" in focus:
-        adb("shell", "settings", "put", "global", "policy_control", "immersive.status=*")
-        time.sleep(0.4)
-        tap(1031, 65)
-        time.sleep(2.0)
-        adb("shell", "settings", "delete", "global", "policy_control")
-        time.sleep(0.8)
+        root = dump("fin-crop")
+        crop = None
+        for n in root.iter("node"):
+            if (n.attrib.get("content-desc") or "") == "Crop":
+                b = n.attrib.get("bounds") or ""
+                nums = [int(x) for x in b.replace("][", ",").replace("[", "").replace("]", "").split(",") if x]
+                if len(nums) == 4:
+                    crop = nums
+                    break
+        if crop:
+            tap(*center(crop))
+        else:
+            tap(1031, 65)
+        time.sleep(1.4)
+        focus = adb("shell", "dumpsys", "window")
+        if "UCropActivity" in focus:
+            raise SystemExit("Edit Photo still open after Crop")
 
     root = dump("fin4")
     t = texts(root)

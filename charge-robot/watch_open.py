@@ -220,6 +220,10 @@ def main() -> int:
     busy = nova_busy()
     if not busy and overseas_live():
         busy = overseas_busy()
+    if not busy:
+        focus = adb("shell", "dumpsys", "window")
+        if "UCropActivity" in focus:
+            busy = "Edit Photo"
     if busy:
         log(f"WAIT {busy} still open — no next RU")
         return 0
