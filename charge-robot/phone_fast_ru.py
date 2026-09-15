@@ -4,7 +4,6 @@ from __future__ import annotations
 import subprocess
 import sys
 import time
-import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ADB = (
@@ -23,10 +22,9 @@ def adb(*args: str) -> str:
 
 
 def dump(name: str) -> list[str]:
-    adb("shell", "uiautomator", "dump", "/sdcard/uidump.xml")
-    adb("pull", "/sdcard/uidump.xml", str(DIR / f"{name}.xml"))
-    root = ET.parse(DIR / f"{name}.xml").getroot()
-    return [n.attrib.get("text") or "" for n in root.iter("node") if n.attrib.get("text")]
+    from watch_open import dump_texts
+
+    return dump_texts(name)
 
 
 def tap(x: int, y: int) -> None:
@@ -46,9 +44,6 @@ def main() -> None:
 
     ru = sys.argv[1]
     texts = click_ok_if_done(dump("fast0"))
-    from watch_open import dismiss_exit
-
-    texts = dismiss_exit(texts, "fast0")
     require_bot_on()
     if ru in texts and (
         "Request ID" in texts or "Request Detail" in texts or "SET PIN" in texts

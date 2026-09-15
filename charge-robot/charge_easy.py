@@ -46,39 +46,44 @@ def nova_query(unit: str) -> str:
 
 
 def items_from_phone(ru: str) -> tuple[str, str]:
-    subprocess.run(
-        [sys.executable, str(ROOT / "phone_fast_ru.py"), ru],
-        check=True,
-        cwd=str(ROOT),
-    )
-    adb = str(ADB)
-    subprocess.run([adb, "shell", "input", "tap", "777", "2118"], timeout=20)
-    time.sleep(1.2)
-    ui = ROOT / "logs" / "phone-ui"
-    ui.mkdir(parents=True, exist_ok=True)
-    subprocess.run([adb, "shell", "uiautomator", "dump", "/sdcard/uidump.xml"], timeout=20)
-    subprocess.run([adb, "pull", "/sdcard/uidump.xml", str(ui / "items-b.xml")], timeout=20)
-    import xml.etree.ElementTree as ET
+    from watch_open import dump_texts
 
-    texts = [
-        n.attrib.get("text") or ""
-        for n in ET.parse(ui / "items-b.xml").getroot().iter("node")
-        if n.attrib.get("text")
-    ]
-    tariff = ""
-    amount = ""
-    for t in texts:
-        up = t.upper()
-        if "NATIONAL" in up:
-            tariff = "T1"
-        if "GENERATOR" in up:
-            tariff = "T2"
-        if t.startswith("IQD"):
-            raw = t.replace("IQD", "").replace(",", "").strip()
-            amount = raw.split(".")[0].strip()
-    if tariff not in {"T1", "T2"} or not amount.isdigit():
-        raise RuntimeError(f"bad items tariff={tariff} amount={amount} texts={texts[:16]}")
-    return tariff, amount
+    last: Exception | None = None
+    for attempt in range(2):
+        r = subprocess.run(
+            [sys.executable, str(ROOT / "phone_fast_ru.py"), ru],
+            cwd=str(ROOT),
+        )
+        if r.returncode == 3:
+            raise SystemExit(3)
+        if r.returncode == 4:
+            raise SystemExit(4)
+        if r.returncode != 0:
+            dump_texts(f"items-open-fail{attempt}")
+            last = RuntimeError(f"open {ru} exit {r.returncode}")
+            print("open retry", attempt + 1, last)
+            continue
+        adb = str(ADB)
+        subprocess.run([adb, "shell", "input", "tap", "777", "2118"], timeout=20)
+        time.sleep(1.2)
+        texts = dump_texts("items-b")
+        tariff = ""
+        amount = ""
+        for t in texts:
+            up = t.upper()
+            if "NATIONAL" in up:
+                tariff = "T1"
+            if "GENERATOR" in up:
+                tariff = "T2"
+            if t.startswith("IQD"):
+                raw = t.replace("IQD", "").replace(",", "").strip()
+                amount = raw.split(".")[0].strip()
+        if tariff in {"T1", "T2"} and amount.isdigit():
+            return tariff, amount
+        last = RuntimeError(f"bad items tariff={tariff} amount={amount} texts={texts[:16]}")
+        print("items retry", attempt + 1, last)
+    assert last is not None
+    raise last
 
 
 def click_nova_refresh() -> None:
@@ -210,6 +215,7 @@ def close_invoice() -> None:
 
 def main() -> int:
     from bot_switch import require_bot_on
+    from watch_open import nav_should_retry
 
     require_bot_on()
     ru = sys.argv[1]
@@ -218,6 +224,18 @@ def main() -> int:
     try:
         tariff, amount = items_from_phone(ru)
         print(f"ITEMS {tariff} {amount}")
+    except SystemExit as exc:
+        if exc.code == 4:
+            wake("laptop stopped", f"{ru} {unit} bot switch unread")
+            return 4
+        raise
+    except Exception as exc:
+        wake("laptop stopped", f"{ru} {unit} {exc}")
+        if nav_should_retry(exc):
+            return 5
+        return 2
+
+    try:
         stay = threading.Event()
         keeper = threading.Thread(target=_keep_request_awake, args=(stay,), daemon=True)
         keeper.start()
@@ -265,8 +283,6 @@ def main() -> int:
         raise
     except Exception as exc:
         wake("laptop stopped", f"{ru} {unit} {exc}")
-        if "Exit Application" in str(exc) or "Are you Sure you want to exit?" in str(exc):
-            return 5
         return 2
 
 

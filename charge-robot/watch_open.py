@@ -38,7 +38,7 @@ def adb(*args: str) -> str:
     return (r.stdout or "") + (r.stderr or "")
 
 
-def dump_texts(name: str) -> list[str]:
+def _dump_raw(name: str) -> list[str]:
     adb("shell", "uiautomator", "dump", "/sdcard/uidump.xml")
     dest = DIR / f"{name}.xml"
     adb("pull", "/sdcard/uidump.xml", str(dest))
@@ -48,8 +48,34 @@ def dump_texts(name: str) -> list[str]:
     return [n.attrib.get("text") or "" for n in root.iter("node") if n.attrib.get("text")]
 
 
+def dump_texts(name: str) -> list[str]:
+    """Every dump taps NO if Exit Application is up, so Open RUs are not skipped."""
+    return dismiss_exit(_dump_raw(name), name)
+
+
 def tap(x: int, y: int) -> None:
     adb("shell", "input", "tap", str(x), str(y))
+
+
+def is_exit_texts(texts: list[str]) -> bool:
+    return "Exit Application" in texts or "Are you Sure you want to exit?" in texts
+
+
+def nav_should_retry(exc: BaseException) -> bool:
+    """Exit / list-nav fail = retry this RU. Do not use after Pay (would recharge)."""
+    msg = str(exc)
+    return any(
+        s in msg
+        for s in (
+            "Exit Application",
+            "Are you Sure you want to exit?",
+            "bad items",
+            "not exactly one",
+            "phone is not on",
+            "returned non-zero exit status",
+            "open RU-",
+        )
+    )
 
 
 def _bounds_for_text(xml_name: str, label: str):
@@ -59,6 +85,7 @@ def _bounds_for_text(xml_name: str, label: str):
     if not dest.exists():
         return None
     root = ET.parse(dest).getroot()
+    found = None
     for n in root.iter("node"):
         if n.attrib.get("text") != label:
             continue
@@ -69,26 +96,30 @@ def _bounds_for_text(xml_name: str, label: str):
             if x
         ]
         if len(nums) == 4:
-            return nums
-    return None
+            found = nums
+    return found
 
 
 def dismiss_exit(texts: list[str], name: str) -> list[str]:
-    """Home-on-Home opens Exit Application. Tap NO so the Open list can load."""
-    if "Exit Application" not in texts and "Are you Sure you want to exit?" not in texts:
-        return texts
-    b = _bounds_for_text(name, "NO")
-    if not b:
-        texts = dump_texts(name)
-        if "Exit Application" not in texts and "Are you Sure you want to exit?" not in texts:
+    """Home-on-Home opens Exit Application. Tap NO until it is gone."""
+    for i in range(4):
+        if not is_exit_texts(texts):
             return texts
         b = _bounds_for_text(name, "NO")
-    if not b:
-        return texts
-    tap((b[0] + b[2]) // 2, (b[1] + b[3]) // 2)
-    time.sleep(0.5)
-    log("dismissed Exit Application (NO)")
-    return dump_texts(f"{name}-no")
+        if not b:
+            texts = _dump_raw(name)
+            if not is_exit_texts(texts):
+                return texts
+            b = _bounds_for_text(name, "NO")
+        if not b:
+            log("Exit Application on screen but NO not found")
+            return texts
+        tap((b[0] + b[2]) // 2, (b[1] + b[3]) // 2)
+        time.sleep(0.5)
+        log("dismissed Exit Application (NO)")
+        name = f"{name}-no{i}"
+        texts = _dump_raw(name)
+    return texts
 
 
 def is_overseas(unit: str) -> bool:
@@ -182,36 +213,30 @@ def leave_request_detail(texts: list[str]) -> list[str]:
         tap(79, 185)
         time.sleep(0.7)
         texts = dump_texts(f"watch-back{i}")
-        texts = dismiss_exit(texts, f"watch-back{i}")
     return texts
 
 
 def refresh_open() -> list[str]:
     texts = dump_texts("watch0")
-    texts = dismiss_exit(texts, "watch0")
     texts = leave_request_detail(texts)
     # Home while already on Hello opens Exit Application.
-    if "Hello" not in texts:
+    if "Hello" not in texts and not is_exit_texts(texts):
         tap(134, 2144)
         time.sleep(2)
     tap(405, 2144)
     time.sleep(18)
     texts = dump_texts("watch")
-    texts = dismiss_exit(texts, "watch")
     texts = leave_request_detail(texts)
     if "Getting Requests..." in texts:
         time.sleep(10)
         texts = dump_texts("watchb")
-        texts = dismiss_exit(texts, "watchb")
     if "Hello" in texts or ("Open" not in texts and "Getting Requests..." not in texts):
         tap(405, 2144)
         time.sleep(14)
         texts = dump_texts("watchc")
-        texts = dismiss_exit(texts, "watchc")
         if "Getting Requests..." in texts:
             time.sleep(8)
             texts = dump_texts("watchd")
-            texts = dismiss_exit(texts, "watchd")
         texts = leave_request_detail(texts)
     return texts
 

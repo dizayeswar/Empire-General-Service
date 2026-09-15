@@ -391,11 +391,14 @@ def main() -> int:
     require_bot_on()
     ru = sys.argv[1]
     unit = sys.argv[2] if len(sys.argv) > 2 else ""
+    from watch_open import nav_should_retry
+
     print(f"PLANB START OVERSEAS {ru} {unit}")
     pause_keep()
     stay = threading.Event()
     keeper = threading.Thread(target=_keep_request_awake, args=(stay,), daemon=True)
     keeper.start()
+    charged = False
     try:
         tariff, amount = items_from_phone(ru)
         print(f"ITEMS {tariff} {amount} (overseas ignores T1/T2)")
@@ -403,6 +406,7 @@ def main() -> int:
         if result != "charged":
             wake("overseas skip", f"{ru} {unit} {result}")
             return 2
+        charged = True
         grab_pdf_invoice(ru)
         stay.set()
         keeper.join(timeout=2)
@@ -439,6 +443,8 @@ def main() -> int:
             click_home(edge())
         except Exception:
             pass
+        if not charged and nav_should_retry(exc):
+            return 5
         return 2
     finally:
         stay.set()
