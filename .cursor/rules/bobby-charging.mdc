@@ -28,7 +28,7 @@ Wrong apartment = real money. Never type or send a NovaSys or overseas password.
 - **RU-#####** is unique. Charge once per RU.
 - Items: **IQD before the dot, no comma.** Ignore **Qty**. Ignore **FM-…**. Ignore a 50 K header if the line IQD is different. Example: Qty 2 + `IQD 100000.0` → Pay **100000**.
 - **Nova only:** National → **T1**. Generator → **T2**. **Overseas:** National or Generator does not matter — still charge that RU.
-- Attachments = **Invoice paper photo only**. Nova = Invoice window (not the payments grid). Overseas = the Invoice PDF page. Remarks empty. PIN always `Charged`.
+- Attachments = **Invoice paper photo only**. Nova = Invoice window (not the payments grid). Overseas = the white Invoice slip only (not the Edge screen). Remarks empty. PIN always `Charged`.
 - Attach file name is **`invoice-RU-######.jpg`** (the request **RU**, not the apartment / Customer Name). Same name for Nova and overseas. Push that new file, pick **only that name** in Gallery. Never tap a leftover `IMG_…` or an old `invoice-WW-…` / `invoice-ES-…` / `invoice-WD-…`.
 - Before SET PIN, the paper on the request must show this RU’s **apartment + amount**. Nova also 156 vs 480. If it does not match, stop — do not SET PIN.
 
@@ -49,7 +49,7 @@ Site: Edge **Overseas Integration Platform** (`empire.pswla.com`). First screen 
 4. **One click** = highlight only. **Double click** the result row to open it.
 5. Amount starts `0.00` — delete the zeros, **type** the phone IQD. Do not click `50000` / `100000` / `150000` / `200000`.
 6. **Recharge** only. Never **Pay Arrears Only**. Confirm **Are you sure you want to pay for that?** → **Ok**. `.00` on the amount is fine.
-7. Invoice **PDF** page opens (narrow Invoice paper, not Nova Payment Receipt). Save **`invoice-RU-######.jpg`** (the RU, not the unit). Push to the phone. Gallery: pick **only that name**. Then SET PIN.
+7. Invoice **PDF** page opens (narrow Invoice paper, not Nova Payment Receipt). Save **only the white Invoice slip** as **`invoice-RU-######.jpg`** (the RU, not the unit) — not the Edge window, Acrobat toolbar, or grey PDF background. Push to the phone. Gallery: pick **only that name**. Then SET PIN.
 8. Close the Invoice PDF **Edge tab** (`rechargePrint`, Ctrl+W) so the watch is not stuck. Then **Recharge successfully!** → **Ok**. Leftover Customer Name is that unit — do not recharge again. **X** on the STS Vending tab → Home Page.
 9. Inside STS Vending, do search + amount + Recharge without sitting still. If a tab jumps while about to type the Unit ID, start STS Vending again (only if it happened).
 10. No National / Generator on this site. Phone National or Generator still gets charged the same way.

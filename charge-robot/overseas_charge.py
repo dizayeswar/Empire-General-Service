@@ -7,7 +7,7 @@ import threading
 import time
 from pathlib import Path
 
-from PIL import ImageGrab
+from PIL import Image, ImageGrab
 from pywinauto import Desktop
 from pywinauto.keyboard import send_keys
 from pywinauto.mouse import click, double_click
@@ -162,6 +162,67 @@ def selector_rows(items, unit: str) -> list:
     return rows
 
 
+def crop_invoice_paper(img: Image.Image) -> Image.Image:
+    """Keep the white Invoice slip. Drop Edge chrome, Acrobat bar, and grey PDF background."""
+    rgb = img.convert("RGB")
+    w, h = rgb.size
+    px = rgb.load()
+
+    def is_paper(r: int, g: int, b: int) -> bool:
+        if min(r, g, b) > 210:
+            return True
+        return g > 90 and g > r + 20 and g > b + 20
+
+    col_frac = []
+    for x in range(w):
+        hits = 0
+        n = 0
+        for y in range(0, h, 4):
+            n += 1
+            if is_paper(*px[x, y]):
+                hits += 1
+        col_frac.append(hits / n)
+
+    best_len, x0, x1 = 0, 0, 0
+    i = 0
+    while i < w:
+        if col_frac[i] > 0.35:
+            j = i
+            while j < w and col_frac[j] > 0.35:
+                j += 1
+            if j - i > best_len:
+                best_len, x0, x1 = j - i, i, j
+            i = j
+        else:
+            i += 1
+    if best_len < 80:
+        raise RuntimeError("overseas invoice paper not found")
+
+    ys = []
+    for y in range(h):
+        hits = 0
+        n = 0
+        for x in range(x0, x1, 3):
+            n += 1
+            if is_paper(*px[x, y]):
+                hits += 1
+        if n and hits / n > 0.4:
+            ys.append(y)
+    if len(ys) < 40:
+        raise RuntimeError("overseas invoice paper not found")
+
+    pad = 4
+    box = (
+        max(0, x0 - pad),
+        max(0, ys[0] - pad),
+        min(w, x1 + pad),
+        min(h, ys[-1] + 1 + pad),
+    )
+    paper = rgb.crop(box)
+    print("overseas-invoice-crop", box, paper.size)
+    return paper
+
+
 def grab_pdf_invoice(ru: str) -> Path:
     SHOT.mkdir(parents=True, exist_ok=True)
     dest = SHOT / ru_invoice_name(ru)
@@ -180,7 +241,7 @@ def grab_pdf_invoice(ru: str) -> Path:
     win = edge()
     r = win.rectangle()
     img = ImageGrab.grab(bbox=(r.left, r.top, r.right, r.bottom), all_screens=True)
-    img.convert("RGB").save(dest, quality=92)
+    crop_invoice_paper(img).save(dest, quality=92)
     print("overseas-invoice", dest)
     close_pdf_tab(win)
     return dest
