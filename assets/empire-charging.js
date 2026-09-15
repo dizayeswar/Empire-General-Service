@@ -9,6 +9,8 @@ var CHG_TIMER_ = null;
 var CHG_BOT_TIMER_ = null;
 var CHG_BOT_ = { enabled: false, updatedBy: '', updatedAt: '' };
 var CHG_LOADING_ = false;
+var CHG_SUM_DAY_ = '';
+var CHG_SUM_MONTH_ = '';
 
 var CHG_STATUS_LABEL = {
   charged: 'Charged',
@@ -35,9 +37,8 @@ function chgSwitchTab_(event, tab) {
     el.classList.toggle('active', el.id === tab);
   });
   document.querySelectorAll('.side-nav .tab-btn').forEach(function (btn) {
-    btn.classList.remove('active');
+    btn.classList.toggle('active', btn.getAttribute('data-chg-tab') === tab);
   });
-  if (event && event.currentTarget) event.currentTarget.classList.add('active');
   if (tab === 'waiting') {
     CHG_FILTER_KPI_ = 'waiting';
     var st = document.getElementById('chgFilterStatus');
@@ -156,6 +157,222 @@ function chgFormatAmt_(raw) {
   }
 }
 
+function chgMoney_(n) {
+  var v = Number(n || 0);
+  if (!isFinite(v) || v < 0) v = 0;
+  try {
+    return v.toLocaleString('en-US') + ' IQD';
+  } catch (e) {
+    return String(v) + ' IQD';
+  }
+}
+
+function chgBaghdadParts_(iso) {
+  var d = iso ? new Date(iso) : new Date();
+  if (isNaN(d.getTime())) d = new Date();
+  var ymd = '';
+  try {
+    ymd = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Baghdad',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(d);
+  } catch (e) {
+    ymd = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  return { ymd: ymd, ym: ymd.slice(0, 7) };
+}
+
+function chgEnsureSumPeriod_() {
+  var now = chgBaghdadParts_();
+  if (!CHG_SUM_DAY_) CHG_SUM_DAY_ = now.ymd;
+  if (!CHG_SUM_MONTH_) CHG_SUM_MONTH_ = now.ym;
+}
+
+function chgOnSumDay_() {
+  var el = document.getElementById('chgSumDay');
+  CHG_SUM_DAY_ = (el && el.value) || chgBaghdadParts_().ymd;
+  chgRenderSummary_();
+}
+
+function chgOnSumMonth_() {
+  var el = document.getElementById('chgSumMonth');
+  CHG_SUM_MONTH_ = (el && el.value) || chgBaghdadParts_().ym;
+  chgRenderSummary_();
+}
+
+function chgSumGoToday_() {
+  var now = chgBaghdadParts_();
+  CHG_SUM_DAY_ = now.ymd;
+  CHG_SUM_MONTH_ = now.ym;
+  chgRenderSummary_();
+}
+
+function chgPickSumDay_(ymd) {
+  var s = String(ymd || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return;
+  CHG_SUM_DAY_ = s;
+  CHG_SUM_MONTH_ = s.slice(0, 7);
+  chgRenderSummary_();
+}
+
+function chgPrettyDay_(ymd) {
+  var d = new Date(String(ymd) + 'T12:00:00');
+  if (isNaN(d.getTime())) return ymd;
+  try {
+    return new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).format(d);
+  } catch (e) {
+    return ymd;
+  }
+}
+
+function chgPrettyMonth_(ym) {
+  var d = new Date(String(ym) + '-01T12:00:00');
+  if (isNaN(d.getTime())) return ym;
+  try {
+    return new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric' }).format(d);
+  } catch (e) {
+    return ym;
+  }
+}
+
+function chgChargeWhen_(row) {
+  return String((row && (row.chargedAt || row.createdAt)) || '');
+}
+
+function chgAmtNum_(row) {
+  var n = Number(String((row && row.amount) || '').replace(/\D/g, ''));
+  return n > 0 ? n : 0;
+}
+
+function chgKind_(row) {
+  if (!row) return 'other';
+  if (row.tariff === 'T2' || row.electricType === 'generator') return 'generator';
+  if (row.tariff === 'T1' || row.electricType === 'national') return 'national';
+  return 'other';
+}
+
+function chgEmptyBucket_() {
+  return {
+    count: 0,
+    amount: 0,
+    national: { count: 0, amount: 0 },
+    generator: { count: 0, amount: 0 },
+    other: { count: 0, amount: 0 },
+    nova: { count: 0, amount: 0 },
+    overseas: { count: 0, amount: 0 }
+  };
+}
+
+function chgAddToBucket_(b, row) {
+  var amt = chgAmtNum_(row);
+  b.count += 1;
+  b.amount += amt;
+  var k = chgKind_(row);
+  b[k].count += 1;
+  b[k].amount += amt;
+  if (chgIsOverseas_(row)) {
+    b.overseas.count += 1;
+    b.overseas.amount += amt;
+  } else {
+    b.nova.count += 1;
+    b.nova.amount += amt;
+  }
+}
+
+function chgPeriodStats_(ymd, ym) {
+  var day = chgEmptyBucket_();
+  var month = chgEmptyBucket_();
+  var byDay = {};
+  CHG_ROWS_.forEach(function (row) {
+    if (String(row.status) !== 'charged') return;
+    var p = chgBaghdadParts_(chgChargeWhen_(row));
+    if (p.ym === ym) {
+      chgAddToBucket_(month, row);
+      if (!byDay[p.ymd]) byDay[p.ymd] = chgEmptyBucket_();
+      chgAddToBucket_(byDay[p.ymd], row);
+    }
+    if (p.ymd === ymd) chgAddToBucket_(day, row);
+  });
+  return { day: day, month: month, byDay: byDay };
+}
+
+function chgSumSplitHtml_(b) {
+  var extra = '';
+  if (b.other.count) {
+    extra = '<div class="chg-sum-other">' + chgEsc_(String(b.other.count)) +
+      ' with no T1/T2 · ' + chgEsc_(chgMoney_(b.other.amount)) + '</div>';
+  }
+  return '<div class="chg-sum-split">' +
+    '<div class="chg-sum-kind nat"><span>National · T1</span><b>' + chgEsc_(chgMoney_(b.national.amount)) +
+    '</b><em>' + chgEsc_(String(b.national.count)) + ' charged</em></div>' +
+    '<div class="chg-sum-kind gen"><span>Generator · T2</span><b>' + chgEsc_(chgMoney_(b.generator.amount)) +
+    '</b><em>' + chgEsc_(String(b.generator.count)) + ' charged</em></div>' +
+    '</div>' + extra +
+    '<p class="chg-sum-sys">Nova ' + chgEsc_(chgMoney_(b.nova.amount)) +
+    ' · Overseas ' + chgEsc_(chgMoney_(b.overseas.amount)) + '</p>';
+}
+
+function chgSumCardHtml_(title, subtitle, b) {
+  return '<article class="chg-sum-card">' +
+    '<h3>' + chgEsc_(title) + '</h3>' +
+    '<p class="chg-sum-sub">' + chgEsc_(subtitle) + '</p>' +
+    '<div class="chg-sum-hero"><b>' + chgEsc_(chgMoney_(b.amount)) + '</b>' +
+    '<span>' + chgEsc_(String(b.count)) + ' charged</span></div>' +
+    chgSumSplitHtml_(b) +
+    '</article>';
+}
+
+function chgSumDaysHtml_(byDay, ym, selectedYmd) {
+  var keys = Object.keys(byDay).sort().reverse();
+  if (!keys.length) {
+    return chgEmptyDesk_('No charged RUs this month', 'Pick another month, or wait until a charge is saved.');
+  }
+  var body = keys.map(function (ymd) {
+    var b = byDay[ymd];
+    var on = ymd === selectedYmd ? ' is-on' : '';
+    return '<tr class="chg-sum-day-row' + on + '" onclick="chgPickSumDay_(\'' + ymd + '\')">' +
+      '<td>' + chgEsc_(chgPrettyDay_(ymd)) + '</td>' +
+      '<td>' + chgEsc_(String(b.count)) + '</td>' +
+      '<td>' + chgEsc_(String(b.national.count)) + ' · ' + chgEsc_(chgMoney_(b.national.amount)) + '</td>' +
+      '<td>' + chgEsc_(String(b.generator.count)) + ' · ' + chgEsc_(chgMoney_(b.generator.amount)) + '</td>' +
+      '<td class="chg-amt">' + chgEsc_(chgMoney_(b.amount)) + '</td>' +
+      '</tr>';
+  }).join('');
+  var cards = keys.map(function (ymd) {
+    var b = byDay[ymd];
+    var on = ymd === selectedYmd ? ' is-on' : '';
+    return '<button type="button" class="chg-sum-day-card' + on + '" onclick="chgPickSumDay_(\'' + ymd + '\')">' +
+      '<strong>' + chgEsc_(chgPrettyDay_(ymd)) + '</strong>' +
+      '<span>' + chgEsc_(chgMoney_(b.amount)) + '</span>' +
+      '<em>' + chgEsc_(String(b.count)) + ' charged · National ' +
+      chgEsc_(chgMoney_(b.national.amount)) + ' · Generator ' +
+      chgEsc_(chgMoney_(b.generator.amount)) + '</em></button>';
+  }).join('');
+  return '<div class="chg-table-wrap chg-sum-table-wrap"><table class="chg-table"><thead><tr>' +
+    '<th>Day</th><th>Charged</th><th>National</th><th>Generator</th><th>Total</th>' +
+    '</tr></thead><tbody>' + body + '</tbody></table></div>' +
+    '<div class="chg-sum-day-cards">' + cards + '</div>';
+}
+
+function chgRenderSummary_() {
+  chgEnsureSumPeriod_();
+  var dayEl = document.getElementById('chgSumDay');
+  var monthEl = document.getElementById('chgSumMonth');
+  if (dayEl && dayEl.value !== CHG_SUM_DAY_) dayEl.value = CHG_SUM_DAY_;
+  if (monthEl && monthEl.value !== CHG_SUM_MONTH_) monthEl.value = CHG_SUM_MONTH_;
+  var stats = chgPeriodStats_(CHG_SUM_DAY_, CHG_SUM_MONTH_);
+  var cards = document.getElementById('chgSumCards');
+  if (cards) {
+    cards.innerHTML =
+      chgSumCardHtml_('Day', chgPrettyDay_(CHG_SUM_DAY_), stats.day) +
+      chgSumCardHtml_('Month', chgPrettyMonth_(CHG_SUM_MONTH_), stats.month);
+  }
+  var days = document.getElementById('chgSumDays');
+  if (days) days.innerHTML = chgSumDaysHtml_(stats.byDay, CHG_SUM_MONTH_, CHG_SUM_DAY_);
+}
+
 function chgIsOverseas_(row) {
   if (String(row.source || '').toLowerCase() === 'overseas') return true;
   if (String(row.source || '').toLowerCase() === 'nova') return false;
@@ -248,8 +465,8 @@ function chgSetKpi_(key) {
   document.querySelectorAll('.tab-content').forEach(function (el) {
     el.classList.toggle('active', el.id === 'dash');
   });
-  document.querySelectorAll('.side-nav .tab-btn').forEach(function (btn, i) {
-    btn.classList.toggle('active', i === 0);
+  document.querySelectorAll('.side-nav .tab-btn').forEach(function (btn) {
+    btn.classList.toggle('active', btn.getAttribute('data-chg-tab') === 'dash');
   });
   chgRender_();
 }
@@ -438,6 +655,7 @@ function chgRender_() {
       ? chgTableHtml_(charged)
       : chgEmptyDesk_('No charged RUs yet', 'When Nova Pay succeeds, the invoice is saved on that same RU.');
   }
+  chgRenderSummary_();
 }
 
 function chgSetLoading_(on) {
@@ -468,7 +686,7 @@ function chgLoad_(force) {
       var html = typeof empireErrorHtml === 'function'
         ? empireErrorHtml(msg, 'Use Refresh in the sidebar.')
         : '<p>' + chgEsc_(msg) + '</p>';
-      ['chgList', 'chgWaitingList', 'chgChargedList'].forEach(function (id) {
+      ['chgList', 'chgWaitingList', 'chgChargedList', 'chgSumDays'].forEach(function (id) {
         var el = document.getElementById(id);
         if (el) el.innerHTML = html;
       });

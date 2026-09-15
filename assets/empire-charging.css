@@ -532,12 +532,197 @@ html[data-theme='dark'] .chg-bot-bar.is-on {
 html[data-theme='dark'] .chg-pill.retry { color: #f3d4e8; }
 html[data-theme='dark'] .chg-drawer-backdrop { background: rgba(0, 0, 0, 0.62); }
 
+.chg-sum-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin: 0 0 16px;
+  align-items: flex-end;
+}
+.chg-sum-toolbar .form-group {
+  margin: 0;
+  min-width: 180px;
+}
+.chg-sum-day-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.chg-sum-day-row input[type='date'],
+.chg-sum-toolbar input[type='month'] {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  border-radius: 999px;
+  padding: 12px 18px;
+  border: 2px solid var(--input-border);
+  background: var(--input-bg);
+  color: var(--text);
+  font-size: var(--fs-body, 14px);
+  font-weight: 600;
+}
+.chg-sum-today {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  color: #8d015d;
+  background: rgba(141, 1, 93, 0.08);
+  border: 1px solid rgba(141, 1, 93, 0.28);
+}
+.chg-sum-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.chg-sum-card {
+  background: var(--panel, var(--card));
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  padding: 16px 18px 14px;
+  min-width: 0;
+}
+.chg-sum-card h3 {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+  font-weight: 800;
+}
+.chg-sum-sub {
+  margin: 4px 0 12px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.chg-sum-hero {
+  margin-bottom: 14px;
+}
+.chg-sum-hero b {
+  display: block;
+  font-size: 28px;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  color: #8d015d;
+}
+.chg-sum-hero span {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--text-soft);
+}
+.chg-sum-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.chg-sum-kind {
+  border-radius: 12px;
+  padding: 10px 12px;
+  min-width: 0;
+}
+.chg-sum-kind span,
+.chg-sum-kind em {
+  display: block;
+  font-style: normal;
+  font-size: 12px;
+  color: var(--text-soft);
+}
+.chg-sum-kind b {
+  display: block;
+  margin: 4px 0 2px;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  word-break: break-word;
+}
+.chg-sum-kind.nat {
+  background: rgba(59, 130, 246, 0.10);
+}
+.chg-sum-kind.gen {
+  background: rgba(197, 115, 79, 0.12);
+}
+.chg-sum-other,
+.chg-sum-sys {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--text-soft);
+}
+.chg-sum-h {
+  margin: 4px 0 10px;
+  font-size: 15px;
+}
+.chg-sum-table-wrap tbody tr.chg-sum-day-row.is-on {
+  background: rgba(141, 1, 93, 0.08);
+}
+.chg-sum-day-cards {
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+}
+.chg-sum-day-card {
+  appearance: none;
+  width: 100%;
+  text-align: left;
+  background: var(--panel, var(--card));
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+.chg-sum-day-card strong,
+.chg-sum-day-card span {
+  display: block;
+}
+.chg-sum-day-card span {
+  margin-top: 4px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #8d015d;
+}
+.chg-sum-day-card em {
+  display: block;
+  margin-top: 4px;
+  font-style: normal;
+  font-size: 12px;
+  color: var(--text-soft);
+}
+.chg-sum-day-card.is-on {
+  border-color: #8d015d;
+  box-shadow: 0 0 0 3px rgba(141, 1, 93, 0.12);
+}
+
+html[data-theme='dark'] .chg-sum-hero b,
+html[data-theme='dark'] .chg-sum-day-card span {
+  color: #f3d4e8;
+}
+html[data-theme='dark'] .chg-sum-today {
+  color: #f3d4e8;
+  background: rgba(243, 212, 232, 0.08);
+  border-color: rgba(243, 212, 232, 0.22);
+}
+html[data-theme='dark'] .chg-sum-kind.nat {
+  background: rgba(59, 130, 246, 0.18);
+}
+html[data-theme='dark'] .chg-sum-kind.gen {
+  background: rgba(197, 115, 79, 0.20);
+}
+
 @media (max-width: 900px) {
   .chg-kpi-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .chg-table-wrap { display: none; }
   .chg-cards { display: flex; }
+  .chg-sum-grid {
+    grid-template-columns: 1fr;
+  }
+  .chg-sum-table-wrap { display: none; }
+  .chg-sum-day-cards { display: flex; }
 }
 
 @media (max-width: 560px) {

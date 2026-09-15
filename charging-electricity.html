@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="manifest" href="manifest.webmanifest?v=2026-09-15-chg-sys">
+<link rel="manifest" href="manifest.webmanifest?v=2026-09-15-chg-sum">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Charging Electricity — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-09-15-chg-sys">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-15-chg-sys">
-<link rel="stylesheet" href="assets/empire-charging.css?v=2026-09-15-chg-sys">
+<link rel="stylesheet" href="assets/empire.css?v=2026-09-15-chg-sum">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-15-chg-sum">
+<link rel="stylesheet" href="assets/empire-charging.css?v=2026-09-15-chg-sum">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -46,19 +46,23 @@
       </div>
       <p id="whoLabel"></p>
       <nav class="side-nav">
-        <button class="tab-btn active" onclick="chgSwitchTab_(event,'dash')">
+        <button class="tab-btn active" data-chg-tab="dash" onclick="chgSwitchTab_(event,'dash')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg></span>
           <span class="lbl">Dashboard</span>
         </button>
-        <button class="tab-btn" onclick="chgSwitchTab_(event,'waiting')">
+        <button class="tab-btn" data-chg-tab="summary" onclick="chgSwitchTab_(event,'summary')">
+          <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16v-5"/><path d="M12 16V8"/><path d="M17 16v-9"/></svg></span>
+          <span class="lbl">Summary</span>
+        </button>
+        <button class="tab-btn" data-chg-tab="waiting" onclick="chgSwitchTab_(event,'waiting')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>
           <span class="lbl">Waiting</span>
         </button>
-        <button class="tab-btn" onclick="chgSwitchTab_(event,'charged')">
+        <button class="tab-btn" data-chg-tab="charged" onclick="chgSwitchTab_(event,'charged')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
           <span class="lbl">Charged</span>
         </button>
-        <button class="tab-btn" id="chgBinTabBtn" onclick="chgSwitchTab_(event,'bin')" style="display:none;">
+        <button class="tab-btn" id="chgBinTabBtn" data-chg-tab="bin" onclick="chgSwitchTab_(event,'bin')" style="display:none;">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 19H4.815a1.83 1.83 0 0 1-1.57-.881 1.785 1.785 0 0 1-.004-1.784L7.196 9.5"/><path d="M11 19h8.203a1.83 1.83 0 0 0 1.556-.89 1.784 1.784 0 0 0 0-1.775l-1.226-2.12"/><path d="m14 16-3 3 3 3"/><path d="M8.293 13.596 7.196 9.5 3.1 10.598"/><path d="m9.344 5.811 1.093-1.892A1.83 1.83 0 0 1 11.985 3a1.784 1.784 0 0 1 1.546.888l3.943 6.843"/><path d="m13.378 9.633 4.096 1.098 1.097-4.096"/></svg></span>
           <span class="lbl">Recycle Bin</span>
         </button>
@@ -83,6 +87,29 @@
         </div>
         <button type="button" class="chg-bot-toggle" id="chgBotToggle" onclick="chgToggleBot_()" style="display:none;">Turn On</button>
       </div>
+      <div id="summary" class="tab-content">
+        <div class="form-section chg-desk">
+          <h2>Summary</h2>
+          <p class="chg-lead">Charged money only — national (T1) and generator (T2), by day and by month, in Baghdad time. Waiting RUs are not counted.</p>
+          <div class="chg-sum-toolbar">
+            <div class="form-group">
+              <label for="chgSumDay">Day</label>
+              <div class="chg-sum-day-row">
+                <input id="chgSumDay" type="date" onchange="chgOnSumDay_()">
+                <button type="button" class="chg-sum-today" onclick="chgSumGoToday_()">Today</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="chgSumMonth">Month</label>
+              <input id="chgSumMonth" type="month" onchange="chgOnSumMonth_()">
+            </div>
+          </div>
+          <div class="chg-sum-grid" id="chgSumCards"></div>
+          <h3 class="chg-sum-h">Days in this month</h3>
+          <div id="chgSumDays"></div>
+        </div>
+      </div>
+
       <div id="dash" class="tab-content active">
         <div class="form-section chg-desk">
           <div class="chg-head">
@@ -201,12 +228,12 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-09-15-chg-sys"></script>
-<script src="assets/empire-api.js?v=2026-09-15-chg-sys"></script>
-<script src="assets/empire-auth.js?v=2026-09-15-chg-sys"></script>
-<script src="assets/empire-core.js?v=2026-09-15-chg-sys"></script>
-<script src="assets/empire-storage.js?v=2026-09-15-chg-sys"></script>
-<script src="assets/empire-sw-update.js?v=2026-09-15-chg-sys"></script>
-<script src="assets/empire-charging.js?v=2026-09-15-chg-sys"></script>
+<script src="config.js?v=2026-09-15-chg-sum"></script>
+<script src="assets/empire-api.js?v=2026-09-15-chg-sum"></script>
+<script src="assets/empire-auth.js?v=2026-09-15-chg-sum"></script>
+<script src="assets/empire-core.js?v=2026-09-15-chg-sum"></script>
+<script src="assets/empire-storage.js?v=2026-09-15-chg-sum"></script>
+<script src="assets/empire-sw-update.js?v=2026-09-15-chg-sum"></script>
+<script src="assets/empire-charging.js?v=2026-09-15-chg-sum"></script>
 </body>
 </html>
