@@ -304,7 +304,20 @@
 .chg-pill.retry {
   background: rgba(141, 1, 93, 0.12);
   color: #8d015d;
-  margin-left: 6px;
+}
+.chg-pill.nova {
+  background: rgba(59, 130, 246, 0.14);
+  color: #1d4ed8;
+}
+.chg-pill.overseas {
+  background: rgba(141, 1, 93, 0.12);
+  color: #8d015d;
+}
+.chg-pill + .chg-pill { margin-left: 6px; }
+.chg-sys {
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 .chg-type {
   font-size: 12px;

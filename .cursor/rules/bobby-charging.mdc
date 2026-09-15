@@ -6,11 +6,11 @@ alwaysApply: false
 
 # Bobby charging (Nova + phone)
 
-Wrong apartment = real money. Never type or send a NovaSys password.
+Wrong apartment = real money. Never type or send a NovaSys or overseas password.
 
 ## Who works
 
-- Laptop `watch_open.py` refreshes Open every ~2 min. No AI on empty ticks.
+- Laptop `watch_open.py` refreshes Open every ~60s. No AI on empty ticks. During Nova Pay the phone stays on that RU (wake + Request Detail). Before SET PIN, reopen the RU if the phone left it.
 - **Auto Pay:** on a new chargeable RU the laptop opens it, fills Create payment, and **Pays only if apartment + T1/T2 + amount match**. Then attach + SET PIN + Ok. Do not wait for this chat to say Pay. Wake this chat after success or fail (dashboard). Hard RUs also wake this chat. Recheck Bot Off and the boxes immediately before Pay.
 - **Website Bot Off = everything off.** No Home → Requests, no PLANB, no Pay, no SET PIN. This chat stops. Same as **Bobby stop watching**. If the switch cannot be read, treat as Off.
 - One RU at a time, **oldest first**. Finish it (Pay + attach + SET PIN + Ok, **or** cannot_charge + Back) before the next.
@@ -27,16 +27,33 @@ Wrong apartment = real money. Never type or send a NovaSys password.
 - Do not spam Back from Home — that opens **Exit Application**. Tap **NO** if it appears.
 - **RU-#####** is unique. Charge once per RU.
 - Items: **IQD before the dot, no comma.** Ignore **Qty**. Ignore **FM-…**. Ignore a 50 K header if the line IQD is different. Example: Qty 2 + `IQD 100000.0` → Pay **100000**.
-- National → **T1**. Generator → **T2**.
-- Attachments = **Invoice paper photo only** (window titled Invoice, not Nova’s payments grid). Remarks empty. PIN always `Charged`.
-- Attach file name is **`invoice-RU-######.jpg`** (the RU, not the apartment). Push that new file, pick **only that name** in Gallery. Never tap a leftover `IMG_…` or an old `invoice-WW-…` / `invoice-ES-…`.
-- Before SET PIN, the paper on the request must show this RU’s **apartment + amount** (and 156 vs 480). If it does not match, stop — do not SET PIN.
+- **Nova only:** National → **T1**. Generator → **T2**. **Overseas:** National or Generator does not matter — still charge that RU.
+- Attachments = **Invoice paper photo only**. Nova = Invoice window (not the payments grid). Overseas = the Invoice PDF page. Remarks empty. PIN always `Charged`.
+- Attach file name is **`invoice-RU-######.jpg`** (the request **RU**, not the apartment / Customer Name). Same name for Nova and overseas. Push that new file, pick **only that name** in Gallery. Never tap a leftover `IMG_…` or an old `invoice-WW-…` / `invoice-ES-…` / `invoice-WD-…`.
+- Before SET PIN, the paper on the request must show this RU’s **apartment + amount**. Nova also 156 vs 480. If it does not match, stop — do not SET PIN.
 
 ## Nova vs overseas
 
-- **Nova:** `ES-` and `WW-12` … `WW-15`. Search as the phone except ES4 `ES-4-17-02` → `ES4-17-2` and ES6 `ES-6-{floor}-{apt}` (floors 2–24, apts 1–6).
-- **Overseas (ignore, no charge, no dashboard):** `RV-`, `RA-`, `WD-`, `WW-1` … `WW-11`.
-- Charge only if first column is **green circle + white tick**. Ignore orange/red **row fill**. Grey clock / red X = no Pay, no SET PIN; still save dashboard with the cause; then **leave that request** and keep watching. Trust the search screenshot if pixels say pending.
+- **Nova (live now):** `ES-` and `WW-12` … `WW-15`. Search as the phone except ES4 `ES-4-17-02` → `ES4-17-2` and ES6 `ES-6-{floor}-{apt}` (floors 2–24, apts 1–6).
+- **Overseas (saved, do not charge until the user says `bobby start overseas too`):** `RV-`, `RA-`, `WD-`, `WW-1` … `WW-11`. Skip like before. Watch does not PLANB them. No STS Vending, no Recharge, no overseas SET PIN.
+- When overseas is live: oldest first across Nova **and** overseas, one RU at a time. Customer Selector **none or more than one row** → skip that RU (dashboard `no_row` / `ambiguous`), next RU. Save charged and skipped overseas rows on Charging Electricity with **source `overseas`**. Dashboard shows **Nova** or **Overseas**. No National/Generator.
+- Keep-awake may still click **Home** every 4 minutes so Edge stays logged in. Login page → **Sign In** only (saved password). Never type the password. That is not charging.
+- Charge only if first column is **green circle + white tick**. Ignore orange/red **row fill**. Grey clock (**pending**): click **Refresh** once (toolbar next to Pay, or F5), then look again. If it is green, Pay as usual. If it is still pending after that one refresh, no Pay, no SET PIN; save dashboard; leave that request; keep watching. Red X = no refresh, no Pay; save dashboard and leave. Trust the search screenshot if pixels say pending.
+
+## Overseas process (locked — wait for `bobby start overseas too`)
+
+Site: Edge **Overseas Integration Platform** (`empire.pswla.com`). First screen after login = Home Page.
+
+1. Quick Operations: **STS Vending** only. Never **Re-print Invoice**.
+2. Do not click or type the Customer Name box. Click the **search icon next to that box**.
+3. Customer Selector: type the Unit ID **exactly as the phone** in the empty box (example `ww-11-11-a`). Click the **search icon next to that typed Unit ID**, not the first search icon.
+4. **One click** = highlight only. **Double click** the result row to open it.
+5. Amount starts `0.00` — delete the zeros, **type** the phone IQD. Do not click `50000` / `100000` / `150000` / `200000`.
+6. **Recharge** only. Never **Pay Arrears Only**. Confirm **Are you sure you want to pay for that?** → **Ok**. `.00` on the amount is fine.
+7. Invoice **PDF** page opens (narrow Invoice paper, not Nova Payment Receipt). Save **`invoice-RU-######.jpg`** (the RU, not the unit). Push to the phone. Gallery: pick **only that name**. Then SET PIN.
+8. Back on overseas: **Recharge successfully!** → **Ok**. Leftover Customer Name is that unit — do not recharge again. **X** on the STS Vending tab → Home Page.
+9. Inside STS Vending, do search + amount + Recharge without sitting still. If a tab jumps while about to type the Unit ID, start STS Vending again (only if it happened).
+10. No National / Generator on this site. Phone National or Generator still gets charged the same way.
 
 ## Pay
 
@@ -49,5 +66,6 @@ Wrong apartment = real money. Never type or send a NovaSys password.
 ## Commands
 
 - **Bobby stop watching** → stop the laptop watch (no Home → Requests, no Pay, no SET PIN).
-- **Start watching Bobby** → start `watch_loop.ps1` (exits when the website Bot is Off).
-- Website **Turn Off** → laptop watch exits; Pay / SET PIN / PLANB refuse to run; this chat does not continue a charge.
+- **Start watching Bobby** → start `watch_loop.ps1` (exits when the website Bot is Off). Nova only until overseas is started.
+- **bobby start overseas too** → then (and only then) charge overseas RUs with the locked STS Vending process. Until that phrase, skip overseas.
+- Website **Turn Off** → laptop watch exits; overseas keep exits; Pay / SET PIN / PLANB refuse to run; this chat does not continue a charge.

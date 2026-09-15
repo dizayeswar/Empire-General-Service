@@ -156,7 +156,21 @@ function chgFormatAmt_(raw) {
   }
 }
 
+function chgIsOverseas_(row) {
+  if (String(row.source || '').toLowerCase() === 'overseas') return true;
+  if (String(row.source || '').toLowerCase() === 'nova') return false;
+  var u = String(row.unitId || '').trim().toUpperCase().replace(/\s+/g, '');
+  if (/^RV-/.test(u) || /^RA-/.test(u) || /^WD-/.test(u)) return true;
+  var m = u.match(/^WW-(\d+)(?:-|$)/);
+  return !!(m && Number(m[1]) >= 1 && Number(m[1]) <= 11);
+}
+
+function chgSystemLabel_(row) {
+  return chgIsOverseas_(row) ? 'Overseas' : 'Nova';
+}
+
 function chgTypeLabel_(row) {
+  if (chgIsOverseas_(row)) return 'STS';
   if (row.tariff === 'T2' || row.electricType === 'generator') return 'T2 · generator';
   if (row.tariff === 'T1' || row.electricType === 'national') return 'T1 · national';
   return '—';
@@ -168,7 +182,9 @@ function chgStatusLabel_(status) {
 
 function chgPillHtml_(row) {
   var st = String(row.status || '');
-  var html = '<span class="chg-pill ' + chgEsc_(st) + '">' + chgEsc_(chgStatusLabel_(st)) + '</span>';
+  var sys = chgIsOverseas_(row) ? 'overseas' : 'nova';
+  var html = '<span class="chg-pill ' + sys + '">' + chgEsc_(chgSystemLabel_(row)) + '</span>';
+  html += '<span class="chg-pill ' + chgEsc_(st) + '">' + chgEsc_(chgStatusLabel_(st)) + '</span>';
   if (row.retryRequested && st !== 'charged') {
     html += '<span class="chg-pill retry">Retry queued</span>';
   }
@@ -190,6 +206,9 @@ function chgIsWaiting_(row) {
 
 function chgPassFilters_(row, statusFilter, typeFilter, q) {
   var st = String(row.status || '');
+  var sysFilter = (document.getElementById('chgFilterSystem') || {}).value || '';
+  if (sysFilter === 'overseas' && !chgIsOverseas_(row)) return false;
+  if (sysFilter === 'nova' && chgIsOverseas_(row)) return false;
   if (typeFilter === 'national' && row.electricType !== 'national' && row.tariff !== 'T1') return false;
   if (typeFilter === 'generator' && row.electricType !== 'generator' && row.tariff !== 'T2') return false;
   if (statusFilter === 'charged' && st !== 'charged') return false;
@@ -199,7 +218,7 @@ function chgPassFilters_(row, statusFilter, typeFilter, q) {
     return false;
   }
   if (q) {
-    var blob = [row.ru, row.unitId, row.novaSearch, row.note, row.amount, chgStatusLabel_(st), chgTypeLabel_(row)]
+    var blob = [row.ru, row.unitId, row.novaSearch, row.note, row.amount, chgStatusLabel_(st), chgTypeLabel_(row), chgSystemLabel_(row)]
       .join(' ')
       .toLowerCase();
     if (blob.indexOf(q) === -1) return false;
@@ -292,7 +311,8 @@ function chgRowOpen_(id) {
     (row.chargedAt ? '<dt>Finished</dt><dd>' + chgEsc_(chgFormatDt_(row.chargedAt)) + '</dd>' : '') +
     '<dt>Duration</dt><dd>' + chgEsc_(chgDurationLabel_(row)) + '</dd>' +
     '<dt>Unit</dt><dd class="chg-unit">' + chgEsc_(row.unitId || '—') + '</dd>' +
-    '<dt>Nova search</dt><dd class="chg-unit">' + chgEsc_(row.novaSearch || '—') + '</dd>' +
+    '<dt>System</dt><dd>' + chgEsc_(chgSystemLabel_(row)) + '</dd>' +
+    '<dt>Search</dt><dd class="chg-unit">' + chgEsc_(row.novaSearch || '—') + '</dd>' +
     '<dt>Electricity</dt><dd>' + chgEsc_(chgTypeLabel_(row)) + '</dd>' +
     '<dt>Amount</dt><dd>' + chgEsc_(chgFormatAmt_(row.amount)) + '</dd>' +
     '<dt>Cause</dt><dd>' + chgEsc_(row.note || (row.status === 'charged' ? 'Charged' : '—')) + '</dd>' +
@@ -338,6 +358,7 @@ function chgTableHtml_(rows) {
       '<td class="chg-dt">' + chgEsc_(chgFormatDt_(row.createdAt)) + '</td>' +
       '<td class="chg-ru">' + chgEsc_(row.ru) + '</td>' +
       '<td class="chg-unit">' + chgEsc_(row.unitId || '—') + '</td>' +
+      '<td class="chg-sys">' + chgEsc_(chgSystemLabel_(row)) + '</td>' +
       '<td class="chg-type">' + chgEsc_(chgTypeLabel_(row)) + '</td>' +
       '<td class="chg-amt">' + chgEsc_(chgFormatAmt_(row.amount)) + '</td>' +
       '<td>' + chgPillHtml_(row) + '</td>' +
@@ -350,7 +371,7 @@ function chgTableHtml_(rows) {
     return '<button type="button" class="chg-card" onclick="chgRowOpen_(\'' + chgSafeId_(row.id) + '\')">' +
       '<div class="chg-card-top">' + chgThumbHtml_(row) +
       '<div class="chg-card-meta"><div class="chg-card-ru">' + chgEsc_(row.ru) + '</div>' +
-      '<div class="chg-card-unit">' + chgEsc_(row.unitId || '—') + '</div>' +
+      '<div class="chg-card-unit">' + chgEsc_(row.unitId || '—') + ' · ' + chgEsc_(chgSystemLabel_(row)) + '</div>' +
       chgPillHtml_(row) + '</div></div>' +
       '<div class="chg-card-row"><span>' + chgEsc_(chgFormatDt_(row.createdAt)) + '</span>' +
       '<span>' + chgEsc_(chgTypeLabel_(row)) + '</span>' +
@@ -360,7 +381,7 @@ function chgTableHtml_(rows) {
       '</button>';
   }).join('');
   return '<div class="chg-table-wrap"><table class="chg-table"><thead><tr>' +
-    '<th>Saved</th><th>RU</th><th>Unit</th><th>Type</th><th>Amount</th><th>Status</th><th>Duration</th><th>Invoice</th><th>Cause</th>' +
+    '<th>Saved</th><th>RU</th><th>Unit</th><th>System</th><th>Type</th><th>Amount</th><th>Status</th><th>Duration</th><th>Invoice</th><th>Cause</th>' +
     '</tr></thead><tbody>' + body + '</tbody></table></div>' +
     '<div class="chg-cards">' + cards + '</div>';
 }

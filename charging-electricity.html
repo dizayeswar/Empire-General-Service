@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="manifest" href="manifest.webmanifest?v=2026-09-10-chg-dur">
+<link rel="manifest" href="manifest.webmanifest?v=2026-09-15-chg-sys">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Charging Electricity — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-09-10-chg-dur">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-10-chg-dur">
-<link rel="stylesheet" href="assets/empire-charging.css?v=2026-09-10-chg-dur">
+<link rel="stylesheet" href="assets/empire.css?v=2026-09-15-chg-sys">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-15-chg-sys">
+<link rel="stylesheet" href="assets/empire-charging.css?v=2026-09-15-chg-sys">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -23,7 +23,7 @@
     <img src="logo-light.png" alt="Empire World" style="height:44px;width:auto;display:block;margin:0 auto 16px;">
     <a class="back" href="index.html">&larr; Back to hub</a>
     <h1>Charging Electricity</h1>
-    <p style="text-align:center;color:var(--text-soft);font-size:14px;margin:-8px 0 16px;">Apartment electricity charges — T1 national and T2 generator</p>
+    <p style="text-align:center;color:var(--text-soft);font-size:14px;margin:-8px 0 16px;">Apartment electricity charges — Nova and overseas</p>
     <div class="login-message" id="loginMessage"></div>
     <form class="login-form" onsubmit="chgHandleLogin_(event)">
       <input type="text" id="loginUsername" placeholder="Username" required autocomplete="username">
@@ -42,7 +42,7 @@
       </div>
       <div class="side-title">
         <h1>Charging Electricity</h1>
-        <p>Nova charge log</p>
+        <p>Nova and overseas log</p>
       </div>
       <p id="whoLabel"></p>
       <nav class="side-nav">
@@ -88,7 +88,7 @@
           <div class="chg-head">
             <div>
               <h2>Charge log</h2>
-              <p class="chg-lead">Every request ID is saved once. Charged rows keep the invoice and how long the bot took (start to finish). Waiting rows keep the cause and no picture. Overseas units are never listed.</p>
+              <p class="chg-lead">Every request ID is saved once. Charged rows keep the invoice and how long the bot took. Waiting rows keep the cause and no picture. Each row shows <strong>Nova</strong> or <strong>Overseas</strong>.</p>
             </div>
             <button type="button" class="chg-retry-btn" id="chgRetryBtnDash" onclick="chgTryFailedAgain_()">Try failed again</button>
           </div>
@@ -97,6 +97,14 @@
             <div class="form-group chg-search-wrap">
               <label for="chgSearch">Search</label>
               <input id="chgSearch" class="chg-search" type="search" placeholder="RU, unit, note…" autocomplete="off" oninput="chgRender_()">
+            </div>
+            <div class="form-group">
+              <label for="chgFilterSystem">System</label>
+              <select id="chgFilterSystem" onchange="chgOnFilterChange_()">
+                <option value="">All</option>
+                <option value="nova">Nova</option>
+                <option value="overseas">Overseas</option>
+              </select>
             </div>
             <div class="form-group">
               <label for="chgFilterType">Electricity</label>
@@ -193,12 +201,12 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-09-10-chg-dur"></script>
-<script src="assets/empire-api.js?v=2026-09-10-chg-dur"></script>
-<script src="assets/empire-auth.js?v=2026-09-10-chg-dur"></script>
-<script src="assets/empire-core.js?v=2026-09-10-chg-dur"></script>
-<script src="assets/empire-storage.js?v=2026-09-10-chg-dur"></script>
-<script src="assets/empire-sw-update.js?v=2026-09-10-chg-dur"></script>
-<script src="assets/empire-charging.js?v=2026-09-10-chg-dur"></script>
+<script src="config.js?v=2026-09-15-chg-sys"></script>
+<script src="assets/empire-api.js?v=2026-09-15-chg-sys"></script>
+<script src="assets/empire-auth.js?v=2026-09-15-chg-sys"></script>
+<script src="assets/empire-core.js?v=2026-09-15-chg-sys"></script>
+<script src="assets/empire-storage.js?v=2026-09-15-chg-sys"></script>
+<script src="assets/empire-sw-update.js?v=2026-09-15-chg-sys"></script>
+<script src="assets/empire-charging.js?v=2026-09-15-chg-sys"></script>
 </body>
 </html>

@@ -78,7 +78,7 @@ function normUnit(raw: unknown): string {
   return String(raw || "").trim().replace(/\s+/g, " ");
 }
 
-/** Website apartments later — never save these on the Nova charging desk. */
+/** RV / RA / WD / WW-1..11 are overseas (STS). WW-12..15 and ES- are Nova. */
 export function isOverseasUnit(raw: unknown): boolean {
   const u = String(raw || "").trim().toUpperCase().replace(/\s+/g, "");
   if (!u) return false;
@@ -267,9 +267,6 @@ export async function handleSaveChargingRequest(body: Record<string, unknown>, a
 
   const unitId = normUnit(body.unitId || body.unit_id || body.unit);
   if (!unitId) return bad("Unit ID is required.");
-  if (isOverseasUnit(unitId)) {
-    return bad("Overseas units are not listed on this desk (RV, RA, WD, WW-1 to WW-11).");
-  }
 
   const status = normStatus(body.status);
   if (!status) {
@@ -283,7 +280,7 @@ export async function handleSaveChargingRequest(body: Record<string, unknown>, a
   const note = str(body.note || body.cause).slice(0, 500);
   const invoiceUrl = str(body.invoiceUrl || body.invoice_url).slice(0, 2000);
   const novaSearch = str(body.novaSearch || body.nova_search || unitId).slice(0, 80);
-  const source = str(body.source || "nova").slice(0, 40) || "nova";
+  const source = isOverseasUnit(unitId) ? "overseas" : "nova";
 
   if (status === "charged" && !invoiceUrl) {
     return bad("Charged rows need an invoice picture.");
