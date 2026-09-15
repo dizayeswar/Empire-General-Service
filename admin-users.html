@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="icon" href="logo-light.png" type="image/png">
   <title>Users — Admin — Empire EGS</title>
-  <link rel="stylesheet" href="assets/empire.css?v=2026-08-22-access">
+  <link rel="stylesheet" href="assets/empire.css?v=2026-09-15-chg-acc">
   <style>
     .admin-users-wrap { max-width: 1100px; margin: 0 auto; padding: 16px 18px 40px; }
     .admin-users-head { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; justify-content:space-between; margin-bottom:18px; }
@@ -52,6 +52,8 @@
     .access-matrix .lvl-cell { text-align:center; }
     .access-matrix input[type="radio"] { width:16px; height:16px; accent-color:#185fa5; cursor:pointer; }
     .access-toggle { border:0; background:transparent; cursor:pointer; color:#185fa5; font-weight:700; margin-right:6px; }
+    .access-group-label { border:0; background:transparent; cursor:pointer; color:inherit; font:inherit; font-weight:700; padding:0; }
+    .access-group-label:hover { color:#185fa5; }
     @media (max-width:720px) {
       .admin-user-table { display:block; overflow-x:auto; }
     }
@@ -92,7 +94,7 @@
 
     <div id="userFormCard" class="admin-form-card" style="display:none;">
       <h2 id="formTitle" style="font-size:16px;margin:0 0 12px;">New user</h2>
-      <p class="admin-role-help">Tick access per module. Example: Electrical Read/Write + Warehouse Assigned/Done + Received signing only. <strong>HR — Pending Director</strong> can be given to only one user.</p>
+      <p class="admin-role-help">Click a module with sections to open its list. Set <strong>No Access / Read / Read/Write</strong> on each section — for example Charging Electricity (Dashboard, Summary, Waiting, Charged, Recycle Bin, Bot, Reset). <strong>Pending Director</strong> can be given to only one user.</p>
       <div class="admin-form-grid">
         <label>Username<input id="f-username" autocomplete="off" placeholder="e.g. himdad"></label>
         <label>Password<input id="f-password" type="password" autocomplete="new-password" placeholder="min 4 characters"></label>
@@ -155,15 +157,15 @@
     <div id="usersTableHost"></div>
   </div>
 
-  <script src="config.js?v=2026-09-07-charging"></script>
-  <script src="assets/empire-api.js?v=2026-09-07-charging"></script>
-  <script src="assets/empire-auth.js?v=2026-09-07-charging"></script>
-  <script src="assets/empire-core.js?v=2026-09-07-charging"></script>
-  <script src="assets/empire-sw-update.js?v=2026-09-07-charging"></script>
+  <script src="config.js?v=2026-09-15-chg-acc"></script>
+  <script src="assets/empire-api.js?v=2026-09-15-chg-acc"></script>
+  <script src="assets/empire-auth.js?v=2026-09-15-chg-acc"></script>
+  <script src="assets/empire-core.js?v=2026-09-15-chg-acc"></script>
+  <script src="assets/empire-sw-update.js?v=2026-09-15-chg-acc"></script>
   <script>
     var allUsers = [];
     var editingUsername = null;
-    var _whExpanded = true;
+    var _expandedGroups = { charging: false, hr_mod: false, warehouse: true };
     var _pendingSig = undefined;
 
     var ACCESS_MODULES = [
@@ -178,9 +180,17 @@
       { key: 'asaas', label: 'A.S.A.A.S', n: 9 },
       { key: 'application', label: 'Application', n: 10 },
       { key: 'ups', label: 'UPS Checklist', n: 11 },
-      { key: 'charging', label: 'Charging Electricity', n: 12 },
-      { key: 'hr', label: 'HR Department (leave requests)', n: 13 },
-      { key: 'hr_director', label: 'HR — Pending Director', n: '', child: true, parent: 'hr' },
+      { key: 'charging', label: 'Charging Electricity', n: 12, group: true },
+      { key: 'charging_dash', label: 'Dashboard', child: true, parent: 'charging' },
+      { key: 'charging_summary', label: 'Summary', child: true, parent: 'charging' },
+      { key: 'charging_waiting', label: 'Waiting', child: true, parent: 'charging' },
+      { key: 'charging_charged', label: 'Charged', child: true, parent: 'charging' },
+      { key: 'charging_bin', label: 'Recycle Bin', child: true, parent: 'charging' },
+      { key: 'charging_bot', label: 'Bot On / Off', child: true, parent: 'charging' },
+      { key: 'charging_reset', label: 'Reset Data', child: true, parent: 'charging' },
+      { key: 'hr_mod', label: 'HR Department', n: 13, group: true },
+      { key: 'hr', label: 'Leave requests', child: true, parent: 'hr_mod' },
+      { key: 'hr_director', label: 'Pending Director', child: true, parent: 'hr_mod' },
       { key: 'warehouse', label: 'Warehouse', n: 14, group: true },
       { key: 'warehouse_desk', label: 'Full desk (GIN / SP / create)', child: true, parent: 'warehouse' },
       { key: 'warehouse_assigned', label: 'Assigned notes only', child: true, parent: 'warehouse' },
@@ -190,6 +200,36 @@
       { key: 'warehouse_sig_issued', label: 'Sign: Issued by', child: true, parent: 'warehouse' },
       { key: 'warehouse_sig_received', label: 'Sign: Received by', child: true, parent: 'warehouse' }
     ];
+
+    function resetExpandedGroups(access) {
+      _expandedGroups = { charging: false, hr_mod: false, warehouse: true };
+      if (!access) return;
+      if (accessAnyCharging(access)) _expandedGroups.charging = true;
+      if ((access.hr && access.hr !== 'none') || (access.hr_director && access.hr_director !== 'none')) {
+        _expandedGroups.hr_mod = true;
+      }
+      var wh = ['warehouse_desk', 'warehouse_assigned', 'warehouse_done', 'warehouse_invoices',
+        'warehouse_sig_auth', 'warehouse_sig_issued', 'warehouse_sig_received'];
+      if (wh.some(function (k) { return access[k] && access[k] !== 'none'; })) {
+        _expandedGroups.warehouse = true;
+      }
+    }
+
+    function isGroupExpanded(key) {
+      return _expandedGroups[key] !== false;
+    }
+
+    function toggleAccessGroup(key) {
+      _expandedGroups[key] = !isGroupExpanded(key);
+      renderAccessMatrix(readAccessFromForm());
+    }
+
+    function accessAnyCharging(a) {
+      return ['charging', 'charging_dash', 'charging_summary', 'charging_waiting', 'charging_charged',
+        'charging_bin', 'charging_bot', 'charging_reset'].some(function (k) {
+        return a[k] && a[k] !== 'none';
+      });
+    }
 
     function emptyAccess() {
       var o = {};
@@ -207,16 +247,22 @@
       var h = '';
       ACCESS_MODULES.forEach(function (m) {
         if (m.group) {
-          h += '<tr><td>' + m.n + '</td><td class="mod-name">' +
-            '<button type="button" class="access-toggle" onclick="_whExpanded=!_whExpanded;renderAccessMatrix(readAccessFromForm());">' +
-            (_whExpanded ? '▾' : '▸') + '</button>' + esc(m.label) +
-            '</td><td class="lvl-cell" colspan="3" style="text-align:left;color:var(--text-faint);font-size:12px;">Expand for Warehouse options</td></tr>';
+          var open = isGroupExpanded(m.key);
+          h += '<tr class="mod-group"><td>' + m.n + '</td><td class="mod-name">' +
+            '<button type="button" class="access-toggle" onclick="toggleAccessGroup(\'' + m.key + '\')">' +
+            (open ? '▾' : '▸') + '</button>' +
+            '<button type="button" class="access-group-label" onclick="toggleAccessGroup(\'' + m.key + '\')">' +
+            esc(m.label) + '</button>' +
+            '</td><td class="lvl-cell" colspan="3" style="text-align:left;color:var(--text-faint);font-size:12px;">' +
+            (open ? 'Set access per section' : ('Expand for ' + esc(m.label) + ' options')) +
+            '</td></tr>';
           return;
         }
-        if (m.child && m.parent === 'warehouse' && !_whExpanded) return;
+        var hidden = m.child && !isGroupExpanded(m.parent);
         var lvl = access[m.key] || 'none';
         var rowClass = m.child ? ' class="mod-child"' : '';
-        h += '<tr' + rowClass + '>';
+        var rowStyle = hidden ? ' style="display:none"' : '';
+        h += '<tr' + rowClass + rowStyle + '>';
         h += '<td>' + (m.n || '') + '</td>';
         h += '<td class="mod-name">' + esc(m.label) + '</td>';
         ['none', 'read', 'write'].forEach(function (v) {
@@ -243,7 +289,8 @@
       var a = readAccessFromForm();
       var workerOnly = (a.civil_issue !== 'none' || a.electric_issue !== 'none') &&
         a.civil_department === 'none' && a.electrical_department === 'none' &&
-        a.cleaning === 'none' && a.hr === 'none' && a.hr_director === 'none' && a.charging === 'none' && a.warehouse_desk === 'none' && a.admin === 'none';
+        a.cleaning === 'none' && a.hr === 'none' && a.hr_director === 'none' &&
+        !accessAnyCharging(a) && a.warehouse_desk === 'none' && a.admin === 'none';
       var cleaning = a.cleaning !== 'none';
       var tradeEl = document.getElementById('tradeField');
       var projEl = document.getElementById('projectsField');
@@ -285,6 +332,7 @@
       } else if (kind === 'hr_director') {
         a.hr_director = 'write';
       }
+      resetExpandedGroups(a);
       renderAccessMatrix(a);
       document.getElementById('f-username').focus();
     }
@@ -315,7 +363,7 @@
       document.getElementById('formHint').textContent = 'Password is required for new users.';
       setMsg('formMsg', '', true);
       document.getElementById('userFormCard').style.display = '';
-      _whExpanded = true;
+      resetExpandedGroups();
       renderAccessMatrix(emptyAccess());
       showSigPreview('');
       _pendingSig = undefined;
@@ -336,12 +384,13 @@
       document.getElementById('formHint').textContent = 'Leave password blank to keep the current one.';
       setMsg('formMsg', '', true);
       document.getElementById('userFormCard').style.display = '';
-      _whExpanded = true;
       var a = emptyAccess();
       var src = u.moduleAccess || {};
+      if (typeof empireFoldChargingAccess === 'function') src = empireFoldChargingAccess(src);
       Object.keys(a).forEach(function (k) {
         if (src[k]) a[k] = src[k];
       });
+      resetExpandedGroups(a);
       renderAccessMatrix(a);
       document.getElementById('f-trade').value = u.trade || '';
       document.getElementById('f-projects').value = u.projects || '';
@@ -358,7 +407,8 @@
       var access = readAccessFromForm();
       var workerPhone = (access.civil_issue !== 'none' || access.electric_issue !== 'none') &&
         access.civil_department === 'none' && access.electrical_department === 'none' &&
-        access.cleaning === 'none' && access.hr === 'none' && access.charging === 'none' && access.warehouse_desk === 'none' && access.admin === 'none';
+        access.cleaning === 'none' && access.hr === 'none' && !accessAnyCharging(access) &&
+        access.warehouse_desk === 'none' && access.admin === 'none';
       return {
         username: document.getElementById('f-username').value.trim(),
         password: document.getElementById('f-password').value,
@@ -465,7 +515,7 @@
         (p.moduleAccess.civil_issue !== 'none' || p.moduleAccess.electric_issue !== 'none') &&
         p.moduleAccess.civil_department === 'none' && p.moduleAccess.electrical_department === 'none' &&
         p.moduleAccess.hr === 'none' && p.moduleAccess.hr_director === 'none' &&
-        p.moduleAccess.charging === 'none'
+        !accessAnyCharging(p.moduleAccess)
       );
       if (workerPhone && document.getElementById('tradeField').style.display !== 'none' && !p.trade) {
         setMsg('formMsg', 'Workers need a Trade (plumber, wood, electric…).', false);
@@ -527,11 +577,15 @@
 
     function accessSummary(u) {
       var a = u.moduleAccess || {};
+      if (typeof empireFoldChargingAccess === 'function') a = empireFoldChargingAccess(a);
       var bits = [];
+      var chargingKids = ['charging_dash', 'charging_summary', 'charging_waiting', 'charging_charged', 'charging_bin', 'charging_bot', 'charging_reset'];
+      var hasChgChild = chargingKids.some(function (k) { return a[k] && a[k] !== 'none'; });
       Object.keys(a).forEach(function (k) {
+        if (k === 'charging' && hasChgChild) return;
         if (a[k] && a[k] !== 'none') bits.push(k.replace(/_/g, ' ') + ':' + a[k]);
       });
-      return bits.slice(0, 6).join(' · ') + (bits.length > 6 ? '…' : '');
+      return bits.slice(0, 8).join(' · ') + (bits.length > 8 ? '…' : '');
     }
 
     function renderUsers() {

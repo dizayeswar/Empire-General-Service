@@ -93,10 +93,45 @@ function empireGetModuleAccess() {
   empireMigrateSession();
   try {
     var o = JSON.parse(empireAuthLs('moduleAccess') || '{}');
-    return o && typeof o === 'object' ? o : {};
+    if (!o || typeof o !== 'object') return {};
+    return empireFoldChargingAccess(o);
   } catch (e) {
     return {};
   }
+}
+
+var EMPIRE_CHARGING_SECTIONS = [
+  'charging_dash', 'charging_summary', 'charging_waiting', 'charging_charged',
+  'charging_bin', 'charging_bot', 'charging_reset'
+];
+
+function empireFoldChargingAccess(src) {
+  var o = src && typeof src === 'object' ? src : {};
+  var out = {};
+  Object.keys(o).forEach(function (k) { out[k] = o[k]; });
+  var anyChild = EMPIRE_CHARGING_SECTIONS.some(function (k) {
+    var v = String(out[k] || 'none').toLowerCase();
+    return v === 'read' || v === 'write';
+  });
+  var parent = String(out.charging || 'none').trim().toLowerCase();
+  if (!anyChild && (parent === 'read' || parent === 'write')) {
+    out.charging_dash = parent;
+    out.charging_summary = parent;
+    out.charging_waiting = parent;
+    out.charging_charged = parent;
+    if (parent === 'write') {
+      out.charging_bin = 'write';
+      out.charging_reset = 'write';
+    }
+  }
+  var max = parent === 'write' ? 'write' : (parent === 'read' ? 'read' : 'none');
+  EMPIRE_CHARGING_SECTIONS.forEach(function (k) {
+    var v = String(out[k] || 'none').toLowerCase();
+    if (v === 'write') max = 'write';
+    else if (v === 'read' && max !== 'write') max = 'read';
+  });
+  out.charging = max;
+  return out;
 }
 
 function empireGetSignature() {
@@ -238,7 +273,10 @@ function empireCanAccessDept(requiredDept) {
     asaas: ['asaas'],
     application: ['application'],
     ups: ['ups'],
-    charging: ['charging'],
+    charging: [
+      'charging', 'charging_dash', 'charging_summary', 'charging_waiting', 'charging_charged',
+      'charging_bin', 'charging_bot', 'charging_reset'
+    ],
     warehouse: [
       'warehouse_desk', 'warehouse_assigned', 'warehouse_done', 'warehouse_invoices',
       'warehouse_sig_auth', 'warehouse_sig_issued', 'warehouse_sig_received'

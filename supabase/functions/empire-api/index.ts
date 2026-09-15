@@ -8,7 +8,7 @@ import {
   verifyToken,
   verifyTokenSession,
 } from "./auth.ts";
-import { isCivilWorkerId, isCleaningSupervisorRole, isElectricWorkerId, normalizeWorkerId } from "./helpers.ts";
+import { isCivilWorkerId, isCleaningSupervisorRole, isElectricWorkerId, moduleLevel, normalizeRole, normalizeWorkerId } from "./helpers.ts";
 import * as cleaning from "./handlers_cleaning.ts";
 import * as issues from "./handlers_issues.ts";
 import * as jobs from "./handlers_jobs.ts";
@@ -37,7 +37,7 @@ function json(obj: unknown, status = 200) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method === "GET") {
-    return json({ ok: true, msg: "Empire API running (Supabase)", version: "2026-09-10-chg-dur" });
+    return json({ ok: true, msg: "Empire API running (Supabase)", version: "2026-09-15-chg-acc" });
   }
   if (req.method !== "POST") return json({ ok: false, error: "Method not allowed" }, 405);
 
@@ -182,8 +182,18 @@ Deno.serve(async (req) => {
       clearWarehouseGins: 1,
       getTrash: 1, restoreTrash: 1, purgeTrash: 1,
     };
-    if (adminOnly[action] && String(auth.role || "").toLowerCase() !== "admin") {
-      return json({ ok: false, success: false, error: "not_allowed", message: "Only an admin can do that." });
+    if (adminOnly[action] && normalizeRole(auth.role) !== "admin") {
+      const sheets = Array.isArray(body.sheets) ? body.sheets.map((s) => String(s)) : [];
+      const chargingTrashOnly = TRASH_ACTIONS[action] && sheets.length === 1 && sheets[0] === "ChargingRequests";
+      const binLvl = moduleLevel(auth.moduleAccess, "charging_bin");
+      const chargingBinOk = chargingTrashOnly && (
+        (action === "getTrash" && binLvl !== "none") ||
+        ((action === "restoreTrash" || action === "purgeTrash") && binLvl === "write")
+      );
+      if (!chargingBinOk) {
+        return json({ ok: false, success: false, error: "not_allowed", message: "Only an admin can do that." });
+      }
+      body._chargingBinOnly = true;
     }
 
     const a = auth as AuthOk;

@@ -1,7 +1,7 @@
 import { AuthOk } from "./auth.ts";
 import { resetPasswordOk } from "./config.ts";
 import { isoNow, sb, selectAllRows, trashRows } from "./db.ts";
-import { moduleLevel, normalizeRole } from "./helpers.ts";
+import { moduleLevel, normalizeRole, type AccessLevel, type ModuleAccessKey } from "./helpers.ts";
 
 const TABLE = "charging_requests";
 const BOT_TABLE = "charging_bot_state";
@@ -42,20 +42,54 @@ const STATUS_ALIASES: Record<string, ChargeStatus> = {
   stop: "stopped",
 };
 
-function isAdmin(auth: AuthOk): boolean {
-  if (normalizeRole(auth.role) === "admin") return true;
-  return moduleLevel(auth.moduleAccess, "admin") === "write";
+function sectionLevel(auth: AuthOk, key: ModuleAccessKey): AccessLevel {
+  if (normalizeRole(auth.role) === "admin" || moduleLevel(auth.moduleAccess, "admin") === "write") {
+    return "write";
+  }
+  return moduleLevel(auth.moduleAccess, key);
+}
+
+function canReadSection(auth: AuthOk, key: ModuleAccessKey): boolean {
+  return sectionLevel(auth, key) !== "none";
+}
+
+function canWriteSection(auth: AuthOk, key: ModuleAccessKey): boolean {
+  if (normalizeRole(auth.role) === "viewer") return false;
+  return sectionLevel(auth, key) === "write";
+}
+
+function canReadDesk(auth: AuthOk): boolean {
+  return (
+    canReadSection(auth, "charging_dash") ||
+    canReadSection(auth, "charging_summary") ||
+    canReadSection(auth, "charging_waiting") ||
+    canReadSection(auth, "charging_charged")
+  );
+}
+
+function canWriteDash(auth: AuthOk): boolean {
+  return canWriteSection(auth, "charging_dash");
+}
+
+function canWriteWaiting(auth: AuthOk): boolean {
+  return canWriteDash(auth) || canWriteSection(auth, "charging_waiting");
+}
+
+function canWriteCharged(auth: AuthOk): boolean {
+  return canWriteDash(auth) || canWriteSection(auth, "charging_charged");
+}
+
+function canWriteRowStatus(auth: AuthOk, status: string): boolean {
+  return String(status) === "charged" ? canWriteCharged(auth) : canWriteWaiting(auth);
 }
 
 function canRead(auth: AuthOk): boolean {
-  if (normalizeRole(auth.role) === "admin") return true;
-  return moduleLevel(auth.moduleAccess, "charging") !== "none";
-}
-
-function canWrite(auth: AuthOk): boolean {
-  if (normalizeRole(auth.role) === "viewer") return false;
-  if (normalizeRole(auth.role) === "admin") return true;
-  return moduleLevel(auth.moduleAccess, "charging") === "write";
+  return (
+    canReadDesk(auth) ||
+    canReadSection(auth, "charging_bin") ||
+    canReadSection(auth, "charging_bot") ||
+    canReadSection(auth, "charging_reset")
+  );
 }
 
 function deny(message: string) {
@@ -205,8 +239,18 @@ async function botEnabled(): Promise<boolean> {
 }
 
 export async function handleGetChargingRequests(_body: Record<string, unknown>, auth: AuthOk) {
-  if (!canRead(auth)) return deny("Charging Electricity access required.");
-  const rows = await selectAllRows<Record<string, unknown>>(TABLE);
+  if (!canReadDesk(auth)) return deny("Charging Electricity access required.");
+  let rows = await selectAllRows<Record<string, unknown>>(TABLE);
+  const dash = canReadSection(auth, "charging_dash");
+  if (!dash) {
+    rows = rows.filter((r) => {
+      const charged = String(r.status) === "charged";
+      if (charged) {
+        return canReadSection(auth, "charging_charged") || canReadSection(auth, "charging_summary");
+      }
+      return canReadSection(auth, "charging_waiting");
+    });
+  }
   rows.sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
   const bot = await readBotRow();
   return {
@@ -225,7 +269,9 @@ export async function handleGetChargingBotStatus(_body: Record<string, unknown>,
 }
 
 export async function handleSetChargingBotEnabled(body: Record<string, unknown>, auth: AuthOk) {
-  if (!isAdmin(auth)) return deny("Only an admin can turn the charging bot on or off.");
+  if (!canWriteSection(auth, "charging_bot")) {
+    return deny("Bot On/Off write access is required.");
+  }
   const enabled = body.enabled === true || String(body.enabled || "").toLowerCase() === "true" || body.enabled === 1;
   const now = isoNow();
   const username = String(auth.username || "").trim();
@@ -241,7 +287,7 @@ export async function handleSetChargingBotEnabled(body: Record<string, unknown>,
 }
 
 export async function handleGetChargingRetryQueue(_body: Record<string, unknown>, auth: AuthOk) {
-  if (!canRead(auth)) return deny("Charging Electricity access required.");
+  if (!canReadDesk(auth)) return deny("Charging Electricity access required.");
   const rows = await selectAllRows<Record<string, unknown>>(TABLE, {
     filter: (q) => q.eq("retry_requested", true).neq("status", "charged"),
   });
@@ -258,8 +304,6 @@ export async function handleGetChargingRetryQueue(_body: Record<string, unknown>
 }
 
 export async function handleSaveChargingRequest(body: Record<string, unknown>, auth: AuthOk) {
-  if (!canWrite(auth)) return deny("Write access required to save charging rows.");
-
   const ru = normRu(body.ru || body.requestId || body.request_id);
   if (!validRu(ru)) {
     return bad("Request ID must look like RU-12345.");
@@ -273,6 +317,9 @@ export async function handleSaveChargingRequest(body: Record<string, unknown>, a
     return bad(
       "Status must be charged, cannot_charge, no_row, ambiguous, phone_none, phone_many, or stopped.",
     );
+  }
+  if (!canWriteRowStatus(auth, status)) {
+    return deny("Write access required to save charging rows.");
   }
 
   const { electricType, tariff } = normElectric(body);
@@ -352,7 +399,7 @@ export async function handleSaveChargingRequest(body: Record<string, unknown>, a
 }
 
 export async function handleRequestChargingRetry(body: Record<string, unknown>, auth: AuthOk) {
-  if (!canWrite(auth)) return deny("Write access required to queue retries.");
+  if (!canWriteWaiting(auth)) return deny("Write access required to queue retries.");
   if (!(await botEnabled())) {
     return deny("The bot is Off. Turn it On first. Try failed again does nothing while Off.");
   }
@@ -396,12 +443,14 @@ export async function handleRequestChargingRetry(body: Record<string, unknown>, 
 }
 
 export async function handleDeleteChargingRequest(body: Record<string, unknown>, auth: AuthOk) {
-  if (!canWrite(auth)) return deny("Write access required to delete charging rows.");
   const id = String(body.id || "").trim();
   if (!id) return bad("Request id is required.");
   const { data: ex, error: findErr } = await sb().from(TABLE).select("*").eq("id", id).maybeSingle();
   if (findErr) throw findErr;
   if (!ex) return { ok: false, success: false, error: "not_found", message: "That RU is not on the dashboard." };
+  if (!canWriteRowStatus(auth, String(ex.status || ""))) {
+    return deny("Write access required to delete charging rows.");
+  }
   await trashRows("ChargingRequests", [ex], "delete", String(auth.username || body.username || ""));
   const { error } = await sb().from(TABLE).delete().eq("id", id);
   if (error) throw error;
@@ -409,7 +458,9 @@ export async function handleDeleteChargingRequest(body: Record<string, unknown>,
 }
 
 export async function handleClearChargingRequests(body: Record<string, unknown>, auth: AuthOk) {
-  if (!canWrite(auth)) return deny("Write access required to reset charging data.");
+  if (!canWriteSection(auth, "charging_reset")) {
+    return deny("Reset Data write access is required.");
+  }
   if (!resetPasswordOk(body)) {
     return { ok: false, success: false, error: "bad_password", message: "Wrong password." };
   }

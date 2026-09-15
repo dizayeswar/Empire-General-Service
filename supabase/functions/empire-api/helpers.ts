@@ -152,6 +152,13 @@ export const MODULE_ACCESS_KEYS = [
   "application",
   "ups",
   "charging",
+  "charging_dash",
+  "charging_summary",
+  "charging_waiting",
+  "charging_charged",
+  "charging_bin",
+  "charging_bot",
+  "charging_reset",
   "warehouse_desk",
   "warehouse_assigned",
   "warehouse_done",
@@ -179,6 +186,13 @@ const MODULE_DEPTS: Record<ModuleAccessKey, string[]> = {
   application: ["application"],
   ups: ["ups"],
   charging: ["charging"],
+  charging_dash: ["charging"],
+  charging_summary: ["charging"],
+  charging_waiting: ["charging"],
+  charging_charged: ["charging"],
+  charging_bin: ["charging"],
+  charging_bot: ["charging"],
+  charging_reset: ["charging"],
   warehouse_desk: ["warehouse"],
   warehouse_assigned: ["warehouse"],
   warehouse_done: ["warehouse"],
@@ -203,25 +217,59 @@ export function normalizeAccessLevel(raw: unknown): AccessLevel {
   return "none";
 }
 
+export const CHARGING_SECTION_KEYS = [
+  "charging_dash",
+  "charging_summary",
+  "charging_waiting",
+  "charging_charged",
+  "charging_bin",
+  "charging_bot",
+  "charging_reset",
+] as const;
+
+export function maxAccessLevel(...levels: AccessLevel[]): AccessLevel {
+  if (levels.some((l) => l === "write")) return "write";
+  if (levels.some((l) => l === "read")) return "read";
+  return "none";
+}
+
+/** Expand legacy `charging` into sections, and keep `charging` as the max of its children. */
+export function foldChargingAccess(a: ModuleAccessMap): ModuleAccessMap {
+  const anyChild = CHARGING_SECTION_KEYS.some((k) => a[k] !== "none");
+  if (!anyChild && a.charging !== "none") {
+    const lvl = a.charging;
+    a.charging_dash = lvl;
+    a.charging_summary = lvl;
+    a.charging_waiting = lvl;
+    a.charging_charged = lvl;
+    if (lvl === "write") {
+      a.charging_bin = "write";
+      a.charging_reset = "write";
+    }
+  }
+  a.charging = maxAccessLevel(a.charging, ...CHARGING_SECTION_KEYS.map((k) => a[k]));
+  return a;
+}
+
 export function parseModuleAccess(raw: unknown): ModuleAccessMap {
   const out = emptyModuleAccess();
-  if (!raw) return out;
+  if (!raw) return foldChargingAccess(out);
   let obj: Record<string, unknown> = {};
   if (typeof raw === "string") {
     try {
       obj = JSON.parse(raw || "{}");
     } catch (_e) {
-      return out;
+      return foldChargingAccess(out);
     }
   } else if (typeof raw === "object") {
     obj = raw as Record<string, unknown>;
   } else {
-    return out;
+    return foldChargingAccess(out);
   }
   for (const k of MODULE_ACCESS_KEYS) {
     if (obj[k] != null) out[k] = normalizeAccessLevel(obj[k]);
   }
-  return out;
+  return foldChargingAccess(out);
 }
 
 function moduleAccessHasAny_(access: ModuleAccessMap): boolean {
@@ -273,7 +321,17 @@ export function synthesizeModuleAccessFromLegacy(
     else if (t === "asaas") a.asaas = level;
     else if (t === "application") a.application = level;
     else if (t === "ups") a.ups = level;
-    else if (t === "charging" || t === "charging electricity") a.charging = level;
+    else if (t === "charging" || t === "charging electricity") {
+      a.charging = level;
+      a.charging_dash = level;
+      a.charging_summary = level;
+      a.charging_waiting = level;
+      a.charging_charged = level;
+      if (level === "write") {
+        a.charging_bin = "write";
+        a.charging_reset = "write";
+      }
+    }
     else if (t === "hr" || t === "hr department") a.hr = level;
     else if (t === "warehouse") {
       /* handled below for desk vs signer */
@@ -311,7 +369,7 @@ export function synthesizeModuleAccessFromLegacy(
   }
   if (r === "cleaning_supervisor") a.cleaning = "write";
 
-  return a;
+  return foldChargingAccess(a);
 }
 
 export function resolveModuleAccessForUser(user: Record<string, unknown>): ModuleAccessMap {
@@ -331,6 +389,13 @@ function accessHasDeskWrite_(a: ModuleAccessMap): boolean {
     a.application === "write" ||
     a.ups === "write" ||
     a.charging === "write" ||
+    a.charging_dash === "write" ||
+    a.charging_summary === "write" ||
+    a.charging_waiting === "write" ||
+    a.charging_charged === "write" ||
+    a.charging_bin === "write" ||
+    a.charging_bot === "write" ||
+    a.charging_reset === "write" ||
     a.hr === "write" ||
     a.warehouse_desk === "write" ||
     a.warehouse_invoices === "write"
@@ -350,7 +415,11 @@ function accessWorkerOnly_(a: ModuleAccessMap): boolean {
   const deskRead =
     a.cleaning !== "none" || a.civil_department !== "none" || a.electrical_department !== "none" ||
     a.hse !== "none" || a.fire !== "none" || a.asaas !== "none" || a.application !== "none" ||
-    a.ups !== "none" || a.charging !== "none" || a.hr !== "none" || a.hr_director !== "none" ||
+    a.ups !== "none" || a.charging !== "none" || a.charging_dash !== "none" ||
+    a.charging_summary !== "none" ||
+    a.charging_waiting !== "none" || a.charging_charged !== "none" || a.charging_bin !== "none" ||
+    a.charging_bot !== "none" || a.charging_reset !== "none" ||
+    a.hr !== "none" || a.hr_director !== "none" ||
     a.warehouse_desk !== "none" || a.warehouse_invoices !== "none";
   return !deskRead;
 }

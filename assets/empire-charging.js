@@ -31,8 +31,17 @@ function chgEsc_(s) {
     .replace(/"/g, '&quot;');
 }
 
+var CHG_TAB_SECTION_ = {
+  dash: 'charging_dash',
+  summary: 'charging_summary',
+  waiting: 'charging_waiting',
+  charged: 'charging_charged',
+  bin: 'charging_bin'
+};
+
 function chgSwitchTab_(event, tab) {
   if (event && event.preventDefault) event.preventDefault();
+  if (!chgCanReadTab_(tab)) return;
   document.querySelectorAll('.tab-content').forEach(function (el) {
     el.classList.toggle('active', el.id === tab);
   });
@@ -92,18 +101,75 @@ function chgLogout_() {
   empireAuthLogout({ redirect: 'index.html', reload: false });
 }
 
-function chgCanWrite_() {
-  var role = String(typeof empireGetRole === 'function' ? empireGetRole() : '').toLowerCase();
-  if (role === 'admin') return true;
-  if (role === 'viewer') return false;
-  return typeof empireModuleLevel === 'function' && empireModuleLevel('charging') === 'write';
-}
-
 function chgIsAdmin_() {
   if (typeof empireIsAdminRole === 'function') return empireIsAdminRole();
   var role = String(typeof empireGetRole === 'function' ? empireGetRole() : '').toLowerCase();
   if (role === 'admin') return true;
   return typeof empireModuleLevel === 'function' && empireModuleLevel('admin') === 'write';
+}
+
+function chgSectionLevel_(key) {
+  if (chgIsAdmin_()) return 'write';
+  if (typeof empireModuleLevel !== 'function') return 'none';
+  return empireModuleLevel(key);
+}
+
+function chgCanReadSection_(key) {
+  return chgSectionLevel_(key) !== 'none';
+}
+
+function chgCanWriteSection_(key) {
+  return chgSectionLevel_(key) === 'write';
+}
+
+function chgCanReadTab_(tab) {
+  var key = CHG_TAB_SECTION_[tab];
+  return key ? chgCanReadSection_(key) : false;
+}
+
+function chgCanWriteDash_() {
+  return chgCanWriteSection_('charging_dash');
+}
+
+function chgCanWriteWaiting_() {
+  return chgCanWriteDash_() || chgCanWriteSection_('charging_waiting');
+}
+
+function chgCanWriteCharged_() {
+  return chgCanWriteDash_() || chgCanWriteSection_('charging_charged');
+}
+
+function chgCanWriteRow_(row) {
+  if (!row) return chgCanWriteDash_();
+  return String(row.status) === 'charged' ? chgCanWriteCharged_() : chgCanWriteWaiting_();
+}
+
+function chgCanWriteBin_() {
+  return chgCanWriteSection_('charging_bin');
+}
+
+function chgCanReadBin_() {
+  return chgCanReadSection_('charging_bin');
+}
+
+function chgCanWriteBot_() {
+  return chgCanWriteSection_('charging_bot');
+}
+
+function chgCanWriteReset_() {
+  return chgCanWriteSection_('charging_reset');
+}
+
+function chgCanWrite_() {
+  return chgCanWriteDash_() || chgCanWriteWaiting_() || chgCanWriteCharged_();
+}
+
+function chgFirstAllowedTab_() {
+  var tabs = ['dash', 'summary', 'waiting', 'charged', 'bin'];
+  for (var i = 0; i < tabs.length; i++) {
+    if (chgCanReadTab_(tabs[i])) return tabs[i];
+  }
+  return '';
 }
 
 function chgBotOn_() {
@@ -459,6 +525,7 @@ function chgOnFilterChange_() {
 }
 
 function chgSetKpi_(key) {
+  if (!chgCanReadTab_('dash')) return;
   CHG_FILTER_KPI_ = key || '';
   var st = document.getElementById('chgFilterStatus');
   if (st) st.value = key || '';
@@ -508,13 +575,13 @@ function chgRowOpen_(id) {
     : '<div class="chg-invoice-missing">No invoice picture — this RU was not charged.</div>';
   var retryBtn = '';
   var delBtn = '';
-  if (chgCanWrite_() && chgBotOn_() && chgIsWaiting_(row) && !row.retryRequested) {
+  if (chgCanWriteWaiting_() && chgBotOn_() && chgIsWaiting_(row) && !row.retryRequested) {
     var ru = chgSafeRu_(row.ru);
     if (ru) {
       retryBtn = '<button type="button" class="chg-retry-btn" onclick="chgRetryOne_(\'' + ru + '\')">Queue this RU for retry</button>';
     }
   }
-  if (chgCanWrite_() && safeId) {
+  if (chgCanWriteRow_(row) && safeId) {
     delBtn = '<button type="button" class="chg-del-btn" onclick="chgDeleteOne_(\'' + safeId + '\')">Move to Recycle Bin</button>';
   }
   drawer.innerHTML =
@@ -612,13 +679,14 @@ function chgRender_() {
   var kpis = document.getElementById('chgKpis');
   if (kpis) kpis.innerHTML = chgKpiHtml_();
 
-  var canWrite = chgCanWrite_();
+  var canRetry = chgCanWriteWaiting_();
   ['chgRetryBtnDash', 'chgRetryBtnWait'].forEach(function (id) {
     var btn = document.getElementById(id);
     if (!btn) return;
-    btn.disabled = !canWrite || !chgBotOn_() || !(CHG_COUNTS_.waiting > 0);
+    btn.style.display = canRetry ? '' : 'none';
+    btn.disabled = !canRetry || !chgBotOn_() || !(CHG_COUNTS_.waiting > 0);
     if (!chgBotOn_()) btn.title = 'The bot is Off. Try failed again does nothing.';
-    else if (!canWrite) btn.title = 'Write access required';
+    else if (!canRetry) btn.title = 'Write access required';
     else btn.title = 'Queue every waiting RU for the laptop robot';
   });
 
@@ -668,6 +736,11 @@ function chgLoad_(force) {
   if (CHG_LOADING_ && !force) return;
   var token = chgToken_();
   if (!token) return;
+  var bin = document.getElementById('bin');
+  if (bin && bin.classList.contains('active')) chgRbLoad_(force);
+  if (!chgCanReadSection_('charging_dash') && !chgCanReadSection_('charging_summary') && !chgCanReadSection_('charging_waiting') && !chgCanReadSection_('charging_charged')) {
+    return;
+  }
   chgSetLoading_(true);
   var list = document.getElementById('chgList');
   if (list && !CHG_ROWS_.length && typeof empireLoadingHtml === 'function') {
@@ -706,9 +779,9 @@ function chgStartAutoRefresh_() {
 
 function chgTryFailedAgain_() {
   if (!chgBotOn_()) {
-    return uiAlert('The bot is Off. Try failed again does nothing until an admin turns it On.');
+    return uiAlert('The bot is Off. Try failed again does nothing until Bot On/Off is turned On.');
   }
-  if (!chgCanWrite_()) {
+  if (!chgCanWriteWaiting_()) {
     return uiAlert('You can view this desk, but you cannot queue retries.');
   }
   var n = CHG_COUNTS_.waiting || 0;
@@ -765,7 +838,7 @@ function chgApplyBotBar_() {
     }
   }
   if (btn) {
-    btn.style.display = chgIsAdmin_() ? '' : 'none';
+    btn.style.display = chgCanWriteBot_() ? '' : 'none';
     btn.textContent = on ? 'Turn Off' : 'Turn On';
     btn.disabled = false;
   }
@@ -791,8 +864,8 @@ function chgStartBotPoll_() {
 }
 
 function chgToggleBot_() {
-  if (!chgIsAdmin_()) {
-    return uiAlert('Only an admin can turn the bot on or off.');
+  if (!chgCanWriteBot_()) {
+    return uiAlert('Bot On/Off write access is required.');
   }
   var next = !chgBotOn_();
   var msg = next
@@ -823,11 +896,24 @@ function chgToggleBot_() {
 }
 
 function chgShowStaffTools_() {
-  var show = chgCanWrite_();
-  var binTab = document.getElementById('chgBinTabBtn');
+  var tabMap = {
+    dash: 'chgDashTabBtn',
+    summary: 'chgSummaryTabBtn',
+    waiting: 'chgWaitingTabBtn',
+    charged: 'chgChargedTabBtn',
+    bin: 'chgBinTabBtn'
+  };
+  Object.keys(tabMap).forEach(function (tab) {
+    var el = document.getElementById(tabMap[tab]);
+    if (!el) return;
+    el.style.display = chgCanReadTab_(tab) ? '' : 'none';
+  });
   var reset = document.getElementById('chgResetBtn');
-  if (binTab) binTab.style.display = show ? '' : 'none';
-  if (reset) reset.style.display = show ? '' : 'none';
+  if (reset) reset.style.display = chgCanWriteReset_() ? '' : 'none';
+  var binActs = document.querySelector('.chg-bin-acts');
+  if (binActs) binActs.style.display = chgCanWriteBin_() ? '' : 'none';
+  var first = chgFirstAllowedTab_();
+  if (first) chgSwitchTab_({ preventDefault: function () {} }, first);
 }
 
 function chgSafeTrashId_(id) {
@@ -862,14 +948,17 @@ function chgRbItemHtml_(it) {
     + (loc ? '<div class="rb-loc">' + loc + '</div>' : '')
     + '<div class="rb-meta">' + chgEsc_(when) + (it.deletedBy ? (' · ' + chgEsc_(it.deletedBy)) : '') + ' · ' + how + '</div>'
     + '</div>'
-    + '<div class="rb-actions">'
-    + '<button type="button" class="rb-restore" onclick="chgRbRestore_(\'' + tid + '\')">Restore</button>'
-    + '<button type="button" class="rb-purge" onclick="chgRbPurge_(\'' + tid + '\')" title="Delete forever">✕</button>'
-    + '</div></div>';
+    + (chgCanWriteBin_()
+      ? '<div class="rb-actions">'
+        + '<button type="button" class="rb-restore" onclick="chgRbRestore_(\'' + tid + '\')">Restore</button>'
+        + '<button type="button" class="rb-purge" onclick="chgRbPurge_(\'' + tid + '\')" title="Delete forever">✕</button>'
+        + '</div>'
+      : '')
+    + '</div>';
 }
 
 function chgRbLoad_(force) {
-  if (!chgCanWrite_()) return;
+  if (!chgCanReadBin_()) return;
   var box = document.getElementById('chgRbList');
   if (!box) return;
   box.innerHTML = typeof empireLoadingHtml === 'function'
@@ -898,7 +987,7 @@ function chgRbLoad_(force) {
 
 function chgRbRestore_(id) {
   var tid = chgSafeTrashId_(id);
-  if (!tid || !chgCanWrite_()) return;
+  if (!tid || !chgCanWriteBin_()) return;
   var go = function () {
     fetchJSONRetry({
       action: 'restoreTrash',
@@ -920,7 +1009,7 @@ function chgRbRestore_(id) {
 
 function chgRbPurge_(id) {
   var tid = chgSafeTrashId_(id);
-  if (!tid || !chgCanWrite_()) return;
+  if (!tid || !chgCanWriteBin_()) return;
   var go = function () {
     fetchJSONRetry({
       action: 'purgeTrash',
@@ -940,7 +1029,7 @@ function chgRbPurge_(id) {
 }
 
 function chgRbRestoreAll_() {
-  if (!chgCanWrite_()) return;
+  if (!chgCanWriteBin_()) return;
   if (!document.querySelector('#chgRbList .rb-item')) {
     uiAlert('The bin is empty.');
     return;
@@ -964,7 +1053,7 @@ function chgRbRestoreAll_() {
 }
 
 function chgRbEmpty_() {
-  if (!chgCanWrite_()) return;
+  if (!chgCanWriteBin_()) return;
   if (!document.querySelector('#chgRbList .rb-item')) {
     uiAlert('The bin is empty.');
     return;
@@ -988,7 +1077,8 @@ function chgRbEmpty_() {
 
 function chgDeleteOne_(id) {
   var safeId = chgSafeId_(id);
-  if (!safeId || !chgCanWrite_()) return;
+  var row = CHG_ROWS_.filter(function (r) { return r.id === safeId; })[0];
+  if (!safeId || !chgCanWriteRow_(row)) return;
   var go = function () {
     fetchJSONRetry({
       action: 'deleteChargingRequest',
@@ -1010,7 +1100,7 @@ function chgDeleteOne_(id) {
 }
 
 function chgOpenResetModal_() {
-  if (!chgCanWrite_()) return;
+  if (!chgCanWriteReset_()) return;
   var m = document.getElementById('chgResetModal');
   var pw = document.getElementById('chgResetPwInput');
   var msg = document.getElementById('chgResetMsg');
@@ -1072,9 +1162,9 @@ function chgDoReset_() {
 
 function chgRetryOne_(ru) {
   if (!chgBotOn_()) {
-    return uiAlert('The bot is Off. Try failed again does nothing until an admin turns it On.');
+    return uiAlert('The bot is Off. Try failed again does nothing until Bot On/Off is turned On.');
   }
-  if (!chgCanWrite_()) return;
+  if (!chgCanWriteWaiting_()) return;
   fetchJSONRetry({
     action: 'requestChargingRetry',
     token: chgToken_(),

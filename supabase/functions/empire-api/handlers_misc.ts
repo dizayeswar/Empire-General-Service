@@ -700,10 +700,12 @@ function applicationIssueFromTrash_(raw: unknown): Record<string, unknown> | nul
 
 export async function handleGetTrash(body: Record<string, unknown>) {
   const filter = body.sheets as string[] | null;
+  const chargingOnly = body._chargingBinOnly === true;
   const data = await selectAllRows("trash");
   const out = [];
   for (const row of data) {
     const src = String(row.source_sheet);
+    if (chargingOnly && src !== "ChargingRequests") continue;
     if (filter && filter.indexOf(src) === -1) continue;
     let preview = "";
     let meta: Record<string, unknown> = {};
@@ -826,11 +828,13 @@ export async function handleRestoreTrash(body: Record<string, unknown>) {
   const ids = (body.trashIds as string[]) || (body.trashId ? [String(body.trashId)] : null);
   const batchId = body.batchId ? String(body.batchId) : null;
   const sheets = body.sheets as string[] | null;
+  const chargingOnly = body._chargingBinOnly === true;
   const data = await selectAllRows("trash");
   let restored = 0;
   const toDelete: string[] = [];
   for (const row of data) {
     const src = String(row.source_sheet);
+    if (chargingOnly && src !== "ChargingRequests") continue;
     let match = false;
     if (ids) match = ids.indexOf(String(row.trash_id)) !== -1;
     else if (batchId) match = String(row.batch_id) === batchId;
@@ -901,11 +905,13 @@ export async function handlePurgeTrash(body: Record<string, unknown>) {
   const ids = (body.trashIds as string[]) || (body.trashId ? [String(body.trashId)] : null);
   const batchId = body.batchId ? String(body.batchId) : null;
   const sheets = body.sheets as string[] | null;
+  const chargingOnly = body._chargingBinOnly === true;
   const data = await selectAllRows("trash");
   const toDelete: string[] = [];
   const liveIdsByTable: Record<string, string[]> = {};
   for (const row of data) {
     const src = String(row.source_sheet);
+    if (chargingOnly && src !== "ChargingRequests") continue;
     let match = false;
     if (ids) match = ids.indexOf(String(row.trash_id)) !== -1;
     else if (batchId) match = String(row.batch_id) === batchId;

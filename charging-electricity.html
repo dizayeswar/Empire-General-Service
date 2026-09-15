@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Charging Electricity — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-09-15-chg-sum">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-15-chg-sum">
-<link rel="stylesheet" href="assets/empire-charging.css?v=2026-09-15-chg-sum">
+<link rel="stylesheet" href="assets/empire.css?v=2026-09-15-chg-acc">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-15-chg-acc">
+<link rel="stylesheet" href="assets/empire-charging.css?v=2026-09-15-chg-acc">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -46,19 +46,19 @@
       </div>
       <p id="whoLabel"></p>
       <nav class="side-nav">
-        <button class="tab-btn active" data-chg-tab="dash" onclick="chgSwitchTab_(event,'dash')">
+        <button class="tab-btn active" id="chgDashTabBtn" data-chg-tab="dash" onclick="chgSwitchTab_(event,'dash')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg></span>
           <span class="lbl">Dashboard</span>
         </button>
-        <button class="tab-btn" data-chg-tab="summary" onclick="chgSwitchTab_(event,'summary')">
+        <button class="tab-btn" id="chgSummaryTabBtn" data-chg-tab="summary" onclick="chgSwitchTab_(event,'summary')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16v-5"/><path d="M12 16V8"/><path d="M17 16v-9"/></svg></span>
           <span class="lbl">Summary</span>
         </button>
-        <button class="tab-btn" data-chg-tab="waiting" onclick="chgSwitchTab_(event,'waiting')">
+        <button class="tab-btn" id="chgWaitingTabBtn" data-chg-tab="waiting" onclick="chgSwitchTab_(event,'waiting')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>
           <span class="lbl">Waiting</span>
         </button>
-        <button class="tab-btn" data-chg-tab="charged" onclick="chgSwitchTab_(event,'charged')">
+        <button class="tab-btn" id="chgChargedTabBtn" data-chg-tab="charged" onclick="chgSwitchTab_(event,'charged')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
           <span class="lbl">Charged</span>
         </button>
@@ -228,12 +228,12 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-09-15-chg-sum"></script>
-<script src="assets/empire-api.js?v=2026-09-15-chg-sum"></script>
-<script src="assets/empire-auth.js?v=2026-09-15-chg-sum"></script>
-<script src="assets/empire-core.js?v=2026-09-15-chg-sum"></script>
-<script src="assets/empire-storage.js?v=2026-09-15-chg-sum"></script>
-<script src="assets/empire-sw-update.js?v=2026-09-15-chg-sum"></script>
-<script src="assets/empire-charging.js?v=2026-09-15-chg-sum"></script>
+<script src="config.js?v=2026-09-15-chg-acc"></script>
+<script src="assets/empire-api.js?v=2026-09-15-chg-acc"></script>
+<script src="assets/empire-auth.js?v=2026-09-15-chg-acc"></script>
+<script src="assets/empire-core.js?v=2026-09-15-chg-acc"></script>
+<script src="assets/empire-storage.js?v=2026-09-15-chg-acc"></script>
+<script src="assets/empire-sw-update.js?v=2026-09-15-chg-acc"></script>
+<script src="assets/empire-charging.js?v=2026-09-15-chg-acc"></script>
 </body>
 </html>
