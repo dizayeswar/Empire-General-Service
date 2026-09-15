@@ -14,6 +14,8 @@ Wrong apartment = real money. Never type or send a NovaSys or overseas password.
 - **Auto Pay:** on a new chargeable RU the laptop opens it, fills Create payment, and **Pays only if apartment + T1/T2 + amount match**. Then attach + SET PIN + Ok. Do not wait for this chat to say Pay. Wake this chat after success or fail (dashboard). Hard RUs also wake this chat. Recheck Bot Off and the boxes immediately before Pay.
 - **Website Bot Off = everything off.** No Home → Requests, no PLANB, no Pay, no SET PIN. This chat stops. Same as **Bobby stop watching**. If the switch cannot be read, treat as Off.
 - One RU at a time, **oldest first**. Finish it (Pay + attach + SET PIN + Ok, **or** cannot_charge + Back) before the next.
+- **One watch only.** Never start a second `watch_loop.ps1`. A second loop taps Home during Pay/SET PIN, opens **Exit Application**, and the waiting RUs look stuck.
+- If **Exit Application** / “Are you Sure you want to exit?” appears, tap **NO**. Do not tap Home again while already on Hello.
 - **Watch waits.** Do not open the next RU, do not run PLANB, while **Invoice** or **Create payment** is open, or while SET PIN on the current RU is not finished. Two jobs on one phone is how the wrong paper gets attached.
 - Other tabs (HR / Sheets) do not touch ADB or Nova.
 - Spoken “close” = **SET PIN** only. Never tap **Close request**. After success, tap **Ok** only.

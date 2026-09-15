@@ -265,6 +265,8 @@ def main() -> int:
         raise
     except Exception as exc:
         wake("laptop stopped", f"{ru} {unit} {exc}")
+        if "Exit Application" in str(exc) or "Are you Sure you want to exit?" in str(exc):
+            return 5
         return 2
 
 

@@ -52,6 +52,45 @@ def tap(x: int, y: int) -> None:
     adb("shell", "input", "tap", str(x), str(y))
 
 
+def _bounds_for_text(xml_name: str, label: str):
+    import xml.etree.ElementTree as ET
+
+    dest = DIR / f"{xml_name}.xml"
+    if not dest.exists():
+        return None
+    root = ET.parse(dest).getroot()
+    for n in root.iter("node"):
+        if n.attrib.get("text") != label:
+            continue
+        b = n.attrib.get("bounds") or ""
+        nums = [
+            int(x)
+            for x in b.replace("][", ",").replace("[", "").replace("]", "").split(",")
+            if x
+        ]
+        if len(nums) == 4:
+            return nums
+    return None
+
+
+def dismiss_exit(texts: list[str], name: str) -> list[str]:
+    """Home-on-Home opens Exit Application. Tap NO so the Open list can load."""
+    if "Exit Application" not in texts and "Are you Sure you want to exit?" not in texts:
+        return texts
+    b = _bounds_for_text(name, "NO")
+    if not b:
+        texts = dump_texts(name)
+        if "Exit Application" not in texts and "Are you Sure you want to exit?" not in texts:
+            return texts
+        b = _bounds_for_text(name, "NO")
+    if not b:
+        return texts
+    tap((b[0] + b[2]) // 2, (b[1] + b[3]) // 2)
+    time.sleep(0.5)
+    log("dismissed Exit Application (NO)")
+    return dump_texts(f"{name}-no")
+
+
 def is_overseas(unit: str) -> bool:
     u = (unit or "").strip().upper().replace(" ", "")
     if not u:
@@ -130,6 +169,7 @@ def parse_cards(texts: list[str]) -> list[dict]:
 def leave_request_detail(texts: list[str]) -> list[str]:
     """Request Detail / Items uses its own bottom tabs. Home (134,2144) and
     Requests (405,2144) hit those tabs and never reach the Open list."""
+    texts = dismiss_exit(texts, "watch-back")
     for i in range(8):
         joined = " ".join(texts)
         stuck = (
@@ -142,28 +182,36 @@ def leave_request_detail(texts: list[str]) -> list[str]:
         tap(79, 185)
         time.sleep(0.7)
         texts = dump_texts(f"watch-back{i}")
+        texts = dismiss_exit(texts, f"watch-back{i}")
     return texts
 
 
 def refresh_open() -> list[str]:
     texts = dump_texts("watch0")
+    texts = dismiss_exit(texts, "watch0")
     texts = leave_request_detail(texts)
-    tap(134, 2144)
-    time.sleep(2)
+    # Home while already on Hello opens Exit Application.
+    if "Hello" not in texts:
+        tap(134, 2144)
+        time.sleep(2)
     tap(405, 2144)
     time.sleep(18)
     texts = dump_texts("watch")
+    texts = dismiss_exit(texts, "watch")
     texts = leave_request_detail(texts)
     if "Getting Requests..." in texts:
         time.sleep(10)
         texts = dump_texts("watchb")
+        texts = dismiss_exit(texts, "watchb")
     if "Hello" in texts or ("Open" not in texts and "Getting Requests..." not in texts):
         tap(405, 2144)
         time.sleep(14)
         texts = dump_texts("watchc")
+        texts = dismiss_exit(texts, "watchc")
         if "Getting Requests..." in texts:
             time.sleep(8)
             texts = dump_texts("watchd")
+            texts = dismiss_exit(texts, "watchd")
         texts = leave_request_detail(texts)
     return texts
 
@@ -223,7 +271,7 @@ def main() -> int:
     if not busy:
         focus = adb("shell", "dumpsys", "window")
         for ln in focus.splitlines():
-            if ("mCurrentFocus" in ln or "mFocusedApp" in ln) and "UCropActivity" in ln:
+            if "mCurrentFocus" in ln and "UCropActivity" in ln:
                 busy = "Edit Photo"
                 break
     if busy:
@@ -275,6 +323,11 @@ def main() -> int:
         alerted.discard(c["ru"])
         save_state({"alerted": sorted(alerted)})
         log(f"PLANB retry next tick {c['ru']}")
+        return 10
+    if r.returncode == 5:
+        alerted.discard(c["ru"])
+        save_state({"alerted": sorted(alerted)})
+        log(f"PLANB retry after Exit/nav {c['ru']}")
         return 10
     if r.returncode not in (0, 2):
         alerted.discard(c["ru"])

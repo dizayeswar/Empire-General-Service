@@ -46,6 +46,9 @@ def main() -> None:
 
     ru = sys.argv[1]
     texts = click_ok_if_done(dump("fast0"))
+    from watch_open import dismiss_exit
+
+    texts = dismiss_exit(texts, "fast0")
     require_bot_on()
     if ru in texts and (
         "Request ID" in texts or "Request Detail" in texts or "SET PIN" in texts
@@ -74,6 +77,11 @@ def main() -> None:
     print("SEARCH")
     for t in texts:
         print(t)
+    if ru in texts and (
+        "Request ID" in texts or "Request Detail" in texts or "SET PIN" in texts
+    ):
+        print("ALREADY OPEN")
+        return
     buys = [t for t in texts if t.startswith("Buy -")]
     if len(buys) != 1 or buys[0] != f"Buy - {ru}":
         raise SystemExit(f"not exactly one {ru}: {buys}")
