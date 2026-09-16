@@ -11,9 +11,11 @@ Wrong apartment = real money. Never type or send a NovaSys or overseas password.
 ## Who works
 
 - Laptop `watch_open.py` refreshes Open every ~25s when idle, and ~8s after a charge. No AI on empty ticks. During Nova Pay the phone stays on that RU (wake the screen only — do not tap Home). Before SET PIN, reopen the RU if the phone left it.
-- **Auto Pay:** on a new chargeable RU the laptop opens it, fills Create payment, and **Pays only if apartment + T1/T2 + amount match**. Then attach + SET PIN + Ok. Do not wait for this chat to say Pay. Wake this chat after success or fail (dashboard). Hard RUs also wake this chat. Recheck Bot Off and the boxes immediately before Pay.
+- **Auto Pay:** on a new chargeable RU the laptop opens it, fills Create payment, and **Pays only if apartment + T1/T2 + amount match**. Then attach + SET PIN + Ok. The laptop writes the Charging Electricity row (invoice + `charging_requests`) itself — do not wait for this chat. Wake this chat after success or fail. Hard RUs also wake this chat. Recheck Bot Off and the boxes immediately before Pay.
 - **Website Bot Off = everything off.** No Home → Requests, no PLANB, no Pay, no SET PIN. This chat stops. Same as **Bobby stop watching**. If the switch cannot be read, treat as Off.
 - One RU at a time, **oldest first**. Finish it (Pay + attach + SET PIN + Ok, **or** cannot_charge + Back) before the next.
+- **One watch only.** Never start a second `watch_loop.ps1`. A second loop taps Home during Pay/SET PIN, opens **Exit Application**, and the waiting RUs look stuck.
+- If **Exit Application** / “Are you Sure you want to exit?” appears, tap **NO**. Do not tap Home again while already on Hello. Do not skip the RU — retry it. Never tap **YES**.
 - **Watch waits.** Do not open the next RU, do not run PLANB, while **Invoice** or **Create payment** is open, or while SET PIN on the current RU is not finished. Two jobs on one phone is how the wrong paper gets attached.
 - Other tabs (HR / Sheets) do not touch ADB or Nova.
 - Spoken “close” = **SET PIN** only. Never tap **Close request**. After success, tap **Ok** only.
@@ -21,7 +23,7 @@ Wrong apartment = real money. Never type or send a NovaSys or overseas password.
 ## Phone
 
 - App `com.abacuscambridge.empireworldErbil`. Refresh = Home → Requests **only when the main Staff bar is showing** (Home / Requests / Tasks / Account).
-- After **grey / red X / cannot_charge / any fail**: **Back (Navigate up)** off Request Detail / Items **before** the next refresh. Fail does not SET PIN, so the phone stays on that RU until we leave it.
+- After **grey / red X / cannot_charge / any fail**: **Back (Navigate up)** off Request Detail / Items **before** the next refresh. Fail does not SET PIN, so the phone stays on that RU until we leave it. On Charging Electricity, **Manual** on a waiting row marks it charged by hand and counts its IQD in Summary.
 - Request Detail / Items use their own bottom tabs. Home `(134,2144)` and Requests `(405,2144)` hit those tabs and **never** reach the Open list. That is why `open=0` can be a lie.
 - A dump with `Request ID` / `SET PIN` / `Request Detail` and **no** `Buy - RU-` is **not** an empty Open list. Back first, then Home → Requests, then read cards. Grey skips **that RU only**; other Open RUs still get done.
 - Do not spam Back from Home — that opens **Exit Application**. Tap **NO** if it appears.
@@ -36,7 +38,7 @@ Wrong apartment = real money. Never type or send a NovaSys or overseas password.
 
 - **Nova:** `ES-` and `WW-12` … `WW-15`. Search as the phone except ES4 `ES-4-17-02` → `ES4-17-2` and ES6 `ES-6-{floor}-{apt}` (floors 2–24, apts 1–6).
 - **Overseas (live):** `RV-`, `RA-`, `WD-`, `WW-1` … `WW-11`. STS Vending. Oldest first across Nova **and** overseas, one RU at a time. Customer Selector **none or more than one row** → skip that RU (dashboard `no_row` / `ambiguous`), next RU. Save charged and skipped overseas rows on Charging Electricity with **source `overseas`**. Dashboard shows **Nova** or **Overseas**. No National/Generator.
-- Keep-awake may still click **Home** every 4 minutes so Edge stays logged in. Login page → **Sign In** only (saved password). Never type the password. That is not charging.
+- **No 4-minute overseas Home keep.** It does not stop logout. Do not start `overseas_keep_loop.ps1`. When a charge hits the login page → **Sign In** only (saved password). Never type the password.
 - **Nova only:** Charge only if first column is **green circle + white tick**. Ignore orange/red **row fill**. Grey clock (**pending**): click **Refresh** once (toolbar next to Pay, or F5), then look again. If it is green, Pay as usual. If it is still pending after that one refresh, no Pay, no SET PIN; save dashboard; leave that request; keep watching. Red X = no refresh, no Pay; save dashboard and leave. Trust the search screenshot if pixels say pending.
 
 ## Overseas process (locked)
@@ -60,11 +62,11 @@ Site: Edge **Overseas Integration Platform** (`empire.pswla.com`). First screen 
 - Before Pay, the Create payment boxes must show the same **apartment + T1/T2 + amount**. Else stop.
 - T1 = 156 IQD/kWh. T2 = 480 IQD/kWh.
 - Login: if user **swar** and password **empty** → **Cancel**, then **close Nova** and **open Nova** again. When **Attention!** “data base version is obsolete” appears → **Yes**. Never type the password. Never OK the empty login. Never OK the “Logging in” box.
-- Charged dashboard rows need an invoice URL. Waiting rows need a note. Unique on `ru`. Set `started_at` when the RU starts.
+- Charged dashboard rows need an invoice URL. Waiting / skipped rows need a note. Unique on `ru`. Set `started_at` when the Open list first shows that RU (PLANB). Set `charged_at` when SET PIN Ok succeeds. Duration on the website is that span.
 
 ## Commands
 
 - **Bobby stop watching** → stop the laptop watch (no Home → Requests, no Pay, no SET PIN).
 - **Start watching Bobby** → start `watch_loop.ps1` (exits when the website Bot is Off). Nova and overseas.
 - **bobby start overseas too** → already live. Charge overseas RUs with the locked STS Vending process.
-- Website **Turn Off** → laptop watch exits; overseas keep exits; Pay / SET PIN / PLANB refuse to run; this chat does not continue a charge.
+- Website **Turn Off** → laptop watch exits; Pay / SET PIN / PLANB refuse to run; this chat does not continue a charge.

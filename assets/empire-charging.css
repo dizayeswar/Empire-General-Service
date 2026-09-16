@@ -111,6 +111,21 @@
   filter: none;
 }
 
+.chg-manual-btn {
+  flex: 0 0 auto;
+  color: #fff;
+  background: #147a58;
+  border: 1px solid #147a58;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+.chg-manual-btn:hover {
+  filter: brightness(1.08);
+}
+
 .chg-kpi-row {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -305,6 +320,10 @@
   background: rgba(141, 1, 93, 0.12);
   color: #8d015d;
 }
+.chg-pill.manual {
+  background: rgba(20, 122, 88, 0.14);
+  color: #147a58;
+}
 .chg-pill.nova {
   background: rgba(59, 130, 246, 0.14);
   color: #1d4ed8;
@@ -480,6 +499,15 @@
   gap: 8px;
   margin-top: 14px;
 }
+.chg-act-cell {
+  white-space: nowrap;
+  width: 1%;
+}
+.chg-card-wrap {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+}
 
 .chg-lightbox {
   position: fixed;
@@ -530,6 +558,7 @@ html[data-theme='dark'] .chg-bot-bar.is-on {
   background: rgba(29, 158, 117, 0.16);
 }
 html[data-theme='dark'] .chg-pill.retry { color: #f3d4e8; }
+html[data-theme='dark'] .chg-pill.manual { color: #7ee0c0; }
 html[data-theme='dark'] .chg-drawer-backdrop { background: rgba(0, 0, 0, 0.62); }
 
 .chg-sum-toolbar {
@@ -726,6 +755,7 @@ html[data-theme='dark'] .chg-sum-kind.gen {
 }
 
 @media (max-width: 560px) {
-  .chg-retry-btn { width: 100%; }
+  .chg-retry-btn,
+  .chg-manual-btn { width: 100%; }
   .chg-drawer { width: 100%; }
 }

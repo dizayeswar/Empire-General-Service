@@ -28,7 +28,16 @@ def dump(name: str) -> ET.Element:
     DIR.mkdir(parents=True, exist_ok=True)
     adb("shell", "uiautomator", "dump", "/sdcard/uidump.xml")
     adb("pull", "/sdcard/uidump.xml", str(DIR / f"{name}.xml"))
-    return ET.parse(DIR / f"{name}.xml").getroot()
+    root = ET.parse(DIR / f"{name}.xml").getroot()
+    t = texts(root)
+    if "Exit Application" in t or "Are you Sure you want to exit?" in t:
+        from watch_open import dismiss_exit
+
+        dismiss_exit(t, name)
+        adb("shell", "uiautomator", "dump", "/sdcard/uidump.xml")
+        adb("pull", "/sdcard/uidump.xml", str(DIR / f"{name}-no.xml"))
+        root = ET.parse(DIR / f"{name}-no.xml").getroot()
+    return root
 
 
 def texts(root: ET.Element) -> list[str]:
@@ -117,11 +126,6 @@ def main() -> None:
 
     root = dump("fin0")
     t = texts(root)
-    if ru not in t:
-        tap(134, 2144)
-        time.sleep(0.8)
-        root = dump("fin0b")
-        t = texts(root)
     if ru not in t:
         raise SystemExit(f"phone is not on {ru}: {t[:12]}")
 

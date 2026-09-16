@@ -391,18 +391,39 @@ def main() -> int:
     require_bot_on()
     ru = sys.argv[1]
     unit = sys.argv[2] if len(sys.argv) > 2 else ""
+    from save_dashboard import utc_iso
+    from watch_open import nav_should_retry
+
+    started_at = sys.argv[3] if len(sys.argv) > 3 else utc_iso()
     print(f"PLANB START OVERSEAS {ru} {unit}")
     pause_keep()
     stay = threading.Event()
     keeper = threading.Thread(target=_keep_request_awake, args=(stay,), daemon=True)
     keeper.start()
+    charged = False
     try:
         tariff, amount = items_from_phone(ru)
         print(f"ITEMS {tariff} {amount} (overseas ignores T1/T2)")
         result = sts_search_and_recharge(unit, amount)
         if result != "charged":
+            from save_dashboard import save_skip
+
+            try:
+                save_skip(
+                    ru=ru,
+                    unit=unit,
+                    status=result,
+                    note=f"Customer Selector {result}. Not charged.",
+                    source="overseas",
+                    amount=amount,
+                    tariff=tariff,
+                    started_at=started_at,
+                )
+            except Exception as exc:
+                print("dashboard skip save failed", exc)
             wake("overseas skip", f"{ru} {unit} {result}")
             return 2
+        charged = True
         grab_pdf_invoice(ru)
         stay.set()
         keeper.join(timeout=2)
@@ -417,8 +438,25 @@ def main() -> int:
                 print("SET PIN retry", attempt + 1, exc)
         if last_pin is not None:
             raise last_pin
+        from save_dashboard import save_charged, utc_iso
+
+        charged_at = utc_iso()
         finish_overseas(ru)
-        wake("AUTO PAID + SET PIN", f"{ru} {unit} overseas {amount}")
+        try:
+            save_charged(
+                ru=ru,
+                unit=unit,
+                amount=amount,
+                source="overseas",
+                tariff=tariff,
+                started_at=started_at,
+                charged_at=charged_at,
+            )
+        except Exception as exc:
+            print("dashboard save failed", exc)
+            wake("dashboard save failed", f"{ru} {unit} overseas {amount} {exc}")
+        else:
+            wake("AUTO PAID + SET PIN", f"{ru} {unit} overseas {amount}")
         return 0
     except SystemExit as exc:
         if exc.code == 4:
@@ -439,6 +477,8 @@ def main() -> int:
             click_home(edge())
         except Exception:
             pass
+        if not charged and nav_should_retry(exc):
+            return 5
         return 2
     finally:
         stay.set()

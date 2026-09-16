@@ -205,11 +205,13 @@ function chgDurationLabel_(row) {
   var a = Date.parse(String(row.startedAt || ''));
   var b = Date.parse(String(row.chargedAt || ''));
   if (!a || !b || b < a) return '—';
-  var mins = Math.round((b - a) / 60000);
-  if (mins < 1) return '< 1 min';
-  if (mins < 60) return mins + ' min';
-  var h = Math.floor(mins / 60);
-  var m = mins % 60;
+  var sec = Math.max(1, Math.round((b - a) / 1000));
+  if (sec < 60) return sec + ' s';
+  var m = Math.floor(sec / 60);
+  var s = sec % 60;
+  if (m < 60) return s ? (m + ' min ' + s + ' s') : (m + ' min');
+  var h = Math.floor(m / 60);
+  m = m % 60;
   return m ? (h + ' h ' + m + ' min') : (h + ' h');
 }
 
@@ -468,6 +470,9 @@ function chgPillHtml_(row) {
   var sys = chgIsOverseas_(row) ? 'overseas' : 'nova';
   var html = '<span class="chg-pill ' + sys + '">' + chgEsc_(chgSystemLabel_(row)) + '</span>';
   html += '<span class="chg-pill ' + chgEsc_(st) + '">' + chgEsc_(chgStatusLabel_(st)) + '</span>';
+  if (st === 'charged' && /manual charge/i.test(String(row.note || ''))) {
+    html += '<span class="chg-pill manual">Manual</span>';
+  }
   if (row.retryRequested && st !== 'charged') {
     html += '<span class="chg-pill retry">Retry queued</span>';
   }
@@ -485,6 +490,17 @@ function chgThumbHtml_(row) {
 
 function chgIsWaiting_(row) {
   return String(row.status || '') !== 'charged';
+}
+
+function chgCanMarkManual_(row) {
+  return chgIsWaiting_(row) && (chgCanWriteWaiting_() || chgCanWriteCharged_());
+}
+
+function chgManualBtnHtml_(row) {
+  if (!chgCanMarkManual_(row)) return '';
+  var ru = chgSafeRu_(row.ru);
+  if (!ru) return '';
+  return '<button type="button" class="chg-manual-btn" onclick="event.stopPropagation();chgMarkManual_(\'' + ru + '\')">Manual</button>';
 }
 
 function chgPassFilters_(row, statusFilter, typeFilter, q) {
@@ -572,8 +588,11 @@ function chgRowOpen_(id) {
   var safeId = chgSafeId_(row.id);
   var invoiceBlock = inv
     ? '<img class="chg-invoice-full" src="' + chgEsc_(inv) + '" alt="Invoice" onclick="chgOpenLightboxRow_(\'' + safeId + '\')">'
-    : '<div class="chg-invoice-missing">No invoice picture — this RU was not charged.</div>';
+    : (String(row.status) === 'charged'
+      ? '<div class="chg-invoice-missing">Charged manually — no invoice picture.</div>'
+      : '<div class="chg-invoice-missing">No invoice picture — this RU was not charged.</div>');
   var retryBtn = '';
+  var manualBtn = '';
   var delBtn = '';
   if (chgCanWriteWaiting_() && chgBotOn_() && chgIsWaiting_(row) && !row.retryRequested) {
     var ru = chgSafeRu_(row.ru);
@@ -581,6 +600,7 @@ function chgRowOpen_(id) {
       retryBtn = '<button type="button" class="chg-retry-btn" onclick="chgRetryOne_(\'' + ru + '\')">Queue this RU for retry</button>';
     }
   }
+  manualBtn = chgManualBtnHtml_(row);
   if (chgCanWriteRow_(row) && safeId) {
     delBtn = '<button type="button" class="chg-del-btn" onclick="chgDeleteOne_(\'' + safeId + '\')">Move to Recycle Bin</button>';
   }
@@ -603,7 +623,7 @@ function chgRowOpen_(id) {
     '<dt>Saved by</dt><dd>' + chgEsc_(row.createdBy || '—') + '</dd>' +
     '</dl>' +
     invoiceBlock +
-    '<div class="chg-drawer-acts">' + retryBtn + delBtn + '</div>';
+    '<div class="chg-drawer-acts">' + manualBtn + retryBtn + delBtn + '</div>';
   root.hidden = false;
 }
 
@@ -649,10 +669,12 @@ function chgTableHtml_(rows) {
       '<td class="chg-dur">' + chgEsc_(chgDurationLabel_(row)) + '</td>' +
       '<td' + (String(row.invoiceUrl || '').trim() ? ' onclick="event.stopPropagation();chgOpenLightboxRow_(\'' + chgSafeId_(row.id) + '\')"' : '') + '>' + chgThumbHtml_(row) + '</td>' +
       '<td class="chg-note-cell">' + chgEsc_(row.note || '') + '</td>' +
+      '<td class="chg-act-cell" onclick="event.stopPropagation()">' + chgManualBtnHtml_(row) + '</td>' +
       '</tr>';
   }).join('');
   var cards = rows.map(function (row) {
-    return '<button type="button" class="chg-card" onclick="chgRowOpen_(\'' + chgSafeId_(row.id) + '\')">' +
+    return '<div class="chg-card-wrap">' +
+      '<button type="button" class="chg-card" onclick="chgRowOpen_(\'' + chgSafeId_(row.id) + '\')">' +
       '<div class="chg-card-top">' + chgThumbHtml_(row) +
       '<div class="chg-card-meta"><div class="chg-card-ru">' + chgEsc_(row.ru) + '</div>' +
       '<div class="chg-card-unit">' + chgEsc_(row.unitId || '—') + ' · ' + chgEsc_(chgSystemLabel_(row)) + '</div>' +
@@ -662,10 +684,12 @@ function chgTableHtml_(rows) {
       '<span>' + chgEsc_(chgFormatAmt_(row.amount)) + '</span>' +
       '<span>' + chgEsc_(chgDurationLabel_(row)) + '</span></div>' +
       (row.note ? '<div class="chg-card-note">' + chgEsc_(row.note) + '</div>' : '') +
-      '</button>';
+      '</button>' +
+      chgManualBtnHtml_(row) +
+      '</div>';
   }).join('');
   return '<div class="chg-table-wrap"><table class="chg-table"><thead><tr>' +
-    '<th>Saved</th><th>RU</th><th>Unit</th><th>System</th><th>Type</th><th>Amount</th><th>Status</th><th>Duration</th><th>Invoice</th><th>Cause</th>' +
+    '<th>Saved</th><th>RU</th><th>Unit</th><th>System</th><th>Type</th><th>Amount</th><th>Status</th><th>Duration</th><th>Invoice</th><th>Cause</th><th></th>' +
     '</tr></thead><tbody>' + body + '</tbody></table></div>' +
     '<div class="chg-cards">' + cards + '</div>';
 }
@@ -1157,6 +1181,27 @@ function chgDoReset_() {
   }).catch(function (e) {
     msg.style.color = '#C5504F';
     msg.textContent = (e && e.message) || 'Reset failed.';
+  });
+}
+
+function chgMarkManual_(ru) {
+  if (!chgCanWriteWaiting_() && !chgCanWriteCharged_()) return;
+  var row = CHG_ROWS_.filter(function (r) { return String(r.ru) === ru; })[0];
+  var amt = row ? chgFormatAmt_(row.amount) : '';
+  if (!window.confirm(
+    'Mark ' + ru + ' as charged manually' + (amt ? ' (' + amt + ')' : '') +
+    '?\n\nIts money will be added to Summary. The laptop will not charge it again.'
+  )) return;
+  fetchJSONRetry({
+    action: 'markChargingManual',
+    token: chgToken_(),
+    ru: ru
+  }, 1, 30000).then(function (d) {
+    if (!d || !d.ok) throw new Error((d && (d.message || d.error)) || 'Could not mark that RU as manual.');
+    chgCloseDrawer_();
+    return chgLoad_(true);
+  }).catch(function (e) {
+    uiAlert((e && e.message) || 'Could not mark that RU as manual.');
   });
 }
 

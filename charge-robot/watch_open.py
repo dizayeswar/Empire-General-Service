@@ -6,7 +6,7 @@ import re
 import subprocess
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -38,7 +38,7 @@ def adb(*args: str) -> str:
     return (r.stdout or "") + (r.stderr or "")
 
 
-def dump_texts(name: str) -> list[str]:
+def _dump_raw(name: str) -> list[str]:
     adb("shell", "uiautomator", "dump", "/sdcard/uidump.xml")
     dest = DIR / f"{name}.xml"
     adb("pull", "/sdcard/uidump.xml", str(dest))
@@ -48,8 +48,78 @@ def dump_texts(name: str) -> list[str]:
     return [n.attrib.get("text") or "" for n in root.iter("node") if n.attrib.get("text")]
 
 
+def dump_texts(name: str) -> list[str]:
+    """Every dump taps NO if Exit Application is up, so Open RUs are not skipped."""
+    return dismiss_exit(_dump_raw(name), name)
+
+
 def tap(x: int, y: int) -> None:
     adb("shell", "input", "tap", str(x), str(y))
+
+
+def is_exit_texts(texts: list[str]) -> bool:
+    return "Exit Application" in texts or "Are you Sure you want to exit?" in texts
+
+
+def nav_should_retry(exc: BaseException) -> bool:
+    """Exit / list-nav fail = retry this RU. Do not use after Pay (would recharge)."""
+    msg = str(exc)
+    return any(
+        s in msg
+        for s in (
+            "Exit Application",
+            "Are you Sure you want to exit?",
+            "bad items",
+            "not exactly one",
+            "phone is not on",
+            "returned non-zero exit status",
+            "open RU-",
+        )
+    )
+
+
+def _bounds_for_text(xml_name: str, label: str):
+    import xml.etree.ElementTree as ET
+
+    dest = DIR / f"{xml_name}.xml"
+    if not dest.exists():
+        return None
+    root = ET.parse(dest).getroot()
+    found = None
+    for n in root.iter("node"):
+        if n.attrib.get("text") != label:
+            continue
+        b = n.attrib.get("bounds") or ""
+        nums = [
+            int(x)
+            for x in b.replace("][", ",").replace("[", "").replace("]", "").split(",")
+            if x
+        ]
+        if len(nums) == 4:
+            found = nums
+    return found
+
+
+def dismiss_exit(texts: list[str], name: str) -> list[str]:
+    """Home-on-Home opens Exit Application. Tap NO until it is gone."""
+    for i in range(4):
+        if not is_exit_texts(texts):
+            return texts
+        b = _bounds_for_text(name, "NO")
+        if not b:
+            texts = _dump_raw(name)
+            if not is_exit_texts(texts):
+                return texts
+            b = _bounds_for_text(name, "NO")
+        if not b:
+            log("Exit Application on screen but NO not found")
+            return texts
+        tap((b[0] + b[2]) // 2, (b[1] + b[3]) // 2)
+        time.sleep(0.5)
+        log("dismissed Exit Application (NO)")
+        name = f"{name}-no{i}"
+        texts = _dump_raw(name)
+    return texts
 
 
 def is_overseas(unit: str) -> bool:
@@ -130,6 +200,7 @@ def parse_cards(texts: list[str]) -> list[dict]:
 def leave_request_detail(texts: list[str]) -> list[str]:
     """Request Detail / Items uses its own bottom tabs. Home (134,2144) and
     Requests (405,2144) hit those tabs and never reach the Open list."""
+    texts = dismiss_exit(texts, "watch-back")
     for i in range(8):
         joined = " ".join(texts)
         stuck = (
@@ -148,8 +219,10 @@ def leave_request_detail(texts: list[str]) -> list[str]:
 def refresh_open() -> list[str]:
     texts = dump_texts("watch0")
     texts = leave_request_detail(texts)
-    tap(134, 2144)
-    time.sleep(2)
+    # Home while already on Hello opens Exit Application.
+    if "Hello" not in texts and not is_exit_texts(texts):
+        tap(134, 2144)
+        time.sleep(2)
     tap(405, 2144)
     time.sleep(18)
     texts = dump_texts("watch")
@@ -223,7 +296,7 @@ def main() -> int:
     if not busy:
         focus = adb("shell", "dumpsys", "window")
         for ln in focus.splitlines():
-            if ("mCurrentFocus" in ln or "mFocusedApp" in ln) and "UCropActivity" in ln:
+            if "mCurrentFocus" in ln and "UCropActivity" in ln:
                 busy = "Edit Photo"
                 break
     if busy:
@@ -259,6 +332,7 @@ def main() -> int:
     save_state({"alerted": sorted(alerted)})
     summary = f"{c['ru']} {c.get('unit') or '?'} {c.get('money') or '?'}"
     log(f"PLANB {summary}")
+    started = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     script = "overseas_charge.py" if is_overseas(c.get("unit") or "") else "charge_easy.py"
     r = subprocess.run(
         [
@@ -266,6 +340,7 @@ def main() -> int:
             str(ROOT / script),
             c["ru"],
             c.get("unit") or "",
+            started,
         ],
         cwd=str(ROOT),
     )
@@ -275,6 +350,11 @@ def main() -> int:
         alerted.discard(c["ru"])
         save_state({"alerted": sorted(alerted)})
         log(f"PLANB retry next tick {c['ru']}")
+        return 10
+    if r.returncode == 5:
+        alerted.discard(c["ru"])
+        save_state({"alerted": sorted(alerted)})
+        log(f"PLANB retry after Exit/nav {c['ru']}")
         return 10
     if r.returncode not in (0, 2):
         alerted.discard(c["ru"])
