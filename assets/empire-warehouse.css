@@ -1245,6 +1245,11 @@ html[data-theme="dark"] .wh-inv-no .wh-cell-input {
   color: var(--text-soft, #666);
   white-space: nowrap;
 }
+.wh-inv-search-bar {
+  display: flex;
+  width: 100%;
+  margin: 0 0 14px;
+}
 .wh-inv-search {
   flex: 1 1 220px;
   min-width: 180px;
@@ -1257,6 +1262,14 @@ html[data-theme="dark"] .wh-inv-no .wh-cell-input {
   background: var(--panel, #fff);
   color: inherit;
   box-sizing: border-box;
+}
+.wh-inv-search-bar .wh-inv-search {
+  max-width: none;
+  min-width: 0;
+  width: 100%;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 14px;
 }
 .wh-inv-search:focus {
   outline: none;
@@ -1285,6 +1298,11 @@ html[data-theme="dark"] .wh-inv-no .wh-cell-input {
   font-weight: 600;
   background: transparent;
   padding: 0;
+}
+.wh-inv-status.edited {
+  background: #6d28d9;
+  color: #fff;
+  margin-left: 6px;
 }
 .wh-inv-status.book-open {
   background: #6b7280;

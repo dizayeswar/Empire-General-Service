@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-09-15-wh-sec">
+<link rel="manifest" href="manifest.webmanifest?v=2026-09-16-inv-edit">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-09-15-wh-sec">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-15-wh-sec">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-09-15-wh-sec">
+<link rel="stylesheet" href="assets/empire.css?v=2026-09-16-inv-edit">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-16-inv-edit">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-09-16-inv-edit">
 </head>
 <body class="auth-login-visible wh-page">
 <div class="login-page show" id="loginPage">
@@ -157,7 +157,7 @@
               </div>
               <div class="wh-top-right">
                 <div class="wh-logo-wrap" data-wh-layout="logo">
-                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-09-15-wh-sec" alt="Empire">
+                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-09-16-inv-edit" alt="Empire">
                 </div>
                 <div class="wh-req-block" data-wh-layout="reqBlock">
                   <div class="wh-line"><strong>Request No.:</strong><input id="wh-request-no" class="wh-cell-input" type="text" autocomplete="off"></div>
@@ -369,7 +369,7 @@
       <div id="wh-tab-invoice" class="tab-content dept-tab-content">
         <div class="wh-app">
           <div class="wh-toolbar no-print">
-            <strong>New Invoice</strong>
+            <strong id="whInvFormTitle">New Invoice</strong>
             <span id="whInvViewBanner" class="wh-done-banner" hidden>View only — cannot edit</span>
             <span class="wh-spacer"></span>
             <button type="button" onclick="whInvNew()">New</button>
@@ -423,7 +423,7 @@
               <tbody>
                 <tr>
                   <td>
-                    <input id="wh-inv-amount" class="wh-cell-input" type="text" inputmode="numeric" autocomplete="off" placeholder="0" oninput="whFormatPrice(event)">
+                    <input id="wh-inv-amount" class="wh-cell-input" type="text" inputmode="numeric" autocomplete="off" placeholder="Required" required oninput="whFormatPrice(event)">
                   </td>
                   <td>
                     <div class="wh-combo wh-inv-pill-dd" id="wh-inv-currency-combo">
@@ -478,7 +478,7 @@
           <div class="form-section">
             <h2>Warehouse Invoices</h2>
             <p class="wh-tab-help">Saved receipt vouchers. Each invoice is one row. Paper books have <strong>48–50 pages</strong> (one invoice per page). The list below stays <strong>monthly (26th – 25th)</strong>. When a book is finished, <strong>Handle</strong> it to keep that book’s cash total.</p>
-            <div class="wh-toolbar no-print" style="margin-bottom:12px;gap:8px;flex-wrap:wrap;align-items:center;">
+            <div class="wh-toolbar no-print" style="margin-bottom:8px;gap:8px;flex-wrap:wrap;align-items:center;">
               <label for="whInvListMonth" style="font-size:13px;font-weight:600;margin:0;">Month</label>
               <input type="month" id="whInvListMonth" class="wh-inv-month" onchange="whInvListOnMonthChange()">
               <button type="button" class="wh-sp-filter" onclick="whInvListClearMonth()">All months</button>
@@ -489,9 +489,11 @@
               <button type="button" id="whInvListFilterMEP" class="wh-sp-filter" onclick="whInvListSetDept('MEP')">MEP</button>
               <button type="button" id="whInvListFilterAC" class="wh-sp-filter" onclick="whInvListSetDept('AC')">AC</button>
               <button type="button" id="whInvListFilterMDM" class="wh-sp-filter" onclick="whInvListSetDept('MDM')">MDM</button>
-              <input type="search" id="whInvListSearch" class="wh-inv-search" placeholder="Search SP, desc, COM, RV, name, property…" oninput="whInvListOnSearch()" autocomplete="off">
               <button type="button" id="whInvListClearBook" class="wh-sp-filter" onclick="whInvListClearBook()" hidden>All books</button>
               <button type="button" onclick="whInvLoadList(true)">Refresh</button>
+            </div>
+            <div class="wh-inv-search-bar no-print">
+              <input type="search" id="whInvListSearch" class="wh-inv-search" placeholder="Search books, SP, description, COM, RV, name, property, amount…" oninput="whInvListOnSearch()" autocomplete="off">
             </div>
             <div id="whInvBooks"></div>
             <p class="wh-sp-summary" id="whInvListSummary"></p>
@@ -505,7 +507,7 @@
           <div class="form-section">
             <h2>Invoice SP Usage</h2>
             <p class="wh-tab-help">All SP items from Warehouse Invoices, summed by code and department. Billing month runs <strong>26th – 25th</strong>.</p>
-            <div class="wh-toolbar no-print" style="margin-bottom:12px;gap:8px;flex-wrap:wrap;align-items:center;">
+            <div class="wh-toolbar no-print" style="margin-bottom:8px;gap:8px;flex-wrap:wrap;align-items:center;">
               <label for="whInvSpMonth" style="font-size:13px;font-weight:600;margin:0;">Month</label>
               <input type="month" id="whInvSpMonth" class="wh-inv-month" onchange="whInvSpUsageOnMonthChange()">
               <button type="button" class="wh-sp-filter" onclick="whInvSpUsageClearMonth()">All months</button>
@@ -516,8 +518,10 @@
               <button type="button" id="whInvSpFilterMEP" class="wh-sp-filter" onclick="whInvSpUsageSetFilter('MEP')">MEP</button>
               <button type="button" id="whInvSpFilterAC" class="wh-sp-filter" onclick="whInvSpUsageSetFilter('AC')">AC</button>
               <button type="button" id="whInvSpFilterMDM" class="wh-sp-filter" onclick="whInvSpUsageSetFilter('MDM')">MDM</button>
-              <input type="search" id="whInvSpSearch" class="wh-inv-search" placeholder="Search SP, description, dept…" oninput="whInvSpUsageOnSearch()" autocomplete="off">
               <button type="button" onclick="whInvSpUsageRefresh(true)">Refresh</button>
+            </div>
+            <div class="wh-inv-search-bar no-print">
+              <input type="search" id="whInvSpSearch" class="wh-inv-search" placeholder="Search SP, description, dept…" oninput="whInvSpUsageOnSearch()" autocomplete="off">
             </div>
             <p class="wh-sp-summary" id="whInvSpUsageSummary"></p>
             <div id="whInvSpUsageList"><p class="wh-saved-empty">Loading…</p></div>
@@ -530,7 +534,7 @@
           <div class="form-section">
             <h2>Invoice Amount</h2>
             <p class="wh-tab-help">Amounts from Warehouse Invoices by department. Billing month runs <strong>26th – 25th</strong>.</p>
-            <div class="wh-toolbar no-print" style="margin-bottom:12px;gap:8px;flex-wrap:wrap;align-items:center;">
+            <div class="wh-toolbar no-print" style="margin-bottom:8px;gap:8px;flex-wrap:wrap;align-items:center;">
               <label for="whInvAmtMonth" style="font-size:13px;font-weight:600;margin:0;">Month</label>
               <input type="month" id="whInvAmtMonth" class="wh-inv-month" onchange="whInvAmtOnMonthChange()">
               <button type="button" class="wh-sp-filter" onclick="whInvAmtClearMonth()">All months</button>
@@ -541,8 +545,10 @@
               <button type="button" id="whInvAmtFilterMEP" class="wh-sp-filter" onclick="whInvAmtSetFilter('MEP')">MEP</button>
               <button type="button" id="whInvAmtFilterAC" class="wh-sp-filter" onclick="whInvAmtSetFilter('AC')">AC</button>
               <button type="button" id="whInvAmtFilterMDM" class="wh-sp-filter" onclick="whInvAmtSetFilter('MDM')">MDM</button>
-              <input type="search" id="whInvAmtSearch" class="wh-inv-search" placeholder="Search RV, name, COM, property, kind…" oninput="whInvAmtOnSearch()" autocomplete="off">
               <button type="button" onclick="whInvAmtRefresh(true)">Refresh</button>
+            </div>
+            <div class="wh-inv-search-bar no-print">
+              <input type="search" id="whInvAmtSearch" class="wh-inv-search" placeholder="Search RV, name, COM, property, kind, amount…" oninput="whInvAmtOnSearch()" autocomplete="off">
             </div>
             <p class="wh-sp-summary" id="whInvAmtSummary"></p>
             <div id="whInvAmtList"><p class="wh-saved-empty">Loading…</p></div>
@@ -604,13 +610,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-09-15-wh-sec"></script>
-<script src="assets/empire-storage.js?v=2026-09-15-wh-sec"></script>
-<script src="assets/empire-api.js?v=2026-09-15-wh-sec"></script>
-<script src="assets/empire-auth.js?v=2026-09-15-wh-sec"></script>
-<script src="assets/empire-core.js?v=2026-09-15-wh-sec"></script>
-<script src="assets/empire-sw-update.js?v=2026-09-15-wh-sec"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-09-15-wh-sec"></script>
+<script src="config.js?v=2026-09-16-inv-edit"></script>
+<script src="assets/empire-storage.js?v=2026-09-16-inv-edit"></script>
+<script src="assets/empire-api.js?v=2026-09-16-inv-edit"></script>
+<script src="assets/empire-auth.js?v=2026-09-16-inv-edit"></script>
+<script src="assets/empire-core.js?v=2026-09-16-inv-edit"></script>
+<script src="assets/empire-sw-update.js?v=2026-09-16-inv-edit"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-09-16-inv-edit"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_COMPANIES = ['CAI','MEP','AC','MDM','CLEANING','GM','AGRICULTURE','EM NET'];
@@ -4135,6 +4141,30 @@ function whInvClear(){
   whInvApplyViewOnly_();
 }
 function whInvNew(){ whInvClear(); }
+function whInvHasAmount_(payload){
+  var n=whInvParseMoney_((payload&&payload.amount) || '')
+    + whInvParseMoney_((payload&&payload.amountUsd) || '')
+    + whInvParseMoney_((payload&&payload.amountIqd) || '');
+  return n > 0;
+}
+function whInvEditedMark_(it){
+  if(!it) return false;
+  if(it.edited) return true;
+  var p=it.payload||{};
+  return !!(p.edited || Number(p.editedCount)>0);
+}
+function whInvEditedHtml_(it){
+  return whInvEditedMark_(it) ? ' <span class="wh-inv-status edited" title="This invoice was edited after it was first saved">Edited</span>' : '';
+}
+function whInvRowActions_(id, canWrite){
+  id=whEsc(id||'');
+  var h='<button type="button" data-wh-inv-act="view" data-wh-inv-id="'+id+'">View</button> ';
+  if(canWrite){
+    h+='<button type="button" data-wh-inv-act="edit" data-wh-inv-id="'+id+'">Edit</button> ';
+    h+='<button type="button" data-wh-inv-act="delete" data-wh-inv-id="'+id+'">Delete</button>';
+  }
+  return h;
+}
 function whInvCollectSpLines_(){
   var body=document.getElementById('whInvSpBody');
   var lines=[];
@@ -4183,14 +4213,16 @@ function whInvSave(){
   var payload=whInvCollectPayload_();
   if(!payload.invoiceNo){ alert('Enter Invoice No.'); var el=document.getElementById('wh-inv-number'); if(el) el.focus(); return; }
   if(!payload.date){ alert('Enter Date.'); var d=document.getElementById('wh-inv-date'); if(d) d.focus(); return; }
+  if(!whInvHasAmount_(payload)){ alert('Enter the amount. You cannot save an invoice without an amount.'); var a=document.getElementById('wh-inv-amount'); if(a) a.focus(); return; }
   var token=typeof empireGetToken==='function' ? empireGetToken() : '';
   if(!token){ alert('Not logged in.'); return; }
   var btn=document.getElementById('whInvSaveBtn');
   if(btn){ btn.disabled=true; btn.textContent='Saving…'; }
+  var editing=!!_whInvEditingId;
   var body={
     action:'saveWarehouseInvoice',
     token:token,
-    id: undefined,
+    id: editing ? _whInvEditingId : undefined,
     invoiceNo:payload.invoiceNo,
     date:payload.date,
     company:payload.company,
@@ -4204,12 +4236,13 @@ function whInvSave(){
   fetchJSONRetry(body, 2, 60000).then(function(d){
     if(!(d && (d.ok||d.success))) throw new Error((d && (d.message||d.error)) || 'Save failed');
     whInvClear();
-    alert('Invoice saved.');
+    alert(editing ? 'Invoice updated.' : 'Invoice saved.');
     whSwitchTab(null,'invoices');
+    whInvLoadList(true);
   }).catch(function(err){
     alert('Could not save invoice: '+(err && err.message ? err.message : err));
   }).finally(function(){
-    if(btn){ btn.disabled=false; btn.textContent='Save'; }
+    if(btn){ btn.disabled=false; btn.textContent=_whInvEditingId ? 'Save changes' : 'Save'; }
   });
 }
 function whInvLoadList(force){
@@ -4487,7 +4520,8 @@ function whInvAmtRows_(deptFilter, monthFilter){
       propertyCode:it.propertyCode||p.propertyCode||'',
       amountUsd:whInvParseMoney_(it.amountUsd||p.amountUsd||''),
       amountIqd:whInvParseMoney_(it.amountIqd||p.amountIqd||''),
-      kind: hasSp ? 'SP' : 'Work Wages'
+      kind: hasSp ? 'SP' : 'Work Wages',
+      edited: whInvEditedMark_(it)
     });
   });
   rows.sort(function(a,b){
@@ -4520,7 +4554,7 @@ function whInvAmtRender_(){
   var rows=whInvAmtRows_(_whInvAmtFilter, _whInvAmtMonth);
   if(_whInvAmtSearch){
     rows=rows.filter(function(r){
-      var hay=(r.invoiceNo+' '+r.date+' '+r.dept+' '+r.name+' '+r.company+' '+r.propertyCode+' '+r.kind+' '+r.amountUsd+' '+r.amountIqd+' '+r.num).toLowerCase();
+      var hay=(r.invoiceNo+' '+r.date+' '+r.dept+' '+r.name+' '+r.company+' '+r.propertyCode+' '+r.kind+' '+r.amountUsd+' '+r.amountIqd+' '+r.num+(r.edited?' edited':'')).toLowerCase();
       return hay.indexOf(_whInvAmtSearch)!==-1;
     });
   }
@@ -4561,12 +4595,12 @@ function whInvAmtRender_(){
   h+='<h3 class="wh-saved-section-title">Invoices</h3>';
   h+='<div class="wh-saved-table-wrap"><table class="wh-saved-table wh-inv-sheet"><thead><tr>'
     +'<th>#</th><th>R V num</th><th>Date</th><th>Dept</th><th>COM</th><th>Name</th><th>Property</th>'
-    +'<th>Amount USD</th><th>Amount IQD</th><th>Kind</th>'
+    +'<th>Amount USD</th><th>Amount IQD</th><th>Kind</th><th></th>'
     +'</tr></thead><tbody>';
   rows.forEach(function(r, idx){
     h+='<tr>'
       +'<td>'+(r.num||(idx+1))+'</td>'
-      +'<td>'+whEsc(r.invoiceNo||'—')+'</td>'
+      +'<td>'+whEsc(r.invoiceNo||'—')+whInvEditedHtml_(r)+'</td>'
       +'<td>'+whEsc(r.date||'—')+'</td>'
       +'<td>'+whEsc(r.dept||'—')+'</td>'
       +'<td>'+whEsc(r.company||'—')+'</td>'
@@ -4575,10 +4609,12 @@ function whInvAmtRender_(){
       +'<td>'+whEsc(whInvFmtMoney_(r.amountUsd))+'</td>'
       +'<td>'+whEsc(whInvFmtMoney_(r.amountIqd))+'</td>'
       +'<td>'+whEsc(r.kind)+'</td>'
+      +'<td class="wh-saved-actions">'+whInvRowActions_(r.id, whCanWriteInvoices_())+'</td>'
       +'</tr>';
   });
   h+='</tbody></table></div>';
   box.innerHTML=h;
+  whInvBindAmtList_();
 }
 function whInvSheetRows_(items){
   var rows=[];
@@ -4608,6 +4644,7 @@ function whInvSheetRows_(items){
         name:it.name||p.name||'',
         propertyCode:it.propertyCode||p.propertyCode||'',
         linkStatus:it.linkStatus||'',
+        edited: whInvEditedMark_(it),
         sp: '',
         desc: 'Work Wages',
         qty: ''
@@ -4626,6 +4663,7 @@ function whInvSheetRows_(items){
       name:it.name||p.name||'',
       propertyCode:it.propertyCode||p.propertyCode||'',
       linkStatus:it.linkStatus||'',
+      edited: whInvEditedMark_(it),
       sp: codes.join('\n'),
       desc: descs.join('\n'),
       qty: qtys.join('\n')
@@ -4847,6 +4885,25 @@ function whInvRenderBooks_(){
   h+='<th>Book</th><th>R V from–to</th><th>Pages</th><th>Invoices</th><th>Amount USD</th><th>Amount IQD</th><th>Status</th><th></th>';
   h+='</tr></thead><tbody>';
   var shown=books.slice().sort(function(a,b){ return b.startRv-a.startRv; });
+  if(_whInvListSearch){
+    shown=shown.filter(function(b){
+      var hay=(String(b.bookNo)+' '+b.startRv+' '+b.endRv+' '+b.pages+' '+b.invoices+' '+b.usd+' '+b.iqd+' '+(b.handled?'handled':'open ready')).toLowerCase();
+      if(hay.indexOf(_whInvListSearch)!==-1) return true;
+      var n=parseInt(String(_whInvListSearch).replace(/\D/g,''),10);
+      if(n && n>=b.startRv && n<=b.endRv) return true;
+      return (_whInvCache||[]).some(function(it){
+        if(!it) return false;
+        var rv=whInvRvNum_(it.invoiceNo);
+        if(!rv || rv<b.startRv || rv>b.endRv) return false;
+        var p=it.payload||{};
+        var rowHay=(it.num+' '+(it.invoiceNo||'')+' '+(it.name||'')+' '+(it.propertyCode||'')+' '+(it.company||'')+' '+(p.department||it.department||'')+' '+(it.amountUsd||'')+' '+(it.amountIqd||'')+' '+(p.itemDescription||'')).toLowerCase();
+        return rowHay.indexOf(_whInvListSearch)!==-1;
+      });
+    });
+  }
+  if(!shown.length){
+    h+='<tr><td colspan="8">No matching books for this search.</td></tr>';
+  }
   shown.forEach(function(b){
     var selected=_whInvListBookStart===b.startRv && _whInvListBookEnd===b.endRv;
     var ready=!b.handled && b.pages>=48;
@@ -5063,7 +5120,7 @@ function whInvRenderList_(items){
   }
   if(_whInvListSearch){
     rows=rows.filter(function(r){
-      var hay=(r.num+' '+r.sp+' '+r.desc+' '+r.company+' '+r.department+' '+r.qty+' '+r.amountUsd+' '+r.amountIqd+' '+r.invoiceNo+' '+r.date+' '+r.name+' '+r.propertyCode+' '+r.linkStatus).toLowerCase();
+      var hay=(r.num+' '+r.sp+' '+r.desc+' '+r.company+' '+r.department+' '+r.qty+' '+r.amountUsd+' '+r.amountIqd+' '+r.invoiceNo+' '+r.date+' '+r.name+' '+r.propertyCode+' '+r.linkStatus+(r.edited?' edited':'')).toLowerCase();
       return hay.indexOf(_whInvListSearch)!==-1;
     });
   }
@@ -5106,8 +5163,9 @@ function whInvRenderList_(items){
       : (st==='linked'
         ? '<span class="wh-inv-status linked" title="Invoice No. found in department">Linked</span>'
         : '<span class="wh-inv-status na">—</span>');
+    stHtml+=whInvEditedHtml_(r);
     var bookNo=whInvBookNoForRv_(books, whInvRvNum_(r.invoiceNo));
-    h+='<tr'+(st==='pending'?' class="wh-inv-row-pending"':'')+'>'
+    h+='<tr class="'+(st==='pending'?'wh-inv-row-pending':'')+(r.edited?' wh-inv-row-edited':'')+'">'
       +'<td>'+(r.num||(idx+1))+'</td>'
       +'<td>'+(bookNo||'—')+'</td>'
       +'<td class="wh-inv-multi">'+whEsc(r.sp||'—').replace(/\n/g,'<br>')+'</td>'
@@ -5122,10 +5180,7 @@ function whInvRenderList_(items){
       +'<td>'+whEsc(r.date||'—')+'</td>'
       +'<td>'+whEsc(r.name||'—')+'</td>'
       +'<td>'+whEsc(r.propertyCode||'—')+'</td>'
-      +'<td class="wh-saved-actions">'
-      +'<button type="button" data-wh-inv-act="view" data-wh-inv-id="'+whEsc(r.id)+'">View</button> '
-      +((!whCanWriteInvoices_())?'':'<button type="button" data-wh-inv-act="delete" data-wh-inv-id="'+whEsc(r.id)+'">Delete</button>')
-      +'</td></tr>';
+      +'<td class="wh-saved-actions">'+whInvRowActions_(r.id, whCanWriteInvoices_())+'</td></tr>';
   });
   h+='</tbody></table></div>';
   box.innerHTML=h;
@@ -5141,6 +5196,21 @@ function whInvBindList_(){
     var act=btn.getAttribute('data-wh-inv-act');
     var id=btn.getAttribute('data-wh-inv-id')||'';
     if(act==='delete') whInvDelete(id);
+    else if(act==='edit') whInvEdit(id);
+    else if(act==='view') whInvView(id);
+  });
+}
+function whInvBindAmtList_(){
+  var box=document.getElementById('whInvAmtList');
+  if(!box || box._whInvAmtBound) return;
+  box._whInvAmtBound=true;
+  box.addEventListener('click', function(e){
+    var btn=e.target && e.target.closest ? e.target.closest('[data-wh-inv-act]') : null;
+    if(!btn) return;
+    var act=btn.getAttribute('data-wh-inv-act');
+    var id=btn.getAttribute('data-wh-inv-id')||'';
+    if(act==='delete') whInvDelete(id);
+    else if(act==='edit') whInvEdit(id);
     else if(act==='view') whInvView(id);
   });
 }
@@ -5155,9 +5225,27 @@ function whInvApplyViewOnly_(){
   var root=document.getElementById('whInvoiceRoot');
   var banner=document.getElementById('whInvViewBanner');
   var saveBtn=document.getElementById('whInvSaveBtn');
+  var title=document.getElementById('whInvFormTitle');
   var addSp=document.querySelector('#whInvSpSection .wh-inv-sp-head button');
-  if(banner) banner.hidden=!_whInvViewOnly;
-  if(saveBtn) saveBtn.style.display=_whInvViewOnly ? 'none' : '';
+  if(title){
+    title.textContent=_whInvViewOnly ? 'View Invoice' : (_whInvEditingId ? 'Edit Invoice' : 'New Invoice');
+  }
+  if(banner){
+    if(_whInvViewOnly){
+      banner.hidden=false;
+      banner.textContent='View only — cannot edit';
+    } else if(_whInvEditingId){
+      banner.hidden=false;
+      banner.textContent='Editing this invoice — Save changes to keep it.';
+    } else {
+      banner.hidden=true;
+      banner.textContent='View only — cannot edit';
+    }
+  }
+  if(saveBtn){
+    saveBtn.style.display=_whInvViewOnly ? 'none' : '';
+    saveBtn.textContent=_whInvEditingId ? 'Save changes' : 'Save';
+  }
   if(addSp) addSp.style.display=_whInvViewOnly ? 'none' : '';
   if(root){
     root.classList.toggle('wh-inv-view-only', !!_whInvViewOnly);
@@ -5188,17 +5276,17 @@ function whInvApplyViewOnly_(){
     });
   }
 }
-function whInvView(id){
-  var it=whInvFind_(id);
+function whInvFillForm_(it, mode){
   if(!it){ alert('Invoice not found.'); return; }
   var p=it.payload||{};
+  var editing=mode==='edit';
   whInvClear();
-  _whInvEditingId='';
-  _whInvViewOnly=true;
+  _whInvEditingId=editing ? String(it.id||'') : '';
+  _whInvViewOnly=!editing;
   var set=function(id2,v){ var el=document.getElementById(id2); if(el) el.value=v||''; };
   set('wh-inv-date', it.date||p.date||'');
   set('wh-inv-number', it.invoiceNo||p.invoiceNo||'');
-  set('wh-inv-company', it.company||p.company||'');
+  set('wh-inv-company', it.company||p.company||'E2');
   set('wh-inv-dept', p.department||it.department||'');
   whInvSyncPillBtn_('dept');
   set('wh-inv-from', it.name||p.name||'');
@@ -5214,7 +5302,7 @@ function whInvView(id){
   sps.forEach(function(sp){
     _whInvViewOnly=false;
     whInvAddSp();
-    _whInvViewOnly=true;
+    _whInvViewOnly=!editing;
     var body=document.getElementById('whInvSpBody');
     var trs=body ? body.querySelectorAll('tr[data-wh-inv-sp]') : [];
     var tr=trs[trs.length-1];
@@ -5226,6 +5314,17 @@ function whInvView(id){
   });
   whInvApplyViewOnly_();
   whSwitchTab(null,'invoice');
+}
+function whInvView(id){
+  var it=whInvFind_(id);
+  if(!it){ alert('Invoice not found.'); return; }
+  whInvFillForm_(it, 'view');
+}
+function whInvEdit(id){
+  if(!whCanWriteInvoices_()){ alert('View only — this account cannot edit invoices.'); return; }
+  var it=whInvFind_(id);
+  if(!it){ alert('Invoice not found.'); return; }
+  whInvFillForm_(it, 'edit');
 }
 function whInvDelete(id){
   if(!whCanWriteInvoices_()){ alert('View only — this account cannot delete invoices.'); return; }
