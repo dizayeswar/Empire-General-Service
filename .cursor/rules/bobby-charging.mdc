@@ -38,7 +38,7 @@ Wrong apartment = real money. Never type or send a NovaSys or overseas password.
 
 - **Nova:** `ES-` and `WW-12` … `WW-15`. Search as the phone except ES4 `ES-4-17-02` → `ES4-17-2` and ES6 `ES-6-{floor}-{apt}` (floors 2–24, apts 1–6).
 - **Overseas (live):** `RV-`, `RA-`, `WD-`, `WW-1` … `WW-11`. STS Vending. Oldest first across Nova **and** overseas, one RU at a time. Customer Selector **none or more than one row** → skip that RU (dashboard `no_row` / `ambiguous`), next RU. Save charged and skipped overseas rows on Charging Electricity with **source `overseas`**. Dashboard shows **Nova** or **Overseas**. No National/Generator.
-- Keep-awake may still click **Home** every 4 minutes so Edge stays logged in. Login page → **Sign In** only (saved password). Never type the password. That is not charging.
+- **No 4-minute overseas Home keep.** It does not stop logout. Do not start `overseas_keep_loop.ps1`. When a charge hits the login page → **Sign In** only (saved password). Never type the password.
 - **Nova only:** Charge only if first column is **green circle + white tick**. Ignore orange/red **row fill**. Grey clock (**pending**): click **Refresh** once (toolbar next to Pay, or F5), then look again. If it is green, Pay as usual. If it is still pending after that one refresh, no Pay, no SET PIN; save dashboard; leave that request; keep watching. Red X = no refresh, no Pay; save dashboard and leave. Trust the search screenshot if pixels say pending.
 
 ## Overseas process (locked)
@@ -69,4 +69,4 @@ Site: Edge **Overseas Integration Platform** (`empire.pswla.com`). First screen 
 - **Bobby stop watching** → stop the laptop watch (no Home → Requests, no Pay, no SET PIN).
 - **Start watching Bobby** → start `watch_loop.ps1` (exits when the website Bot is Off). Nova and overseas.
 - **bobby start overseas too** → already live. Charge overseas RUs with the locked STS Vending process.
-- Website **Turn Off** → laptop watch exits; overseas keep exits; Pay / SET PIN / PLANB refuse to run; this chat does not continue a charge.
+- Website **Turn Off** → laptop watch exits; Pay / SET PIN / PLANB refuse to run; this chat does not continue a charge.
