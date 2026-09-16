@@ -249,6 +249,17 @@ def main() -> int:
             print(f"SEARCH {apt} {verdict} {path}")
             if not icon_ok(verdict, path):
                 if verdict == "red_x":
+                    from save_dashboard import save_skip
+
+                    save_skip(
+                        ru=ru,
+                        unit=apt,
+                        status="cannot_charge",
+                        note=f"Nova red X {path}",
+                        source="nova",
+                        amount=amount,
+                        tariff=tariff,
+                    )
                     wake("not green tick", f"{ru} {apt} {verdict} {path}")
                     return 2
                 print("pending — Refresh once beside Pay")
@@ -256,6 +267,17 @@ def main() -> int:
                 verdict, path = nova_search(apt)
                 print(f"SEARCH after refresh {apt} {verdict} {path}")
                 if not icon_ok(verdict, path):
+                    from save_dashboard import save_skip
+
+                    save_skip(
+                        ru=ru,
+                        unit=apt,
+                        status="cannot_charge",
+                        note=f"Nova pending after one Refresh {path}",
+                        source="nova",
+                        amount=amount,
+                        tariff=tariff,
+                    )
                     wake("not green tick", f"{ru} {apt} {verdict} {path}")
                     return 2
             charge_and_pay(apt, tariff, amount)
@@ -274,7 +296,21 @@ def main() -> int:
         if last_pin is not None:
             raise last_pin
         close_invoice()
-        wake("AUTO PAID + SET PIN", f"{ru} {apt} {tariff} {amount}")
+        from save_dashboard import save_charged
+
+        try:
+            save_charged(
+                ru=ru,
+                unit=apt,
+                amount=amount,
+                source="nova",
+                tariff=tariff,
+            )
+        except Exception as exc:
+            print("dashboard save failed", exc)
+            wake("dashboard save failed", f"{ru} {apt} {tariff} {amount} {exc}")
+        else:
+            wake("AUTO PAID + SET PIN", f"{ru} {apt} {tariff} {amount}")
         return 0
     except SystemExit as exc:
         if exc.code == 4:
