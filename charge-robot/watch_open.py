@@ -6,7 +6,7 @@ import re
 import subprocess
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -332,6 +332,7 @@ def main() -> int:
     save_state({"alerted": sorted(alerted)})
     summary = f"{c['ru']} {c.get('unit') or '?'} {c.get('money') or '?'}"
     log(f"PLANB {summary}")
+    started = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     script = "overseas_charge.py" if is_overseas(c.get("unit") or "") else "charge_easy.py"
     r = subprocess.run(
         [
@@ -339,6 +340,7 @@ def main() -> int:
             str(ROOT / script),
             c["ru"],
             c.get("unit") or "",
+            started,
         ],
         cwd=str(ROOT),
     )

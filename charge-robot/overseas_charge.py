@@ -391,8 +391,10 @@ def main() -> int:
     require_bot_on()
     ru = sys.argv[1]
     unit = sys.argv[2] if len(sys.argv) > 2 else ""
+    from save_dashboard import utc_iso
     from watch_open import nav_should_retry
 
+    started_at = sys.argv[3] if len(sys.argv) > 3 else utc_iso()
     print(f"PLANB START OVERSEAS {ru} {unit}")
     pause_keep()
     stay = threading.Event()
@@ -415,6 +417,7 @@ def main() -> int:
                     source="overseas",
                     amount=amount,
                     tariff=tariff,
+                    started_at=started_at,
                 )
             except Exception as exc:
                 print("dashboard skip save failed", exc)
@@ -435,9 +438,10 @@ def main() -> int:
                 print("SET PIN retry", attempt + 1, exc)
         if last_pin is not None:
             raise last_pin
-        finish_overseas(ru)
-        from save_dashboard import save_charged
+        from save_dashboard import save_charged, utc_iso
 
+        charged_at = utc_iso()
+        finish_overseas(ru)
         try:
             save_charged(
                 ru=ru,
@@ -445,6 +449,8 @@ def main() -> int:
                 amount=amount,
                 source="overseas",
                 tariff=tariff,
+                started_at=started_at,
+                charged_at=charged_at,
             )
         except Exception as exc:
             print("dashboard save failed", exc)

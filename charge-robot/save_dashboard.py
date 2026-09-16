@@ -1,8 +1,9 @@
 """Write Charging Electricity after Pay / skip. Does not wait for this chat."""
 from __future__ import annotations
 
+import re
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -19,6 +20,18 @@ def _digits(ru: str) -> str:
 
 def _sql_str(value: str) -> str:
     return "'" + str(value or "").replace("'", "''") + "'"
+
+
+def utc_iso() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _sql_ts(value: str) -> str:
+    raw = (value or "").strip()
+    if not re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", raw):
+        raw = utc_iso()
+    raw = raw.replace("'", "")[:40]
+    return f"{_sql_str(raw)}::timestamptz"
 
 
 def _ym() -> str:
@@ -80,6 +93,8 @@ def save_charged(
     source: str,
     tariff: str = "",
     note: str = "",
+    started_at: str = "",
+    charged_at: str = "",
 ) -> None:
     url = _upload(ru)
     electric = "generator" if tariff == "T2" else "national"
@@ -87,6 +102,8 @@ def save_charged(
         note = note or "Overseas STS Recharge."
     else:
         note = note or "Nova Pay."
+    started = _sql_ts(started_at)
+    finished = _sql_ts(charged_at or utc_iso())
     sql = f"""insert into charging_requests (
   id, ru, unit_id, nova_search, electric_type, tariff, amount, status, note, invoice_url,
   retry_requested, source, created_by, updated_by, started_at, charged_at, created_at, updated_at
@@ -94,7 +111,7 @@ def save_charged(
   gen_random_uuid()::text, {_sql_str(ru)}, {_sql_str(unit)}, {_sql_str(unit)},
   {_sql_str(electric)}, {_sql_str(tariff or "T1")}, {_sql_str(str(amount))}, 'charged',
   {_sql_str(note)}, {_sql_str(url)},
-  false, {_sql_str(source)}, 'charge-robot', 'charge-robot', now(), now(), now(), now()
+  false, {_sql_str(source)}, 'charge-robot', 'charge-robot', {started}, {finished}, now(), now()
 )
 on conflict (ru) do update set
   unit_id = excluded.unit_id,
@@ -108,12 +125,13 @@ on conflict (ru) do update set
   retry_requested = false,
   source = excluded.source,
   updated_by = excluded.updated_by,
-  charged_at = coalesce(charging_requests.charged_at, now()),
+  started_at = excluded.started_at,
+  charged_at = excluded.charged_at,
   updated_at = now()
 returning ru, status, unit_id, amount, source;
 """
     _upsert(sql, f"save_{_digits(ru)}.sql")
-    print("dashboard saved", ru, unit, amount, source)
+    print("dashboard saved", ru, unit, amount, source, started_at, charged_at)
 
 
 def save_skip(
@@ -125,8 +143,10 @@ def save_skip(
     source: str,
     amount: str = "",
     tariff: str = "",
+    started_at: str = "",
 ) -> None:
     electric = "generator" if tariff == "T2" else "national"
+    started = _sql_ts(started_at)
     sql = f"""insert into charging_requests (
   id, ru, unit_id, nova_search, electric_type, tariff, amount, status, note, invoice_url,
   retry_requested, source, created_by, updated_by, started_at, charged_at, created_at, updated_at
@@ -134,7 +154,7 @@ def save_skip(
   gen_random_uuid()::text, {_sql_str(ru)}, {_sql_str(unit)}, {_sql_str(unit)},
   {_sql_str(electric)}, {_sql_str(tariff)}, {_sql_str(str(amount))}, {_sql_str(status)},
   {_sql_str(note)}, '',
-  false, {_sql_str(source)}, 'charge-robot', 'charge-robot', now(), null, now(), now()
+  false, {_sql_str(source)}, 'charge-robot', 'charge-robot', {started}, null, now(), now()
 )
 on conflict (ru) do update set
   unit_id = excluded.unit_id,
@@ -148,6 +168,7 @@ on conflict (ru) do update set
   retry_requested = false,
   source = excluded.source,
   updated_by = excluded.updated_by,
+  started_at = excluded.started_at,
   updated_at = now()
 returning ru, status, unit_id, amount, source;
 """

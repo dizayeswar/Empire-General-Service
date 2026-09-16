@@ -62,7 +62,7 @@ Site: Edge **Overseas Integration Platform** (`empire.pswla.com`). First screen 
 - Before Pay, the Create payment boxes must show the same **apartment + T1/T2 + amount**. Else stop.
 - T1 = 156 IQD/kWh. T2 = 480 IQD/kWh.
 - Login: if user **swar** and password **empty** → **Cancel**, then **close Nova** and **open Nova** again. When **Attention!** “data base version is obsolete” appears → **Yes**. Never type the password. Never OK the empty login. Never OK the “Logging in” box.
-- Charged dashboard rows need an invoice URL. Waiting / skipped rows need a note. Unique on `ru`. Set `started_at` when the RU starts. The laptop `save_dashboard.py` writes the row after SET PIN or skip.
+- Charged dashboard rows need an invoice URL. Waiting / skipped rows need a note. Unique on `ru`. Set `started_at` when the Open list first shows that RU (PLANB). Set `charged_at` when SET PIN Ok succeeds. Duration on the website is that span.
 
 ## Commands
 

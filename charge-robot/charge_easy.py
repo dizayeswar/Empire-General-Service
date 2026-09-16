@@ -220,6 +220,9 @@ def main() -> int:
     require_bot_on()
     ru = sys.argv[1]
     unit = sys.argv[2] if len(sys.argv) > 2 else ""
+    from save_dashboard import utc_iso
+
+    started_at = sys.argv[3] if len(sys.argv) > 3 else utc_iso()
     print(f"PLANB START {ru} {unit}")
     try:
         tariff, amount = items_from_phone(ru)
@@ -259,6 +262,7 @@ def main() -> int:
                         source="nova",
                         amount=amount,
                         tariff=tariff,
+                        started_at=started_at,
                     )
                     wake("not green tick", f"{ru} {apt} {verdict} {path}")
                     return 2
@@ -277,6 +281,7 @@ def main() -> int:
                         source="nova",
                         amount=amount,
                         tariff=tariff,
+                        started_at=started_at,
                     )
                     wake("not green tick", f"{ru} {apt} {verdict} {path}")
                     return 2
@@ -295,9 +300,10 @@ def main() -> int:
                 print("SET PIN retry", attempt + 1, exc)
         if last_pin is not None:
             raise last_pin
-        close_invoice()
-        from save_dashboard import save_charged
+        from save_dashboard import save_charged, utc_iso
 
+        charged_at = utc_iso()
+        close_invoice()
         try:
             save_charged(
                 ru=ru,
@@ -305,6 +311,8 @@ def main() -> int:
                 amount=amount,
                 source="nova",
                 tariff=tariff,
+                started_at=started_at,
+                charged_at=charged_at,
             )
         except Exception as exc:
             print("dashboard save failed", exc)

@@ -205,11 +205,13 @@ function chgDurationLabel_(row) {
   var a = Date.parse(String(row.startedAt || ''));
   var b = Date.parse(String(row.chargedAt || ''));
   if (!a || !b || b < a) return '—';
-  var mins = Math.round((b - a) / 60000);
-  if (mins < 1) return '< 1 min';
-  if (mins < 60) return mins + ' min';
-  var h = Math.floor(mins / 60);
-  var m = mins % 60;
+  var sec = Math.max(1, Math.round((b - a) / 1000));
+  if (sec < 60) return sec + ' s';
+  var m = Math.floor(sec / 60);
+  var s = sec % 60;
+  if (m < 60) return s ? (m + ' min ' + s + ' s') : (m + ' min');
+  var h = Math.floor(m / 60);
+  m = m % 60;
   return m ? (h + ' h ' + m + ' min') : (h + ' h');
 }
 
