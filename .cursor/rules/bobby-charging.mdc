@@ -23,7 +23,7 @@ Wrong apartment = real money. Never type or send a NovaSys or overseas password.
 ## Phone
 
 - App `com.abacuscambridge.empireworldErbil`. Refresh = Home → Requests **only when the main Staff bar is showing** (Home / Requests / Tasks / Account).
-- After **grey / red X / cannot_charge / any fail**: **Back (Navigate up)** off Request Detail / Items **before** the next refresh. Fail does not SET PIN, so the phone stays on that RU until we leave it.
+- After **grey / red X / cannot_charge / any fail**: **Back (Navigate up)** off Request Detail / Items **before** the next refresh. Fail does not SET PIN, so the phone stays on that RU until we leave it. On Charging Electricity, **Manual** on a waiting row marks it charged by hand and counts its IQD in Summary.
 - Request Detail / Items use their own bottom tabs. Home `(134,2144)` and Requests `(405,2144)` hit those tabs and **never** reach the Open list. That is why `open=0` can be a lie.
 - A dump with `Request ID` / `SET PIN` / `Request Detail` and **no** `Buy - RU-` is **not** an empty Open list. Back first, then Home → Requests, then read cards. Grey skips **that RU only**; other Open RUs still get done.
 - Do not spam Back from Home — that opens **Exit Application**. Tap **NO** if it appears.

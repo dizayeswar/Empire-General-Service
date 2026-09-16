@@ -228,6 +228,7 @@ export const DEPT_BY_ACTION: Record<string, string> = {
   setChargingBotEnabled: "charging",
   saveChargingRequest: "charging",
   requestChargingRetry: "charging",
+  markChargingManual: "charging",
   deleteChargingRequest: "charging",
   clearChargingRequests: "charging",
 };

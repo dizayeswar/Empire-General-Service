@@ -442,6 +442,40 @@ export async function handleRequestChargingRetry(body: Record<string, unknown>, 
   return { ok: true, success: true, queued };
 }
 
+export async function handleMarkChargingManual(body: Record<string, unknown>, auth: AuthOk) {
+  if (!canWriteWaiting(auth) && !canWriteCharged(auth)) {
+    return deny("Write access required to mark a waiting RU as charged manually.");
+  }
+  const ru = normRu(body.ru);
+  if (!validRu(ru)) return bad("Request ID must look like RU-12345.");
+
+  const { data, error } = await sb().from(TABLE).select("*").eq("ru", ru).maybeSingle();
+  if (error) throw error;
+  if (!data) return bad("That RU is not on the dashboard.");
+  if (String(data.status) === "charged") return bad("That RU is already charged.");
+
+  const amount = normAmount(data.amount);
+  if (!amount) {
+    return bad("This row has no IQD amount, so it cannot be added to Summary.");
+  }
+
+  const now = isoNow();
+  const username = String(auth.username || "").trim();
+  const note = str(data.note);
+  const payload = {
+    status: "charged",
+    note: (note && !/manual charge/i.test(note) ? `${note} Manual charge.` : "Manual charge.").slice(0, 500),
+    invoice_url: str(data.invoice_url),
+    retry_requested: false,
+    charged_at: now,
+    updated_at: now,
+    updated_by: username,
+  };
+  const upd = await sb().from(TABLE).update(payload).eq("id", data.id).select("*").single();
+  if (upd.error) throw upd.error;
+  return { ok: true, success: true, row: rowToApi(upd.data as Record<string, unknown>) };
+}
+
 export async function handleDeleteChargingRequest(body: Record<string, unknown>, auth: AuthOk) {
   const id = String(body.id || "").trim();
   if (!id) return bad("Request id is required.");

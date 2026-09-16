@@ -364,6 +364,7 @@ Deno.serve(async (req) => {
       case "setChargingBotEnabled": return json(await charging.handleSetChargingBotEnabled(body, a));
       case "saveChargingRequest": return json(await charging.handleSaveChargingRequest(body, a));
       case "requestChargingRetry": return json(await charging.handleRequestChargingRetry(body, a));
+      case "markChargingManual": return json(await charging.handleMarkChargingManual(body, a));
       case "deleteChargingRequest": return json(await charging.handleDeleteChargingRequest(body, a));
       case "clearChargingRequests": return json(await charging.handleClearChargingRequests(body, a));
 
