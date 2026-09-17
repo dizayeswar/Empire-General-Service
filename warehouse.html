@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest?v=2026-09-16-inv-edit">
+<link rel="manifest" href="manifest.webmanifest?v=2026-09-17-gin-dmy">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Warehouse — Goods Issue Note — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-09-16-inv-edit">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-16-inv-edit">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-09-16-inv-edit">
+<link rel="stylesheet" href="assets/empire.css?v=2026-09-17-gin-dmy">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-17-gin-dmy">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-09-17-gin-dmy">
 </head>
 <body class="auth-login-visible wh-page">
 <div class="login-page show" id="loginPage">
@@ -157,11 +157,16 @@
               </div>
               <div class="wh-top-right">
                 <div class="wh-logo-wrap" data-wh-layout="logo">
-                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-09-16-inv-edit" alt="Empire">
+                  <img class="wh-logo" src="assets/empire-gin-logo.png?v=2026-09-17-gin-dmy" alt="Empire">
                 </div>
                 <div class="wh-req-block" data-wh-layout="reqBlock">
                   <div class="wh-line"><strong>Request No.:</strong><input id="wh-request-no" class="wh-cell-input" type="text" autocomplete="off"></div>
-                  <div class="wh-line"><strong>Request Date:</strong><input id="wh-request-date" class="wh-cell-input" type="date"></div>
+                  <div class="wh-line"><strong>Request Date:</strong>
+                    <span class="wh-date-field">
+                      <input id="wh-request-date-view" class="wh-cell-input" type="text" inputmode="numeric" placeholder="dd/mm/yyyy" maxlength="10" autocomplete="off" aria-label="Request Date">
+                      <input id="wh-request-date" class="wh-date-native" type="date" aria-label="Pick request date">
+                    </span>
+                  </div>
                   <div class="wh-line"><strong>Property Code:</strong><input id="wh-property" class="wh-cell-input" type="text" autocomplete="off"></div>
                 </div>
               </div>
@@ -610,13 +615,13 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-09-16-inv-edit"></script>
-<script src="assets/empire-storage.js?v=2026-09-16-inv-edit"></script>
-<script src="assets/empire-api.js?v=2026-09-16-inv-edit"></script>
-<script src="assets/empire-auth.js?v=2026-09-16-inv-edit"></script>
-<script src="assets/empire-core.js?v=2026-09-16-inv-edit"></script>
-<script src="assets/empire-sw-update.js?v=2026-09-16-inv-edit"></script>
-<script src="assets/empire-warehouse-sp.js?v=2026-09-16-inv-edit"></script>
+<script src="config.js?v=2026-09-17-gin-dmy"></script>
+<script src="assets/empire-storage.js?v=2026-09-17-gin-dmy"></script>
+<script src="assets/empire-api.js?v=2026-09-17-gin-dmy"></script>
+<script src="assets/empire-auth.js?v=2026-09-17-gin-dmy"></script>
+<script src="assets/empire-core.js?v=2026-09-17-gin-dmy"></script>
+<script src="assets/empire-sw-update.js?v=2026-09-17-gin-dmy"></script>
+<script src="assets/empire-warehouse-sp.js?v=2026-09-17-gin-dmy"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_COMPANIES = ['CAI','MEP','AC','MDM','CLEANING','GM','AGRICULTURE','EM NET'];
@@ -934,6 +939,7 @@ function whInit(){
   // Restore unfinished draft so Request Date (and the rest) stay as you left them.
   if(!_whEditingId && !_whViewOnly && !_whReceiverMode) whDraftRestore_();
   whDraftBind_();
+  whBindRequestDate_();
   whEsigLoad();
   document.addEventListener('click', function(e){
     if(!_whOpenCombo) return;
@@ -1618,7 +1624,7 @@ function whCollectPayload(){
     company: whVal('wh-company'),
     issueType: whNormIssueType_(whVal('wh-issue-type')),
     requestNo: whVal('wh-request-no'),
-    requestDate: whVal('wh-request-date'),
+    requestDate: whRequestDateIso_(),
     property: whVal('wh-property'),
     storeKeeper: '',
     technician: whVal('wh-technician'),
@@ -1637,6 +1643,7 @@ function whApplyPayload(p){
   set('wh-company', p.company || '');
   set('wh-request-no', p.requestNo);
   set('wh-request-date', p.requestDate || '');
+  whSyncRequestDateView_();
   set('wh-property', p.property);
   set('wh-technician', p.technician);
   set('wh-maint-datetime', p.maintDatetime);
@@ -6011,9 +6018,63 @@ function whVal(id){
 }
 function whFmtDate(iso){
   if(!iso) return '';
-  var p=String(iso).split('-');
-  if(p.length!==3) return iso;
-  return p[1]+'/'+p[2]+'/'+p[0];
+  var s=String(iso).trim();
+  var isoM=s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(isoM) return isoM[3]+'/'+isoM[2]+'/'+isoM[1];
+  var dmy=s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/);
+  if(dmy) return ('0'+dmy[1]).slice(-2)+'/'+('0'+dmy[2]).slice(-2)+'/'+dmy[3];
+  return s;
+}
+function whIsoToDmy_(iso){
+  var s=String(iso||'').trim();
+  var m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? (m[3]+'/'+m[2]+'/'+m[1]) : '';
+}
+function whDmyToIso_(s){
+  var t=String(s||'').trim();
+  var m=t.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/);
+  if(!m) return '';
+  var dd=parseInt(m[1],10), mm=parseInt(m[2],10), y=m[3];
+  if(!y || mm<1 || mm>12 || dd<1 || dd>31) return '';
+  var last=new Date(Number(y), mm, 0).getDate();
+  if(dd>last) return '';
+  return y+'-'+('0'+mm).slice(-2)+'-'+('0'+dd).slice(-2);
+}
+function whRequestDateIso_(){
+  var iso=whVal('wh-request-date');
+  if(/^\d{4}-\d{2}-\d{2}/.test(iso)) return iso.slice(0,10);
+  return whDmyToIso_(whVal('wh-request-date-view'));
+}
+function whSyncRequestDateView_(){
+  var iso=document.getElementById('wh-request-date');
+  var view=document.getElementById('wh-request-date-view');
+  if(!view) return;
+  view.value = iso ? whIsoToDmy_(iso.value) : '';
+}
+function whBindRequestDate_(){
+  var iso=document.getElementById('wh-request-date');
+  var view=document.getElementById('wh-request-date-view');
+  if(!iso || !view || view._whDateBound) return;
+  view._whDateBound=true;
+  iso.addEventListener('change', whSyncRequestDateView_);
+  iso.addEventListener('input', whSyncRequestDateView_);
+  view.addEventListener('input', function(){
+    var digits=String(view.value||'').replace(/\D/g,'').slice(0,8);
+    var out=digits;
+    if(digits.length>4) out=digits.slice(0,2)+'/'+digits.slice(2,4)+'/'+digits.slice(4);
+    else if(digits.length>2) out=digits.slice(0,2)+'/'+digits.slice(2);
+    view.value=out;
+    var next=whDmyToIso_(out);
+    if(next) iso.value=next;
+  });
+  view.addEventListener('blur', function(){
+    var next=whDmyToIso_(view.value);
+    if(next){
+      iso.value=next;
+      whSyncRequestDateView_();
+    }
+  });
+  whSyncRequestDateView_();
 }
 function whFmtDateTime(v){
   if(!v) return '';
@@ -6180,7 +6241,7 @@ function whClearForm(skipConfirm){
     whSetFormLocked(false);
     _whEditingId='';
     whUpdateFormTitle();
-    ['wh-requester','wh-company','wh-request-no','wh-request-date','wh-property','wh-technician','wh-maint-datetime','wh-price','wh-voucher'].forEach(function(id){
+    ['wh-requester','wh-company','wh-request-no','wh-request-date','wh-request-date-view','wh-property','wh-technician','wh-maint-datetime','wh-price','wh-voucher'].forEach(function(id){
       var el=document.getElementById(id); if(el) el.value='';
     });
     var dt=document.getElementById('wh-maint-datetime'); if(dt) dt.value='';

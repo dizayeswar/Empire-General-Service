@@ -725,6 +725,40 @@ html[data-theme="dark"] .wh-esig-input {
 .wh-line .wh-cell-input:focus {
   border-bottom: 1px dotted #999 !important;
 }
+.wh-date-field {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+.wh-date-field .wh-cell-input {
+  flex: 1;
+  min-width: 0;
+  padding-right: 18px !important;
+}
+.wh-date-native {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 18px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: transparent;
+  cursor: pointer;
+}
+.wh-date-native::-webkit-calendar-picker-indicator {
+  opacity: 0.7;
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+}
+.wh-note.wh-form-locked .wh-date-native {
+  pointer-events: none;
+}
 
 .wh-type-inline {
   display: flex;
@@ -1607,7 +1641,8 @@ html[data-theme="dark"] tr.wh-inv-row-pending td {
     padding: 0 2px !important;
   }
   .wh-note input[type=date]::-webkit-calendar-picker-indicator,
-  .wh-note input[type=datetime-local]::-webkit-calendar-picker-indicator {
+  .wh-note input[type=datetime-local]::-webkit-calendar-picker-indicator,
+  .wh-date-native {
     display: none !important;
   }
 }
