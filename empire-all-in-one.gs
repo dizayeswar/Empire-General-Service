@@ -3431,8 +3431,8 @@ function handleAddElectricWorkerReport(body, auth) {
   var voiceNote = body.voiceNote || null;
   if (voiceNote && typeof voiceNote === 'object') voiceNote = formatAssignVoiceNote_(voiceNote);
   else voiceNote = String(voiceNote || '').trim();
-  if (!place && !note && !jobPhotos.length && !voiceNote) {
-    return {ok:false,success:false,error:'empty_report',message:'Add a place, note, photo, or voice recording before submitting.'};
+  if (!place && !note && !jobPhotos.length && !voiceNote && !invoicePhoto) {
+    return {ok:false,success:false,error:'empty_report',message:'Add a place, note, photo, invoice, or voice recording before submitting.'};
   }
   var ss = getSS_();
   var sheet = ss.getSheetByName(ELECTRIC_WORKER_REPORTS_SHEET) || ss.insertSheet(ELECTRIC_WORKER_REPORTS_SHEET);
@@ -3447,9 +3447,6 @@ function handleAddElectricWorkerReport(body, auth) {
   var reportType = String(body.reportType || '').trim().toLowerCase();
   if (reportType !== 'refundable' && reportType !== 'maintenance') {
     reportType = electricWorkerReportTypeFromAmount_(amount);
-  }
-  if (reportType === 'refundable' && !jobPhotos.length) {
-    return {ok:false,success:false,error:'missing_job_photo',message:'Refundable reports need a job photo before sending.'};
   }
   var materials = String(body.materials || '').trim();
   var id = String(body.id || '') || ('ewr-' + now.getTime());
@@ -3980,8 +3977,8 @@ function handleAddCivilWorkerReport(body, auth) {
   var voiceNote = body.voiceNote || null;
   if (voiceNote && typeof voiceNote === 'object') voiceNote = formatAssignVoiceNote_(voiceNote);
   else voiceNote = String(voiceNote || '').trim();
-  if (!place && !note && !jobPhotos.length && !voiceNote) {
-    return {ok:false,success:false,error:'empty_report',message:'Add a place, note, photo, or voice recording before submitting.'};
+  if (!place && !note && !jobPhotos.length && !voiceNote && !invoicePhoto) {
+    return {ok:false,success:false,error:'empty_report',message:'Add a place, note, photo, invoice, or voice recording before submitting.'};
   }
   var ss = getSS_();
   var sheet = ss.getSheetByName(CIVIL_WORKER_REPORTS_SHEET) || ss.insertSheet(CIVIL_WORKER_REPORTS_SHEET);
@@ -3996,9 +3993,6 @@ function handleAddCivilWorkerReport(body, auth) {
   var reportType = String(body.reportType || '').trim().toLowerCase();
   if (reportType !== 'refundable' && reportType !== 'maintenance') {
     reportType = electricWorkerReportTypeFromAmount_(amount);
-  }
-  if (reportType === 'refundable' && !jobPhotos.length) {
-    return {ok:false,success:false,error:'missing_job_photo',message:'Refundable reports need a job photo before sending.'};
   }
   var materials = String(body.materials || '').trim();
   var id = String(body.id || '') || ('cwr-' + now.getTime());

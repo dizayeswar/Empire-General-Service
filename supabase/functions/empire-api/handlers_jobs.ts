@@ -469,8 +469,9 @@ export async function handleAddElectricWorkerReport(body: Record<string, unknown
   let voiceNote = body.voiceNote;
   if (voiceNote && typeof voiceNote === "object") voiceNote = JSON.stringify(parseAssignVoiceNote(voiceNote));
   else voiceNote = String(voiceNote || "").trim();
-  if (!place && !note && !photos.length && !voiceNote) {
-    return { ok: false, success: false, error: "empty_report", message: "Add a place, note, photo, or voice recording before submitting." };
+  const invoicePhoto = String(body.invoicePhoto || "").trim();
+  if (!place && !note && !photos.length && !voiceNote && !invoicePhoto) {
+    return { ok: false, success: false, error: "empty_report", message: "Add a place, note, photo, invoice, or voice recording before submitting." };
   }
   const username = normalizeWorkerId(auth.username);
   const amount = parseAmount(body);
@@ -499,7 +500,7 @@ export async function handleAddElectricWorkerReport(body: Record<string, unknown
     transferred_at: "",
     transferred_by: "",
     materials: String(body.materials || ""),
-    invoice_photo: String(body.invoicePhoto || "").trim(),
+    invoice_photo: invoicePhoto,
     num,
   };
   const { error } = await sb().from("electric_worker_reports").insert(row);
@@ -676,8 +677,9 @@ export async function handleAddCivilWorkerReport(body: Record<string, unknown>, 
   let voiceNote = body.voiceNote;
   if (voiceNote && typeof voiceNote === "object") voiceNote = JSON.stringify(parseAssignVoiceNote(voiceNote));
   else voiceNote = String(voiceNote || "").trim();
-  if (!place && !note && !photos.length && !voiceNote) {
-    return { ok: false, success: false, error: "empty_report", message: "Add a place, note, photo, or voice recording before submitting." };
+  const invoicePhoto = String(body.invoicePhoto || "").trim();
+  if (!place && !note && !photos.length && !voiceNote && !invoicePhoto) {
+    return { ok: false, success: false, error: "empty_report", message: "Add a place, note, photo, invoice, or voice recording before submitting." };
   }
   const username = normalizeWorkerId(auth.username);
   const amount = parseAmount(body);
@@ -706,7 +708,7 @@ export async function handleAddCivilWorkerReport(body: Record<string, unknown>, 
     transferred_at: "",
     transferred_by: "",
     materials: String(body.materials || ""),
-    invoice_photo: String(body.invoicePhoto || "").trim(),
+    invoice_photo: invoicePhoto,
     num,
   };
   const { error } = await sb().from("civil_worker_reports").insert(row);
