@@ -267,6 +267,9 @@ export async function handleCreateUser(body: Record<string, unknown>, auth: Auth
     const retry = await sb().from("users").insert(rest);
     if (retry.error) throw retry.error;
   } else if (error) throw error;
+  try {
+    await markLibraryAssigned(body.signatureLibraryId || body.signature_library_id, vu.username);
+  } catch (_e) { /* library tag is best-effort */ }
   return { ok: true, success: true, user: publicUser(row), message: "User created." };
 }
 
@@ -419,6 +422,9 @@ export async function handleUpdateUser(body: Record<string, unknown>, auth: Auth
   }
 
   const { data: updated } = await sb().from("users").select("*").eq("username", vu.username).maybeSingle();
+  try {
+    await markLibraryAssigned(body.signatureLibraryId || body.signature_library_id, vu.username);
+  } catch (_e) { /* library tag is best-effort */ }
   return {
     ok: true,
     success: true,
@@ -514,5 +520,115 @@ export async function handleDeleteUser(body: Record<string, unknown>, auth: Auth
   await sb().from("sessions").delete().eq("username", vu.username);
   const { error } = await sb().from("users").delete().eq("username", vu.username);
   if (error) throw error;
+  try {
+    const items = await readAccountLib();
+    const next = items.map((it) => it.assignedTo === vu.username ? { ...it, assignedTo: "" } : it);
+    await writeAccountLib(next, auth);
+  } catch (_e) { /* library tag is best-effort */ }
   return { ok: true, success: true, message: "User deleted." };
+}
+
+const ACCOUNT_SIG_LIB_KEY = "account_signatures";
+const ACCOUNT_SIG_LIB_MAX = 80;
+
+type AccountLibSig = {
+  id: string;
+  label: string;
+  image: string;
+  role: string;
+  assignedTo: string;
+  createdAt: string;
+};
+
+function normalizeAccountLib(raw: unknown): AccountLibSig[] {
+  const settings = (raw && typeof raw === "object") ? raw as Record<string, unknown> : {};
+  const items = Array.isArray(settings.items) ? settings.items : (Array.isArray(raw) ? raw : []);
+  return items.map((it, i) => {
+    const row = (it && typeof it === "object") ? it as Record<string, unknown> : {};
+    return {
+      id: String(row.id || `acsig-${i}`),
+      label: String(row.label || row.name || "Signature").trim() || "Signature",
+      image: String(row.image || ""),
+      role: parseSignatureRole(row.role),
+      assignedTo: normalizeWorkerId(row.assignedTo || row.assigned_to || ""),
+      createdAt: String(row.createdAt || row.created_at || ""),
+    };
+  }).filter((s) => !!s.image);
+}
+
+async function readAccountLib(): Promise<AccountLibSig[]> {
+  const { data, error } = await sb().from("ui_settings").select("settings").eq("key", ACCOUNT_SIG_LIB_KEY).maybeSingle();
+  if (error) throw error;
+  return normalizeAccountLib(data?.settings);
+}
+
+async function writeAccountLib(items: AccountLibSig[], auth: AuthOk) {
+  const now = isoNow();
+  const { error } = await sb().from("ui_settings").upsert({
+    key: ACCOUNT_SIG_LIB_KEY,
+    settings: { items, updatedBy: String(auth.username || "") },
+    updated_at: now,
+  });
+  if (error) throw error;
+  return now;
+}
+
+async function markLibraryAssigned(rawId: unknown, username: string) {
+  const id = String(rawId || "").trim();
+  if (!id || !username) return;
+  const items = await readAccountLib();
+  const next = items.map((it) => {
+    if (it.id === id) return { ...it, assignedTo: username };
+    if (it.assignedTo === username) return { ...it, assignedTo: "" };
+    return it;
+  });
+  const { error } = await sb().from("ui_settings").upsert({
+    key: ACCOUNT_SIG_LIB_KEY,
+    settings: { items: next },
+    updated_at: isoNow(),
+  });
+  if (error) throw error;
+}
+
+export async function handleListAccountSigs(auth: AuthOk) {
+  const denied = requireAdmin(auth);
+  if (denied) return denied;
+  const items = await readAccountLib();
+  return { ok: true, items };
+}
+
+export async function handleAddAccountSig(body: Record<string, unknown>, auth: AuthOk) {
+  const denied = requireAdmin(auth);
+  if (denied) return denied;
+  const sigIn = parseUserSignature(body.image != null ? body.image : body.signature);
+  if (!sigIn.ok) return { ok: false, success: false, error: "bad_signature", message: sigIn.message };
+  if (!sigIn.value) {
+    return { ok: false, success: false, error: "bad_signature", message: "Choose a signature image first." };
+  }
+  const label = String(body.label || body.name || "").trim() || "Signature";
+  const items = await readAccountLib();
+  if (items.length >= ACCOUNT_SIG_LIB_MAX) {
+    return { ok: false, success: false, error: "too_many", message: "Maximum " + ACCOUNT_SIG_LIB_MAX + " saved signatures." };
+  }
+  const row: AccountLibSig = {
+    id: "acsig-" + crypto.randomUUID(),
+    label,
+    image: sigIn.value,
+    role: parseSignatureRole(body.role != null ? body.role : body.signatureRole),
+    assignedTo: "",
+    createdAt: isoNow(),
+  };
+  items.push(row);
+  await writeAccountLib(items, auth);
+  return { ok: true, success: true, item: row, items, message: "Signature saved. Attach it when you create the user." };
+}
+
+export async function handleDeleteAccountSig(body: Record<string, unknown>, auth: AuthOk) {
+  const denied = requireAdmin(auth);
+  if (denied) return denied;
+  const id = String(body.id || "").trim();
+  if (!id) return { ok: false, success: false, error: "missing_id", message: "Signature id is required." };
+  const items = (await readAccountLib()).filter((it) => it.id !== id);
+  await writeAccountLib(items, auth);
+  return { ok: true, success: true, items, message: "Removed from saved signatures." };
 }
