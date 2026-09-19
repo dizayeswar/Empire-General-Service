@@ -12,6 +12,7 @@ var EMPIRE_AUTH_KEYS = {
   warehouseSigSections: 'empire_warehouse_sig_sections',
   moduleAccess: 'empire_module_access',
   signature: 'empire_user_signature',
+  signatureRole: 'empire_user_signature_role',
   loggedIn: 'empire_loggedIn'
 };
 
@@ -233,6 +234,19 @@ function empireSetSignature(url) {
   empireAuthSet('signature', String(url || ''));
 }
 
+function empireGetSignatureRole() {
+  empireMigrateSession();
+  var v = String(empireAuthLs('signatureRole') || '').trim().toLowerCase();
+  if (v === 'employee') return 'emp';
+  if (v === 'line_manager' || v === 'manager') return 'line';
+  if (v === 'emp' || v === 'line' || v === 'director' || v === 'hr') return v;
+  return '';
+}
+
+function empireSetSignatureRole(role) {
+  empireAuthSet('signatureRole', String(role || ''));
+}
+
 function empireModuleLevel(key) {
   var v = String(empireGetModuleAccess()[key] || 'none').trim().toLowerCase();
   if (v === 'read' || v === 'write') return v;
@@ -447,6 +461,8 @@ function empireSetSession(username, data) {
   }
   if (data.signature) empireAuthSet('signature', String(data.signature));
   else empireAuthSet('signature', '');
+  if (data.signatureRole) empireAuthSet('signatureRole', String(data.signatureRole));
+  else empireAuthSet('signatureRole', '');
   setTimeout(function () { empireGuardUsernameAutofill(); }, 0);
 }
 
@@ -1021,6 +1037,7 @@ function empireAuthRefreshPerms(onUpdate) {
           empireAuthSet('moduleAccess', JSON.stringify(d.moduleAccess));
         }
         if (d.signature != null) empireAuthSet('signature', String(d.signature || ''));
+        if (d.signatureRole != null) empireAuthSet('signatureRole', String(d.signatureRole || ''));
         if (typeof onUpdate === 'function') onUpdate(d);
         if (typeof empireApplySectionNav === 'function') empireApplySectionNav();
       } else if (empireAuthHandleInvalidSession_(d)) {

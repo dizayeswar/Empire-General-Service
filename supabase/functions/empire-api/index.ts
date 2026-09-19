@@ -37,7 +37,7 @@ function json(obj: unknown, status = 200) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method === "GET") {
-    return json({ ok: true, msg: "Empire API running (Supabase)", version: "2026-09-19-user-sig" });
+    return json({ ok: true, msg: "Empire API running (Supabase)", version: "2026-09-19-sig-role" });
   }
   if (req.method !== "POST") return json({ ok: false, error: "Method not allowed" }, 405);
 
@@ -57,6 +57,12 @@ Deno.serve(async (req) => {
       if (!sigAuth.ok) return json(sigAuth);
       sigAuth = await enrichAuthRole(sigAuth as AuthOk);
       return json(await users.handleSaveMySignature(body, sigAuth as AuthOk));
+    }
+    if (action === "listHrSignatures") {
+      let sigAuth = await verifyTokenSession(String(body.token || ""));
+      if (!sigAuth.ok) return json(sigAuth);
+      sigAuth = await enrichAuthRole(sigAuth as AuthOk);
+      return json(await users.handleListHrSignatures(sigAuth as AuthOk));
     }
     if (action === "getSummary") return json(await misc.handleGetSummary(body));
     if (action === "getSignedUpload") {

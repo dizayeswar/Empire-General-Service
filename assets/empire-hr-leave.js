@@ -1009,6 +1009,126 @@ function hrAccountSig_() {
 function hrAccountDirectorSig_() {
   return hrAccountSig_();
 }
+function hrAccountSigSlot_() {
+  var role = typeof empireGetSignatureRole === 'function' ? empireGetSignatureRole() : '';
+  role = String(role || '').trim().toLowerCase();
+  if (role === 'employee') role = 'emp';
+  if (role === 'line_manager' || role === 'manager') role = 'line';
+  if (role === 'emp' || role === 'line' || role === 'director' || role === 'hr') return role;
+  if (hrIsDirector_()) return 'director';
+  if (hrIsHrStaff_()) return 'hr';
+  return '';
+}
+
+var _hrSavedSigs = [];
+var _hrSavedSigsLoaded = false;
+var _hrSigPickSlot = '';
+
+function hrLoadSavedSigs_(cb) {
+  if (_hrSavedSigsLoaded) {
+    if (cb) cb(_hrSavedSigs);
+    return;
+  }
+  var token = hrToken_();
+  if (!token) {
+    if (cb) cb([]);
+    return;
+  }
+  fetchJSONRetry({ action: 'listHrSignatures', token: token }, 1, 30000)
+    .then(function (d) {
+      _hrSavedSigsLoaded = true;
+      _hrSavedSigs = (d && d.ok && Array.isArray(d.signatures)) ? d.signatures : [];
+      if (cb) cb(_hrSavedSigs);
+    })
+    .catch(function () {
+      if (cb) cb(_hrSavedSigs);
+    });
+}
+
+function hrSigsForSlot_(slot) {
+  return (_hrSavedSigs || []).filter(function (s) {
+    return s && s.signature && String(s.signatureRole || '') === slot;
+  });
+}
+
+function hrStampSlot_(slot, url, who) {
+  url = String(url || '').trim();
+  if (!url || !slot) return;
+  _hrSigs[slot] = url;
+  if (slot === 'director') {
+    hrApplyDirectorOnly_(url, false);
+    return;
+  }
+  hrRenderSig_(slot);
+  if (slot === 'emp' && !hrVal_('hr-empSignedAt')) hrSet_('hr-empSignedAt', hrToday_());
+  if (slot === 'line') {
+    if (who && !hrVal_('hr-lineManagerName')) hrSet_('hr-lineManagerName', who);
+    if (!hrVal_('hr-lineManagerSignedAt')) hrSet_('hr-lineManagerSignedAt', hrToday_());
+    if (!hrVal_('hr-lineManagerStatus')) hrSet_('hr-lineManagerStatus', 'approved');
+  }
+  if (slot === 'hr' && !hrVal_('hr-hrSignedAt')) hrSet_('hr-hrSignedAt', hrToday_());
+}
+
+function hrSigPickClose_() {
+  _hrSigPickSlot = '';
+  var el = document.getElementById('hrSigPick');
+  if (el) el.hidden = true;
+}
+
+function hrSigPickUpload_(slot) {
+  slot = slot || _hrSigPickSlot;
+  hrSigPickClose_();
+  if (!slot) return;
+  var inp = document.getElementById('hr-sig-file');
+  if (!inp) return;
+  inp.setAttribute('data-slot', slot);
+  inp.click();
+}
+
+function hrSigPickChoose_(username) {
+  var slot = _hrSigPickSlot;
+  var found = (_hrSavedSigs || []).find(function (s) {
+    return s && String(s.username || '') === String(username || '');
+  });
+  hrSigPickClose_();
+  if (!slot || !found || !found.signature) return;
+  hrStampSlot_(slot, found.signature, found.username);
+  hrMsg_('Placed ' + found.username + '’s account e-signature.', true);
+}
+
+function hrSigPickOpen_(slot, choices) {
+  _hrSigPickSlot = slot;
+  var labels = { emp: 'Employee', line: 'Line Manager', director: 'Director', hr: 'HR' };
+  var wrap = document.getElementById('hrSigPick');
+  var title = document.getElementById('hrSigPickTitle');
+  var help = document.getElementById('hrSigPickHelp');
+  var list = document.getElementById('hrSigPickList');
+  if (!wrap || !list) {
+    hrSigPickUpload_(slot);
+    return;
+  }
+  if (title) title.textContent = (labels[slot] || 'Signature') + ' e-signature';
+  if (help) help.textContent = 'Pick a saved account, or upload a photo.';
+  list.innerHTML = choices.map(function (s) {
+    var name = String(s.username || '');
+    return '<button type="button" class="hr-sig-pick-person" data-user="' + hrEsc_(name) + '">' +
+      '<img src="' + hrEsc_(s.signature) + '" alt="">' +
+      '<span>' + hrEsc_(name) + '</span></button>';
+  }).join('');
+  list.querySelectorAll('[data-user]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      hrSigPickChoose_(btn.getAttribute('data-user'));
+    });
+  });
+  wrap.hidden = false;
+}
+
+function hrCanStampSlot_(slot) {
+  if (slot === 'director') return hrDirectorCanSign_() || (hrCanWrite_() && !hrPaperLocked_());
+  if (slot === 'hr') return hrIsHrStaff_() && !hrIsDirectorOnly_() && !hrPaperLocked_();
+  if (slot === 'emp' || slot === 'line') return hrCanWrite_() && !hrPaperLocked_();
+  return false;
+}
 
 function hrRememberAccountSig_(url) {
   url = String(url || '').trim();
@@ -1052,11 +1172,29 @@ function hrApplyAccountDirectorSig_(row) {
 function hrApplyAccountHrSig_(row) {
   if (!hrIsHrStaff_() || hrIsDirectorOnly_()) return;
   if (hrPaperLocked_(row)) return;
+  if (hrAccountSigSlot_() && hrAccountSigSlot_() !== 'hr') return;
   if (_hrSigs.hr) return;
   var saved = hrAccountSig_();
   if (!saved) return;
   _hrSigs.hr = saved;
   if (!hrVal_('hr-hrSignedAt')) hrSet_('hr-hrSignedAt', hrToday_());
+}
+
+function hrApplyAccountSlotSig_(row) {
+  var slot = hrAccountSigSlot_();
+  var saved = hrAccountSig_();
+  if (!slot || !saved) return;
+  if (slot === 'director') {
+    hrApplyAccountDirectorSig_(row);
+    return;
+  }
+  if (slot === 'hr') {
+    hrApplyAccountHrSig_(row);
+    return;
+  }
+  if (hrPaperLocked_(row)) return;
+  if (_hrSigs[slot]) return;
+  hrStampSlot_(slot, saved, typeof empireGetUser === 'function' ? empireGetUser() : '');
 }
 
 function hrStageOf_(r) {
@@ -1324,37 +1462,27 @@ function hrRenderAllSigs_() {
 }
 
 function hrOpenSig_(slot) {
+  if (!hrCanStampSlot_(slot)) return;
+  var ownSlot = hrAccountSigSlot_() === slot;
+  var ownSig = hrAccountSig_();
   var directorSelf = slot === 'director' && hrDirectorCanSign_();
-  var hrSelf = slot === 'hr' && hrIsHrStaff_() && !hrIsDirectorOnly_();
-  if (directorSelf) {
-    /* director may stamp the Director box from their account */
-  } else if (hrSelf) {
-    if (hrPaperLocked_()) return;
-  } else if (slot === 'hr') {
-    return;
-  } else if (hrDirectorCanSign_() && slot === 'director') {
-    /* already handled */
-  } else if (!hrCanWrite_() || hrPaperLocked_()) {
-    return;
-  }
-  var saved = hrAccountSig_();
-  if (saved && (directorSelf || hrSelf)) {
-    _hrSigs[slot] = saved;
-    if (slot === 'director') hrApplyDirectorOnly_(saved, false);
-    else {
-      hrRenderSig_(slot);
-      if (slot === 'hr' && !hrVal_('hr-hrSignedAt')) hrSet_('hr-hrSignedAt', hrToday_());
-    }
+  if (ownSig && ownSlot && (slot !== 'director' || directorSelf)) {
+    hrStampSlot_(slot, ownSig, typeof empireGetUser === 'function' ? empireGetUser() : '');
     hrMsg_('Your account e-signature was placed.', true);
     return;
   }
-  if ((directorSelf || hrSelf) && !saved) {
-    hrMsg_('Upload your e-signature once. It is saved on this account for next time.', true);
-  }
-  var inp = document.getElementById('hr-sig-file');
-  if (!inp) return;
-  inp.setAttribute('data-slot', slot);
-  inp.click();
+  hrLoadSavedSigs_(function () {
+    var choices = hrSigsForSlot_(slot);
+    if (slot === 'director' && !directorSelf) choices = [];
+    if (choices.length) {
+      hrSigPickOpen_(slot, choices);
+      return;
+    }
+    if (ownSlot && !ownSig) {
+      hrMsg_('Upload your e-signature once. It is saved on this account for next time.', true);
+    }
+    hrSigPickUpload_(slot);
+  });
 }
 
 function hrProcessSigImage_(dataUrl, cb) {
@@ -1450,7 +1578,9 @@ function hrOnSigFile_(e) {
       hrRenderSig_(slot);
       if (slot === 'director') hrApplyDirectorOnly_(url, false);
       if (slot === 'hr' && !hrVal_('hr-hrSignedAt')) hrSet_('hr-hrSignedAt', hrToday_());
-      if ((slot === 'director' && hrDirectorCanSign_()) || (slot === 'hr' && hrIsHrStaff_() && !hrIsDirectorOnly_())) {
+      if (slot === 'emp' && !hrVal_('hr-empSignedAt')) hrSet_('hr-empSignedAt', hrToday_());
+      if (slot === 'line' && !hrVal_('hr-lineManagerSignedAt')) hrSet_('hr-lineManagerSignedAt', hrToday_());
+      if (hrAccountSigSlot_() === slot) {
         hrRememberAccountSig_(url);
         hrMsg_('E-signature saved on your account.', true);
       }
@@ -1619,7 +1749,7 @@ function hrFillForm_(row) {
     if (_hrScan) _hrScan.directorSig = '';
   }
   hrApplyAccountDirectorSig_(row);
-  hrApplyAccountHrSig_(row);
+  hrApplyAccountSlotSig_(row);
   hrRenderEntitlements_(ents);
   hrRenderAllSigs_();
   hrRenderScan_();
@@ -3429,8 +3559,9 @@ function hrEnterApp_() {
         hrApplyAccountDirectorSig_(openRow);
         hrRenderSig_('director');
       }
-      hrApplyAccountHrSig_(openRow || undefined);
-      hrRenderSig_('hr');
+      hrApplyAccountSlotSig_(openRow || undefined);
+      hrRenderAllSigs_();
+      hrLoadSavedSigs_();
     });
   }
   _hrCanWrite = hrCanWrite_();

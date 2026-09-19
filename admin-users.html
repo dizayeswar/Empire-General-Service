@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="manifest" href="manifest.webmanifest?v=2026-09-19-user-sig">
+  <link rel="manifest" href="manifest.webmanifest?v=2026-09-19-sig-role">
   <meta name="theme-color" content="#8d015d">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -114,7 +114,16 @@
       </div>
       <div id="sigField" style="margin-top:14px;">
         <div style="font-size:13px;font-weight:700;margin-bottom:6px;">Account e-signature</div>
-        <p class="admin-form-hint" style="margin-top:0;">Each account keeps its own stamp. When this person opens HR and signs, this image is placed automatically — they do not pick a file each time.</p>
+        <p class="admin-form-hint" style="margin-top:0;">Each account keeps its own stamp. Choose which leave-form box it fills: Employee, Line Manager, Director, or HR. When that person signs in HR, this image is placed on that box.</p>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--text-soft);font-weight:600;max-width:280px;margin:8px 0 10px;">Use this signature as
+          <select id="f-sig-role">
+            <option value="">— not set —</option>
+            <option value="emp">Employee</option>
+            <option value="line">Line Manager</option>
+            <option value="director">Director</option>
+            <option value="hr">HR</option>
+          </select>
+        </label>
         <input type="file" id="f-signature" accept="image/*" hidden onchange="onSigFile(event)">
         <div id="sigPreviewWrap" style="display:none;margin:8px 0 10px;">
           <img id="sigPreview" alt="E-signature" style="max-height:56px;max-width:260px;background:#fff;border:1px solid var(--card-border);border-radius:8px;padding:6px 10px;">
@@ -157,11 +166,11 @@
     <div id="usersTableHost"></div>
   </div>
 
-  <script src="config.js?v=2026-09-19-user-sig"></script>
-  <script src="assets/empire-api.js?v=2026-09-19-user-sig"></script>
-  <script src="assets/empire-auth.js?v=2026-09-19-user-sig"></script>
-  <script src="assets/empire-core.js?v=2026-09-19-user-sig"></script>
-  <script src="assets/empire-sw-update.js?v=2026-09-19-user-sig"></script>
+  <script src="config.js?v=2026-09-19-sig-role"></script>
+  <script src="assets/empire-api.js?v=2026-09-19-sig-role"></script>
+  <script src="assets/empire-auth.js?v=2026-09-19-sig-role"></script>
+  <script src="assets/empire-core.js?v=2026-09-19-sig-role"></script>
+  <script src="assets/empire-sw-update.js?v=2026-09-19-sig-role"></script>
   <script>
     var allUsers = [];
     var editingUsername = null;
@@ -400,6 +409,8 @@
       } else if (kind === 'hr_director') {
         a.hr_director = 'write';
         document.getElementById('formHint').textContent = 'Upload this director’s e-signature. When they open HR and sign, that stamp is used.';
+        var dirRole = document.getElementById('f-sig-role');
+        if (dirRole) dirRole.value = 'director';
       }
       if (typeof empireFoldModuleAccess === 'function') a = empireFoldModuleAccess(a);
       else if (typeof empireFoldChargingAccess === 'function') a = empireFoldChargingAccess(a);
@@ -438,6 +449,8 @@
       renderAccessMatrix(emptyAccess());
       showSigPreview('');
       _pendingSig = undefined;
+      var sigRoleNew = document.getElementById('f-sig-role');
+      if (sigRoleNew) sigRoleNew.value = '';
       document.getElementById('f-username').focus();
     }
 
@@ -468,6 +481,8 @@
       document.getElementById('f-projects').value = u.projects || '';
       _pendingSig = undefined;
       showSigPreview(u.signature || '');
+      var sigRole = document.getElementById('f-sig-role');
+      if (sigRole) sigRole.value = u.signatureRole || '';
     }
 
     function closeUserForm() {
@@ -503,7 +518,8 @@
         trade: workerPhone ? document.getElementById('f-trade').value : '',
         projects: hasAccess(access, 'cleaning')
           ? projectsFromCleaningAccess(access)
-          : document.getElementById('f-projects').value.trim()
+          : document.getElementById('f-projects').value.trim(),
+        signatureRole: document.getElementById('f-sig-role') ? document.getElementById('f-sig-role').value : ''
       };
     }
 
@@ -666,6 +682,11 @@
       }
     }
 
+    function sigRoleLabel(role) {
+      var m = { emp: 'Employee', line: 'Line Manager', director: 'Director', hr: 'HR' };
+      return m[role] || role || '';
+    }
+
     function accessSummary(u) {
       var a = u.moduleAccess || {};
       if (typeof empireFoldChargingAccess === 'function') a = empireFoldChargingAccess(a);
@@ -687,7 +708,7 @@
       var q = (document.getElementById('userSearch').value || '').toLowerCase().trim();
       var rows = allUsers.filter(function (u) {
         if (!q) return true;
-        var hay = [u.username, u.dept, u.role, u.trade, accessSummary(u)].join(' ').toLowerCase();
+        var hay = [u.username, u.dept, u.role, u.trade, u.signatureRole, accessSummary(u)].join(' ').toLowerCase();
         return hay.indexOf(q) !== -1;
       }).slice().sort(function (a, b) {
         return String(a.username || '').localeCompare(String(b.username || ''));
@@ -704,7 +725,9 @@
       rows.forEach(function (u) {
         h += '<tr>';
         h += '<td><strong>' + esc(u.username) + '</strong>' +
-          (u.hasSignature || u.signature ? ' <span class="admin-badge">e-sig</span>' : '') + '</td>';
+          (u.hasSignature || u.signature ? ' <span class="admin-badge">e-sig' +
+            (u.signatureRole ? ' · ' + esc(sigRoleLabel(u.signatureRole)) : '') +
+            '</span>' : '') + '</td>';
         h += '<td style="max-width:420px;font-size:12px;line-height:1.45;">' + esc(accessSummary(u) || '—') + '</td>';
         h += '<td>' + esc(u.trade || '—') + '</td>';
         h += '<td class="admin-updated">' + esc(formatUpdated(u.updatedAt)) + '</td>';

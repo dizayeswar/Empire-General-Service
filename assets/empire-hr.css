@@ -741,6 +741,56 @@
 
 .hr-sig-ghost { min-height: 18px; }
 
+.hr-sig-pick {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(16, 8, 20, .45);
+}
+.hr-sig-pick[hidden] { display: none !important; }
+.hr-sig-pick-card {
+  width: min(420px, 100%);
+  max-height: min(80vh, 560px);
+  overflow: auto;
+  background: var(--card, #fff);
+  color: var(--text);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.18);
+}
+.hr-sig-pick-card h3 { margin: 0 0 6px; font-size: 16px; }
+.hr-sig-pick-help { margin: 0 0 12px; font-size: 13px; color: var(--text-soft); }
+.hr-sig-pick-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.hr-sig-pick-person {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+}
+.hr-sig-pick-person:hover { border-color: var(--header-accent, #8d015d); }
+.hr-sig-pick-person img {
+  height: 36px;
+  width: auto;
+  max-width: 120px;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+.hr-sig-pick-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+
 .hr-actions-print {
   display: flex;
   gap: 10px;

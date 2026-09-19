@@ -61,6 +61,17 @@ export function parseUserSignature(raw: unknown): { ok: true; value: string } | 
   return { ok: true, value: s };
 }
 
+const SIG_ROLES = ["emp", "line", "director", "hr"] as const;
+
+export function parseSignatureRole(raw: unknown): string {
+  const s = String(raw || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+  if (s === "employee") return "emp";
+  if (s === "line_manager" || s === "manager") return "line";
+  if (s === "human_resources") return "hr";
+  if ((SIG_ROLES as readonly string[]).includes(s)) return s;
+  return "";
+}
+
 function publicUser(row: Record<string, unknown>) {
   const moduleAccess = resolveModuleAccessForUser(row);
   const derived = deriveAccountFromModuleAccess(moduleAccess, { hide: row.hide });
@@ -70,6 +81,7 @@ function publicUser(row: Record<string, unknown>) {
     role,
   );
   const signature = String(row.signature || "");
+  const signatureRole = parseSignatureRole(row.signature_role);
   return {
     username: String(row.username || ""),
     dept: String(row.dept || derived.dept || ""),
@@ -83,6 +95,7 @@ function publicUser(row: Record<string, unknown>) {
     moduleAccess: moduleAccessToJson(moduleAccess),
     hasSignature: !!signature,
     signature,
+    signatureRole,
     updatedAt: String(row.updated_at || ""),
   };
 }
@@ -130,13 +143,24 @@ function moduleAccessFromBody(body: Record<string, unknown>): ModuleAccessMap {
   return parseModuleAccess(body.moduleAccess != null ? body.moduleAccess : body.module_access);
 }
 
+function missingSignatureRoleColumn(error: { message?: string } | null | undefined) {
+  return String(error?.message || "").toLowerCase().includes("signature_role");
+}
+
 export async function handleListUsers(auth: AuthOk) {
   const denied = requireAdmin(auth);
   if (denied) return denied;
-  const { data, error } = await sb()
-    .from("users")
-    .select("username,dept,role,hide,projects,trade,hide_electrical,warehouse_sig_sections,module_access,signature,updated_at")
-    .order("username");
+  const cols =
+    "username,dept,role,hide,projects,trade,hide_electrical,warehouse_sig_sections,module_access,signature,signature_role,updated_at";
+  let { data, error } = await sb().from("users").select(cols).order("username");
+  if (error && missingSignatureRoleColumn(error)) {
+    const retry = await sb()
+      .from("users")
+      .select("username,dept,role,hide,projects,trade,hide_electrical,warehouse_sig_sections,module_access,signature,updated_at")
+      .order("username");
+    data = retry.data;
+    error = retry.error;
+  }
   if (error) throw error;
   return { ok: true, users: (data || []).map((r) => publicUser(r as Record<string, unknown>)) };
 }
@@ -234,10 +258,15 @@ export async function handleCreateUser(body: Record<string, unknown>, auth: Auth
     warehouse_sig_sections: warehouseSigSectionsCsv(sections),
     module_access: moduleAccessJson,
     signature: sigIn.value,
+    signature_role: parseSignatureRole(body.signatureRole != null ? body.signatureRole : body.signature_role),
     updated_at: isoNow(),
   };
   const { error } = await sb().from("users").insert(row);
-  if (error) throw error;
+  if (error && missingSignatureRoleColumn(error)) {
+    const { signature_role: _role, ...rest } = row;
+    const retry = await sb().from("users").insert(rest);
+    if (retry.error) throw retry.error;
+  } else if (error) throw error;
   return { ok: true, success: true, user: publicUser(row), message: "User created." };
 }
 
@@ -317,6 +346,9 @@ export async function handleUpdateUser(body: Record<string, unknown>, auth: Auth
     if (!sigIn.ok) return { ok: false, success: false, error: "bad_signature", message: sigIn.message };
     patch.signature = sigIn.value;
   }
+  if (body.signatureRole !== undefined || body.signature_role !== undefined) {
+    patch.signature_role = parseSignatureRole(body.signatureRole != null ? body.signatureRole : body.signature_role);
+  }
 
   const nextRole = normalizeRole(patch.role != null ? patch.role : existing.role);
   if (nextRole === "worker") {
@@ -375,7 +407,12 @@ export async function handleUpdateUser(body: Record<string, unknown>, auth: Auth
   if (directorLock) return directorLock;
 
   const { error } = await sb().from("users").update(patch).eq("username", vu.username);
-  if (error) throw error;
+  if (error && missingSignatureRoleColumn(error)) {
+    const fallback = { ...patch };
+    delete fallback.signature_role;
+    const retry = await sb().from("users").update(fallback).eq("username", vu.username);
+    if (retry.error) throw retry.error;
+  } else if (error) throw error;
 
   if (password) {
     await sb().from("sessions").delete().eq("username", vu.username);
@@ -408,6 +445,41 @@ export async function handleSaveMySignature(body: Record<string, unknown>, auth:
     signature: sigIn.value,
     message: "E-signature saved to your account.",
   };
+}
+
+function canViewHrSignatures(auth: AuthOk) {
+  if (isAdminAuth(auth)) return true;
+  if (moduleLevel(auth.moduleAccess, "hr") !== "none") return true;
+  if (moduleLevel(auth.moduleAccess, "hr_director") !== "none") return true;
+  return false;
+}
+
+export async function handleListHrSignatures(auth: AuthOk) {
+  if (!canViewHrSignatures(auth)) {
+    return { ok: false, success: false, error: "not_allowed", message: "Not allowed." };
+  }
+  let { data, error } = await sb()
+    .from("users")
+    .select("username,signature,signature_role")
+    .order("username");
+  if (error && missingSignatureRoleColumn(error)) {
+    const retry = await sb().from("users").select("username,signature").order("username");
+    data = retry.data;
+    error = retry.error;
+  }
+  if (error) throw error;
+  const signatures = (data || [])
+    .map((r) => {
+      const signature = String(r.signature || "").trim();
+      const signatureRole = parseSignatureRole(r.signature_role);
+      return {
+        username: String(r.username || ""),
+        signatureRole,
+        signature,
+      };
+    })
+    .filter((r) => r.username && r.signature);
+  return { ok: true, signatures };
 }
 
 export async function handleDeleteUser(body: Record<string, unknown>, auth: AuthOk) {

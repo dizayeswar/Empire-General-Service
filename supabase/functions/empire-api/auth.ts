@@ -50,6 +50,15 @@ export function tradeForUser(user: Record<string, unknown> | null): string {
   return normalizeTrade(user.trade);
 }
 
+export function signatureRoleForUser(user: Record<string, unknown> | null): string {
+  const s = String(user?.signature_role || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+  if (s === "employee") return "emp";
+  if (s === "line_manager" || s === "manager") return "line";
+  if (s === "human_resources") return "hr";
+  if (s === "emp" || s === "line" || s === "director" || s === "hr") return s;
+  return "";
+}
+
 export async function projectAllowedForUser(username: string, project: unknown): Promise<boolean> {
   const user = await getUser(username);
   const projects = projectsForUser(user);
@@ -175,6 +184,7 @@ export async function handleLogin(body: Record<string, unknown>) {
       : parseWarehouseSigSections(user.warehouse_sig_sections, rp.role),
     moduleAccess: moduleAccessToJson(access),
     signature: String(user.signature || ""),
+    signatureRole: signatureRoleForUser(user as Record<string, unknown>),
     message: "Login successful",
   };
 }
@@ -204,6 +214,7 @@ export async function handleGetPerms(body: Record<string, unknown>) {
       : parseWarehouseSigSections(user.warehouse_sig_sections, derived.role),
     moduleAccess: moduleAccessToJson(access),
     signature: String(user.signature || ""),
+    signatureRole: signatureRoleForUser(user as Record<string, unknown>),
   };
 }
 
