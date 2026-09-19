@@ -68,6 +68,7 @@ var APP_ISSUE_PHOTO_MAX = 12;
 var _appIssueSuggestIndex = -1;
 var _appIssueTitleSuggestIndex = -1;
 var _appIssueInfoId = '';
+var _appBlockUsernameAutofillUntil = 0;
 
 function appToken_() { return empireGetToken() || ''; }
 function appEsc_(s) {
@@ -708,7 +709,7 @@ function appRenderTable_() {
   rows.forEach(function (r) {
     h += '<tr class="app-row-clickable" data-app-id="' + appEsc_(r.id) + '" onclick="appRowClick_(event)">'
       + '<td><strong class="app-property-link">' + appEsc_(r.propertyId) + '</strong></td>'
-      + '<td><input type="text" class="app-phone-input" inputmode="numeric" data-app-id="' + appEsc_(r.id) + '" data-app-field="phone" value="' + appEsc_(r.phone || '') + '" onchange="appSaveRow_(this.getAttribute(\'data-app-id\'))"></td>'
+      + '<td><input type="text" class="app-phone-input" inputmode="numeric" autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-app-id="' + appEsc_(r.id) + '" data-app-field="phone" value="' + appEsc_(r.phone || '') + '" onchange="appSaveRow_(this.getAttribute(\'data-app-id\'))"></td>'
       + '<td>' + appStatusSelectHtml_(r.id, r.status) + '</td>'
       + '<td class="app-updated-cell">' + appEsc_(appFormatDate_(r.updatedAt)) + '</td></tr>';
   });
@@ -1735,6 +1736,60 @@ function appRenderIssues_() {
   appIssueRefreshInfo_();
 }
 
+function appLoggedInUsername_() {
+  return typeof empireGetUser === 'function' ? String(empireGetUser() || '').trim() : '';
+}
+
+function appSearchLooksLikeUsername_(value) {
+  var user = appLoggedInUsername_();
+  if (!user) return false;
+  return String(value || '').trim().toLowerCase() === user.toLowerCase();
+}
+
+function appClearSearchIfUsername_(rerender) {
+  var el = document.getElementById('appFilterSearch');
+  if (!el) return false;
+  if (!appSearchLooksLikeUsername_(el.value)) return false;
+  el.value = '';
+  if (rerender) appRenderTable_();
+  return true;
+}
+
+function appDisableLoginFields_() {
+  ['loginUsername', 'loginPassword'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.value = '';
+    el.disabled = true;
+    el.setAttribute('autocomplete', 'off');
+  });
+}
+
+function appGuardSearchAutofill_() {
+  var el = document.getElementById('appFilterSearch');
+  _appBlockUsernameAutofillUntil = Date.now() + 3000;
+  appDisableLoginFields_();
+  if (el) {
+    el.value = '';
+    el.setAttribute('autocomplete', 'off');
+    el.setAttribute('readonly', 'readonly');
+  }
+  if (el && !el._appAutofillGuard) {
+    el._appAutofillGuard = true;
+    el.addEventListener('input', function () {
+      if (Date.now() > _appBlockUsernameAutofillUntil) return;
+      appClearSearchIfUsername_(true);
+    });
+    el.addEventListener('animationstart', function (ev) {
+      if (ev.animationName !== 'appOnAutofill') return;
+      appClearSearchIfUsername_(true);
+    });
+  }
+  [0, 50, 200, 600, 1200, 2500].forEach(function (ms) {
+    setTimeout(function () { appClearSearchIfUsername_(true); }, ms);
+  });
+}
+
 function appEnterApp_() {
   var loginPage = document.getElementById('loginPage');
   var main = document.getElementById('mainContainer');
@@ -1743,6 +1798,7 @@ function appEnterApp_() {
   if (typeof empireAuthMarkLoginVisible === 'function') empireAuthMarkLoginVisible(false);
   var who = document.getElementById('whoLabel');
   if (who) who.textContent = 'Logged in as: ' + (empireGetUser() || '');
+  appGuardSearchAutofill_();
   appPopulateFilters_();
   appEnsureSeedMeta_();
   appLoad_(true);
