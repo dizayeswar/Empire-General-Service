@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="manifest" href="manifest.webmanifest?v=2026-09-15-sec-acc">
+<link rel="manifest" href="manifest.webmanifest?v=2026-09-19-user-sig">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,8 +13,8 @@
 <title>Leave Request — HR Department — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-09-19-user-autofill">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-15-sec-acc">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-15-sec-acc">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-19-user-sig">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-19-user-sig">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -191,7 +191,7 @@
       <div id="scan" class="tab-content">
         <div class="form-section hr-scan-app">
           <h2>Scan paper leave form</h2>
-          <p class="hr-tab-help">Photograph or upload the filled paper. After the scan loads, add an e-signature on the <strong>Director</strong> box only — not employee, line manager, or HR.</p>
+          <p class="hr-tab-help">Photograph or upload the filled paper. After the scan loads, your account e-signature is placed on the <strong>Director</strong> box only — not employee, line manager, or HR.</p>
           <p class="hr-form-msg" id="hrScanMsg"></p>
           <div class="form-row">
             <div class="form-group">
@@ -211,11 +211,11 @@
             <button type="button" onclick="hrClearScan_()">Remove scan</button>
             <button type="button" onclick="hrSaveFromScan_()">Save</button>
             </span>
-            <button type="button" id="hrScanDirBtn" onclick="hrOpenScanDirectorSig_()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Director e-signature</button>
+            <button type="button" id="hrScanDirBtn" onclick="hrOpenScanDirectorSig_()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">My e-signature</button>
             <button type="button" id="hrScanConfirmBtn" onclick="hrConfirmRow_()" class="hr-btn-confirm" style="display:none;">Confirm</button>
             <button type="button" onclick="hrPrintScan_()">Print signed scan</button>
           </div>
-          <p class="hr-scan-hint" id="hrScanHint">No paper yet. Scan or upload the leave form, then put the director e-signature on the Director box.</p>
+          <p class="hr-scan-hint" id="hrScanHint">No paper yet. Scan or upload the leave form, then put your account e-signature on the Director box.</p>
           <div class="hr-scan-stage-wrap" id="hrScanStageWrap" style="display:none;">
             <div class="hr-scan-stage" id="hrScanStage">
               <img id="hrScanImg" alt="Scanned leave form">
@@ -260,7 +260,7 @@
           <div class="hr-scan-card no-print" id="hrScanCardOnForm" data-hr-form-only="1">
             <div>
               <strong>Paper scan</strong>
-              <p>Scan or upload the printed leave form. Only the Director box gets an e-signature.</p>
+              <p>Scan or upload the printed leave form. Your account e-signature goes on the Director box.</p>
             </div>
             <div class="hr-scan-card-acts">
               <button type="button" onclick="hrSwitchTab_(null,'scan')">Open scan section</button>
@@ -430,9 +430,9 @@
                 </td>
               </tr>
               <tr class="hr-f06-hr-foot">
-                <td class="sig-line">
+                <td class="sig-line" onclick="hrOpenSig_('hr')">
                   <span class="hr-lbl">Signature</span>
-                  <span class="hr-sig-pad hr-sig-pad-inline" id="hr-sig-hr"></span>
+                  <span class="hr-sig-pad hr-sig-pad-inline hr-sig-pad-account" id="hr-sig-hr"></span>
                   <input id="hr-hrSignature" class="hr-cell-input hr-sig-ghost" type="text" autocomplete="off" readonly tabindex="-1">
                 </td>
                 <td class="date-line">
@@ -499,11 +499,11 @@
 
 <div id="hrBatchPrint" class="hr-batch-print" hidden></div>
 
-<script src="config.js?v=2026-09-15-sec-acc"></script>
-<script src="assets/empire-api.js?v=2026-09-15-sec-acc"></script>
-<script src="assets/empire-auth.js?v=2026-09-19-user-autofill"></script>
-<script src="assets/empire-core.js?v=2026-09-15-sec-acc"></script>
-<script src="assets/empire-storage.js?v=2026-09-15-sec-acc"></script>
-<script src="assets/empire-hr-leave.js?v=2026-09-15-sec-acc"></script>
+<script src="config.js?v=2026-09-19-user-sig"></script>
+<script src="assets/empire-api.js?v=2026-09-19-user-sig"></script>
+<script src="assets/empire-auth.js?v=2026-09-19-user-sig"></script>
+<script src="assets/empire-core.js?v=2026-09-19-user-sig"></script>
+<script src="assets/empire-storage.js?v=2026-09-19-user-sig"></script>
+<script src="assets/empire-hr-leave.js?v=2026-09-19-user-sig"></script>
 </body>
 </html>

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="manifest" href="manifest.webmanifest?v=2026-09-15-wh-sec">
+  <link rel="manifest" href="manifest.webmanifest?v=2026-09-19-user-sig">
   <meta name="theme-color" content="#8d015d">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -113,8 +113,8 @@
         </label>
       </div>
       <div id="sigField" style="margin-top:14px;">
-        <div style="font-size:13px;font-weight:700;margin-bottom:6px;">Director e-signature</div>
-        <p class="admin-form-hint" style="margin-top:0;">Saved on this user. When they confirm a Pending Director paper, this stamp is used automatically.</p>
+        <div style="font-size:13px;font-weight:700;margin-bottom:6px;">Account e-signature</div>
+        <p class="admin-form-hint" style="margin-top:0;">Each account keeps its own stamp. When this person opens HR and signs, this image is placed automatically — they do not pick a file each time.</p>
         <input type="file" id="f-signature" accept="image/*" hidden onchange="onSigFile(event)">
         <div id="sigPreviewWrap" style="display:none;margin:8px 0 10px;">
           <img id="sigPreview" alt="E-signature" style="max-height:56px;max-width:260px;background:#fff;border:1px solid var(--card-border);border-radius:8px;padding:6px 10px;">
@@ -157,11 +157,11 @@
     <div id="usersTableHost"></div>
   </div>
 
-  <script src="config.js?v=2026-09-15-wh-sec"></script>
-  <script src="assets/empire-api.js?v=2026-09-15-wh-sec"></script>
-  <script src="assets/empire-auth.js?v=2026-09-19-user-autofill"></script>
-  <script src="assets/empire-core.js?v=2026-09-15-wh-sec"></script>
-  <script src="assets/empire-sw-update.js?v=2026-09-15-wh-sec"></script>
+  <script src="config.js?v=2026-09-19-user-sig"></script>
+  <script src="assets/empire-api.js?v=2026-09-19-user-sig"></script>
+  <script src="assets/empire-auth.js?v=2026-09-19-user-sig"></script>
+  <script src="assets/empire-core.js?v=2026-09-19-user-sig"></script>
+  <script src="assets/empire-sw-update.js?v=2026-09-19-user-sig"></script>
   <script>
     var allUsers = [];
     var editingUsername = null;
@@ -399,6 +399,7 @@
         });
       } else if (kind === 'hr_director') {
         a.hr_director = 'write';
+        document.getElementById('formHint').textContent = 'Upload this director’s e-signature. When they open HR and sign, that stamp is used.';
       }
       if (typeof empireFoldModuleAccess === 'function') a = empireFoldModuleAccess(a);
       else if (typeof empireFoldChargingAccess === 'function') a = empireFoldChargingAccess(a);
@@ -430,7 +431,7 @@
       document.getElementById('f-password').placeholder = 'min 4 characters';
       document.getElementById('f-trade').value = '';
       document.getElementById('f-projects').value = '';
-      document.getElementById('formHint').textContent = 'Password is required for new users.';
+      document.getElementById('formHint').textContent = 'Password is required for new users. Upload their e-signature if they will sign in HR.';
       setMsg('formMsg', '', true);
       document.getElementById('userFormCard').style.display = '';
       resetExpandedGroups();
@@ -615,8 +616,10 @@
       var action = editingUsername ? 'updateUser' : 'createUser';
       var body = Object.assign({ action: action, token: empireGetToken() }, p);
       if (editingUsername) body.username = editingUsername;
-      if (_pendingSig !== undefined) body.signature = _pendingSig;
-      fetchJSONRetry(body, 1, 30000)
+      if (!editingUsername) body.signature = _pendingSig || '';
+      else if (_pendingSig !== undefined) body.signature = _pendingSig;
+      var waitMs = body.signature ? 60000 : 30000;
+      fetchJSONRetry(body, 1, waitMs)
         .then(function (d) {
           if (!d || d.ok === false) {
             if (typeof forceSessionLogout === 'function' && forceSessionLogout(d)) return;
