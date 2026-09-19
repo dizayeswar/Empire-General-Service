@@ -283,6 +283,13 @@ body.cleaning-supervisor-mode { min-height: 100dvh; }
   gap: 10px;
   align-items: center;
 }
+@keyframes empireOnAutofill {
+  from { opacity: 1; }
+  to { opacity: 1; }
+}
+input:-webkit-autofill {
+  animation-name: empireOnAutofill;
+}
 [data-theme="dark"] .cm-banner { background: #3a3018; color: #ffe7a8; border-color: #8a7420; }
 @media (max-width: 420px) {
   .cm-head-text h1 { font-size: 0.98rem; }

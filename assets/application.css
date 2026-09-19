@@ -288,13 +288,6 @@
 form.form-row {
   margin-top: 0;
 }
-@keyframes appOnAutofill {
-  from { opacity: 1; }
-  to { opacity: 1; }
-}
-#appFilterSearch:-webkit-autofill {
-  animation-name: appOnAutofill;
-}
 .app-table input.app-phone-input {
   width: 100%;
   min-width: 132px;

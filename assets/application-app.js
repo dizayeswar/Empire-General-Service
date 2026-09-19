@@ -68,7 +68,6 @@ var APP_ISSUE_PHOTO_MAX = 12;
 var _appIssueSuggestIndex = -1;
 var _appIssueTitleSuggestIndex = -1;
 var _appIssueInfoId = '';
-var _appBlockUsernameAutofillUntil = 0;
 
 function appToken_() { return empireGetToken() || ''; }
 function appEsc_(s) {
@@ -1736,60 +1735,6 @@ function appRenderIssues_() {
   appIssueRefreshInfo_();
 }
 
-function appLoggedInUsername_() {
-  return typeof empireGetUser === 'function' ? String(empireGetUser() || '').trim() : '';
-}
-
-function appSearchLooksLikeUsername_(value) {
-  var user = appLoggedInUsername_();
-  if (!user) return false;
-  return String(value || '').trim().toLowerCase() === user.toLowerCase();
-}
-
-function appClearSearchIfUsername_(rerender) {
-  var el = document.getElementById('appFilterSearch');
-  if (!el) return false;
-  if (!appSearchLooksLikeUsername_(el.value)) return false;
-  el.value = '';
-  if (rerender) appRenderTable_();
-  return true;
-}
-
-function appDisableLoginFields_() {
-  ['loginUsername', 'loginPassword'].forEach(function (id) {
-    var el = document.getElementById(id);
-    if (!el) return;
-    el.value = '';
-    el.disabled = true;
-    el.setAttribute('autocomplete', 'off');
-  });
-}
-
-function appGuardSearchAutofill_() {
-  var el = document.getElementById('appFilterSearch');
-  _appBlockUsernameAutofillUntil = Date.now() + 3000;
-  appDisableLoginFields_();
-  if (el) {
-    el.value = '';
-    el.setAttribute('autocomplete', 'off');
-    el.setAttribute('readonly', 'readonly');
-  }
-  if (el && !el._appAutofillGuard) {
-    el._appAutofillGuard = true;
-    el.addEventListener('input', function () {
-      if (Date.now() > _appBlockUsernameAutofillUntil) return;
-      appClearSearchIfUsername_(true);
-    });
-    el.addEventListener('animationstart', function (ev) {
-      if (ev.animationName !== 'appOnAutofill') return;
-      appClearSearchIfUsername_(true);
-    });
-  }
-  [0, 50, 200, 600, 1200, 2500].forEach(function (ms) {
-    setTimeout(function () { appClearSearchIfUsername_(true); }, ms);
-  });
-}
-
 function appEnterApp_() {
   var loginPage = document.getElementById('loginPage');
   var main = document.getElementById('mainContainer');
@@ -1798,7 +1743,6 @@ function appEnterApp_() {
   if (typeof empireAuthMarkLoginVisible === 'function') empireAuthMarkLoginVisible(false);
   var who = document.getElementById('whoLabel');
   if (who) who.textContent = 'Logged in as: ' + (empireGetUser() || '');
-  appGuardSearchAutofill_();
   appPopulateFilters_();
   appEnsureSeedMeta_();
   appLoad_(true);

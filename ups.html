@@ -12,7 +12,7 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>UPS Checklist — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-09-15-sec-acc">
+<link rel="stylesheet" href="assets/empire.css?v=2026-09-19-user-autofill">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-15-sec-acc">
 <link rel="stylesheet" href="assets/empire-ups.css?v=2026-09-15-sec-acc">
 </head>
@@ -98,7 +98,7 @@
             </div>
             <div class="form-group">
               <label>Search</label>
-              <input type="text" id="upsFilterSearch" oninput="upsRenderTable_()" placeholder="apartment, KKS, brand, fault…">
+              <input type="search" id="upsFilterSearch" oninput="upsRenderTable_()" placeholder="apartment, KKS, brand, fault…" autocomplete="off">
             </div>
             <div class="form-group">
               <label>&nbsp;</label>
@@ -157,7 +157,7 @@
             </div>
             <div class="form-group">
               <label>Search</label>
-              <input type="text" id="upsHistSearch" oninput="upsRenderHistory_()" placeholder="apartment, field, user…">
+              <input type="search" id="upsHistSearch" oninput="upsRenderHistory_()" placeholder="apartment, field, user…" autocomplete="off">
             </div>
             <div class="form-group">
               <label>&nbsp;</label>
@@ -233,7 +233,7 @@
 
 <script src="config.js?v=2026-09-15-sec-acc"></script>
 <script src="assets/empire-api.js?v=2026-09-15-sec-acc"></script>
-<script src="assets/empire-auth.js?v=2026-09-15-sec-acc"></script>
+<script src="assets/empire-auth.js?v=2026-09-19-user-autofill"></script>
 <script src="assets/empire-core.js?v=2026-09-15-sec-acc"></script>
 <script src="assets/empire-ups-app.js?v=2026-09-15-sec-acc"></script>
 </body>

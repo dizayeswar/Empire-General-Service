@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="icon" href="logo-light.png" type="image/png">
   <title>Users — Admin — Empire EGS</title>
-  <link rel="stylesheet" href="assets/empire.css?v=2026-09-15-wh-sec">
+  <link rel="stylesheet" href="assets/empire.css?v=2026-09-19-user-autofill">
   <style>
     .admin-users-wrap { max-width: 1100px; margin: 0 auto; padding: 16px 18px 40px; }
     .admin-users-head { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; justify-content:space-between; margin-bottom:18px; }
@@ -150,7 +150,7 @@
     </div>
 
     <div class="admin-toolbar">
-      <input type="search" id="userSearch" placeholder="Search username, access…" oninput="renderUsers()">
+      <input type="search" id="userSearch" placeholder="Search username, access…" oninput="renderUsers()" autocomplete="off">
       <button type="button" class="act-btn" onclick="loadUsers(true)">Refresh</button>
     </div>
     <div class="admin-msg" id="listMsg"></div>
@@ -159,7 +159,7 @@
 
   <script src="config.js?v=2026-09-15-wh-sec"></script>
   <script src="assets/empire-api.js?v=2026-09-15-wh-sec"></script>
-  <script src="assets/empire-auth.js?v=2026-09-15-wh-sec"></script>
+  <script src="assets/empire-auth.js?v=2026-09-19-user-autofill"></script>
   <script src="assets/empire-core.js?v=2026-09-15-wh-sec"></script>
   <script src="assets/empire-sw-update.js?v=2026-09-15-wh-sec"></script>
   <script>
