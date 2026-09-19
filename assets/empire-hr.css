@@ -789,6 +789,9 @@
   border-radius: 6px;
   padding: 4px 8px;
 }
+.hr-sig-pick-person.is-on { border-color: var(--header-accent, #8d015d); background: color-mix(in srgb, var(--header-accent, #8d015d) 10%, var(--panel, #fff)); }
+.hr-sig-pick-person small { display: block; font-size: 11px; color: var(--text-soft); font-weight: 400; margin-top: 2px; }
+.hr-badge-pending_line { background: #f3e8ff; color: #6b21a8; }
 .hr-sig-pick-acts { display: flex; flex-wrap: wrap; gap: 8px; }
 
 .hr-actions-print {

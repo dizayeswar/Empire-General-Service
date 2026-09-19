@@ -96,6 +96,7 @@
       <button type="button" onclick="applyRecipe('warehouse_desk')">Warehouse full desk</button>
       <button type="button" onclick="applyRecipe('admin_full')">Admin (all write)</button>
       <button type="button" onclick="applyRecipe('hr_director')">HR Pending Director</button>
+      <button type="button" onclick="applyRecipe('hr_line')">HR Line Manager</button>
     </div>
 
     <div id="userFormCard" class="admin-form-card" style="display:none;">
@@ -286,6 +287,7 @@
       { key: 'hr_mod', label: 'HR Department', n: 13, group: true },
       { key: 'hr', label: 'Leave requests', child: true, parent: 'hr_mod' },
       { key: 'hr_director', label: 'Pending Director', child: true, parent: 'hr_mod' },
+      { key: 'hr_line', label: 'Line manager sign', child: true, parent: 'hr_mod' },
       { key: 'warehouse', label: 'Warehouse', n: 14, group: true },
       { key: 'warehouse_note', label: 'Goods Issue Note', child: true, parent: 'warehouse' },
       { key: 'warehouse_saved', label: 'Saved Notes', child: true, parent: 'warehouse' },
@@ -394,7 +396,7 @@
       var a = readAccessFromForm();
       var workerOnly = (hasAccess(a, 'civil_issue') || hasAccess(a, 'electric_issue')) &&
         !hasAccess(a, 'civil_department') && !hasAccess(a, 'electrical_department') &&
-        !hasAccess(a, 'cleaning') && !hasAccess(a, 'hr') && !hasAccess(a, 'hr_director') &&
+        !hasAccess(a, 'cleaning') && !hasAccess(a, 'hr') && !hasAccess(a, 'hr_director') && !hasAccess(a, 'hr_line') &&
         !accessAnyCharging(a) && !hasAccess(a, 'warehouse') && !hasAccess(a, 'admin');
       var cleaning = hasAccess(a, 'cleaning');
       var tradeEl = document.getElementById('tradeField');
@@ -440,13 +442,18 @@
         a.warehouse_invamount = 'write';
       } else if (kind === 'admin_full') {
         ACCESS_MODULES.forEach(function (m) {
-          if (!m.group && m.key !== 'hr_director') a[m.key] = 'write';
+          if (!m.group && m.key !== 'hr_director' && m.key !== 'hr_line') a[m.key] = 'write';
         });
       } else if (kind === 'hr_director') {
         a.hr_director = 'write';
         document.getElementById('formHint').textContent = 'Upload this director’s e-signature. When they open HR and sign, that stamp is used.';
         var dirRole = document.getElementById('f-sig-role');
         if (dirRole) dirRole.value = 'director';
+      } else if (kind === 'hr_line') {
+        a.hr_line = 'write';
+        document.getElementById('formHint').textContent = 'Upload this line manager’s e-signature. When HR assigns a leave paper to them, they sign the Line Manager box.';
+        var lineRole = document.getElementById('f-sig-role');
+        if (lineRole) lineRole.value = 'line';
       }
       if (typeof empireFoldModuleAccess === 'function') a = empireFoldModuleAccess(a);
       else if (typeof empireFoldChargingAccess === 'function') a = empireFoldChargingAccess(a);
@@ -548,7 +555,7 @@
       var access = readAccessFromForm();
       var workerPhone = (hasAccess(access, 'civil_issue') || hasAccess(access, 'electric_issue')) &&
         !hasAccess(access, 'civil_department') && !hasAccess(access, 'electrical_department') &&
-        !hasAccess(access, 'cleaning') && !hasAccess(access, 'hr') && !hasAccess(access, 'hr_director') &&
+        !hasAccess(access, 'cleaning') && !hasAccess(access, 'hr') && !hasAccess(access, 'hr_director') && !hasAccess(access, 'hr_line') &&
         !accessAnyCharging(access) &&
         !hasAccess(access, 'warehouse') && !hasAccess(access, 'admin');
       return {
@@ -967,7 +974,7 @@
       var workerPhone = !!p.trade || (
         (hasAccess(p.moduleAccess, 'civil_issue') || hasAccess(p.moduleAccess, 'electric_issue')) &&
         !hasAccess(p.moduleAccess, 'civil_department') && !hasAccess(p.moduleAccess, 'electrical_department') &&
-        !hasAccess(p.moduleAccess, 'hr') && !hasAccess(p.moduleAccess, 'hr_director') &&
+        !hasAccess(p.moduleAccess, 'hr') && !hasAccess(p.moduleAccess, 'hr_director') && !hasAccess(p.moduleAccess, 'hr_line') &&
         !accessAnyCharging(p.moduleAccess)
       );
       if (workerPhone && document.getElementById('tradeField').style.display !== 'none' && !p.trade) {

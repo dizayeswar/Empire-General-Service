@@ -457,6 +457,7 @@ function canViewHrSignatures(auth: AuthOk) {
   if (isAdminAuth(auth)) return true;
   if (moduleLevel(auth.moduleAccess, "hr") !== "none") return true;
   if (moduleLevel(auth.moduleAccess, "hr_director") !== "none") return true;
+  if (moduleLevel(auth.moduleAccess, "hr_line") !== "none") return true;
   return false;
 }
 

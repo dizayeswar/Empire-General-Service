@@ -1,7 +1,14 @@
 import { AuthOk, getUser } from "./auth.ts";
 import { resetPasswordOk } from "./config.ts";
 import { fmtDate, isoNow, sb, selectAllRows, trashRows } from "./db.ts";
-import { moduleLevel, normalizeRole } from "./helpers.ts";
+import {
+  deriveAccountFromModuleAccess,
+  moduleAccessToJson,
+  moduleLevel,
+  normalizeRole,
+  normalizeWorkerId,
+  parseModuleAccess,
+} from "./helpers.ts";
 
 const LEAVE_TYPES = [
   "Lateness",
@@ -15,12 +22,37 @@ const LEAVE_TYPES = [
 
 const STATUSES = [
   "submitted",
+  "pending_line",
   "line_approved",
   "pending_director",
   "director_approved",
   "completed",
   "processed",
   "rejected",
+] as const;
+
+export const LINE_MANAGER_ROSTER = [
+  "Marwan Deyab",
+  "Bekhal Azeez",
+  "Hoshang Ali",
+  "Delan Mahdi",
+  "Evan Mansour",
+  "Dilan Abdulsatar",
+  "Mohammed Abdulkhaliq",
+  "Hersh Adnan",
+  "Adnan Abdulrahman",
+  "Akam Edris",
+  "Kasro Khasro",
+  "Abdulstar Ahmed",
+  "Barzan Sherzad",
+  "Karzan Jamal",
+  "Kaify Mohammad",
+  "Mahmood Jamal",
+  "Fadhil Khasrow",
+  "Aso Assad",
+  "Himdad Omar",
+  "Barzi Law",
+  "Sangar Salah",
 ] as const;
 
 function isHrStaff(auth: AuthOk): boolean {
@@ -32,19 +64,27 @@ function isHrDirector(auth: AuthOk): boolean {
   return moduleLevel(auth.moduleAccess, "hr_director") !== "none";
 }
 
+function isHrLine(auth: AuthOk): boolean {
+  return moduleLevel(auth.moduleAccess, "hr_line") !== "none";
+}
+
 function isDirectorOnly(auth: AuthOk): boolean {
   return isHrDirector(auth) && !isHrStaff(auth);
 }
 
+function isLineOnly(auth: AuthOk): boolean {
+  return isHrLine(auth) && !isHrStaff(auth) && !isHrDirector(auth);
+}
+
 function canWrite(auth: AuthOk): boolean {
-  if (isDirectorOnly(auth)) return false;
+  if (isDirectorOnly(auth) || isLineOnly(auth)) return false;
   if (normalizeRole(auth.role) === "viewer") return false;
   return isHrStaff(auth) || normalizeRole(auth.role) === "editor";
 }
 
 function isLockedStatus(status: unknown): boolean {
   const s = String(status || "").trim().toLowerCase();
-  return s === "pending_director" || s === "completed" || s === "processed" || s === "director_approved" || s === "rejected";
+  return s === "pending_line" || s === "pending_director" || s === "completed" || s === "processed" || s === "director_approved" || s === "rejected";
 }
 
 function parseEntitlements(raw: unknown): Record<string, Record<string, string>> {
@@ -64,6 +104,114 @@ function parseEntitlements(raw: unknown): Record<string, Record<string, string>>
 function entitlementsJson(raw: unknown): string {
   const o = parseEntitlements(raw);
   return Object.keys(o).length ? JSON.stringify(o) : "";
+}
+
+function compactKey(raw: unknown): string {
+  return normalizeWorkerId(raw).replace(/[._\-\s]+/g, "");
+}
+
+function rosterSlug(name: string): string {
+  return name.toLowerCase().trim().split(/\s+/).filter(Boolean).join(".");
+}
+
+function rosterEntry(raw: unknown): string {
+  const want = String(raw || "").trim().toLowerCase();
+  if (!want) return "";
+  const compact = compactKey(want);
+  const found = LINE_MANAGER_ROSTER.find((n) => {
+    const low = n.toLowerCase();
+    return low === want || compactKey(n) === compact || rosterSlug(n) === normalizeWorkerId(want);
+  });
+  return found || "";
+}
+
+function assignFromRow(r: Record<string, unknown>): { username: string; name: string } {
+  const ents = parseEntitlements(r.entitlements) as Record<string, unknown>;
+  const assign = ents.__assign && typeof ents.__assign === "object" && !Array.isArray(ents.__assign)
+    ? ents.__assign as Record<string, unknown>
+    : {};
+  return {
+    username: normalizeWorkerId(assign.username || r.lineManagerUser || r.line_manager_user || ""),
+    name: String(assign.name || r.lineManagerName || r.line_manager_name || "").trim(),
+  };
+}
+
+function matchRosterUser(
+  name: string,
+  users: Array<{ username: string }>,
+): { username: string; name: string } {
+  const label = rosterEntry(name) || String(name || "").trim();
+  const parts = label.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  const first = parts[0] || "";
+  const last = parts[parts.length - 1] || "";
+  const compact = compactKey(label);
+  const slug = rosterSlug(label);
+  const scored = users.map((u) => {
+    const uk = normalizeWorkerId(u.username);
+    const ck = compactKey(uk);
+    let score = 0;
+    if (ck === compact || uk === slug || uk === first + last) score = 5;
+    else if (first && last && first !== last && ck.indexOf(compactKey(first)) !== -1 && ck.indexOf(compactKey(last)) !== -1) score = 4;
+    else if (uk === first) score = 2;
+    return { username: uk, score };
+  }).filter((x) => x.score && x.username);
+  scored.sort((a, b) => b.score - a.score);
+  const best = scored[0];
+  if (best && (best.score >= 4 || scored.filter((x) => x.score === best.score).length === 1)) {
+    return { username: best.username, name: label };
+  }
+  return { username: slug, name: label };
+}
+
+async function loadUsernames(): Promise<Array<{ username: string }>> {
+  const { data, error } = await sb().from("users").select("username");
+  if (error) throw error;
+  return (data || []).map((r) => ({ username: normalizeWorkerId(r.username) })).filter((r) => !!r.username);
+}
+
+async function grantHrLineAccess(username: string) {
+  const u = await getUser(username);
+  if (!u) return;
+  const access = parseModuleAccess(u.module_access);
+  if (access.hr_line === "none") access.hr_line = "write";
+  const derived = deriveAccountFromModuleAccess(access, { hide: u.hide });
+  const patch: Record<string, unknown> = {
+    module_access: moduleAccessToJson(access),
+    dept: derived.dept || u.dept,
+    updated_at: isoNow(),
+  };
+  const hasRole = String(u.signature_role || "").trim();
+  if (!hasRole) patch.signature_role = "line";
+  const { error } = await sb().from("users").update(patch).eq("username", username);
+  if (error && String(error.message || "").toLowerCase().includes("signature_role")) {
+    delete patch.signature_role;
+    const retry = await sb().from("users").update(patch).eq("username", username);
+    if (retry.error) throw retry.error;
+  } else if (error) throw error;
+}
+
+async function resolveAssignee(body: Record<string, unknown>) {
+  const wantedName = rosterEntry(body.lineManagerName || body.lineManager || body.assignTo);
+  const wantedUser = normalizeWorkerId(body.lineManagerUser || body.assignee || "");
+  if (!wantedName && !wantedUser) {
+    return { ok: false as const, message: "Choose who should sign as line manager." };
+  }
+  const users = await loadUsernames();
+  const matched = matchRosterUser(wantedName || wantedUser, users);
+  const name = wantedName || matched.name;
+  if (!rosterEntry(name)) {
+    return { ok: false as const, message: "Choose a line manager from the list." };
+  }
+  let username = wantedUser || matched.username;
+  if (wantedUser) {
+    const named = matchRosterUser(name, users);
+    if (named.username && users.some((u) => u.username === named.username) && wantedUser !== named.username) {
+      const also = users.some((u) => u.username === wantedUser);
+      if (!also) username = named.username;
+    }
+  }
+  if (!username) username = rosterSlug(name);
+  return { ok: true as const, username, name };
 }
 
 function normStatus(raw: unknown): string {
@@ -99,6 +247,7 @@ function rowToApi(r: Record<string, unknown>) {
     lineManagerName: String(r.line_manager_name || ""),
     lineManagerSignedAt: String(r.line_manager_signed_at || ""),
     lineManagerStatus: String(r.line_manager_status || ""),
+    lineManagerUser: assignFromRow(r).username,
     directorName: String(r.director_name || ""),
     directorSignedAt: String(r.director_signed_at || ""),
     directorStatus: String(r.director_status || ""),
@@ -161,6 +310,12 @@ export async function handleGetHrLeaveRequests(auth?: AuthOk) {
     out = out.filter((r) => {
       const s = String(r.status || "").trim().toLowerCase();
       return s === "pending_director" || s === "completed" || s === "director_approved" || s === "processed";
+    });
+  } else if (auth && isLineOnly(auth)) {
+    const me = normalizeWorkerId(auth.username);
+    out = out.filter((r) => {
+      const s = String(r.status || "").trim().toLowerCase();
+      return s === "pending_line" && assignFromRow(r as unknown as Record<string, unknown>).username === me;
     });
   }
   out.sort((a, b) => (b.num || 0) - (a.num || 0));
@@ -332,6 +487,63 @@ async function resolveDirectorSignature(body: Record<string, unknown>, auth: Aut
   return directorSig;
 }
 
+async function resolveLineSignature(body: Record<string, unknown>, auth: AuthOk, existingSig = "") {
+  let lineSig = String(body.lineSignature || body.lineManagerSignature || existingSig || "").trim();
+  if (!lineSig) {
+    const u = await getUser(auth.username);
+    lineSig = String((u && u.signature) || "").trim();
+  }
+  return lineSig;
+}
+
+function lineConfirmPatch(
+  ex: Record<string, unknown>,
+  lineSig: string,
+  auth: AuthOk,
+  extra: Record<string, unknown>,
+) {
+  const incoming = parseEntitlements(extra.entitlements) as Record<string, unknown>;
+  const existing = parseEntitlements(ex.entitlements) as Record<string, unknown>;
+  const incomingSigs = incoming.__sigs && typeof incoming.__sigs === "object" && !Array.isArray(incoming.__sigs)
+    ? incoming.__sigs as Record<string, string>
+    : {};
+  const existingSigs = existing.__sigs && typeof existing.__sigs === "object" && !Array.isArray(existing.__sigs)
+    ? existing.__sigs as Record<string, string>
+    : {};
+  const assign = assignFromRow(ex);
+  const merged: Record<string, unknown> = {
+    ...existing,
+    __sigs: { ...existingSigs, ...incomingSigs, line: lineSig },
+    __assign: { username: assign.username, name: assign.name },
+  };
+  return {
+    status: "pending_director",
+    line_manager_name: String(extra.lineManagerName || assign.name || auth.username || "").trim(),
+    line_manager_signed_at: String(extra.lineManagerSignedAt || "").trim() || isoNow().slice(0, 10),
+    line_manager_status: "approved",
+    entitlements: entitlementsJson(merged),
+    updated_at: isoNow(),
+  };
+}
+
+export async function handleListHrLineManagers(auth: AuthOk) {
+  if (!isHrStaff(auth) && !isHrDirector(auth) && !isHrLine(auth)) {
+    return { ok: false, success: false, error: "not_allowed", message: "Not allowed." };
+  }
+  const users = await loadUsernames();
+  const have = new Set(users.map((u) => u.username));
+  const items = LINE_MANAGER_ROSTER.map((name) => {
+    const matched = matchRosterUser(name, users);
+    const username = have.has(matched.username) ? matched.username : "";
+    return {
+      name,
+      username: username || matched.username,
+      hasAccount: have.has(matched.username),
+    };
+  });
+  return { ok: true, items };
+}
+
 export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>, auth: AuthOk) {
   const id = String(body.id || "").trim();
   if (!id) return { ok: false, success: false, error: "missing_id", message: "Request id is required." };
@@ -341,12 +553,73 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
   const staff = isHrStaff(auth);
   const director = isHrDirector(auth);
   const directorOnly = isDirectorOnly(auth);
+  const me = normalizeWorkerId(auth.username);
 
-  if (staff && !directorOnly && (status === "submitted" || status === "line_approved")) {
+  if (status === "pending_line") {
+    const assign = assignFromRow(ex);
+    if (!assign.username || assign.username !== me) {
+      return {
+        ok: false,
+        success: false,
+        error: "not_assigned",
+        message: assign.name
+          ? ("This paper is waiting for " + assign.name + " to sign.")
+          : "This paper is waiting for the assigned line manager.",
+      };
+    }
+    const existing = parseEntitlements(ex.entitlements) as Record<string, unknown>;
+    const existingSigs = existing.__sigs && typeof existing.__sigs === "object" && !Array.isArray(existing.__sigs)
+      ? existing.__sigs as Record<string, string>
+      : {};
+    const incoming = parseEntitlements(body.entitlements) as Record<string, unknown>;
+    const incomingSigs = incoming.__sigs && typeof incoming.__sigs === "object" && !Array.isArray(incoming.__sigs)
+      ? incoming.__sigs as Record<string, string>
+      : {};
+    const lineSig = await resolveLineSignature(body, auth, incomingSigs.line || existingSigs.line || "");
+    if (!lineSig) {
+      return { ok: false, success: false, error: "missing_signature", message: "Your e-signature is not on this account yet. Ask admin to upload it on Users, or place it on the Line Manager box once." };
+    }
+    const patch = lineConfirmPatch(ex, lineSig, auth, body);
+    const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", id);
+    if (error) throw error;
+    return { ok: true, success: true, id, row: rowToApi({ ...ex, ...patch }), sentTo: "director" };
+  }
+
+  if (staff && !directorOnly && status === "line_approved") {
     const patch = { status: "pending_director", updated_at: isoNow() };
     const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", id);
     if (error) throw error;
     return { ok: true, success: true, id, row: rowToApi({ ...ex, ...patch }) };
+  }
+
+  if (staff && !directorOnly && status === "submitted") {
+    const assignee = await resolveAssignee(body);
+    if (!assignee.ok) {
+      return { ok: false, success: false, error: "missing_assignee", message: assignee.message };
+    }
+    const existing = parseEntitlements(ex.entitlements) as Record<string, unknown>;
+    existing.__assign = { username: assignee.username, name: assignee.name };
+    const patch = {
+      status: "pending_line",
+      line_manager_name: assignee.name,
+      line_manager_signed_at: "",
+      line_manager_status: "",
+      entitlements: entitlementsJson(existing),
+      updated_at: isoNow(),
+    };
+    const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", id);
+    if (error) throw error;
+    try {
+      await grantHrLineAccess(assignee.username);
+    } catch (_e) { /* account may not exist yet */ }
+    return {
+      ok: true,
+      success: true,
+      id,
+      row: rowToApi({ ...ex, ...patch }),
+      assignedTo: assignee.username,
+      assignedName: assignee.name,
+    };
   }
 
   if (director && status === "pending_director") {
@@ -368,7 +641,7 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
     return { ok: true, success: true, id, row: rowToApi({ ...ex, ...patch }) };
   }
 
-  if (!staff && !director) {
+  if (!staff && !director && !isHrLine(auth)) {
     return { ok: false, success: false, error: "not_allowed", message: "Not allowed." };
   }
   return { ok: false, success: false, error: "bad_status", message: "This paper cannot be confirmed in its current status." };

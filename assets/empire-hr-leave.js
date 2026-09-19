@@ -21,6 +21,7 @@ var HR_ENTITLE_KEYS = [
 ];
 var HR_STATUS_LABEL = {
   submitted: 'Submitted',
+  pending_line: 'Pending line manager',
   line_approved: 'Line manager approved',
   pending_director: 'Pending Director',
   director_approved: 'Completed',
@@ -101,12 +102,15 @@ function hrToggleRowSelect_(id, ev) {
 }
 
 function hrSelectableStage_() {
-  return hrIsDirectorOnly_() ? 'pending_director' : 'inbox';
+  if (hrIsDirectorOnly_()) return 'pending_director';
+  if (hrIsLineOnly_()) return 'pending_line';
+  return 'inbox';
 }
 
 function hrCanSelectRow_(r) {
   var stage = hrStageOf_(r);
   if (hrIsDirectorOnly_()) return stage === 'pending_director';
+  if (hrIsLineOnly_()) return hrLineCanSign_(r);
   return hrCanWrite_() && stage === 'inbox';
 }
 
@@ -115,7 +119,7 @@ function hrSelectAllVisible_(ev) {
   var on = !!(ev && ev.target && ev.target.checked);
   _hrSelected = {};
   if (on) {
-    (hrIsDirectorOnly_() ? hrPaperList_() : hrFiltered_()).forEach(function (r) {
+    (hrIsDirectorOnly_() || hrIsLineOnly_() ? hrPaperList_() : hrFiltered_()).forEach(function (r) {
       if (hrCanSelectRow_(r)) _hrSelected[String(r.id)] = true;
     });
   }
@@ -585,7 +589,10 @@ function hrPdfPageCard_(row) {
   var html = '<h3>Paper ' + n + '</h3>' +
     '<span class="hr-badge hr-badge-' + hrEsc_(st) + '">' + hrEsc_(HR_STATUS_LABEL[st] || st) + '</span>';
   var real = !!(row && row.id && hrFindVac2Row_(n));
-  if (real && hrIsHrStaff_() && !hrIsDirectorOnly_() && stage === 'inbox') {
+  if (real && hrIsHrStaff_() && !hrIsSignerOnly_() && stage === 'inbox') {
+    html += '<button type="button" class="hr-btn-confirm" data-hr-confirm="1">Confirm</button>';
+  }
+  if (real && hrLineCanSign_(row)) {
     html += '<button type="button" class="hr-btn-confirm" data-hr-confirm="1">Confirm</button>';
   }
   if (real && hrIsDirectorOnly_() && stage === 'pending_director') {
@@ -792,6 +799,35 @@ function hrDirectorRejectRequest_(id) {
   });
 }
 
+function hrRunSelectedLine_() {
+  if (_hrBulkBusy || !hrIsLineOnly_()) return;
+  var ids = hrSelectedIds_().filter(function (id) {
+    var row = _hrRows.find(function (r) { return String(r.id) === String(id); });
+    return row && hrLineCanSign_(row);
+  });
+  if (!ids.length) {
+    hrMsg_('Select papers waiting for you.', false);
+    return;
+  }
+  if (!hrAccountSig_() && !(_hrSigs && _hrSigs.line)) {
+    hrMsg_('Your e-signature is not on this account yet. Ask admin to upload it on Users, or open a paper and upload it once.', false);
+    return;
+  }
+  var n = ids.length;
+  var go = function () {
+    hrRunBulkIds_(ids, hrLineConfirmRequest_, {
+      working: 'Signing ' + n + '…',
+      done: 'Signed ' + n + '. Sent to the director.',
+      tab: 'list'
+    });
+  };
+  if (typeof uiConfirm === 'function') {
+    uiConfirm('Confirm ' + n + ' paper' + (n === 1 ? '' : 's') + '? Your e-signature is applied and each goes to the director.').then(function (ok) { if (ok) go(); });
+    return;
+  }
+  if (confirm('Confirm ' + n + ' papers?')) go();
+}
+
 function hrRunSelectedPending_(kind) {
   if (_hrBulkBusy || !hrIsDirectorOnly_()) return;
   var ids = hrSelectedIds_();
@@ -881,18 +917,129 @@ function hrDirectorConfirmSelected_(ids) {
     });
 }
 
-function hrStaffConfirmRequest_(id) {
+function hrStaffConfirmRequest_(id, assignee) {
   id = String(id || '').trim();
   var row = _hrRows.find(function (r) { return String(r.id) === id; });
   if (!row || hrStageOf_(row) !== 'inbox') {
     return Promise.reject(new Error('That paper cannot be confirmed.'));
   }
-  return fetchJSONRetry({ action: 'confirmHrLeaveRequest', token: hrToken_(), id: id }, 1, 30000).then(function (d) {
+  var body = { action: 'confirmHrLeaveRequest', token: hrToken_(), id: id };
+  if (assignee) {
+    body.lineManagerName = assignee.name;
+    body.lineManagerUser = assignee.username;
+  }
+  return fetchJSONRetry(body, 1, 30000).then(function (d) {
     if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) {
       throw new Error('Session expired');
     }
     if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Confirm failed');
     return d;
+  });
+}
+
+function hrLineConfirmRequest_(id) {
+  id = String(id || '').trim();
+  var row = _hrRows.find(function (r) { return String(r.id) === id; });
+  if (!row || !hrLineCanSign_(row)) {
+    return Promise.reject(new Error('That paper is not waiting for you.'));
+  }
+  var sig = hrAccountSig_() || (_hrSigs && _hrSigs.line) || '';
+  if (sig) {
+    _hrSigs.line = sig;
+    if (hrVal_('hr-id') === id) hrRenderSig_('line');
+  }
+  return fetchJSONRetry({
+    action: 'confirmHrLeaveRequest',
+    token: hrToken_(),
+    id: id,
+    lineSignature: sig,
+    lineManagerName: hrAssignedName_(row) || (typeof empireGetUser === 'function' ? empireGetUser() : ''),
+    lineManagerSignedAt: hrToday_()
+  }, 1, 30000).then(function (d) {
+    if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) {
+      throw new Error('Session expired');
+    }
+    if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Confirm failed');
+    return d;
+  });
+}
+
+var _hrLineManagers = [];
+var _hrAssignPick = null;
+var _hrAssignChosen = null;
+
+function hrLoadLineManagers_() {
+  if (_hrLineManagers.length) return Promise.resolve(_hrLineManagers);
+  return fetchJSONRetry({ action: 'listHrLineManagers', token: hrToken_() }, 1, 30000).then(function (d) {
+    if (d && d.ok && Array.isArray(d.items)) _hrLineManagers = d.items;
+    return _hrLineManagers;
+  }).catch(function () { return _hrLineManagers; });
+}
+
+function hrAssignCancel_() {
+  var wrap = document.getElementById('hrAssignPick');
+  if (wrap) wrap.hidden = true;
+  var finish = _hrAssignPick;
+  _hrAssignPick = null;
+  _hrAssignChosen = null;
+  if (finish) finish(null);
+}
+
+function hrAssignOk_() {
+  var finish = _hrAssignPick;
+  var chosen = _hrAssignChosen;
+  if (!chosen) {
+    hrMsg_('Choose who should sign as line manager.', false);
+    return;
+  }
+  var wrap = document.getElementById('hrAssignPick');
+  if (wrap) wrap.hidden = true;
+  _hrAssignPick = null;
+  _hrAssignChosen = null;
+  if (finish) finish(chosen);
+}
+
+function hrRenderAssignList_(q) {
+  var list = document.getElementById('hrAssignList');
+  if (!list) return;
+  q = String(q || '').trim().toLowerCase();
+  var html = '';
+  _hrLineManagers.forEach(function (it) {
+    var name = String(it.name || '');
+    var user = String(it.username || '');
+    var hay = (name + ' ' + user).toLowerCase();
+    if (q && hay.indexOf(q) === -1) return;
+    var selected = _hrAssignChosen && _hrAssignChosen.name === name;
+    html += '<button type="button" class="hr-sig-pick-person' + (selected ? ' is-on' : '') + '" data-name="' + hrEsc_(name) + '">' +
+      '<span><strong>' + hrEsc_(name) + '</strong><small>' +
+      (it.hasAccount ? ('Account: ' + hrEsc_(user)) : 'No login matched yet — create their user with this name') +
+      '</small></span></button>';
+  });
+  list.innerHTML = html || '<p class="hr-sig-pick-help">No names match.</p>';
+  list.querySelectorAll('[data-name]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var name = btn.getAttribute('data-name');
+      _hrAssignChosen = _hrLineManagers.find(function (it) { return it.name === name; }) || null;
+      hrRenderAssignList_(document.getElementById('hrAssignSearch') ? document.getElementById('hrAssignSearch').value : '');
+    });
+  });
+}
+
+function hrPickLineManager_() {
+  return hrLoadLineManagers_().then(function (items) {
+    if (!items.length) {
+      return Promise.reject(new Error('Could not load the line manager list.'));
+    }
+    return new Promise(function (resolve) {
+      _hrAssignPick = resolve;
+      _hrAssignChosen = null;
+      var wrap = document.getElementById('hrAssignPick');
+      var search = document.getElementById('hrAssignSearch');
+      if (search) search.value = '';
+      hrRenderAssignList_('');
+      if (wrap) wrap.hidden = false;
+      if (search) setTimeout(function () { search.focus(); }, 30);
+    });
   });
 }
 
@@ -937,7 +1084,7 @@ function hrRunBulkIds_(ids, requestFn, msgs) {
 }
 
 function hrRunSelectedInbox_(kind) {
-  if (_hrBulkBusy || !hrCanWrite_() || hrIsDirectorOnly_()) return;
+  if (_hrBulkBusy || !hrCanWrite_() || hrIsSignerOnly_()) return;
   var confirmKind = kind === 'confirm';
   var ids = hrSelectedIds_().filter(function (id) {
     var row = _hrRows.find(function (r) { return String(r.id) === String(id); });
@@ -950,22 +1097,30 @@ function hrRunSelectedInbox_(kind) {
     return;
   }
   var n = ids.length;
-  var detail = confirmKind
-    ? 'Confirm ' + n + ' selected paper' + (n === 1 ? '' : 's') + '? They go to Pending Director.'
-    : 'Delete ' + n + ' selected paper' + (n === 1 ? '' : 's') + '? They move to the Recycle Bin.';
-  var go = function () {
-    hrRunBulkIds_(ids, confirmKind ? hrStaffConfirmRequest_ : hrDeleteRequest_, {
-      working: (confirmKind ? 'Confirming ' : 'Deleting ') + n + '…',
-      done: confirmKind
-        ? 'Sent ' + n + ' to Pending Director.'
-        : 'Moved ' + n + ' to the Recycle Bin.'
-    });
-  };
-  if (typeof uiConfirm === 'function') {
-    uiConfirm(detail, confirmKind ? {} : { danger: true }).then(function (ok) { if (ok) go(); });
+  if (!confirmKind) {
+    var delMsg = 'Delete ' + n + ' selected paper' + (n === 1 ? '' : 's') + '? They move to the Recycle Bin.';
+    var goDel = function () {
+      hrRunBulkIds_(ids, hrDeleteRequest_, {
+        working: 'Deleting ' + n + '…',
+        done: 'Moved ' + n + ' to the Recycle Bin.'
+      });
+    };
+    if (typeof uiConfirm === 'function') {
+      uiConfirm(delMsg, { danger: true }).then(function (ok) { if (ok) goDel(); });
+      return;
+    }
+    if (confirm(delMsg)) goDel();
     return;
   }
-  if (confirm(detail)) go();
+  hrPickLineManager_().then(function (assignee) {
+    if (!assignee) return;
+    hrRunBulkIds_(ids, function (id) { return hrStaffConfirmRequest_(id, assignee); }, {
+      working: 'Assigning ' + n + ' to ' + assignee.name + '…',
+      done: 'Assigned ' + n + ' to ' + assignee.name + '.'
+    });
+  }).catch(function (err) {
+    hrMsg_(err.message || 'Confirm failed.', false);
+  });
 }
 
 function hrToken_() { return empireGetToken() || ''; }
@@ -1003,6 +1158,29 @@ function hrIsDirector_() {
 function hrIsDirectorOnly_() {
   return hrIsDirector_() && !hrIsHrStaff_();
 }
+function hrIsLine_() {
+  return typeof empireModuleLevel === 'function' && empireModuleLevel('hr_line') !== 'none';
+}
+function hrIsLineOnly_() {
+  return hrIsLine_() && !hrIsHrStaff_() && !hrIsDirector_();
+}
+function hrIsSignerOnly_() {
+  return hrIsDirectorOnly_() || hrIsLineOnly_();
+}
+function hrMe_() {
+  return typeof empireGetUser === 'function' ? String(empireGetUser() || '').trim().toLowerCase() : '';
+}
+function hrAssignedUser_(row) {
+  var from = row && row.lineManagerUser;
+  if (from) return String(from).trim().toLowerCase();
+  var assign = row && row.entitlements && row.entitlements.__assign;
+  return assign && assign.username ? String(assign.username).trim().toLowerCase() : '';
+}
+function hrAssignedName_(row) {
+  var assign = row && row.entitlements && row.entitlements.__assign;
+  if (assign && assign.name) return String(assign.name);
+  return String((row && row.lineManagerName) || '');
+}
 function hrAccountSig_() {
   return typeof empireGetSignature === 'function' ? String(empireGetSignature() || '').trim() : '';
 }
@@ -1016,6 +1194,7 @@ function hrAccountSigSlot_() {
   if (role === 'line_manager' || role === 'manager') role = 'line';
   if (role === 'emp' || role === 'line' || role === 'director' || role === 'hr') return role;
   if (hrIsDirector_()) return 'director';
+  if (hrIsLine_()) return 'line';
   if (hrIsHrStaff_()) return 'hr';
   return '';
 }
@@ -1125,8 +1304,9 @@ function hrSigPickOpen_(slot, choices) {
 
 function hrCanStampSlot_(slot) {
   if (slot === 'director') return hrDirectorCanSign_() || (hrCanWrite_() && !hrPaperLocked_());
-  if (slot === 'hr') return hrIsHrStaff_() && !hrIsDirectorOnly_() && !hrPaperLocked_();
-  if (slot === 'emp' || slot === 'line') return hrCanWrite_() && !hrPaperLocked_();
+  if (slot === 'hr') return hrIsHrStaff_() && !hrIsSignerOnly_() && !hrPaperLocked_();
+  if (slot === 'line') return hrLineCanSign_() || (hrCanWrite_() && !hrPaperLocked_());
+  if (slot === 'emp') return hrCanWrite_() && !hrPaperLocked_();
   return false;
 }
 
@@ -1170,7 +1350,7 @@ function hrApplyAccountDirectorSig_(row) {
 }
 
 function hrApplyAccountHrSig_(row) {
-  if (!hrIsHrStaff_() || hrIsDirectorOnly_()) return;
+  if (!hrIsHrStaff_() || hrIsSignerOnly_()) return;
   if (hrPaperLocked_(row)) return;
   if (hrAccountSigSlot_() && hrAccountSigSlot_() !== 'hr') return;
   if (_hrSigs.hr) return;
@@ -1188,6 +1368,10 @@ function hrApplyAccountSlotSig_(row) {
     hrApplyAccountDirectorSig_(row);
     return;
   }
+  if (slot === 'line') {
+    hrApplyAccountLineSig_(row);
+    return;
+  }
   if (slot === 'hr') {
     hrApplyAccountHrSig_(row);
     return;
@@ -1197,8 +1381,21 @@ function hrApplyAccountSlotSig_(row) {
   hrStampSlot_(slot, saved, typeof empireGetUser === 'function' ? empireGetUser() : '');
 }
 
+function hrApplyAccountLineSig_(row) {
+  if (!hrLineCanSign_(row)) return;
+  var saved = hrAccountSig_();
+  if (!saved) return;
+  _hrSigs.line = saved;
+  var who = hrAssignedName_(row) || (typeof empireGetUser === 'function' ? empireGetUser() : '');
+  if (who && !hrVal_('hr-lineManagerName')) hrSet_('hr-lineManagerName', who);
+  if (!hrVal_('hr-lineManagerSignedAt')) hrSet_('hr-lineManagerSignedAt', hrToday_());
+  hrSet_('hr-lineManagerStatus', 'approved');
+  hrRenderSig_('line');
+}
+
 function hrStageOf_(r) {
   var s = String((r && r.status) || 'submitted');
+  if (s === 'pending_line') return 'pending_line';
   if (s === 'pending_director') return 'pending_director';
   if (s === 'completed' || s === 'processed' || s === 'director_approved') return 'completed';
   if (s === 'rejected') return 'rejected';
@@ -1211,6 +1408,13 @@ function hrPaperLocked_(row) {
 function hrDirectorCanSign_(row) {
   var st = row ? String(row.status || '') : hrVal_('hr-status');
   return hrIsDirector_() && st === 'pending_director';
+}
+function hrLineCanSign_(row) {
+  row = row || _hrRows.find(function (r) { return String(r.id) === String(hrVal_('hr-id') || ''); });
+  var st = row ? String(row.status || '') : hrVal_('hr-status');
+  if (st !== 'pending_line') return false;
+  var assigned = hrAssignedUser_(row || {});
+  return !!assigned && assigned === hrMe_();
 }
 
 var HR_DIR_CELL = { x: 0.695, y: 0.402, w: 0.175, h: 0.036 };
@@ -1355,7 +1559,7 @@ function hrDirectorSigForConfirm_(row) {
   return '';
 }
 function hrCanWrite_() {
-  if (hrIsDirectorOnly_()) return false;
+  if (hrIsSignerOnly_()) return false;
   var p = typeof empireGetPerms === 'function' ? empireGetPerms() : {};
   if (p.add === false && p.edit === false) return false;
   return _hrCanWrite;
@@ -1466,7 +1670,8 @@ function hrOpenSig_(slot) {
   var ownSlot = hrAccountSigSlot_() === slot;
   var ownSig = hrAccountSig_();
   var directorSelf = slot === 'director' && hrDirectorCanSign_();
-  if (ownSig && ownSlot && (slot !== 'director' || directorSelf)) {
+  var lineSelf = slot === 'line' && hrLineCanSign_();
+  if (ownSig && ownSlot && (slot !== 'director' || directorSelf) && (slot !== 'line' || lineSelf || hrCanWrite_())) {
     hrStampSlot_(slot, ownSig, typeof empireGetUser === 'function' ? empireGetUser() : '');
     hrMsg_('Your account e-signature was placed.', true);
     return;
@@ -1474,6 +1679,7 @@ function hrOpenSig_(slot) {
   hrLoadSavedSigs_(function () {
     var choices = hrSigsForSlot_(slot);
     if (slot === 'director' && !directorSelf) choices = [];
+    if (slot === 'line' && lineSelf) choices = [];
     if (choices.length) {
       hrSigPickOpen_(slot, choices);
       return;
@@ -1922,7 +2128,7 @@ function hrOpenLeaveNav_() {
 function hrClickLeaveNav_(ev) {
   hrOpenLeaveNav_();
   hrCloseSettings_();
-  if (hrIsDirectorOnly_()) {
+  if (hrIsSignerOnly_()) {
     hrSwitchTab_(null, 'list');
     return;
   }
@@ -2026,6 +2232,7 @@ function hrPaperList_() {
   return (_hrRows || []).filter(function (r) {
     var stage = hrStageOf_(r);
     if (hrIsDirectorOnly_() && stage !== 'pending_director') return false;
+    if (hrIsLineOnly_() && !hrLineCanSign_(r)) return false;
     if (status === 'completed') {
       if (stage !== 'completed') return false;
     } else if (status) {
@@ -2070,22 +2277,25 @@ function hrApplyPaperLock_() {
   var root = document.getElementById('hrPrintRoot');
   var locked = hrPaperLocked_();
   var directorSign = hrDirectorCanSign_();
-  var freeze = locked && !directorSign;
+  var lineSign = hrLineCanSign_();
+  var freeze = locked && !directorSign && !lineSign;
   if (root) {
     root.classList.toggle('hr-paper-locked', freeze);
     root.classList.toggle('hr-paper-director-sign', directorSign);
+    root.classList.toggle('hr-paper-line-sign', lineSign);
     root.querySelectorAll('input, select, textarea').forEach(function (el) {
       var id = el.id || '';
       var blank = !!(el.closest && el.closest('.hr-f06-blank')) || !!el.getAttribute('data-ent') ||
         id === 'hr-hrComment' || id === 'hr-hrSignature' || id === 'hr-hrSignedAt' || id === 'hr-hrSignedAt-view';
       var directorField = id === 'hr-directorName' || id === 'hr-directorSignedAt' || id === 'hr-directorSignedAt-view';
-      var block = blank || freeze || (directorSign && !directorField);
+      var lineField = id === 'hr-lineManagerName' || id === 'hr-lineManagerSignedAt' || id === 'hr-lineManagerSignedAt-view';
+      var block = blank || freeze || (directorSign && !directorField) || (lineSign && !lineField);
       if (el.tagName === 'SELECT') el.disabled = block;
       else el.readOnly = block;
     });
   }
   var statusEl = document.getElementById('hr-status');
-  if (statusEl) statusEl.disabled = locked || directorSign || hrIsDirectorOnly_();
+  if (statusEl) statusEl.disabled = locked || directorSign || lineSign || hrIsSignerOnly_();
   var saveBtn = document.getElementById('hrSaveBtn');
   var saveBtn2 = document.getElementById('hrSaveBtn2');
   var delBtn = document.getElementById('hrDeleteBtn');
@@ -2094,11 +2304,13 @@ function hrApplyPaperLock_() {
   var rejectBtn = document.getElementById('hrRejectBtn');
   var rejectBtn2 = document.getElementById('hrRejectBtn2');
   var st = hrVal_('hr-status');
+  var openRow = _hrRows.find(function (r) { return String(r.id) === String(hrVal_('hr-id')); });
   var showSave = hrCanWrite_() && !locked;
   var showDel = showSave && !!hrVal_('hr-id');
   var showConfirm = (!!hrVal_('hr-id')) && (
-    (hrIsHrStaff_() && hrStageOf_({ status: st }) === 'inbox') ||
-    (hrIsDirector_() && st === 'pending_director')
+    (hrIsHrStaff_() && !hrIsSignerOnly_() && hrStageOf_({ status: st }) === 'inbox') ||
+    (hrIsDirector_() && st === 'pending_director') ||
+    hrLineCanSign_(openRow)
   );
   var showReject = (!!hrVal_('hr-id')) && hrIsDirector_() && st === 'pending_director';
   if (saveBtn) saveBtn.style.display = showSave ? '' : 'none';
@@ -2118,6 +2330,21 @@ function hrConfirmRow_(id) {
   if (!id) return;
   var row = _hrRows.find(function (r) { return String(r.id) === id; });
   var stage = hrStageOf_(row || { status: hrVal_('hr-status') });
+  if (hrLineCanSign_(row)) {
+    hrMsg_('Signing Line Manager box…', true);
+    hrLineConfirmRequest_(id)
+      .then(function () {
+        hrMsg_('Line manager signed. Sent to the director.', true);
+        hrSetListEditing_(false);
+        return hrLoad_(true).then(function () {
+          hrSwitchTab_(null, 'list');
+        });
+      })
+      .catch(function (err) {
+        hrMsg_(err.message || 'Confirm failed.', false);
+      });
+    return;
+  }
   if (hrIsDirector_() && stage === 'pending_director') {
     hrMsg_('Signing Director box…', true);
     hrDirectorConfirmRequest_(id)
@@ -2138,21 +2365,19 @@ function hrConfirmRow_(id) {
       });
     return;
   }
-  if (!(hrIsHrStaff_() && stage === 'inbox')) return;
-  var extra = { action: 'confirmHrLeaveRequest', token: hrToken_(), id: id };
-  hrMsg_('Confirming…', true);
-  fetchJSONRetry(extra, 1, 30000)
-    .then(function (d) {
-      if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) return;
-      if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Confirm failed');
-      hrMsg_('Sent to Pending Director.', true);
+  if (!(hrIsHrStaff_() && !hrIsSignerOnly_() && stage === 'inbox')) return;
+  hrPickLineManager_().then(function (assignee) {
+    if (!assignee) return;
+    hrMsg_('Assigning to ' + assignee.name + '…', true);
+    return hrStaffConfirmRequest_(id, assignee).then(function () {
+      hrMsg_('Assigned to ' + assignee.name + '. They sign next, then it goes to the director.', true);
       hrSetListEditing_(false);
       hrSwitchTab_(null, 'list');
       return hrLoad_(true);
-    })
-    .catch(function (err) {
-      hrMsg_(err.message || 'Confirm failed.', false);
     });
+  }).catch(function (err) {
+    hrMsg_(err.message || 'Confirm failed.', false);
+  });
 }
 
 function hrRejectRow_(id) {
@@ -2396,14 +2621,22 @@ function hrRenderKpis_(list) {
   if (!host) return;
   var all = _hrRows || [];
   var pendingDir = all.filter(function (r) { return hrStageOf_(r) === 'pending_director'; }).length;
+  var pendingLine = all.filter(function (r) { return hrStageOf_(r) === 'pending_line'; }).length;
   var completed = all.filter(function (r) { return hrStageOf_(r) === 'completed'; }).length;
   var inbox = all.filter(function (r) { return hrStageOf_(r) === 'inbox'; }).length;
   host.innerHTML =
-    (hrIsDirectorOnly_()
+    (hrIsSignerOnly_()
       ? ''
       : '<div class="hr-kpi"><b>' + inbox + '</b><span>Leave requests</span></div>') +
-    '<div class="hr-kpi"><b>' + pendingDir + '</b><span>Pending Director</span></div>' +
-    '<div class="hr-kpi" role="button" tabindex="0" onclick="hrSwitchTab_(null,\'confirmed\')" style="cursor:pointer;"><b>' + completed + '</b><span>Director confirmed</span></div>';
+    (hrIsDirectorOnly_()
+      ? ''
+      : '<div class="hr-kpi"><b>' + pendingLine + '</b><span>Pending line manager</span></div>') +
+    (hrIsLineOnly_()
+      ? ''
+      : '<div class="hr-kpi"><b>' + pendingDir + '</b><span>Pending Director</span></div>') +
+    (hrIsLineOnly_()
+      ? ''
+      : '<div class="hr-kpi" role="button" tabindex="0" onclick="hrSwitchTab_(null,\'confirmed\')" style="cursor:pointer;"><b>' + completed + '</b><span>Director confirmed</span></div>');
 }
 
 function hrRenderTable_() {
@@ -2423,7 +2656,7 @@ function hrRenderTable_() {
     }).join('');
     deptEl.value = keep;
   }
-  var rows = hrIsDirectorOnly_() ? hrPaperList_() : hrFiltered_();
+  var rows = (hrIsDirectorOnly_() || hrIsLineOnly_()) ? hrPaperList_() : hrFiltered_();
   hrRenderKpis_(hrFiltered_());
   if (summary) {
     summary.textContent = rows.length + ' saved request' + (rows.length === 1 ? '' : 's');
@@ -2441,6 +2674,8 @@ function hrRenderTable_() {
       h += '<span class="hr-select-count" id="hrSelectCount">' + (selN ? selN + ' selected' : 'Select papers') + '</span>';
       if (hrIsDirectorOnly_()) {
         h += '<button type="button" class="hr-btn-confirm" onclick="hrRunSelectedPending_(\'confirm\')">Confirm selected</button>';
+      } else if (hrIsLineOnly_()) {
+        h += '<button type="button" class="hr-btn-confirm" onclick="hrRunSelectedLine_()">Confirm selected</button>';
       } else {
         h += '<button type="button" class="hr-btn-confirm" onclick="hrRunSelectedInbox_(\'confirm\')">Confirm selected</button>';
         h += '<button type="button" class="hr-btn-reject" onclick="hrRunSelectedInbox_(\'delete\')">Delete selected</button>';
@@ -2454,8 +2689,10 @@ function hrRenderTable_() {
   h += '</div>';
   if (!rows.length) {
     h += '<p class="hr-stage-empty">' + (hrIsDirectorOnly_()
-      ? 'When HR confirms a paper, it appears here for you to sign.'
-      : 'No saved requests yet.') + '</p></section>';
+      ? 'When the line manager signs, the paper appears here for you to sign.'
+      : (hrIsLineOnly_()
+        ? 'When HR assigns a paper to you, it appears here to sign. After you confirm, it goes to the director.'
+        : 'No saved requests yet.')) + '</p></section>';
     host.innerHTML = h;
     return;
   }
@@ -2467,13 +2704,19 @@ function hrRenderTable_() {
     var id = hrEsc_(r.id);
     var stage = hrStageOf_(r);
     var st = String(r.status || 'submitted');
-    var canHrConfirm = hrIsHrStaff_() && !hrIsDirectorOnly_() && stage === 'inbox';
+    var canHrConfirm = hrIsHrStaff_() && !hrIsSignerOnly_() && stage === 'inbox';
     var canDirConfirm = hrIsDirector_() && stage === 'pending_director';
+    var canLineConfirm = hrLineCanSign_(r);
     var canSel = showSel && hrCanSelectRow_(r);
     var picked = !!_hrSelected[String(r.id)];
-    var statusCell = (canHrConfirm || canDirConfirm) && !showSel
+    var waitingName = hrAssignedName_(r);
+    var statusCell = (canHrConfirm || canDirConfirm || canLineConfirm) && !showSel
       ? '<button type="button" class="hr-btn-confirm-board" onclick="event.stopPropagation();hrConfirmRow_(\'' + id + '\')">Confirm</button>'
-      : '<span class="hr-badge hr-badge-' + hrEsc_(st) + '">' + hrEsc_(HR_STATUS_LABEL[st] || st) + '</span>';
+      : '<span class="hr-badge hr-badge-' + hrEsc_(st) + '">' +
+        (stage === 'pending_line' && waitingName
+          ? hrEsc_('Waiting for ' + waitingName)
+          : hrEsc_(HR_STATUS_LABEL[st] || st)) +
+        '</span>';
     var openFn = (r.entitlements && r.entitlements.__scan && r.entitlements.__scan.url)
       ? 'hrOpenScanRow_'
       : 'hrEditInList_';
@@ -2748,6 +2991,7 @@ function hrLoad_(force) {
         return hrRepairRowScan_(r);
       });
       return hrSeedVac2IfNeeded_().then(function () {
+        if (hrIsHrStaff_() && !hrIsSignerOnly_()) hrLoadLineManagers_();
         hrRenderTable_();
         hrRenderDoneTable_();
         hrRenderConfirmedTable_();
@@ -3130,7 +3374,7 @@ function hrBindScanDrag_() {
 var HR_TRASH_SHEETS = ['HrLeaveRequests'];
 
 function hrShowStaffTools_() {
-  var show = hrCanWrite_() && !hrIsDirectorOnly_();
+  var show = hrCanWrite_() && !hrIsSignerOnly_();
   var trash = document.getElementById('btnHrTrash');
   var reset = document.getElementById('btnHrReset');
   if (trash) trash.style.display = show ? '' : 'none';
@@ -3559,6 +3803,10 @@ function hrEnterApp_() {
         hrApplyAccountDirectorSig_(openRow);
         hrRenderSig_('director');
       }
+      if (hrLineCanSign_(openRow || undefined)) {
+        hrApplyAccountLineSig_(openRow);
+        hrRenderSig_('line');
+      }
       hrApplyAccountSlotSig_(openRow || undefined);
       hrRenderAllSigs_();
       hrLoadSavedSigs_();
@@ -3569,7 +3817,7 @@ function hrEnterApp_() {
     hrClearForm_();
   }
   hrApplyPaperLock_();
-  if (hrIsDirectorOnly_()) {
+  if (hrIsSignerOnly_()) {
     var scanBtn = document.getElementById('tabBtnScan');
     if (scanBtn) scanBtn.style.display = 'none';
     var doneBtn = document.getElementById('tabBtnDone');
@@ -3577,7 +3825,9 @@ function hrEnterApp_() {
     var archiveNav = document.getElementById('hrArchiveNav');
     if (archiveNav) archiveNav.style.display = 'none';
     var confirmedBtn = document.getElementById('tabBtnConfirmed');
-    if (confirmedBtn) confirmedBtn.style.display = '';
+    if (confirmedBtn) confirmedBtn.style.display = hrIsDirectorOnly_() ? '' : 'none';
+    var formBtn = document.getElementById('tabBtnForm');
+    if (formBtn && hrIsLineOnly_()) formBtn.style.display = 'none';
     hrOpenLeaveNav_();
     hrSwitchTab_(null, 'list');
   }
