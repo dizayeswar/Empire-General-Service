@@ -799,8 +799,8 @@ function hrRunSelectedPending_(kind) {
     hrMsg_('Select at least one paper first.', false);
     return;
   }
-  if (kind === 'confirm' && !hrAccountDirectorSig_() && !(_hrSigs && _hrSigs.director)) {
-    hrMsg_('Your director e-signature is not on this account yet. Ask admin to upload it, then Confirm.', false);
+  if (kind === 'confirm' && !hrAccountSig_() && !(_hrSigs && _hrSigs.director)) {
+    hrMsg_('Your e-signature is not on this account yet. Ask admin to upload it on Users, or open a paper and upload it once.', false);
     return;
   }
   var n = ids.length;
@@ -1003,13 +1003,33 @@ function hrIsDirector_() {
 function hrIsDirectorOnly_() {
   return hrIsDirector_() && !hrIsHrStaff_();
 }
-function hrAccountDirectorSig_() {
+function hrAccountSig_() {
   return typeof empireGetSignature === 'function' ? String(empireGetSignature() || '').trim() : '';
+}
+function hrAccountDirectorSig_() {
+  return hrAccountSig_();
+}
+
+function hrRememberAccountSig_(url) {
+  url = String(url || '').trim();
+  if (!url) return;
+  if (typeof empireSetSignature === 'function') empireSetSignature(url);
+  else if (typeof empireAuthSet === 'function') empireAuthSet('signature', url);
+  var token = hrToken_();
+  if (!token) return;
+  fetchJSONRetry({ action: 'saveMySignature', token: token, signature: url }, 1, 30000)
+    .then(function (d) {
+      if (d && d.ok && d.signature) {
+        if (typeof empireSetSignature === 'function') empireSetSignature(d.signature);
+        else if (typeof empireAuthSet === 'function') empireAuthSet('signature', String(d.signature));
+      }
+    })
+    .catch(function () {});
 }
 
 function hrApplyAccountDirectorSig_(row) {
   if (!hrDirectorCanSign_(row)) return;
-  var saved = hrAccountDirectorSig_();
+  var saved = hrAccountSig_();
   if (!saved) return;
   _hrSigs.director = saved;
   if (_hrScan && _hrScan.url && !_hrScan.directorSig) {
@@ -1027,6 +1047,16 @@ function hrApplyAccountDirectorSig_(row) {
   }
   if (!hrVal_('hr-directorSignedAt')) hrSet_('hr-directorSignedAt', hrToday_());
   hrSet_('hr-directorStatus', 'approved');
+}
+
+function hrApplyAccountHrSig_(row) {
+  if (!hrIsHrStaff_() || hrIsDirectorOnly_()) return;
+  if (hrPaperLocked_(row)) return;
+  if (_hrSigs.hr) return;
+  var saved = hrAccountSig_();
+  if (!saved) return;
+  _hrSigs.hr = saved;
+  if (!hrVal_('hr-hrSignedAt')) hrSet_('hr-hrSignedAt', hrToday_());
 }
 
 function hrStageOf_(r) {
@@ -1294,11 +1324,32 @@ function hrRenderAllSigs_() {
 }
 
 function hrOpenSig_(slot) {
-  if (slot === 'hr') return;
-  if (hrDirectorCanSign_() && slot === 'director') {
-    /* director may sign the Director box only */
+  var directorSelf = slot === 'director' && hrDirectorCanSign_();
+  var hrSelf = slot === 'hr' && hrIsHrStaff_() && !hrIsDirectorOnly_();
+  if (directorSelf) {
+    /* director may stamp the Director box from their account */
+  } else if (hrSelf) {
+    if (hrPaperLocked_()) return;
+  } else if (slot === 'hr') {
+    return;
+  } else if (hrDirectorCanSign_() && slot === 'director') {
+    /* already handled */
   } else if (!hrCanWrite_() || hrPaperLocked_()) {
     return;
+  }
+  var saved = hrAccountSig_();
+  if (saved && (directorSelf || hrSelf)) {
+    _hrSigs[slot] = saved;
+    if (slot === 'director') hrApplyDirectorOnly_(saved, false);
+    else {
+      hrRenderSig_(slot);
+      if (slot === 'hr' && !hrVal_('hr-hrSignedAt')) hrSet_('hr-hrSignedAt', hrToday_());
+    }
+    hrMsg_('Your account e-signature was placed.', true);
+    return;
+  }
+  if ((directorSelf || hrSelf) && !saved) {
+    hrMsg_('Upload your e-signature once. It is saved on this account for next time.', true);
   }
   var inp = document.getElementById('hr-sig-file');
   if (!inp) return;
@@ -1398,6 +1449,11 @@ function hrOnSigFile_(e) {
       _hrSigs[slot] = url;
       hrRenderSig_(slot);
       if (slot === 'director') hrApplyDirectorOnly_(url, false);
+      if (slot === 'hr' && !hrVal_('hr-hrSignedAt')) hrSet_('hr-hrSignedAt', hrToday_());
+      if ((slot === 'director' && hrDirectorCanSign_()) || (slot === 'hr' && hrIsHrStaff_() && !hrIsDirectorOnly_())) {
+        hrRememberAccountSig_(url);
+        hrMsg_('E-signature saved on your account.', true);
+      }
     });
   };
   reader.readAsDataURL(file);
@@ -1563,6 +1619,7 @@ function hrFillForm_(row) {
     if (_hrScan) _hrScan.directorSig = '';
   }
   hrApplyAccountDirectorSig_(row);
+  hrApplyAccountHrSig_(row);
   hrRenderEntitlements_(ents);
   hrRenderAllSigs_();
   hrRenderScan_();
@@ -2654,7 +2711,7 @@ function hrRenderScan_() {
     img.removeAttribute('src');
     if (box) box.hidden = true;
     if (sig) { sig.hidden = true; sig.removeAttribute('src'); }
-    if (hint) hint.textContent = 'No paper yet. Scan or upload the leave form, then put the director e-signature on the Director box.';
+    if (hint) hint.textContent = 'No paper yet. Scan or upload the leave form, then put your account e-signature on the Director box.';
     return;
   }
   wrap.style.display = '';
@@ -2673,7 +2730,7 @@ function hrRenderScan_() {
   }
   hrApplyScanSigBox_();
   if (hint) {
-    if (!_hrScan.directorSig) hint.textContent = 'Scan loaded. Add the director e-signature only.';
+    if (!_hrScan.directorSig) hint.textContent = 'Scan loaded. Add your account e-signature on the Director box.';
     else if (hrScanCanEdit_()) hint.textContent = 'Drag to move. Use the corners to resize. Confirm locks this size and place for every paper.';
     else hint.textContent = 'Director e-signature is locked on this paper.';
   }
@@ -2707,15 +2764,16 @@ function hrOpenScanDirectorSig_() {
       : 'Director e-signature is locked on this paper.', true);
     return;
   }
-  var saved = hrAccountDirectorSig_();
+  var saved = hrAccountSig_();
   if (saved) {
     hrApplyDirectorOnly_(saved, true);
     return;
   }
-  if (!hrCanWrite_()) {
-    hrMsg_('Your director e-signature is not on this account yet.', false);
+  if (!hrCanWrite_() && !hrDirectorCanSign_()) {
+    hrMsg_('Your e-signature is not on this account yet. Ask admin to upload it on Users.', false);
     return;
   }
+  hrMsg_('Upload your e-signature once. It is saved on this account for next time.', true);
   var inp = document.getElementById('hr-scan-dir-sig');
   if (inp) inp.click();
 }
@@ -2724,11 +2782,15 @@ function hrOnScanDirectorSig_(e) {
   var file = e.target.files && e.target.files[0];
   e.target.value = '';
   if (!file) return;
-  if (!hrCanWrite_()) return;
+  if (!hrCanWrite_() && !hrDirectorCanSign_()) return;
   var reader = new FileReader();
   reader.onload = function () {
     hrProcessSigImage_(String(reader.result || ''), function (url) {
       hrApplyDirectorOnly_(url, true);
+      if (hrDirectorCanSign_()) {
+        hrRememberAccountSig_(url);
+        hrMsg_('E-signature saved on your account.', true);
+      }
     });
   };
   reader.readAsDataURL(file);
@@ -2786,7 +2848,7 @@ function hrOnScanFile_(e) {
     var finish = function (url) {
       if (url) _hrScan.url = url;
       hrRenderScan_();
-      hrMsg_('Scan loaded. Add the director e-signature only.', true);
+      hrMsg_('Scan loaded. Add your account e-signature on the Director box.', true);
       setTimeout(hrOpenScanDirectorSig_, 250);
     };
     if (out.blob && typeof empireUploadPhotoAsync === 'function') {
@@ -3367,6 +3429,8 @@ function hrEnterApp_() {
         hrApplyAccountDirectorSig_(openRow);
         hrRenderSig_('director');
       }
+      hrApplyAccountHrSig_(openRow || undefined);
+      hrRenderSig_('hr');
     });
   }
   _hrCanWrite = hrCanWrite_();

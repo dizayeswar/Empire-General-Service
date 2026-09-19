@@ -327,6 +327,10 @@
 .hr-f06-blank .hr-sig-pad {
   pointer-events: none;
 }
+.hr-f06-blank .hr-sig-pad.hr-sig-pad-account {
+  pointer-events: auto;
+  cursor: pointer;
+}
 
 .hr-f06-grid,
 .hr-f06-entitle,
@@ -629,7 +633,7 @@
   border-left-style: solid;
 }
 
-.hr-f06-hr-foot .sig-line { width: 50%; }
+.hr-f06-hr-foot .sig-line { width: 50%; cursor: pointer; }
 .hr-f06-hr-foot .date-line { width: 50%; white-space: nowrap; }
 
 .hr-f06-hr-foot .hr-sig-pad-inline {

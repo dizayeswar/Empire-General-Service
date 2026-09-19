@@ -229,6 +229,10 @@ function empireGetSignature() {
   return empireAuthLs('signature');
 }
 
+function empireSetSignature(url) {
+  empireAuthSet('signature', String(url || ''));
+}
+
 function empireModuleLevel(key) {
   var v = String(empireGetModuleAccess()[key] || 'none').trim().toLowerCase();
   if (v === 'read' || v === 'write') return v;

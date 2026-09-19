@@ -390,6 +390,26 @@ export async function handleUpdateUser(body: Record<string, unknown>, auth: Auth
   };
 }
 
+export async function handleSaveMySignature(body: Record<string, unknown>, auth: AuthOk) {
+  const sigIn = parseUserSignature(body.signature);
+  if (!sigIn.ok) return { ok: false, success: false, error: "bad_signature", message: sigIn.message };
+  if (!sigIn.value) {
+    return { ok: false, success: false, error: "bad_signature", message: "Choose a signature image first." };
+  }
+  const username = normalizeWorkerId(auth.username);
+  const { error } = await sb()
+    .from("users")
+    .update({ signature: sigIn.value, updated_at: isoNow() })
+    .eq("username", username);
+  if (error) throw error;
+  return {
+    ok: true,
+    success: true,
+    signature: sigIn.value,
+    message: "E-signature saved to your account.",
+  };
+}
+
 export async function handleDeleteUser(body: Record<string, unknown>, auth: AuthOk) {
   const denied = requireAdmin(auth);
   if (denied) return denied;

@@ -360,7 +360,7 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
       : {};
     const directorSig = await resolveDirectorSignature(body, auth, incomingSigs.director || existingSigs.director || "");
     if (!directorSig) {
-      return { ok: false, success: false, error: "missing_signature", message: "Add your e-signature in the Director box first." };
+      return { ok: false, success: false, error: "missing_signature", message: "Your e-signature is not on this account yet. Ask admin to upload it on Users, or place it on the Director box once." };
     }
     const patch = directorConfirmPatch(ex, directorSig, auth, body);
     const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", id);
@@ -383,7 +383,7 @@ export async function handleConfirmHrLeaveRequests(body: Record<string, unknown>
   if (!ids.length) return { ok: false, success: false, error: "missing_id", message: "Select at least one paper." };
   const directorSig = await resolveDirectorSignature(body, auth);
   if (!directorSig) {
-    return { ok: false, success: false, error: "missing_signature", message: "Add your e-signature in the Director box first." };
+    return { ok: false, success: false, error: "missing_signature", message: "Your e-signature is not on this account yet. Ask admin to upload it on Users, or place it on the Director box once." };
   }
   const { data: rows, error } = await sb().from("hr_leave_requests").select("*").in("id", ids);
   if (error) throw error;
