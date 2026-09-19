@@ -268,7 +268,7 @@ export async function handleCreateUser(body: Record<string, unknown>, auth: Auth
     if (retry.error) throw retry.error;
   } else if (error) throw error;
   try {
-    await markLibraryAssigned(body.signatureLibraryId || body.signature_library_id, vu.username);
+    await markLibraryAssigned(body.signatureLibraryId || body.signature_library_id, vu.username, auth);
   } catch (_e) { /* library tag is best-effort */ }
   return { ok: true, success: true, user: publicUser(row), message: "User created." };
 }
@@ -423,7 +423,7 @@ export async function handleUpdateUser(body: Record<string, unknown>, auth: Auth
 
   const { data: updated } = await sb().from("users").select("*").eq("username", vu.username).maybeSingle();
   try {
-    await markLibraryAssigned(body.signatureLibraryId || body.signature_library_id, vu.username);
+    await markLibraryAssigned(body.signatureLibraryId || body.signature_library_id, vu.username, auth);
   } catch (_e) { /* library tag is best-effort */ }
   return {
     ok: true,
@@ -556,24 +556,46 @@ function normalizeAccountLib(raw: unknown): AccountLibSig[] {
   }).filter((s) => !!s.image);
 }
 
-async function readAccountLib(): Promise<AccountLibSig[]> {
-  const { data, error } = await sb().from("ui_settings").select("settings").eq("key", ACCOUNT_SIG_LIB_KEY).maybeSingle();
-  if (error) throw error;
-  return normalizeAccountLib(data?.settings);
+function normalizeSkippedIds(raw: unknown): string[] {
+  const settings = (raw && typeof raw === "object") ? raw as Record<string, unknown> : {};
+  const arr = Array.isArray(settings.skippedIds) ? settings.skippedIds : [];
+  const out: string[] = [];
+  const seen: Record<string, number> = {};
+  for (const item of arr) {
+    const id = String(item || "").trim();
+    if (!id || seen[id]) continue;
+    seen[id] = 1;
+    out.push(id);
+  }
+  return out;
 }
 
-async function writeAccountLib(items: AccountLibSig[], auth: AuthOk) {
+async function readAccountLibRow(): Promise<{ items: AccountLibSig[]; skippedIds: string[] }> {
+  const { data, error } = await sb().from("ui_settings").select("settings").eq("key", ACCOUNT_SIG_LIB_KEY).maybeSingle();
+  if (error) throw error;
+  return {
+    items: normalizeAccountLib(data?.settings),
+    skippedIds: normalizeSkippedIds(data?.settings),
+  };
+}
+
+async function readAccountLib(): Promise<AccountLibSig[]> {
+  return (await readAccountLibRow()).items;
+}
+
+async function writeAccountLib(items: AccountLibSig[], auth: AuthOk, skippedIds?: string[]) {
+  const skipped = skippedIds || (await readAccountLibRow()).skippedIds;
   const now = isoNow();
   const { error } = await sb().from("ui_settings").upsert({
     key: ACCOUNT_SIG_LIB_KEY,
-    settings: { items, updatedBy: String(auth.username || "") },
+    settings: { items, skippedIds: skipped, updatedBy: String(auth.username || "") },
     updated_at: now,
   });
   if (error) throw error;
   return now;
 }
 
-async function markLibraryAssigned(rawId: unknown, username: string) {
+async function markLibraryAssigned(rawId: unknown, username: string, auth: AuthOk) {
   const id = String(rawId || "").trim();
   if (!id || !username) return;
   const items = await readAccountLib();
@@ -582,19 +604,14 @@ async function markLibraryAssigned(rawId: unknown, username: string) {
     if (it.assignedTo === username) return { ...it, assignedTo: "" };
     return it;
   });
-  const { error } = await sb().from("ui_settings").upsert({
-    key: ACCOUNT_SIG_LIB_KEY,
-    settings: { items: next },
-    updated_at: isoNow(),
-  });
-  if (error) throw error;
+  await writeAccountLib(next, auth);
 }
 
 export async function handleListAccountSigs(auth: AuthOk) {
   const denied = requireAdmin(auth);
   if (denied) return denied;
-  const items = await readAccountLib();
-  return { ok: true, items };
+  const row = await readAccountLibRow();
+  return { ok: true, items: row.items, skippedIds: row.skippedIds };
 }
 
 export async function handleAddAccountSig(body: Record<string, unknown>, auth: AuthOk) {
@@ -628,7 +645,77 @@ export async function handleDeleteAccountSig(body: Record<string, unknown>, auth
   if (denied) return denied;
   const id = String(body.id || "").trim();
   if (!id) return { ok: false, success: false, error: "missing_id", message: "Signature id is required." };
-  const items = (await readAccountLib()).filter((it) => it.id !== id);
-  await writeAccountLib(items, auth);
+  const row = await readAccountLibRow();
+  const items = row.items.filter((it) => it.id !== id);
+  const skippedIds = row.skippedIds.includes(id) ? row.skippedIds : row.skippedIds.concat([id]);
+  await writeAccountLib(items, auth, skippedIds);
   return { ok: true, success: true, items, message: "Removed from saved signatures." };
+}
+
+export async function handleUpdateAccountSig(body: Record<string, unknown>, auth: AuthOk) {
+  const denied = requireAdmin(auth);
+  if (denied) return denied;
+  const id = String(body.id || "").trim();
+  if (!id) return { ok: false, success: false, error: "missing_id", message: "Signature id is required." };
+  const items = await readAccountLib();
+  const idx = items.findIndex((it) => it.id === id);
+  if (idx < 0) return { ok: false, success: false, error: "not_found", message: "Saved signature not found." };
+  const next = items.slice();
+  const label = String(body.label != null ? body.label : body.name || next[idx].label).trim() || next[idx].label;
+  const role = (body.role !== undefined || body.signatureRole !== undefined)
+    ? parseSignatureRole(body.role != null ? body.role : body.signatureRole)
+    : next[idx].role;
+  next[idx] = { ...next[idx], label, role };
+  await writeAccountLib(next, auth);
+  return { ok: true, success: true, items: next, message: "Stamp updated." };
+}
+
+export async function handleImportAccountSigs(body: Record<string, unknown>, auth: AuthOk) {
+  const denied = requireAdmin(auth);
+  if (denied) return denied;
+  const incoming = Array.isArray(body.items) ? body.items : [];
+  if (!incoming.length) {
+    return { ok: false, success: false, error: "empty", message: "No signatures to import." };
+  }
+  const row = await readAccountLibRow();
+  const items = row.items.slice();
+  const byId = new Map(items.map((it) => [it.id, it]));
+  const skipped = row.skippedIds.slice();
+  const markSkipped = (id: string) => {
+    if (id && !skipped.includes(id)) skipped.push(id);
+  };
+  let added = 0;
+  for (const raw of incoming) {
+    const recIn = (raw && typeof raw === "object") ? raw as Record<string, unknown> : {};
+    const sigIn = parseUserSignature(recIn.image != null ? recIn.image : recIn.signature);
+    if (!sigIn.ok || !sigIn.value) continue;
+    const wantedId = String(recIn.id || "").trim();
+    const id = /^[a-zA-Z0-9._-]{3,80}$/.test(wantedId) ? wantedId : ("acsig-" + crypto.randomUUID());
+    if (byId.has(id)) {
+      markSkipped(id);
+      continue;
+    }
+    if (items.length >= ACCOUNT_SIG_LIB_MAX) break;
+    const rec: AccountLibSig = {
+      id,
+      label: String(recIn.label || recIn.name || "Signature").trim() || "Signature",
+      image: sigIn.value,
+      role: parseSignatureRole(recIn.role != null ? recIn.role : recIn.signatureRole),
+      assignedTo: "",
+      createdAt: isoNow(),
+    };
+    items.push(rec);
+    byId.set(id, rec);
+    markSkipped(id);
+    added++;
+  }
+  if (added || skipped.length !== row.skippedIds.length) await writeAccountLib(items, auth, skipped);
+  return {
+    ok: true,
+    success: true,
+    items,
+    added,
+    skippedIds: skipped,
+    message: added ? (added + " e-signature(s) saved. Attach each one to a user.") : "Those stamps are already saved.",
+  };
 }

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="manifest" href="manifest.webmanifest?v=2026-09-19-sig-lib">
+  <link rel="manifest" href="manifest.webmanifest?v=2026-09-19-sig-photos">
   <meta name="theme-color" content="#8d015d">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -171,7 +171,7 @@
 
     <div class="admin-form-card" id="sigLibCard">
       <h2 style="font-size:16px;margin:0 0 6px;">Saved e-signatures</h2>
-      <p class="admin-form-hint" style="margin-top:0;">Keep stamps here even if that person has no login yet. Crop each name from the paper, then add it. When you create or edit a user, pick their stamp — or attach it from the card below.</p>
+      <p class="admin-form-hint" style="margin-top:0;">Prepared stamps from the paper are saved here. <strong>Rename</strong> if the name is wrong, then <strong>Attach to user</strong> — or pick the stamp when you create the account.</p>
       <div class="sig-lib-add">
         <label>Name on the paper<input id="f-lib-label" autocomplete="off" placeholder="e.g. Ahmad"></label>
         <label>This stamp is
@@ -200,11 +200,11 @@
     <div id="usersTableHost"></div>
   </div>
 
-  <script src="config.js?v=2026-09-19-sig-lib"></script>
-  <script src="assets/empire-api.js?v=2026-09-19-sig-lib"></script>
-  <script src="assets/empire-auth.js?v=2026-09-19-sig-lib"></script>
-  <script src="assets/empire-core.js?v=2026-09-19-sig-lib"></script>
-  <script src="assets/empire-sw-update.js?v=2026-09-19-sig-lib"></script>
+  <script src="config.js?v=2026-09-19-sig-photos"></script>
+  <script src="assets/empire-api.js?v=2026-09-19-sig-photos"></script>
+  <script src="assets/empire-auth.js?v=2026-09-19-sig-photos"></script>
+  <script src="assets/empire-core.js?v=2026-09-19-sig-photos"></script>
+  <script src="assets/empire-sw-update.js?v=2026-09-19-sig-photos"></script>
   <script>
     var allUsers = [];
     var editingUsername = null;
@@ -742,7 +742,7 @@
       var host = document.getElementById('sigLibHost');
       if (!host) return;
       if (!_sigLib.length) {
-        host.innerHTML = '<p class="admin-form-hint">No saved stamps yet. Crop each signature from the A4 photo, then use Add from photo.</p>';
+        host.innerHTML = '<p class="admin-form-hint">Loading prepared e-signatures… If this stays empty, refresh once after the site update.</p>';
         fillSigLibSelect(editingUsername || '');
         return;
       }
@@ -763,6 +763,7 @@
           '</div>';
         h += '<div class="admin-acts">';
         h += '<button type="button" class="act-btn" onclick="useLibOnNewUser(\'' + escAttr(it.id) + '\')">New user</button>';
+        h += '<button type="button" class="act-btn" onclick="renameLibSig(\'' + escAttr(it.id) + '\')">Rename</button>';
         h += '<button type="button" class="act-btn" style="background:#C5504F;color:#fff;border-color:#C5504F;" onclick="deleteLibSig(\'' + escAttr(it.id) + '\')">Remove</button>';
         h += '</div>';
         h += '<select style="margin-top:8px;width:100%;padding:7px 8px;border:1px solid var(--card-border);border-radius:8px;background:var(--panel);color:var(--text);" onchange="assignLibToUser(\'' + escAttr(it.id) + '\', this.value); this.value=\'\';">' + userOpts + '</select>';
@@ -771,6 +772,66 @@
       h += '</div>';
       host.innerHTML = h;
       fillSigLibSelect(editingUsername || '');
+    }
+
+    function blobToDataURL(blob) {
+      return new Promise(function (resolve, reject) {
+        var reader = new FileReader();
+        reader.onload = function () { resolve(String(reader.result || '')); };
+        reader.onerror = function () { reject(new Error('Could not read stamp image')); };
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    function importPreparedSigs(existing, skippedIds) {
+      var have = {};
+      (existing || []).forEach(function (it) {
+        if (it && it.id) have[it.id] = 1;
+      });
+      (skippedIds || []).forEach(function (id) {
+        if (id) have[id] = 1;
+      });
+      return fetch('assets/account-sigs/index.json?v=2026-09-19-sig-photos')
+        .then(function (r) {
+          if (!r.ok) throw new Error('Could not load prepared stamps');
+          return r.json();
+        })
+        .then(function (list) {
+          var missing = (Array.isArray(list) ? list : []).filter(function (it) {
+            return it && it.id && it.file && !have[it.id];
+          });
+          if (!missing.length) return false;
+          setMsg('sigLibMsg', 'Saving ' + missing.length + ' e-signature(s)…', true);
+          var chain = Promise.resolve();
+          var chunk = [];
+          function flush() {
+            if (!chunk.length) return Promise.resolve();
+            var items = chunk;
+            chunk = [];
+            return fetchJSONRetry({
+              action: 'importAccountSigs',
+              token: empireGetToken(),
+              items: items
+            }, 1, 120000).then(function (d) {
+              if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Could not save stamps');
+            });
+          }
+          missing.forEach(function (it) {
+            chain = chain.then(function () {
+              return fetch('assets/account-sigs/' + encodeURIComponent(it.file) + '?v=2026-09-19-sig-photos')
+                .then(function (r) {
+                  if (!r.ok) throw new Error('Missing stamp ' + it.file);
+                  return r.blob();
+                })
+                .then(blobToDataURL)
+                .then(function (url) {
+                  chunk.push({ id: it.id, label: it.label || 'Signature', image: url });
+                  if (chunk.length >= 4) return flush();
+                });
+            });
+          });
+          return chain.then(flush).then(function () { return true; });
+        });
     }
 
     function loadSigLibrary() {
@@ -782,6 +843,41 @@
           }
           _sigLib = Array.isArray(d.items) ? d.items : [];
           renderSigLib();
+          return importPreparedSigs(_sigLib, d.skippedIds);
+        })
+        .then(function (imported) {
+          if (!imported) return;
+          return fetchJSONRetry({ action: 'listAccountSigs', token: empireGetToken() }, 2, 30000)
+            .then(function (d) {
+              if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Could not load saved signatures');
+              _sigLib = Array.isArray(d.items) ? d.items : [];
+              setMsg('sigLibMsg', _sigLib.length + ' e-signatures ready. Attach each one to the right user.', true);
+              renderSigLib();
+            });
+        })
+        .catch(function (e) {
+          setMsg('sigLibMsg', String((e && e.message) || e), false);
+        });
+    }
+
+    function renameLibSig(id) {
+      var it = null;
+      _sigLib.forEach(function (row) { if (row.id === id) it = row; });
+      if (!it) return;
+      var name = window.prompt('Name this e-signature', it.label || '');
+      if (name == null) return;
+      name = String(name).trim();
+      if (!name) return;
+      fetchJSONRetry({
+        action: 'updateAccountSig',
+        token: empireGetToken(),
+        id: id,
+        label: name
+      }, 1, 30000)
+        .then(function (d) {
+          if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Rename failed');
+          setMsg('sigLibMsg', 'Renamed.', true);
+          return loadSigLibrary();
         })
         .catch(function (e) {
           setMsg('sigLibMsg', String((e && e.message) || e), false);

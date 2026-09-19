@@ -37,7 +37,7 @@ function json(obj: unknown, status = 200) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method === "GET") {
-    return json({ ok: true, msg: "Empire API running (Supabase)", version: "2026-09-19-sig-lib" });
+    return json({ ok: true, msg: "Empire API running (Supabase)", version: "2026-09-19-sig-photos" });
   }
   if (req.method !== "POST") return json({ ok: false, error: "Method not allowed" }, 405);
 
@@ -80,6 +80,8 @@ Deno.serve(async (req) => {
       listAccountSigs: 1,
       addAccountSig: 1,
       deleteAccountSig: 1,
+      updateAccountSig: 1,
+      importAccountSigs: 1,
     };
     if (adminUserActions[action]) {
       let adminAuth = await verifyTokenSession(String(body.token || ""));
@@ -93,6 +95,8 @@ Deno.serve(async (req) => {
       if (action === "listAccountSigs") return json(await users.handleListAccountSigs(a));
       if (action === "addAccountSig") return json(await users.handleAddAccountSig(body, a));
       if (action === "deleteAccountSig") return json(await users.handleDeleteAccountSig(body, a));
+      if (action === "updateAccountSig") return json(await users.handleUpdateAccountSig(body, a));
+      if (action === "importAccountSigs") return json(await users.handleImportAccountSigs(body, a));
     }
 
     const requiredDept = TRASH_ACTIONS[action] ? String(body.dept || "") : DEPT_BY_ACTION[action];
