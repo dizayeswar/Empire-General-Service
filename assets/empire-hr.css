@@ -1188,14 +1188,12 @@
   body * { visibility: hidden !important; }
   #hrPrintRoot,
   #hrPrintRoot *,
+  #hrBatchPrint,
+  #hrBatchPrint *,
   .hr-print-page,
   .hr-print-page *,
   .hr-batch-page,
-  .hr-batch-page *,
-  html.hr-print-frame,
-  html.hr-print-frame *,
-  body.hr-print-frame,
-  body.hr-print-frame * {
+  .hr-batch-page * {
     visibility: visible !important;
   }
   #hrPrintRoot {
@@ -1395,7 +1393,11 @@
   }
 
   body.hr-print-batch #hrPrintRoot,
-  body.hr-print-batch #hrPrintRoot * { visibility: hidden !important; display: none !important; }
+  body.hr-print-batch #hrPrintRoot *,
+  body.hr-print-batch #mainContainer,
+  body.hr-print-batch #mainContainer *,
+  body.hr-print-batch .login-page,
+  body.hr-print-batch .login-page * { visibility: hidden !important; display: none !important; }
   body.hr-print-batch #scan,
   body.hr-print-batch #scan * { visibility: hidden !important; }
   body.hr-print-batch #hrBatchPrint {
@@ -1411,17 +1413,24 @@
   }
   body.hr-print-batch #hrBatchPrint,
   body.hr-print-batch #hrBatchPrint * { visibility: visible !important; }
-  body.hr-print-batch .hr-batch-page {
+  body.hr-print-batch .hr-batch-page,
+  body.hr-print-batch .hr-print-page {
     page-break-after: always;
     break-after: page;
     margin: 0;
     padding: 0;
+    width: 210mm;
+    height: 297mm;
+    overflow: hidden;
+    box-sizing: border-box;
   }
-  body.hr-print-batch .hr-batch-page:last-child {
+  body.hr-print-batch .hr-batch-page:last-child,
+  body.hr-print-batch .hr-print-page:last-child {
     page-break-after: auto;
     break-after: auto;
   }
-  body.hr-print-batch .hr-batch-page .hr-note {
+  body.hr-print-batch .hr-batch-page .hr-note,
+  body.hr-print-batch .hr-print-page .hr-note {
     border: none !important;
     box-shadow: none !important;
     margin: 0 !important;

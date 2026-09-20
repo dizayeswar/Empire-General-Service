@@ -3732,55 +3732,19 @@ function hrLayoutInit_() {
 }
 
 function hrOpenPrintFrame_(bodyHtml, title) {
-  document.body.classList.remove('hr-print-scan');
-  document.body.classList.remove('hr-print-batch');
-  var base = location.origin + location.pathname.replace(/[^/]+$/, '');
-  var cssHref = 'assets/empire-hr.css?v=2026-09-20-print-fix';
-  var html = '<!DOCTYPE html><html class="hr-print-frame"><head><meta charset="UTF-8"><title>' + hrEsc_(title || 'Leave Request') + '</title>'
-    + '<base href="' + String(base).replace(/"/g, '') + '">'
-    + '<link rel="stylesheet" href="' + cssHref + '">'
-    + '<style>' + hrPrintFrameCss_() + '</style></head><body class="hr-print-frame">' + bodyHtml + '</body></html>';
-  var frame = document.getElementById('hrPrintFrame');
-  if (!frame) {
-    frame = document.createElement('iframe');
-    frame.id = 'hrPrintFrame';
-    frame.setAttribute('aria-hidden', 'true');
-    document.body.appendChild(frame);
-  }
-  frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:210mm;height:297mm;border:0;visibility:hidden;';
-  var win = frame.contentWindow;
-  var doc = frame.contentDocument || (win && win.document);
-  if (!doc || !win) {
+  var host = document.getElementById('hrBatchPrint');
+  if (!host) {
     window.print();
     return;
   }
-  var printed = false;
-  var doPrint = function () {
-    if (printed) return;
-    printed = true;
-    hrWaitImages_(doc.body, function () {
-      setTimeout(function () {
-        try {
-          win.focus();
-          win.print();
-        } catch (err) {
-          window.print();
-        }
-      }, 150);
-    });
-  };
-  doc.open();
-  doc.write(html);
-  doc.close();
-  var link = doc.querySelector('link[rel="stylesheet"]');
-  if (link) {
-    link.addEventListener('load', doPrint);
-    link.addEventListener('error', doPrint);
-    try {
-      if (link.sheet) doPrint();
-    } catch (err) { /* stylesheet may still be loading */ }
-  }
-  setTimeout(doPrint, 2500);
+  document.body.classList.remove('hr-print-scan');
+  document.body.classList.add('hr-print-batch');
+  host.hidden = false;
+  host.innerHTML = bodyHtml || '';
+  if (title) document.title = title;
+  hrWaitImages_(host, function () {
+    setTimeout(function () { window.print(); }, 80);
+  });
 }
 
 function hrPrint_() {
@@ -3799,7 +3763,7 @@ function hrPrint_() {
     return;
   }
   var page = document.createElement('div');
-  page.className = 'hr-print-page';
+  page.className = 'hr-batch-page';
   page.appendChild(hrBakePrintClone_(src));
   hrWaitImages_(page, function () {
     hrOpenPrintFrame_(page.outerHTML, 'Leave Request');
