@@ -3759,7 +3759,70 @@ function hrBuildPrintHtml_(bodyHtml, title) {
     + '<body class="hr-print-frame">' + (bodyHtml || '') + '</body></html>';
 }
 
+function hrPdfLib_() {
+  return (window.jspdf && window.jspdf.jsPDF) || window.jsPDF || null;
+}
+
+function hrEnsurePdfLibs_(cb) {
+  if (window.html2canvas && hrPdfLib_()) {
+    cb(true);
+    return;
+  }
+  var left = 2;
+  var tick = function () {
+    left--;
+    if (left > 0) return;
+    cb(!!(window.html2canvas && hrPdfLib_()));
+  };
+  function add(src) {
+    var s = document.createElement('script');
+    s.src = src;
+    s.onload = tick;
+    s.onerror = tick;
+    document.head.appendChild(s);
+  }
+  add('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js');
+  add('https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js');
+}
+
+function hrSavePrintPdf_(doc, title, cb) {
+  var JsPDF = hrPdfLib_();
+  if (!window.html2canvas || !JsPDF) {
+    cb(false);
+    return;
+  }
+  var pages = doc.querySelectorAll('.hr-batch-page, .hr-print-page, .hr-batch-scan-page');
+  if (!pages.length) pages = [doc.body];
+  var pdf = new JsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+  var i = 0;
+  function next() {
+    if (i >= pages.length) {
+      var name = String(title || 'Leave-Request').replace(/[^\w\- ]+/g, '').trim() || 'Leave-Request';
+      pdf.save(name + '.pdf');
+      cb(true);
+      return;
+    }
+    var page = pages[i++];
+    window.html2canvas(page, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+      logging: false
+    }).then(function (canvas) {
+      var img = canvas.toDataURL('image/jpeg', 0.93);
+      if (i > 1) pdf.addPage('a4', 'portrait');
+      pdf.addImage(img, 'JPEG', 0, 0, 210, 297);
+      next();
+    }).catch(function () {
+      cb(false);
+    });
+  }
+  next();
+}
+
 function hrOpenPrintFrame_(bodyHtml, title) {
+  hrMsg_('Saving PDF…', true);
   var html = hrBuildPrintHtml_(bodyHtml, title);
   var frame = document.getElementById('hrPrintFrame');
   if (!frame) {
@@ -3768,33 +3831,42 @@ function hrOpenPrintFrame_(bodyHtml, title) {
     frame.setAttribute('title', 'Print preview');
     document.body.appendChild(frame);
   }
-  frame.style.cssText = 'position:fixed;left:0;top:0;width:100%;height:100%;border:0;z-index:2147483000;background:#fff;';
+  frame.style.cssText = 'position:fixed;left:0;top:0;width:210mm;height:297mm;border:0;z-index:2147483000;background:#fff;';
   var win = frame.contentWindow;
   var doc = frame.contentDocument || (win && win.document);
   if (!doc || !win) {
     window.print();
     return;
   }
-  var printed = false;
-  var hide = function () { setTimeout(hrHidePrintFrame_, 300); };
-  var go = function () {
-    if (printed) return;
-    printed = true;
-    try { win.addEventListener('afterprint', hide); } catch (err) { /* ignore */ }
-    setTimeout(function () {
-      try {
-        win.focus();
-        win.print();
-      } catch (err) {
-        window.print();
-      }
-    }, 80);
+  var done = false;
+  var finish = function (ok) {
+    if (done) return;
+    done = true;
+    hrHidePrintFrame_();
+    if (ok) {
+      hrMsg_('PDF saved. Open the file and print it to the VersaLink — Chrome preview hangs on that printer.', true);
+      return;
+    }
+    try {
+      win.focus();
+      win.print();
+    } catch (err) {
+      window.print();
+    }
+    hrMsg_('If preview stays on Loading, change Destination to Save as PDF or Microsoft Print to PDF — not the VersaLink.', false);
   };
   doc.open();
   doc.write(html);
   doc.close();
-  hrWaitImages_(doc.body, go);
-  setTimeout(go, 4000);
+  hrWaitImages_(doc.body, function () {
+    hrEnsurePdfLibs_(function (ready) {
+      if (!ready) {
+        finish(false);
+        return;
+      }
+      hrSavePrintPdf_(doc, title, finish);
+    });
+  });
 }
 
 function hrPrint_() {
