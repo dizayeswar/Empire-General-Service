@@ -633,16 +633,18 @@
   border-left-style: solid;
 }
 
-.hr-f06-hr-foot .sig-line { width: 50%; cursor: pointer; }
+.hr-f06-hr-foot .sig-line { width: 50%; cursor: pointer; overflow: visible; }
 .hr-f06-hr-foot .date-line { width: 50%; white-space: nowrap; }
 
 .hr-f06-hr-foot .hr-sig-pad-inline {
-  display: inline-flex;
-  align-items: center;
+  display: inline-block;
+  width: 52%;
   min-width: 40%;
-  min-height: 18pt;
+  height: 24.45pt;
+  min-height: 24.45pt;
   margin-left: 8pt;
   vertical-align: middle;
+  overflow: visible;
 }
 
 .hr-f06-hr-foot .date-line input {
@@ -708,37 +710,30 @@
 .sig-cell {
   min-height: 29pt;
   cursor: pointer;
+  overflow: visible;
 }
 
+.hr-sig-row td.sig-cell,
 .hr-approve-row td.sig-cell,
 .hr-approve-row td.sig-cell-director {
   overflow: visible;
 }
 
 .hr-sig-pad {
+  width: 100%;
+  height: 100%;
   min-height: 18pt;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-}
-
-.hr-sig-pad img {
-  max-width: 95%;
-  max-height: 22pt;
-  object-fit: contain;
-}
-
-.hr-sig-pad-line {
-  width: 100%;
-  height: 32.1pt;
-  min-height: 32.1pt;
-  max-height: 32.1pt;
   justify-content: center;
   overflow: visible;
   position: relative;
   z-index: 3;
 }
-.hr-sig-pad-line img {
+
+.hr-sig-pad img,
+.hr-sig-pad-line img,
+.hr-sig-pad-director img {
   position: absolute;
   left: 0;
   top: 50%;
@@ -751,6 +746,27 @@
   object-position: center;
   display: block;
 }
+
+.hr-sig-row .hr-sig-pad img,
+.hr-f06-hr-foot .hr-sig-pad img {
+  object-position: left center;
+}
+
+.hr-sig-pad-line,
+.hr-sig-pad-director {
+  height: 32.1pt;
+  min-height: 32.1pt;
+  max-height: 32.1pt;
+}
+
+.hr-sig-row .hr-sig-pad {
+  height: 28.95pt;
+  min-height: 28.95pt;
+  max-height: 28.95pt;
+}
+
+.sig-cell .hr-sig-ghost,
+.sig-line .hr-sig-ghost,
 .hr-approve-row .hr-sig-ghost {
   display: none !important;
   height: 0 !important;
@@ -759,18 +775,6 @@
   padding: 0 !important;
   margin: 0 !important;
   border: 0 !important;
-}
-
-.hr-sig-pad-director {
-  min-height: 22pt;
-  min-width: 0;
-  justify-content: center;
-  overflow: visible;
-}
-.hr-sig-pad-director img {
-  max-width: 100%;
-  max-height: 26pt;
-  object-fit: contain;
 }
 
 .hr-sig-ghost { min-height: 18px; }
@@ -1239,17 +1243,36 @@
   .hr-f06-approvals { transform: translate(0, 5.5mm) !important; }
   .hr-f06-entitle { width: 174.54mm !important; max-width: 174.54mm !important; margin: 1.87mm auto 0 !important; transform: translate(0, 7.5mm) !important; }
   .hr-f06-hr { transform: translate(0, 13.5mm) !important; }
-  .hr-sig-pad-line {
+  .hr-sig-pad,
+  .hr-sig-pad-line,
+  .hr-sig-pad-director,
+  .hr-f06-hr-foot .hr-sig-pad-inline {
+    overflow: visible !important;
+    position: relative !important;
+    z-index: 3 !important;
+    justify-content: center !important;
+  }
+  .hr-sig-pad-line,
+  .hr-sig-pad-director {
     width: 100% !important;
     height: 32.1pt !important;
     min-height: 32.1pt !important;
     max-height: 32.1pt !important;
-    justify-content: center !important;
-    overflow: visible !important;
-    position: relative !important;
-    z-index: 3 !important;
   }
-  .hr-sig-pad-line img {
+  .hr-sig-row .hr-sig-pad {
+    width: 100% !important;
+    height: 28.95pt !important;
+    min-height: 28.95pt !important;
+    max-height: 28.95pt !important;
+  }
+  .hr-f06-hr-foot .hr-sig-pad-inline {
+    width: 52% !important;
+    height: 24.45pt !important;
+    min-height: 24.45pt !important;
+  }
+  .hr-sig-pad img,
+  .hr-sig-pad-line img,
+  .hr-sig-pad-director img {
     position: absolute !important;
     left: 0 !important;
     top: 50% !important;
@@ -1262,6 +1285,12 @@
     object-position: center !important;
     display: block !important;
   }
+  .hr-sig-row .hr-sig-pad img,
+  .hr-f06-hr-foot .hr-sig-pad img {
+    object-position: left center !important;
+  }
+  .sig-cell .hr-sig-ghost,
+  .sig-line .hr-sig-ghost,
   .hr-approve-row .hr-sig-ghost {
     display: none !important;
     height: 0 !important;

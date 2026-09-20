@@ -3650,7 +3650,7 @@ function hrBakePrintClone_(src) {
     var dest = destFields[i];
     if (!dest || !dest.parentNode) continue;
     var key = hrPaperFieldKey_(el);
-    if (el.classList.contains('hr-date-native') || el.type === 'hidden' || el.type === 'file' || key === 'hr-lineManagerName') {
+    if (el.classList.contains('hr-date-native') || el.type === 'hidden' || el.type === 'file' || key === 'hr-lineManagerName' || key === 'hr-empSignature' || key === 'hr-hrSignature') {
       dest.parentNode.removeChild(dest);
       continue;
     }
@@ -3717,11 +3717,14 @@ function hrPrintFrameCss_() {
     + '.hr-scan-dir-box .hr-scan-dir-sig{position:static;width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important;left:auto;top:auto;}'
     + '.hr-scan-dir-sig{position:absolute;max-width:100%;max-height:100%;object-fit:contain;}'
     + '.hr-scan-handle,.hr-scan-target{display:none!important;}'
-    + '.hr-sig-pad img,.hr-sig-pad-director img{max-height:26pt!important;max-width:100%!important;object-fit:contain!important;display:block!important;}'
-    + '.hr-sig-pad-line{width:100%!important;height:32.1pt!important;min-height:32.1pt!important;max-height:32.1pt!important;justify-content:center!important;overflow:visible!important;position:relative!important;z-index:3!important;}'
-    + '.hr-sig-pad-line img{position:absolute!important;left:0!important;top:50%!important;transform:translateY(-50%)!important;width:100%!important;height:56pt!important;max-width:100%!important;max-height:56pt!important;object-fit:contain!important;object-position:center!important;display:block!important;}'
-    + '.hr-approve-row .hr-sig-ghost{display:none!important;height:0!important;min-height:0!important;overflow:hidden!important;padding:0!important;margin:0!important;}'
-    + '.hr-approve-row td.sig-cell,.hr-approve-row td.sig-cell-director{overflow:visible!important;}';
+    + '.hr-sig-pad,.hr-sig-pad-line,.hr-sig-pad-director,.hr-f06-hr-foot .hr-sig-pad-inline{overflow:visible!important;position:relative!important;z-index:3!important;justify-content:center!important;}'
+    + '.hr-sig-pad-line,.hr-sig-pad-director{width:100%!important;height:32.1pt!important;min-height:32.1pt!important;max-height:32.1pt!important;}'
+    + '.hr-sig-row .hr-sig-pad{width:100%!important;height:28.95pt!important;min-height:28.95pt!important;max-height:28.95pt!important;}'
+    + '.hr-f06-hr-foot .hr-sig-pad-inline{width:52%!important;height:24.45pt!important;min-height:24.45pt!important;}'
+    + '.hr-sig-pad img,.hr-sig-pad-line img,.hr-sig-pad-director img{position:absolute!important;left:0!important;top:50%!important;transform:translateY(-50%)!important;width:100%!important;height:56pt!important;max-width:100%!important;max-height:56pt!important;object-fit:contain!important;object-position:center!important;display:block!important;}'
+    + '.hr-sig-row .hr-sig-pad img,.hr-f06-hr-foot .hr-sig-pad img{object-position:left center!important;}'
+    + '.sig-cell .hr-sig-ghost,.sig-line .hr-sig-ghost,.hr-approve-row .hr-sig-ghost{display:none!important;height:0!important;min-height:0!important;overflow:hidden!important;padding:0!important;margin:0!important;}'
+    + '.hr-sig-row td.sig-cell,.hr-approve-row td.sig-cell,.hr-approve-row td.sig-cell-director,.hr-f06-hr-foot td.sig-line{overflow:visible!important;}';
 }
 
 function hrLayoutInit_() {
@@ -3734,7 +3737,7 @@ function hrOpenPrintFrame_(bodyHtml, title) {
   var base = location.origin + location.pathname.replace(/[^/]+$/, '');
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + hrEsc_(title || 'Leave Request') + '</title>'
     + '<base href="' + String(base).replace(/"/g, '') + '">'
-    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-20-line-sig-big">'
+    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-20-all-sig-big">'
     + '<style>' + hrPrintFrameCss_() + '</style></head><body>' + bodyHtml + '</body></html>';
   var frame = document.getElementById('hrPrintFrame');
   if (!frame) {

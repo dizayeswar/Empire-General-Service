@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="manifest" href="manifest.webmanifest?v=2026-09-20-line-sig-big">
+<link rel="manifest" href="manifest.webmanifest?v=2026-09-20-all-sig-big">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,8 +13,8 @@
 <title>Leave Request — HR Department — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-09-19-user-autofill">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-20-line-sig-big">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-20-line-sig-big">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-20-all-sig-big">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-20-all-sig-big">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -382,7 +382,7 @@
                 <td class="lab"><span class="hr-lbl">Employee Signature</span></td>
                 <td class="val sig-cell" colspan="2" onclick="hrOpenSig_('emp')">
                   <div class="hr-sig-pad" id="hr-sig-emp"></div>
-                  <input id="hr-empSignature" class="hr-cell-input hr-sig-ghost" type="text" autocomplete="off" onclick="event.stopPropagation()">
+                  <input id="hr-empSignature" type="hidden" autocomplete="off">
                 </td>
               </tr>
             </table>
@@ -434,7 +434,7 @@
                 <td class="sig-line" onclick="hrOpenSig_('hr')">
                   <span class="hr-lbl">Signature</span>
                   <span class="hr-sig-pad hr-sig-pad-inline hr-sig-pad-account" id="hr-sig-hr"></span>
-                  <input id="hr-hrSignature" class="hr-cell-input hr-sig-ghost" type="text" autocomplete="off" readonly tabindex="-1">
+                  <input id="hr-hrSignature" type="hidden" autocomplete="off">
                 </td>
                 <td class="date-line">
                   <span class="hr-lbl">Date</span>
@@ -525,11 +525,11 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-09-20-line-sig-big"></script>
-<script src="assets/empire-api.js?v=2026-09-20-line-sig-big"></script>
-<script src="assets/empire-auth.js?v=2026-09-20-line-sig-big"></script>
-<script src="assets/empire-core.js?v=2026-09-20-line-sig-big"></script>
-<script src="assets/empire-storage.js?v=2026-09-20-line-sig-big"></script>
-<script src="assets/empire-hr-leave.js?v=2026-09-20-line-sig-big"></script>
+<script src="config.js?v=2026-09-20-all-sig-big"></script>
+<script src="assets/empire-api.js?v=2026-09-20-all-sig-big"></script>
+<script src="assets/empire-auth.js?v=2026-09-20-all-sig-big"></script>
+<script src="assets/empire-core.js?v=2026-09-20-all-sig-big"></script>
+<script src="assets/empire-storage.js?v=2026-09-20-all-sig-big"></script>
+<script src="assets/empire-hr-leave.js?v=2026-09-20-all-sig-big"></script>
 </body>
 </html>
