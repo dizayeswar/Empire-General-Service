@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFilter
 
 INK = (18, 42, 132)
 MAX_W, MAX_H = 880, 260
@@ -37,6 +37,8 @@ JOBS = [
     ("WhatsApp_Image_2026-09-19_at_12.53.09_PM-c700d900-ec1c-4d3e-b5d9-61ae414b7798.jpg", "17", "Signature 17"),
     ("WhatsApp_Image_2026-08-20_at_6.01.42_PM-1783c630-30f9-4042-86b1-ae0c1b8fee79.jpg", "18-rawa", "Rawa"),
     ("WhatsApp_Image_2026-08-22_at_4.49.42_PM-b3a18cc6-742b-4233-ab25-7c7941980588.jpg", "19", "Signature 19"),
+    ("WhatsApp_Image_2026-09-20_at_2.38.32_PM-e2ccfc4c-5bbd-4704-8782-bfbd56a7b819.jpg", "20", "Signature 20"),
+    ("WhatsApp_Image_2026-09-20_at_2.42.24_PM-5fbc7e45-3622-4360-bed3-bfbb566c5c61.jpg", "21", "Signature 21"),
 ]
 
 
@@ -135,7 +137,10 @@ def extract(path: Path) -> Image.Image:
         if bbox_fill(keep) > 0.28:
             keep = (chroma > 22) & (ss >= 40) & (lum < 190)
 
-    keep = largest_ink_blobs(keep)
+    # Close gaps so thin loops stay attached to the main stroke, then keep
+    # only original ink that belongs to those connected blobs.
+    closed = np.asarray(Image.fromarray((keep.astype(np.uint8) * 255)).filter(ImageFilter.MaxFilter(5))) > 0
+    keep = keep & largest_ink_blobs(closed, min_frac=0.04, min_area=18)
     if int(keep.sum()) < 40:
         raise RuntimeError(f"no ink in {path.name}")
 
