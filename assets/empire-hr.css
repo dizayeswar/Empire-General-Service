@@ -731,6 +731,7 @@
   z-index: 3;
 }
 
+/* LOCKED: Line Manager + Director (and matching emp/HR) stamp size. Signing must not restyle this. */
 .hr-sig-pad img,
 .hr-sig-pad-line img,
 .hr-sig-pad-director img {

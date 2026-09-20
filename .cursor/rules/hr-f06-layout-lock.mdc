@@ -28,3 +28,16 @@ Locked measurements (from the Word file):
 - **No Adjust paper editor.** Baked lock (2026-09-06): sheet `scale(0.94)` from centre; logo `translate(2mm, 4.5mm) scale(0.94)`; emp `translate(1mm, -1.5mm)`; absence `translate(0, 2.5mm)`; approvals `translate(0, 5.5mm)`; entitle `translate(0, 7.5mm)`; HR `translate(0, 13.5mm)`; footer `translate(0, -13mm)`
 
 Filing completed papers into leave-type sections is list-only. Do not change the paper for that feature.
+
+## Line Manager and Director stamps are locked
+
+When a line manager or director places their account e-signature, only the stamp image is dropped into the existing box. Do **not** change paper size, row heights, padding, transforms, or stamp CSS for that flow.
+
+Locked stamp display (2026-09-20):
+
+- Approvals row stays `32.1pt`
+- Line Manager and Director pads stay `32.1pt` high; ink is `56pt` tall, may overflow the box
+- Same width/height for every line/director stamp (`object-fit: contain`)
+- No name under the stamp — signature only
+- Use the account PNG as-is — do not recrop, rescale, or re-process it on Confirm
+- Employee / HR stamps already match this size; do not restyle the paper to “fit” a new signature

@@ -944,7 +944,7 @@ function hrLineConfirmRequest_(id) {
   if (!row || !hrLineCanSign_(row)) {
     return Promise.reject(new Error('That paper is not waiting for you.'));
   }
-  var sig = hrAccountSig_() || (_hrSigs && _hrSigs.line) || '';
+  var sig = String(hrAccountSig_() || (_hrSigs && _hrSigs.line) || '').trim();
   if (sig) {
     _hrSigs.line = sig;
     if (hrVal_('hr-id') === id) hrRenderSig_('line');
@@ -1236,7 +1236,16 @@ function hrStampSlot_(slot, url, who) {
   if (!url || !slot) return;
   _hrSigs[slot] = url;
   if (slot === 'director') {
-    hrApplyDirectorOnly_(url, false);
+    if (_hrScan && _hrScan.url) {
+      hrApplyDirectorOnly_(url, false);
+      return;
+    }
+    hrRenderSig_('director');
+    if (!hrVal_('hr-directorName')) {
+      hrSet_('hr-directorName', who || (typeof empireGetUser === 'function' ? empireGetUser() : ''));
+    }
+    if (!hrVal_('hr-directorSignedAt')) hrSet_('hr-directorSignedAt', hrToday_());
+    hrSet_('hr-directorStatus', 'approved');
     return;
   }
   hrRenderSig_(slot);
@@ -1780,18 +1789,23 @@ function hrOnSigFile_(e) {
   if (!file || !slot) return;
   var reader = new FileReader();
   reader.onload = function () {
-    hrProcessSigImage_(String(reader.result || ''), function (url) {
-      _hrSigs[slot] = url;
-      hrRenderSig_(slot);
-      if (slot === 'director') hrApplyDirectorOnly_(url, false);
-      if (slot === 'hr' && !hrVal_('hr-hrSignedAt')) hrSet_('hr-hrSignedAt', hrToday_());
-      if (slot === 'emp' && !hrVal_('hr-empSignedAt')) hrSet_('hr-empSignedAt', hrToday_());
-      if (slot === 'line' && !hrVal_('hr-lineManagerSignedAt')) hrSet_('hr-lineManagerSignedAt', hrToday_());
+    var raw = String(reader.result || '');
+    var place = function (url) {
+      if (slot === 'line' || slot === 'director') {
+        hrStampSlot_(slot, url, typeof empireGetUser === 'function' ? empireGetUser() : '');
+      } else {
+        _hrSigs[slot] = url;
+        hrRenderSig_(slot);
+        if (slot === 'hr' && !hrVal_('hr-hrSignedAt')) hrSet_('hr-hrSignedAt', hrToday_());
+        if (slot === 'emp' && !hrVal_('hr-empSignedAt')) hrSet_('hr-empSignedAt', hrToday_());
+      }
       if (hrAccountSigSlot_() === slot) {
         hrRememberAccountSig_(url);
         hrMsg_('E-signature saved on your account.', true);
       }
-    });
+    };
+    if (slot === 'line' || slot === 'director') place(raw);
+    else hrProcessSigImage_(raw, place);
   };
   reader.readAsDataURL(file);
 }
@@ -3097,7 +3111,7 @@ function hrRenderScan_() {
   hrApplyScanSigBox_();
   if (hint) {
     if (!_hrScan.directorSig) hint.textContent = 'Scan loaded. Add your account e-signature on the Director box.';
-    else if (hrScanCanEdit_()) hint.textContent = 'Drag to move. Use the corners to resize. Confirm locks this size and place for every paper.';
+    else if (hrScanCanEdit_()) hint.textContent = 'Director e-signature placed.';
     else hint.textContent = 'Director e-signature is locked on this paper.';
   }
   hrSyncScanChrome_();
@@ -3119,7 +3133,7 @@ function hrApplyDirectorOnly_(dataUrl, openPickerDone) {
   hrSet_('hr-directorStatus', 'approved');
   hrRenderSig_('director');
   hrRenderScan_();
-  if (openPickerDone) hrMsg_('Drag to move. Use the corners to resize, then Confirm.', true);
+  if (openPickerDone) hrMsg_('Director e-signature placed.', true);
 }
 
 function hrOpenScanDirectorSig_() {
@@ -3132,7 +3146,7 @@ function hrOpenScanDirectorSig_() {
   }
   var saved = hrAccountSig_();
   if (saved) {
-    hrApplyDirectorOnly_(saved, true);
+    hrApplyDirectorOnly_(saved, false);
     return;
   }
   if (!hrCanWrite_() && !hrDirectorCanSign_()) {
