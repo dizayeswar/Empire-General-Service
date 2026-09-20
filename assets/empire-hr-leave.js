@@ -3682,7 +3682,7 @@ function hrPrintFrameCss_() {
     + 'html,body{margin:0;padding:0;width:210mm;background:#fff;color:#000;}'
     + '*{color:#000;-webkit-text-fill-color:#000;box-sizing:border-box;}'
     + 'th,td,.hr-lbl,.hr-f06-sec td,.hr-f06-sec th{color:#000!important;-webkit-text-fill-color:#000!important;text-transform:none!important;background:#fff!important;}'
-    + '@media print{html,body{width:210mm;}body *{visibility:visible!important;color:#000!important;-webkit-text-fill-color:#000!important;}}'
+    + '@media print{html,body,html.hr-print-frame,html.hr-print-frame *,body.hr-print-frame,body.hr-print-frame *,.hr-print-page,.hr-print-page *,.hr-batch-page,.hr-batch-page *{visibility:visible!important;color:#000!important;-webkit-text-fill-color:#000!important;}}'
     + '.hr-print-page,.hr-batch-page{width:210mm;height:297mm;overflow:hidden;page-break-after:always;break-after:page;box-sizing:border-box;}'
     + '.hr-print-page:last-child,.hr-batch-page:last-child{page-break-after:auto;break-after:auto;}'
     + '.hr-note{width:210mm!important;height:297mm!important;min-height:297mm!important;max-width:210mm!important;padding:0!important;margin:0!important;border:none!important;box-shadow:none!important;box-sizing:border-box!important;overflow:hidden!important;position:relative!important;background:#fff!important;}'
@@ -3717,12 +3717,12 @@ function hrPrintFrameCss_() {
     + '.hr-scan-dir-box .hr-scan-dir-sig{position:static;width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important;left:auto;top:auto;}'
     + '.hr-scan-dir-sig{position:absolute;max-width:100%;max-height:100%;object-fit:contain;}'
     + '.hr-scan-handle,.hr-scan-target{display:none!important;}'
-    + '.hr-sig-pad,.hr-sig-pad-line,.hr-sig-pad-director,.hr-f06-hr-foot .hr-sig-pad-inline{overflow:visible!important;position:relative!important;z-index:3!important;justify-content:center!important;}'
+    + '.hr-sig-pad,.hr-sig-pad-line,.hr-sig-pad-director,.hr-f06-hr-foot .hr-sig-pad-inline{overflow:visible!important;position:relative!important;z-index:3!important;}'
     + '.hr-sig-pad-line,.hr-sig-pad-director{width:100%!important;height:32.1pt!important;min-height:32.1pt!important;max-height:32.1pt!important;}'
     + '.hr-sig-row .hr-sig-pad{width:100%!important;height:28.95pt!important;min-height:28.95pt!important;max-height:28.95pt!important;}'
     + '.hr-f06-hr-foot .hr-sig-pad-inline{width:52%!important;height:24.45pt!important;min-height:24.45pt!important;}'
-    + '.hr-sig-pad img,.hr-sig-pad-line img,.hr-sig-pad-director img{position:absolute!important;left:0!important;top:50%!important;transform:translateY(-50%)!important;width:100%!important;height:56pt!important;max-width:100%!important;max-height:56pt!important;object-fit:contain!important;object-position:center!important;display:block!important;}'
-    + '.hr-sig-row .hr-sig-pad img,.hr-f06-hr-foot .hr-sig-pad img{object-position:left center!important;}'
+    + '.hr-sig-pad img,.hr-sig-pad-line img,.hr-sig-pad-director img{position:static!important;left:auto!important;top:auto!important;transform:none!important;width:auto!important;height:56pt!important;max-width:100%!important;max-height:56pt!important;margin:-12pt auto!important;object-fit:contain!important;object-position:center!important;display:block!important;}'
+    + '.hr-sig-row .hr-sig-pad img,.hr-f06-hr-foot .hr-sig-pad img{margin-left:0!important;margin-right:auto!important;object-position:left center!important;}'
     + '.sig-cell .hr-sig-ghost,.sig-line .hr-sig-ghost,.hr-approve-row .hr-sig-ghost{display:none!important;height:0!important;min-height:0!important;overflow:hidden!important;padding:0!important;margin:0!important;}'
     + '.hr-sig-row td.sig-cell,.hr-approve-row td.sig-cell,.hr-approve-row td.sig-cell-director,.hr-f06-hr-foot td.sig-line{overflow:visible!important;}';
 }
@@ -3735,37 +3735,52 @@ function hrOpenPrintFrame_(bodyHtml, title) {
   document.body.classList.remove('hr-print-scan');
   document.body.classList.remove('hr-print-batch');
   var base = location.origin + location.pathname.replace(/[^/]+$/, '');
-  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + hrEsc_(title || 'Leave Request') + '</title>'
+  var cssHref = 'assets/empire-hr.css?v=2026-09-20-print-fix';
+  var html = '<!DOCTYPE html><html class="hr-print-frame"><head><meta charset="UTF-8"><title>' + hrEsc_(title || 'Leave Request') + '</title>'
     + '<base href="' + String(base).replace(/"/g, '') + '">'
-    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-20-all-sig-big">'
-    + '<style>' + hrPrintFrameCss_() + '</style></head><body>' + bodyHtml + '</body></html>';
+    + '<link rel="stylesheet" href="' + cssHref + '">'
+    + '<style>' + hrPrintFrameCss_() + '</style></head><body class="hr-print-frame">' + bodyHtml + '</body></html>';
   var frame = document.getElementById('hrPrintFrame');
   if (!frame) {
     frame = document.createElement('iframe');
     frame.id = 'hrPrintFrame';
     frame.setAttribute('aria-hidden', 'true');
-    frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:210mm;height:297mm;border:0;opacity:0;pointer-events:none;';
     document.body.appendChild(frame);
   }
+  frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:210mm;height:297mm;border:0;visibility:hidden;';
   var win = frame.contentWindow;
   var doc = frame.contentDocument || (win && win.document);
   if (!doc || !win) {
     window.print();
     return;
   }
+  var printed = false;
+  var doPrint = function () {
+    if (printed) return;
+    printed = true;
+    hrWaitImages_(doc.body, function () {
+      setTimeout(function () {
+        try {
+          win.focus();
+          win.print();
+        } catch (err) {
+          window.print();
+        }
+      }, 150);
+    });
+  };
   doc.open();
   doc.write(html);
   doc.close();
-  hrWaitImages_(doc.body, function () {
-    setTimeout(function () {
-      try {
-        win.focus();
-        win.print();
-      } catch (err) {
-        window.print();
-      }
-    }, 250);
-  });
+  var link = doc.querySelector('link[rel="stylesheet"]');
+  if (link) {
+    link.addEventListener('load', doPrint);
+    link.addEventListener('error', doPrint);
+    try {
+      if (link.sheet) doPrint();
+    } catch (err) { /* stylesheet may still be loading */ }
+  }
+  setTimeout(doPrint, 2500);
 }
 
 function hrPrint_() {
