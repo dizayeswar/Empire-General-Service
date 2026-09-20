@@ -3649,11 +3649,11 @@ function hrBakePrintClone_(src) {
     var el = srcFields[i];
     var dest = destFields[i];
     if (!dest || !dest.parentNode) continue;
-    if (el.classList.contains('hr-date-native') || el.type === 'hidden' || el.type === 'file') {
+    var key = hrPaperFieldKey_(el);
+    if (el.classList.contains('hr-date-native') || el.type === 'hidden' || el.type === 'file' || key === 'hr-lineManagerName') {
       dest.parentNode.removeChild(dest);
       continue;
     }
-    var key = hrPaperFieldKey_(el);
     var span = document.createElement('span');
     span.className = (dest.className || 'hr-cell-input').replace(/\bhr-date-native\b/g, '').trim() || 'hr-cell-input';
     if (key === 'hr-startDate-view' || key === 'hr-endDate-view') {
@@ -3718,6 +3718,9 @@ function hrPrintFrameCss_() {
     + '.hr-scan-dir-sig{position:absolute;max-width:100%;max-height:100%;object-fit:contain;}'
     + '.hr-scan-handle,.hr-scan-target{display:none!important;}'
     + '.hr-sig-pad img,.hr-sig-pad-director img{max-height:26pt!important;max-width:100%!important;object-fit:contain!important;display:block!important;}'
+    + '.hr-sig-pad-line{width:100%!important;height:30pt!important;min-height:30pt!important;max-height:30pt!important;justify-content:center!important;overflow:hidden!important;}'
+    + '.hr-sig-pad-line img{width:100%!important;height:30pt!important;max-width:100%!important;max-height:30pt!important;object-fit:contain!important;object-position:center!important;display:block!important;}'
+    + '.hr-approve-row .hr-sig-ghost{display:none!important;height:0!important;min-height:0!important;overflow:hidden!important;padding:0!important;margin:0!important;}'
     + '.hr-approve-row td.sig-cell-director{overflow:visible!important;}';
 }
 
@@ -3731,7 +3734,7 @@ function hrOpenPrintFrame_(bodyHtml, title) {
   var base = location.origin + location.pathname.replace(/[^/]+$/, '');
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + hrEsc_(title || 'Leave Request') + '</title>'
     + '<base href="' + String(base).replace(/"/g, '') + '">'
-    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-10-dir-box4">'
+    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-20-line-sig">'
     + '<style>' + hrPrintFrameCss_() + '</style></head><body>' + bodyHtml + '</body></html>';
   var frame = document.getElementById('hrPrintFrame');
   if (!frame) {
