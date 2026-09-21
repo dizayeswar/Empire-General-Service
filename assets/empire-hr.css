@@ -753,6 +753,16 @@
   object-position: left center;
 }
 
+/* Director stamp size is locked to the last paper: full box, 56pt tall. */
+.hr-sig-pad-director img {
+  width: 100%;
+  height: 56pt;
+  max-width: 100%;
+  max-height: 56pt;
+  object-fit: contain;
+  object-position: center;
+}
+
 .hr-sig-pad-line,
 .hr-sig-pad-director {
   height: 32.1pt;
@@ -970,7 +980,8 @@
 .hr-scan-handle[data-handle="ne"] { right: -6px; top: -6px; cursor: nesw-resize; }
 .hr-scan-handle[data-handle="sw"] { left: -6px; bottom: -6px; cursor: nesw-resize; }
 .hr-scan-handle[data-handle="se"] { right: -6px; bottom: -6px; cursor: nwse-resize; }
-.hr-scan-dir-locked .hr-scan-handle { display: none; }
+.hr-scan-dir-locked .hr-scan-handle,
+.hr-scan-dir-box .hr-scan-handle { display: none !important; }
 
 .hr-saved-papers {
   display: flex;
@@ -1293,6 +1304,15 @@
     object-fit: contain !important;
     object-position: center !important;
     display: block !important;
+  }
+  .hr-sig-pad-director img {
+    width: 100% !important;
+    height: 56pt !important;
+    max-width: 100% !important;
+    max-height: 56pt !important;
+    margin: -12pt 0 !important;
+    object-fit: contain !important;
+    object-position: center !important;
   }
   .hr-sig-row .hr-sig-pad img,
   .hr-f06-hr-foot .hr-sig-pad img {

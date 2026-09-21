@@ -38,6 +38,7 @@ Locked stamp display (2026-09-20):
 - Approvals row stays `32.1pt`
 - Line Manager and Director pads stay `32.1pt` high; ink is `56pt` tall, may overflow the box
 - Same width/height for every line/director stamp (`object-fit: contain`)
+- Director stamp is locked to the last paper: full Director box width, `56pt` tall, same on every paper (screen, print, and scan overlay). Do not use `width: auto` and do not save a per-paper overlay size.
 - No name under the stamp — signature only
 - Use the account PNG as-is — do not recrop, rescale, or re-process it on Confirm
 - Employee / HR stamps already match this size; do not restyle the paper to “fit” a new signature

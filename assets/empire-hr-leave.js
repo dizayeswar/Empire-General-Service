@@ -1443,11 +1443,24 @@ function hrScanNeedsSnap_(scan) {
   return hrScanLooksDefault_(scan) || hrScanPlaceOversized_(scan) || hrScanPlaceTooLow_(scan);
 }
 
+function hrLockDirectorStampPlace_(place, row) {
+  var cell = hrDirectorCellPos_();
+  var n = hrVac2PageOf_(place, row);
+  var pos = n ? hrVac2DirBox_(n) : (place || cell);
+  var x = Number(pos && pos.x);
+  var y = Number(pos && pos.y);
+  if (!isFinite(x)) x = cell.x;
+  if (!isFinite(y)) y = cell.y;
+  x = Math.max(0, Math.min(1 - cell.w, x));
+  y = Math.max(0, Math.min(1 - cell.h, y));
+  return { x: x, y: y, w: cell.w, h: cell.h };
+}
+
 function hrDirectorBoxPos_() {
   var n = hrVac2PageOf_(_hrScan);
-  if (n) return hrVac2DirBox_(n);
+  if (n) return hrLockDirectorStampPlace_(hrVac2DirBox_(n));
   var saved = hrLoadDirSigPlace_();
-  if (saved && !hrScanNeedsSnap_(saved)) return saved;
+  if (saved && !hrScanNeedsSnap_(saved)) return hrLockDirectorStampPlace_(saved);
   return hrDirectorCellPos_();
 }
 
@@ -1493,9 +1506,9 @@ function hrScanPlaceOversized_(scan) {
 
 function hrScanDisplayPlace_(scan, row) {
   var n = hrVac2PageOf_(scan, row);
-  if (n) return hrVac2DirBox_(n);
+  if (n) return hrLockDirectorStampPlace_(hrVac2DirBox_(n), row);
   if (hrScanNeedsSnap_(scan)) return hrDirectorCellPos_();
-  return hrNormScanPlace_(scan);
+  return hrLockDirectorStampPlace_(scan, row);
 }
 
 function hrMountDirSig_(parent, scan, row) {
@@ -1520,7 +1533,7 @@ function hrLoadDirSigPlace_() {
   try {
     var o = JSON.parse(localStorage.getItem(HR_DIR_SIG_PLACE_KEY) || '');
     if (!o || typeof o !== 'object') return null;
-    return hrNormScanPlace_(o);
+    return hrLockDirectorStampPlace_(o);
   } catch (err) {
     return null;
   }
@@ -1528,7 +1541,7 @@ function hrLoadDirSigPlace_() {
 
 function hrSaveDirSigPlace_(place) {
   try {
-    localStorage.setItem(HR_DIR_SIG_PLACE_KEY, JSON.stringify(hrNormScanPlace_(place || _hrScan)));
+    localStorage.setItem(HR_DIR_SIG_PLACE_KEY, JSON.stringify(hrLockDirectorStampPlace_(place || _hrScan)));
   } catch (err) { /* ignore */ }
 }
 
@@ -1542,7 +1555,7 @@ function hrScanPayloadForConfirm_(row, sig) {
   var live = samePaper && _hrScan.url;
   var scan = live ? _hrScan : rowScan;
   if (!scan || !scan.url) return null;
-  var pos = hrScanDisplayPlace_(live ? _hrScan : (hrLoadDirSigPlace_() || scan), row);
+  var pos = hrLockDirectorStampPlace_(hrScanDisplayPlace_(live ? _hrScan : (hrLoadDirSigPlace_() || scan), row), row);
   hrSaveDirSigPlace_(pos);
   var url = String(scan.url || '');
   if ((!url || url.indexOf('data:') === 0) && rowScan && rowScan.url && rowScan.url.indexOf('data:') !== 0) {
@@ -1956,14 +1969,11 @@ function hrFillForm_(row) {
     if (ents.__scan.w != null) _hrScan.w = Number(ents.__scan.w) || _hrScan.w;
     if (ents.__scan.h != null) _hrScan.h = Number(ents.__scan.h) || _hrScan.h;
     if (_hrScan.directorSig && !_hrSigs.director) _hrSigs.director = _hrScan.directorSig;
-    var vac2 = hrVac2PageOf_(_hrScan, row);
-    if (vac2 || hrScanNeedsSnap_(_hrScan)) {
-      var lock = vac2 ? hrVac2DirBox_(vac2) : hrDirectorCellPos_();
-      _hrScan.x = lock.x;
-      _hrScan.y = lock.y;
-      _hrScan.w = lock.w;
-      _hrScan.h = lock.h;
-    }
+    var locked = hrLockDirectorStampPlace_(_hrScan, row);
+    _hrScan.x = locked.x;
+    _hrScan.y = locked.y;
+    _hrScan.w = locked.w;
+    _hrScan.h = locked.h;
   }
   if (hrStageOf_(row) === 'rejected') {
     _hrSigs.director = '';
@@ -3047,9 +3057,9 @@ function hrApplyScanSigBox_() {
   var box = document.getElementById('hrScanDirBox');
   var sig = document.getElementById('hrScanDirSig');
   var target = document.getElementById('hrScanTarget');
-  var pos = (hrScanCanEdit_() && !hrVac2PageOf_(_hrScan))
-    ? hrNormScanPlace_(_hrScan)
-    : hrScanDisplayPlace_(_hrScan);
+  var pos = hrLockDirectorStampPlace_(
+    (hrScanCanEdit_() && !hrVac2PageOf_(_hrScan)) ? _hrScan : hrScanDisplayPlace_(_hrScan)
+  );
   _hrScan.x = pos.x;
   _hrScan.y = pos.y;
   _hrScan.w = pos.w;
@@ -3122,13 +3132,11 @@ function hrApplyDirectorOnly_(dataUrl, openPickerDone) {
   if (!url) return;
   _hrSigs.director = url;
   _hrScan.directorSig = url;
-  var pos = hrDirectorBoxPos_();
-  if (hrScanLooksDefault_(_hrScan) || hrScanPlaceOversized_(_hrScan)) {
-    _hrScan.x = pos.x;
-    _hrScan.y = pos.y;
-    _hrScan.w = pos.w;
-    _hrScan.h = pos.h;
-  }
+  var pos = hrLockDirectorStampPlace_(hrDirectorBoxPos_());
+  _hrScan.x = pos.x;
+  _hrScan.y = pos.y;
+  _hrScan.w = pos.w;
+  _hrScan.h = pos.h;
   hrSet_('hr-directorSignedAt', hrToday_());
   hrSet_('hr-directorStatus', 'approved');
   hrRenderSig_('director');
@@ -3139,9 +3147,7 @@ function hrApplyDirectorOnly_(dataUrl, openPickerDone) {
 function hrOpenScanDirectorSig_() {
   if (!_hrScan.url) { hrMsg_('Scan or upload the paper first.', false); return; }
   if (_hrScan.directorSig) {
-    hrMsg_(hrScanCanEdit_()
-      ? 'Drag to move. Use the corners to resize. Confirm locks it.'
-      : 'Director e-signature is locked on this paper.', true);
+    hrMsg_('Director e-signature is locked on this paper.', true);
     return;
   }
   var saved = hrAccountSig_();
@@ -3346,12 +3352,9 @@ function hrScanDirPointerMove_(ev) {
     x = _hrScanDrag.x + dx;
     y = _hrScanDrag.y + dy;
   } else {
-    if (handle.indexOf('w') !== -1) { x = _hrScanDrag.x + dx; w = _hrScanDrag.w - dx; }
-    if (handle.indexOf('e') !== -1) { w = _hrScanDrag.w + dx; }
-    if (handle.indexOf('n') !== -1) { y = _hrScanDrag.y + dy; h = _hrScanDrag.h - dy; }
-    if (handle.indexOf('s') !== -1) { h = _hrScanDrag.h + dy; }
+    return;
   }
-  var next = hrNormScanPlace_({ x: x, y: y, w: w, h: h });
+  var next = hrLockDirectorStampPlace_({ x: x, y: y, w: w, h: h });
   _hrScan.x = next.x;
   _hrScan.y = next.y;
   _hrScan.w = next.w;
@@ -3748,6 +3751,7 @@ function hrPrintFrameCss_() {
     + '.hr-sig-row .hr-sig-pad{width:100%!important;height:28.95pt!important;min-height:28.95pt!important;max-height:28.95pt!important;}'
     + '.hr-f06-hr-foot .hr-sig-pad-inline{width:52%!important;height:24.45pt!important;min-height:24.45pt!important;}'
     + '.hr-sig-pad img,.hr-sig-pad-line img,.hr-sig-pad-director img{position:static!important;left:auto!important;top:auto!important;transform:none!important;width:auto!important;height:56pt!important;max-width:100%!important;max-height:56pt!important;margin:-12pt auto!important;object-fit:contain!important;object-position:center!important;display:block!important;}'
+    + '.hr-sig-pad-director img{width:100%!important;height:56pt!important;max-width:100%!important;max-height:56pt!important;margin:-12pt 0!important;object-fit:contain!important;object-position:center!important;}'
     + '.hr-sig-row .hr-sig-pad img,.hr-f06-hr-foot .hr-sig-pad img{margin-left:0!important;margin-right:auto!important;object-position:left center!important;}'
     + '.sig-cell .hr-sig-ghost,.sig-line .hr-sig-ghost,.hr-approve-row .hr-sig-ghost{display:none!important;height:0!important;min-height:0!important;overflow:hidden!important;padding:0!important;margin:0!important;}'
     + '.hr-sig-row td.sig-cell,.hr-approve-row td.sig-cell,.hr-approve-row td.sig-cell-director,.hr-f06-hr-foot td.sig-line{overflow:visible!important;}';
