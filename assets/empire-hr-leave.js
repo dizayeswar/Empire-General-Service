@@ -2611,7 +2611,7 @@ function hrPaperList_() {
     var stage = hrStageOf_(r);
     if (hrIsDirectorOnly_() && stage !== 'pending_director') return false;
     if (hrIsEmployeeOnly_()) {
-      /* API already scoped to this employee */
+      if (stage === 'completed' || stage === 'rejected') return false;
     } else if (hrIsLineOnly_()) {
       var mine = hrLineCanSign_(r);
       var ownInbox = hrDualEmpLine_() && stage === 'inbox';

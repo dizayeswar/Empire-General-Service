@@ -527,7 +527,11 @@ export async function handleGetHrLeaveRequests(auth?: AuthOk) {
     });
   } else if (auth && isHrEmpOnly(auth)) {
     const me = normalizeWorkerId(auth.username);
-    out = out.filter((r) => employeeOwnsPaper(r, me));
+    out = out.filter((r) => {
+      if (!employeeOwnsPaper(r, me)) return false;
+      const s = String(r.status || "").trim().toLowerCase();
+      return s !== "completed" && s !== "processed" && s !== "director_approved" && s !== "rejected";
+    });
   }
   out.sort((a, b) => (b.num || 0) - (a.num || 0));
   return { ok: true, success: true, rows: out };
