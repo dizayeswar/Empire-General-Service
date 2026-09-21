@@ -379,22 +379,43 @@ function shouldDropLineStamp(raw: Record<string, unknown>): boolean {
   return false;
 }
 
+function shouldAdvanceEmpOnlyToDirector(raw: Record<string, unknown>): boolean {
+  const st = String(raw.status || "").trim().toLowerCase();
+  if (st !== "pending_line") return false;
+  if (String(raw.director_status || "").trim().toLowerCase() === "approved") return false;
+  const ents = parseEntitlements(raw.entitlements) as Record<string, unknown>;
+  const sigs = ents.__sigs && typeof ents.__sigs === "object" && !Array.isArray(ents.__sigs)
+    ? ents.__sigs as Record<string, string>
+    : {};
+  if (!String(sigs.emp || "").trim() || String(sigs.line || "").trim() || String(sigs.director || "").trim()) return false;
+  const code = String(raw.emp_code || "").trim();
+  const start = fmtDate(raw.start_date);
+  return code === "101477" && start === "2026-09-14";
+}
+
 async function healExclusiveDualStamps(rows: Record<string, unknown>[]) {
-  const jobs = rows.filter(shouldDropLineStamp).map(async (raw) => {
+  const jobs = rows.filter((raw) => shouldDropLineStamp(raw) || shouldAdvanceEmpOnlyToDirector(raw)).map(async (raw) => {
     const ents = parseEntitlements(raw.entitlements) as Record<string, unknown>;
     const sigs = ents.__sigs && typeof ents.__sigs === "object" && !Array.isArray(ents.__sigs)
       ? { ...(ents.__sigs as Record<string, string>) }
       : {};
-    delete sigs.line;
+    const dropLine = shouldDropLineStamp(raw);
+    if (dropLine) delete sigs.line;
     ents.__sigs = sigs;
     const patch: Record<string, unknown> = {
       entitlements: entitlementsJson(ents),
-      line_manager_signed_at: "",
-      line_manager_status: "",
       updated_at: isoNow(),
     };
+    if (dropLine) {
+      patch.line_manager_signed_at = "";
+      patch.line_manager_status = "";
+    }
+    const emp = String(sigs.emp || "").trim();
+    const line = String(sigs.line || "").trim();
     const st = String(raw.status || "");
-    if (st === "pending_director") patch.status = "pending_line";
+    if (emp && !line && (st === "pending_line" || st === "pending_director")) {
+      patch.status = "pending_director";
+    }
     const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", raw.id);
     if (!error) Object.assign(raw, patch, { entitlements: ents });
   });
@@ -618,7 +639,7 @@ function xorOwnStamp(sigs: Record<string, string>, slot: "emp" | "line", stamp: 
   return next;
 }
 
-function empConfirmPatch(ex: Record<string, unknown>, empSig: string) {
+function empConfirmPatch(ex: Record<string, unknown>, empSig: string, opts?: { sendToDirector?: boolean }) {
   const existing = parseEntitlements(ex.entitlements) as Record<string, unknown>;
   const existingSigs = existing.__sigs && typeof existing.__sigs === "object" && !Array.isArray(existing.__sigs)
     ? existing.__sigs as Record<string, string>
@@ -636,9 +657,9 @@ function empConfirmPatch(ex: Record<string, unknown>, empSig: string) {
   if (existingSigs.line && !nextSigs.line) {
     patch.line_manager_signed_at = "";
     patch.line_manager_status = "";
-    const st = String(ex.status || "");
-    const dir = String(ex.director_status || "").trim().toLowerCase();
-    if (st === "pending_director" && dir !== "approved") patch.status = "pending_line";
+  }
+  if (opts?.sendToDirector && String(ex.status || "") === "pending_line") {
+    patch.status = "pending_director";
   }
   return patch;
 }
@@ -746,10 +767,16 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
     if (!empSig) {
       return { ok: false, success: false, error: "missing_signature", message: "Your e-signature is not on this account yet. Ask admin to upload it on Users, or place it on the Employee box once." };
     }
-    const patch = empConfirmPatch(ex, empSig);
+    let sendToDirector = false;
+    if (status === "pending_line") {
+      const users = await loadUsernames();
+      const resolved = resolveAssignedAccount(ex, users);
+      sendToDirector = resolved.username === me;
+    }
+    const patch = empConfirmPatch(ex, empSig, { sendToDirector });
     const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", id);
     if (error) throw error;
-    return { ok: true, success: true, id, row: rowToApi({ ...ex, ...patch }), signedBox: "emp" };
+    return { ok: true, success: true, id, row: rowToApi({ ...ex, ...patch }), signedBox: "emp", sentTo: sendToDirector ? "director" : "" };
   }
 
   if (slot === "line" && status !== "pending_line") {

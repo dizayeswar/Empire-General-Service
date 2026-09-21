@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="manifest" href="manifest.webmanifest?v=2026-09-21-one-box">
+<link rel="manifest" href="manifest.webmanifest?v=2026-09-21-emp-director">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,8 +13,8 @@
 <title>Leave Request — HR Department — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-09-19-user-autofill">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-21-one-box">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-21-one-box">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-21-emp-director">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-21-emp-director">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -534,10 +534,10 @@
 <div id="hrBoxPick" class="hr-sig-pick no-print" hidden onclick="if(event.target===this)hrBoxPickClose_()">
   <div class="hr-sig-pick-card" role="dialog" aria-labelledby="hrBoxPickTitle">
     <h3 id="hrBoxPickTitle">Which box?</h3>
-    <p class="hr-sig-pick-help">Choose one box. Your e-signature goes only there. The other box stays empty of your stamp.</p>
+    <p class="hr-sig-pick-help">Choose one box. Your e-signature goes only there, then the paper goes to the director.</p>
     <div class="hr-box-pick-choice">
-      <button type="button" onclick="hrBoxPickChoose_('emp')"><strong>Employee box</strong><span>Put your e-signature in the Employee box only.</span></button>
-      <button type="button" class="hr-btn-confirm" onclick="hrBoxPickChoose_('line')"><strong>Line Manager box</strong><span>Put your e-signature in the Line Manager box only and send the paper to the director.</span></button>
+      <button type="button" onclick="hrBoxPickChoose_('emp')"><strong>Employee box</strong><span>Stamp the Employee box only, then send to the director.</span></button>
+      <button type="button" class="hr-btn-confirm" onclick="hrBoxPickChoose_('line')"><strong>Line Manager box</strong><span>Stamp the Line Manager box only, then send to the director.</span></button>
     </div>
     <div class="hr-sig-pick-acts">
       <button type="button" onclick="hrBoxPickClose_()">Cancel</button>
@@ -545,12 +545,12 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-09-21-one-box"></script>
-<script src="assets/empire-api.js?v=2026-09-21-one-box"></script>
-<script src="assets/empire-auth.js?v=2026-09-21-one-box"></script>
-<script src="assets/empire-core.js?v=2026-09-21-one-box"></script>
-<script src="assets/empire-storage.js?v=2026-09-21-one-box"></script>
-<script src="assets/empire-sw-update.js?v=2026-09-21-one-box"></script>
-<script src="assets/empire-hr-leave.js?v=2026-09-21-one-box"></script>
+<script src="config.js?v=2026-09-21-emp-director"></script>
+<script src="assets/empire-api.js?v=2026-09-21-emp-director"></script>
+<script src="assets/empire-auth.js?v=2026-09-21-emp-director"></script>
+<script src="assets/empire-core.js?v=2026-09-21-emp-director"></script>
+<script src="assets/empire-storage.js?v=2026-09-21-emp-director"></script>
+<script src="assets/empire-sw-update.js?v=2026-09-21-emp-director"></script>
+<script src="assets/empire-hr-leave.js?v=2026-09-21-emp-director"></script>
 </body>
 </html>

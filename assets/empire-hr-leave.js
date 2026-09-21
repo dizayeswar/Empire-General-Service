@@ -868,7 +868,7 @@ function hrRunSelectedEmp_(ids) {
   var n = ids.length;
   hrRunBulkIds_(ids, hrEmpConfirmRequest_, {
     working: 'Signing Employee box on ' + n + '…',
-    done: 'Employee e-signature placed on ' + n + '. Line Manager box does not get your stamp.',
+    done: 'Employee e-signature placed on ' + n + '. Sent to the director.',
     tab: 'list'
   });
 }
@@ -1327,7 +1327,7 @@ function hrListHelp_() {
   var el = document.querySelector('#list .hr-tab-help');
   if (!el) return;
   if (hrDualEmpLine_()) {
-    el.innerHTML = 'Select papers and <strong>Confirm selected</strong>. Choose <strong>Employee box</strong> or <strong>Line Manager box</strong> — only that box gets your stamp on those papers. You cannot sign both boxes on one paper. Line Manager also sends the paper to the director.';
+    el.innerHTML = 'Select papers and <strong>Confirm selected</strong>. Choose <strong>Employee box</strong> or <strong>Line Manager box</strong> — only that box gets your stamp. Confirm still sends the paper to the director. You cannot sign both boxes on one paper.';
   } else if (hrIsLineOnly_()) {
     el.innerHTML = 'Papers HR assigned to you. <strong>Confirm selected</strong> puts your e-signature in the Line Manager box, then each paper goes to the director.';
   } else if (hrIsDirectorOnly_()) {
