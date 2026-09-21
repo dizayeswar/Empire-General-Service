@@ -283,6 +283,55 @@ function paperAssignedToUser(row: Record<string, unknown>, me: string): boolean 
   return usernameMatchesEmployee(user, name);
 }
 
+function stampMap(row: Record<string, unknown>): Record<string, string> {
+  const ents = parseEntitlements(row.entitlements) as Record<string, unknown>;
+  const sigs = ents.__sigs;
+  if (sigs && typeof sigs === "object" && !Array.isArray(sigs)) return sigs as Record<string, string>;
+  return {};
+}
+
+function signerMap(row: Record<string, unknown>): Record<string, string> {
+  const ents = parseEntitlements(row.entitlements) as Record<string, unknown>;
+  const raw = ents.__signers;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const s = raw as Record<string, unknown>;
+  return {
+    emp: normalizeWorkerId(s.emp),
+    line: normalizeWorkerId(s.line),
+    director: normalizeWorkerId(s.director),
+  };
+}
+
+function setSignerSlot(ents: Record<string, unknown>, slot: string, username: string) {
+  const prev = ents.__signers && typeof ents.__signers === "object" && !Array.isArray(ents.__signers)
+    ? { ...(ents.__signers as Record<string, string>) }
+    : {};
+  const user = normalizeWorkerId(username);
+  if (user) prev[slot] = user;
+  ents.__signers = prev;
+}
+
+function hasEmpStamp(row: Record<string, unknown>): boolean {
+  const sigs = stampMap(row);
+  return !!(String(sigs.emp || "").trim() || String(row.empSignedAt || row.emp_signed_at || "").trim());
+}
+
+function hasLineStamp(row: Record<string, unknown>): boolean {
+  const sigs = stampMap(row);
+  const st = String(row.lineManagerStatus || row.line_manager_status || "").trim().toLowerCase();
+  return !!(String(sigs.line || "").trim() || String(row.lineManagerSignedAt || row.line_manager_signed_at || "").trim() || st === "approved");
+}
+
+function paperSignedByUser(row: Record<string, unknown>, me: string): boolean {
+  const user = normalizeWorkerId(me);
+  if (!user) return false;
+  const signers = signerMap(row);
+  if (signers.emp === user || signers.line === user || signers.director === user) return true;
+  if (employeeOwnsPaper(row, user) && hasEmpStamp(row)) return true;
+  if (paperAssignedToUser(row, user) && hasLineStamp(row)) return true;
+  return false;
+}
+
 function resolveAssignedAccount(
   row: Record<string, unknown>,
   users: Array<{ username: string }>,
@@ -541,6 +590,7 @@ export async function handleGetHrLeaveRequests(auth?: AuthOk) {
       const done = s === "completed" || s === "processed" || s === "director_approved" || s === "rejected";
       if (s === "pending_line" && paperAssignedToUser(r, me)) return true;
       if (empWrite && !done && employeeOwnsPaper(r, me)) return true;
+      if (paperSignedByUser(r, me)) return true;
       return false;
     });
   } else if (auth && isHrEmpOnly(auth)) {
@@ -548,6 +598,7 @@ export async function handleGetHrLeaveRequests(auth?: AuthOk) {
     out = out.filter((r) => {
       const s = String(r.status || "").trim().toLowerCase();
       const done = s === "completed" || s === "processed" || s === "director_approved" || s === "rejected";
+      if (paperSignedByUser(r, me)) return true;
       if (done) return false;
       if (employeeOwnsPaper(r, me)) return true;
       if (s === "pending_line" && paperAssignedToUser(r, me)) return true;
@@ -676,6 +727,7 @@ function directorConfirmPatch(
     ...existing,
     __sigs: { ...existingSigs, ...incomingSigs, director: directorSig },
   };
+  setSignerSlot(merged, "director", auth.username);
   const dirBox = parseScanPlace(extra.scanPlace) || { x: 0.70, y: 0.406, w: 0.17, h: 0.032 };
   const incomingScan = incoming.__scan && typeof incoming.__scan === "object" && !Array.isArray(incoming.__scan)
     ? incoming.__scan as Record<string, unknown>
@@ -747,7 +799,7 @@ function xorOwnStamp(sigs: Record<string, string>, slot: "emp" | "line", stamp: 
   return next;
 }
 
-function empConfirmPatch(ex: Record<string, unknown>, empSig: string, opts?: { sendToDirector?: boolean }) {
+function empConfirmPatch(ex: Record<string, unknown>, empSig: string, opts?: { sendToDirector?: boolean; username?: string }) {
   const existing = parseEntitlements(ex.entitlements) as Record<string, unknown>;
   const existingSigs = existing.__sigs && typeof existing.__sigs === "object" && !Array.isArray(existing.__sigs)
     ? existing.__sigs as Record<string, string>
@@ -757,6 +809,15 @@ function empConfirmPatch(ex: Record<string, unknown>, empSig: string, opts?: { s
     ...existing,
     __sigs: nextSigs,
   };
+  setSignerSlot(merged, "emp", opts?.username || "");
+  if (existingSigs.line && !nextSigs.line) {
+    const signers = merged.__signers && typeof merged.__signers === "object" && !Array.isArray(merged.__signers)
+      ? merged.__signers as Record<string, string>
+      : {};
+    const me = normalizeWorkerId(opts?.username || "");
+    if (me && signers.line === me) delete signers.line;
+    merged.__signers = signers;
+  }
   const patch: Record<string, unknown> = {
     emp_signed_at: String(ex.emp_signed_at || "").trim() || isoNow().slice(0, 10),
     entitlements: entitlementsJson(merged),
@@ -794,6 +855,15 @@ function lineConfirmPatch(
     __sigs: nextSigs,
     __assign: { username, name: assign.name },
   };
+  setSignerSlot(merged, "line", auth.username);
+  if (existingSigs.emp && !nextSigs.emp) {
+    const signers = merged.__signers && typeof merged.__signers === "object" && !Array.isArray(merged.__signers)
+      ? merged.__signers as Record<string, string>
+      : {};
+    const me = normalizeWorkerId(auth.username);
+    if (me && signers.emp === me) delete signers.emp;
+    merged.__signers = signers;
+  }
   return {
     status: "pending_director",
     line_manager_name: String(extra.lineManagerName || assign.name || auth.username || "").trim(),
@@ -885,7 +955,7 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
       const resolved = resolveAssignedAccount(ex, users);
       sendToDirector = resolved.username === me;
     }
-    const patch = empConfirmPatch(ex, empSig, { sendToDirector });
+    const patch = empConfirmPatch(ex, empSig, { sendToDirector, username: me });
     const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", id);
     if (error) throw error;
     return { ok: true, success: true, id, row: rowToApi({ ...ex, ...patch }), signedBox: "emp", sentTo: sendToDirector ? "director" : "" };

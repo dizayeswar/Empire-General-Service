@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="manifest" href="manifest.webmanifest?v=2026-09-21-sig-lock">
+<link rel="manifest" href="manifest.webmanifest?v=2026-09-21-mysigned">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,8 +13,8 @@
 <title>Leave Request — HR Department — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-09-19-user-autofill">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-21-sig-lock">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-21-sig-lock">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-21-mysigned">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-21-mysigned">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -58,6 +58,10 @@
           <button class="tab-btn" id="tabBtnList" onclick="hrSwitchTab_(event,'list')">
             <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span>
             <span class="lbl">Saved requests</span>
+          </button>
+          <button class="tab-btn" id="tabBtnSigned" onclick="hrSwitchTab_(event,'signed')">
+            <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m9 15 2 2 4-4"/></svg></span>
+            <span class="lbl">My e-signatures</span>
           </button>
           <button class="tab-btn" id="tabBtnConfirmed" onclick="hrSwitchTab_(event,'confirmed')">
             <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg></span>
@@ -148,6 +152,29 @@
           <p class="hr-summary" id="hrSummary"></p>
           <div id="hrTableHost"><p>Loading…</p></div>
         </div>
+        </div>
+      </div>
+
+      <div id="signed" class="tab-content">
+        <div class="form-section">
+          <h2>My e-signatures</h2>
+          <p class="hr-tab-help">Papers you confirmed with your e-signature. <strong>Pending</strong> means the director has not signed yet. <strong>Director confirmed</strong> means the director signed.</p>
+          <div class="form-row filter-toolbar">
+            <div class="form-group">
+              <label>Status</label>
+              <select id="hrSignedFilter" onchange="hrRenderSignedTable_()">
+                <option value="">All</option>
+                <option value="pending">Pending</option>
+                <option value="confirmed">Director confirmed</option>
+              </select>
+            </div>
+            <div class="form-group filter-grow">
+              <label>Search</label>
+              <input type="search" id="hrSignedSearch" oninput="hrRenderSignedTable_()" placeholder="Name, ID, type…" autocomplete="off">
+            </div>
+          </div>
+          <p class="hr-summary" id="hrSignedSummary"></p>
+          <div id="hrSignedHost"><p>Loading…</p></div>
         </div>
       </div>
 
@@ -545,12 +572,12 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-09-21-sig-lock"></script>
-<script src="assets/empire-api.js?v=2026-09-21-sig-lock"></script>
-<script src="assets/empire-auth.js?v=2026-09-21-sig-lock"></script>
-<script src="assets/empire-core.js?v=2026-09-21-sig-lock"></script>
-<script src="assets/empire-storage.js?v=2026-09-21-sig-lock"></script>
-<script src="assets/empire-sw-update.js?v=2026-09-21-sig-lock"></script>
-<script src="assets/empire-hr-leave.js?v=2026-09-21-sig-lock"></script>
+<script src="config.js?v=2026-09-21-mysigned"></script>
+<script src="assets/empire-api.js?v=2026-09-21-mysigned"></script>
+<script src="assets/empire-auth.js?v=2026-09-21-mysigned"></script>
+<script src="assets/empire-core.js?v=2026-09-21-mysigned"></script>
+<script src="assets/empire-storage.js?v=2026-09-21-mysigned"></script>
+<script src="assets/empire-sw-update.js?v=2026-09-21-mysigned"></script>
+<script src="assets/empire-hr-leave.js?v=2026-09-21-mysigned"></script>
 </body>
 </html>

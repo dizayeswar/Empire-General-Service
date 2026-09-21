@@ -204,6 +204,48 @@
 .hr-badge-pending_director { background: #f7f0e6; color: #8a5a12; border-color: #e4d0a8; }
 .hr-badge-completed { background: #eef8f3; color: #146c4e; border-color: #b7e0cf; }
 
+.hr-signed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.hr-signed-card {
+  border: 1px solid var(--card-border, #e4d7df);
+  border-radius: 14px;
+  padding: 14px 16px 12px;
+  background: var(--panel, #fff);
+  box-shadow: 0 8px 18px var(--shadow, rgba(45, 18, 36, 0.06));
+}
+.hr-signed-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.hr-signed-name {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+.hr-signed-dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px 16px;
+  margin: 0 0 12px;
+}
+.hr-signed-dl dt {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-soft, #6b5a66);
+}
+.hr-signed-dl dd {
+  margin: 2px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
 .hr-list-editor {
   padding: 16px 20px 40px;
 }
