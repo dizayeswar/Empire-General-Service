@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="manifest" href="manifest.webmanifest?v=2026-09-21-days-icon">
+<link rel="manifest" href="manifest.webmanifest?v=2026-09-21-confirm-box">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,8 +13,8 @@
 <title>Leave Request — HR Department — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-09-19-user-autofill">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-21-days-icon">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-21-days-icon">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-21-confirm-box">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-21-confirm-box">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -101,6 +101,7 @@
         <div class="form-section">
           <h2>Saved requests</h2>
           <p class="hr-tab-help">Confirm a paper to assign it to a line manager. After they sign, it goes to the director. After the director signs, it comes back to Completed request.</p>
+          <p class="hr-form-msg no-print" id="hrListMsg"></p>
           <div class="form-row filter-toolbar">
             <div class="form-group">
               <label>Status</label>
@@ -530,12 +531,26 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-09-21-days-icon"></script>
-<script src="assets/empire-api.js?v=2026-09-21-days-icon"></script>
-<script src="assets/empire-auth.js?v=2026-09-21-days-icon"></script>
-<script src="assets/empire-core.js?v=2026-09-21-days-icon"></script>
-<script src="assets/empire-storage.js?v=2026-09-21-days-icon"></script>
-<script src="assets/empire-sw-update.js?v=2026-09-21-days-icon"></script>
-<script src="assets/empire-hr-leave.js?v=2026-09-21-days-icon"></script>
+<div id="hrBoxPick" class="hr-sig-pick no-print" hidden onclick="if(event.target===this)hrBoxPickClose_()">
+  <div class="hr-sig-pick-card" role="dialog" aria-labelledby="hrBoxPickTitle">
+    <h3 id="hrBoxPickTitle">Which box?</h3>
+    <p class="hr-sig-pick-help">This account is Employee and Line Manager. Choose where your e-signature goes. Paper size stays the same.</p>
+    <div class="hr-box-pick-choice">
+      <button type="button" onclick="hrBoxPickChoose_('emp')"><strong>Employee box</strong><span>Sign as the employee on this paper.</span></button>
+      <button type="button" class="hr-btn-confirm" onclick="hrBoxPickChoose_('line')"><strong>Line Manager box</strong><span>Sign as line manager and send the paper to the director.</span></button>
+    </div>
+    <div class="hr-sig-pick-acts">
+      <button type="button" onclick="hrBoxPickClose_()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="config.js?v=2026-09-21-confirm-box"></script>
+<script src="assets/empire-api.js?v=2026-09-21-confirm-box"></script>
+<script src="assets/empire-auth.js?v=2026-09-21-confirm-box"></script>
+<script src="assets/empire-core.js?v=2026-09-21-confirm-box"></script>
+<script src="assets/empire-storage.js?v=2026-09-21-confirm-box"></script>
+<script src="assets/empire-sw-update.js?v=2026-09-21-confirm-box"></script>
+<script src="assets/empire-hr-leave.js?v=2026-09-21-confirm-box"></script>
 </body>
 </html>

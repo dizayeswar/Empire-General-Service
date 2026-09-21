@@ -322,9 +322,17 @@ export async function handleGetHrLeaveRequests(auth?: AuthOk) {
     });
   } else if (auth && isLineOnly(auth)) {
     const me = normalizeWorkerId(auth.username);
+    const empWrite = isHrEmpWrite(auth);
     out = out.filter((r) => {
+      const rec = r as unknown as Record<string, unknown>;
       const s = String(r.status || "").trim().toLowerCase();
-      return s === "pending_line" && assignFromRow(r as unknown as Record<string, unknown>).username === me;
+      if (s === "pending_line" && assignFromRow(rec).username === me) return true;
+      if (empWrite) {
+        const created = normalizeWorkerId(r.createdBy);
+        const inbox = !s || s === "submitted";
+        if (inbox && created === me) return true;
+      }
+      return false;
     });
   }
   out.sort((a, b) => (b.num || 0) - (a.num || 0));
@@ -497,12 +505,34 @@ async function resolveDirectorSignature(body: Record<string, unknown>, auth: Aut
 }
 
 async function resolveLineSignature(body: Record<string, unknown>, auth: AuthOk, existingSig = "") {
-  let lineSig = String(body.lineSignature || body.lineManagerSignature || existingSig || "").trim();
-  if (!lineSig) {
-    const u = await getUser(auth.username);
-    lineSig = String((u && u.signature) || "").trim();
-  }
-  return lineSig;
+  const u = await getUser(auth.username);
+  const account = String((u && u.signature) || "").trim();
+  if (account) return account;
+  return String(body.lineSignature || body.lineManagerSignature || body.empSignature || existingSig || "").trim();
+}
+
+function requestedSignBox(body: Record<string, unknown>): string {
+  const s = String(body.signatureSlot || body.signBox || "").trim().toLowerCase();
+  if (s === "employee") return "emp";
+  if (s === "line_manager" || s === "manager") return "line";
+  if (s === "emp" || s === "line" || s === "director" || s === "hr") return s;
+  return "";
+}
+
+function empConfirmPatch(ex: Record<string, unknown>, empSig: string) {
+  const existing = parseEntitlements(ex.entitlements) as Record<string, unknown>;
+  const existingSigs = existing.__sigs && typeof existing.__sigs === "object" && !Array.isArray(existing.__sigs)
+    ? existing.__sigs as Record<string, string>
+    : {};
+  const merged: Record<string, unknown> = {
+    ...existing,
+    __sigs: { ...existingSigs, emp: empSig },
+  };
+  return {
+    emp_signed_at: String(ex.emp_signed_at || "").trim() || isoNow().slice(0, 10),
+    entitlements: entitlementsJson(merged),
+    updated_at: isoNow(),
+  };
 }
 
 function lineConfirmPatch(
@@ -563,6 +593,44 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
   const director = isHrDirector(auth);
   const directorOnly = isDirectorOnly(auth);
   const me = normalizeWorkerId(auth.username);
+  const slot = requestedSignBox(body);
+
+  if (slot === "emp") {
+    if (!isHrEmpWrite(auth) && !staff) {
+      return { ok: false, success: false, error: "not_allowed", message: "Not allowed." };
+    }
+    if (isLockedStatus(status)) {
+      return {
+        ok: false,
+        success: false,
+        error: "wrong_box",
+        message: "This paper is waiting for the line manager. Choose Line Manager to put your e-signature in that box.",
+      };
+    }
+    if (!staff && normalizeWorkerId(ex.created_by) !== me) {
+      return { ok: false, success: false, error: "not_allowed", message: "You can only sign your own leave request as employee." };
+    }
+    const existing = parseEntitlements(ex.entitlements) as Record<string, unknown>;
+    const existingSigs = existing.__sigs && typeof existing.__sigs === "object" && !Array.isArray(existing.__sigs)
+      ? existing.__sigs as Record<string, string>
+      : {};
+    const incoming = parseEntitlements(body.entitlements) as Record<string, unknown>;
+    const incomingSigs = incoming.__sigs && typeof incoming.__sigs === "object" && !Array.isArray(incoming.__sigs)
+      ? incoming.__sigs as Record<string, string>
+      : {};
+    const empSig = await resolveLineSignature(body, auth, incomingSigs.emp || existingSigs.emp || "");
+    if (!empSig) {
+      return { ok: false, success: false, error: "missing_signature", message: "Your e-signature is not on this account yet. Ask admin to upload it on Users, or place it on the Employee box once." };
+    }
+    const patch = empConfirmPatch(ex, empSig);
+    const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", id);
+    if (error) throw error;
+    return { ok: true, success: true, id, row: rowToApi({ ...ex, ...patch }), signedBox: "emp" };
+  }
+
+  if (slot === "line" && status !== "pending_line") {
+    return { ok: false, success: false, error: "wrong_box", message: "This paper is not waiting for you as line manager." };
+  }
 
   if (status === "pending_line") {
     const assign = assignFromRow(ex);
