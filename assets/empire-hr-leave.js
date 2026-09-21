@@ -818,22 +818,70 @@ function hrCompactKey_(raw) {
   return String(raw || '').trim().toLowerCase().replace(/[._\-\s]+/g, '');
 }
 
+function hrFoldPersonKey_(raw) {
+  return hrCompactKey_(raw).replace(/muhammad|mohammed|mohammad|muhamad|mohamad|muhamed|mohamed/g, 'mohd');
+}
+
+var HR_ACCOUNT_PERSON_ALIASES = {
+  muhamadlawyer: ['mohammed abdulkhaliq', 'mohammed abdulkhaliq hamasharif', '101786']
+};
+
+function hrUsernameMatchesEmployee_(username, name, extra) {
+  extra = extra || {};
+  var user = String(username || '').trim().toLowerCase();
+  if (!user) return false;
+  var ck = hrCompactKey_(user);
+  var foldedUser = hrFoldPersonKey_(user);
+  var code = hrCompactKey_(extra.code);
+  if (code && (ck === code || user === code)) return true;
+  var nameCompact = hrCompactKey_(name);
+  var nameFolded = hrFoldPersonKey_(name);
+  var aliases = HR_ACCOUNT_PERSON_ALIASES[user] || [];
+  for (var i = 0; i < aliases.length; i++) {
+    var ac = hrCompactKey_(aliases[i]);
+    var af = hrFoldPersonKey_(aliases[i]);
+    if (!ac) continue;
+    if (code && ac === code) return true;
+    if (nameCompact && (nameCompact === ac || nameCompact.indexOf(ac) !== -1 || ac.indexOf(nameCompact) !== -1)) return true;
+    if (nameFolded && af && (nameFolded === af || nameFolded.indexOf(af) !== -1 || af.indexOf(nameFolded) !== -1)) return true;
+  }
+  var label = String(name || '').trim();
+  if (!label) return false;
+  var parts = label.toLowerCase().split(/\s+/).filter(Boolean);
+  var first = parts[0] || '';
+  var last = parts[parts.length - 1] || '';
+  if (ck === nameCompact || foldedUser === nameFolded) return true;
+  if (first && last && (user === first + last || user === first + '.' + last || ck === hrCompactKey_(first + last))) return true;
+  if (first && last && first !== last) {
+    var ff = hrFoldPersonKey_(first);
+    var fl = hrFoldPersonKey_(last);
+    if (ff && fl && foldedUser.indexOf(ff) !== -1 && foldedUser.indexOf(fl) !== -1) return true;
+  }
+  if (parts.length >= 2) {
+    var a = hrFoldPersonKey_(parts[0]);
+    var b = hrFoldPersonKey_(parts[1]);
+    if (a && b && a !== b && foldedUser.indexOf(a) !== -1 && foldedUser.indexOf(b) !== -1) return true;
+  }
+  var job = hrCompactKey_(extra.job);
+  var foldedJob = hrFoldPersonKey_(extra.job);
+  var foldedFirst = hrFoldPersonKey_(first);
+  if (foldedFirst.length >= 4 && foldedUser.startsWith(foldedFirst)) {
+    var rest = foldedUser.slice(foldedFirst.length);
+    if (rest) {
+      if (parts.some(function (p) { return hrFoldPersonKey_(p) === rest; })) return true;
+      if (foldedJob && rest === foldedJob) return true;
+      if (job && rest === job) return true;
+    }
+  }
+  return false;
+}
+
 function hrPaperIsMineEmp_(row) {
   if (!row) return false;
   var me = hrMe_();
   if (!me) return false;
   if (String(row.createdBy || '').trim().toLowerCase() === me) return true;
-  var name = String(row.empName || '').trim();
-  if (!name) return false;
-  var parts = name.toLowerCase().split(/\s+/).filter(Boolean);
-  var first = parts[0] || '';
-  var last = parts[parts.length - 1] || '';
-  var compact = hrCompactKey_(name);
-  var ck = hrCompactKey_(me);
-  if (ck && ck === compact) return true;
-  if (first && last && (me === first + last || me === first + '.' + last || ck === hrCompactKey_(first + last))) return true;
-  if (first && last && first !== last && ck.indexOf(hrCompactKey_(first)) !== -1 && ck.indexOf(hrCompactKey_(last)) !== -1) return true;
-  return false;
+  return hrUsernameMatchesEmployee_(me, row.empName, { code: row.empCode, job: row.empJobTitle });
 }
 
 function hrCanEmpStampRow_(row) {
@@ -841,10 +889,10 @@ function hrCanEmpStampRow_(row) {
   var stage = hrStageOf_(row);
   if (hrIsHrStaff_() && !hrIsSignerOnly_() && stage === 'inbox') return true;
   if (!hrIsEmployeeWrite_()) return false;
-  if (stage === 'inbox') {
-    if (hrIsEmployeeOnly_()) return hrPaperIsMineEmp_(row);
-    return hrCanWrite_();
+  if (hrIsEmployeeOnly_()) {
+    return hrPaperIsMineEmp_(row) && (stage === 'inbox' || stage === 'pending_line');
   }
+  if (stage === 'inbox') return hrCanWrite_();
   if (stage === 'pending_line' && hrDualEmpLine_()) return hrLineCanSign_(row) || hrCanWrite_();
   return false;
 }
@@ -1569,13 +1617,13 @@ function hrCanStampSlot_(slot) {
   if (slot === 'hr') return hrIsHrStaff_() && !hrIsSignerOnly_() && !hrPaperLocked_();
   if (slot === 'line') return hrLineCanSign_() || (hrIsHrStaff_() && !hrIsSignerOnly_() && !hrPaperLocked_());
   if (slot === 'emp') {
-    if (!(hrIsEmployeeWrite_() || (hrIsHrStaff_() && !hrIsSignerOnly_())) || hrPaperLocked_()) return false;
+    if (!(hrIsEmployeeWrite_() || (hrIsHrStaff_() && !hrIsSignerOnly_()))) return false;
     if (hrIsEmployeeOnly_()) {
       var openId = hrVal_('hr-id');
       var openRow = openId && (_hrRows || []).find(function (r) { return String(r.id) === String(openId); });
-      return !!(openRow && hrPaperIsMineEmp_(openRow));
+      return hrCanEmpStampRow_(openRow);
     }
-    return true;
+    return !hrPaperLocked_();
   }
   return false;
 }
@@ -1583,13 +1631,13 @@ function hrCanStampSlot_(slot) {
 function hrOwnStampForClickedBox_(slot) {
   if (!hrAccountSig_()) return false;
   if (slot === 'emp') {
-    if (!hrIsEmployeeWrite_() || hrPaperLocked_()) return false;
+    if (!hrIsEmployeeWrite_()) return false;
     if (hrIsEmployeeOnly_()) {
       var openId = hrVal_('hr-id');
       var openRow = openId && (_hrRows || []).find(function (r) { return String(r.id) === String(openId); });
-      return !!(openRow && hrPaperIsMineEmp_(openRow));
+      return hrCanEmpStampRow_(openRow);
     }
-    return true;
+    return !hrPaperLocked_();
   }
   if (slot === 'line') return hrLineCanSign_();
   if (slot === 'director') return hrDirectorCanSign_();
@@ -1665,8 +1713,11 @@ function hrApplyAccountSlotSig_(row) {
     return;
   }
   if (slot !== 'emp') return;
-  if (hrPaperLocked_(row)) return;
-  if (hrIsEmployeeOnly_() && (!row || !row.id || !hrPaperIsMineEmp_(row))) return;
+  if (hrIsEmployeeOnly_()) {
+    if (!row || !row.id || !hrCanEmpStampRow_(row)) return;
+  } else if (hrPaperLocked_(row)) {
+    return;
+  }
   if (_hrSigs[slot]) return;
   hrStampSlot_(slot, saved, typeof empireGetUser === 'function' ? empireGetUser() : '');
 }

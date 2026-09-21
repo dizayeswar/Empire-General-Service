@@ -88,25 +88,76 @@ function isHrEmpOnly(auth: AuthOk): boolean {
   return isHrEmpWrite(auth) && !isHrStaff(auth) && !isHrDirector(auth) && !isHrLine(auth);
 }
 
+function foldPersonKey(raw: unknown): string {
+  return compactKey(raw).replace(/muhammad|mohammed|mohammad|muhamad|mohamad|muhamed|mohamed/g, "mohd");
+}
+
+const ACCOUNT_PERSON_ALIASES: Record<string, string[]> = {
+  muhamadlawyer: ["mohammed abdulkhaliq", "mohammed abdulkhaliq hamasharif", "101786"],
+};
+
+function usernameMatchesEmployee(
+  username: string,
+  name: string,
+  extra?: { code?: unknown; job?: unknown },
+): boolean {
+  const user = normalizeWorkerId(username);
+  if (!user) return false;
+  const ck = compactKey(user);
+  const foldedUser = foldPersonKey(user);
+  const code = compactKey(extra?.code || "");
+  if (code && (ck === code || user === code)) return true;
+
+  const nameCompact = compactKey(name);
+  const nameFolded = foldPersonKey(name);
+  for (const alias of (ACCOUNT_PERSON_ALIASES[user] || [])) {
+    const ac = compactKey(alias);
+    const af = foldPersonKey(alias);
+    if (!ac) continue;
+    if (code && ac === code) return true;
+    if (nameCompact && (nameCompact === ac || nameCompact.indexOf(ac) !== -1 || ac.indexOf(nameCompact) !== -1)) return true;
+    if (nameFolded && af && (nameFolded === af || nameFolded.indexOf(af) !== -1 || af.indexOf(nameFolded) !== -1)) return true;
+  }
+
+  const label = String(name || "").trim();
+  if (!label) return false;
+  const parts = label.toLowerCase().split(/\s+/).filter(Boolean);
+  const first = parts[0] || "";
+  const last = parts[parts.length - 1] || "";
+  if (ck === nameCompact || foldedUser === nameFolded) return true;
+  if (user === rosterSlug(label)) return true;
+  if (first && last && (user === first + last || user === first + "." + last || ck === compactKey(first + last))) return true;
+  if (first && last && first !== last) {
+    const ff = foldPersonKey(first);
+    const fl = foldPersonKey(last);
+    if (ff && fl && foldedUser.indexOf(ff) !== -1 && foldedUser.indexOf(fl) !== -1) return true;
+  }
+  if (parts.length >= 2) {
+    const a = foldPersonKey(parts[0]);
+    const b = foldPersonKey(parts[1]);
+    if (a && b && a !== b && foldedUser.indexOf(a) !== -1 && foldedUser.indexOf(b) !== -1) return true;
+  }
+  const job = compactKey(extra?.job || "");
+  const foldedJob = foldPersonKey(extra?.job || "");
+  const foldedFirst = foldPersonKey(first);
+  if (foldedFirst.length >= 4 && foldedUser.startsWith(foldedFirst)) {
+    const rest = foldedUser.slice(foldedFirst.length);
+    if (rest && (parts.some((p) => foldPersonKey(p) === rest) || (foldedJob && rest === foldedJob) || (job && rest === job))) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function employeeOwnsPaper(row: Record<string, unknown>, me: string): boolean {
   const user = normalizeWorkerId(me);
   if (!user) return false;
   const created = normalizeWorkerId(row.createdBy || row.created_by);
   if (created && created === user) return true;
-  const name = String(row.empName || row.emp_name || "").trim();
-  if (!name) return false;
-  const parts = name.toLowerCase().trim().split(/\s+/).filter(Boolean);
-  const first = parts[0] || "";
-  const last = parts[parts.length - 1] || "";
-  const compact = compactKey(name);
-  const ck = compactKey(user);
-  if (ck && ck === compact) return true;
-  if (user === rosterSlug(name)) return true;
-  if (first && last && (user === first + last || user === first + "." + last || ck === compactKey(first + last))) return true;
-  if (first && last && first !== last && ck.indexOf(compactKey(first)) !== -1 && ck.indexOf(compactKey(last)) !== -1) {
-    return true;
-  }
-  return false;
+  return usernameMatchesEmployee(user, String(row.empName || row.emp_name || ""), {
+    code: row.empCode || row.emp_code,
+    job: row.empJobTitle || row.emp_job_title,
+  });
 }
 
 function canWrite(auth: AuthOk): boolean {
@@ -200,9 +251,12 @@ function matchRosterUser(
     const uk = normalizeWorkerId(u.username);
     const ck = compactKey(uk);
     let score = 0;
-    if (ck === compact || uk === slug || uk === first + last || uk === first + "." + last) score = 5;
+    const foldedUk = foldPersonKey(uk);
+    const foldedFirst = foldPersonKey(first);
+    if (ck === compact || uk === slug || uk === first + last || uk === first + "." + last || foldedUk === foldPersonKey(label)) score = 5;
     else if (first && last && first !== last && ck.indexOf(compactKey(first)) !== -1 && ck.indexOf(compactKey(last)) !== -1) score = 4;
-    else if (first && uniqueFirst.has(first) && uk.startsWith(first) && uk !== first) score = 3;
+    else if (usernameMatchesEmployee(uk, label)) score = 4;
+    else if (first && uniqueFirst.has(first) && (uk.startsWith(first) || (foldedFirst.length >= 4 && foldedUk.startsWith(foldedFirst))) && uk !== first) score = 3;
     else if (uk === first) score = 2;
     return { username: uk, score };
   }).filter((x) => x.score && x.username);
