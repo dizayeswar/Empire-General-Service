@@ -809,10 +809,19 @@ function hrSelectedLineIds_() {
   });
 }
 
+function hrCanEmpStampRow_(row) {
+  if (!row) return false;
+  if (!hrIsEmployeeWrite_() && !(hrIsHrStaff_() && !hrIsSignerOnly_())) return false;
+  var stage = hrStageOf_(row);
+  if (stage === 'inbox') return hrCanWrite_();
+  if (stage === 'pending_line' && hrDualEmpLine_()) return hrLineCanSign_(row) || hrCanWrite_();
+  return false;
+}
+
 function hrSelectedEmpIds_() {
   return hrSelectedIds_().filter(function (id) {
     var row = _hrRows.find(function (r) { return String(r.id) === String(id); });
-    return row && hrCanWrite_() && hrStageOf_(row) === 'inbox';
+    return row && hrCanEmpStampRow_(row);
   });
 }
 
@@ -853,13 +862,13 @@ function hrRunSelectedEmp_(ids) {
   ids = (ids || []).map(function (id) { return String(id || '').trim(); }).filter(Boolean);
   if (_hrBulkBusy) return;
   if (!ids.length) {
-    hrMsg_('These papers are waiting for you as line manager. Choose Line Manager to put your e-signature in that box.', false);
+    hrMsg_('Select papers first, then choose Employee box or Line Manager box.', false);
     return;
   }
   var n = ids.length;
   hrRunBulkIds_(ids, hrEmpConfirmRequest_, {
     working: 'Signing Employee box on ' + n + '…',
-    done: 'Employee e-signature placed on ' + n + '.',
+    done: 'Employee e-signature placed on ' + n + '. Choose Line Manager on another confirm if that box still needs your stamp.',
     tab: 'list'
   });
 }
@@ -906,8 +915,8 @@ function hrRunSelectedConfirm_() {
     }
     hrPickSignBox_().then(function (slot) {
       if (!slot) return;
-      if (slot === 'emp') hrRunSelectedEmp_(empIds);
-      else hrRunSelectedLine_(lineIds);
+      if (slot === 'emp') hrRunSelectedEmp_(hrSelectedEmpIds_());
+      else hrRunSelectedLine_(hrSelectedLineIds_());
     });
     return;
   }
@@ -1038,7 +1047,7 @@ function hrStaffConfirmRequest_(id, assignee) {
 function hrEmpConfirmRequest_(id) {
   id = String(id || '').trim();
   var row = _hrRows.find(function (r) { return String(r.id) === id; });
-  if (!row || hrStageOf_(row) !== 'inbox' || !hrCanWrite_()) {
+  if (!row || !hrCanEmpStampRow_(row)) {
     return Promise.reject(new Error('That paper cannot be signed in the Employee box.'));
   }
   var sig = String(hrAccountSig_() || (_hrSigs && _hrSigs.emp) || '').trim();
@@ -1318,7 +1327,7 @@ function hrListHelp_() {
   var el = document.querySelector('#list .hr-tab-help');
   if (!el) return;
   if (hrDualEmpLine_()) {
-    el.innerHTML = 'Select papers and <strong>Confirm selected</strong>. Choose <strong>Employee box</strong> or <strong>Line Manager box</strong> for your e-signature. Line Manager sends the paper to the director. Paper size stays the same.';
+    el.innerHTML = 'Select papers and <strong>Confirm selected</strong>. Choose <strong>Employee box</strong> or <strong>Line Manager box</strong> — this batch uses that box only. Another confirm can use the other box. Line Manager also sends the paper to the director. Paper size stays the same.';
   } else if (hrIsLineOnly_()) {
     el.innerHTML = 'Papers HR assigned to you. <strong>Confirm selected</strong> puts your e-signature in the Line Manager box, then each paper goes to the director.';
   } else if (hrIsDirectorOnly_()) {

@@ -651,16 +651,30 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
     if (!isHrEmpWrite(auth) && !staff) {
       return { ok: false, success: false, error: "not_allowed", message: "Not allowed." };
     }
-    if (isLockedStatus(status)) {
+    const inbox = !isLockedStatus(status);
+    if (inbox) {
+      if (!staff && normalizeWorkerId(ex.created_by) !== me) {
+        return { ok: false, success: false, error: "not_allowed", message: "You can only sign your own leave request as employee." };
+      }
+    } else if (status === "pending_line") {
+      if (!isHrEmpWrite(auth)) {
+        return { ok: false, success: false, error: "not_allowed", message: "Not allowed." };
+      }
+      if (!staff) {
+        const users = await loadUsernames();
+        const resolved = resolveAssignedAccount(ex, users);
+        const mine = resolved.username === me || normalizeWorkerId(ex.created_by) === me;
+        if (!mine) {
+          return { ok: false, success: false, error: "not_allowed", message: "You can only put the Employee e-signature on your paper, or on a paper waiting for you." };
+        }
+      }
+    } else {
       return {
         ok: false,
         success: false,
         error: "wrong_box",
-        message: "This paper is waiting for the line manager. Choose Line Manager to put your e-signature in that box.",
+        message: "This paper cannot take an Employee e-signature now.",
       };
-    }
-    if (!staff && normalizeWorkerId(ex.created_by) !== me) {
-      return { ok: false, success: false, error: "not_allowed", message: "You can only sign your own leave request as employee." };
     }
     const existing = parseEntitlements(ex.entitlements) as Record<string, unknown>;
     const existingSigs = existing.__sigs && typeof existing.__sigs === "object" && !Array.isArray(existing.__sigs)
