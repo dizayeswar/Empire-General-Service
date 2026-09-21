@@ -519,8 +519,8 @@
 
 .hr-note textarea.hr-days-out {
   display: block;
-  resize: none;
-  overflow: hidden;
+  resize: none !important;
+  overflow: hidden !important;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: break-word;
@@ -528,6 +528,18 @@
   text-align: center;
   min-height: 0;
   height: auto;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.hr-note textarea.hr-days-out::-webkit-resizer,
+.hr-note textarea.hr-days-out::-webkit-scrollbar,
+.hr-note textarea.hr-days-out::-webkit-inner-spin-button,
+.hr-note textarea.hr-days-out::-webkit-outer-spin-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
 }
 
 .hr-toolbar select,
@@ -1366,8 +1378,17 @@
   .hr-note input::placeholder { color: transparent !important; opacity: 0 !important; }
   .hr-note textarea.hr-days-out {
     height: auto !important;
-    overflow: visible !important;
+    overflow: hidden !important;
+    resize: none !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
     white-space: pre-wrap !important;
+  }
+  .hr-note textarea.hr-days-out::-webkit-resizer,
+  .hr-note textarea.hr-days-out::-webkit-scrollbar,
+  .hr-note textarea.hr-days-out::-webkit-inner-spin-button,
+  .hr-note textarea.hr-days-out::-webkit-outer-spin-button {
+    display: none !important;
   }
   .hr-note select.hr-cell-input {
     appearance: none !important;
