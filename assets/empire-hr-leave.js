@@ -1101,8 +1101,8 @@ function hrDirectorConfirmSelected_(ids) {
     directorName: who,
     directorSignedAt: when
   };
-  var place = hrLoadDirSigPlace_();
-  if (place) extra.scanPlace = place;
+  var place = hrDirectorCellPos_();
+  extra.scanPlace = place;
   fetchJSONRetry(extra, 1, 60000)
     .then(function (d) {
       if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) return;
@@ -1804,8 +1804,6 @@ function hrLockDirectorStampPlace_(place, row) {
 function hrDirectorBoxPos_() {
   var n = hrVac2PageOf_(_hrScan);
   if (n) return hrLockDirectorStampPlace_(hrVac2DirBox_(n));
-  var saved = hrLoadDirSigPlace_();
-  if (saved && !hrScanNeedsSnap_(saved)) return hrLockDirectorStampPlace_(saved);
   return hrDirectorCellPos_();
 }
 
@@ -1852,8 +1850,7 @@ function hrScanPlaceOversized_(scan) {
 function hrScanDisplayPlace_(scan, row) {
   var n = hrVac2PageOf_(scan, row);
   if (n) return hrLockDirectorStampPlace_(hrVac2DirBox_(n), row);
-  if (hrScanNeedsSnap_(scan)) return hrDirectorCellPos_();
-  return hrLockDirectorStampPlace_(scan, row);
+  return hrDirectorCellPos_();
 }
 
 function hrMountDirSig_(parent, scan, row) {
@@ -1868,6 +1865,7 @@ function hrMountDirSig_(parent, scan, row) {
   var sig = document.createElement('img');
   sig.className = 'hr-scan-dir-sig';
   sig.alt = 'Director e-signature';
+  sig.draggable = false;
   sig.src = scan.directorSig;
   box.appendChild(sig);
   parent.appendChild(box);
@@ -1900,7 +1898,7 @@ function hrScanPayloadForConfirm_(row, sig) {
   var live = samePaper && _hrScan.url;
   var scan = live ? _hrScan : rowScan;
   if (!scan || !scan.url) return null;
-  var pos = hrLockDirectorStampPlace_(hrScanDisplayPlace_(live ? _hrScan : (hrLoadDirSigPlace_() || scan), row), row);
+  var pos = hrLockDirectorStampPlace_(hrScanDisplayPlace_(scan, row), row);
   hrSaveDirSigPlace_(pos);
   var url = String(scan.url || '');
   if ((!url || url.indexOf('data:') === 0) && rowScan && rowScan.url && rowScan.url.indexOf('data:') !== 0) {
@@ -2025,11 +2023,16 @@ function hrEmptySigs_() {
   return { emp: '', line: '', director: '', hr: '' };
 }
 
+function hrStampImgHtml_(url) {
+  url = String(url || '').trim();
+  if (!url) return '';
+  return '<img src="' + url + '" alt="" draggable="false">';
+}
+
 function hrRenderSig_(slot) {
   var pad = document.getElementById('hr-sig-' + slot);
   if (!pad) return;
-  var url = _hrSigs[slot] || '';
-  pad.innerHTML = url ? '<img src="' + url + '" alt="">' : '';
+  pad.innerHTML = hrStampImgHtml_(_hrSigs[slot] || '');
 }
 
 function hrRenderAllSigs_() {
@@ -2037,6 +2040,10 @@ function hrRenderAllSigs_() {
 }
 
 function hrOpenSig_(slot) {
+  if (_hrSigs[slot] && hrPaperLocked_()) {
+    hrMsg_('This e-signature is locked on this paper.', true);
+    return;
+  }
   if (!hrCanStampSlot_(slot)) {
     if (hrIsEmployeeOnly_() && slot !== 'emp') {
       hrMsg_('This account can only stamp the Employee box.', false);
@@ -2181,8 +2188,7 @@ function hrOnSigFile_(e) {
         hrMsg_('E-signature saved on your account.', true);
       }
     };
-    if (slot === 'line' || slot === 'director') place(raw);
-    else hrProcessSigImage_(raw, place);
+    place(raw);
   };
   reader.readAsDataURL(file);
 }
@@ -2677,11 +2683,14 @@ function hrApplyPaperLock_() {
   var directorSign = hrDirectorCanSign_();
   var lineSign = hrLineCanSign_();
   var empOnly = hrIsEmployeeOnly_();
+  var openRow = (_hrRows || []).find(function (r) { return String(r.id) === String(hrVal_('hr-id')); });
+  var empSign = empOnly && hrCanEmpStampRow_(openRow);
   var freeze = (locked || empOnly) && !directorSign && !lineSign;
   if (root) {
     root.classList.toggle('hr-paper-locked', freeze);
     root.classList.toggle('hr-paper-director-sign', directorSign);
     root.classList.toggle('hr-paper-line-sign', lineSign);
+    root.classList.toggle('hr-paper-emp-sign', !!empSign);
     root.querySelectorAll('input, select, textarea').forEach(function (el) {
       var id = el.id || '';
       var blank = !!(el.closest && el.closest('.hr-f06-blank')) || !!el.getAttribute('data-ent') ||
@@ -2703,7 +2712,6 @@ function hrApplyPaperLock_() {
   var rejectBtn = document.getElementById('hrRejectBtn');
   var rejectBtn2 = document.getElementById('hrRejectBtn2');
   var st = hrVal_('hr-status');
-  var openRow = _hrRows.find(function (r) { return String(r.id) === String(hrVal_('hr-id')); });
   var showSave = hrCanWrite_() && !locked;
   var showDel = hrIsHrStaff_() && !locked && !!hrVal_('hr-id');
   var showConfirm = (!!hrVal_('hr-id')) && (
@@ -2938,7 +2946,7 @@ function hrFillPaperClone_(root, row) {
   ['emp', 'line', 'director', 'hr'].forEach(function (slot) {
     var pad = root.querySelector('[data-hr-id="hr-sig-' + slot + '"]') ||
       root.querySelector('#hr-sig-' + slot);
-    if (pad) pad.innerHTML = sigs[slot] ? '<img src="' + sigs[slot] + '" alt="">' : '';
+    if (pad) pad.innerHTML = hrStampImgHtml_(sigs[slot]);
   });
   HR_ENTITLE_KEYS.forEach(function (r) {
     var d = ents[r.key] || {};
@@ -3477,9 +3485,7 @@ function hrApplyScanSigBox_() {
   var box = document.getElementById('hrScanDirBox');
   var sig = document.getElementById('hrScanDirSig');
   var target = document.getElementById('hrScanTarget');
-  var pos = hrLockDirectorStampPlace_(
-    (hrScanCanEdit_() && !hrVac2PageOf_(_hrScan)) ? _hrScan : hrScanDisplayPlace_(_hrScan)
-  );
+  var pos = hrLockDirectorStampPlace_(hrDirectorBoxPos_());
   _hrScan.x = pos.x;
   _hrScan.y = pos.y;
   _hrScan.w = pos.w;
@@ -3496,14 +3502,11 @@ function hrApplyScanSigBox_() {
   box.style.top = (pos.y * 100) + '%';
   box.style.width = (pos.w * 100) + '%';
   box.style.height = (pos.h * 100) + '%';
-  var canEdit = hrScanCanEdit_();
-  box.classList.toggle('hr-scan-dir-edit', canEdit);
-  box.classList.toggle('hr-scan-dir-locked', !canEdit);
+  box.classList.remove('hr-scan-dir-edit');
+  box.classList.add('hr-scan-dir-locked');
   if (sig) {
-    sig.style.left = '0';
-    sig.style.top = '0';
-    sig.style.width = '100%';
-    sig.style.height = '100%';
+    sig.removeAttribute('style');
+    sig.draggable = false;
   }
 }
 
@@ -3591,13 +3594,12 @@ function hrOnScanDirectorSig_(e) {
   if (!hrCanWrite_() && !hrDirectorCanSign_()) return;
   var reader = new FileReader();
   reader.onload = function () {
-    hrProcessSigImage_(String(reader.result || ''), function (url) {
-      hrApplyDirectorOnly_(url, true);
-      if (hrDirectorCanSign_()) {
-        hrRememberAccountSig_(url);
-        hrMsg_('E-signature saved on your account.', true);
-      }
-    });
+    var url = String(reader.result || '');
+    hrApplyDirectorOnly_(url, true);
+    if (hrDirectorCanSign_()) {
+      hrRememberAccountSig_(url);
+      hrMsg_('E-signature saved on your account.', true);
+    }
   };
   reader.readAsDataURL(file);
 }
@@ -3732,27 +3734,7 @@ function hrPrintScan_() {
 }
 
 function hrScanDirPointerDown_(ev, handle) {
-  if (!hrScanCanEdit_()) return;
-  ev.preventDefault();
-  ev.stopPropagation();
-  var stage = document.getElementById('hrScanStage');
-  if (!stage) return;
-  var rec = stage.getBoundingClientRect();
-  if (!rec.width || !rec.height) return;
-  var pos = hrNormScanPlace_(_hrScan);
-  _hrScanDrag = {
-    stage: stage,
-    handle: handle || 'move',
-    px: (ev.clientX - rec.left) / rec.width,
-    py: (ev.clientY - rec.top) / rec.height,
-    x: pos.x,
-    y: pos.y,
-    w: pos.w,
-    h: pos.h
-  };
-  if (ev.currentTarget && ev.pointerId != null && ev.currentTarget.setPointerCapture) {
-    try { ev.currentTarget.setPointerCapture(ev.pointerId); } catch (err) {}
-  }
+  return;
 }
 
 function hrScanDirPointerMove_(ev) {
@@ -4163,9 +4145,9 @@ function hrPrintFrameCss_() {
     + '.hr-days-out::-webkit-resizer,.hr-days-out::-webkit-scrollbar,.hr-days-out::-webkit-inner-spin-button,.hr-days-out::-webkit-outer-spin-button{display:none!important;}'
     + '.hr-date-native,select,input,textarea,button{display:none!important;}'
     + '.hr-scan-stage{position:relative;width:100%;}'
-    + '.hr-scan-dir-box{position:absolute;box-sizing:border-box;overflow:hidden;}'
-    + '.hr-scan-dir-box .hr-scan-dir-sig{position:static;width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important;left:auto;top:auto;}'
-    + '.hr-scan-dir-sig{position:absolute;max-width:100%;max-height:100%;object-fit:contain;}'
+    + '.hr-scan-dir-box{position:absolute;box-sizing:border-box;overflow:visible;pointer-events:none;}'
+    + '.hr-scan-dir-box .hr-scan-dir-sig{position:absolute!important;left:0!important;top:50%!important;transform:translateY(-50%)!important;width:100%!important;height:56pt!important;max-width:100%!important;max-height:56pt!important;object-fit:contain!important;object-position:center!important;}'
+    + '.hr-scan-dir-sig{position:absolute;max-width:100%;max-height:56pt;object-fit:contain;}'
     + '.hr-scan-handle,.hr-scan-target{display:none!important;}'
     + '.hr-f06-emp,.hr-f06-approvals,.hr-f06-hr{overflow:visible!important;clip-path:inset(-18pt -8pt)!important;}'
     + '.hr-sig-pad,.hr-sig-pad-line,.hr-sig-pad-director,.hr-f06-hr-foot .hr-sig-pad-inline{overflow:visible!important;position:relative!important;z-index:3!important;}'
@@ -4173,7 +4155,7 @@ function hrPrintFrameCss_() {
     + '.hr-sig-row .hr-sig-pad{width:100%!important;height:28.95pt!important;min-height:28.95pt!important;max-height:28.95pt!important;}'
     + '.hr-f06-hr-foot .hr-sig-pad-inline{width:52%!important;height:24.45pt!important;min-height:24.45pt!important;}'
     + '.hr-sig-pad img,.hr-sig-pad-line img,.hr-sig-pad-director img{position:absolute!important;left:0!important;top:50%!important;transform:translateY(-50%)!important;width:100%!important;height:56pt!important;max-width:100%!important;max-height:56pt!important;margin:0!important;object-fit:contain!important;object-position:center!important;display:block!important;overflow:visible!important;}'
-    + '.hr-sig-row .hr-sig-pad img{left:50%!important;transform:translate(-50%,-50%)!important;width:auto!important;max-width:100%!important;object-position:center!important;}'
+    + '.hr-sig-row .hr-sig-pad img{left:50%!important;transform:translate(-50%,-50%)!important;width:100%!important;max-width:100%!important;object-position:center!important;}'
     + '.hr-f06-hr-foot .hr-sig-pad img{left:0!important;transform:translateY(-50%)!important;object-position:left center!important;}'
     + '.sig-cell .hr-sig-ghost,.sig-line .hr-sig-ghost,.hr-approve-row .hr-sig-ghost{display:none!important;height:0!important;min-height:0!important;overflow:hidden!important;padding:0!important;margin:0!important;}'
     + '.hr-sig-row td.sig-cell,.hr-approve-row td.sig-cell,.hr-approve-row td.sig-cell-director,.hr-f06-hr-foot td.sig-line{overflow:visible!important;clip-path:none!important;}';

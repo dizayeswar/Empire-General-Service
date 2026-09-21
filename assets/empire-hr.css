@@ -741,6 +741,24 @@
   clip-path: none;
 }
 
+.hr-paper-locked .sig-cell,
+.hr-paper-locked .sig-line {
+  cursor: default;
+  pointer-events: none;
+}
+.hr-paper-director-sign .sig-cell-director {
+  pointer-events: auto;
+  cursor: pointer;
+}
+.hr-paper-line-sign .hr-approve-row td.sig-cell:not(.sig-cell-director) {
+  pointer-events: auto;
+  cursor: pointer;
+}
+.hr-paper-emp-sign .hr-sig-row td.sig-cell {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
 .hr-sig-pad {
   width: 100%;
   height: 100%;
@@ -753,43 +771,38 @@
   z-index: 3;
 }
 
-/* LOCKED: Line Manager + Director (and matching emp/HR) stamp size. Signing must not restyle this. */
+/* LOCKED e-signatures: same size/position every paper. Do not drag, resize, recrop, or use width:auto. */
 .hr-sig-pad img,
 .hr-sig-pad-line img,
 .hr-sig-pad-director img {
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 100%;
-  height: 56pt;
-  max-width: 100%;
-  max-height: 56pt;
-  object-fit: contain;
-  object-position: center;
-  display: block;
-  overflow: visible;
+  position: absolute !important;
+  left: 0 !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 100% !important;
+  height: 56pt !important;
+  max-width: 100% !important;
+  max-height: 56pt !important;
+  margin: 0 !important;
+  object-fit: contain !important;
+  object-position: center !important;
+  display: block !important;
+  overflow: visible !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  -webkit-user-drag: none !important;
 }
 
 .hr-sig-row .hr-sig-pad img {
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: auto;
-  object-position: center;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  width: 100% !important;
+  object-position: center !important;
 }
 .hr-f06-hr-foot .hr-sig-pad img {
-  object-position: left center;
-}
-
-/* Line Manager + Director stamp size is locked: full box, 56pt tall, every paper. */
-.hr-sig-pad-line img,
-.hr-sig-pad-director img {
-  width: 100%;
-  height: 56pt;
-  max-width: 100%;
-  max-height: 56pt;
-  object-fit: contain;
-  object-position: center;
+  left: 0 !important;
+  transform: translateY(-50%) !important;
+  object-position: left center !important;
 }
 
 .hr-sig-pad-line,
@@ -991,29 +1004,34 @@
   height: 3.6%;
   z-index: 2;
   box-sizing: border-box;
-  overflow: hidden;
-  cursor: grab;
+  overflow: visible;
+  cursor: default;
   touch-action: none;
+  pointer-events: none;
 }
-.hr-scan-dir-box:active { cursor: grabbing; }
-.hr-scan-dir-box.hr-scan-dir-edit {
-  outline: 1px dashed #c5504f;
-  outline-offset: 1px;
-}
+.hr-scan-dir-box:active { cursor: default; }
+.hr-scan-dir-box.hr-scan-dir-edit,
 .hr-scan-dir-box.hr-scan-dir-locked {
   cursor: default;
   outline: none;
+  pointer-events: none;
 }
 
 .hr-scan-dir-sig {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
   display: block;
   width: 100%;
-  height: 100%;
+  height: 56pt;
   max-width: 100%;
-  max-height: 100%;
+  max-height: 56pt;
   object-fit: contain;
+  object-position: center;
   pointer-events: none;
   user-select: none;
+  -webkit-user-drag: none;
 }
 
 .hr-scan-handle {
@@ -1087,17 +1105,23 @@
 .hr-batch-scan-page .hr-scan-dir-box,
 .hr-pdf-a4 .hr-scan-dir-box {
   position: absolute;
-  overflow: hidden;
+  overflow: visible;
   box-sizing: border-box;
   pointer-events: none;
 }
 .hr-batch-scan-page .hr-scan-dir-sig,
 .hr-pdf-a4 .hr-scan-dir-sig {
-  position: static;
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
   display: block;
   width: 100%;
-  height: 100%;
+  height: 56pt;
+  max-width: 100%;
+  max-height: 56pt;
   object-fit: contain;
+  object-position: center;
   pointer-events: none;
 }
 
@@ -1368,11 +1392,14 @@
     object-position: center !important;
     display: block !important;
     overflow: visible !important;
+    pointer-events: none !important;
+    user-select: none !important;
+    -webkit-user-drag: none !important;
   }
   .hr-sig-row .hr-sig-pad img {
     left: 50% !important;
     transform: translate(-50%, -50%) !important;
-    width: auto !important;
+    width: 100% !important;
     max-width: 100% !important;
     object-position: center !important;
   }
@@ -1480,7 +1507,18 @@
   body.hr-print-scan .hr-scan-dir-box {
     outline: none !important;
     cursor: default !important;
-    overflow: hidden !important;
+    overflow: visible !important;
+  }
+  body.hr-print-scan .hr-scan-dir-sig {
+    position: absolute !important;
+    left: 0 !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 100% !important;
+    height: 56pt !important;
+    max-width: 100% !important;
+    max-height: 56pt !important;
+    object-fit: contain !important;
   }
 
   body.hr-print-batch #hrPrintRoot,
