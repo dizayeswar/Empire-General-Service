@@ -89,13 +89,16 @@ function isHrEmpOnly(auth: AuthOk): boolean {
 }
 
 function foldPersonKey(raw: unknown): string {
-  return compactKey(raw).replace(/muhammad|mohammed|mohammad|muhamad|mohamad|muhamed|mohamed/g, "mohd");
+  return compactKey(raw)
+    .replace(/muhammad|mohammed|mohammad|muhamad|mohamad|muhamed|mohamed/g, "mohd")
+    .replace(/hersh/g, "herish");
 }
 
 const ACCOUNT_PERSON_ALIASES: Record<string, string[]> = {
   muhamadlawyer: ["mohammed abdulkhaliq", "mohammed abdulkhaliq hamasharif", "101786"],
   delanapp: ["dilan abdulsatar", "dilan abdulsatar jawhar", "101447"],
   adnanblbas: ["adnan abdulrahman", "adnan abdulrahman sulaiman", "100115"],
+  herish: ["hersh adnan", "herish adnan"],
 };
 
 function usernameMatchesEmployee(

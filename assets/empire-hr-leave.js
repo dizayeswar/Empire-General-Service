@@ -819,13 +819,16 @@ function hrCompactKey_(raw) {
 }
 
 function hrFoldPersonKey_(raw) {
-  return hrCompactKey_(raw).replace(/muhammad|mohammed|mohammad|muhamad|mohamad|muhamed|mohamed/g, 'mohd');
+  return hrCompactKey_(raw)
+    .replace(/muhammad|mohammed|mohammad|muhamad|mohamad|muhamed|mohamed/g, 'mohd')
+    .replace(/hersh/g, 'herish');
 }
 
 var HR_ACCOUNT_PERSON_ALIASES = {
   muhamadlawyer: ['mohammed abdulkhaliq', 'mohammed abdulkhaliq hamasharif', '101786'],
   delanapp: ['dilan abdulsatar', 'dilan abdulsatar jawhar', '101447'],
-  adnanblbas: ['adnan abdulrahman', 'adnan abdulrahman sulaiman', '100115']
+  adnanblbas: ['adnan abdulrahman', 'adnan abdulrahman sulaiman', '100115'],
+  herish: ['hersh adnan', 'herish adnan']
 };
 
 function hrUsernameMatchesEmployee_(username, name, extra) {
