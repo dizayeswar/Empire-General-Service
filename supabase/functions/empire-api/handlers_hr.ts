@@ -95,6 +95,7 @@ function foldPersonKey(raw: unknown): string {
 const ACCOUNT_PERSON_ALIASES: Record<string, string[]> = {
   muhamadlawyer: ["mohammed abdulkhaliq", "mohammed abdulkhaliq hamasharif", "101786"],
   delanapp: ["dilan abdulsatar", "dilan abdulsatar jawhar", "101447"],
+  adnanblbas: ["adnan abdulrahman", "adnan abdulrahman sulaiman", "100115"],
 };
 
 function usernameMatchesEmployee(
