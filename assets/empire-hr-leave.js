@@ -823,7 +823,8 @@ function hrFoldPersonKey_(raw) {
 }
 
 var HR_ACCOUNT_PERSON_ALIASES = {
-  muhamadlawyer: ['mohammed abdulkhaliq', 'mohammed abdulkhaliq hamasharif', '101786']
+  muhamadlawyer: ['mohammed abdulkhaliq', 'mohammed abdulkhaliq hamasharif', '101786'],
+  delanapp: ['dilan abdulsatar', 'dilan abdulsatar jawhar', '101447']
 };
 
 function hrUsernameMatchesEmployee_(username, name, extra) {
