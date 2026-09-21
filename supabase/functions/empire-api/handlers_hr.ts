@@ -145,6 +145,20 @@ function assignFromRow(r: Record<string, unknown>): { username: string; name: st
   };
 }
 
+function uniqueRosterFirstNames(): Set<string> {
+  const counts = new Map<string, number>();
+  for (const n of LINE_MANAGER_ROSTER) {
+    const first = String(n).toLowerCase().trim().split(/\s+/).filter(Boolean)[0] || "";
+    if (!first) continue;
+    counts.set(first, (counts.get(first) || 0) + 1);
+  }
+  const out = new Set<string>();
+  for (const [first, n] of counts) {
+    if (n === 1) out.add(first);
+  }
+  return out;
+}
+
 function matchRosterUser(
   name: string,
   users: Array<{ username: string }>,
@@ -155,12 +169,14 @@ function matchRosterUser(
   const last = parts[parts.length - 1] || "";
   const compact = compactKey(label);
   const slug = rosterSlug(label);
+  const uniqueFirst = uniqueRosterFirstNames();
   const scored = users.map((u) => {
     const uk = normalizeWorkerId(u.username);
     const ck = compactKey(uk);
     let score = 0;
-    if (ck === compact || uk === slug || uk === first + last) score = 5;
+    if (ck === compact || uk === slug || uk === first + last || uk === first + "." + last) score = 5;
     else if (first && last && first !== last && ck.indexOf(compactKey(first)) !== -1 && ck.indexOf(compactKey(last)) !== -1) score = 4;
+    else if (first && uniqueFirst.has(first) && uk.startsWith(first) && uk !== first) score = 3;
     else if (uk === first) score = 2;
     return { username: uk, score };
   }).filter((x) => x.score && x.username);
@@ -170,6 +186,41 @@ function matchRosterUser(
     return { username: best.username, name: label };
   }
   return { username: slug, name: label };
+}
+
+function resolveAssignedAccount(
+  row: Record<string, unknown>,
+  users: Array<{ username: string }>,
+): { username: string; name: string } {
+  const assign = assignFromRow(row);
+  const have = new Set(users.map((u) => u.username));
+  if (assign.username && have.has(assign.username)) {
+    return { username: assign.username, name: assign.name };
+  }
+  const matched = matchRosterUser(assign.name || assign.username, users);
+  if (matched.username && have.has(matched.username)) {
+    return { username: matched.username, name: assign.name || matched.name };
+  }
+  return assign;
+}
+
+function applyResolvedAssignee(
+  row: ReturnType<typeof rowToApi>,
+  raw: Record<string, unknown>,
+  users: Array<{ username: string }>,
+) {
+  const resolved = resolveAssignedAccount(raw, users);
+  const username = resolved.username || row.lineManagerUser;
+  const ents = row.entitlements && typeof row.entitlements === "object" && !Array.isArray(row.entitlements)
+    ? { ...(row.entitlements as Record<string, unknown>) }
+    : {};
+  const prev = ents.__assign && typeof ents.__assign === "object" && !Array.isArray(ents.__assign)
+    ? ents.__assign as Record<string, unknown>
+    : {};
+  if (username) {
+    ents.__assign = { ...prev, username, name: resolved.name || prev.name || row.lineManagerName };
+  }
+  return { ...row, lineManagerUser: username, entitlements: ents };
 }
 
 async function loadUsernames(): Promise<Array<{ username: string }>> {
@@ -314,7 +365,8 @@ async function nextLeaveNo(): Promise<number> {
 
 export async function handleGetHrLeaveRequests(auth?: AuthOk) {
   const data = await selectAllRows<Record<string, unknown>>("hr_leave_requests");
-  let out = data.map(rowToApi);
+  const users = await loadUsernames();
+  let out = data.map((raw) => applyResolvedAssignee(rowToApi(raw), raw, users));
   if (auth && isDirectorOnly(auth)) {
     out = out.filter((r) => {
       const s = String(r.status || "").trim().toLowerCase();
@@ -324,9 +376,8 @@ export async function handleGetHrLeaveRequests(auth?: AuthOk) {
     const me = normalizeWorkerId(auth.username);
     const empWrite = isHrEmpWrite(auth);
     out = out.filter((r) => {
-      const rec = r as unknown as Record<string, unknown>;
       const s = String(r.status || "").trim().toLowerCase();
-      if (s === "pending_line" && assignFromRow(rec).username === me) return true;
+      if (s === "pending_line" && normalizeWorkerId(r.lineManagerUser) === me) return true;
       if (empWrite) {
         const created = normalizeWorkerId(r.createdBy);
         const inbox = !s || s === "submitted";
@@ -550,10 +601,11 @@ function lineConfirmPatch(
     ? existing.__sigs as Record<string, string>
     : {};
   const assign = assignFromRow(ex);
+  const username = normalizeWorkerId(extra.lineManagerUser || assign.username);
   const merged: Record<string, unknown> = {
     ...existing,
     __sigs: { ...existingSigs, ...incomingSigs, line: lineSig },
-    __assign: { username: assign.username, name: assign.name },
+    __assign: { username, name: assign.name },
   };
   return {
     status: "pending_director",
@@ -633,14 +685,15 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
   }
 
   if (status === "pending_line") {
-    const assign = assignFromRow(ex);
-    if (!assign.username || assign.username !== me) {
+    const users = await loadUsernames();
+    const resolved = resolveAssignedAccount(ex, users);
+    if (!resolved.username || resolved.username !== me) {
       return {
         ok: false,
         success: false,
         error: "not_assigned",
-        message: assign.name
-          ? ("This paper is waiting for " + assign.name + " to sign.")
+        message: resolved.name
+          ? ("This paper is waiting for " + resolved.name + " to sign.")
           : "This paper is waiting for the assigned line manager.",
       };
     }
@@ -656,7 +709,7 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
     if (!lineSig) {
       return { ok: false, success: false, error: "missing_signature", message: "Your e-signature is not on this account yet. Ask admin to upload it on Users, or place it on the Line Manager box once." };
     }
-    const patch = lineConfirmPatch(ex, lineSig, auth, body);
+    const patch = lineConfirmPatch(ex, lineSig, auth, { ...body, lineManagerUser: resolved.username });
     const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", id);
     if (error) throw error;
     return { ok: true, success: true, id, row: rowToApi({ ...ex, ...patch }), sentTo: "director" };
