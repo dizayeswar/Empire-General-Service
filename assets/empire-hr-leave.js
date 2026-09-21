@@ -3751,7 +3751,7 @@ function hrPrintFrameCss_() {
     + '.hr-sig-row .hr-sig-pad{width:100%!important;height:28.95pt!important;min-height:28.95pt!important;max-height:28.95pt!important;}'
     + '.hr-f06-hr-foot .hr-sig-pad-inline{width:52%!important;height:24.45pt!important;min-height:24.45pt!important;}'
     + '.hr-sig-pad img,.hr-sig-pad-line img,.hr-sig-pad-director img{position:static!important;left:auto!important;top:auto!important;transform:none!important;width:auto!important;height:56pt!important;max-width:100%!important;max-height:56pt!important;margin:-12pt auto!important;object-fit:contain!important;object-position:center!important;display:block!important;}'
-    + '.hr-sig-pad-director img{width:100%!important;height:56pt!important;max-width:100%!important;max-height:56pt!important;margin:-12pt 0!important;object-fit:contain!important;object-position:center!important;}'
+    + '.hr-sig-pad-line img,.hr-sig-pad-director img{width:100%!important;height:56pt!important;max-width:100%!important;max-height:56pt!important;margin:-12pt 0!important;object-fit:contain!important;object-position:center!important;}'
     + '.hr-sig-row .hr-sig-pad img,.hr-f06-hr-foot .hr-sig-pad img{margin-left:0!important;margin-right:auto!important;object-position:left center!important;}'
     + '.sig-cell .hr-sig-ghost,.sig-line .hr-sig-ghost,.hr-approve-row .hr-sig-ghost{display:none!important;height:0!important;min-height:0!important;overflow:hidden!important;padding:0!important;margin:0!important;}'
     + '.hr-sig-row td.sig-cell,.hr-approve-row td.sig-cell,.hr-approve-row td.sig-cell-director,.hr-f06-hr-foot td.sig-line{overflow:visible!important;}';

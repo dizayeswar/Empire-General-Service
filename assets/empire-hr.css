@@ -753,7 +753,8 @@
   object-position: left center;
 }
 
-/* Director stamp size is locked to the last paper: full box, 56pt tall. */
+/* Line Manager + Director stamp size is locked: full box, 56pt tall, every paper. */
+.hr-sig-pad-line img,
 .hr-sig-pad-director img {
   width: 100%;
   height: 56pt;
@@ -1305,6 +1306,7 @@
     object-position: center !important;
     display: block !important;
   }
+  .hr-sig-pad-line img,
   .hr-sig-pad-director img {
     width: 100% !important;
     height: 56pt !important;
