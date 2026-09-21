@@ -43,6 +43,7 @@ Locked stamp display (2026-09-21):
 
 - Approvals row stays `32.1pt`
 - Line Manager and Director pads stay `32.1pt` high; ink is `56pt` tall, may overflow the box
+- **Never crop stamp ink.** Overflow the box if needed. Do not clip with `overflow:hidden` or print `position:static`.
 - Same width/height for every line/director stamp (`object-fit: contain`)
 - Line Manager and Director stamps are locked to the last paper: full box width, `56pt` tall, same on every paper (screen, print, and scan overlay). Do not use `width: auto` and do not save a per-paper overlay size.
 - No name under the stamp — signature only

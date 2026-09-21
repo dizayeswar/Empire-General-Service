@@ -358,6 +358,14 @@
 .hr-f06-absence { transform: translate(0, 2.5mm); }
 .hr-f06-approvals { transform: translate(0, 5.5mm); }
 
+/* Table transforms clip overflow — expand clip so 56pt stamps are not cropped. */
+.hr-f06-emp,
+.hr-f06-approvals,
+.hr-f06-hr {
+  overflow: visible;
+  clip-path: inset(-18pt -8pt);
+}
+
 .hr-f06-entitle {
   width: 174.54mm;
   margin: 1.87mm auto 0;
@@ -727,8 +735,10 @@
 
 .hr-sig-row td.sig-cell,
 .hr-approve-row td.sig-cell,
-.hr-approve-row td.sig-cell-director {
+.hr-approve-row td.sig-cell-director,
+.hr-f06-hr-foot td.sig-line {
   overflow: visible;
+  clip-path: none;
 }
 
 .hr-sig-pad {
@@ -758,6 +768,7 @@
   object-fit: contain;
   object-position: center;
   display: block;
+  overflow: visible;
 }
 
 .hr-sig-row .hr-sig-pad img {
@@ -1302,6 +1313,12 @@
   .hr-f06-approvals { transform: translate(0, 5.5mm) !important; }
   .hr-f06-entitle { width: 174.54mm !important; max-width: 174.54mm !important; margin: 1.87mm auto 0 !important; transform: translate(0, 7.5mm) !important; }
   .hr-f06-hr { transform: translate(0, 13.5mm) !important; }
+  .hr-f06-emp,
+  .hr-f06-approvals,
+  .hr-f06-hr {
+    overflow: visible !important;
+    clip-path: inset(-18pt -8pt) !important;
+  }
   .hr-sig-pad,
   .hr-sig-pad-line,
   .hr-sig-pad-director,
@@ -1309,6 +1326,13 @@
     overflow: visible !important;
     position: relative !important;
     z-index: 3 !important;
+  }
+  .hr-sig-row td.sig-cell,
+  .hr-approve-row td.sig-cell,
+  .hr-approve-row td.sig-cell-director,
+  .hr-f06-hr-foot td.sig-line {
+    overflow: visible !important;
+    clip-path: none !important;
   }
   .hr-sig-pad-line,
   .hr-sig-pad-director {
@@ -1331,37 +1355,30 @@
   .hr-sig-pad img,
   .hr-sig-pad-line img,
   .hr-sig-pad-director img {
-    position: static !important;
-    left: auto !important;
-    top: auto !important;
-    transform: none !important;
-    width: auto !important;
-    height: 56pt !important;
-    max-width: 100% !important;
-    max-height: 56pt !important;
-    margin: -12pt auto !important;
-    object-fit: contain !important;
-    object-position: center !important;
-    display: block !important;
-  }
-  .hr-sig-pad-line img,
-  .hr-sig-pad-director img {
+    position: absolute !important;
+    left: 0 !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
     width: 100% !important;
     height: 56pt !important;
     max-width: 100% !important;
     max-height: 56pt !important;
-    margin: -12pt 0 !important;
+    margin: 0 !important;
     object-fit: contain !important;
     object-position: center !important;
+    display: block !important;
+    overflow: visible !important;
   }
   .hr-sig-row .hr-sig-pad img {
-    margin-left: auto !important;
-    margin-right: auto !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: auto !important;
+    max-width: 100% !important;
     object-position: center !important;
   }
   .hr-f06-hr-foot .hr-sig-pad img {
-    margin-left: 0 !important;
-    margin-right: auto !important;
+    left: 0 !important;
+    transform: translateY(-50%) !important;
     object-position: left center !important;
   }
   .sig-cell .hr-sig-ghost,

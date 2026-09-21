@@ -4167,16 +4167,16 @@ function hrPrintFrameCss_() {
     + '.hr-scan-dir-box .hr-scan-dir-sig{position:static;width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important;left:auto;top:auto;}'
     + '.hr-scan-dir-sig{position:absolute;max-width:100%;max-height:100%;object-fit:contain;}'
     + '.hr-scan-handle,.hr-scan-target{display:none!important;}'
+    + '.hr-f06-emp,.hr-f06-approvals,.hr-f06-hr{overflow:visible!important;clip-path:inset(-18pt -8pt)!important;}'
     + '.hr-sig-pad,.hr-sig-pad-line,.hr-sig-pad-director,.hr-f06-hr-foot .hr-sig-pad-inline{overflow:visible!important;position:relative!important;z-index:3!important;}'
     + '.hr-sig-pad-line,.hr-sig-pad-director{width:100%!important;height:32.1pt!important;min-height:32.1pt!important;max-height:32.1pt!important;}'
     + '.hr-sig-row .hr-sig-pad{width:100%!important;height:28.95pt!important;min-height:28.95pt!important;max-height:28.95pt!important;}'
     + '.hr-f06-hr-foot .hr-sig-pad-inline{width:52%!important;height:24.45pt!important;min-height:24.45pt!important;}'
-    + '.hr-sig-pad img,.hr-sig-pad-line img,.hr-sig-pad-director img{position:static!important;left:auto!important;top:auto!important;transform:none!important;width:auto!important;height:56pt!important;max-width:100%!important;max-height:56pt!important;margin:-12pt auto!important;object-fit:contain!important;object-position:center!important;display:block!important;}'
-    + '.hr-sig-pad-line img,.hr-sig-pad-director img{width:100%!important;height:56pt!important;max-width:100%!important;max-height:56pt!important;margin:-12pt 0!important;object-fit:contain!important;object-position:center!important;}'
-    + '.hr-sig-row .hr-sig-pad img{margin-left:auto!important;margin-right:auto!important;object-position:center!important;}'
-    + '.hr-f06-hr-foot .hr-sig-pad img{margin-left:0!important;margin-right:auto!important;object-position:left center!important;}'
+    + '.hr-sig-pad img,.hr-sig-pad-line img,.hr-sig-pad-director img{position:absolute!important;left:0!important;top:50%!important;transform:translateY(-50%)!important;width:100%!important;height:56pt!important;max-width:100%!important;max-height:56pt!important;margin:0!important;object-fit:contain!important;object-position:center!important;display:block!important;overflow:visible!important;}'
+    + '.hr-sig-row .hr-sig-pad img{left:50%!important;transform:translate(-50%,-50%)!important;width:auto!important;max-width:100%!important;object-position:center!important;}'
+    + '.hr-f06-hr-foot .hr-sig-pad img{left:0!important;transform:translateY(-50%)!important;object-position:left center!important;}'
     + '.sig-cell .hr-sig-ghost,.sig-line .hr-sig-ghost,.hr-approve-row .hr-sig-ghost{display:none!important;height:0!important;min-height:0!important;overflow:hidden!important;padding:0!important;margin:0!important;}'
-    + '.hr-sig-row td.sig-cell,.hr-approve-row td.sig-cell,.hr-approve-row td.sig-cell-director,.hr-f06-hr-foot td.sig-line{overflow:visible!important;}';
+    + '.hr-sig-row td.sig-cell,.hr-approve-row td.sig-cell,.hr-approve-row td.sig-cell-director,.hr-f06-hr-foot td.sig-line{overflow:visible!important;clip-path:none!important;}';
 }
 
 function hrLayoutInit_() {
