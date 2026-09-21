@@ -270,19 +270,35 @@ function matchRosterUser(
   return { username: slug, name: label };
 }
 
+function paperAssignedToUser(row: Record<string, unknown>, me: string): boolean {
+  const user = normalizeWorkerId(me);
+  if (!user) return false;
+  if (normalizeWorkerId(row.lineManagerUser || row.line_manager_user) === user) return true;
+  const assign = assignFromRow(row);
+  if (normalizeWorkerId(assign.username) === user) return true;
+  const name = assign.name || String(row.lineManagerName || row.line_manager_name || "");
+  return usernameMatchesEmployee(user, name);
+}
+
 function resolveAssignedAccount(
   row: Record<string, unknown>,
   users: Array<{ username: string }>,
 ): { username: string; name: string } {
   const assign = assignFromRow(row);
   const have = new Set(users.map((u) => u.username));
-  if (assign.username && have.has(assign.username)) {
-    return { username: assign.username, name: assign.name };
-  }
   const matched = matchRosterUser(assign.name || assign.username, users);
-  if (matched.username && have.has(matched.username)) {
-    return { username: matched.username, name: assign.name || matched.name };
+  const storedOk = !!(assign.username && have.has(assign.username));
+  const matchedOk = !!(matched.username && have.has(matched.username));
+  if (matchedOk && (!storedOk || assign.username !== matched.username)) {
+    const aliasHit = usernameMatchesEmployee(matched.username, assign.name || assign.username || "");
+    const storedSlug = assign.username === rosterSlug(assign.name || "") ||
+      assign.username === rosterSlug(matched.name);
+    if (!storedOk || aliasHit || storedSlug) {
+      return { username: matched.username, name: assign.name || matched.name };
+    }
   }
+  if (storedOk) return { username: assign.username, name: assign.name };
+  if (matchedOk) return { username: matched.username, name: assign.name || matched.name };
   return assign;
 }
 
@@ -519,20 +535,20 @@ export async function handleGetHrLeaveRequests(auth?: AuthOk) {
     const empWrite = isHrEmpWrite(auth);
     out = out.filter((r) => {
       const s = String(r.status || "").trim().toLowerCase();
-      if (s === "pending_line" && normalizeWorkerId(r.lineManagerUser) === me) return true;
-      if (empWrite) {
-        const created = normalizeWorkerId(r.createdBy);
-        const inbox = !s || s === "submitted";
-        if (inbox && created === me) return true;
-      }
+      const done = s === "completed" || s === "processed" || s === "director_approved" || s === "rejected";
+      if (s === "pending_line" && paperAssignedToUser(r, me)) return true;
+      if (empWrite && !done && employeeOwnsPaper(r, me)) return true;
       return false;
     });
   } else if (auth && isHrEmpOnly(auth)) {
     const me = normalizeWorkerId(auth.username);
     out = out.filter((r) => {
-      if (!employeeOwnsPaper(r, me)) return false;
       const s = String(r.status || "").trim().toLowerCase();
-      return s !== "completed" && s !== "processed" && s !== "director_approved" && s !== "rejected";
+      const done = s === "completed" || s === "processed" || s === "director_approved" || s === "rejected";
+      if (done) return false;
+      if (employeeOwnsPaper(r, me)) return true;
+      if (s === "pending_line" && paperAssignedToUser(r, me)) return true;
+      return false;
     });
   }
   out.sort((a, b) => (b.num || 0) - (a.num || 0));
@@ -815,8 +831,8 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
   const me = normalizeWorkerId(auth.username);
   const slot = requestedSignBox(body);
 
-  if (isHrEmpOnly(auth) && slot && slot !== "emp") {
-    return { ok: false, success: false, error: "wrong_box", message: "This account can only stamp the Employee box." };
+  if (isHrEmpOnly(auth) && slot && slot !== "emp" && slot !== "line") {
+    return { ok: false, success: false, error: "wrong_box", message: "This account can only stamp the Employee box, or the Line Manager box on papers waiting for you." };
   }
 
   if (slot === "emp") {
@@ -879,7 +895,7 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
   if (status === "pending_line") {
     const users = await loadUsernames();
     const resolved = resolveAssignedAccount(ex, users);
-    if (!resolved.username || resolved.username !== me) {
+    if (resolved.username !== me && !paperAssignedToUser(ex, me)) {
       return {
         ok: false,
         success: false,

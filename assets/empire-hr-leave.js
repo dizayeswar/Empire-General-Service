@@ -1008,11 +1008,15 @@ function hrRunSelectedConfirm_() {
     return;
   }
   if (hrIsEmployeeOnly_()) {
-    if (!empIds.length) {
-      hrMsg_('Select your papers first.', false);
+    if (empIds.length) {
+      hrRunSelectedEmp_(empIds);
       return;
     }
-    hrRunSelectedEmp_(empIds);
+    if (lineIds.length) {
+      hrRunSelectedLine_(lineIds);
+      return;
+    }
+    hrMsg_('Select your papers first.', false);
     return;
   }
   if (hrIsHrStaff_() && !hrIsSignerOnly_()) {
@@ -1422,7 +1426,7 @@ function hrListHelp_() {
   if (hrDualEmpLine_()) {
     el.innerHTML = 'Select papers and <strong>Confirm selected</strong>. Choose <strong>Employee box</strong> or <strong>Line Manager box</strong> — only that box gets your stamp. Confirm still sends the paper to the director. You cannot sign both boxes on one paper.';
   } else if (hrIsEmployeeOnly_()) {
-    el.innerHTML = 'Your leave papers only. Open one and stamp the <strong>Employee box</strong>, or use <strong>Confirm selected</strong>. You cannot fill a new leave request.';
+    el.innerHTML = 'Your leave papers, and papers HR assigned to you. Stamp the <strong>Employee box</strong> on your own paper. On papers waiting for you, stamp the <strong>Line Manager box</strong>. You cannot fill a new leave request.';
   } else if (hrIsLineOnly_()) {
     el.innerHTML = 'Papers HR assigned to you. <strong>Confirm selected</strong> puts your e-signature in the Line Manager box, then each paper goes to the director.';
   } else if (hrIsDirectorOnly_()) {
@@ -1466,6 +1470,12 @@ function hrAssignedUser_(row) {
   if (from) return String(from).trim().toLowerCase();
   var assign = row && row.entitlements && row.entitlements.__assign;
   return assign && assign.username ? String(assign.username).trim().toLowerCase() : '';
+}
+function hrPaperAssignedToMe_(row) {
+  var me = hrMe_();
+  if (!me) return false;
+  if (hrAssignedUser_(row) === me) return true;
+  return hrUsernameMatchesEmployee_(me, hrAssignedName_(row), {});
 }
 function hrAssignedName_(row) {
   var assign = row && row.entitlements && row.entitlements.__assign;
@@ -1756,8 +1766,7 @@ function hrLineCanSign_(row) {
   row = row || _hrRows.find(function (r) { return String(r.id) === String(hrVal_('hr-id') || ''); });
   var st = row ? String(row.status || '') : hrVal_('hr-status');
   if (st !== 'pending_line') return false;
-  var assigned = hrAssignedUser_(row || {});
-  return !!assigned && assigned === hrMe_();
+  return hrPaperAssignedToMe_(row || {});
 }
 
 var HR_DIR_CELL = { x: 0.695, y: 0.402, w: 0.175, h: 0.036 };
