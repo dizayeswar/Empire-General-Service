@@ -68,6 +68,14 @@ function isHrLine(auth: AuthOk): boolean {
   return moduleLevel(auth.moduleAccess, "hr_line") !== "none";
 }
 
+function isHrEmp(auth: AuthOk): boolean {
+  return moduleLevel(auth.moduleAccess, "hr_emp") !== "none";
+}
+
+function isHrEmpWrite(auth: AuthOk): boolean {
+  return moduleLevel(auth.moduleAccess, "hr_emp") === "write";
+}
+
 function isDirectorOnly(auth: AuthOk): boolean {
   return isHrDirector(auth) && !isHrStaff(auth);
 }
@@ -77,9 +85,10 @@ function isLineOnly(auth: AuthOk): boolean {
 }
 
 function canWrite(auth: AuthOk): boolean {
-  if (isDirectorOnly(auth) || isLineOnly(auth)) return false;
-  if (normalizeRole(auth.role) === "viewer") return false;
-  return isHrStaff(auth) || normalizeRole(auth.role) === "editor";
+  if (isDirectorOnly(auth)) return false;
+  if (isLineOnly(auth) && !isHrEmpWrite(auth)) return false;
+  if (normalizeRole(auth.role) === "viewer" && !isHrEmpWrite(auth)) return false;
+  return isHrStaff(auth) || isHrEmpWrite(auth) || normalizeRole(auth.role) === "editor";
 }
 
 function isLockedStatus(status: unknown): boolean {

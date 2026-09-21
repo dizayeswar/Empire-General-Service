@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="manifest" href="manifest.webmanifest?v=2026-09-20-sig-21">
+  <link rel="manifest" href="manifest.webmanifest?v=2026-09-21-emp-line">
   <meta name="theme-color" content="#8d015d">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -97,6 +97,7 @@
       <button type="button" onclick="applyRecipe('admin_full')">Admin (all write)</button>
       <button type="button" onclick="applyRecipe('hr_director')">HR Pending Director</button>
       <button type="button" onclick="applyRecipe('hr_line')">HR Line Manager</button>
+      <button type="button" onclick="applyRecipe('hr_emp')">HR Employee</button>
     </div>
 
     <div id="userFormCard" class="admin-form-card" style="display:none;">
@@ -121,7 +122,7 @@
       </div>
       <div id="sigField" style="margin-top:14px;">
         <div style="font-size:13px;font-weight:700;margin-bottom:6px;">Account e-signature</div>
-        <p class="admin-form-hint" style="margin-top:0;">Each account keeps its own stamp. Pick one from <strong>Saved e-signatures</strong> below if you already cropped it, or upload here. Choose which leave-form box it fills: Employee, Line Manager, Director, or HR.</p>
+        <p class="admin-form-hint" style="margin-top:0;">Each account keeps its own stamp. Pick one from <strong>Saved e-signatures</strong> below if you already cropped it, or upload here. If they have both <strong>Employee</strong> and <strong>Line manager sign</strong>, they click the box they are signing — Employee or Line Manager.</p>
         <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--text-soft);font-weight:600;max-width:280px;margin:8px 0 10px;">Saved e-signature
           <select id="f-sig-lib" onchange="onSigLibPick()">
             <option value="">— none / upload below —</option>
@@ -201,11 +202,11 @@
     <div id="usersTableHost"></div>
   </div>
 
-  <script src="config.js?v=2026-09-20-sig-21"></script>
-  <script src="assets/empire-api.js?v=2026-09-20-sig-21"></script>
-  <script src="assets/empire-auth.js?v=2026-09-20-sig-21"></script>
-  <script src="assets/empire-core.js?v=2026-09-20-sig-21"></script>
-  <script src="assets/empire-sw-update.js?v=2026-09-20-sig-21"></script>
+  <script src="config.js?v=2026-09-21-emp-line"></script>
+  <script src="assets/empire-api.js?v=2026-09-21-emp-line"></script>
+  <script src="assets/empire-auth.js?v=2026-09-21-emp-line"></script>
+  <script src="assets/empire-core.js?v=2026-09-21-emp-line"></script>
+  <script src="assets/empire-sw-update.js?v=2026-09-21-emp-line"></script>
   <script>
     var allUsers = [];
     var editingUsername = null;
@@ -288,6 +289,7 @@
       { key: 'hr', label: 'Leave requests', child: true, parent: 'hr_mod' },
       { key: 'hr_director', label: 'Pending Director', child: true, parent: 'hr_mod' },
       { key: 'hr_line', label: 'Line manager sign', child: true, parent: 'hr_mod' },
+      { key: 'hr_emp', label: 'Employee', child: true, parent: 'hr_mod' },
       { key: 'warehouse', label: 'Warehouse', n: 14, group: true },
       { key: 'warehouse_note', label: 'Goods Issue Note', child: true, parent: 'warehouse' },
       { key: 'warehouse_saved', label: 'Saved Notes', child: true, parent: 'warehouse' },
@@ -396,7 +398,7 @@
       var a = readAccessFromForm();
       var workerOnly = (hasAccess(a, 'civil_issue') || hasAccess(a, 'electric_issue')) &&
         !hasAccess(a, 'civil_department') && !hasAccess(a, 'electrical_department') &&
-        !hasAccess(a, 'cleaning') && !hasAccess(a, 'hr') && !hasAccess(a, 'hr_director') && !hasAccess(a, 'hr_line') &&
+        !hasAccess(a, 'cleaning') && !hasAccess(a, 'hr') && !hasAccess(a, 'hr_director') && !hasAccess(a, 'hr_line') && !hasAccess(a, 'hr_emp') &&
         !accessAnyCharging(a) && !hasAccess(a, 'warehouse') && !hasAccess(a, 'admin');
       var cleaning = hasAccess(a, 'cleaning');
       var tradeEl = document.getElementById('tradeField');
@@ -406,6 +408,10 @@
       if (!workerOnly) {
         var t = document.getElementById('f-trade');
         if (t) t.value = '';
+      }
+      var hint = document.getElementById('formHint');
+      if (hint && hasAccess(a, 'hr_emp') && hasAccess(a, 'hr_line')) {
+        hint.textContent = 'This account has Employee and Line manager. They click the Employee box or the Line Manager box to put their e-signature in that box.';
       }
     }
 
@@ -442,7 +448,7 @@
         a.warehouse_invamount = 'write';
       } else if (kind === 'admin_full') {
         ACCESS_MODULES.forEach(function (m) {
-          if (!m.group && m.key !== 'hr_director' && m.key !== 'hr_line') a[m.key] = 'write';
+          if (!m.group && m.key !== 'hr_director' && m.key !== 'hr_line' && m.key !== 'hr_emp') a[m.key] = 'write';
         });
       } else if (kind === 'hr_director') {
         a.hr_director = 'write';
@@ -454,6 +460,11 @@
         document.getElementById('formHint').textContent = 'Upload this line manager’s e-signature. When HR assigns a leave paper to them, they sign the Line Manager box.';
         var lineRole = document.getElementById('f-sig-role');
         if (lineRole) lineRole.value = 'line';
+      } else if (kind === 'hr_emp') {
+        a.hr_emp = 'write';
+        document.getElementById('formHint').textContent = 'Upload this employee’s e-signature. They click the Employee box to sign. If they also have Line manager sign, they click that box when they are the line manager.';
+        var empRole = document.getElementById('f-sig-role');
+        if (empRole) empRole.value = 'emp';
       }
       if (typeof empireFoldModuleAccess === 'function') a = empireFoldModuleAccess(a);
       else if (typeof empireFoldChargingAccess === 'function') a = empireFoldChargingAccess(a);
@@ -555,7 +566,7 @@
       var access = readAccessFromForm();
       var workerPhone = (hasAccess(access, 'civil_issue') || hasAccess(access, 'electric_issue')) &&
         !hasAccess(access, 'civil_department') && !hasAccess(access, 'electrical_department') &&
-        !hasAccess(access, 'cleaning') && !hasAccess(access, 'hr') && !hasAccess(access, 'hr_director') && !hasAccess(access, 'hr_line') &&
+        !hasAccess(access, 'cleaning') && !hasAccess(access, 'hr') && !hasAccess(access, 'hr_director') && !hasAccess(access, 'hr_line') && !hasAccess(access, 'hr_emp') &&
         !accessAnyCharging(access) &&
         !hasAccess(access, 'warehouse') && !hasAccess(access, 'admin');
       return {
@@ -798,7 +809,7 @@
       (skippedIds || []).forEach(function (id) {
         if (id) have[id] = 1;
       });
-      return fetch('assets/account-sigs/index.json?v=2026-09-20-sig-21')
+      return fetch('assets/account-sigs/index.json?v=2026-09-21-emp-line')
         .then(function (r) {
           if (!r.ok) throw new Error('Could not load prepared stamps');
           return r.json();
@@ -825,7 +836,7 @@
           }
           missing.forEach(function (it) {
             chain = chain.then(function () {
-              return fetch('assets/account-sigs/' + encodeURIComponent(it.file) + '?v=2026-09-20-sig-21')
+              return fetch('assets/account-sigs/' + encodeURIComponent(it.file) + '?v=2026-09-21-emp-line')
                 .then(function (r) {
                   if (!r.ok) throw new Error('Missing stamp ' + it.file);
                   return r.blob();
@@ -974,7 +985,7 @@
       var workerPhone = !!p.trade || (
         (hasAccess(p.moduleAccess, 'civil_issue') || hasAccess(p.moduleAccess, 'electric_issue')) &&
         !hasAccess(p.moduleAccess, 'civil_department') && !hasAccess(p.moduleAccess, 'electrical_department') &&
-        !hasAccess(p.moduleAccess, 'hr') && !hasAccess(p.moduleAccess, 'hr_director') && !hasAccess(p.moduleAccess, 'hr_line') &&
+        !hasAccess(p.moduleAccess, 'hr') && !hasAccess(p.moduleAccess, 'hr_director') && !hasAccess(p.moduleAccess, 'hr_line') && !hasAccess(p.moduleAccess, 'hr_emp') &&
         !accessAnyCharging(p.moduleAccess)
       );
       if (workerPhone && document.getElementById('tradeField').style.display !== 'none' && !p.trade) {

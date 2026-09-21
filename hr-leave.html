@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="manifest" href="manifest.webmanifest?v=2026-09-21-lm-lock">
+<link rel="manifest" href="manifest.webmanifest?v=2026-09-21-emp-line">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,8 +13,8 @@
 <title>Leave Request — HR Department — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-09-19-user-autofill">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-21-lm-lock">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-21-lm-lock">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-21-emp-line">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-21-emp-line">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -251,6 +251,8 @@
             <button type="button" data-hr-form-only="1" onclick="hrClearForm_()">New</button>
             <button type="button" data-hr-form-only="1" onclick="hrClearForm_()">Clear</button>
             <button type="button" id="hrSaveBtn" onclick="hrSave_()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Save</button>
+            <button type="button" id="hrSignEmpBtn" onclick="hrOpenSig_('emp')" style="display:none;">Employee e-signature</button>
+            <button type="button" id="hrSignLineBtn" onclick="hrOpenSig_('line')" style="display:none;">Line Manager e-signature</button>
             <button type="button" id="hrConfirmBtn" onclick="hrConfirmRow_()" class="hr-btn-confirm" style="display:none;">Confirm</button>
             <button type="button" id="hrRejectBtn" onclick="hrRejectRow_()" class="hr-btn-reject" style="display:none;">Rejected</button>
             <button type="button" data-hr-form-only="1" onclick="hrSwitchTab_(null,'scan')">Scan paper</button>
@@ -457,11 +459,14 @@
             <button type="button" id="hrReturnBtn2" onclick="hrReturnToList_()" style="display:none;">Return to saved requests</button>
             <button type="button" data-hr-form-only="1" onclick="hrClearForm_()">New</button>
             <button type="button" id="hrSaveBtn2" onclick="hrSave_()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Save</button>
+            <button type="button" id="hrSignEmpBtn2" onclick="hrOpenSig_('emp')" style="display:none;">Employee e-signature</button>
+            <button type="button" id="hrSignLineBtn2" onclick="hrOpenSig_('line')" style="display:none;">Line Manager e-signature</button>
             <button type="button" id="hrConfirmBtn2" onclick="hrConfirmRow_()" class="hr-btn-confirm" style="display:none;">Confirm</button>
             <button type="button" id="hrRejectBtn2" onclick="hrRejectRow_()" class="hr-btn-reject" style="display:none;">Rejected</button>
             <button type="button" onclick="hrPrint_()">Print / Save as PDF</button>
             <button type="button" data-hr-form-only="1" onclick="hrClearForm_()">Clear form</button>
           </div>
+          <p class="no-print" id="hrDualSignHelp" style="display:none;color:var(--text-soft);font-size:12px;margin:8px 0 0;">This account is Employee and Line Manager. Click the <strong>Employee</strong> box or the <strong>Line Manager</strong> box — your e-signature goes in that box only. Paper size stays the same.</p>
           <p class="no-print" style="color:var(--text-soft);font-size:12px;margin-top:10px;">Official form <strong>HR-F-06</strong>. In the print window choose <strong>A4</strong>, <strong>Portrait</strong>, <strong>Margins: None</strong>, and scale <strong>100%</strong> (do not fit to page).</p>
         </div>
       </div>
@@ -525,12 +530,12 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-09-21-lm-lock"></script>
-<script src="assets/empire-api.js?v=2026-09-21-lm-lock"></script>
-<script src="assets/empire-auth.js?v=2026-09-21-lm-lock"></script>
-<script src="assets/empire-core.js?v=2026-09-21-lm-lock"></script>
-<script src="assets/empire-storage.js?v=2026-09-21-lm-lock"></script>
-<script src="assets/empire-sw-update.js?v=2026-09-21-lm-lock"></script>
-<script src="assets/empire-hr-leave.js?v=2026-09-21-lm-lock"></script>
+<script src="config.js?v=2026-09-21-emp-line"></script>
+<script src="assets/empire-api.js?v=2026-09-21-emp-line"></script>
+<script src="assets/empire-auth.js?v=2026-09-21-emp-line"></script>
+<script src="assets/empire-core.js?v=2026-09-21-emp-line"></script>
+<script src="assets/empire-storage.js?v=2026-09-21-emp-line"></script>
+<script src="assets/empire-sw-update.js?v=2026-09-21-emp-line"></script>
+<script src="assets/empire-hr-leave.js?v=2026-09-21-emp-line"></script>
 </body>
 </html>

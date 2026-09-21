@@ -408,7 +408,7 @@ function empireCanAccessDept(requiredDept) {
       'warehouse_invoice', 'warehouse_invoices', 'warehouse_invsp', 'warehouse_invamount',
       'warehouse_sig_auth', 'warehouse_sig_issued', 'warehouse_sig_received'
     ],
-    hr: ['hr', 'hr_director', 'hr_line']
+    hr: ['hr', 'hr_director', 'hr_line', 'hr_emp']
   };
   function moduleAllowsDeptToken(token) {
     var keys = moduleKeysByDept[token];
