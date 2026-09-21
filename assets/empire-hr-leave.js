@@ -493,7 +493,7 @@ function hrFindVac2Row_(n) {
 var _hrVac2Seeding = false;
 
 function hrSeedVac2IfNeeded_() {
-  if (_hrVac2Seeding || hrIsDirectorOnly_() || !hrCanWrite_()) return Promise.resolve();
+  if (_hrVac2Seeding || !hrIsHrStaff_()) return Promise.resolve();
   var missing = [];
   var i;
   for (i = 1; i <= HR_SAVED_PAGE_COUNT; i++) {
@@ -1150,8 +1150,45 @@ function hrAutosizeDaysOut_(el) {
   el.style.height = Math.max(22, el.scrollHeight) + 'px';
 }
 function hrIsHrStaff_() {
-  if (typeof empireIsAdminRole === 'function' && empireIsAdminRole()) return true;
   return typeof empireModuleLevel === 'function' && empireModuleLevel('hr') === 'write';
+}
+function hrCanSeeTab_(tab) {
+  tab = String(tab || '');
+  if (tab === 'form') return hrIsHrStaff_() || hrIsEmployeeWrite_();
+  if (tab === 'scan') return hrIsHrStaff_();
+  if (tab === 'list') return hrIsHrStaff_() || hrIsDirector_() || hrIsLine_();
+  if (tab === 'confirmed') return hrIsHrStaff_() || hrIsDirector_();
+  if (tab === 'done' || tab === 'archive') return hrIsHrStaff_();
+  return false;
+}
+
+function hrHomeTab_() {
+  if (hrIsHrStaff_()) return 'form';
+  if (hrIsLine_()) return 'list';
+  if (hrIsEmployeeWrite_()) return 'form';
+  if (hrIsDirector_()) return 'list';
+  return 'form';
+}
+
+function hrApplyNavAccess_() {
+  var show = function (id, on) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = on ? '' : 'none';
+  };
+  show('tabBtnScan', hrCanSeeTab_('scan'));
+  show('tabBtnList', hrCanSeeTab_('list'));
+  show('tabBtnConfirmed', hrCanSeeTab_('confirmed'));
+  show('tabBtnDone', hrCanSeeTab_('done'));
+  show('tabBtnForm', hrCanSeeTab_('form'));
+  var archiveNav = document.getElementById('hrArchiveNav');
+  if (archiveNav) archiveNav.style.display = hrCanSeeTab_('archive') ? '' : 'none';
+  document.querySelectorAll('[data-hr-form-only]').forEach(function (el) {
+    if (el.id === 'hrScanCardOnForm' || (el.getAttribute && el.getAttribute('onclick') && String(el.getAttribute('onclick')).indexOf("'scan'") !== -1)) {
+      el.style.display = hrIsHrStaff_() ? '' : 'none';
+    }
+  });
+  var scanOnForm = document.getElementById('hrScanCardOnForm');
+  if (scanOnForm) scanOnForm.style.display = hrIsHrStaff_() ? '' : 'none';
 }
 function hrIsDirector_() {
   return typeof empireModuleLevel === 'function' && empireModuleLevel('hr_director') !== 'none';
@@ -2182,11 +2219,18 @@ function hrOpenLeaveNav_() {
 function hrClickLeaveNav_(ev) {
   hrOpenLeaveNav_();
   hrCloseSettings_();
-  if (hrIsSignerOnly_()) {
+  if (hrCanSeeTab_('form') && (hrIsHrStaff_() || hrIsEmployeeWrite_()) && !hrIsLine_()) {
+    hrSwitchTab_(ev, 'form');
+    return;
+  }
+  if (hrCanSeeTab_('list')) {
     hrSwitchTab_(null, 'list');
     return;
   }
-  hrSwitchTab_(ev, 'form');
+  if (hrCanSeeTab_('form')) {
+    hrSwitchTab_(ev, 'form');
+    return;
+  }
 }
 
 function hrCloseSettings_() {
@@ -2215,6 +2259,10 @@ function hrToggleSettings_(e) {
 
 function hrSwitchTab_(ev, tab) {
   hrCloseSettings_();
+  if (!hrCanSeeTab_(tab)) {
+    tab = hrHomeTab_();
+    ev = null;
+  }
   if (_hrListEditing && (tab === 'list' || tab === 'done' || tab === 'confirmed' || tab === 'archive') && ev && ev.currentTarget) hrSetListEditing_(false);
   else if (tab !== 'list' && tab !== 'done' && tab !== 'confirmed' && tab !== 'archive' && _hrListEditing) hrSetListEditing_(false);
   document.querySelectorAll('.tab-content').forEach(function (el) { el.classList.remove('active'); });
@@ -2360,7 +2408,7 @@ function hrApplyPaperLock_() {
   var st = hrVal_('hr-status');
   var openRow = _hrRows.find(function (r) { return String(r.id) === String(hrVal_('hr-id')); });
   var showSave = hrCanWrite_() && !locked;
-  var showDel = showSave && !!hrVal_('hr-id');
+  var showDel = hrIsHrStaff_() && !locked && !!hrVal_('hr-id');
   var showConfirm = (!!hrVal_('hr-id')) && (
     (hrIsHrStaff_() && !hrIsSignerOnly_() && hrStageOf_({ status: st }) === 'inbox') ||
     (hrIsDirector_() && st === 'pending_director') ||
@@ -3446,7 +3494,7 @@ function hrShowStaffTools_() {
 }
 
 function hrRbOpen_() {
-  if (!hrCanWrite_()) return;
+  if (!hrIsHrStaff_()) return;
   var m = document.getElementById('hrRbModal');
   if (m) m.style.display = 'flex';
   hrRbLoad_();
@@ -3973,6 +4021,7 @@ function hrEnterApp_() {
     empireAuthRefreshPerms(function () {
       _hrCanWrite = hrCanWrite_();
       hrShowStaffTools_();
+      hrApplyNavAccess_();
       var openId = hrVal_('hr-id');
       var openRow = openId && (_hrRows || []).find(function (r) { return String(r.id) === String(openId); });
       if (hrDirectorCanSign_(openRow || undefined)) {
@@ -3993,20 +4042,9 @@ function hrEnterApp_() {
     hrClearForm_();
   }
   hrApplyPaperLock_();
-  if (hrIsSignerOnly_()) {
-    var scanBtn = document.getElementById('tabBtnScan');
-    if (scanBtn) scanBtn.style.display = 'none';
-    var doneBtn = document.getElementById('tabBtnDone');
-    if (doneBtn) doneBtn.style.display = 'none';
-    var archiveNav = document.getElementById('hrArchiveNav');
-    if (archiveNav) archiveNav.style.display = 'none';
-    var confirmedBtn = document.getElementById('tabBtnConfirmed');
-    if (confirmedBtn) confirmedBtn.style.display = hrIsDirectorOnly_() ? '' : 'none';
-    var formBtn = document.getElementById('tabBtnForm');
-    if (formBtn && hrIsLineOnly_() && !hrIsEmployeeWrite_()) formBtn.style.display = 'none';
-    hrOpenLeaveNav_();
-    hrSwitchTab_(null, 'list');
-  }
+  hrApplyNavAccess_();
+  hrOpenLeaveNav_();
+  hrSwitchTab_(null, hrHomeTab_());
   hrShowStaffTools_();
   hrRenderScan_();
   hrLoad_(true);
