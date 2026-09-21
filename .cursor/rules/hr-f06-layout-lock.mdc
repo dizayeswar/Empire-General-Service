@@ -35,7 +35,9 @@ The paper size is locked. Signing, stamps, line managers, and directors must nev
 
 When a line manager or director places their account e-signature, only the stamp image is dropped into the existing box. Do **not** change paper size, row heights, padding, transforms, or stamp CSS for that flow.
 
-Users with both Employee and Line Manager access click the Employee box or the Line Manager box (or the matching toolbar button). After Confirm selected they also choose Employee box or Line Manager box. The stamp goes in that box only. Do not change the paper.
+Users with both Employee and Line Manager access choose one box only (click the box, toolbar button, or Confirm selected). The stamp goes in that box only — never both on the same paper. Do not change the paper.
+
+Employee stamp is centered in the Employee Signature box (2026-09-21). Do not left-align it. Line Manager and Director stamps stay locked as below.
 
 Locked stamp display (2026-09-21):
 

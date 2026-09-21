@@ -760,7 +760,12 @@
   display: block;
 }
 
-.hr-sig-row .hr-sig-pad img,
+.hr-sig-row .hr-sig-pad img {
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: auto;
+  object-position: center;
+}
 .hr-f06-hr-foot .hr-sig-pad img {
   object-position: left center;
 }
@@ -1349,7 +1354,11 @@
     object-fit: contain !important;
     object-position: center !important;
   }
-  .hr-sig-row .hr-sig-pad img,
+  .hr-sig-row .hr-sig-pad img {
+    margin-left: auto !important;
+    margin-right: auto !important;
+    object-position: center !important;
+  }
   .hr-f06-hr-foot .hr-sig-pad img {
     margin-left: 0 !important;
     margin-right: auto !important;

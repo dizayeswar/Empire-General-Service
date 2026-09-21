@@ -868,7 +868,7 @@ function hrRunSelectedEmp_(ids) {
   var n = ids.length;
   hrRunBulkIds_(ids, hrEmpConfirmRequest_, {
     working: 'Signing Employee box on ' + n + '…',
-    done: 'Employee e-signature placed on ' + n + '. Choose Line Manager on another confirm if that box still needs your stamp.',
+    done: 'Employee e-signature placed on ' + n + '. Line Manager box does not get your stamp.',
     tab: 'list'
   });
 }
@@ -1327,7 +1327,7 @@ function hrListHelp_() {
   var el = document.querySelector('#list .hr-tab-help');
   if (!el) return;
   if (hrDualEmpLine_()) {
-    el.innerHTML = 'Select papers and <strong>Confirm selected</strong>. Choose <strong>Employee box</strong> or <strong>Line Manager box</strong> — this batch uses that box only. Another confirm can use the other box. Line Manager also sends the paper to the director. Paper size stays the same.';
+    el.innerHTML = 'Select papers and <strong>Confirm selected</strong>. Choose <strong>Employee box</strong> or <strong>Line Manager box</strong> — only that box gets your stamp on those papers. You cannot sign both boxes on one paper. Line Manager also sends the paper to the director.';
   } else if (hrIsLineOnly_()) {
     el.innerHTML = 'Papers HR assigned to you. <strong>Confirm selected</strong> puts your e-signature in the Line Manager box, then each paper goes to the director.';
   } else if (hrIsDirectorOnly_()) {
@@ -1443,6 +1443,16 @@ function hrStampSlot_(slot, url, who) {
     return;
   }
   hrRenderSig_(slot);
+  if (hrDualEmpLine_() && url) {
+    if (slot === 'emp' && _hrSigs.line === url) {
+      _hrSigs.line = '';
+      hrRenderSig_('line');
+    }
+    if (slot === 'line' && _hrSigs.emp === url) {
+      _hrSigs.emp = '';
+      hrRenderSig_('emp');
+    }
+  }
   if (slot === 'emp' && !hrVal_('hr-empSignedAt')) hrSet_('hr-empSignedAt', hrToday_());
   if (slot === 'line') {
     if (who && !hrVal_('hr-lineManagerName')) hrSet_('hr-lineManagerName', who);
@@ -1574,10 +1584,7 @@ function hrApplyAccountHrSig_(row) {
 }
 
 function hrApplyAccountSlotSig_(row) {
-  if (hrDualEmpLine_()) {
-    if (hrLineCanSign_(row)) hrApplyAccountLineSig_(row);
-    return;
-  }
+  if (hrDualEmpLine_()) return;
   var slot = hrAccountSigSlot_();
   var saved = hrAccountSig_();
   if (!slot || !saved) return;
@@ -2599,6 +2606,14 @@ function hrConfirmRow_(id) {
   if (!id) return;
   var row = _hrRows.find(function (r) { return String(r.id) === id; });
   var stage = hrStageOf_(row || { status: hrVal_('hr-status') });
+  if (hrDualEmpLine_() && (hrCanEmpStampRow_(row) || hrLineCanSign_(row))) {
+    hrPickSignBox_().then(function (slot) {
+      if (!slot) return;
+      if (slot === 'emp') hrRunSelectedEmp_([id]);
+      else hrRunSelectedLine_([id]);
+    });
+    return;
+  }
   if (hrLineCanSign_(row)) {
     hrMsg_('Signing Line Manager box…', true);
     hrLineConfirmRequest_(id)
@@ -4009,7 +4024,8 @@ function hrPrintFrameCss_() {
     + '.hr-f06-hr-foot .hr-sig-pad-inline{width:52%!important;height:24.45pt!important;min-height:24.45pt!important;}'
     + '.hr-sig-pad img,.hr-sig-pad-line img,.hr-sig-pad-director img{position:static!important;left:auto!important;top:auto!important;transform:none!important;width:auto!important;height:56pt!important;max-width:100%!important;max-height:56pt!important;margin:-12pt auto!important;object-fit:contain!important;object-position:center!important;display:block!important;}'
     + '.hr-sig-pad-line img,.hr-sig-pad-director img{width:100%!important;height:56pt!important;max-width:100%!important;max-height:56pt!important;margin:-12pt 0!important;object-fit:contain!important;object-position:center!important;}'
-    + '.hr-sig-row .hr-sig-pad img,.hr-f06-hr-foot .hr-sig-pad img{margin-left:0!important;margin-right:auto!important;object-position:left center!important;}'
+    + '.hr-sig-row .hr-sig-pad img{margin-left:auto!important;margin-right:auto!important;object-position:center!important;}'
+    + '.hr-f06-hr-foot .hr-sig-pad img{margin-left:0!important;margin-right:auto!important;object-position:left center!important;}'
     + '.sig-cell .hr-sig-ghost,.sig-line .hr-sig-ghost,.hr-approve-row .hr-sig-ghost{display:none!important;height:0!important;min-height:0!important;overflow:hidden!important;padding:0!important;margin:0!important;}'
     + '.hr-sig-row td.sig-cell,.hr-approve-row td.sig-cell,.hr-approve-row td.sig-cell-director,.hr-f06-hr-foot td.sig-line{overflow:visible!important;}';
 }
@@ -4182,7 +4198,7 @@ function hrEnterApp_() {
         hrApplyAccountDirectorSig_(openRow);
         hrRenderSig_('director');
       }
-      if (hrLineCanSign_(openRow || undefined)) {
+      if (!hrDualEmpLine_() && hrLineCanSign_(openRow || undefined)) {
         hrApplyAccountLineSig_(openRow);
         hrRenderSig_('line');
       }

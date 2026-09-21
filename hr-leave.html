@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="manifest" href="manifest.webmanifest?v=2026-09-21-box-choice">
+<link rel="manifest" href="manifest.webmanifest?v=2026-09-21-one-box">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,8 +13,8 @@
 <title>Leave Request — HR Department — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-09-19-user-autofill">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-21-box-choice">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-21-box-choice">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-21-one-box">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-21-one-box">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -467,7 +467,7 @@
             <button type="button" onclick="hrPrint_()">Print / Save as PDF</button>
             <button type="button" data-hr-form-only="1" onclick="hrClearForm_()">Clear form</button>
           </div>
-          <p class="no-print" id="hrDualSignHelp" style="display:none;color:var(--text-soft);font-size:12px;margin:8px 0 0;">This account is Employee and Line Manager. Click the <strong>Employee</strong> box or the <strong>Line Manager</strong> box — your e-signature goes in that box only. Paper size stays the same.</p>
+          <p class="no-print" id="hrDualSignHelp" style="display:none;color:var(--text-soft);font-size:12px;margin:8px 0 0;">This account is Employee and Line Manager. Choose one box only — Employee or Line Manager. Your e-signature goes in that box. You cannot sign both boxes on the same paper.</p>
           <p class="no-print" style="color:var(--text-soft);font-size:12px;margin-top:10px;">Official form <strong>HR-F-06</strong>. In the print window choose <strong>A4</strong>, <strong>Portrait</strong>, <strong>Margins: None</strong>, and scale <strong>100%</strong> (do not fit to page).</p>
         </div>
       </div>
@@ -534,10 +534,10 @@
 <div id="hrBoxPick" class="hr-sig-pick no-print" hidden onclick="if(event.target===this)hrBoxPickClose_()">
   <div class="hr-sig-pick-card" role="dialog" aria-labelledby="hrBoxPickTitle">
     <h3 id="hrBoxPickTitle">Which box?</h3>
-    <p class="hr-sig-pick-help">Choose one box for the papers you selected. Next time you can pick the other box. Paper size stays the same.</p>
+    <p class="hr-sig-pick-help">Choose one box. Your e-signature goes only there. The other box stays empty of your stamp.</p>
     <div class="hr-box-pick-choice">
-      <button type="button" onclick="hrBoxPickChoose_('emp')"><strong>Employee box</strong><span>Put your e-signature in the Employee box only. The paper stays where it is.</span></button>
-      <button type="button" class="hr-btn-confirm" onclick="hrBoxPickChoose_('line')"><strong>Line Manager box</strong><span>Put your e-signature in the Line Manager box and send the paper to the director.</span></button>
+      <button type="button" onclick="hrBoxPickChoose_('emp')"><strong>Employee box</strong><span>Put your e-signature in the Employee box only.</span></button>
+      <button type="button" class="hr-btn-confirm" onclick="hrBoxPickChoose_('line')"><strong>Line Manager box</strong><span>Put your e-signature in the Line Manager box only and send the paper to the director.</span></button>
     </div>
     <div class="hr-sig-pick-acts">
       <button type="button" onclick="hrBoxPickClose_()">Cancel</button>
@@ -545,12 +545,12 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-09-21-box-choice"></script>
-<script src="assets/empire-api.js?v=2026-09-21-box-choice"></script>
-<script src="assets/empire-auth.js?v=2026-09-21-box-choice"></script>
-<script src="assets/empire-core.js?v=2026-09-21-box-choice"></script>
-<script src="assets/empire-storage.js?v=2026-09-21-box-choice"></script>
-<script src="assets/empire-sw-update.js?v=2026-09-21-box-choice"></script>
-<script src="assets/empire-hr-leave.js?v=2026-09-21-box-choice"></script>
+<script src="config.js?v=2026-09-21-one-box"></script>
+<script src="assets/empire-api.js?v=2026-09-21-one-box"></script>
+<script src="assets/empire-auth.js?v=2026-09-21-one-box"></script>
+<script src="assets/empire-core.js?v=2026-09-21-one-box"></script>
+<script src="assets/empire-storage.js?v=2026-09-21-one-box"></script>
+<script src="assets/empire-sw-update.js?v=2026-09-21-one-box"></script>
+<script src="assets/empire-hr-leave.js?v=2026-09-21-one-box"></script>
 </body>
 </html>

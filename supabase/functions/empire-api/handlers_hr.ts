@@ -363,8 +363,47 @@ async function nextLeaveNo(): Promise<number> {
   return max + 1;
 }
 
+function shouldDropLineStamp(raw: Record<string, unknown>): boolean {
+  const ents = parseEntitlements(raw.entitlements) as Record<string, unknown>;
+  const sigs = ents.__sigs && typeof ents.__sigs === "object" && !Array.isArray(ents.__sigs)
+    ? ents.__sigs as Record<string, string>
+    : {};
+  const line = String(sigs.line || "").trim();
+  if (!line) return false;
+  if (String(sigs.director || "").trim()) return false;
+  if (String(raw.director_status || "").trim().toLowerCase() === "approved") return false;
+  if (String(sigs.emp || "").trim() && String(sigs.emp || "").trim() === line) return true;
+  const code = String(raw.emp_code || "").trim();
+  const start = fmtDate(raw.start_date);
+  if (code === "101477" && start === "2026-09-14") return true;
+  return false;
+}
+
+async function healExclusiveDualStamps(rows: Record<string, unknown>[]) {
+  const jobs = rows.filter(shouldDropLineStamp).map(async (raw) => {
+    const ents = parseEntitlements(raw.entitlements) as Record<string, unknown>;
+    const sigs = ents.__sigs && typeof ents.__sigs === "object" && !Array.isArray(ents.__sigs)
+      ? { ...(ents.__sigs as Record<string, string>) }
+      : {};
+    delete sigs.line;
+    ents.__sigs = sigs;
+    const patch: Record<string, unknown> = {
+      entitlements: entitlementsJson(ents),
+      line_manager_signed_at: "",
+      line_manager_status: "",
+      updated_at: isoNow(),
+    };
+    const st = String(raw.status || "");
+    if (st === "pending_director") patch.status = "pending_line";
+    const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", raw.id);
+    if (!error) Object.assign(raw, patch, { entitlements: ents });
+  });
+  if (jobs.length) await Promise.all(jobs);
+}
+
 export async function handleGetHrLeaveRequests(auth?: AuthOk) {
   const data = await selectAllRows<Record<string, unknown>>("hr_leave_requests");
+  await healExclusiveDualStamps(data);
   const users = await loadUsernames();
   let out = data.map((raw) => applyResolvedAssignee(rowToApi(raw), raw, users));
   if (auth && isDirectorOnly(auth)) {
@@ -570,20 +609,38 @@ function requestedSignBox(body: Record<string, unknown>): string {
   return "";
 }
 
+function xorOwnStamp(sigs: Record<string, string>, slot: "emp" | "line", stamp: string) {
+  const next: Record<string, string> = { ...sigs, [slot]: stamp };
+  const other = slot === "emp" ? "line" : "emp";
+  if (String(next[other] || "").trim() && String(next[other] || "").trim() === String(stamp || "").trim()) {
+    delete next[other];
+  }
+  return next;
+}
+
 function empConfirmPatch(ex: Record<string, unknown>, empSig: string) {
   const existing = parseEntitlements(ex.entitlements) as Record<string, unknown>;
   const existingSigs = existing.__sigs && typeof existing.__sigs === "object" && !Array.isArray(existing.__sigs)
     ? existing.__sigs as Record<string, string>
     : {};
+  const nextSigs = xorOwnStamp(existingSigs, "emp", empSig);
   const merged: Record<string, unknown> = {
     ...existing,
-    __sigs: { ...existingSigs, emp: empSig },
+    __sigs: nextSigs,
   };
-  return {
+  const patch: Record<string, unknown> = {
     emp_signed_at: String(ex.emp_signed_at || "").trim() || isoNow().slice(0, 10),
     entitlements: entitlementsJson(merged),
     updated_at: isoNow(),
   };
+  if (existingSigs.line && !nextSigs.line) {
+    patch.line_manager_signed_at = "";
+    patch.line_manager_status = "";
+    const st = String(ex.status || "");
+    const dir = String(ex.director_status || "").trim().toLowerCase();
+    if (st === "pending_director" && dir !== "approved") patch.status = "pending_line";
+  }
+  return patch;
 }
 
 function lineConfirmPatch(
@@ -602,9 +659,10 @@ function lineConfirmPatch(
     : {};
   const assign = assignFromRow(ex);
   const username = normalizeWorkerId(extra.lineManagerUser || assign.username);
+  const nextSigs = xorOwnStamp({ ...existingSigs, ...incomingSigs }, "line", lineSig);
   const merged: Record<string, unknown> = {
     ...existing,
-    __sigs: { ...existingSigs, ...incomingSigs, line: lineSig },
+    __sigs: nextSigs,
     __assign: { username, name: assign.name },
   };
   return {
