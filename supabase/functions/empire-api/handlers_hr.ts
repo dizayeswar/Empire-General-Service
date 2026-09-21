@@ -84,8 +84,34 @@ function isLineOnly(auth: AuthOk): boolean {
   return isHrLine(auth) && !isHrStaff(auth) && !isHrDirector(auth);
 }
 
+function isHrEmpOnly(auth: AuthOk): boolean {
+  return isHrEmpWrite(auth) && !isHrStaff(auth) && !isHrDirector(auth) && !isHrLine(auth);
+}
+
+function employeeOwnsPaper(row: Record<string, unknown>, me: string): boolean {
+  const user = normalizeWorkerId(me);
+  if (!user) return false;
+  const created = normalizeWorkerId(row.createdBy || row.created_by);
+  if (created && created === user) return true;
+  const name = String(row.empName || row.emp_name || "").trim();
+  if (!name) return false;
+  const parts = name.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  const first = parts[0] || "";
+  const last = parts[parts.length - 1] || "";
+  const compact = compactKey(name);
+  const ck = compactKey(user);
+  if (ck && ck === compact) return true;
+  if (user === rosterSlug(name)) return true;
+  if (first && last && (user === first + last || user === first + "." + last || ck === compactKey(first + last))) return true;
+  if (first && last && first !== last && ck.indexOf(compactKey(first)) !== -1 && ck.indexOf(compactKey(last)) !== -1) {
+    return true;
+  }
+  return false;
+}
+
 function canWrite(auth: AuthOk): boolean {
   if (isDirectorOnly(auth)) return false;
+  if (isHrEmpOnly(auth)) return false;
   if (isLineOnly(auth) && !isHrEmpWrite(auth)) return false;
   if (normalizeRole(auth.role) === "viewer" && !isHrEmpWrite(auth)) return false;
   return isHrStaff(auth) || isHrEmpWrite(auth) || normalizeRole(auth.role) === "editor";
@@ -445,6 +471,9 @@ export async function handleGetHrLeaveRequests(auth?: AuthOk) {
       }
       return false;
     });
+  } else if (auth && isHrEmpOnly(auth)) {
+    const me = normalizeWorkerId(auth.username);
+    out = out.filter((r) => employeeOwnsPaper(r, me));
   }
   out.sort((a, b) => (b.num || 0) - (a.num || 0));
   return { ok: true, success: true, rows: out };
@@ -726,14 +755,18 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
   const me = normalizeWorkerId(auth.username);
   const slot = requestedSignBox(body);
 
+  if (isHrEmpOnly(auth) && slot && slot !== "emp") {
+    return { ok: false, success: false, error: "wrong_box", message: "This account can only stamp the Employee box." };
+  }
+
   if (slot === "emp") {
     if (!isHrEmpWrite(auth) && !staff) {
       return { ok: false, success: false, error: "not_allowed", message: "Not allowed." };
     }
     const inbox = !isLockedStatus(status);
     if (inbox) {
-      if (!staff && normalizeWorkerId(ex.created_by) !== me) {
-        return { ok: false, success: false, error: "not_allowed", message: "You can only sign your own leave request as employee." };
+      if (!staff && !employeeOwnsPaper(ex, me)) {
+        return { ok: false, success: false, error: "not_allowed", message: "You can only stamp the Employee box on your own leave paper." };
       }
     } else if (status === "pending_line") {
       if (!isHrEmpWrite(auth)) {
@@ -742,7 +775,7 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
       if (!staff) {
         const users = await loadUsernames();
         const resolved = resolveAssignedAccount(ex, users);
-        const mine = resolved.username === me || normalizeWorkerId(ex.created_by) === me;
+        const mine = resolved.username === me || employeeOwnsPaper(ex, me);
         if (!mine) {
           return { ok: false, success: false, error: "not_allowed", message: "You can only put the Employee e-signature on your paper, or on a paper waiting for you." };
         }

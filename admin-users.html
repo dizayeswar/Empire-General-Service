@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="manifest" href="manifest.webmanifest?v=2026-09-21-emp-line">
+  <link rel="manifest" href="manifest.webmanifest?v=2026-09-21-emp-stamp-only">
   <meta name="theme-color" content="#8d015d">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -122,7 +122,7 @@
       </div>
       <div id="sigField" style="margin-top:14px;">
         <div style="font-size:13px;font-weight:700;margin-bottom:6px;">Account e-signature</div>
-        <p class="admin-form-hint" style="margin-top:0;">Each account keeps its own stamp. Pick one from <strong>Saved e-signatures</strong> below if you already cropped it, or upload here. If they have both <strong>Employee</strong> and <strong>Line manager sign</strong>, they click the box they are signing — Employee or Line Manager.</p>
+        <p class="admin-form-hint" style="margin-top:0;">Each account keeps its own stamp. Pick one from <strong>Saved e-signatures</strong> below if you already cropped it, or upload here. <strong>Employee</strong> stamps the Employee box only — they cannot fill a leave request. If they have both <strong>Employee</strong> and <strong>Line manager sign</strong>, they click the box they are signing.</p>
         <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--text-soft);font-weight:600;max-width:280px;margin:8px 0 10px;">Saved e-signature
           <select id="f-sig-lib" onchange="onSigLibPick()">
             <option value="">— none / upload below —</option>
@@ -202,11 +202,11 @@
     <div id="usersTableHost"></div>
   </div>
 
-  <script src="config.js?v=2026-09-21-emp-line"></script>
-  <script src="assets/empire-api.js?v=2026-09-21-emp-line"></script>
-  <script src="assets/empire-auth.js?v=2026-09-21-emp-line"></script>
-  <script src="assets/empire-core.js?v=2026-09-21-emp-line"></script>
-  <script src="assets/empire-sw-update.js?v=2026-09-21-emp-line"></script>
+  <script src="config.js?v=2026-09-21-emp-stamp-only"></script>
+  <script src="assets/empire-api.js?v=2026-09-21-emp-stamp-only"></script>
+  <script src="assets/empire-auth.js?v=2026-09-21-emp-stamp-only"></script>
+  <script src="assets/empire-core.js?v=2026-09-21-emp-stamp-only"></script>
+  <script src="assets/empire-sw-update.js?v=2026-09-21-emp-stamp-only"></script>
   <script>
     var allUsers = [];
     var editingUsername = null;
@@ -412,6 +412,8 @@
       var hint = document.getElementById('formHint');
       if (hint && hasAccess(a, 'hr_emp') && hasAccess(a, 'hr_line')) {
         hint.textContent = 'This account has Employee and Line manager. They click the Employee box or the Line Manager box to put their e-signature in that box.';
+      } else if (hint && hasAccess(a, 'hr_emp') && !hasAccess(a, 'hr') && !hasAccess(a, 'hr_line') && !hasAccess(a, 'hr_director')) {
+        hint.textContent = 'Employee: they only stamp the Employee box on papers with their name. They cannot fill or save a leave request.';
       }
     }
 
@@ -462,7 +464,7 @@
         if (lineRole) lineRole.value = 'line';
       } else if (kind === 'hr_emp') {
         a.hr_emp = 'write';
-        document.getElementById('formHint').textContent = 'Upload this employee’s e-signature. They click the Employee box to sign. If they also have Line manager sign, they click that box when they are the line manager.';
+        document.getElementById('formHint').textContent = 'Upload this employee’s e-signature. They only stamp the Employee box on their papers. They cannot fill a leave request.';
         var empRole = document.getElementById('f-sig-role');
         if (empRole) empRole.value = 'emp';
       }
@@ -809,7 +811,7 @@
       (skippedIds || []).forEach(function (id) {
         if (id) have[id] = 1;
       });
-      return fetch('assets/account-sigs/index.json?v=2026-09-21-emp-line')
+      return fetch('assets/account-sigs/index.json?v=2026-09-21-emp-stamp-only')
         .then(function (r) {
           if (!r.ok) throw new Error('Could not load prepared stamps');
           return r.json();
@@ -836,7 +838,7 @@
           }
           missing.forEach(function (it) {
             chain = chain.then(function () {
-              return fetch('assets/account-sigs/' + encodeURIComponent(it.file) + '?v=2026-09-21-emp-line')
+              return fetch('assets/account-sigs/' + encodeURIComponent(it.file) + '?v=2026-09-21-emp-stamp-only')
                 .then(function (r) {
                   if (!r.ok) throw new Error('Missing stamp ' + it.file);
                   return r.blob();

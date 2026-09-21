@@ -107,8 +107,13 @@ function hrSelectableStage_() {
   return 'inbox';
 }
 
+function hrUsesPaperList_() {
+  return hrIsDirectorOnly_() || hrIsLineOnly_() || hrIsEmployeeOnly_();
+}
+
 function hrCanSelectRow_(r) {
   var stage = hrStageOf_(r);
+  if (hrIsEmployeeOnly_()) return hrCanEmpStampRow_(r);
   if (hrIsDirectorOnly_()) return stage === 'pending_director';
   if (hrLineCanSign_(r)) return true;
   if (hrDualEmpLine_() && hrCanWrite_() && stage === 'inbox') return true;
@@ -121,7 +126,7 @@ function hrSelectAllVisible_(ev) {
   var on = !!(ev && ev.target && ev.target.checked);
   _hrSelected = {};
   if (on) {
-    (hrIsDirectorOnly_() || hrIsLineOnly_() ? hrPaperList_() : hrFiltered_()).forEach(function (r) {
+    (hrUsesPaperList_() ? hrPaperList_() : hrFiltered_()).forEach(function (r) {
       if (hrCanSelectRow_(r)) _hrSelected[String(r.id)] = true;
     });
   }
@@ -809,11 +814,37 @@ function hrSelectedLineIds_() {
   });
 }
 
+function hrCompactKey_(raw) {
+  return String(raw || '').trim().toLowerCase().replace(/[._\-\s]+/g, '');
+}
+
+function hrPaperIsMineEmp_(row) {
+  if (!row) return false;
+  var me = hrMe_();
+  if (!me) return false;
+  if (String(row.createdBy || '').trim().toLowerCase() === me) return true;
+  var name = String(row.empName || '').trim();
+  if (!name) return false;
+  var parts = name.toLowerCase().split(/\s+/).filter(Boolean);
+  var first = parts[0] || '';
+  var last = parts[parts.length - 1] || '';
+  var compact = hrCompactKey_(name);
+  var ck = hrCompactKey_(me);
+  if (ck && ck === compact) return true;
+  if (first && last && (me === first + last || me === first + '.' + last || ck === hrCompactKey_(first + last))) return true;
+  if (first && last && first !== last && ck.indexOf(hrCompactKey_(first)) !== -1 && ck.indexOf(hrCompactKey_(last)) !== -1) return true;
+  return false;
+}
+
 function hrCanEmpStampRow_(row) {
   if (!row) return false;
-  if (!hrIsEmployeeWrite_() && !(hrIsHrStaff_() && !hrIsSignerOnly_())) return false;
   var stage = hrStageOf_(row);
-  if (stage === 'inbox') return hrCanWrite_();
+  if (hrIsHrStaff_() && !hrIsSignerOnly_() && stage === 'inbox') return true;
+  if (!hrIsEmployeeWrite_()) return false;
+  if (stage === 'inbox') {
+    if (hrIsEmployeeOnly_()) return hrPaperIsMineEmp_(row);
+    return hrCanWrite_();
+  }
   if (stage === 'pending_line' && hrDualEmpLine_()) return hrLineCanSign_(row) || hrCanWrite_();
   return false;
 }
@@ -868,7 +899,9 @@ function hrRunSelectedEmp_(ids) {
   var n = ids.length;
   hrRunBulkIds_(ids, hrEmpConfirmRequest_, {
     working: 'Signing Employee box on ' + n + '…',
-    done: 'Employee e-signature placed on ' + n + '. Sent to the director.',
+    done: hrIsEmployeeOnly_()
+      ? 'Employee e-signature placed on ' + n + '.'
+      : 'Employee e-signature placed on ' + n + '. Sent to the director.',
     tab: 'list'
   });
 }
@@ -922,6 +955,14 @@ function hrRunSelectedConfirm_() {
   }
   if (lineIds.length && hrIsLine_()) {
     hrRunSelectedLine_(lineIds);
+    return;
+  }
+  if (hrIsEmployeeOnly_()) {
+    if (!empIds.length) {
+      hrMsg_('Select your papers first.', false);
+      return;
+    }
+    hrRunSelectedEmp_(empIds);
     return;
   }
   if (hrIsHrStaff_() && !hrIsSignerOnly_()) {
@@ -1285,9 +1326,9 @@ function hrIsHrStaff_() {
 }
 function hrCanSeeTab_(tab) {
   tab = String(tab || '');
-  if (tab === 'form') return hrIsHrStaff_() || hrIsEmployeeWrite_();
+  if (tab === 'form') return hrIsHrStaff_() || (hrIsEmployeeWrite_() && !hrIsEmployeeOnly_());
   if (tab === 'scan') return hrIsHrStaff_();
-  if (tab === 'list') return hrIsHrStaff_() || hrIsDirector_() || hrIsLine_();
+  if (tab === 'list') return hrIsHrStaff_() || hrIsDirector_() || hrIsLine_() || hrIsEmployeeOnly_();
   if (tab === 'confirmed') return hrIsHrStaff_() || hrIsDirector_();
   if (tab === 'done' || tab === 'archive') return hrIsHrStaff_();
   return false;
@@ -1295,7 +1336,7 @@ function hrCanSeeTab_(tab) {
 
 function hrHomeTab_() {
   if (hrIsHrStaff_()) return 'form';
-  if (hrIsLine_()) return 'list';
+  if (hrIsLine_() || hrIsEmployeeOnly_()) return 'list';
   if (hrIsEmployeeWrite_()) return 'form';
   if (hrIsDirector_()) return 'list';
   return 'form';
@@ -1316,6 +1357,8 @@ function hrApplyNavAccess_() {
   document.querySelectorAll('[data-hr-form-only]').forEach(function (el) {
     if (el.id === 'hrScanCardOnForm' || (el.getAttribute && el.getAttribute('onclick') && String(el.getAttribute('onclick')).indexOf("'scan'") !== -1)) {
       el.style.display = hrIsHrStaff_() ? '' : 'none';
+    } else {
+      el.style.display = (hrCanSeeTab_('form') && hrCanWrite_()) ? '' : 'none';
     }
   });
   var scanOnForm = document.getElementById('hrScanCardOnForm');
@@ -1328,6 +1371,8 @@ function hrListHelp_() {
   if (!el) return;
   if (hrDualEmpLine_()) {
     el.innerHTML = 'Select papers and <strong>Confirm selected</strong>. Choose <strong>Employee box</strong> or <strong>Line Manager box</strong> — only that box gets your stamp. Confirm still sends the paper to the director. You cannot sign both boxes on one paper.';
+  } else if (hrIsEmployeeOnly_()) {
+    el.innerHTML = 'Your leave papers only. Open one and stamp the <strong>Employee box</strong>, or use <strong>Confirm selected</strong>. You cannot fill a new leave request.';
   } else if (hrIsLineOnly_()) {
     el.innerHTML = 'Papers HR assigned to you. <strong>Confirm selected</strong> puts your e-signature in the Line Manager box, then each paper goes to the director.';
   } else if (hrIsDirectorOnly_()) {
@@ -1353,6 +1398,9 @@ function hrIsEmployeeWrite_() {
 }
 function hrDualEmpLine_() {
   return hrIsEmployeeWrite_() && hrIsLine_();
+}
+function hrIsEmployeeOnly_() {
+  return hrIsEmployeeWrite_() && !hrIsHrStaff_() && !hrIsDirector_() && !hrIsLine_();
 }
 function hrIsLineOnly_() {
   return hrIsLine_() && !hrIsHrStaff_() && !hrIsDirector_();
@@ -1520,13 +1568,29 @@ function hrCanStampSlot_(slot) {
   if (slot === 'director') return hrDirectorCanSign_() || (hrIsHrStaff_() && !hrPaperLocked_());
   if (slot === 'hr') return hrIsHrStaff_() && !hrIsSignerOnly_() && !hrPaperLocked_();
   if (slot === 'line') return hrLineCanSign_() || (hrIsHrStaff_() && !hrIsSignerOnly_() && !hrPaperLocked_());
-  if (slot === 'emp') return (hrIsEmployeeWrite_() || (hrIsHrStaff_() && !hrIsSignerOnly_())) && !hrPaperLocked_();
+  if (slot === 'emp') {
+    if (!(hrIsEmployeeWrite_() || (hrIsHrStaff_() && !hrIsSignerOnly_())) || hrPaperLocked_()) return false;
+    if (hrIsEmployeeOnly_()) {
+      var openId = hrVal_('hr-id');
+      var openRow = openId && (_hrRows || []).find(function (r) { return String(r.id) === String(openId); });
+      return !!(openRow && hrPaperIsMineEmp_(openRow));
+    }
+    return true;
+  }
   return false;
 }
 
 function hrOwnStampForClickedBox_(slot) {
   if (!hrAccountSig_()) return false;
-  if (slot === 'emp') return hrIsEmployeeWrite_() && !hrPaperLocked_();
+  if (slot === 'emp') {
+    if (!hrIsEmployeeWrite_() || hrPaperLocked_()) return false;
+    if (hrIsEmployeeOnly_()) {
+      var openId = hrVal_('hr-id');
+      var openRow = openId && (_hrRows || []).find(function (r) { return String(r.id) === String(openId); });
+      return !!(openRow && hrPaperIsMineEmp_(openRow));
+    }
+    return true;
+  }
   if (slot === 'line') return hrLineCanSign_();
   if (slot === 'director') return hrDirectorCanSign_();
   if (slot === 'hr') return hrIsHrStaff_() && !hrIsSignerOnly_() && !hrPaperLocked_();
@@ -1600,7 +1664,9 @@ function hrApplyAccountSlotSig_(row) {
     hrApplyAccountHrSig_(row);
     return;
   }
+  if (slot !== 'emp') return;
   if (hrPaperLocked_(row)) return;
+  if (hrIsEmployeeOnly_() && (!row || !row.id || !hrPaperIsMineEmp_(row))) return;
   if (_hrSigs[slot]) return;
   hrStampSlot_(slot, saved, typeof empireGetUser === 'function' ? empireGetUser() : '');
 }
@@ -1797,6 +1863,7 @@ function hrDirectorSigForConfirm_(row) {
 }
 function hrCanWrite_() {
   if (hrIsDirectorOnly_()) return false;
+  if (hrIsEmployeeOnly_()) return false;
   if (hrIsEmployeeWrite_()) return true;
   if (hrIsSignerOnly_()) return false;
   var p = typeof empireGetPerms === 'function' ? empireGetPerms() : {};
@@ -1906,6 +1973,10 @@ function hrRenderAllSigs_() {
 
 function hrOpenSig_(slot) {
   if (!hrCanStampSlot_(slot)) {
+    if (hrIsEmployeeOnly_() && slot !== 'emp') {
+      hrMsg_('This account can only stamp the Employee box.', false);
+      return;
+    }
     if (slot === 'line' && hrIsLine_() && !hrLineCanSign_()) {
       hrMsg_('This paper is not waiting for you as line manager. Use the Employee box if you are signing as the employee.', false);
     }
@@ -2233,6 +2304,7 @@ function hrFillForm_(row) {
 }
 
 function hrClearForm_() {
+  if (!hrCanWrite_()) return;
   _hrSigs = hrEmptySigs_();
   _hrScan = hrEmptyScan_();
   hrFillForm_({
@@ -2372,7 +2444,7 @@ function hrOpenLeaveNav_() {
 function hrClickLeaveNav_(ev) {
   hrOpenLeaveNav_();
   hrCloseSettings_();
-  if (hrCanSeeTab_('form') && (hrIsHrStaff_() || hrIsEmployeeWrite_()) && !hrIsLine_()) {
+  if (hrCanSeeTab_('form') && (hrIsHrStaff_() || (hrIsEmployeeWrite_() && !hrIsEmployeeOnly_())) && !hrIsLine_()) {
     hrSwitchTab_(ev, 'form');
     return;
   }
@@ -2487,7 +2559,9 @@ function hrPaperList_() {
   return (_hrRows || []).filter(function (r) {
     var stage = hrStageOf_(r);
     if (hrIsDirectorOnly_() && stage !== 'pending_director') return false;
-    if (hrIsLineOnly_()) {
+    if (hrIsEmployeeOnly_()) {
+      /* API already scoped to this employee */
+    } else if (hrIsLineOnly_()) {
       var mine = hrLineCanSign_(r);
       var ownInbox = hrDualEmpLine_() && stage === 'inbox';
       if (!mine && !ownInbox) return false;
@@ -2537,7 +2611,8 @@ function hrApplyPaperLock_() {
   var locked = hrPaperLocked_();
   var directorSign = hrDirectorCanSign_();
   var lineSign = hrLineCanSign_();
-  var freeze = locked && !directorSign && !lineSign;
+  var empOnly = hrIsEmployeeOnly_();
+  var freeze = (locked || empOnly) && !directorSign && !lineSign;
   if (root) {
     root.classList.toggle('hr-paper-locked', freeze);
     root.classList.toggle('hr-paper-director-sign', directorSign);
@@ -2554,7 +2629,7 @@ function hrApplyPaperLock_() {
     });
   }
   var statusEl = document.getElementById('hr-status');
-  if (statusEl) statusEl.disabled = locked || directorSign || lineSign || hrIsSignerOnly_();
+  if (statusEl) statusEl.disabled = locked || directorSign || lineSign || hrIsSignerOnly_() || empOnly;
   var saveBtn = document.getElementById('hrSaveBtn');
   var saveBtn2 = document.getElementById('hrSaveBtn2');
   var delBtn = document.getElementById('hrDeleteBtn');
@@ -2569,7 +2644,8 @@ function hrApplyPaperLock_() {
   var showConfirm = (!!hrVal_('hr-id')) && (
     (hrIsHrStaff_() && !hrIsSignerOnly_() && hrStageOf_({ status: st }) === 'inbox') ||
     (hrIsDirector_() && st === 'pending_director') ||
-    hrLineCanSign_(openRow)
+    hrLineCanSign_(openRow) ||
+    (empOnly && hrCanEmpStampRow_(openRow))
   );
   var showReject = (!!hrVal_('hr-id')) && hrIsDirector_() && st === 'pending_director';
   if (saveBtn) saveBtn.style.display = showSave ? '' : 'none';
@@ -2612,6 +2688,10 @@ function hrConfirmRow_(id) {
       if (slot === 'emp') hrRunSelectedEmp_([id]);
       else hrRunSelectedLine_([id]);
     });
+    return;
+  }
+  if (hrIsEmployeeOnly_() && hrCanEmpStampRow_(row)) {
+    hrRunSelectedEmp_([id]);
     return;
   }
   if (hrLineCanSign_(row)) {
@@ -2699,6 +2779,7 @@ function hrRejectRow_(id) {
 }
 
 function hrNewPaper_(typeId) {
+  if (!hrCanWrite_() || !hrCanSeeTab_('form')) return;
   hrSetListEditing_(false);
   hrClearForm_();
   hrRenderLeaveTypes_(typeId || 'Lateness');
@@ -2915,10 +2996,10 @@ function hrRenderKpis_(list) {
     (hrIsDirectorOnly_()
       ? ''
       : '<div class="hr-kpi"><b>' + pendingLine + '</b><span>Pending line manager</span></div>') +
-    (hrIsLineOnly_()
+    (hrIsLineOnly_() || hrIsEmployeeOnly_()
       ? ''
       : '<div class="hr-kpi"><b>' + pendingDir + '</b><span>Pending Director</span></div>') +
-    (hrIsLineOnly_()
+    (hrIsLineOnly_() || hrIsEmployeeOnly_()
       ? ''
       : '<div class="hr-kpi" role="button" tabindex="0" onclick="hrSwitchTab_(null,\'confirmed\')" style="cursor:pointer;"><b>' + completed + '</b><span>Director confirmed</span></div>');
 }
@@ -2940,7 +3021,7 @@ function hrRenderTable_() {
     }).join('');
     deptEl.value = keep;
   }
-  var rows = (hrIsDirectorOnly_() || hrIsLineOnly_()) ? hrPaperList_() : hrFiltered_();
+  var rows = hrUsesPaperList_() ? hrPaperList_() : hrFiltered_();
   hrListHelp_();
   hrRenderKpis_(hrFiltered_());
   if (summary) {
@@ -2975,11 +3056,13 @@ function hrRenderTable_() {
   if (!rows.length) {
     h += '<p class="hr-stage-empty">' + (hrIsDirectorOnly_()
       ? 'When the line manager signs, the paper appears here for you to sign.'
-      : (hrIsLineOnly_()
+      : (hrIsEmployeeOnly_()
+        ? 'When HR saves a leave paper with your name, it appears here. Stamp the Employee box only — you cannot fill a new leave request.'
+        : (hrIsLineOnly_()
         ? (hrDualEmpLine_()
           ? 'Your leave requests and papers waiting for you as line manager appear here. Confirm selected asks Employee box or Line Manager box.'
           : 'When HR assigns a paper to you, it appears here to sign. After you confirm, it goes to the director.')
-        : 'No saved requests yet.')) + '</p></section>';
+        : 'No saved requests yet.'))) + '</p></section>';
     host.innerHTML = h;
     return;
   }
@@ -2994,10 +3077,11 @@ function hrRenderTable_() {
     var canHrConfirm = hrIsHrStaff_() && !hrIsSignerOnly_() && stage === 'inbox';
     var canDirConfirm = hrIsDirector_() && stage === 'pending_director';
     var canLineConfirm = hrLineCanSign_(r);
+    var canEmpConfirm = hrCanEmpStampRow_(r) && (hrIsEmployeeOnly_() || hrDualEmpLine_());
     var canSel = showSel && hrCanSelectRow_(r);
     var picked = !!_hrSelected[String(r.id)];
     var waitingName = hrAssignedName_(r);
-    var statusCell = (canHrConfirm || canDirConfirm || canLineConfirm) && !showSel
+    var statusCell = (canHrConfirm || canDirConfirm || canLineConfirm || canEmpConfirm) && !showSel
       ? '<button type="button" class="hr-btn-confirm-board" onclick="event.stopPropagation();hrConfirmRow_(\'' + id + '\')">Confirm</button>'
       : '<span class="hr-badge hr-badge-' + hrEsc_(st) + '">' +
         (stage === 'pending_line' && waitingName
@@ -4208,7 +4292,7 @@ function hrEnterApp_() {
     });
   }
   _hrCanWrite = hrCanWrite_();
-  if (!hrVal_('hr-id')) {
+  if (!hrVal_('hr-id') && hrCanSeeTab_('form') && hrCanWrite_()) {
     hrClearForm_();
   }
   hrApplyPaperLock_();
