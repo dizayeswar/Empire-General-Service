@@ -1301,9 +1301,11 @@ html[data-theme="dark"] .wh-inv-no .wh-cell-input {
   max-width: none;
   min-width: 0;
   width: 100%;
-  border-radius: 10px;
-  padding: 10px 14px;
+  border-radius: 999px;
+  padding: 10px 16px;
   font-size: 14px;
+  -webkit-appearance: none;
+  appearance: none;
 }
 .wh-inv-search:focus {
   outline: none;

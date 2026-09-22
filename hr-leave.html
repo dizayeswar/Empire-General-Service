@@ -12,7 +12,7 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Leave Request — HR Department — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-09-19-user-autofill">
+<link rel="stylesheet" href="assets/empire.css?v=2026-09-22-search-pill">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-21-mysigned">
 <link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-21-mysigned">
 </head>
@@ -549,7 +549,7 @@
   <div class="hr-sig-pick-card" role="dialog" aria-labelledby="hrAssignTitle">
     <h3 id="hrAssignTitle">Assign line manager</h3>
     <p class="hr-sig-pick-help">Who should sign this paper? After they confirm, it goes to the director.</p>
-    <input id="hrAssignSearch" type="search" placeholder="Search name…" autocomplete="off" oninput="hrRenderAssignList_(this.value)" style="width:100%;margin:0 0 10px;padding:8px 10px;border:1px solid var(--card-border);border-radius:8px;">
+    <input id="hrAssignSearch" type="search" placeholder="Search name…" autocomplete="off" oninput="hrRenderAssignList_(this.value)" style="width:100%;margin:0 0 10px;padding:8px 16px;border:2px solid var(--input-border);border-radius:999px;background:var(--input-bg);color:var(--text);-webkit-appearance:none;appearance:none;">
     <div id="hrAssignList" class="hr-sig-pick-list" style="max-height:min(52vh,420px);overflow:auto;"></div>
     <div class="hr-sig-pick-acts">
       <button type="button" onclick="hrAssignCancel_()">Cancel</button>
