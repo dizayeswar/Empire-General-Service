@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="manifest" href="manifest.webmanifest?v=2026-09-22-print-title">
+<link rel="manifest" href="manifest.webmanifest?v=2026-09-22-print-pick">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,8 +13,8 @@
 <title>Leave Request — HR Department — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-09-22-search-pill">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-22-print-title">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-22-print-title">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-22-print-pick">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-22-print-pick">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -181,7 +181,7 @@
       <div id="confirmed" class="tab-content">
         <div class="form-section">
           <h2>Director confirmed</h2>
-          <p class="hr-tab-help">Papers the director has signed. Use <strong>Select</strong> to save several as one PDF (Print → Save as PDF). HR also sees them in Completed request.</p>
+          <p class="hr-tab-help">Papers the director has signed. Use <strong>Select</strong> then <strong>Print / PDF</strong> — choose Print or Save as PDF. HR also sees them in Completed request.</p>
           <p class="hr-summary" id="hrConfirmedSummary"></p>
           <div id="hrConfirmedHost"><p>Loading…</p></div>
         </div>
@@ -204,7 +204,7 @@
       <div id="archive" class="tab-content">
         <div class="form-section">
           <h2 id="hrArchiveTitle">Annual leave</h2>
-          <p class="hr-tab-help" id="hrArchiveHelp">Papers moved here from Completed request. Use <strong>Select</strong> to print several, move them to another type, or return them to Completed request.</p>
+          <p class="hr-tab-help" id="hrArchiveHelp">Papers moved here from Completed request. Use <strong>Select</strong> then <strong>Print / PDF</strong> — choose Print or Save as PDF, move them to another type, or return them to Completed request.</p>
           <div class="form-row filter-toolbar">
             <div class="form-group filter-grow">
               <label>Search</label>
@@ -242,7 +242,7 @@
             </span>
             <button type="button" id="hrScanDirBtn" onclick="hrOpenScanDirectorSig_()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">My e-signature</button>
             <button type="button" id="hrScanConfirmBtn" onclick="hrConfirmRow_()" class="hr-btn-confirm" style="display:none;">Confirm</button>
-            <button type="button" onclick="hrPrintScan_()">Print signed scan</button>
+            <button type="button" onclick="hrPrintScan_()">Print / PDF</button>
           </div>
           <p class="hr-scan-hint" id="hrScanHint">No paper yet. Scan or upload the leave form, then put your account e-signature on the Director box.</p>
           <div class="hr-scan-stage-wrap" id="hrScanStageWrap" style="display:none;">
@@ -284,7 +284,7 @@
             <button type="button" id="hrConfirmBtn" onclick="hrConfirmRow_()" class="hr-btn-confirm" style="display:none;">Confirm</button>
             <button type="button" id="hrRejectBtn" onclick="hrRejectRow_()" class="hr-btn-reject" style="display:none;">Rejected</button>
             <button type="button" data-hr-form-only="1" onclick="hrSwitchTab_(null,'scan')">Scan paper</button>
-            <button type="button" id="hrPrintBtn" onclick="hrPrint_()">Print / Save as PDF</button>
+            <button type="button" id="hrPrintBtn" onclick="hrPrint_()">Print / PDF</button>
             <button type="button" id="hrDeleteBtn" onclick="hrDelete_()" style="display:none;color:#fff;background:#C5504F;border-color:#C5504F;">Delete</button>
           </div>
           <p class="hr-form-msg no-print" id="hrFormMsg"></p>
@@ -491,7 +491,7 @@
             <button type="button" id="hrSignLineBtn2" onclick="hrOpenSig_('line')" style="display:none;">Line Manager e-signature</button>
             <button type="button" id="hrConfirmBtn2" onclick="hrConfirmRow_()" class="hr-btn-confirm" style="display:none;">Confirm</button>
             <button type="button" id="hrRejectBtn2" onclick="hrRejectRow_()" class="hr-btn-reject" style="display:none;">Rejected</button>
-            <button type="button" onclick="hrPrint_()">Print / Save as PDF</button>
+            <button type="button" onclick="hrPrint_()">Print / PDF</button>
             <button type="button" data-hr-form-only="1" onclick="hrClearForm_()">Clear form</button>
           </div>
           <p class="no-print" id="hrDualSignHelp" style="display:none;color:var(--text-soft);font-size:12px;margin:8px 0 0;">This account is Employee and Line Manager. Choose one box only — Employee or Line Manager. Your e-signature goes in that box. You cannot sign both boxes on the same paper.</p>
@@ -572,12 +572,26 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-09-22-print-title"></script>
-<script src="assets/empire-api.js?v=2026-09-22-print-title"></script>
-<script src="assets/empire-auth.js?v=2026-09-22-print-title"></script>
-<script src="assets/empire-core.js?v=2026-09-22-print-title"></script>
-<script src="assets/empire-storage.js?v=2026-09-22-print-title"></script>
-<script src="assets/empire-sw-update.js?v=2026-09-22-print-title"></script>
-<script src="assets/empire-hr-leave.js?v=2026-09-22-print-title"></script>
+<div id="hrPrintPick" class="hr-sig-pick no-print" hidden onclick="if(event.target===this)hrPrintPickClose_()">
+  <div class="hr-sig-pick-card" role="dialog" aria-labelledby="hrPrintPickTitle">
+    <h3 id="hrPrintPickTitle">Print or PDF?</h3>
+    <p class="hr-sig-pick-help">Choose one. Print sends the papers to the printer. PDF saves a file on this computer.</p>
+    <div class="hr-box-pick-choice">
+      <button type="button" onclick="hrPrintPickChoose_('print')"><strong>Print</strong><span>Open the print window and send to the printer.</span></button>
+      <button type="button" class="hr-btn-confirm" onclick="hrPrintPickChoose_('pdf')"><strong>Save as PDF</strong><span>Download the papers as a PDF file.</span></button>
+    </div>
+    <div class="hr-sig-pick-acts">
+      <button type="button" onclick="hrPrintPickClose_()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="config.js?v=2026-09-22-print-pick"></script>
+<script src="assets/empire-api.js?v=2026-09-22-print-pick"></script>
+<script src="assets/empire-auth.js?v=2026-09-22-print-pick"></script>
+<script src="assets/empire-core.js?v=2026-09-22-print-pick"></script>
+<script src="assets/empire-storage.js?v=2026-09-22-print-pick"></script>
+<script src="assets/empire-sw-update.js?v=2026-09-22-print-pick"></script>
+<script src="assets/empire-hr-leave.js?v=2026-09-22-print-pick"></script>
 </body>
 </html>

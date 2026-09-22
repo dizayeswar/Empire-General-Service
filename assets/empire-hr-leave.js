@@ -380,15 +380,18 @@ function hrPrintRowsByIds_(ids, emptyMsg) {
     alert(emptyMsg || 'Select at least one paper first.');
     return;
   }
-  hrSnapshotPaperTemplate_();
-  var wrap = document.createElement('div');
-  rows.forEach(function (row, i) {
-    hrRepairRowScan_(row);
-    var scan = hrRowScan_(row);
-    wrap.appendChild(scan && scan.url ? hrBatchScanPage_(row) : hrBatchFormPage_(row, i));
+  hrPickPrintMode_().then(function (mode) {
+    if (!mode) return;
+    hrSnapshotPaperTemplate_();
+    var wrap = document.createElement('div');
+    rows.forEach(function (row, i) {
+      hrRepairRowScan_(row);
+      var scan = hrRowScan_(row);
+      wrap.appendChild(scan && scan.url ? hrBatchScanPage_(row) : hrBatchFormPage_(row, i));
+    });
+    hrMsg_('Preparing ' + rows.length + ' paper' + (rows.length === 1 ? '' : 's') + '…', true);
+    hrRunPrintFrame_(wrap.innerHTML, rows.length === 1 ? 'Leave Request' : 'Leave Requests', mode);
   });
-  hrMsg_('Preparing ' + rows.length + ' paper' + (rows.length === 1 ? '' : 's') + '… In the print window choose Save as PDF.', true);
-  hrOpenPrintFrame_(wrap.innerHTML, rows.length === 1 ? 'Leave Request' : 'Leave Requests');
 }
 
 function hrPrintCompletedByIds_(ids, emptyMsg) {
@@ -562,27 +565,30 @@ function hrVac2VisibleRows_() {
 function hrPrintPdfPages_(nums) {
   nums = (nums || []).filter(function (n) { return n >= 1 && n <= HR_SAVED_PAGE_COUNT; });
   if (!nums.length) return;
-  var wrap = document.createElement('div');
-  nums.forEach(function (n) {
-    var row = hrFindVac2Row_(n);
-    var scan = row && row.entitlements && row.entitlements.__scan;
-    if (scan && scan.url) {
-      wrap.appendChild(hrBatchScanPage_(row));
-      wrap.lastElementChild.className = 'hr-print-page';
-    } else {
-      var page = document.createElement('div');
-      page.className = 'hr-print-page';
-      var img = document.createElement('img');
-      img.src = hrPdfPageUrl_(n);
-      img.alt = 'Leave Request';
-      img.style.cssText = 'display:block;width:210mm;height:297mm;object-fit:fill;';
-      page.appendChild(img);
-      wrap.appendChild(page);
-    }
-  });
-  hrMsg_('Preparing ' + nums.length + ' paper' + (nums.length === 1 ? '' : 's') + '… In the print window choose Save as PDF.', true);
-  hrWaitImages_(wrap, function () {
-    hrOpenPrintFrame_(wrap.innerHTML, nums.length === 1 ? 'Leave Request' : 'Leave Requests');
+  hrPickPrintMode_().then(function (mode) {
+    if (!mode) return;
+    var wrap = document.createElement('div');
+    nums.forEach(function (n) {
+      var row = hrFindVac2Row_(n);
+      var scan = row && row.entitlements && row.entitlements.__scan;
+      if (scan && scan.url) {
+        wrap.appendChild(hrBatchScanPage_(row));
+        wrap.lastElementChild.className = 'hr-print-page';
+      } else {
+        var page = document.createElement('div');
+        page.className = 'hr-print-page';
+        var img = document.createElement('img');
+        img.src = hrPdfPageUrl_(n);
+        img.alt = 'Leave Request';
+        img.style.cssText = 'display:block;width:210mm;height:297mm;object-fit:fill;';
+        page.appendChild(img);
+        wrap.appendChild(page);
+      }
+    });
+    hrMsg_('Preparing ' + nums.length + ' paper' + (nums.length === 1 ? '' : 's') + '…', true);
+    hrWaitImages_(wrap, function () {
+      hrRunPrintFrame_(wrap.innerHTML, nums.length === 1 ? 'Leave Request' : 'Leave Requests', mode);
+    });
   });
 }
 
@@ -1010,6 +1016,39 @@ function hrPickSignBox_() {
       return;
     }
     _hrBoxPick = resolve;
+    wrap.hidden = false;
+  });
+}
+
+var _hrPrintPick = null;
+
+function hrPrintPickClose_() {
+  var wrap = document.getElementById('hrPrintPick');
+  if (wrap) wrap.hidden = true;
+  var finish = _hrPrintPick;
+  _hrPrintPick = null;
+  if (finish) finish(null);
+}
+
+function hrPrintPickChoose_(mode) {
+  mode = String(mode || '').trim().toLowerCase();
+  if (mode !== 'print' && mode !== 'pdf') mode = '';
+  var wrap = document.getElementById('hrPrintPick');
+  if (wrap) wrap.hidden = true;
+  var finish = _hrPrintPick;
+  _hrPrintPick = null;
+  if (finish) finish(mode || null);
+}
+
+function hrPickPrintMode_() {
+  return new Promise(function (resolve) {
+    var wrap = document.getElementById('hrPrintPick');
+    if (!wrap) {
+      resolve('print');
+      return;
+    }
+    if (_hrPrintPick) _hrPrintPick(null);
+    _hrPrintPick = resolve;
     wrap.hidden = false;
   });
 }
@@ -3257,7 +3296,7 @@ function hrRenderTable_() {
       '<td>' + statusCell + '</td>' +
       '<td><div class="hr-row-acts">' +
         '<button type="button" class="hr-btn-edit" onclick="event.stopPropagation();' + openFn + '(\'' + id + '\',\'list\')">View</button>' +
-        (!showSel ? '<button type="button" onclick="event.stopPropagation();hrPrintRow_(\'' + id + '\')">Print</button>' : '') +
+        (!showSel ? '<button type="button" onclick="event.stopPropagation();hrPrintRow_(\'' + id + '\')">Print / PDF</button>' : '') +
       '</div></td></tr>';
   });
   h += '</tbody></table></div></section>';
@@ -3298,7 +3337,7 @@ function hrRenderDoneTable_() {
       '<td><span class="hr-badge hr-badge-' + (rejectedRow ? 'rejected' : 'completed') + '">' + (rejectedRow ? 'Rejected' : 'Completed') + '</span></td>' +
       '<td><div class="hr-row-acts">' +
         '<button type="button" class="hr-btn-edit" onclick="hrEditInList_(\'' + hrEsc_(r.id) + '\',\'done\')">View</button>' +
-        (!showSel ? '<button type="button" onclick="hrPrintRow_(\'' + hrEsc_(r.id) + '\')">Print</button>' : '') +
+        (!showSel ? '<button type="button" onclick="hrPrintRow_(\'' + hrEsc_(r.id) + '\')">Print / PDF</button>' : '') +
       '</div></td></tr>';
   }
   function rejectedHtml(list) {
@@ -3371,7 +3410,7 @@ function hrRenderArchiveTable_() {
   if (help) {
     help.innerHTML = isAll
       ? 'Every paper you move into a leave type also appears here. Search by name or ID.'
-      : 'Papers moved here from Completed request. Use <strong>Select</strong> to print several, move them to another type, or return them to Completed request.';
+      : 'Papers moved here from Completed request. Use <strong>Select</strong> then <strong>Print / PDF</strong> — choose Print or Save as PDF, move them to another type, or return them to Completed request.';
   }
   var allRows = hrFiledRows_(meta.id);
   var rows = hrArchiveVisibleRows_();
@@ -3439,7 +3478,7 @@ function hrRenderArchiveTable_() {
       '<td><span class="hr-badge hr-badge-completed">Completed</span></td>' +
       '<td><div class="hr-row-acts">' +
         '<button type="button" class="hr-btn-edit" onclick="hrEditInList_(\'' + hrEsc_(r.id) + '\',\'archive\')">View</button>' +
-        (!showSel ? '<button type="button" onclick="hrPrintRow_(\'' + hrEsc_(r.id) + '\')">Print</button>' : '') +
+        (!showSel ? '<button type="button" onclick="hrPrintRow_(\'' + hrEsc_(r.id) + '\')">Print / PDF</button>' : '') +
       '</div></td></tr>';
   });
   h += '</tbody></table></div></section>';
@@ -3496,7 +3535,7 @@ function hrRenderConfirmedTable_() {
       '<td><span class="hr-badge hr-badge-completed">Confirmed</span></td>' +
       '<td><div class="hr-row-acts">' +
         '<button type="button" class="hr-btn-edit" onclick="hrEditInList_(\'' + hrEsc_(r.id) + '\',\'confirmed\')">View</button>' +
-        (!showSel ? '<button type="button" onclick="hrPrintRow_(\'' + hrEsc_(r.id) + '\')">Print</button>' : '') +
+        (!showSel ? '<button type="button" onclick="hrPrintRow_(\'' + hrEsc_(r.id) + '\')">Print / PDF</button>' : '') +
       '</div></td></tr>';
   });
   h += '</tbody></table></div></section>';
@@ -3577,7 +3616,7 @@ function hrRenderSignedTable_() {
     h += '</dl>';
     h += '<div class="hr-row-acts">';
     h += '<button type="button" class="hr-btn-edit" onclick="' + openFn + '(\'' + id + '\',\'signed\')">View</button>';
-    h += '<button type="button" onclick="hrPrintRow_(\'' + id + '\')">Print</button>';
+    h += '<button type="button" onclick="hrPrintRow_(\'' + id + '\')">Print / PDF</button>';
     h += '</div></article>';
   });
   h += '</div></section>';
@@ -3888,11 +3927,21 @@ function hrPrintScan_() {
     hrPrintRow_(id);
     return;
   }
-  document.body.classList.add('hr-print-scan');
-  var wrap = document.getElementById('hrScanStageWrap');
-  if (wrap) wrap.style.display = '';
-  window.print();
-  setTimeout(function () { document.body.classList.remove('hr-print-scan'); }, 400);
+  hrPickPrintMode_().then(function (mode) {
+    if (!mode) return;
+    var scanRow = row || {
+      empName: hrVal_('hr-empName'),
+      entitlements: { __scan: _hrScan }
+    };
+    if (!row) {
+      scanRow.entitlements = { __scan: _hrScan };
+    }
+    var page = hrBatchScanPage_(scanRow);
+    page.className = 'hr-print-page hr-batch-scan-page';
+    hrWaitImages_(page, function () {
+      hrRunPrintFrame_(page.outerHTML, 'Leave Request', mode);
+    });
+  });
 }
 
 function hrScanDirPointerDown_(ev, handle) {
@@ -4456,7 +4505,16 @@ function hrSavePrintPdf_(doc, title, cb) {
 }
 
 function hrOpenPrintFrame_(bodyHtml, title) {
-  hrMsg_('Saving PDF…', true);
+  hrPickPrintMode_().then(function (mode) {
+    if (!mode) return;
+    hrRunPrintFrame_(bodyHtml, title, mode);
+  });
+}
+
+function hrRunPrintFrame_(bodyHtml, title, mode) {
+  mode = String(mode || '').trim().toLowerCase();
+  if (mode !== 'pdf') mode = 'print';
+  hrMsg_(mode === 'pdf' ? 'Saving PDF…' : 'Opening print…', true);
   var html = hrBuildPrintHtml_(bodyHtml, title);
   var frame = document.getElementById('hrPrintFrame');
   if (!frame) {
@@ -4469,33 +4527,54 @@ function hrOpenPrintFrame_(bodyHtml, title) {
   var win = frame.contentWindow;
   var doc = frame.contentDocument || (win && win.document);
   if (!doc || !win) {
-    window.print();
+    if (mode === 'print') window.print();
+    else hrMsg_('Could not save PDF. Try Print instead.', false);
     return;
   }
   var done = false;
-  var finish = function (ok) {
+  var finish = function (savedPdf) {
     if (done) return;
     done = true;
     hrHidePrintFrame_();
-    if (ok) {
-      hrMsg_('PDF saved. Open the file and print it to the VersaLink — Chrome preview hangs on that printer.', true);
-      return;
-    }
-    try {
-      win.focus();
-      win.print();
-    } catch (err) {
-      window.print();
-    }
-    hrMsg_('If preview stays on Loading, change Destination to Save as PDF or Microsoft Print to PDF — not the VersaLink.', false);
+    if (mode === 'pdf' && savedPdf) hrMsg_('PDF saved.', true);
+    else if (mode === 'pdf') hrMsg_('Could not save PDF. Try Print instead.', false);
   };
   doc.open();
   doc.write(html);
   doc.close();
   hrWaitImages_(doc.body, function () {
+    if (mode === 'print') {
+      try {
+        win.focus();
+        win.print();
+        if (win.addEventListener) {
+          win.addEventListener('afterprint', function () {
+            setTimeout(function () { finish(false); }, 400);
+          });
+        }
+      } catch (err) {
+        window.print();
+        setTimeout(function () { finish(false); }, 400);
+      }
+      setTimeout(function () { finish(false); }, 120000);
+      hrMsg_('Print window opened.', true);
+      return;
+    }
     hrEnsurePdfLibs_(function (ready) {
       if (!ready) {
-        finish(false);
+        hrMsg_('Could not save PDF here. Opening print instead.', false);
+        try {
+          win.focus();
+          win.print();
+        } catch (err) {
+          window.print();
+        }
+        if (win.addEventListener) {
+          win.addEventListener('afterprint', function () {
+            setTimeout(function () { finish(false); }, 400);
+          });
+        }
+        setTimeout(function () { finish(false); }, 120000);
         return;
       }
       hrSavePrintPdf_(doc, title, finish);
@@ -4511,14 +4590,21 @@ function hrPrint_() {
   }
   var src = document.getElementById('hrPrintRoot');
   if (!src) {
-    window.print();
+    hrPickPrintMode_().then(function (mode) {
+      if (!mode) return;
+      if (mode === 'pdf') hrMsg_('Open this paper first, then Save as PDF.', false);
+      else window.print();
+    });
     return;
   }
-  var page = document.createElement('div');
-  page.className = 'hr-batch-page';
-  page.appendChild(hrBakePrintClone_(src));
-  hrWaitImages_(page, function () {
-    hrOpenPrintFrame_(page.outerHTML, 'Leave Request');
+  hrPickPrintMode_().then(function (mode) {
+    if (!mode) return;
+    var page = document.createElement('div');
+    page.className = 'hr-batch-page';
+    page.appendChild(hrBakePrintClone_(src));
+    hrWaitImages_(page, function () {
+      hrRunPrintFrame_(page.outerHTML, 'Leave Request', mode);
+    });
   });
 }
 
