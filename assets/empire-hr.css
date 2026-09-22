@@ -1362,8 +1362,15 @@
   }
   .hr-f06-title {
     margin: 0 !important;
+    padding: 0 !important;
     height: 14pt !important;
     line-height: 14pt !important;
+    text-align: center !important;
+    width: 100% !important;
+    display: block !important;
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
   }
   .hr-f06-grid,
   .hr-f06-entitle,
@@ -1594,6 +1601,7 @@
     height: 297mm;
     overflow: hidden;
     box-sizing: border-box;
+    position: relative;
   }
   body.hr-print-batch .hr-batch-page:last-child,
   body.hr-print-batch .hr-print-page:last-child {

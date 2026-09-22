@@ -4277,13 +4277,13 @@ function hrPrintFrameCss_() {
     + '.hr-center{text-align:center;}.hr-lbl{font-weight:400;}'
     + '.hr-batch-scan-page,.hr-batch-scan-page .hr-scan-stage{width:210mm;height:297mm;overflow:hidden;}'
     + '.hr-batch-scan-img{display:block;width:210mm!important;height:297mm!important;object-fit:contain!important;}'
-    + '.hr-print-page,.hr-batch-page{width:210mm;height:297mm;overflow:hidden;page-break-after:always;break-after:page;box-sizing:border-box;}'
+    + '.hr-print-page,.hr-batch-page{position:relative!important;width:210mm;height:297mm;overflow:hidden;page-break-after:always;break-after:page;box-sizing:border-box;}'
     + '.hr-print-page:last-child,.hr-batch-page:last-child{page-break-after:auto;break-after:auto;}'
     + '.hr-note{width:210mm!important;height:297mm!important;min-height:297mm!important;max-width:210mm!important;padding:0!important;margin:0!important;border:none!important;box-shadow:none!important;box-sizing:border-box!important;overflow:hidden!important;position:relative!important;background:#fff!important;}'
     + '.hr-f06-sheet{position:absolute!important;left:0!important;top:0!important;width:210mm!important;height:297mm!important;min-height:297mm!important;padding:33.27mm 16.26mm 25.4mm 17.52mm!important;box-sizing:border-box!important;transform:scale(0.94)!important;transform-origin:center center!important;}'
     + '.hr-f06-head{position:absolute!important;top:7mm!important;left:17.52mm!important;margin:0!important;transform:translate(2mm,4.5mm) scale(0.94)!important;transform-origin:top left!important;}'
     + '.hr-f06-logo{width:51.22mm!important;height:25.30mm!important;}'
-    + '.hr-f06-title{margin:0!important;padding:0!important;height:14pt!important;line-height:14pt!important;font-size:14pt!important;font-weight:400!important;color:#0d0d0d!important;}'
+    + '.hr-f06-title{margin:0!important;padding:0!important;height:14pt!important;line-height:14pt!important;font-size:14pt!important;font-weight:400!important;color:#0d0d0d!important;text-align:center!important;width:100%!important;display:block!important;position:relative!important;left:auto!important;top:auto!important;}'
     + '.hr-f06-grid,.hr-f06-entitle,.hr-f06-hr{width:174.63mm!important;max-width:174.63mm!important;box-sizing:border-box!important;margin:0!important;border:none!important;}'
     + '.hr-f06-emp{margin:7.6mm 0 0!important;transform:translate(1mm,-1.5mm)!important;}'
     + '.hr-f06-absence,.hr-f06-approvals{margin:0 auto!important;}'
@@ -4369,16 +4369,58 @@ function hrEnsurePdfLibs_(cb) {
   add('https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js');
 }
 
+function hrPinPrintPage_(pages, current) {
+  var n;
+  for (n = 0; n < pages.length; n++) {
+    var el = pages[n];
+    var on = el === current;
+    el.style.display = on ? 'block' : 'none';
+    el.style.position = on ? 'absolute' : 'relative';
+    el.style.left = on ? '0' : '';
+    el.style.top = on ? '0' : '';
+    el.style.margin = '0';
+  }
+  var doc = current && current.ownerDocument;
+  if (doc) {
+    if (doc.documentElement) doc.documentElement.scrollTop = 0;
+    if (doc.body) doc.body.scrollTop = 0;
+    if (doc.defaultView && doc.defaultView.scrollTo) doc.defaultView.scrollTo(0, 0);
+  }
+}
+
+function hrLockPrintTitleClone_(cloned) {
+  var titles = cloned.querySelectorAll('.hr-f06-title');
+  var t;
+  for (t = 0; t < titles.length; t++) {
+    titles[t].style.setProperty('text-align', 'center', 'important');
+    titles[t].style.setProperty('margin', '0', 'important');
+    titles[t].style.setProperty('width', '100%', 'important');
+    titles[t].style.setProperty('display', 'block', 'important');
+    titles[t].style.setProperty('position', 'relative', 'important');
+    titles[t].style.setProperty('left', 'auto', 'important');
+    titles[t].style.setProperty('top', 'auto', 'important');
+  }
+  var heads = cloned.querySelectorAll('.hr-f06-head');
+  var h;
+  for (h = 0; h < heads.length; h++) {
+    heads[h].style.setProperty('position', 'absolute', 'important');
+    heads[h].style.setProperty('top', '7mm', 'important');
+    heads[h].style.setProperty('left', '17.52mm', 'important');
+  }
+}
+
 function hrSavePrintPdf_(doc, title, cb) {
   var JsPDF = hrPdfLib_();
   if (!window.html2canvas || !JsPDF) {
     cb(false);
     return;
   }
-  var pages = doc.querySelectorAll('.hr-batch-page, .hr-print-page, .hr-batch-scan-page');
+  var pages = Array.prototype.slice.call(doc.querySelectorAll('.hr-batch-page, .hr-print-page, .hr-batch-scan-page'));
   if (!pages.length) pages = [doc.body];
   var pdf = new JsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
   var i = 0;
+  var pxW = Math.round(210 * 96 / 25.4);
+  var pxH = Math.round(297 * 96 / 25.4);
   function next() {
     if (i >= pages.length) {
       var name = String(title || 'Leave-Request').replace(/[^\w\- ]+/g, '').trim() || 'Leave-Request';
@@ -4387,12 +4429,20 @@ function hrSavePrintPdf_(doc, title, cb) {
       return;
     }
     var page = pages[i++];
+    hrPinPrintPage_(pages, page);
     window.html2canvas(page, {
       scale: 2,
       useCORS: true,
       allowTaint: true,
       backgroundColor: '#ffffff',
-      logging: false
+      logging: false,
+      scrollX: 0,
+      scrollY: 0,
+      x: 0,
+      y: 0,
+      windowWidth: pxW,
+      windowHeight: pxH,
+      onclone: hrLockPrintTitleClone_
     }).then(function (canvas) {
       var img = canvas.toDataURL('image/jpeg', 0.93);
       if (i > 1) pdf.addPage('a4', 'portrait');
