@@ -221,6 +221,9 @@ function assignFromRow(r: Record<string, unknown>): { username: string; name: st
   const assign = ents.__assign && typeof ents.__assign === "object" && !Array.isArray(ents.__assign)
     ? ents.__assign as Record<string, unknown>
     : {};
+  if (assign.skipLine === true || assign.skip === true) {
+    return { username: "", name: "" };
+  }
   return {
     username: normalizeWorkerId(assign.username || r.lineManagerUser || r.line_manager_user || ""),
     name: String(assign.name || r.lineManagerName || r.line_manager_name || "").trim(),
@@ -367,6 +370,10 @@ function applyResolvedAssignee(
   const prev = ents.__assign && typeof ents.__assign === "object" && !Array.isArray(ents.__assign)
     ? ents.__assign as Record<string, unknown>
     : {};
+  if (prev.skipLine === true || prev.skip === true) {
+    ents.__assign = { ...prev, skipLine: true };
+    return { ...row, lineManagerUser: "", entitlements: ents };
+  }
   if (username) {
     ents.__assign = { ...prev, username, name: resolved.name || prev.name || row.lineManagerName };
   }
@@ -398,6 +405,15 @@ async function grantHrLineAccess(username: string) {
     const retry = await sb().from("users").update(patch).eq("username", username);
     if (retry.error) throw retry.error;
   } else if (error) throw error;
+}
+
+function wantsSkipLine(body: Record<string, unknown>): boolean {
+  const route = String(body.route || "").trim().toLowerCase();
+  if (route === "director") return true;
+  const v = body.sendToDirector ?? body.skipLine;
+  if (v === true || v === 1) return true;
+  const s = String(v ?? "").trim().toLowerCase();
+  return s === "true" || s === "1" || s === "director";
 }
 
 async function resolveAssignee(body: Record<string, unknown>) {
@@ -1003,12 +1019,32 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
     return { ok: true, success: true, id, row: rowToApi({ ...ex, ...patch }) };
   }
 
-  if (staff && !directorOnly && status === "submitted") {
+  if (staff && !directorOnly && !isLockedStatus(status) && status !== "line_approved") {
+    const existing = parseEntitlements(ex.entitlements) as Record<string, unknown>;
+    if (wantsSkipLine(body)) {
+      existing.__assign = { skipLine: true };
+      const patch = {
+        status: "pending_director",
+        line_manager_signed_at: "",
+        line_manager_status: "",
+        entitlements: entitlementsJson(existing),
+        updated_at: isoNow(),
+      };
+      const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", id);
+      if (error) throw error;
+      return {
+        ok: true,
+        success: true,
+        id,
+        row: rowToApi({ ...ex, ...patch }),
+        sentTo: "director",
+        skippedLine: true,
+      };
+    }
     const assignee = await resolveAssignee(body);
     if (!assignee.ok) {
       return { ok: false, success: false, error: "missing_assignee", message: assignee.message };
     }
-    const existing = parseEntitlements(ex.entitlements) as Record<string, unknown>;
     existing.__assign = { username: assignee.username, name: assignee.name };
     const patch = {
       status: "pending_line",

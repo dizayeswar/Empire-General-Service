@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="manifest" href="manifest.webmanifest?v=2026-09-22-print-pick">
+<link rel="manifest" href="manifest.webmanifest?v=2026-09-23-skip-line">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,8 +13,8 @@
 <title>Leave Request — HR Department — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-09-22-search-pill">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-22-print-pick">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-22-print-pick">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-23-skip-line">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-23-skip-line">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -104,7 +104,7 @@
         <div id="hrListBrowse">
         <div class="form-section">
           <h2>Saved requests</h2>
-          <p class="hr-tab-help">Confirm a paper to assign it to a line manager. After they sign, it goes to the director. After the director signs, it comes back to Completed request.</p>
+          <p class="hr-tab-help">Confirm a paper, then choose: assign a line manager, or send it straight to the director with no assignment. After the director signs, it comes back to Completed request.</p>
           <p class="hr-form-msg no-print" id="hrListMsg"></p>
           <div class="form-row filter-toolbar">
             <div class="form-group">
@@ -545,6 +545,20 @@
   </div>
 </div>
 
+<div id="hrRoutePick" class="hr-sig-pick no-print" hidden onclick="if(event.target===this)hrRoutePickClose_()">
+  <div class="hr-sig-pick-card" role="dialog" aria-labelledby="hrRoutePickTitle">
+    <h3 id="hrRoutePickTitle">Assign or send to director?</h3>
+    <p class="hr-sig-pick-help">Some papers need a line manager. Others go straight to the director with no assignment.</p>
+    <div class="hr-box-pick-choice">
+      <button type="button" onclick="hrRoutePickChoose_('assign')"><strong>Assign line manager</strong><span>They sign this paper, then it goes to the director.</span></button>
+      <button type="button" class="hr-btn-confirm" onclick="hrRoutePickChoose_('director')"><strong>Send to director</strong><span>No line manager. The director sees it now.</span></button>
+    </div>
+    <div class="hr-sig-pick-acts">
+      <button type="button" onclick="hrRoutePickClose_()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <div id="hrAssignPick" class="hr-sig-pick no-print" hidden onclick="if(event.target===this)hrAssignCancel_()">
   <div class="hr-sig-pick-card" role="dialog" aria-labelledby="hrAssignTitle">
     <h3 id="hrAssignTitle">Assign line manager</h3>
@@ -586,12 +600,12 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-09-22-print-pick"></script>
-<script src="assets/empire-api.js?v=2026-09-22-print-pick"></script>
-<script src="assets/empire-auth.js?v=2026-09-22-print-pick"></script>
-<script src="assets/empire-core.js?v=2026-09-22-print-pick"></script>
-<script src="assets/empire-storage.js?v=2026-09-22-print-pick"></script>
-<script src="assets/empire-sw-update.js?v=2026-09-22-print-pick"></script>
-<script src="assets/empire-hr-leave.js?v=2026-09-22-print-pick"></script>
+<script src="config.js?v=2026-09-23-skip-line"></script>
+<script src="assets/empire-api.js?v=2026-09-23-skip-line"></script>
+<script src="assets/empire-auth.js?v=2026-09-23-skip-line"></script>
+<script src="assets/empire-core.js?v=2026-09-23-skip-line"></script>
+<script src="assets/empire-storage.js?v=2026-09-23-skip-line"></script>
+<script src="assets/empire-sw-update.js?v=2026-09-23-skip-line"></script>
+<script src="assets/empire-hr-leave.js?v=2026-09-23-skip-line"></script>
 </body>
 </html>

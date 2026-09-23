@@ -1233,14 +1233,16 @@ function hrDirectorConfirmSelected_(ids) {
     });
 }
 
-function hrStaffConfirmRequest_(id, assignee) {
+function hrStaffConfirmRequest_(id, assignee, sendToDirector) {
   id = String(id || '').trim();
   var row = _hrRows.find(function (r) { return String(r.id) === id; });
   if (!row || hrStageOf_(row) !== 'inbox') {
     return Promise.reject(new Error('That paper cannot be confirmed.'));
   }
   var body = { action: 'confirmHrLeaveRequest', token: hrToken_(), id: id };
-  if (assignee) {
+  if (sendToDirector) {
+    body.sendToDirector = true;
+  } else if (assignee) {
     body.lineManagerName = assignee.name;
     body.lineManagerUser = assignee.username;
   }
@@ -1315,6 +1317,72 @@ function hrLoadLineManagers_() {
     if (d && d.ok && Array.isArray(d.items)) _hrLineManagers = d.items;
     return _hrLineManagers;
   }).catch(function () { return _hrLineManagers; });
+}
+
+var _hrRoutePick = null;
+
+function hrRoutePickClose_() {
+  var wrap = document.getElementById('hrRoutePick');
+  if (wrap) wrap.hidden = true;
+  var finish = _hrRoutePick;
+  _hrRoutePick = null;
+  if (finish) finish(null);
+}
+
+function hrRoutePickChoose_(route) {
+  route = String(route || '').trim().toLowerCase();
+  if (route !== 'assign' && route !== 'director') route = '';
+  var wrap = document.getElementById('hrRoutePick');
+  if (wrap) wrap.hidden = true;
+  var finish = _hrRoutePick;
+  _hrRoutePick = null;
+  if (finish) finish(route || null);
+}
+
+function hrPickConfirmRoute_() {
+  return new Promise(function (resolve) {
+    var wrap = document.getElementById('hrRoutePick');
+    if (!wrap) {
+      resolve('assign');
+      return;
+    }
+    if (_hrRoutePick) _hrRoutePick(null);
+    _hrRoutePick = resolve;
+    wrap.hidden = false;
+  });
+}
+
+function hrStaffConfirmInbox_(ids) {
+  ids = (ids || []).map(function (id) { return String(id || '').trim(); }).filter(Boolean);
+  if (!ids.length) return;
+  var n = ids.length;
+  hrPickConfirmRoute_().then(function (route) {
+    if (!route) return;
+    if (route === 'director') {
+      hrRunBulkIds_(ids, function (id) { return hrStaffConfirmRequest_(id, null, true); }, {
+        working: n === 1 ? 'Sending to the director…' : ('Sending ' + n + ' to the director…'),
+        done: n === 1
+          ? 'Sent to the director. No line manager needed.'
+          : ('Sent ' + n + ' to the director. No line manager needed.'),
+        tab: 'list'
+      });
+      return;
+    }
+    return hrPickLineManager_().then(function (assignee) {
+      if (!assignee) return;
+      hrRunBulkIds_(ids, function (id) { return hrStaffConfirmRequest_(id, assignee); }, {
+        working: n === 1
+          ? ('Assigning to ' + assignee.name + '…')
+          : ('Assigning ' + n + ' to ' + assignee.name + '…'),
+        done: n === 1
+          ? ('Assigned to ' + assignee.name + '. They sign next, then it goes to the director.')
+          : ('Assigned ' + n + ' to ' + assignee.name + '.'),
+        tab: 'list'
+      });
+    });
+  }).catch(function (err) {
+    hrMsg_(err.message || 'Confirm failed.', false);
+  });
 }
 
 function hrAssignCancel_() {
@@ -1453,15 +1521,8 @@ function hrRunSelectedInbox_(kind) {
     if (confirm(delMsg)) goDel();
     return;
   }
-  hrPickLineManager_().then(function (assignee) {
-    if (!assignee) return;
-    hrRunBulkIds_(ids, function (id) { return hrStaffConfirmRequest_(id, assignee); }, {
-      working: 'Assigning ' + n + ' to ' + assignee.name + '…',
-      done: 'Assigned ' + n + ' to ' + assignee.name + '.'
-    });
-  }).catch(function (err) {
-    hrMsg_(err.message || 'Confirm failed.', false);
-  });
+  hrStaffConfirmInbox_(ids);
+  return;
 }
 
 function hrToken_() { return empireGetToken() || ''; }
@@ -1548,7 +1609,7 @@ function hrListHelp_() {
   } else if (hrIsDirectorOnly_()) {
     el.innerHTML = 'Sign papers waiting for you as director. After you confirm, they come back to HR as Completed request.';
   } else {
-    el.innerHTML = 'Confirm a paper to assign it to a line manager. After they sign, it goes to the director. After the director signs, it comes back to Completed request.';
+    el.innerHTML = 'Confirm a paper, then choose: assign a line manager, or send it straight to the director with no assignment. After the director signs, it comes back to Completed request.';
   }
 }
 function hrIsDirector_() {
@@ -1582,9 +1643,10 @@ function hrMe_() {
   return typeof empireGetUser === 'function' ? String(empireGetUser() || '').trim().toLowerCase() : '';
 }
 function hrAssignedUser_(row) {
+  var assign = row && row.entitlements && row.entitlements.__assign;
+  if (assign && (assign.skipLine || assign.skip)) return '';
   var from = row && row.lineManagerUser;
   if (from) return String(from).trim().toLowerCase();
-  var assign = row && row.entitlements && row.entitlements.__assign;
   return assign && assign.username ? String(assign.username).trim().toLowerCase() : '';
 }
 function hrPaperAssignedToMe_(row) {
@@ -1595,6 +1657,7 @@ function hrPaperAssignedToMe_(row) {
 }
 function hrAssignedName_(row) {
   var assign = row && row.entitlements && row.entitlements.__assign;
+  if (assign && (assign.skipLine || assign.skip)) return '';
   if (assign && assign.name) return String(assign.name);
   return String((row && row.lineManagerName) || '');
 }
@@ -2920,18 +2983,7 @@ function hrConfirmRow_(id) {
     return;
   }
   if (!(hrIsHrStaff_() && !hrIsSignerOnly_() && stage === 'inbox')) return;
-  hrPickLineManager_().then(function (assignee) {
-    if (!assignee) return;
-    hrMsg_('Assigning to ' + assignee.name + '…', true);
-    return hrStaffConfirmRequest_(id, assignee).then(function () {
-      hrMsg_('Assigned to ' + assignee.name + '. They sign next, then it goes to the director.', true);
-      hrSetListEditing_(false);
-      hrSwitchTab_(null, 'list');
-      return hrLoad_(true);
-    });
-  }).catch(function (err) {
-    hrMsg_(err.message || 'Confirm failed.', false);
-  });
+  hrStaffConfirmInbox_([id]);
 }
 
 function hrRejectRow_(id) {
