@@ -223,8 +223,15 @@ export async function verifyTokenSession(token: string): Promise<AuthOk | AuthFa
   const { data, error } = await sb().from("sessions").select("*").eq("token", token).maybeSingle();
   if (error) throw error;
   if (!data) return { ok: false, error: "Invalid token" };
-  if (Date.now() - Number(data.created_at) > TOKEN_TTL_MS) {
+  const created = Number(data.created_at) || 0;
+  const age = Date.now() - created;
+  if (!created || age > TOKEN_TTL_MS) {
     return { ok: false, error: "Token expired" };
+  }
+  // Desk PCs stay logged in for weeks. Refresh the clock while they are still using the app
+  // so a 30-day login does not die mid-shift. Idle sessions still expire after TOKEN_TTL_MS.
+  if (age > 12 * 60 * 60 * 1000) {
+    await sb().from("sessions").update({ created_at: Date.now() }).eq("token", token);
   }
   const user = await getUser(data.username);
   const access = user ? resolveModuleAccessForUser(user as Record<string, unknown>) : undefined;

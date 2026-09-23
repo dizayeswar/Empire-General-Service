@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-09-22-search-pill">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-17-gin-dmy">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-09-22-search-pill">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-09-23-wh-token">
 </head>
 <body class="auth-login-visible wh-page">
 <div class="login-page show" id="loginPage">
@@ -101,6 +101,10 @@
       </nav>
       </div>
       <div class="side-actions wh-settings" id="whSettingsWrap">
+        <button type="button" id="whSidebarRefreshBtn" onclick="whSidebarRefresh()">
+          <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg></span>
+          <span class="lbl">Refresh</span>
+        </button>
         <button type="button" class="wh-settings-toggle" id="whSettingsBtn" onclick="whToggleSettings(event)" aria-expanded="false" aria-controls="whSettingsPanel">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span>
           <span class="lbl">Settings</span>
@@ -617,8 +621,8 @@
 
 <script src="config.js?v=2026-09-17-gin-dmy"></script>
 <script src="assets/empire-storage.js?v=2026-09-17-gin-dmy"></script>
-<script src="assets/empire-api.js?v=2026-09-17-gin-dmy"></script>
-<script src="assets/empire-auth.js?v=2026-09-19-user-autofill"></script>
+<script src="assets/empire-api.js?v=2026-09-23-wh-token"></script>
+<script src="assets/empire-auth.js?v=2026-09-23-wh-token"></script>
 <script src="assets/empire-core.js?v=2026-09-17-gin-dmy"></script>
 <script src="assets/empire-sw-update.js?v=2026-09-17-gin-dmy"></script>
 <script src="assets/empire-warehouse-sp.js?v=2026-09-17-gin-dmy"></script>
@@ -847,6 +851,28 @@ function whApplyViewOnlyShell_(){
 
 function handleLogin(e){ empireAuthLogin(e, 'warehouse', { onSuccess: function(){ enterApp(); } }); }
 function logout(){ empireAuthLogout({ redirect: 'index.html', reload: false }); }
+function forceSessionLogout(d){
+  if(typeof empireAuthHandleInvalidSession_!=='function') return false;
+  return empireAuthHandleInvalidSession_(d, { redirect: 'warehouse.html' });
+}
+function whSidebarRefresh(){
+  whCloseSettings();
+  var btn=document.getElementById('whSidebarRefreshBtn');
+  if(btn) btn.classList.add('spinning');
+  var pane=document.querySelector('.dept-tab-content.active');
+  var id=pane ? pane.id : '';
+  try {
+    if(id==='wh-tab-invoices' || id==='wh-tab-invoice' || id==='wh-tab-invspusage' || id==='wh-tab-invamount'){
+      whInvLoadList(true);
+    } else {
+      whLoadSavedList();
+      if(id==='wh-tab-spusage' && typeof whSpUsageRefresh==='function') whSpUsageRefresh();
+      if(id==='wh-tab-sigs' && typeof whEsigLoad==='function') whEsigLoad();
+    }
+  } finally {
+    setTimeout(function(){ if(btn) btn.classList.remove('spinning'); }, 900);
+  }
+}
 function enterApp(){
   document.getElementById('loginPage').classList.remove('show');
   if(typeof empireAuthMarkLoginVisible==='function') empireAuthMarkLoginVisible(false);
@@ -2129,6 +2155,7 @@ function whLoadSavedList(){
   var token=typeof empireGetToken==='function' ? empireGetToken() : '';
   var local=(_whReceiverMode || _whViewOnly) ? [] : whLocalRead();
   fetchJSONRetry({ action:'getWarehouseGins', token:token }, 2, 60000).then(function(d){
+    if(typeof forceSessionLogout==='function' && forceSessionLogout(d)) return;
     var server=(d && (d.items||d.data||d.rows)) || [];
     if(!Array.isArray(server)) server=[];
     if(!_whReceiverMode && !_whViewOnly){
@@ -4267,6 +4294,7 @@ function whInvLoadList(force){
   var bookP=fetchJSONRetry({ action:'getWarehouseInvoiceBooks', token:token }, 2, 30000).catch(function(){ return { ok:true, books:[] }; });
   Promise.all([invP, bookP]).then(function(res){
     var d=res[0], b=res[1];
+    if(typeof forceSessionLogout==='function' && forceSessionLogout(d)) return;
     if(!(d && (d.ok||d.success))) throw new Error((d && (d.message||d.error)) || 'Load failed');
     _whInvCache=Array.isArray(d.items) ? d.items : [];
     _whInvBooksSaved=Array.isArray(b && b.books) ? b.books : [];
@@ -4274,7 +4302,13 @@ function whInvLoadList(force){
     if(typeof whInvSpUsageRender_==='function') whInvSpUsageRender_();
     if(typeof whInvAmtRender_==='function') whInvAmtRender_();
   }).catch(function(err){
-    if(box) box.innerHTML='<p class="wh-saved-empty">Could not load invoices: '+whEsc(err && err.message ? err.message : err)+'</p>';
+    var msg=String(err && err.message ? err.message : err);
+    if(/token expired|invalid token|no token/i.test(msg) && typeof forceSessionLogout==='function' && forceSessionLogout({ ok:false, error:msg })) return;
+    if(box){
+      box.innerHTML=typeof empireErrorHtml==='function'
+        ? empireErrorHtml(msg, 'Use Refresh in the sidebar, or log in again if the session expired.')
+        : ('<p class="wh-saved-empty">Could not load invoices: '+whEsc(msg)+'</p>');
+    }
     if(booksBox) booksBox.innerHTML='';
   });
 }

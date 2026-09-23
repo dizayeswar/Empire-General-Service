@@ -65,11 +65,18 @@ function fetchJSONRetry(body, tries, timeoutMs) {
       return r.text();
     })
     .then(function (text) {
+      var data;
       try {
-        return JSON.parse(text);
+        data = JSON.parse(text);
       } catch (e) {
         throw new Error('Invalid server response. Refresh and try again. If it keeps failing, redeploy empire-api.');
       }
+      if (typeof empireAuthHandleInvalidSession_ === 'function') {
+        var page = '';
+        try { page = String(location.pathname || '').split('/').pop() || ''; } catch (e) {}
+        empireAuthHandleInvalidSession_(data, { redirect: page || 'index.html' });
+      }
+      return data;
     })
     .catch(function (e) {
       if (e && e.name === 'AbortError') {

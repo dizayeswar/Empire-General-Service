@@ -55,8 +55,15 @@ body.wh-page .wh-settings {
   margin-top: 6px;
 }
 body.wh-page .wh-settings-toggle,
-body.wh-page .wh-settings-panel button {
+body.wh-page .wh-settings-panel button,
+body.wh-page #whSidebarRefreshBtn {
   padding: 7px 11px;
+}
+body.wh-page #whSidebarRefreshBtn.spinning .nav-icon {
+  animation: wh-spin 0.8s linear infinite;
+}
+@keyframes wh-spin {
+  to { transform: rotate(360deg); }
 }
 body.wh-page .wh-saved-app .form-section {
   padding: 18px 20px;
