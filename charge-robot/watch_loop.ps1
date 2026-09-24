@@ -8,7 +8,7 @@ if ($others.Count -gt 0) {
   Write-Host "Bobby watch already running (PID $($others[0].ProcessId)). Not starting a second."
   exit 0
 }
-Write-Host "Bobby watch. Website Bot Off stops this loop."
+Write-Host "Bobby watch (only live entry). Website Bot Off stops this loop."
 while ($true) {
   python "$PSScriptRoot\watch_open.py"
   if ($LASTEXITCODE -eq 3) {
@@ -18,6 +18,6 @@ while ($true) {
   if ($LASTEXITCODE -eq 10) {
     Start-Sleep -Seconds 8
   } else {
-    Start-Sleep -Seconds 25
+    Start-Sleep -Seconds 3
   }
 }

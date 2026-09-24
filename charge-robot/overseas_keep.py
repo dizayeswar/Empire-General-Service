@@ -1,4 +1,4 @@
-"""Keep Overseas Integration Platform logged in. Never type a password."""
+"""UNUSED live path. Start charge-robot/watch_loop.ps1 only. Do not start a keep loop."""
 from __future__ import annotations
 
 import time

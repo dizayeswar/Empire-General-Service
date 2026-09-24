@@ -1,4 +1,4 @@
-"""Live charge for an already-open Payment management search. No password typing."""
+"""UNUSED live path. Start charge-robot/watch_loop.ps1 only."""
 from __future__ import annotations
 
 import sys

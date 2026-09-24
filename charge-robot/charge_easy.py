@@ -1,6 +1,7 @@
 """Auto charge: fill Create payment, Pay only if boxes match, then attach + SET PIN."""
 from __future__ import annotations
 
+import json
 import re
 import subprocess
 import sys
@@ -13,16 +14,55 @@ from pywinauto.mouse import click
 
 from nova_check_unit import search as nova_search
 from nova_login import handle_login_locked
-from nova_search_filter import find_win, grab_invoice, shot
+from nova_search_filter import (
+    PersonalAccountError,
+    assert_unit_only_in_personal_account,
+    find_win,
+    grab_invoice,
+    shot,
+)
 from robot import NovaSysRobot
 
 ROOT = Path(__file__).resolve().parent
+NEED_PIN = ROOT / "logs" / "paid_need_pin.json"
+SHOT = ROOT / "logs" / "screenshots"
 ADB = (
     Path.home()
     / "AppData/Local/Microsoft/WinGet/Packages"
     / "Google.PlatformTools_Microsoft.Winget.Source_8wekyb3d8bbwe"
     / "platform-tools/adb.exe"
 )
+
+
+def load_need_pin() -> dict | None:
+    try:
+        data = json.loads(NEED_PIN.read_text(encoding="utf-8"))
+        if data.get("ru"):
+            return data
+    except Exception:
+        pass
+    return None
+
+
+def save_need_pin(**kwargs) -> None:
+    NEED_PIN.parent.mkdir(parents=True, exist_ok=True)
+    NEED_PIN.write_text(json.dumps(kwargs, indent=2), encoding="utf-8")
+
+
+def clear_need_pin() -> None:
+    try:
+        NEED_PIN.unlink()
+    except Exception:
+        pass
+
+
+def stash_ru_invoice(ru: str, receipt: Path) -> Path:
+    """Keep this RU's paper so SET PIN can retry without a second Pay."""
+    dest = SHOT / f"invoice-RU-{''.join(ch for ch in ru if ch.isdigit())}.jpg"
+    im = Image.open(receipt)
+    w, h = im.size
+    im.crop((w // 2 - 300, 50, w // 2 + 340, h - 40)).convert("RGB").save(dest, quality=90)
+    return dest
 
 
 def wake(reason: str, detail: str) -> None:
@@ -63,8 +103,10 @@ def items_from_phone(ru: str) -> tuple[str, str]:
             last = RuntimeError(f"open {ru} exit {r.returncode}")
             print("open retry", attempt + 1, last)
             continue
-        adb = str(ADB)
-        subprocess.run([adb, "shell", "input", "tap", "777", "2118"], timeout=20)
+        from phone_screen import dump_screen, tap_items
+
+        items_ui = dump_screen("items-tab")
+        tap_items(items_ui.nodes)
         time.sleep(1.2)
         texts = dump_texts("items-b")
         tariff = ""
@@ -100,7 +142,7 @@ def click_nova_refresh() -> None:
         if btn.exists(timeout=0.6) and btn.is_visible():
             btn.click_input()
             print("Clicked Nova Refresh")
-            time.sleep(1.6)
+            time.sleep(4.0)
             return
     except Exception:
         pass
@@ -110,13 +152,13 @@ def click_nova_refresh() -> None:
         rect = pay.rectangle()
         click(coords=(rect.left - 28, (rect.top + rect.bottom) // 2))
         print("Clicked Nova Refresh beside Pay")
-        time.sleep(1.6)
+        time.sleep(4.0)
         return
     except Exception:
         pass
     send_keys("{F5}")
     print("Nova Refresh F5")
-    time.sleep(1.6)
+    time.sleep(4.0)
 
 
 def icon_ok(verdict: str, shot_path: Path) -> bool:
@@ -126,8 +168,8 @@ def icon_ok(verdict: str, shot_path: Path) -> bool:
         return False
     img = Image.open(shot_path).convert("RGB")
     red = green = grey = 0
-    for y in range(276, 312):
-        for x in range(8, 42):
+    for y in range(270, 400):
+        for x in range(8, 80):
             r, g, b = img.getpixel((x, y))
             if r > 200 and g < 90 and b < 90:
                 red += 1
@@ -163,17 +205,10 @@ def charge_and_pay(apartment: str, tariff: str, amount: str) -> Path:
     win = find_win()
     win.set_focus()
     time.sleep(0.15)
-    r = win.rectangle()
-    click(coords=(r.left + 818, r.top + 294))
-    time.sleep(0.3)
-    pay = bot._main().child_window(title="Pay", control_type="Button")
-    pay.wait("exists", timeout=6)
-    rect = pay.rectangle()
-    click(coords=(rect.right - 10, (rect.top + rect.bottom) // 2))
-    time.sleep(0.45)
-    click(coords=(rect.left + 36, rect.bottom + 36))
+    assert_unit_only_in_personal_account(win, apartment)
+    bot._select_result_row(apartment)
+    bot._choose_automatic()
     print("Clicked Pay -> Automatic")
-    time.sleep(0.5)
     handle_login_locked(16)
     time.sleep(0.5)
     dlg = bot._create_payment_dialog()
@@ -197,14 +232,62 @@ def finish_phone(ru: str) -> None:
         [sys.executable, str(ROOT / "phone_fast_ru.py"), ru],
         cwd=str(ROOT),
     )
+    if reopen.returncode in (3, 4):
+        raise SystemExit(reopen.returncode)
     if reopen.returncode != 0:
         raise RuntimeError(f"reopen {ru} before SET PIN failed exit {reopen.returncode}")
     r = subprocess.run(
         [sys.executable, str(ROOT / "phone_finish_ru.py"), ru],
         cwd=str(ROOT),
     )
+    if r.returncode in (3, 4):
+        raise SystemExit(r.returncode)
     if r.returncode != 0:
         raise RuntimeError(f"attach or SET PIN failed exit {r.returncode}")
+
+
+def finish_paid_pin(
+    *,
+    ru: str,
+    unit: str,
+    amount: str,
+    tariff: str,
+    source: str,
+    started_at: str,
+) -> int:
+    """Pay already done. Attach + SET PIN + dashboard. Never Pay again."""
+    from save_dashboard import save_charged, utc_iso
+
+    try:
+        finish_phone(ru)
+        charged_at = utc_iso()
+        if source != "overseas":
+            close_invoice()
+        try:
+            save_charged(
+                ru=ru,
+                unit=unit,
+                amount=amount,
+                source=source,
+                tariff=tariff,
+                started_at=started_at,
+                charged_at=charged_at,
+            )
+        except Exception as exc:
+            print("dashboard save failed", exc)
+            wake("dashboard save failed", f"{ru} {unit} {tariff} {amount} {exc}")
+        else:
+            wake("AUTO PAID + SET PIN", f"{ru} {unit} {tariff} {amount}")
+        clear_need_pin()
+        return 0
+    except SystemExit as exc:
+        if exc.code == 3:
+            return 3
+        print("SET PIN leftover retry", ru, exc)
+        return 6
+    except Exception as exc:
+        print("SET PIN leftover retry", ru, exc)
+        return 6
 
 
 def close_invoice() -> None:
@@ -215,15 +298,32 @@ def close_invoice() -> None:
 
 def main() -> int:
     from bot_switch import require_bot_on
-    from watch_open import nav_should_retry
+    from watch_open import nav_should_retry, unit_on_hold
 
-    require_bot_on()
-    ru = sys.argv[1]
-    unit = sys.argv[2] if len(sys.argv) > 2 else ""
+    pin_only = "--pin-only" in sys.argv
+    argv = [a for a in sys.argv[1:] if a != "--pin-only"]
+    ru = argv[0]
+    unit = argv[1] if len(argv) > 1 else ""
     from save_dashboard import utc_iso
 
-    started_at = sys.argv[3] if len(sys.argv) > 3 else utc_iso()
-    print(f"PLANB START {ru} {unit}")
+    started_at = argv[2] if len(argv) > 2 else utc_iso()
+    need = load_need_pin()
+    leftover = pin_only or bool(need and need.get("ru") == ru)
+    require_bot_on(allow_unread=leftover)
+    if leftover:
+        n = need or {}
+        print(f"SET PIN leftover {ru} {unit or n.get('unit') or ''} — no second Pay")
+        return finish_paid_pin(
+            ru=ru,
+            unit=unit or n.get("unit") or "",
+            amount=str(n.get("amount") or ""),
+            tariff=n.get("tariff") or "T1",
+            source=n.get("source") or "nova",
+            started_at=n.get("started_at") or started_at,
+        )
+    if unit_on_hold(unit):
+        print(f"HOLD skip {ru} {unit} — no Pay")
+        return 2
     try:
         tariff, amount = items_from_phone(ru)
         print(f"ITEMS {tariff} {amount}")
@@ -238,6 +338,7 @@ def main() -> int:
             return 5
         return 2
 
+    paid = False
     try:
         stay = threading.Event()
         keeper = threading.Thread(target=_keep_request_awake, args=(stay,), daemon=True)
@@ -248,7 +349,24 @@ def main() -> int:
             bot = NovaSysRobot()
             bot.connect()
             bot._open_payments()
-            verdict, path = nova_search(apt)
+            try:
+                verdict, path = nova_search(apt)
+            except PersonalAccountError as exc:
+                print("PA LOCK", exc)
+                from save_dashboard import save_skip
+
+                save_skip(
+                    ru=ru,
+                    unit=apt,
+                    status="cannot_charge",
+                    note=f"Nova filter not Personal account {exc}",
+                    source="nova",
+                    amount=amount,
+                    tariff=tariff,
+                    started_at=started_at,
+                )
+                wake("wrong Nova filter", f"{ru} {apt} {exc}")
+                return 2
             print(f"SEARCH {apt} {verdict} {path}")
             if not icon_ok(verdict, path):
                 if verdict == "red_x":
@@ -285,7 +403,17 @@ def main() -> int:
                     )
                     wake("not green tick", f"{ru} {apt} {verdict} {path}")
                     return 2
-            charge_and_pay(apt, tariff, amount)
+            receipt = charge_and_pay(apt, tariff, amount)
+            paid = True
+            stash_ru_invoice(ru, receipt)
+            save_need_pin(
+                ru=ru,
+                unit=apt,
+                amount=amount,
+                tariff=tariff,
+                source="nova",
+                started_at=started_at,
+            )
         finally:
             stay.set()
             keeper.join(timeout=2)
@@ -295,6 +423,11 @@ def main() -> int:
                 finish_phone(ru)
                 last_pin = None
                 break
+            except SystemExit as exc:
+                last_pin = exc
+                print("SET PIN retry", attempt + 1, exc)
+                if exc.code == 3:
+                    raise
             except Exception as exc:
                 last_pin = exc
                 print("SET PIN retry", attempt + 1, exc)
@@ -319,15 +452,26 @@ def main() -> int:
             wake("dashboard save failed", f"{ru} {apt} {tariff} {amount} {exc}")
         else:
             wake("AUTO PAID + SET PIN", f"{ru} {apt} {tariff} {amount}")
+        clear_need_pin()
         return 0
+    except PersonalAccountError as exc:
+        wake("wrong Nova filter", f"{ru} {unit} {exc}")
+        return 2
     except SystemExit as exc:
+        if exc.code == 3:
+            return 3
         if exc.code == 4:
+            if paid:
+                wake("SET PIN leftover", f"{ru} {unit} bot switch unread after Pay")
+                return 6
             wake("laptop stopped", f"{ru} {unit} bot switch unread")
             return 4
         raise
     except Exception as exc:
         wake("laptop stopped", f"{ru} {unit} {exc}")
-        return 2
+        if paid:
+            return 6
+        return 5
 
 
 if __name__ == "__main__":

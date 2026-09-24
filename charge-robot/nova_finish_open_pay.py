@@ -1,4 +1,4 @@
-"""Finish an already-open Create payment dialog. Dropdown tariff only. No Pay if mismatch."""
+"""UNUSED live path. Start charge-robot/watch_loop.ps1 only."""
 from __future__ import annotations
 
 import sys

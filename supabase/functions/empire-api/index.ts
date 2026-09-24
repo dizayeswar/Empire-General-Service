@@ -49,6 +49,7 @@ Deno.serve(async (req) => {
     if (action === "saveWorkerPushToken") return json(await misc.handleSaveWorkerPushToken(body));
     if (action === "testWorkerPush") return json(await misc.handleTestWorkerPush());
     if (action === "debugWorkerPush") return json(await misc.handleDebugWorkerPush());
+    if (action === "getChargingBotEnabled") return json(await charging.handleGetChargingBotEnabled());
     if (action === "login" || action === "verifyLogin") return json(await handleLogin(body));
     if (action === "verifyPassword") return json(await verifyPassword(body));
     if (action === "getPerms") return json(await handleGetPerms(body));

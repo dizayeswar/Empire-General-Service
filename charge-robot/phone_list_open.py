@@ -1,4 +1,4 @@
-"""Collect every Open Buy card. App must already be on Requests."""
+"""UNUSED live path. Start charge-robot/watch_loop.ps1 only."""
 from __future__ import annotations
 
 import re

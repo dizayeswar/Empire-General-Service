@@ -177,54 +177,20 @@ class NovaSysRobot:
         app32 = Application(backend="win32").connect(handle=self.win.handle)
         return app32.window(handle=self.win.handle)
 
-    def _personal_account_edit(self):
-        main32 = self._win32_main()
-        payment = None
-        for child in main32.children():
-            try:
-                if child.window_text() == "Payment management":
-                    payment = child
-                    break
-            except Exception:
-                continue
-        search_root = payment or main32
-        edits = []
-        for w in search_root.descendants():
-            try:
-                if "EDIT" not in (w.class_name() or "").upper():
-                    continue
-                if not w.is_visible():
-                    continue
-                rect = w.rectangle()
-                if rect.width() < 8 or rect.height() < 8:
-                    continue
-                edits.append(w)
-            except Exception:
-                continue
-        if not edits:
-            raise RuntimeError("Could not find the Personal account search box.")
-        # Toolbar record box sits near the Pay buttons. The grid filter is lower.
-        grid = [e for e in edits if e.rectangle().top > 120]
-        pick = max(grid or edits, key=lambda e: e.rectangle().top)
-        return pick
+    def _personal_account_click(self):
+        from nova_search_filter import personal_account_click
+
+        return personal_account_click(self.win)
 
     def _search_apartment(self, apartment: str) -> None:
-        edit = self._personal_account_edit()
-        rect = edit.rectangle()
-        click(coords=_center(rect))
-        time.sleep(0.2)
-        send_keys("^a{BACKSPACE}")
-        time.sleep(0.1)
-        send_keys(apartment, with_spaces=True)
-        send_keys("{ENTER}")
-        self.log(f"Searched Personal account for {apartment}.")
-        time.sleep(1.0)
+        from nova_search_filter import search as pa_search
+
+        path = pa_search(apartment)
+        self.log(f"Searched Personal account for {apartment} ({path}).")
 
     def _select_result_row(self, apartment: str) -> None:
-        edit = self._personal_account_edit()
-        rect = edit.rectangle()
-        # One click on the result row under the filter box.
-        click(coords=(rect.left + 8, rect.bottom + 18))
+        sx, sy, pa, y, cols = self._personal_account_click()
+        click(coords=(sx, sy + 28))
         self.log(f"Clicked the result row for {apartment}.")
         time.sleep(0.35)
 
@@ -232,13 +198,14 @@ class NovaSysRobot:
         pay = self._main().child_window(title="Pay", control_type="Button")
         pay.wait("exists", timeout=6)
         rect = pay.rectangle()
-        arrow = (rect.right - 10, (rect.top + rect.bottom) // 2)
+        # Arrow on the Pay split — same spot the user clicked (right side of Pay).
+        arrow = (rect.right - 8, (rect.top + rect.bottom) // 2)
         click(coords=arrow)
-        time.sleep(0.4)
-        # WinForms ToolStrip menu is not in UIA. Manual is first, Automatic second.
-        click(coords=(rect.left + 36, rect.bottom + 36))
+        time.sleep(0.45)
+        # ToolStrip is not in UIA. Manual is first, Automatic second.
+        send_keys("{DOWN}{DOWN}{ENTER}")
         self.log("Clicked Pay -> Automatic.")
-        time.sleep(0.6)
+        time.sleep(0.8)
         self._wait_for_login_if_needed()
         time.sleep(0.4)
 
@@ -378,7 +345,10 @@ class NovaSysRobot:
                 if "EDIT" not in (d.class_name() or "").upper() or not d.is_visible():
                     continue
                 text = (d.window_text() or "").strip()
-                if text.upper().startswith(("ES-", "WW-")):
+                up = text.upper()
+                if up.startswith(("ES-", "WW-", "ES4-", "ES6-")) or (
+                    len(up) > 2 and up.startswith("ES") and up[2].isdigit()
+                ):
                     return text
             except Exception:
                 continue

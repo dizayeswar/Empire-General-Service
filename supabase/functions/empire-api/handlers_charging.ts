@@ -268,6 +268,12 @@ export async function handleGetChargingBotStatus(_body: Record<string, unknown>,
   return { ok: true, success: true, bot: botToApi(bot) };
 }
 
+/** Laptop watch only — enabled boolean, no staff token. Off still stops everything. */
+export async function handleGetChargingBotEnabled() {
+  const bot = await readBotRow();
+  return { ok: true, success: true, enabled: !!bot.enabled };
+}
+
 export async function handleSetChargingBotEnabled(body: Record<string, unknown>, auth: AuthOk) {
   if (!canWriteSection(auth, "charging_bot")) {
     return deny("Bot On/Off write access is required.");

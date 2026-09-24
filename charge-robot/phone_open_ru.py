@@ -1,4 +1,4 @@
-"""Open one RU on the phone: search, confirm one card, open, print fields."""
+"""UNUSED live path. Start charge-robot/watch_loop.ps1 only."""
 from __future__ import annotations
 
 import subprocess
