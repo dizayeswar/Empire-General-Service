@@ -285,6 +285,9 @@
   color: var(--text-soft);
   white-space: nowrap;
 }
+form.form-row {
+  margin-top: 0;
+}
 .app-table input.app-phone-input {
   width: 100%;
   min-width: 132px;

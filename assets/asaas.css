@@ -232,6 +232,12 @@ body:not(.asaas-mobile-mode) #asaasMobileApp { display: none !important; }
   border-radius: 8px;
   min-height: 0;
 }
+#asaasMobileApp input[type="search"].worker-field-input {
+  border-radius: 999px;
+  padding: 8px 14px;
+  -webkit-appearance: none;
+  appearance: none;
+}
 #asaasMobileApp .worker-field-photo-btn {
   padding: 9px 12px;
   font-size: 13px;

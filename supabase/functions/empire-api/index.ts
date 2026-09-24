@@ -37,7 +37,7 @@ function json(obj: unknown, status = 200) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method === "GET") {
-    return json({ ok: true, msg: "Empire API running (Supabase)", version: "2026-09-15-chg-acc" });
+    return json({ ok: true, msg: "Empire API running (Supabase)", version: "2026-09-23-skipline" });
   }
   if (req.method !== "POST") return json({ ok: false, error: "Method not allowed" }, 405);
 
@@ -53,6 +53,18 @@ Deno.serve(async (req) => {
     if (action === "login" || action === "verifyLogin") return json(await handleLogin(body));
     if (action === "verifyPassword") return json(await verifyPassword(body));
     if (action === "getPerms") return json(await handleGetPerms(body));
+    if (action === "saveMySignature") {
+      let sigAuth = await verifyTokenSession(String(body.token || ""));
+      if (!sigAuth.ok) return json(sigAuth);
+      sigAuth = await enrichAuthRole(sigAuth as AuthOk);
+      return json(await users.handleSaveMySignature(body, sigAuth as AuthOk));
+    }
+    if (action === "listHrSignatures") {
+      let sigAuth = await verifyTokenSession(String(body.token || ""));
+      if (!sigAuth.ok) return json(sigAuth);
+      sigAuth = await enrichAuthRole(sigAuth as AuthOk);
+      return json(await users.handleListHrSignatures(sigAuth as AuthOk));
+    }
     if (action === "getSummary") return json(await misc.handleGetSummary(body));
     if (action === "getSignedUpload") {
       let upAuth = await verifyTokenSession(String(body.token || ""));
@@ -66,6 +78,11 @@ Deno.serve(async (req) => {
       createUser: 1,
       updateUser: 1,
       deleteUser: 1,
+      listAccountSigs: 1,
+      addAccountSig: 1,
+      deleteAccountSig: 1,
+      updateAccountSig: 1,
+      importAccountSigs: 1,
     };
     if (adminUserActions[action]) {
       let adminAuth = await verifyTokenSession(String(body.token || ""));
@@ -76,6 +93,11 @@ Deno.serve(async (req) => {
       if (action === "createUser") return json(await users.handleCreateUser(body, a));
       if (action === "updateUser") return json(await users.handleUpdateUser(body, a));
       if (action === "deleteUser") return json(await users.handleDeleteUser(body, a));
+      if (action === "listAccountSigs") return json(await users.handleListAccountSigs(a));
+      if (action === "addAccountSig") return json(await users.handleAddAccountSig(body, a));
+      if (action === "deleteAccountSig") return json(await users.handleDeleteAccountSig(body, a));
+      if (action === "updateAccountSig") return json(await users.handleUpdateAccountSig(body, a));
+      if (action === "importAccountSigs") return json(await users.handleImportAccountSigs(body, a));
     }
 
     const requiredDept = TRASH_ACTIONS[action] ? String(body.dept || "") : DEPT_BY_ACTION[action];
@@ -354,6 +376,7 @@ Deno.serve(async (req) => {
       case "deleteHrLeaveRequest": return json(await hr.handleDeleteHrLeaveRequest(body, a));
       case "confirmHrLeaveRequest": return json(await hr.handleConfirmHrLeaveRequest(body, a));
       case "confirmHrLeaveRequests": return json(await hr.handleConfirmHrLeaveRequests(body, a));
+      case "listHrLineManagers": return json(await hr.handleListHrLineManagers(a));
       case "rejectHrLeaveRequest": return json(await hr.handleRejectHrLeaveRequest(body, a));
       case "fileHrLeaveRequests": return json(await hr.handleFileHrLeaveRequests(body, a));
       case "seedHrPdfAnnualPapers": return json(await hr.handleSeedHrPdfAnnualPapers(body, a));

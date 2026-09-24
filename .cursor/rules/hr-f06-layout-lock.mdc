@@ -28,3 +28,25 @@ Locked measurements (from the Word file):
 - **No Adjust paper editor.** Baked lock (2026-09-06): sheet `scale(0.94)` from centre; logo `translate(2mm, 4.5mm) scale(0.94)`; emp `translate(1mm, -1.5mm)`; absence `translate(0, 2.5mm)`; approvals `translate(0, 5.5mm)`; entitle `translate(0, 7.5mm)`; HR `translate(0, 13.5mm)`; footer `translate(0, -13mm)`
 
 Filing completed papers into leave-type sections is list-only. Do not change the paper for that feature.
+
+The paper size is locked. Signing, stamps, line managers, and directors must never change A4 size, tables, row heights, padding, borders, or transforms.
+
+## Line Manager and Director stamps are locked
+
+When a line manager or director places their account e-signature, only the stamp image is dropped into the existing box. Do **not** change paper size, row heights, padding, transforms, or stamp CSS for that flow.
+
+Users with both Employee and Line Manager access choose one box only (click the box, toolbar button, or Confirm selected). The stamp goes in that box only — never both on the same paper. Do not change the paper.
+
+Employee stamp is centered in the Employee Signature box (2026-09-21). Do not left-align it. Line Manager and Director stamps stay locked as below.
+
+Locked stamp display (2026-09-21):
+
+- Approvals row stays `32.1pt`
+- Line Manager and Director pads stay `32.1pt` high; ink is `56pt` tall, may overflow the box
+- **Never crop stamp ink.** Overflow the box if needed. Do not clip with `overflow:hidden` or print `position:static`.
+- Same width/height for every stamp (`object-fit: contain`). Employee stays centered in its box.
+- All e-signatures are locked: full box width, `56pt` tall, same on every paper (screen, print, and scan overlay). Do not use `width: auto`, do not drag/resize, and do not save a per-paper overlay size.
+- Once a stamp is on a paper that has left inbox, it cannot be moved or replaced.
+- No name under the stamp — signature only
+- Use the account PNG as-is — do not recrop, rescale, or re-process it on Confirm
+- Employee / HR stamps already match this size; do not restyle the paper to “fit” a new signature

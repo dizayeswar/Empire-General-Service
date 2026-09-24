@@ -12,6 +12,7 @@ var EMPIRE_AUTH_KEYS = {
   warehouseSigSections: 'empire_warehouse_sig_sections',
   moduleAccess: 'empire_module_access',
   signature: 'empire_user_signature',
+  signatureRole: 'empire_user_signature_role',
   loggedIn: 'empire_loggedIn'
 };
 
@@ -229,6 +230,23 @@ function empireGetSignature() {
   return empireAuthLs('signature');
 }
 
+function empireSetSignature(url) {
+  empireAuthSet('signature', String(url || ''));
+}
+
+function empireGetSignatureRole() {
+  empireMigrateSession();
+  var v = String(empireAuthLs('signatureRole') || '').trim().toLowerCase();
+  if (v === 'employee') return 'emp';
+  if (v === 'line_manager' || v === 'manager') return 'line';
+  if (v === 'emp' || v === 'line' || v === 'director' || v === 'hr') return v;
+  return '';
+}
+
+function empireSetSignatureRole(role) {
+  empireAuthSet('signatureRole', String(role || ''));
+}
+
 function empireModuleLevel(key) {
   var v = String(empireGetModuleAccess()[key] || 'none').trim().toLowerCase();
   if (v === 'read' || v === 'write') return v;
@@ -390,7 +408,7 @@ function empireCanAccessDept(requiredDept) {
       'warehouse_invoice', 'warehouse_invoices', 'warehouse_invsp', 'warehouse_invamount',
       'warehouse_sig_auth', 'warehouse_sig_issued', 'warehouse_sig_received'
     ],
-    hr: ['hr', 'hr_director']
+    hr: ['hr', 'hr_director', 'hr_line', 'hr_emp']
   };
   function moduleAllowsDeptToken(token) {
     var keys = moduleKeysByDept[token];
@@ -443,6 +461,9 @@ function empireSetSession(username, data) {
   }
   if (data.signature) empireAuthSet('signature', String(data.signature));
   else empireAuthSet('signature', '');
+  if (data.signatureRole) empireAuthSet('signatureRole', String(data.signatureRole));
+  else empireAuthSet('signatureRole', '');
+  setTimeout(function () { empireGuardUsernameAutofill(); }, 0);
 }
 
 function empireClearLegacyKeys() {
@@ -754,6 +775,170 @@ function empireAuthWorkerLogout(opts) {
   }
 }
 
+var _empireAutofillGen = 0;
+var _empireAutofillUntil = 0;
+var _empireAutofillBound = false;
+var _empireAutofillMo = null;
+
+function empireAutofillFire_(el, type) {
+  try {
+    el.dispatchEvent(new Event(type, { bubbles: true }));
+  } catch (e) {}
+}
+
+function empireIsLoginAutofillField_(el) {
+  if (!el) return true;
+  var id = String(el.id || '').toLowerCase();
+  if (/^(loginusername|loginpassword|hubusername|hubpassword|cmusername|cmpassword|empirelogoutpassword)$/.test(id)) return true;
+  var ac = String(el.getAttribute('autocomplete') || '').toLowerCase();
+  if (ac === 'username' || ac === 'current-password' || ac === 'new-password') {
+    if (el.closest('#loginPage, #loginView, #cmLogin, .login-page, .login-form, .login-box, .cm-login, .cm-login-card')) return true;
+  }
+  if (el.closest('#loginPage, #loginView, #cmLogin, .login-page, .login-form, .cm-login')) return true;
+  return false;
+}
+
+function empireIsSearchLikeField_(el) {
+  if (!el) return false;
+  var type = String(el.type || 'text').toLowerCase();
+  if (type === 'search') return true;
+  var blob = [
+    el.id,
+    el.name,
+    el.className,
+    el.getAttribute('placeholder') || '',
+    el.getAttribute('aria-label') || ''
+  ].join(' ').toLowerCase();
+  if (/search|filter/.test(blob)) return true;
+  var group = el.closest('label, .form-group, .cm-field');
+  if (group && /search/i.test(String(group.textContent || '').slice(0, 80))) return true;
+  return false;
+}
+
+function empireHardenSearchField_(el) {
+  if (!el || empireIsLoginAutofillField_(el)) return;
+  el.setAttribute('autocomplete', 'off');
+  el.setAttribute('autocorrect', 'off');
+  el.setAttribute('autocapitalize', 'none');
+  el.setAttribute('spellcheck', 'false');
+  el.setAttribute('data-lpignore', 'true');
+  el.setAttribute('data-1p-ignore', 'true');
+  if (el._empireUserTouched) return;
+  if (document.activeElement === el) return;
+  el.setAttribute('readonly', 'readonly');
+  if (el._empireAutofillHardened) return;
+  el._empireAutofillHardened = true;
+  el.addEventListener('focus', function () {
+    el.removeAttribute('readonly');
+  });
+  el.addEventListener('pointerdown', function () {
+    el._empireUserTouched = true;
+    el.removeAttribute('readonly');
+  });
+  el.addEventListener('keydown', function () {
+    el._empireUserTouched = true;
+    el.removeAttribute('readonly');
+  });
+}
+
+function empireHardenSearchFields_() {
+  var nodes = document.querySelectorAll('input, textarea');
+  for (var i = 0; i < nodes.length; i++) {
+    var el = nodes[i];
+    var type = String(el.type || 'text').toLowerCase();
+    if (type !== 'text' && type !== 'search' && type !== 'tel' && type !== 'email' && el.tagName !== 'TEXTAREA') continue;
+    if (empireIsSearchLikeField_(el)) empireHardenSearchField_(el);
+  }
+}
+
+function empireDisableSpentLoginFields_() {
+  ['loginUsername', 'loginPassword', 'hubUsername', 'hubPassword', 'cmUsername', 'cmPassword'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.value = '';
+    el.setAttribute('autocomplete', 'off');
+    el.disabled = true;
+  });
+}
+
+function empireClearUsernameAutofill_(fireEvents) {
+  var user = String(empireGetUser() || '').trim().toLowerCase();
+  if (!user || user.length < 2) return;
+  var nodes = document.querySelectorAll('input, textarea');
+  for (var i = 0; i < nodes.length; i++) {
+    var el = nodes[i];
+    if (empireIsLoginAutofillField_(el)) continue;
+    if (el._empireUserTouched) continue;
+    var type = String(el.type || 'text').toLowerCase();
+    if (type === 'password' || type === 'hidden' || type === 'checkbox' || type === 'radio' || type === 'file' || type === 'button' || type === 'submit' || type === 'reset' || type === 'image' || type === 'date' || type === 'datetime-local' || type === 'month' || type === 'time' || type === 'week' || type === 'color' || type === 'range' || type === 'number') continue;
+    if (el.readOnly && !empireIsSearchLikeField_(el) && !el._empireAutofillHardened) continue;
+    if (String(el.value || '').trim().toLowerCase() !== user) continue;
+    el.value = '';
+    if (fireEvents) {
+      empireAutofillFire_(el, 'input');
+      empireAutofillFire_(el, 'change');
+    }
+  }
+}
+
+function empireBindUsernameAutofillGuard_() {
+  if (_empireAutofillBound) return;
+  _empireAutofillBound = true;
+  document.addEventListener('input', function (ev) {
+    if (Date.now() > _empireAutofillUntil) return;
+    var el = ev.target;
+    if (!el || el._empireUserTouched || empireIsLoginAutofillField_(el)) return;
+    var user = String(empireGetUser() || '').trim().toLowerCase();
+    if (!user || user.length < 2) return;
+    if (String(el.value || '').trim().toLowerCase() !== user) return;
+    el.value = '';
+  }, true);
+  document.addEventListener('animationstart', function (ev) {
+    if (!ev || ev.animationName !== 'empireOnAutofill') return;
+    if (Date.now() > _empireAutofillUntil) return;
+    empireClearUsernameAutofill_(true);
+  }, true);
+}
+
+function empireWatchUsernameAutofillDom_(gen) {
+  if (_empireAutofillMo) {
+    _empireAutofillMo.disconnect();
+    _empireAutofillMo = null;
+  }
+  if (!document.body) return;
+  _empireAutofillMo = new MutationObserver(function () {
+    if (gen !== _empireAutofillGen || Date.now() > _empireAutofillUntil) return;
+    empireHardenSearchFields_();
+    empireClearUsernameAutofill_(true);
+  });
+  _empireAutofillMo.observe(document.body, { childList: true, subtree: true });
+}
+
+function empireGuardUsernameAutofill() {
+  if (typeof empireGetUser !== 'function' || !String(empireGetUser() || '').trim()) return;
+  var gen = ++_empireAutofillGen;
+  _empireAutofillUntil = Date.now() + 4000;
+  empireBindUsernameAutofillGuard_();
+  empireDisableSpentLoginFields_();
+  empireHardenSearchFields_();
+  empireClearUsernameAutofill_(false);
+  empireWatchUsernameAutofillDom_(gen);
+  [0, 50, 150, 400, 800, 1500, 2500, 3500].forEach(function (ms) {
+    setTimeout(function () {
+      if (gen !== _empireAutofillGen) return;
+      empireHardenSearchFields_();
+      empireClearUsernameAutofill_(true);
+    }, ms);
+  });
+  setTimeout(function () {
+    if (gen !== _empireAutofillGen) return;
+    if (_empireAutofillMo) {
+      _empireAutofillMo.disconnect();
+      _empireAutofillMo = null;
+    }
+  }, 4200);
+}
+
 function empireAuthLogin(e, dept, opts) {
   if (e && e.preventDefault) e.preventDefault();
   opts = opts || {};
@@ -764,6 +949,7 @@ function empireAuthLogin(e, dept, opts) {
     empireSetSession(u, d);
     empireClearLegacyKeys();
     if (typeof opts.onSuccess === 'function') opts.onSuccess(d);
+    empireGuardUsernameAutofill();
     return d;
   });
 }
@@ -795,6 +981,7 @@ function empireAuthPageBoot(opts) {
   if (typeof opts.onEnter === 'function') opts.onEnter();
   else if (main) main.classList.add('show');
   if (typeof empireApplySectionNav === 'function') empireApplySectionNav();
+  empireGuardUsernameAutofill();
   return true;
 }
 
@@ -850,6 +1037,7 @@ function empireAuthRefreshPerms(onUpdate) {
           empireAuthSet('moduleAccess', JSON.stringify(d.moduleAccess));
         }
         if (d.signature != null) empireAuthSet('signature', String(d.signature || ''));
+        if (d.signatureRole != null) empireAuthSet('signatureRole', String(d.signatureRole || ''));
         if (typeof onUpdate === 'function') onUpdate(d);
         if (typeof empireApplySectionNav === 'function') empireApplySectionNav();
       } else if (empireAuthHandleInvalidSession_(d)) {
@@ -877,3 +1065,11 @@ function empireAuthRefreshPerms(onUpdate) {
 })();
 
 empireMigrateSession();
+(function empireAuthAutofillBoot_() {
+  function run() {
+    if (!empireGetToken()) return;
+    empireGuardUsernameAutofill();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
+  else run();
+})();

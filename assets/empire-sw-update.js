@@ -29,6 +29,17 @@
     scope: './',
     updateViaCache: 'none'
   }).then(function (reg) {
+    function kick(worker) {
+      if (worker) worker.postMessage({ type: 'SKIP_WAITING' });
+    }
+    kick(reg.waiting);
+    reg.addEventListener('updatefound', function () {
+      var w = reg.installing;
+      if (!w) return;
+      w.addEventListener('statechange', function () {
+        if (w.state === 'installed') kick(w);
+      });
+    });
     reg.update();
   }).catch(function () {});
 })();

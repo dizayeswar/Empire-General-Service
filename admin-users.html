@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="manifest" href="manifest.webmanifest?v=2026-09-15-wh-sec">
+  <link rel="manifest" href="manifest.webmanifest?v=2026-09-21-emp-stamp-only">
   <meta name="theme-color" content="#8d015d">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -11,14 +11,14 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="icon" href="logo-light.png" type="image/png">
   <title>Users — Admin — Empire EGS</title>
-  <link rel="stylesheet" href="assets/empire.css?v=2026-09-15-wh-sec">
+  <link rel="stylesheet" href="assets/empire.css?v=2026-09-22-search-pill">
   <style>
     .admin-users-wrap { max-width: 1100px; margin: 0 auto; padding: 16px 18px 40px; }
     .admin-users-head { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; justify-content:space-between; margin-bottom:18px; }
     .admin-users-head h1 { font-size:22px; margin:0 0 4px; }
     .admin-users-head p { margin:0; color:var(--text-soft); font-size:13px; }
     .admin-toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:14px; }
-    .admin-toolbar input[type="search"] { flex:1; min-width:180px; padding:10px 12px; border:1px solid var(--card-border); border-radius:10px; background:var(--panel); color:var(--text); }
+    .admin-toolbar input[type="search"] { flex:1; min-width:180px; padding:10px 16px; border:2px solid var(--input-border); border-radius:var(--radius-pill); background:var(--input-bg); color:var(--text); font-weight:600; -webkit-appearance:none; appearance:none; }
     .admin-user-table { width:100%; border-collapse:collapse; font-size:13px; }
     .admin-user-table th, .admin-user-table td { text-align:left; padding:10px 8px; border-bottom:1px solid var(--card-border); vertical-align:top; }
     .admin-user-table th { color:var(--text-soft); font-weight:600; font-size:12px; }
@@ -37,6 +37,12 @@
     .admin-msg { min-height:18px; font-size:13px; margin:8px 0; }
     .admin-msg.err { color:var(--c-error,#C5504F); }
     .admin-msg.ok { color:#1d9e75; }
+    .sig-lib-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px; margin-top:12px; }
+    .sig-lib-card { border:1px solid var(--card-border); border-radius:12px; padding:10px; background:var(--panel); }
+    .sig-lib-card img { display:block; max-height:48px; max-width:100%; background:#fff; border:1px solid var(--card-border); border-radius:8px; padding:6px 8px; margin-bottom:8px; }
+    .sig-lib-card .sig-lib-name { font-weight:700; font-size:13px; }
+    .sig-lib-card .sig-lib-meta { font-size:11px; color:var(--text-soft); margin:4px 0 8px; }
+    .sig-lib-add { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; align-items:end; }
     .admin-acts { display:flex; flex-wrap:wrap; gap:6px; }
     .admin-acts .act-btn { font-size:12px; padding:6px 10px; }
     .admin-updated { font-size:11px; color:var(--text-faint); white-space:nowrap; }
@@ -90,6 +96,8 @@
       <button type="button" onclick="applyRecipe('warehouse_desk')">Warehouse full desk</button>
       <button type="button" onclick="applyRecipe('admin_full')">Admin (all write)</button>
       <button type="button" onclick="applyRecipe('hr_director')">HR Pending Director</button>
+      <button type="button" onclick="applyRecipe('hr_line')">HR Line Manager</button>
+      <button type="button" onclick="applyRecipe('hr_emp')">HR Employee</button>
     </div>
 
     <div id="userFormCard" class="admin-form-card" style="display:none;">
@@ -113,8 +121,22 @@
         </label>
       </div>
       <div id="sigField" style="margin-top:14px;">
-        <div style="font-size:13px;font-weight:700;margin-bottom:6px;">Director e-signature</div>
-        <p class="admin-form-hint" style="margin-top:0;">Saved on this user. When they confirm a Pending Director paper, this stamp is used automatically.</p>
+        <div style="font-size:13px;font-weight:700;margin-bottom:6px;">Account e-signature</div>
+        <p class="admin-form-hint" style="margin-top:0;">Each account keeps its own stamp. Pick one from <strong>Saved e-signatures</strong> below if you already cropped it, or upload here. <strong>Employee</strong> stamps the Employee box only — they cannot fill a leave request. If they have both <strong>Employee</strong> and <strong>Line manager sign</strong>, they click the box they are signing.</p>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--text-soft);font-weight:600;max-width:280px;margin:8px 0 10px;">Saved e-signature
+          <select id="f-sig-lib" onchange="onSigLibPick()">
+            <option value="">— none / upload below —</option>
+          </select>
+        </label>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--text-soft);font-weight:600;max-width:280px;margin:8px 0 10px;">Use this signature as
+          <select id="f-sig-role">
+            <option value="">— not set —</option>
+            <option value="emp">Employee</option>
+            <option value="line">Line Manager</option>
+            <option value="director">Director</option>
+            <option value="hr">HR</option>
+          </select>
+        </label>
         <input type="file" id="f-signature" accept="image/*" hidden onchange="onSigFile(event)">
         <div id="sigPreviewWrap" style="display:none;margin:8px 0 10px;">
           <img id="sigPreview" alt="E-signature" style="max-height:56px;max-width:260px;background:#fff;border:1px solid var(--card-border);border-radius:8px;padding:6px 10px;">
@@ -149,24 +171,49 @@
       <div class="admin-msg" id="formMsg"></div>
     </div>
 
+    <div class="admin-form-card" id="sigLibCard">
+      <h2 style="font-size:16px;margin:0 0 6px;">Saved e-signatures</h2>
+      <p class="admin-form-hint" style="margin-top:0;">Prepared stamps from the paper are saved here. <strong>Rename</strong> if the name is wrong, then <strong>Attach to user</strong> — or pick the stamp when you create the account.</p>
+      <div class="sig-lib-add">
+        <label>Name on the paper<input id="f-lib-label" autocomplete="off" placeholder="e.g. Ahmad"></label>
+        <label>This stamp is
+          <select id="f-lib-role">
+            <option value="">— not set yet —</option>
+            <option value="emp">Employee</option>
+            <option value="line">Line Manager</option>
+            <option value="director">Director</option>
+            <option value="hr">HR</option>
+          </select>
+        </label>
+        <div class="admin-form-actions" style="margin:0;">
+          <input type="file" id="f-lib-file" accept="image/*" multiple hidden onchange="onLibFiles(event)">
+          <button type="button" class="act-btn" onclick="document.getElementById('f-lib-file').click()">Add from photo</button>
+        </div>
+      </div>
+      <div class="admin-msg" id="sigLibMsg"></div>
+      <div id="sigLibHost"></div>
+    </div>
+
     <div class="admin-toolbar">
-      <input type="search" id="userSearch" placeholder="Search username, access…" oninput="renderUsers()">
+      <input type="search" id="userSearch" placeholder="Search username, access…" oninput="renderUsers()" autocomplete="off">
       <button type="button" class="act-btn" onclick="loadUsers(true)">Refresh</button>
     </div>
     <div class="admin-msg" id="listMsg"></div>
     <div id="usersTableHost"></div>
   </div>
 
-  <script src="config.js?v=2026-09-15-wh-sec"></script>
-  <script src="assets/empire-api.js?v=2026-09-15-wh-sec"></script>
-  <script src="assets/empire-auth.js?v=2026-09-15-wh-sec"></script>
-  <script src="assets/empire-core.js?v=2026-09-15-wh-sec"></script>
-  <script src="assets/empire-sw-update.js?v=2026-09-15-wh-sec"></script>
+  <script src="config.js?v=2026-09-21-emp-stamp-only"></script>
+  <script src="assets/empire-api.js?v=2026-09-21-emp-stamp-only"></script>
+  <script src="assets/empire-auth.js?v=2026-09-21-emp-stamp-only"></script>
+  <script src="assets/empire-core.js?v=2026-09-21-emp-stamp-only"></script>
+  <script src="assets/empire-sw-update.js?v=2026-09-21-emp-stamp-only"></script>
   <script>
     var allUsers = [];
     var editingUsername = null;
     var _expandedGroups = { charging: false, hr_mod: false, warehouse: false };
     var _pendingSig = undefined;
+    var _pendingLibId = '';
+    var _sigLib = [];
 
     var ACCESS_MODULES = [
       { key: 'admin_mod', label: 'Admin', n: 1, group: true },
@@ -241,6 +288,8 @@
       { key: 'hr_mod', label: 'HR Department', n: 13, group: true },
       { key: 'hr', label: 'Leave requests', child: true, parent: 'hr_mod' },
       { key: 'hr_director', label: 'Pending Director', child: true, parent: 'hr_mod' },
+      { key: 'hr_line', label: 'Line manager sign', child: true, parent: 'hr_mod' },
+      { key: 'hr_emp', label: 'Employee', child: true, parent: 'hr_mod' },
       { key: 'warehouse', label: 'Warehouse', n: 14, group: true },
       { key: 'warehouse_note', label: 'Goods Issue Note', child: true, parent: 'warehouse' },
       { key: 'warehouse_saved', label: 'Saved Notes', child: true, parent: 'warehouse' },
@@ -349,7 +398,7 @@
       var a = readAccessFromForm();
       var workerOnly = (hasAccess(a, 'civil_issue') || hasAccess(a, 'electric_issue')) &&
         !hasAccess(a, 'civil_department') && !hasAccess(a, 'electrical_department') &&
-        !hasAccess(a, 'cleaning') && !hasAccess(a, 'hr') && !hasAccess(a, 'hr_director') &&
+        !hasAccess(a, 'cleaning') && !hasAccess(a, 'hr') && !hasAccess(a, 'hr_director') && !hasAccess(a, 'hr_line') && !hasAccess(a, 'hr_emp') &&
         !accessAnyCharging(a) && !hasAccess(a, 'warehouse') && !hasAccess(a, 'admin');
       var cleaning = hasAccess(a, 'cleaning');
       var tradeEl = document.getElementById('tradeField');
@@ -359,6 +408,12 @@
       if (!workerOnly) {
         var t = document.getElementById('f-trade');
         if (t) t.value = '';
+      }
+      var hint = document.getElementById('formHint');
+      if (hint && hasAccess(a, 'hr_emp') && hasAccess(a, 'hr_line')) {
+        hint.textContent = 'This account has Employee and Line manager. They click the Employee box or the Line Manager box to put their e-signature in that box.';
+      } else if (hint && hasAccess(a, 'hr_emp') && !hasAccess(a, 'hr') && !hasAccess(a, 'hr_line') && !hasAccess(a, 'hr_director')) {
+        hint.textContent = 'Employee: they only stamp the Employee box on papers with their name. They cannot fill or save a leave request.';
       }
     }
 
@@ -395,10 +450,23 @@
         a.warehouse_invamount = 'write';
       } else if (kind === 'admin_full') {
         ACCESS_MODULES.forEach(function (m) {
-          if (!m.group && m.key !== 'hr_director') a[m.key] = 'write';
+          if (!m.group && m.key !== 'hr_director' && m.key !== 'hr_line' && m.key !== 'hr_emp') a[m.key] = 'write';
         });
       } else if (kind === 'hr_director') {
         a.hr_director = 'write';
+        document.getElementById('formHint').textContent = 'Upload this director’s e-signature. When they open HR and sign, that stamp is used.';
+        var dirRole = document.getElementById('f-sig-role');
+        if (dirRole) dirRole.value = 'director';
+      } else if (kind === 'hr_line') {
+        a.hr_line = 'write';
+        document.getElementById('formHint').textContent = 'Upload this line manager’s e-signature. When HR assigns a leave paper to them, they sign the Line Manager box.';
+        var lineRole = document.getElementById('f-sig-role');
+        if (lineRole) lineRole.value = 'line';
+      } else if (kind === 'hr_emp') {
+        a.hr_emp = 'write';
+        document.getElementById('formHint').textContent = 'Upload this employee’s e-signature. They only stamp the Employee box on their papers. They cannot fill a leave request.';
+        var empRole = document.getElementById('f-sig-role');
+        if (empRole) empRole.value = 'emp';
       }
       if (typeof empireFoldModuleAccess === 'function') a = empireFoldModuleAccess(a);
       else if (typeof empireFoldChargingAccess === 'function') a = empireFoldChargingAccess(a);
@@ -430,13 +498,17 @@
       document.getElementById('f-password').placeholder = 'min 4 characters';
       document.getElementById('f-trade').value = '';
       document.getElementById('f-projects').value = '';
-      document.getElementById('formHint').textContent = 'Password is required for new users.';
+      document.getElementById('formHint').textContent = 'Password is required for new users. Upload their e-signature if they will sign in HR.';
       setMsg('formMsg', '', true);
       document.getElementById('userFormCard').style.display = '';
       resetExpandedGroups();
       renderAccessMatrix(emptyAccess());
       showSigPreview('');
       _pendingSig = undefined;
+      _pendingLibId = '';
+      var sigRoleNew = document.getElementById('f-sig-role');
+      if (sigRoleNew) sigRoleNew.value = '';
+      fillSigLibSelect('');
       document.getElementById('f-username').focus();
     }
 
@@ -466,7 +538,11 @@
       document.getElementById('f-trade').value = u.trade || '';
       document.getElementById('f-projects').value = u.projects || '';
       _pendingSig = undefined;
+      _pendingLibId = '';
       showSigPreview(u.signature || '');
+      var sigRole = document.getElementById('f-sig-role');
+      if (sigRole) sigRole.value = u.signatureRole || '';
+      fillSigLibSelect(username);
     }
 
     function closeUserForm() {
@@ -492,7 +568,7 @@
       var access = readAccessFromForm();
       var workerPhone = (hasAccess(access, 'civil_issue') || hasAccess(access, 'electric_issue')) &&
         !hasAccess(access, 'civil_department') && !hasAccess(access, 'electrical_department') &&
-        !hasAccess(access, 'cleaning') && !hasAccess(access, 'hr') && !hasAccess(access, 'hr_director') &&
+        !hasAccess(access, 'cleaning') && !hasAccess(access, 'hr') && !hasAccess(access, 'hr_director') && !hasAccess(access, 'hr_line') && !hasAccess(access, 'hr_emp') &&
         !accessAnyCharging(access) &&
         !hasAccess(access, 'warehouse') && !hasAccess(access, 'admin');
       return {
@@ -502,7 +578,8 @@
         trade: workerPhone ? document.getElementById('f-trade').value : '',
         projects: hasAccess(access, 'cleaning')
           ? projectsFromCleaningAccess(access)
-          : document.getElementById('f-projects').value.trim()
+          : document.getElementById('f-projects').value.trim(),
+        signatureRole: document.getElementById('f-sig-role') ? document.getElementById('f-sig-role').value : ''
       };
     }
 
@@ -521,9 +598,12 @@
 
     function clearSignaturePreview() {
       _pendingSig = '';
+      _pendingLibId = '';
       showSigPreview('');
       var inp = document.getElementById('f-signature');
       if (inp) inp.value = '';
+      var lib = document.getElementById('f-sig-lib');
+      if (lib) lib.value = '';
     }
 
     function processSigImage(dataUrl, cb) {
@@ -582,10 +662,315 @@
       reader.onload = function () {
         processSigImage(String(reader.result || ''), function (url) {
           _pendingSig = url;
+          _pendingLibId = '';
+          var lib = document.getElementById('f-sig-lib');
+          if (lib) lib.value = '';
           showSigPreview(url);
         });
       };
       reader.readAsDataURL(file);
+    }
+
+    function fillSigLibSelect(preferUsername) {
+      var sel = document.getElementById('f-sig-lib');
+      if (!sel) return;
+      var keep = _pendingLibId;
+      var assignedId = '';
+      var h = '<option value="">— none / upload below —</option>';
+      _sigLib.forEach(function (it) {
+        if (preferUsername && it.assignedTo === preferUsername) assignedId = it.id;
+        var note = it.assignedTo ? (' · ' + it.assignedTo) : ' · not attached';
+        h += '<option value="' + esc(it.id) + '">' + esc(it.label) + note + '</option>';
+      });
+      sel.innerHTML = h;
+      var pick = keep || assignedId || '';
+      sel.value = pick;
+      if (pick && keep === pick) return;
+      if (pick && assignedId === pick && !_pendingLibId) {
+        _pendingLibId = pick;
+      }
+    }
+
+    function applyLibSig(id) {
+      var it = _sigLib.find(function (x) { return x.id === id; });
+      if (!it) {
+        _pendingLibId = '';
+        return;
+      }
+      _pendingLibId = it.id;
+      _pendingSig = it.image;
+      showSigPreview(it.image);
+      var role = document.getElementById('f-sig-role');
+      if (role && it.role) role.value = it.role;
+      var sel = document.getElementById('f-sig-lib');
+      if (sel) sel.value = it.id;
+    }
+
+    function onSigLibPick() {
+      var sel = document.getElementById('f-sig-lib');
+      var id = sel ? sel.value : '';
+      if (!id) {
+        _pendingLibId = '';
+        if (!editingUsername) {
+          _pendingSig = undefined;
+          showSigPreview('');
+        }
+        return;
+      }
+      applyLibSig(id);
+    }
+
+    function useLibOnNewUser(id) {
+      openCreateForm();
+      applyLibSig(id);
+      var it = _sigLib.find(function (x) { return x.id === id; });
+      if (it && it.label) {
+        var uname = String(it.label).toLowerCase().replace(/[^a-z0-9._-]+/g, '');
+        var nameEl = document.getElementById('f-username');
+        if (nameEl && !nameEl.value && uname.length >= 2) nameEl.value = uname;
+      }
+      document.getElementById('userFormCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function assignLibToUser(id, username) {
+      if (!username) return;
+      var it = _sigLib.find(function (x) { return x.id === id; });
+      if (!it) return;
+      setMsg('sigLibMsg', 'Attaching to ' + username + '…', true);
+      fetchJSONRetry({
+        action: 'updateUser',
+        token: empireGetToken(),
+        username: username,
+        signature: it.image,
+        signatureRole: it.role || '',
+        signatureLibraryId: it.id
+      }, 1, 60000)
+        .then(function (d) {
+          if (!d || d.ok === false) {
+            if (typeof forceSessionLogout === 'function' && forceSessionLogout(d)) return;
+            throw new Error((d && (d.message || d.error)) || 'Could not attach');
+          }
+          setMsg('sigLibMsg', 'Attached to ' + username + '.', true);
+          return Promise.all([loadUsers(true), loadSigLibrary()]);
+        })
+        .catch(function (e) {
+          setMsg('sigLibMsg', String((e && e.message) || e), false);
+        });
+    }
+
+    function renderSigLib() {
+      var host = document.getElementById('sigLibHost');
+      if (!host) return;
+      if (!_sigLib.length) {
+        host.innerHTML = '<p class="admin-form-hint">Loading prepared e-signatures… If this stays empty, refresh once after the site update.</p>';
+        fillSigLibSelect(editingUsername || '');
+        return;
+      }
+      var userOpts = '<option value="">Attach to user…</option>';
+      allUsers.slice().sort(function (a, b) {
+        return String(a.username || '').localeCompare(String(b.username || ''));
+      }).forEach(function (u) {
+        userOpts += '<option value="' + esc(u.username) + '">' + esc(u.username) + '</option>';
+      });
+      var h = '<div class="sig-lib-grid">';
+      _sigLib.forEach(function (it) {
+        h += '<div class="sig-lib-card">';
+        h += '<img src="' + esc(it.image) + '" alt="">';
+        h += '<div class="sig-lib-name">' + esc(it.label) + '</div>';
+        h += '<div class="sig-lib-meta">' +
+          (it.role ? esc(sigRoleLabel(it.role)) : 'Role not set') +
+          ' · ' + (it.assignedTo ? ('on ' + esc(it.assignedTo)) : 'not attached yet') +
+          '</div>';
+        h += '<div class="admin-acts">';
+        h += '<button type="button" class="act-btn" onclick="useLibOnNewUser(\'' + escAttr(it.id) + '\')">New user</button>';
+        h += '<button type="button" class="act-btn" onclick="renameLibSig(\'' + escAttr(it.id) + '\')">Rename</button>';
+        h += '<button type="button" class="act-btn" style="background:#C5504F;color:#fff;border-color:#C5504F;" onclick="deleteLibSig(\'' + escAttr(it.id) + '\')">Remove</button>';
+        h += '</div>';
+        h += '<select style="margin-top:8px;width:100%;padding:7px 8px;border:1px solid var(--card-border);border-radius:8px;background:var(--panel);color:var(--text);" onchange="assignLibToUser(\'' + escAttr(it.id) + '\', this.value); this.value=\'\';">' + userOpts + '</select>';
+        h += '</div>';
+      });
+      h += '</div>';
+      host.innerHTML = h;
+      fillSigLibSelect(editingUsername || '');
+    }
+
+    function blobToDataURL(blob) {
+      return new Promise(function (resolve, reject) {
+        var reader = new FileReader();
+        reader.onload = function () { resolve(String(reader.result || '')); };
+        reader.onerror = function () { reject(new Error('Could not read stamp image')); };
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    function importPreparedSigs(existing, skippedIds) {
+      var have = {};
+      (existing || []).forEach(function (it) {
+        if (it && it.id) have[it.id] = 1;
+      });
+      (skippedIds || []).forEach(function (id) {
+        if (id) have[id] = 1;
+      });
+      return fetch('assets/account-sigs/index.json?v=2026-09-21-emp-stamp-only')
+        .then(function (r) {
+          if (!r.ok) throw new Error('Could not load prepared stamps');
+          return r.json();
+        })
+        .then(function (list) {
+          var missing = (Array.isArray(list) ? list : []).filter(function (it) {
+            return it && it.id && it.file && !have[it.id];
+          });
+          if (!missing.length) return false;
+          setMsg('sigLibMsg', 'Saving ' + missing.length + ' e-signature(s)…', true);
+          var chain = Promise.resolve();
+          var chunk = [];
+          function flush() {
+            if (!chunk.length) return Promise.resolve();
+            var items = chunk;
+            chunk = [];
+            return fetchJSONRetry({
+              action: 'importAccountSigs',
+              token: empireGetToken(),
+              items: items
+            }, 1, 120000).then(function (d) {
+              if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Could not save stamps');
+            });
+          }
+          missing.forEach(function (it) {
+            chain = chain.then(function () {
+              return fetch('assets/account-sigs/' + encodeURIComponent(it.file) + '?v=2026-09-21-emp-stamp-only')
+                .then(function (r) {
+                  if (!r.ok) throw new Error('Missing stamp ' + it.file);
+                  return r.blob();
+                })
+                .then(blobToDataURL)
+                .then(function (url) {
+                  chunk.push({ id: it.id, label: it.label || 'Signature', image: url });
+                  if (chunk.length >= 4) return flush();
+                });
+            });
+          });
+          return chain.then(flush).then(function () { return true; });
+        });
+    }
+
+    function loadSigLibrary() {
+      return fetchJSONRetry({ action: 'listAccountSigs', token: empireGetToken() }, 2, 30000)
+        .then(function (d) {
+          if (!d || d.ok === false) {
+            if (typeof forceSessionLogout === 'function' && forceSessionLogout(d)) return;
+            throw new Error((d && (d.message || d.error)) || 'Could not load saved signatures');
+          }
+          _sigLib = Array.isArray(d.items) ? d.items : [];
+          renderSigLib();
+          return importPreparedSigs(_sigLib, d.skippedIds);
+        })
+        .then(function (imported) {
+          if (!imported) return;
+          return fetchJSONRetry({ action: 'listAccountSigs', token: empireGetToken() }, 2, 30000)
+            .then(function (d) {
+              if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Could not load saved signatures');
+              _sigLib = Array.isArray(d.items) ? d.items : [];
+              setMsg('sigLibMsg', _sigLib.length + ' e-signatures ready. Attach each one to the right user.', true);
+              renderSigLib();
+            });
+        })
+        .catch(function (e) {
+          setMsg('sigLibMsg', String((e && e.message) || e), false);
+        });
+    }
+
+    function renameLibSig(id) {
+      var it = null;
+      _sigLib.forEach(function (row) { if (row.id === id) it = row; });
+      if (!it) return;
+      var name = window.prompt('Name this e-signature', it.label || '');
+      if (name == null) return;
+      name = String(name).trim();
+      if (!name) return;
+      fetchJSONRetry({
+        action: 'updateAccountSig',
+        token: empireGetToken(),
+        id: id,
+        label: name
+      }, 1, 30000)
+        .then(function (d) {
+          if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Rename failed');
+          setMsg('sigLibMsg', 'Renamed.', true);
+          return loadSigLibrary();
+        })
+        .catch(function (e) {
+          setMsg('sigLibMsg', String((e && e.message) || e), false);
+        });
+    }
+
+    function onLibFiles(e) {
+      var files = e.target.files ? Array.prototype.slice.call(e.target.files) : [];
+      e.target.value = '';
+      if (!files.length) return;
+      var labelBase = (document.getElementById('f-lib-label').value || '').trim();
+      var role = document.getElementById('f-lib-role') ? document.getElementById('f-lib-role').value : '';
+      setMsg('sigLibMsg', 'Saving ' + files.length + ' stamp(s)…', true);
+      var chain = Promise.resolve();
+      files.forEach(function (file, i) {
+        chain = chain.then(function () {
+          return new Promise(function (resolve, reject) {
+            var reader = new FileReader();
+            reader.onload = function () {
+              processSigImage(String(reader.result || ''), function (url) {
+                var name = labelBase;
+                if (files.length > 1) {
+                  var fromFile = String(file.name || '').replace(/\.[^.]+$/, '').trim();
+                  name = labelBase ? (labelBase + ' ' + (i + 1)) : (fromFile || ('Signature ' + (i + 1)));
+                } else if (!name) {
+                  name = String(file.name || '').replace(/\.[^.]+$/, '').trim() || 'Signature';
+                }
+                fetchJSONRetry({
+                  action: 'addAccountSig',
+                  token: empireGetToken(),
+                  label: name,
+                  role: role,
+                  image: url
+                }, 1, 60000)
+                  .then(function (d) {
+                    if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Save failed');
+                    resolve();
+                  })
+                  .catch(reject);
+              });
+            };
+            reader.onerror = function () { reject(new Error('Could not read image')); };
+            reader.readAsDataURL(file);
+          });
+        });
+      });
+      chain.then(function () {
+        document.getElementById('f-lib-label').value = '';
+        setMsg('sigLibMsg', files.length === 1 ? 'Signature saved.' : files.length + ' signatures saved.', true);
+        return loadSigLibrary();
+      }).catch(function (err) {
+        setMsg('sigLibMsg', String((err && err.message) || err), false);
+        return loadSigLibrary();
+      });
+    }
+
+    function deleteLibSig(id) {
+      uiConfirm('Remove this saved stamp? Accounts that already have it keep their copy.')
+        .then(function (ok) {
+          if (!ok) return;
+          return fetchJSONRetry({ action: 'deleteAccountSig', token: empireGetToken(), id: id }, 1, 30000)
+            .then(function (d) {
+              if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Remove failed');
+              if (_pendingLibId === id) {
+                _pendingLibId = '';
+                var sel = document.getElementById('f-sig-lib');
+                if (sel) sel.value = '';
+              }
+              setMsg('sigLibMsg', 'Removed.', true);
+              return loadSigLibrary();
+            })
+            .catch(function (e) { setMsg('sigLibMsg', String((e && e.message) || e), false); });
+        });
     }
 
     function saveUserForm() {
@@ -602,7 +987,7 @@
       var workerPhone = !!p.trade || (
         (hasAccess(p.moduleAccess, 'civil_issue') || hasAccess(p.moduleAccess, 'electric_issue')) &&
         !hasAccess(p.moduleAccess, 'civil_department') && !hasAccess(p.moduleAccess, 'electrical_department') &&
-        !hasAccess(p.moduleAccess, 'hr') && !hasAccess(p.moduleAccess, 'hr_director') &&
+        !hasAccess(p.moduleAccess, 'hr') && !hasAccess(p.moduleAccess, 'hr_director') && !hasAccess(p.moduleAccess, 'hr_line') && !hasAccess(p.moduleAccess, 'hr_emp') &&
         !accessAnyCharging(p.moduleAccess)
       );
       if (workerPhone && document.getElementById('tradeField').style.display !== 'none' && !p.trade) {
@@ -615,8 +1000,11 @@
       var action = editingUsername ? 'updateUser' : 'createUser';
       var body = Object.assign({ action: action, token: empireGetToken() }, p);
       if (editingUsername) body.username = editingUsername;
-      if (_pendingSig !== undefined) body.signature = _pendingSig;
-      fetchJSONRetry(body, 1, 30000)
+      if (!editingUsername) body.signature = _pendingSig || '';
+      else if (_pendingSig !== undefined) body.signature = _pendingSig;
+      if (_pendingLibId) body.signatureLibraryId = _pendingLibId;
+      var waitMs = body.signature ? 60000 : 30000;
+      fetchJSONRetry(body, 1, waitMs)
         .then(function (d) {
           if (!d || d.ok === false) {
             if (typeof forceSessionLogout === 'function' && forceSessionLogout(d)) return;
@@ -624,7 +1012,7 @@
           }
           setMsg('formMsg', d.message || 'Saved.', true);
           closeUserForm();
-          return loadUsers(true);
+          return Promise.all([loadUsers(true), loadSigLibrary()]);
         })
         .catch(function (e) {
           setMsg('formMsg', String((e && e.message) || e || 'Save failed'), false);
@@ -646,7 +1034,7 @@
                 if (typeof forceSessionLogout === 'function' && forceSessionLogout(d)) return;
                 throw new Error((d && (d.message || d.error)) || 'Delete failed');
               }
-              return loadUsers(true);
+              return loadUsers(true).then(function () { return loadSigLibrary(); });
             })
             .catch(function (e) { alert(String((e && e.message) || e)); });
         });
@@ -661,6 +1049,11 @@
       } catch (e) {
         return String(iso).slice(0, 16);
       }
+    }
+
+    function sigRoleLabel(role) {
+      var m = { emp: 'Employee', line: 'Line Manager', director: 'Director', hr: 'HR' };
+      return m[role] || role || '';
     }
 
     function accessSummary(u) {
@@ -684,7 +1077,7 @@
       var q = (document.getElementById('userSearch').value || '').toLowerCase().trim();
       var rows = allUsers.filter(function (u) {
         if (!q) return true;
-        var hay = [u.username, u.dept, u.role, u.trade, accessSummary(u)].join(' ').toLowerCase();
+        var hay = [u.username, u.dept, u.role, u.trade, u.signatureRole, accessSummary(u)].join(' ').toLowerCase();
         return hay.indexOf(q) !== -1;
       }).slice().sort(function (a, b) {
         return String(a.username || '').localeCompare(String(b.username || ''));
@@ -701,7 +1094,9 @@
       rows.forEach(function (u) {
         h += '<tr>';
         h += '<td><strong>' + esc(u.username) + '</strong>' +
-          (u.hasSignature || u.signature ? ' <span class="admin-badge">e-sig</span>' : '') + '</td>';
+          (u.hasSignature || u.signature ? ' <span class="admin-badge">e-sig' +
+            (u.signatureRole ? ' · ' + esc(sigRoleLabel(u.signatureRole)) : '') +
+            '</span>' : '') + '</td>';
         h += '<td style="max-width:420px;font-size:12px;line-height:1.45;">' + esc(accessSummary(u) || '—') + '</td>';
         h += '<td>' + esc(u.trade || '—') + '</td>';
         h += '<td class="admin-updated">' + esc(formatUpdated(u.updatedAt)) + '</td>';
@@ -736,6 +1131,7 @@
           allUsers = Array.isArray(d.users) ? d.users : [];
           setMsg('listMsg', allUsers.length + ' user(s)', true);
           renderUsers();
+          renderSigLib();
         })
         .catch(function (e) {
           setMsg('listMsg', String((e && e.message) || e), false);
@@ -758,6 +1154,7 @@
       var wl = document.getElementById('whoLabel');
       if (wl) wl.textContent = (empireGetUser() || '') + ' (admin)';
       loadUsers(true);
+      loadSigLibrary();
     }
     boot();
   </script>

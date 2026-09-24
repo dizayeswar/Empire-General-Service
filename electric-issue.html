@@ -14,8 +14,8 @@
 <link rel="preconnect" href="https://api.imgbb.com">
 <title>Electric Issues — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #workerApp,body.auth-login-visible #mainContainer,body.auth-login-visible .worker-modal,body.auth-login-visible .modal{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-09-15-sec-acc">
-<link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-09-15-sec-acc">
+<link rel="stylesheet" href="assets/empire.css?v=2026-09-22-search-pill">
+<link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-09-22-search-pill">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -74,10 +74,10 @@
           <input type="checkbox" id="wfrRefundableCheck" onchange="workerFieldReportHandleRefundableCheck(event)">
           <span class="worker-field-check-text" data-i18n="wfrRefundable">Refundable work</span>
         </label>
-        <p class="worker-field-hint worker-field-refundable-hint" data-i18n-html="wfrRefundableHint">Leave unchecked for <strong>maintenance</strong>. When checked, add a <strong>job photo</strong> and an <strong>invoice photo</strong>.</p>
+        <p class="worker-field-hint worker-field-refundable-hint" data-i18n-html="wfrRefundableHint">Leave unchecked for <strong>maintenance</strong>. When checked, add an <strong>invoice photo</strong> — job photos are optional.</p>
       </div>
       <div id="wfrRefundablePhotos" class="worker-field-refundable-photos" style="display:none;">
-        <p class="worker-field-hint worker-field-refundable-note" data-i18n-html="wfrRefundableNote">Refundable work needs a <strong>job photo</strong> and an <strong>invoice photo</strong> before sending.</p>
+        <p class="worker-field-hint worker-field-refundable-note" data-i18n-html="wfrRefundableNote">Refundable work needs an <strong>invoice photo</strong> before sending. Job photos are optional.</p>
       </div>
       <label class="worker-field-label" data-i18n="wfrJobPhoto">Job photos</label>
       <p class="worker-field-hint" data-i18n="wfrJobPhotoHint">Up to 3 photos — camera or gallery</p>
@@ -188,7 +188,7 @@
         <div class="form-group"><label>Team</label><select id="f-group" onchange="renderIssues();if(window._issueFilterState)window._issueFilterState.save();"><option value="">All teams</option><option value="unassigned">Unassigned</option></select></div>
         <div class="form-group"><label>Status</label><select id="f-status" onchange="renderIssues()"><option value="">All</option><option value="open">Open</option><option value="fixed">Fixed</option></select></div>
         <div class="form-group"><label>Date</label><input type="date" id="f-month" onchange="renderIssues()"><span onclick="document.getElementById('f-month').value='';renderIssues();" style="font-size:11px;color:var(--text-faint);cursor:pointer;margin-top:4px;">clear date</span></div>
-        <div class="form-group"><label>Search building/floor/spot</label><input type="text" id="f-search" oninput="renderIssues()" placeholder="e.g. A12, #A12, or stairs"></div>
+        <div class="form-group"><label>Search building/floor/spot</label><input type="search" id="f-search" oninput="renderIssues()" placeholder="e.g. A12, #A12, or stairs" autocomplete="off"></div>
         <div class="form-group"><label>&nbsp;</label><button onclick="loadIssues(true)"><span class="nav-icon spin-icon" id="listRefreshIcon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> Refresh</button></div>
       </div>
       <div id="issuesTable"><p>Loading…</p></div>
@@ -212,7 +212,7 @@
       <p class="routed-away-hint">Issues that were reviewed and do not belong in Electric. Re-create them in Civil, Fire, or the correct department.</p>
       <div class="form-row">
         <div class="form-group"><label>Project</label><select id="f-nc-project" onchange="renderRoutedIssues()"><option value="">All</option></select></div>
-        <div class="form-group"><label>Search building/floor/spot</label><input type="text" id="f-nc-search" oninput="renderRoutedIssues()" placeholder="e.g. A12, #A12, or stairs"></div>
+        <div class="form-group"><label>Search building/floor/spot</label><input type="search" id="f-nc-search" oninput="renderRoutedIssues()" placeholder="e.g. A12, #A12, or stairs" autocomplete="off"></div>
         <div class="form-group"><label>&nbsp;</label><button onclick="loadIssues(true)"><span class="nav-icon spin-icon" id="notCivilRefreshIcon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> Refresh</button></div>
       </div>
       <div id="issuesNotCivilTable"><p>Loading…</p></div>
@@ -224,7 +224,7 @@
       <p class="fix-delay-page-hint">Issues that cannot be fixed soon and need at least one month. Cards appear silver in the main list too.</p>
       <div class="form-row">
         <div class="form-group"><label>Project</label><select id="f-fd-project" onchange="renderFixDelayIssues()"><option value="">All</option></select></div>
-        <div class="form-group"><label>Search building/floor/spot</label><input type="text" id="f-fd-search" oninput="renderFixDelayIssues()" placeholder="e.g. A12, #A12, or stairs"></div>
+        <div class="form-group"><label>Search building/floor/spot</label><input type="search" id="f-fd-search" oninput="renderFixDelayIssues()" placeholder="e.g. A12, #A12, or stairs" autocomplete="off"></div>
         <div class="form-group"><label>&nbsp;</label><button onclick="loadIssues(true)"><span class="nav-icon spin-icon" id="fixDelayRefreshIcon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> Refresh</button></div>
       </div>
       <div id="issuesFixDelayTable"><p>Loading…</p></div>
@@ -253,7 +253,7 @@
 <script src="config.js?v=2026-09-15-sec-acc"></script>
 <script src="assets/empire-storage.js?v=2026-09-15-sec-acc"></script>
 <script src="assets/empire-api.js?v=2026-09-15-sec-acc"></script>
-<script src="assets/empire-auth.js?v=2026-09-15-sec-acc"></script>
+<script src="assets/empire-auth.js?v=2026-09-19-user-autofill"></script>
 <script src="assets/empire-core.js?v=2026-09-15-sec-acc"></script>
 <script src="assets/empire-offline-queue.js?v=2026-09-15-sec-acc"></script>
 <script src="assets/issue-configs.js?v=2026-09-15-sec-acc"></script>
@@ -262,9 +262,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js"></script>
 <script src="assets/empire-push.js?v=2026-09-15-sec-acc"></script>
 <script src="assets/empire-assign-voice.js?v=2026-09-15-sec-acc"></script>
-<script src="assets/empire-worker-i18n.js?v=2026-09-15-sec-acc"></script>
+<script src="assets/empire-worker-i18n.js?v=2026-09-17-invoice-send"></script>
 <script src="assets/empire-worker-photo.js?v=2026-09-15-sec-acc"></script>
-<script src="assets/empire-worker-field-report.js?v=2026-09-15-sec-acc"></script>
+<script src="assets/empire-worker-field-report.js?v=2026-09-17-invoice-send"></script>
 <script src="assets/issue-tracker.js?v=2026-09-15-sec-acc"></script>
 <script src="assets/issue-excel-export.js?v=2026-09-15-sec-acc"></script>
 <script src="assets/issue-recycle-bin.js?v=2026-09-15-sec-acc"></script>

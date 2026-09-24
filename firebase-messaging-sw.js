@@ -1,5 +1,5 @@
 /* Empire EGS — service worker (cache + Firebase background push) */
-var CACHE_VERSION = '2026-09-15-wh-sec';
+var CACHE_VERSION = '2026-09-23-skip-line';
 var CACHE_NAME = 'empire-egs-' + CACHE_VERSION;
 var NOTIFY_ICON = 'https://dizayeswar.github.io/Empire-General-Service/icons/icon-192.png';
 var NOTIFY_BASE = 'https://dizayeswar.github.io/Empire-General-Service/civil-issue.html';
@@ -147,7 +147,7 @@ self.addEventListener('install', function (event) {
         return cache.add(url).catch(function () {});
       }));
     }).then(function () {
-      /* Activate on next navigation — avoid mid-page takeover flicker on Android */
+      return self.skipWaiting();
     })
   );
 });
@@ -159,6 +159,8 @@ self.addEventListener('activate', function (event) {
         keys.filter(function (key) { return key.indexOf('empire-egs-') === 0 && key !== CACHE_NAME; })
           .map(function (key) { return caches.delete(key); })
       );
+    }).then(function () {
+      return self.clients.claim();
     })
   );
 });
@@ -175,6 +177,8 @@ function isLiveConfigAsset(pathname) {
     /empire-push\.js$/i.test(pathname) ||
     /empire-sw-update\.js$/i.test(pathname) ||
     /empire-auth\.js$/i.test(pathname) ||
+    /empire-hr-leave\.js$/i.test(pathname) ||
+    /empire-hr\.css$/i.test(pathname) ||
     /issue-tracker\.js$/i.test(pathname) ||
     /issue-configs\.js$/i.test(pathname);
 }

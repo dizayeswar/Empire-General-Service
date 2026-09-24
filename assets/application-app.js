@@ -708,7 +708,7 @@ function appRenderTable_() {
   rows.forEach(function (r) {
     h += '<tr class="app-row-clickable" data-app-id="' + appEsc_(r.id) + '" onclick="appRowClick_(event)">'
       + '<td><strong class="app-property-link">' + appEsc_(r.propertyId) + '</strong></td>'
-      + '<td><input type="text" class="app-phone-input" inputmode="numeric" data-app-id="' + appEsc_(r.id) + '" data-app-field="phone" value="' + appEsc_(r.phone || '') + '" onchange="appSaveRow_(this.getAttribute(\'data-app-id\'))"></td>'
+      + '<td><input type="text" class="app-phone-input" inputmode="numeric" autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-app-id="' + appEsc_(r.id) + '" data-app-field="phone" value="' + appEsc_(r.phone || '') + '" onchange="appSaveRow_(this.getAttribute(\'data-app-id\'))"></td>'
       + '<td>' + appStatusSelectHtml_(r.id, r.status) + '</td>'
       + '<td class="app-updated-cell">' + appEsc_(appFormatDate_(r.updatedAt)) + '</td></tr>';
   });

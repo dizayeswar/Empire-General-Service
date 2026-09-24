@@ -55,8 +55,15 @@ body.wh-page .wh-settings {
   margin-top: 6px;
 }
 body.wh-page .wh-settings-toggle,
-body.wh-page .wh-settings-panel button {
+body.wh-page .wh-settings-panel button,
+body.wh-page #whSidebarRefreshBtn {
   padding: 7px 11px;
+}
+body.wh-page #whSidebarRefreshBtn.spinning .nav-icon {
+  animation: wh-spin 0.8s linear infinite;
+}
+@keyframes wh-spin {
+  to { transform: rotate(360deg); }
 }
 body.wh-page .wh-saved-app .form-section {
   padding: 18px 20px;
@@ -725,6 +732,40 @@ html[data-theme="dark"] .wh-esig-input {
 .wh-line .wh-cell-input:focus {
   border-bottom: 1px dotted #999 !important;
 }
+.wh-date-field {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+.wh-date-field .wh-cell-input {
+  flex: 1;
+  min-width: 0;
+  padding-right: 18px !important;
+}
+.wh-date-native {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 18px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: transparent;
+  cursor: pointer;
+}
+.wh-date-native::-webkit-calendar-picker-indicator {
+  opacity: 0.7;
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+}
+.wh-note.wh-form-locked .wh-date-native {
+  pointer-events: none;
+}
 
 .wh-type-inline {
   display: flex;
@@ -1245,6 +1286,11 @@ html[data-theme="dark"] .wh-inv-no .wh-cell-input {
   color: var(--text-soft, #666);
   white-space: nowrap;
 }
+.wh-inv-search-bar {
+  display: flex;
+  width: 100%;
+  margin: 0 0 14px;
+}
 .wh-inv-search {
   flex: 1 1 220px;
   min-width: 180px;
@@ -1257,6 +1303,16 @@ html[data-theme="dark"] .wh-inv-no .wh-cell-input {
   background: var(--panel, #fff);
   color: inherit;
   box-sizing: border-box;
+}
+.wh-inv-search-bar .wh-inv-search {
+  max-width: none;
+  min-width: 0;
+  width: 100%;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-size: 14px;
+  -webkit-appearance: none;
+  appearance: none;
 }
 .wh-inv-search:focus {
   outline: none;
@@ -1285,6 +1341,11 @@ html[data-theme="dark"] .wh-inv-no .wh-cell-input {
   font-weight: 600;
   background: transparent;
   padding: 0;
+}
+.wh-inv-status.edited {
+  background: #6d28d9;
+  color: #fff;
+  margin-left: 6px;
 }
 .wh-inv-status.book-open {
   background: #6b7280;
@@ -1589,7 +1650,8 @@ html[data-theme="dark"] tr.wh-inv-row-pending td {
     padding: 0 2px !important;
   }
   .wh-note input[type=date]::-webkit-calendar-picker-indicator,
-  .wh-note input[type=datetime-local]::-webkit-calendar-picker-indicator {
+  .wh-note input[type=datetime-local]::-webkit-calendar-picker-indicator,
+  .wh-date-native {
     display: none !important;
   }
 }

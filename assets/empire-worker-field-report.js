@@ -1060,13 +1060,6 @@ function workerFieldReportSubmit_() {
   }
   var msg = document.getElementById('wfrFormMsg');
   var btn = document.getElementById('wfrSubmitBtn');
-  if (refundable && !_wfrJobPhotos.length) {
-    if (msg) {
-      msg.textContent = workerFieldReportT_('wfrNeedJobPhoto', 'Refundable reports need a job photo before sending.');
-      msg.className = 'worker-field-msg worker-field-msg-error';
-    }
-    return;
-  }
   if (refundable && !_wfrInvoicePhotoUrl) {
     if (msg) {
       msg.textContent = workerFieldReportT_('wfrNeedInvoicePhoto', 'Refundable reports need an invoice photo before sending.');
@@ -1074,11 +1067,11 @@ function workerFieldReportSubmit_() {
     }
     return;
   }
-  if (!place && !note && !_wfrJobPhotos.length) {
+  if (!place && !note && !_wfrJobPhotos.length && !_wfrInvoicePhotoUrl) {
     var draft = typeof assignVoiceDraft_ === 'function' ? assignVoiceDraft_(workerFieldReportVoiceId_()) : null;
     if (!draft || !draft.blob) {
       if (msg) {
-        msg.textContent = workerFieldReportT_('wfrNeedContent', 'Add a place, note, photo, or voice recording.');
+        msg.textContent = workerFieldReportT_('wfrNeedContent', 'Add a place, note, photo, invoice, or voice recording.');
         msg.className = 'worker-field-msg worker-field-msg-error';
       }
       return;

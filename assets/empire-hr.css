@@ -204,6 +204,48 @@
 .hr-badge-pending_director { background: #f7f0e6; color: #8a5a12; border-color: #e4d0a8; }
 .hr-badge-completed { background: #eef8f3; color: #146c4e; border-color: #b7e0cf; }
 
+.hr-signed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.hr-signed-card {
+  border: 1px solid var(--card-border, #e4d7df);
+  border-radius: 14px;
+  padding: 14px 16px 12px;
+  background: var(--panel, #fff);
+  box-shadow: 0 8px 18px var(--shadow, rgba(45, 18, 36, 0.06));
+}
+.hr-signed-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.hr-signed-name {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+.hr-signed-dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px 16px;
+  margin: 0 0 12px;
+}
+.hr-signed-dl dt {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-soft, #6b5a66);
+}
+.hr-signed-dl dd {
+  margin: 2px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
 .hr-list-editor {
   padding: 16px 20px 40px;
 }
@@ -327,6 +369,10 @@
 .hr-f06-blank .hr-sig-pad {
   pointer-events: none;
 }
+.hr-f06-blank .hr-sig-pad.hr-sig-pad-account {
+  pointer-events: auto;
+  cursor: pointer;
+}
 
 .hr-f06-grid,
 .hr-f06-entitle,
@@ -353,6 +399,14 @@
 }
 .hr-f06-absence { transform: translate(0, 2.5mm); }
 .hr-f06-approvals { transform: translate(0, 5.5mm); }
+
+/* Table transforms clip overflow — expand clip so 56pt stamps are not cropped. */
+.hr-f06-emp,
+.hr-f06-approvals,
+.hr-f06-hr {
+  overflow: visible;
+  clip-path: inset(-18pt -8pt);
+}
 
 .hr-f06-entitle {
   width: 174.54mm;
@@ -515,8 +569,8 @@
 
 .hr-note textarea.hr-days-out {
   display: block;
-  resize: none;
-  overflow: hidden;
+  resize: none !important;
+  overflow: hidden !important;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: break-word;
@@ -524,6 +578,18 @@
   text-align: center;
   min-height: 0;
   height: auto;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.hr-note textarea.hr-days-out::-webkit-resizer,
+.hr-note textarea.hr-days-out::-webkit-scrollbar,
+.hr-note textarea.hr-days-out::-webkit-inner-spin-button,
+.hr-note textarea.hr-days-out::-webkit-outer-spin-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
 }
 
 .hr-toolbar select,
@@ -629,16 +695,18 @@
   border-left-style: solid;
 }
 
-.hr-f06-hr-foot .sig-line { width: 50%; }
+.hr-f06-hr-foot .sig-line { width: 50%; cursor: pointer; overflow: visible; }
 .hr-f06-hr-foot .date-line { width: 50%; white-space: nowrap; }
 
 .hr-f06-hr-foot .hr-sig-pad-inline {
-  display: inline-flex;
-  align-items: center;
+  display: inline-block;
+  width: 52%;
   min-width: 40%;
-  min-height: 18pt;
+  height: 24.45pt;
+  min-height: 24.45pt;
   margin-left: 8pt;
   vertical-align: middle;
+  overflow: visible;
 }
 
 .hr-f06-hr-foot .date-line input {
@@ -704,38 +772,181 @@
 .sig-cell {
   min-height: 29pt;
   cursor: pointer;
+  overflow: visible;
 }
 
-.hr-approve-row td.sig-cell-director {
+.hr-sig-row td.sig-cell,
+.hr-approve-row td.sig-cell,
+.hr-approve-row td.sig-cell-director,
+.hr-f06-hr-foot td.sig-line {
   overflow: visible;
+  clip-path: none;
+}
+
+.hr-paper-locked .sig-cell,
+.hr-paper-locked .sig-line {
+  cursor: default;
+  pointer-events: none;
+}
+.hr-paper-director-sign .sig-cell-director {
+  pointer-events: auto;
+  cursor: pointer;
+}
+.hr-paper-line-sign .hr-approve-row td.sig-cell:not(.sig-cell-director) {
+  pointer-events: auto;
+  cursor: pointer;
+}
+.hr-paper-emp-sign .hr-sig-row td.sig-cell {
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 .hr-sig-pad {
+  width: 100%;
+  height: 100%;
   min-height: 18pt;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-}
-
-.hr-sig-pad img {
-  max-width: 95%;
-  max-height: 22pt;
-  object-fit: contain;
-}
-
-.hr-sig-pad-director {
-  min-height: 22pt;
-  min-width: 0;
   justify-content: center;
   overflow: visible;
+  position: relative;
+  z-index: 3;
 }
+
+/* LOCKED e-signatures: same size/position every paper. Do not drag, resize, recrop, or use width:auto. */
+.hr-sig-pad img,
+.hr-sig-pad-line img,
 .hr-sig-pad-director img {
-  max-width: 100%;
-  max-height: 26pt;
-  object-fit: contain;
+  position: absolute !important;
+  left: 0 !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 100% !important;
+  height: 56pt !important;
+  max-width: 100% !important;
+  max-height: 56pt !important;
+  margin: 0 !important;
+  object-fit: contain !important;
+  object-position: center !important;
+  display: block !important;
+  overflow: visible !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  -webkit-user-drag: none !important;
+}
+
+.hr-sig-row .hr-sig-pad img {
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  width: 100% !important;
+  object-position: center !important;
+}
+.hr-f06-hr-foot .hr-sig-pad img {
+  left: 0 !important;
+  transform: translateY(-50%) !important;
+  object-position: left center !important;
+}
+
+.hr-sig-pad-line,
+.hr-sig-pad-director {
+  height: 32.1pt;
+  min-height: 32.1pt;
+  max-height: 32.1pt;
+}
+
+.hr-sig-row .hr-sig-pad {
+  height: 28.95pt;
+  min-height: 28.95pt;
+  max-height: 28.95pt;
+}
+
+.sig-cell .hr-sig-ghost,
+.sig-line .hr-sig-ghost,
+.hr-approve-row .hr-sig-ghost {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
 }
 
 .hr-sig-ghost { min-height: 18px; }
+
+.hr-sig-pick {
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(16, 8, 20, .45);
+}
+.hr-sig-pick[hidden] { display: none !important; }
+.hr-sig-pick-card {
+  width: min(420px, 100%);
+  max-height: min(80vh, 560px);
+  overflow: auto;
+  background: var(--card, #fff);
+  color: var(--text);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.18);
+}
+.hr-sig-pick-card h3 { margin: 0 0 6px; font-size: 16px; }
+.hr-sig-pick-help { margin: 0 0 12px; font-size: 13px; color: var(--text-soft); }
+.hr-sig-pick-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.hr-sig-pick-person {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+}
+.hr-sig-pick-person:hover { border-color: var(--header-accent, #8d015d); }
+.hr-sig-pick-person img {
+  height: 36px;
+  width: auto;
+  max-width: 120px;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+.hr-sig-pick-person.is-on { border-color: var(--header-accent, #8d015d); background: color-mix(in srgb, var(--header-accent, #8d015d) 10%, var(--panel, #fff)); }
+.hr-sig-pick-person small { display: block; font-size: 11px; color: var(--text-soft); font-weight: 400; margin-top: 2px; }
+.hr-badge-pending_line { background: #f3e8ff; color: #6b21a8; }
+.hr-sig-pick-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.hr-box-pick-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0 0 12px;
+}
+.hr-box-pick-choice button {
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-weight: 700;
+}
+.hr-box-pick-choice button strong { display: block; font-size: 15px; }
+.hr-box-pick-choice button span {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-soft);
+  margin-top: 2px;
+}
 
 .hr-actions-print {
   display: flex;
@@ -835,29 +1046,34 @@
   height: 3.6%;
   z-index: 2;
   box-sizing: border-box;
-  overflow: hidden;
-  cursor: grab;
+  overflow: visible;
+  cursor: default;
   touch-action: none;
+  pointer-events: none;
 }
-.hr-scan-dir-box:active { cursor: grabbing; }
-.hr-scan-dir-box.hr-scan-dir-edit {
-  outline: 1px dashed #c5504f;
-  outline-offset: 1px;
-}
+.hr-scan-dir-box:active { cursor: default; }
+.hr-scan-dir-box.hr-scan-dir-edit,
 .hr-scan-dir-box.hr-scan-dir-locked {
   cursor: default;
   outline: none;
+  pointer-events: none;
 }
 
 .hr-scan-dir-sig {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
   display: block;
   width: 100%;
-  height: 100%;
+  height: 56pt;
   max-width: 100%;
-  max-height: 100%;
+  max-height: 56pt;
   object-fit: contain;
+  object-position: center;
   pointer-events: none;
   user-select: none;
+  -webkit-user-drag: none;
 }
 
 .hr-scan-handle {
@@ -874,7 +1090,8 @@
 .hr-scan-handle[data-handle="ne"] { right: -6px; top: -6px; cursor: nesw-resize; }
 .hr-scan-handle[data-handle="sw"] { left: -6px; bottom: -6px; cursor: nesw-resize; }
 .hr-scan-handle[data-handle="se"] { right: -6px; bottom: -6px; cursor: nwse-resize; }
-.hr-scan-dir-locked .hr-scan-handle { display: none; }
+.hr-scan-dir-locked .hr-scan-handle,
+.hr-scan-dir-box .hr-scan-handle { display: none !important; }
 
 .hr-saved-papers {
   display: flex;
@@ -930,17 +1147,23 @@
 .hr-batch-scan-page .hr-scan-dir-box,
 .hr-pdf-a4 .hr-scan-dir-box {
   position: absolute;
-  overflow: hidden;
+  overflow: visible;
   box-sizing: border-box;
   pointer-events: none;
 }
 .hr-batch-scan-page .hr-scan-dir-sig,
 .hr-pdf-a4 .hr-scan-dir-sig {
-  position: static;
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
   display: block;
   width: 100%;
-  height: 100%;
+  height: 56pt;
+  max-width: 100%;
+  max-height: 56pt;
   object-fit: contain;
+  object-position: center;
   pointer-events: none;
 }
 
@@ -1092,7 +1315,15 @@
   html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; width: 210mm !important; }
   body * { visibility: hidden !important; }
   #hrPrintRoot,
-  #hrPrintRoot * { visibility: visible !important; }
+  #hrPrintRoot *,
+  #hrBatchPrint,
+  #hrBatchPrint *,
+  .hr-print-page,
+  .hr-print-page *,
+  .hr-batch-page,
+  .hr-batch-page * {
+    visibility: visible !important;
+  }
   #hrPrintRoot {
     position: absolute !important;
     left: 0 !important;
@@ -1131,8 +1362,15 @@
   }
   .hr-f06-title {
     margin: 0 !important;
+    padding: 0 !important;
     height: 14pt !important;
     line-height: 14pt !important;
+    text-align: center !important;
+    width: 100% !important;
+    display: block !important;
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
   }
   .hr-f06-grid,
   .hr-f06-entitle,
@@ -1148,6 +1386,84 @@
   .hr-f06-approvals { transform: translate(0, 5.5mm) !important; }
   .hr-f06-entitle { width: 174.54mm !important; max-width: 174.54mm !important; margin: 1.87mm auto 0 !important; transform: translate(0, 7.5mm) !important; }
   .hr-f06-hr { transform: translate(0, 13.5mm) !important; }
+  .hr-f06-emp,
+  .hr-f06-approvals,
+  .hr-f06-hr {
+    overflow: visible !important;
+    clip-path: inset(-18pt -8pt) !important;
+  }
+  .hr-sig-pad,
+  .hr-sig-pad-line,
+  .hr-sig-pad-director,
+  .hr-f06-hr-foot .hr-sig-pad-inline {
+    overflow: visible !important;
+    position: relative !important;
+    z-index: 3 !important;
+  }
+  .hr-sig-row td.sig-cell,
+  .hr-approve-row td.sig-cell,
+  .hr-approve-row td.sig-cell-director,
+  .hr-f06-hr-foot td.sig-line {
+    overflow: visible !important;
+    clip-path: none !important;
+  }
+  .hr-sig-pad-line,
+  .hr-sig-pad-director {
+    width: 100% !important;
+    height: 32.1pt !important;
+    min-height: 32.1pt !important;
+    max-height: 32.1pt !important;
+  }
+  .hr-sig-row .hr-sig-pad {
+    width: 100% !important;
+    height: 28.95pt !important;
+    min-height: 28.95pt !important;
+    max-height: 28.95pt !important;
+  }
+  .hr-f06-hr-foot .hr-sig-pad-inline {
+    width: 52% !important;
+    height: 24.45pt !important;
+    min-height: 24.45pt !important;
+  }
+  .hr-sig-pad img,
+  .hr-sig-pad-line img,
+  .hr-sig-pad-director img {
+    position: absolute !important;
+    left: 0 !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 100% !important;
+    height: 56pt !important;
+    max-width: 100% !important;
+    max-height: 56pt !important;
+    margin: 0 !important;
+    object-fit: contain !important;
+    object-position: center !important;
+    display: block !important;
+    overflow: visible !important;
+    pointer-events: none !important;
+    user-select: none !important;
+    -webkit-user-drag: none !important;
+  }
+  .hr-sig-row .hr-sig-pad img {
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    object-position: center !important;
+  }
+  .hr-f06-hr-foot .hr-sig-pad img {
+    left: 0 !important;
+    transform: translateY(-50%) !important;
+    object-position: left center !important;
+  }
+  .sig-cell .hr-sig-ghost,
+  .sig-line .hr-sig-ghost,
+  .hr-approve-row .hr-sig-ghost {
+    display: none !important;
+    height: 0 !important;
+    min-height: 0 !important;
+  }
   .hr-f06-doc-foot {
     right: 16.26mm !important;
     bottom: 6mm !important;
@@ -1185,8 +1501,17 @@
   .hr-note input::placeholder { color: transparent !important; opacity: 0 !important; }
   .hr-note textarea.hr-days-out {
     height: auto !important;
-    overflow: visible !important;
+    overflow: hidden !important;
+    resize: none !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
     white-space: pre-wrap !important;
+  }
+  .hr-note textarea.hr-days-out::-webkit-resizer,
+  .hr-note textarea.hr-days-out::-webkit-scrollbar,
+  .hr-note textarea.hr-days-out::-webkit-inner-spin-button,
+  .hr-note textarea.hr-days-out::-webkit-outer-spin-button {
+    display: none !important;
   }
   .hr-note select.hr-cell-input {
     appearance: none !important;
@@ -1231,11 +1556,26 @@
   body.hr-print-scan .hr-scan-dir-box {
     outline: none !important;
     cursor: default !important;
-    overflow: hidden !important;
+    overflow: visible !important;
+  }
+  body.hr-print-scan .hr-scan-dir-sig {
+    position: absolute !important;
+    left: 0 !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 100% !important;
+    height: 56pt !important;
+    max-width: 100% !important;
+    max-height: 56pt !important;
+    object-fit: contain !important;
   }
 
   body.hr-print-batch #hrPrintRoot,
-  body.hr-print-batch #hrPrintRoot * { visibility: hidden !important; display: none !important; }
+  body.hr-print-batch #hrPrintRoot *,
+  body.hr-print-batch #mainContainer,
+  body.hr-print-batch #mainContainer *,
+  body.hr-print-batch .login-page,
+  body.hr-print-batch .login-page * { visibility: hidden !important; display: none !important; }
   body.hr-print-batch #scan,
   body.hr-print-batch #scan * { visibility: hidden !important; }
   body.hr-print-batch #hrBatchPrint {
@@ -1251,17 +1591,25 @@
   }
   body.hr-print-batch #hrBatchPrint,
   body.hr-print-batch #hrBatchPrint * { visibility: visible !important; }
-  body.hr-print-batch .hr-batch-page {
+  body.hr-print-batch .hr-batch-page,
+  body.hr-print-batch .hr-print-page {
     page-break-after: always;
     break-after: page;
     margin: 0;
     padding: 0;
+    width: 210mm;
+    height: 297mm;
+    overflow: hidden;
+    box-sizing: border-box;
+    position: relative;
   }
-  body.hr-print-batch .hr-batch-page:last-child {
+  body.hr-print-batch .hr-batch-page:last-child,
+  body.hr-print-batch .hr-print-page:last-child {
     page-break-after: auto;
     break-after: auto;
   }
-  body.hr-print-batch .hr-batch-page .hr-note {
+  body.hr-print-batch .hr-batch-page .hr-note,
+  body.hr-print-batch .hr-print-page .hr-note {
     border: none !important;
     box-shadow: none !important;
     margin: 0 !important;

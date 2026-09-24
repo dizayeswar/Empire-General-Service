@@ -21,6 +21,7 @@ var HR_ENTITLE_KEYS = [
 ];
 var HR_STATUS_LABEL = {
   submitted: 'Submitted',
+  pending_line: 'Pending line manager',
   line_approved: 'Line manager approved',
   pending_director: 'Pending Director',
   director_approved: 'Completed',
@@ -101,12 +102,22 @@ function hrToggleRowSelect_(id, ev) {
 }
 
 function hrSelectableStage_() {
-  return hrIsDirectorOnly_() ? 'pending_director' : 'inbox';
+  if (hrIsDirectorOnly_()) return 'pending_director';
+  if (hrIsLineOnly_()) return 'pending_line';
+  return 'inbox';
+}
+
+function hrUsesPaperList_() {
+  return hrIsDirectorOnly_() || hrIsLineOnly_() || hrIsEmployeeOnly_();
 }
 
 function hrCanSelectRow_(r) {
   var stage = hrStageOf_(r);
+  if (hrIsEmployeeOnly_()) return hrCanEmpStampRow_(r);
   if (hrIsDirectorOnly_()) return stage === 'pending_director';
+  if (hrLineCanSign_(r)) return true;
+  if (hrDualEmpLine_() && hrCanWrite_() && stage === 'inbox') return true;
+  if (hrIsLineOnly_()) return false;
   return hrCanWrite_() && stage === 'inbox';
 }
 
@@ -115,7 +126,7 @@ function hrSelectAllVisible_(ev) {
   var on = !!(ev && ev.target && ev.target.checked);
   _hrSelected = {};
   if (on) {
-    (hrIsDirectorOnly_() ? hrPaperList_() : hrFiltered_()).forEach(function (r) {
+    (hrUsesPaperList_() ? hrPaperList_() : hrFiltered_()).forEach(function (r) {
       if (hrCanSelectRow_(r)) _hrSelected[String(r.id)] = true;
     });
   }
@@ -369,14 +380,18 @@ function hrPrintRowsByIds_(ids, emptyMsg) {
     alert(emptyMsg || 'Select at least one paper first.');
     return;
   }
-  hrSnapshotPaperTemplate_();
-  var wrap = document.createElement('div');
-  rows.forEach(function (row, i) {
-    var scan = hrRowScan_(row);
-    wrap.appendChild(scan && scan.url ? hrBatchScanPage_(row) : hrBatchFormPage_(row, i));
+  hrPickPrintMode_().then(function (mode) {
+    if (!mode) return;
+    hrSnapshotPaperTemplate_();
+    var wrap = document.createElement('div');
+    rows.forEach(function (row, i) {
+      hrRepairRowScan_(row);
+      var scan = hrRowScan_(row);
+      wrap.appendChild(scan && scan.url ? hrBatchScanPage_(row) : hrBatchFormPage_(row, i));
+    });
+    hrMsg_('Preparing ' + rows.length + ' paper' + (rows.length === 1 ? '' : 's') + '…', true);
+    hrRunPrintFrame_(wrap.innerHTML, rows.length === 1 ? 'Leave Request' : 'Leave Requests', mode);
   });
-  hrMsg_('Preparing ' + rows.length + ' paper' + (rows.length === 1 ? '' : 's') + '… In the print window choose Save as PDF.', true);
-  hrOpenPrintFrame_(wrap.innerHTML, rows.length === 1 ? 'Leave Request' : 'Leave Requests');
 }
 
 function hrPrintCompletedByIds_(ids, emptyMsg) {
@@ -488,7 +503,7 @@ function hrFindVac2Row_(n) {
 var _hrVac2Seeding = false;
 
 function hrSeedVac2IfNeeded_() {
-  if (_hrVac2Seeding || hrIsDirectorOnly_() || !hrCanWrite_()) return Promise.resolve();
+  if (_hrVac2Seeding || !hrIsHrStaff_()) return Promise.resolve();
   var missing = [];
   var i;
   for (i = 1; i <= HR_SAVED_PAGE_COUNT; i++) {
@@ -550,27 +565,30 @@ function hrVac2VisibleRows_() {
 function hrPrintPdfPages_(nums) {
   nums = (nums || []).filter(function (n) { return n >= 1 && n <= HR_SAVED_PAGE_COUNT; });
   if (!nums.length) return;
-  var wrap = document.createElement('div');
-  nums.forEach(function (n) {
-    var row = hrFindVac2Row_(n);
-    var scan = row && row.entitlements && row.entitlements.__scan;
-    if (scan && scan.url) {
-      wrap.appendChild(hrBatchScanPage_(row));
-      wrap.lastElementChild.className = 'hr-print-page';
-    } else {
-      var page = document.createElement('div');
-      page.className = 'hr-print-page';
-      var img = document.createElement('img');
-      img.src = hrPdfPageUrl_(n);
-      img.alt = 'Leave Request';
-      img.style.cssText = 'display:block;width:210mm;height:297mm;object-fit:fill;';
-      page.appendChild(img);
-      wrap.appendChild(page);
-    }
-  });
-  hrMsg_('Preparing ' + nums.length + ' paper' + (nums.length === 1 ? '' : 's') + '… In the print window choose Save as PDF.', true);
-  hrWaitImages_(wrap, function () {
-    hrOpenPrintFrame_(wrap.innerHTML, nums.length === 1 ? 'Leave Request' : 'Leave Requests');
+  hrPickPrintMode_().then(function (mode) {
+    if (!mode) return;
+    var wrap = document.createElement('div');
+    nums.forEach(function (n) {
+      var row = hrFindVac2Row_(n);
+      var scan = row && row.entitlements && row.entitlements.__scan;
+      if (scan && scan.url) {
+        wrap.appendChild(hrBatchScanPage_(row));
+        wrap.lastElementChild.className = 'hr-print-page';
+      } else {
+        var page = document.createElement('div');
+        page.className = 'hr-print-page';
+        var img = document.createElement('img');
+        img.src = hrPdfPageUrl_(n);
+        img.alt = 'Leave Request';
+        img.style.cssText = 'display:block;width:210mm;height:297mm;object-fit:fill;';
+        page.appendChild(img);
+        wrap.appendChild(page);
+      }
+    });
+    hrMsg_('Preparing ' + nums.length + ' paper' + (nums.length === 1 ? '' : 's') + '…', true);
+    hrWaitImages_(wrap, function () {
+      hrRunPrintFrame_(wrap.innerHTML, nums.length === 1 ? 'Leave Request' : 'Leave Requests', mode);
+    });
   });
 }
 
@@ -585,7 +603,10 @@ function hrPdfPageCard_(row) {
   var html = '<h3>Paper ' + n + '</h3>' +
     '<span class="hr-badge hr-badge-' + hrEsc_(st) + '">' + hrEsc_(HR_STATUS_LABEL[st] || st) + '</span>';
   var real = !!(row && row.id && hrFindVac2Row_(n));
-  if (real && hrIsHrStaff_() && !hrIsDirectorOnly_() && stage === 'inbox') {
+  if (real && hrIsHrStaff_() && !hrIsSignerOnly_() && stage === 'inbox') {
+    html += '<button type="button" class="hr-btn-confirm" data-hr-confirm="1">Confirm</button>';
+  }
+  if (real && hrLineCanSign_(row)) {
     html += '<button type="button" class="hr-btn-confirm" data-hr-confirm="1">Confirm</button>';
   }
   if (real && hrIsDirectorOnly_() && stage === 'pending_director') {
@@ -792,6 +813,337 @@ function hrDirectorRejectRequest_(id) {
   });
 }
 
+function hrSelectedLineIds_() {
+  return hrSelectedIds_().filter(function (id) {
+    var row = _hrRows.find(function (r) { return String(r.id) === String(id); });
+    return row && hrLineCanSign_(row);
+  });
+}
+
+function hrCompactKey_(raw) {
+  return String(raw || '').trim().toLowerCase().replace(/[._\-\s]+/g, '');
+}
+
+function hrFoldPersonKey_(raw) {
+  return hrCompactKey_(raw)
+    .replace(/muhammad|mohammed|mohammad|muhamad|mohamad|muhamed|mohamed/g, 'mohd')
+    .replace(/hersh/g, 'herish');
+}
+
+var HR_ACCOUNT_PERSON_ALIASES = {
+  muhamadlawyer: ['mohammed abdulkhaliq', 'mohammed abdulkhaliq hamasharif', '101786'],
+  delanapp: ['dilan abdulsatar', 'dilan abdulsatar jawhar', '101447'],
+  adnanblbas: ['adnan abdulrahman', 'adnan abdulrahman sulaiman', '100115'],
+  herish: ['hersh adnan', 'herish adnan']
+};
+
+function hrUsernameMatchesEmployee_(username, name, extra) {
+  extra = extra || {};
+  var user = String(username || '').trim().toLowerCase();
+  if (!user) return false;
+  var ck = hrCompactKey_(user);
+  var foldedUser = hrFoldPersonKey_(user);
+  var code = hrCompactKey_(extra.code);
+  if (code && (ck === code || user === code)) return true;
+  var nameCompact = hrCompactKey_(name);
+  var nameFolded = hrFoldPersonKey_(name);
+  var aliases = HR_ACCOUNT_PERSON_ALIASES[user] || [];
+  for (var i = 0; i < aliases.length; i++) {
+    var ac = hrCompactKey_(aliases[i]);
+    var af = hrFoldPersonKey_(aliases[i]);
+    if (!ac) continue;
+    if (code && ac === code) return true;
+    if (nameCompact && (nameCompact === ac || nameCompact.indexOf(ac) !== -1 || ac.indexOf(nameCompact) !== -1)) return true;
+    if (nameFolded && af && (nameFolded === af || nameFolded.indexOf(af) !== -1 || af.indexOf(nameFolded) !== -1)) return true;
+  }
+  var label = String(name || '').trim();
+  if (!label) return false;
+  var parts = label.toLowerCase().split(/\s+/).filter(Boolean);
+  var first = parts[0] || '';
+  var last = parts[parts.length - 1] || '';
+  if (ck === nameCompact || foldedUser === nameFolded) return true;
+  if (first && last && (user === first + last || user === first + '.' + last || ck === hrCompactKey_(first + last))) return true;
+  if (first && last && first !== last) {
+    var ff = hrFoldPersonKey_(first);
+    var fl = hrFoldPersonKey_(last);
+    if (ff && fl && foldedUser.indexOf(ff) !== -1 && foldedUser.indexOf(fl) !== -1) return true;
+  }
+  if (parts.length >= 2) {
+    var a = hrFoldPersonKey_(parts[0]);
+    var b = hrFoldPersonKey_(parts[1]);
+    if (a && b && a !== b && foldedUser.indexOf(a) !== -1 && foldedUser.indexOf(b) !== -1) return true;
+  }
+  var job = hrCompactKey_(extra.job);
+  var foldedJob = hrFoldPersonKey_(extra.job);
+  var foldedFirst = hrFoldPersonKey_(first);
+  if (foldedFirst.length >= 4 && foldedUser.startsWith(foldedFirst)) {
+    var rest = foldedUser.slice(foldedFirst.length);
+    if (rest) {
+      if (parts.some(function (p) { return hrFoldPersonKey_(p) === rest; })) return true;
+      if (foldedJob && rest === foldedJob) return true;
+      if (job && rest === job) return true;
+    }
+  }
+  return false;
+}
+
+function hrPaperIsMineEmp_(row) {
+  if (!row) return false;
+  var me = hrMe_();
+  if (!me) return false;
+  if (String(row.createdBy || '').trim().toLowerCase() === me) return true;
+  return hrUsernameMatchesEmployee_(me, row.empName, { code: row.empCode, job: row.empJobTitle });
+}
+
+function hrSigners_(row) {
+  var raw = row && row.entitlements && row.entitlements.__signers;
+  if (!raw || typeof raw !== 'object') return { emp: '', line: '', director: '' };
+  return {
+    emp: String(raw.emp || '').trim().toLowerCase(),
+    line: String(raw.line || '').trim().toLowerCase(),
+    director: String(raw.director || '').trim().toLowerCase()
+  };
+}
+
+function hrHasEmpStamp_(row) {
+  var sigs = row && row.entitlements && row.entitlements.__sigs;
+  return !!(String((sigs && sigs.emp) || '').trim() || String((row && row.empSignedAt) || '').trim());
+}
+
+function hrHasLineStamp_(row) {
+  var sigs = row && row.entitlements && row.entitlements.__sigs;
+  var st = String((row && row.lineManagerStatus) || '').trim().toLowerCase();
+  return !!(String((sigs && sigs.line) || '').trim() || String((row && row.lineManagerSignedAt) || '').trim() || st === 'approved');
+}
+
+function hrUserSignedPaper_(row) {
+  if (!row) return false;
+  var me = hrMe_();
+  if (!me) return false;
+  var signers = hrSigners_(row);
+  if (signers.emp === me || signers.line === me || signers.director === me) return true;
+  if (hrPaperIsMineEmp_(row) && hrHasEmpStamp_(row)) return true;
+  if (hrPaperAssignedToMe_(row) && hrHasLineStamp_(row)) return true;
+  return false;
+}
+
+function hrUserSignedSlot_(row) {
+  var me = hrMe_();
+  var signers = hrSigners_(row);
+  if (signers.emp === me && signers.line === me) return 'Employee / Line Manager';
+  if (signers.emp === me) return 'Employee';
+  if (signers.line === me) return 'Line Manager';
+  if (signers.director === me) return 'Director';
+  if (hrPaperIsMineEmp_(row) && hrHasEmpStamp_(row)) return 'Employee';
+  if (hrPaperAssignedToMe_(row) && hrHasLineStamp_(row)) return 'Line Manager';
+  return 'E-signature';
+}
+
+function hrUserSignedAt_(row) {
+  var me = hrMe_();
+  var signers = hrSigners_(row);
+  var slot = '';
+  if (signers.emp === me) slot = 'emp';
+  else if (signers.line === me) slot = 'line';
+  else if (signers.director === me) slot = 'director';
+  else if (hrPaperIsMineEmp_(row) && hrHasEmpStamp_(row)) slot = 'emp';
+  else if (hrPaperAssignedToMe_(row) && hrHasLineStamp_(row)) slot = 'line';
+  if (slot === 'emp') return row.empSignedAt || '';
+  if (slot === 'line') return row.lineManagerSignedAt || '';
+  if (slot === 'director') return row.directorSignedAt || '';
+  return row.empSignedAt || row.lineManagerSignedAt || '';
+}
+
+function hrSignedDirectorState_(row) {
+  var stage = hrStageOf_(row);
+  if (stage === 'completed') return { id: 'confirmed', label: 'Director confirmed', badge: 'completed' };
+  if (stage === 'rejected') return { id: 'rejected', label: 'Rejected', badge: 'rejected' };
+  if (stage === 'pending_director') return { id: 'pending', label: 'Pending director', badge: 'pending_director' };
+  if (stage === 'pending_line') return { id: 'pending', label: 'Pending', badge: 'pending_line' };
+  return { id: 'pending', label: 'Pending', badge: String(row && row.status || 'submitted') };
+}
+
+function hrAfterSignTab_() {
+  return hrCanSeeTab_('signed') ? 'signed' : 'list';
+}
+
+function hrCanEmpStampRow_(row) {
+  if (!row) return false;
+  var stage = hrStageOf_(row);
+  if (hrIsHrStaff_() && !hrIsSignerOnly_() && stage === 'inbox') return true;
+  if (!hrIsEmployeeWrite_()) return false;
+  if (hrIsEmployeeOnly_()) {
+    return hrPaperIsMineEmp_(row) && (stage === 'inbox' || stage === 'pending_line');
+  }
+  if (stage === 'inbox') return hrCanWrite_();
+  if (stage === 'pending_line' && hrDualEmpLine_()) return hrLineCanSign_(row) || hrCanWrite_();
+  return false;
+}
+
+function hrSelectedEmpIds_() {
+  return hrSelectedIds_().filter(function (id) {
+    var row = _hrRows.find(function (r) { return String(r.id) === String(id); });
+    return row && hrCanEmpStampRow_(row);
+  });
+}
+
+var _hrBoxPick = null;
+
+function hrBoxPickClose_() {
+  var wrap = document.getElementById('hrBoxPick');
+  if (wrap) wrap.hidden = true;
+  var finish = _hrBoxPick;
+  _hrBoxPick = null;
+  if (finish) finish(null);
+}
+
+function hrBoxPickChoose_(slot) {
+  slot = String(slot || '').trim().toLowerCase();
+  if (slot === 'employee') slot = 'emp';
+  if (slot !== 'emp' && slot !== 'line') slot = '';
+  var wrap = document.getElementById('hrBoxPick');
+  if (wrap) wrap.hidden = true;
+  var finish = _hrBoxPick;
+  _hrBoxPick = null;
+  if (finish) finish(slot || null);
+}
+
+function hrPickSignBox_() {
+  return new Promise(function (resolve) {
+    var wrap = document.getElementById('hrBoxPick');
+    if (!wrap) {
+      resolve(null);
+      return;
+    }
+    _hrBoxPick = resolve;
+    wrap.hidden = false;
+  });
+}
+
+var _hrPrintPick = null;
+
+function hrPrintPickClose_() {
+  var wrap = document.getElementById('hrPrintPick');
+  if (wrap) wrap.hidden = true;
+  var finish = _hrPrintPick;
+  _hrPrintPick = null;
+  if (finish) finish(null);
+}
+
+function hrPrintPickChoose_(mode) {
+  mode = String(mode || '').trim().toLowerCase();
+  if (mode !== 'print' && mode !== 'pdf') mode = '';
+  var wrap = document.getElementById('hrPrintPick');
+  if (wrap) wrap.hidden = true;
+  var finish = _hrPrintPick;
+  _hrPrintPick = null;
+  if (finish) finish(mode || null);
+}
+
+function hrPickPrintMode_() {
+  return new Promise(function (resolve) {
+    var wrap = document.getElementById('hrPrintPick');
+    if (!wrap) {
+      resolve('print');
+      return;
+    }
+    if (_hrPrintPick) _hrPrintPick(null);
+    _hrPrintPick = resolve;
+    wrap.hidden = false;
+  });
+}
+
+function hrRunSelectedEmp_(ids) {
+  ids = (ids || []).map(function (id) { return String(id || '').trim(); }).filter(Boolean);
+  if (_hrBulkBusy) return;
+  if (!ids.length) {
+    hrMsg_('Select papers first, then choose Employee box or Line Manager box.', false);
+    return;
+  }
+  var n = ids.length;
+  hrRunBulkIds_(ids, hrEmpConfirmRequest_, {
+    working: 'Signing Employee box on ' + n + '…',
+    done: hrIsEmployeeOnly_()
+      ? 'Employee e-signature placed on ' + n + '.'
+      : 'Employee e-signature placed on ' + n + '. Sent to the director.',
+    tab: hrAfterSignTab_()
+  });
+}
+
+function hrRunSelectedLine_(ids) {
+  if (_hrBulkBusy) return;
+  ids = Array.isArray(ids) ? ids : hrSelectedLineIds_();
+  ids = ids.map(function (id) { return String(id || '').trim(); }).filter(Boolean);
+  if (!ids.length) {
+    hrMsg_('Select papers waiting for you as line manager.', false);
+    return;
+  }
+  var n = ids.length;
+  var go = function () {
+    hrRunBulkIds_(ids, hrLineConfirmRequest_, {
+      working: 'Signing Line Manager box on ' + n + '…',
+      done: 'Signed ' + n + '. Sent to the director.',
+      tab: hrAfterSignTab_()
+    });
+  };
+  if (hrDualEmpLine_()) {
+    go();
+    return;
+  }
+  if (typeof uiConfirm === 'function') {
+    uiConfirm('Confirm ' + n + ' paper' + (n === 1 ? '' : 's') + '? Your e-signature goes in the Line Manager box and each paper goes to the director.').then(function (ok) { if (ok) go(); });
+    return;
+  }
+  if (confirm('Confirm ' + n + ' papers?')) go();
+}
+
+function hrRunSelectedConfirm_() {
+  if (_hrBulkBusy) return;
+  if (hrIsDirectorOnly_()) {
+    hrRunSelectedPending_('confirm');
+    return;
+  }
+  var lineIds = hrSelectedLineIds_();
+  var empIds = hrSelectedEmpIds_();
+  if (hrDualEmpLine_()) {
+    if (!lineIds.length && !empIds.length) {
+      hrMsg_('Select papers first.', false);
+      return;
+    }
+    hrPickSignBox_().then(function (slot) {
+      if (!slot) return;
+      if (slot === 'emp') hrRunSelectedEmp_(hrSelectedEmpIds_());
+      else hrRunSelectedLine_(hrSelectedLineIds_());
+    });
+    return;
+  }
+  if (lineIds.length && hrIsLine_()) {
+    hrRunSelectedLine_(lineIds);
+    return;
+  }
+  if (hrIsEmployeeOnly_()) {
+    if (empIds.length) {
+      hrRunSelectedEmp_(empIds);
+      return;
+    }
+    if (lineIds.length) {
+      hrRunSelectedLine_(lineIds);
+      return;
+    }
+    hrMsg_('Select your papers first.', false);
+    return;
+  }
+  if (hrIsHrStaff_() && !hrIsSignerOnly_()) {
+    hrRunSelectedInbox_('confirm');
+    return;
+  }
+  if (lineIds.length) {
+    hrRunSelectedLine_(lineIds);
+    return;
+  }
+  hrMsg_('Select papers that still need Confirm.', false);
+}
+
 function hrRunSelectedPending_(kind) {
   if (_hrBulkBusy || !hrIsDirectorOnly_()) return;
   var ids = hrSelectedIds_();
@@ -799,8 +1151,8 @@ function hrRunSelectedPending_(kind) {
     hrMsg_('Select at least one paper first.', false);
     return;
   }
-  if (kind === 'confirm' && !hrAccountDirectorSig_() && !(_hrSigs && _hrSigs.director)) {
-    hrMsg_('Your director e-signature is not on this account yet. Ask admin to upload it, then Confirm.', false);
+  if (kind === 'confirm' && !hrAccountSig_() && !(_hrSigs && _hrSigs.director)) {
+    hrMsg_('Your e-signature is not on this account yet. Ask admin to upload it on Users, or open a paper and upload it once.', false);
     return;
   }
   var n = ids.length;
@@ -860,8 +1212,8 @@ function hrDirectorConfirmSelected_(ids) {
     directorName: who,
     directorSignedAt: when
   };
-  var place = hrLoadDirSigPlace_();
-  if (place) extra.scanPlace = place;
+  var place = hrDirectorCellPos_();
+  extra.scanPlace = place;
   fetchJSONRetry(extra, 1, 60000)
     .then(function (d) {
       if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) return;
@@ -881,18 +1233,222 @@ function hrDirectorConfirmSelected_(ids) {
     });
 }
 
-function hrStaffConfirmRequest_(id) {
+function hrStaffConfirmRequest_(id, assignee, sendToDirector) {
   id = String(id || '').trim();
   var row = _hrRows.find(function (r) { return String(r.id) === id; });
   if (!row || hrStageOf_(row) !== 'inbox') {
     return Promise.reject(new Error('That paper cannot be confirmed.'));
   }
-  return fetchJSONRetry({ action: 'confirmHrLeaveRequest', token: hrToken_(), id: id }, 1, 30000).then(function (d) {
+  var body = { action: 'confirmHrLeaveRequest', token: hrToken_(), id: id };
+  if (sendToDirector) {
+    body.sendToDirector = true;
+  } else if (assignee) {
+    body.lineManagerName = assignee.name;
+    body.lineManagerUser = assignee.username;
+  }
+  return fetchJSONRetry(body, 1, 30000).then(function (d) {
     if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) {
       throw new Error('Session expired');
     }
     if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Confirm failed');
     return d;
+  });
+}
+
+function hrEmpConfirmRequest_(id) {
+  id = String(id || '').trim();
+  var row = _hrRows.find(function (r) { return String(r.id) === id; });
+  if (!row || !hrCanEmpStampRow_(row)) {
+    return Promise.reject(new Error('That paper cannot be signed in the Employee box.'));
+  }
+  var sig = String(hrAccountSig_() || (_hrSigs && _hrSigs.emp) || '').trim();
+  if (sig) {
+    _hrSigs.emp = sig;
+    if (hrVal_('hr-id') === id) hrRenderSig_('emp');
+  }
+  return fetchJSONRetry({
+    action: 'confirmHrLeaveRequest',
+    token: hrToken_(),
+    id: id,
+    signatureSlot: 'emp'
+  }, 1, 30000).then(function (d) {
+    if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) {
+      throw new Error('Session expired');
+    }
+    if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Confirm failed');
+    return d;
+  });
+}
+
+function hrLineConfirmRequest_(id) {
+  id = String(id || '').trim();
+  var row = _hrRows.find(function (r) { return String(r.id) === id; });
+  if (!row || !hrLineCanSign_(row)) {
+    return Promise.reject(new Error('That paper is not waiting for you.'));
+  }
+  var sig = String(hrAccountSig_() || (_hrSigs && _hrSigs.line) || '').trim();
+  if (sig) {
+    _hrSigs.line = sig;
+    if (hrVal_('hr-id') === id) hrRenderSig_('line');
+  }
+  return fetchJSONRetry({
+    action: 'confirmHrLeaveRequest',
+    token: hrToken_(),
+    id: id,
+    signatureSlot: 'line',
+    lineManagerName: hrAssignedName_(row) || (typeof empireGetUser === 'function' ? empireGetUser() : ''),
+    lineManagerSignedAt: hrToday_()
+  }, 1, 30000).then(function (d) {
+    if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) {
+      throw new Error('Session expired');
+    }
+    if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Confirm failed');
+    return d;
+  });
+}
+
+var _hrLineManagers = [];
+var _hrAssignPick = null;
+var _hrAssignChosen = null;
+
+function hrLoadLineManagers_() {
+  if (_hrLineManagers.length) return Promise.resolve(_hrLineManagers);
+  return fetchJSONRetry({ action: 'listHrLineManagers', token: hrToken_() }, 1, 30000).then(function (d) {
+    if (d && d.ok && Array.isArray(d.items)) _hrLineManagers = d.items;
+    return _hrLineManagers;
+  }).catch(function () { return _hrLineManagers; });
+}
+
+var _hrRoutePick = null;
+
+function hrRoutePickClose_() {
+  var wrap = document.getElementById('hrRoutePick');
+  if (wrap) wrap.hidden = true;
+  var finish = _hrRoutePick;
+  _hrRoutePick = null;
+  if (finish) finish(null);
+}
+
+function hrRoutePickChoose_(route) {
+  route = String(route || '').trim().toLowerCase();
+  if (route !== 'assign' && route !== 'director') route = '';
+  var wrap = document.getElementById('hrRoutePick');
+  if (wrap) wrap.hidden = true;
+  var finish = _hrRoutePick;
+  _hrRoutePick = null;
+  if (finish) finish(route || null);
+}
+
+function hrPickConfirmRoute_() {
+  return new Promise(function (resolve) {
+    var wrap = document.getElementById('hrRoutePick');
+    if (!wrap) {
+      resolve('assign');
+      return;
+    }
+    if (_hrRoutePick) _hrRoutePick(null);
+    _hrRoutePick = resolve;
+    wrap.hidden = false;
+  });
+}
+
+function hrStaffConfirmInbox_(ids) {
+  ids = (ids || []).map(function (id) { return String(id || '').trim(); }).filter(Boolean);
+  if (!ids.length) return;
+  var n = ids.length;
+  hrPickConfirmRoute_().then(function (route) {
+    if (!route) return;
+    if (route === 'director') {
+      hrRunBulkIds_(ids, function (id) { return hrStaffConfirmRequest_(id, null, true); }, {
+        working: n === 1 ? 'Sending to the director…' : ('Sending ' + n + ' to the director…'),
+        done: n === 1
+          ? 'Sent to the director. No line manager needed.'
+          : ('Sent ' + n + ' to the director. No line manager needed.'),
+        tab: 'list'
+      });
+      return;
+    }
+    return hrPickLineManager_().then(function (assignee) {
+      if (!assignee) return;
+      hrRunBulkIds_(ids, function (id) { return hrStaffConfirmRequest_(id, assignee); }, {
+        working: n === 1
+          ? ('Assigning to ' + assignee.name + '…')
+          : ('Assigning ' + n + ' to ' + assignee.name + '…'),
+        done: n === 1
+          ? ('Assigned to ' + assignee.name + '. They sign next, then it goes to the director.')
+          : ('Assigned ' + n + ' to ' + assignee.name + '.'),
+        tab: 'list'
+      });
+    });
+  }).catch(function (err) {
+    hrMsg_(err.message || 'Confirm failed.', false);
+  });
+}
+
+function hrAssignCancel_() {
+  var wrap = document.getElementById('hrAssignPick');
+  if (wrap) wrap.hidden = true;
+  var finish = _hrAssignPick;
+  _hrAssignPick = null;
+  _hrAssignChosen = null;
+  if (finish) finish(null);
+}
+
+function hrAssignOk_() {
+  var finish = _hrAssignPick;
+  var chosen = _hrAssignChosen;
+  if (!chosen) {
+    hrMsg_('Choose who should sign as line manager.', false);
+    return;
+  }
+  var wrap = document.getElementById('hrAssignPick');
+  if (wrap) wrap.hidden = true;
+  _hrAssignPick = null;
+  _hrAssignChosen = null;
+  if (finish) finish(chosen);
+}
+
+function hrRenderAssignList_(q) {
+  var list = document.getElementById('hrAssignList');
+  if (!list) return;
+  q = String(q || '').trim().toLowerCase();
+  var html = '';
+  _hrLineManagers.forEach(function (it) {
+    var name = String(it.name || '');
+    var user = String(it.username || '');
+    var hay = (name + ' ' + user).toLowerCase();
+    if (q && hay.indexOf(q) === -1) return;
+    var selected = _hrAssignChosen && _hrAssignChosen.name === name;
+    html += '<button type="button" class="hr-sig-pick-person' + (selected ? ' is-on' : '') + '" data-name="' + hrEsc_(name) + '">' +
+      '<span><strong>' + hrEsc_(name) + '</strong><small>' +
+      (it.hasAccount ? ('Account: ' + hrEsc_(user)) : 'No login matched yet — create their user with this name') +
+      '</small></span></button>';
+  });
+  list.innerHTML = html || '<p class="hr-sig-pick-help">No names match.</p>';
+  list.querySelectorAll('[data-name]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var name = btn.getAttribute('data-name');
+      _hrAssignChosen = _hrLineManagers.find(function (it) { return it.name === name; }) || null;
+      hrRenderAssignList_(document.getElementById('hrAssignSearch') ? document.getElementById('hrAssignSearch').value : '');
+    });
+  });
+}
+
+function hrPickLineManager_() {
+  return hrLoadLineManagers_().then(function (items) {
+    if (!items.length) {
+      return Promise.reject(new Error('Could not load the line manager list.'));
+    }
+    return new Promise(function (resolve) {
+      _hrAssignPick = resolve;
+      _hrAssignChosen = null;
+      var wrap = document.getElementById('hrAssignPick');
+      var search = document.getElementById('hrAssignSearch');
+      if (search) search.value = '';
+      hrRenderAssignList_('');
+      if (wrap) wrap.hidden = false;
+      if (search) setTimeout(function () { search.focus(); }, 30);
+    });
   });
 }
 
@@ -937,7 +1493,7 @@ function hrRunBulkIds_(ids, requestFn, msgs) {
 }
 
 function hrRunSelectedInbox_(kind) {
-  if (_hrBulkBusy || !hrCanWrite_() || hrIsDirectorOnly_()) return;
+  if (_hrBulkBusy || !hrCanWrite_() || hrIsSignerOnly_()) return;
   var confirmKind = kind === 'confirm';
   var ids = hrSelectedIds_().filter(function (id) {
     var row = _hrRows.find(function (r) { return String(r.id) === String(id); });
@@ -950,22 +1506,23 @@ function hrRunSelectedInbox_(kind) {
     return;
   }
   var n = ids.length;
-  var detail = confirmKind
-    ? 'Confirm ' + n + ' selected paper' + (n === 1 ? '' : 's') + '? They go to Pending Director.'
-    : 'Delete ' + n + ' selected paper' + (n === 1 ? '' : 's') + '? They move to the Recycle Bin.';
-  var go = function () {
-    hrRunBulkIds_(ids, confirmKind ? hrStaffConfirmRequest_ : hrDeleteRequest_, {
-      working: (confirmKind ? 'Confirming ' : 'Deleting ') + n + '…',
-      done: confirmKind
-        ? 'Sent ' + n + ' to Pending Director.'
-        : 'Moved ' + n + ' to the Recycle Bin.'
-    });
-  };
-  if (typeof uiConfirm === 'function') {
-    uiConfirm(detail, confirmKind ? {} : { danger: true }).then(function (ok) { if (ok) go(); });
+  if (!confirmKind) {
+    var delMsg = 'Delete ' + n + ' selected paper' + (n === 1 ? '' : 's') + '? They move to the Recycle Bin.';
+    var goDel = function () {
+      hrRunBulkIds_(ids, hrDeleteRequest_, {
+        working: 'Deleting ' + n + '…',
+        done: 'Moved ' + n + ' to the Recycle Bin.'
+      });
+    };
+    if (typeof uiConfirm === 'function') {
+      uiConfirm(delMsg, { danger: true }).then(function (ok) { if (ok) goDel(); });
+      return;
+    }
+    if (confirm(delMsg)) goDel();
     return;
   }
-  if (confirm(detail)) go();
+  hrStaffConfirmInbox_(ids);
+  return;
 }
 
 function hrToken_() { return empireGetToken() || ''; }
@@ -994,8 +1551,66 @@ function hrAutosizeDaysOut_(el) {
   el.style.height = Math.max(22, el.scrollHeight) + 'px';
 }
 function hrIsHrStaff_() {
-  if (typeof empireIsAdminRole === 'function' && empireIsAdminRole()) return true;
   return typeof empireModuleLevel === 'function' && empireModuleLevel('hr') === 'write';
+}
+function hrCanSeeTab_(tab) {
+  tab = String(tab || '');
+  if (tab === 'form') return hrIsHrStaff_() || (hrIsEmployeeWrite_() && !hrIsEmployeeOnly_());
+  if (tab === 'scan') return hrIsHrStaff_();
+  if (tab === 'list') return hrIsHrStaff_() || hrIsDirector_() || hrIsLine_() || hrIsEmployeeOnly_();
+  if (tab === 'signed') return (hrIsLine_() || hrIsEmployeeWrite_()) && !hrIsHrStaff_();
+  if (tab === 'confirmed') return hrIsHrStaff_() || hrIsDirector_();
+  if (tab === 'done' || tab === 'archive') return hrIsHrStaff_();
+  return false;
+}
+
+function hrHomeTab_() {
+  if (hrIsHrStaff_()) return 'form';
+  if (hrIsLine_() || hrIsEmployeeOnly_()) return 'list';
+  if (hrIsEmployeeWrite_()) return 'form';
+  if (hrIsDirector_()) return 'list';
+  return 'form';
+}
+
+function hrApplyNavAccess_() {
+  var show = function (id, on) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = on ? '' : 'none';
+  };
+  show('tabBtnScan', hrCanSeeTab_('scan'));
+  show('tabBtnList', hrCanSeeTab_('list'));
+  show('tabBtnSigned', hrCanSeeTab_('signed'));
+  show('tabBtnConfirmed', hrCanSeeTab_('confirmed'));
+  show('tabBtnDone', hrCanSeeTab_('done'));
+  show('tabBtnForm', hrCanSeeTab_('form'));
+  var archiveNav = document.getElementById('hrArchiveNav');
+  if (archiveNav) archiveNav.style.display = hrCanSeeTab_('archive') ? '' : 'none';
+  document.querySelectorAll('[data-hr-form-only]').forEach(function (el) {
+    if (el.id === 'hrScanCardOnForm' || (el.getAttribute && el.getAttribute('onclick') && String(el.getAttribute('onclick')).indexOf("'scan'") !== -1)) {
+      el.style.display = hrIsHrStaff_() ? '' : 'none';
+    } else {
+      el.style.display = (hrCanSeeTab_('form') && hrCanWrite_()) ? '' : 'none';
+    }
+  });
+  var scanOnForm = document.getElementById('hrScanCardOnForm');
+  if (scanOnForm) scanOnForm.style.display = hrIsHrStaff_() ? '' : 'none';
+  hrListHelp_();
+}
+
+function hrListHelp_() {
+  var el = document.querySelector('#list .hr-tab-help');
+  if (!el) return;
+  if (hrDualEmpLine_()) {
+    el.innerHTML = 'Select papers and <strong>Confirm selected</strong>. Choose <strong>Employee box</strong> or <strong>Line Manager box</strong> — only that box gets your stamp. Confirmed papers are saved in <strong>My e-signatures</strong>.';
+  } else if (hrIsEmployeeOnly_()) {
+    el.innerHTML = 'Your leave papers, and papers HR assigned to you. Stamp the <strong>Employee box</strong> on your own paper. After you confirm, the paper is saved in <strong>My e-signatures</strong> with the days, dates, and whether the director confirmed.';
+  } else if (hrIsLineOnly_()) {
+    el.innerHTML = 'Papers HR assigned to you. <strong>Confirm selected</strong> puts your e-signature in the Line Manager box, then each paper is saved in <strong>My e-signatures</strong> and goes to the director.';
+  } else if (hrIsDirectorOnly_()) {
+    el.innerHTML = 'Sign papers waiting for you as director. After you confirm, they come back to HR as Completed request.';
+  } else {
+    el.innerHTML = 'Confirm a paper, then choose: assign a line manager, or send it straight to the director with no assignment. After the director signs, it comes back to Completed request.';
+  }
 }
 function hrIsDirector_() {
   return typeof empireModuleLevel === 'function' && empireModuleLevel('hr_director') !== 'none';
@@ -1003,13 +1618,244 @@ function hrIsDirector_() {
 function hrIsDirectorOnly_() {
   return hrIsDirector_() && !hrIsHrStaff_();
 }
-function hrAccountDirectorSig_() {
+function hrIsLine_() {
+  return typeof empireModuleLevel === 'function' && empireModuleLevel('hr_line') !== 'none';
+}
+function hrIsEmployee_() {
+  return typeof empireModuleLevel === 'function' && empireModuleLevel('hr_emp') !== 'none';
+}
+function hrIsEmployeeWrite_() {
+  return typeof empireModuleLevel === 'function' && empireModuleLevel('hr_emp') === 'write';
+}
+function hrDualEmpLine_() {
+  return hrIsEmployeeWrite_() && hrIsLine_();
+}
+function hrIsEmployeeOnly_() {
+  return hrIsEmployeeWrite_() && !hrIsHrStaff_() && !hrIsDirector_() && !hrIsLine_();
+}
+function hrIsLineOnly_() {
+  return hrIsLine_() && !hrIsHrStaff_() && !hrIsDirector_();
+}
+function hrIsSignerOnly_() {
+  return hrIsDirectorOnly_() || (hrIsLineOnly_() && !hrIsEmployeeWrite_());
+}
+function hrMe_() {
+  return typeof empireGetUser === 'function' ? String(empireGetUser() || '').trim().toLowerCase() : '';
+}
+function hrAssignedUser_(row) {
+  var assign = row && row.entitlements && row.entitlements.__assign;
+  if (assign && (assign.skipLine || assign.skip)) return '';
+  var from = row && row.lineManagerUser;
+  if (from) return String(from).trim().toLowerCase();
+  return assign && assign.username ? String(assign.username).trim().toLowerCase() : '';
+}
+function hrPaperAssignedToMe_(row) {
+  var me = hrMe_();
+  if (!me) return false;
+  if (hrAssignedUser_(row) === me) return true;
+  return hrUsernameMatchesEmployee_(me, hrAssignedName_(row), {});
+}
+function hrAssignedName_(row) {
+  var assign = row && row.entitlements && row.entitlements.__assign;
+  if (assign && (assign.skipLine || assign.skip)) return '';
+  if (assign && assign.name) return String(assign.name);
+  return String((row && row.lineManagerName) || '');
+}
+function hrAccountSig_() {
   return typeof empireGetSignature === 'function' ? String(empireGetSignature() || '').trim() : '';
+}
+function hrAccountDirectorSig_() {
+  return hrAccountSig_();
+}
+function hrAccountSigSlot_() {
+  if (hrDualEmpLine_()) return '';
+  var role = typeof empireGetSignatureRole === 'function' ? empireGetSignatureRole() : '';
+  role = String(role || '').trim().toLowerCase();
+  if (role === 'employee') role = 'emp';
+  if (role === 'line_manager' || role === 'manager') role = 'line';
+  if (role === 'emp' || role === 'line' || role === 'director' || role === 'hr') return role;
+  if (hrIsDirector_()) return 'director';
+  if (hrIsLine_()) return 'line';
+  if (hrIsEmployeeWrite_()) return 'emp';
+  if (hrIsHrStaff_()) return 'hr';
+  return '';
+}
+
+var _hrSavedSigs = [];
+var _hrSavedSigsLoaded = false;
+var _hrSigPickSlot = '';
+
+function hrLoadSavedSigs_(cb) {
+  if (_hrSavedSigsLoaded) {
+    if (cb) cb(_hrSavedSigs);
+    return;
+  }
+  var token = hrToken_();
+  if (!token) {
+    if (cb) cb([]);
+    return;
+  }
+  fetchJSONRetry({ action: 'listHrSignatures', token: token }, 1, 30000)
+    .then(function (d) {
+      _hrSavedSigsLoaded = true;
+      _hrSavedSigs = (d && d.ok && Array.isArray(d.signatures)) ? d.signatures : [];
+      if (cb) cb(_hrSavedSigs);
+    })
+    .catch(function () {
+      if (cb) cb(_hrSavedSigs);
+    });
+}
+
+function hrSigsForSlot_(slot) {
+  return (_hrSavedSigs || []).filter(function (s) {
+    return s && s.signature && String(s.signatureRole || '') === slot;
+  });
+}
+
+function hrStampSlot_(slot, url, who) {
+  url = String(url || '').trim();
+  if (!url || !slot) return;
+  _hrSigs[slot] = url;
+  if (slot === 'director') {
+    if (_hrScan && _hrScan.url) {
+      hrApplyDirectorOnly_(url, false);
+      return;
+    }
+    hrRenderSig_('director');
+    if (!hrVal_('hr-directorName')) {
+      hrSet_('hr-directorName', who || (typeof empireGetUser === 'function' ? empireGetUser() : ''));
+    }
+    if (!hrVal_('hr-directorSignedAt')) hrSet_('hr-directorSignedAt', hrToday_());
+    hrSet_('hr-directorStatus', 'approved');
+    return;
+  }
+  hrRenderSig_(slot);
+  if (hrDualEmpLine_() && url) {
+    if (slot === 'emp' && _hrSigs.line === url) {
+      _hrSigs.line = '';
+      hrRenderSig_('line');
+    }
+    if (slot === 'line' && _hrSigs.emp === url) {
+      _hrSigs.emp = '';
+      hrRenderSig_('emp');
+    }
+  }
+  if (slot === 'emp' && !hrVal_('hr-empSignedAt')) hrSet_('hr-empSignedAt', hrToday_());
+  if (slot === 'line') {
+    if (who && !hrVal_('hr-lineManagerName')) hrSet_('hr-lineManagerName', who);
+    if (!hrVal_('hr-lineManagerSignedAt')) hrSet_('hr-lineManagerSignedAt', hrToday_());
+    if (!hrVal_('hr-lineManagerStatus')) hrSet_('hr-lineManagerStatus', 'approved');
+  }
+  if (slot === 'hr' && !hrVal_('hr-hrSignedAt')) hrSet_('hr-hrSignedAt', hrToday_());
+}
+
+function hrSigPickClose_() {
+  _hrSigPickSlot = '';
+  var el = document.getElementById('hrSigPick');
+  if (el) el.hidden = true;
+}
+
+function hrSigPickUpload_(slot) {
+  slot = slot || _hrSigPickSlot;
+  hrSigPickClose_();
+  if (!slot) return;
+  var inp = document.getElementById('hr-sig-file');
+  if (!inp) return;
+  inp.setAttribute('data-slot', slot);
+  inp.click();
+}
+
+function hrSigPickChoose_(username) {
+  var slot = _hrSigPickSlot;
+  var found = (_hrSavedSigs || []).find(function (s) {
+    return s && String(s.username || '') === String(username || '');
+  });
+  hrSigPickClose_();
+  if (!slot || !found || !found.signature) return;
+  hrStampSlot_(slot, found.signature, found.username);
+  hrMsg_('Placed ' + found.username + '’s account e-signature.', true);
+}
+
+function hrSigPickOpen_(slot, choices) {
+  _hrSigPickSlot = slot;
+  var labels = { emp: 'Employee', line: 'Line Manager', director: 'Director', hr: 'HR' };
+  var wrap = document.getElementById('hrSigPick');
+  var title = document.getElementById('hrSigPickTitle');
+  var help = document.getElementById('hrSigPickHelp');
+  var list = document.getElementById('hrSigPickList');
+  if (!wrap || !list) {
+    hrSigPickUpload_(slot);
+    return;
+  }
+  if (title) title.textContent = (labels[slot] || 'Signature') + ' e-signature';
+  if (help) help.textContent = 'Pick a saved account, or upload a photo.';
+  list.innerHTML = choices.map(function (s) {
+    var name = String(s.username || '');
+    return '<button type="button" class="hr-sig-pick-person" data-user="' + hrEsc_(name) + '">' +
+      '<img src="' + hrEsc_(s.signature) + '" alt="">' +
+      '<span>' + hrEsc_(name) + '</span></button>';
+  }).join('');
+  list.querySelectorAll('[data-user]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      hrSigPickChoose_(btn.getAttribute('data-user'));
+    });
+  });
+  wrap.hidden = false;
+}
+
+function hrCanStampSlot_(slot) {
+  if (slot === 'director') return hrDirectorCanSign_() || (hrIsHrStaff_() && !hrPaperLocked_());
+  if (slot === 'hr') return hrIsHrStaff_() && !hrIsSignerOnly_() && !hrPaperLocked_();
+  if (slot === 'line') return hrLineCanSign_() || (hrIsHrStaff_() && !hrIsSignerOnly_() && !hrPaperLocked_());
+  if (slot === 'emp') {
+    if (!(hrIsEmployeeWrite_() || (hrIsHrStaff_() && !hrIsSignerOnly_()))) return false;
+    if (hrIsEmployeeOnly_()) {
+      var openId = hrVal_('hr-id');
+      var openRow = openId && (_hrRows || []).find(function (r) { return String(r.id) === String(openId); });
+      return hrCanEmpStampRow_(openRow);
+    }
+    return !hrPaperLocked_();
+  }
+  return false;
+}
+
+function hrOwnStampForClickedBox_(slot) {
+  if (!hrAccountSig_()) return false;
+  if (slot === 'emp') {
+    if (!hrIsEmployeeWrite_()) return false;
+    if (hrIsEmployeeOnly_()) {
+      var openId = hrVal_('hr-id');
+      var openRow = openId && (_hrRows || []).find(function (r) { return String(r.id) === String(openId); });
+      return hrCanEmpStampRow_(openRow);
+    }
+    return !hrPaperLocked_();
+  }
+  if (slot === 'line') return hrLineCanSign_();
+  if (slot === 'director') return hrDirectorCanSign_();
+  if (slot === 'hr') return hrIsHrStaff_() && !hrIsSignerOnly_() && !hrPaperLocked_();
+  return false;
+}
+
+function hrRememberAccountSig_(url) {
+  url = String(url || '').trim();
+  if (!url) return;
+  if (typeof empireSetSignature === 'function') empireSetSignature(url);
+  else if (typeof empireAuthSet === 'function') empireAuthSet('signature', url);
+  var token = hrToken_();
+  if (!token) return;
+  fetchJSONRetry({ action: 'saveMySignature', token: token, signature: url }, 1, 30000)
+    .then(function (d) {
+      if (d && d.ok && d.signature) {
+        if (typeof empireSetSignature === 'function') empireSetSignature(d.signature);
+        else if (typeof empireAuthSet === 'function') empireAuthSet('signature', String(d.signature));
+      }
+    })
+    .catch(function () {});
 }
 
 function hrApplyAccountDirectorSig_(row) {
   if (!hrDirectorCanSign_(row)) return;
-  var saved = hrAccountDirectorSig_();
+  var saved = hrAccountSig_();
   if (!saved) return;
   _hrSigs.director = saved;
   if (_hrScan && _hrScan.url && !_hrScan.directorSig) {
@@ -1029,8 +1875,59 @@ function hrApplyAccountDirectorSig_(row) {
   hrSet_('hr-directorStatus', 'approved');
 }
 
+function hrApplyAccountHrSig_(row) {
+  if (!hrIsHrStaff_() || hrIsSignerOnly_()) return;
+  if (hrPaperLocked_(row)) return;
+  if (hrAccountSigSlot_() && hrAccountSigSlot_() !== 'hr') return;
+  if (_hrSigs.hr) return;
+  var saved = hrAccountSig_();
+  if (!saved) return;
+  _hrSigs.hr = saved;
+  if (!hrVal_('hr-hrSignedAt')) hrSet_('hr-hrSignedAt', hrToday_());
+}
+
+function hrApplyAccountSlotSig_(row) {
+  if (hrDualEmpLine_()) return;
+  var slot = hrAccountSigSlot_();
+  var saved = hrAccountSig_();
+  if (!slot || !saved) return;
+  if (slot === 'director') {
+    hrApplyAccountDirectorSig_(row);
+    return;
+  }
+  if (slot === 'line') {
+    hrApplyAccountLineSig_(row);
+    return;
+  }
+  if (slot === 'hr') {
+    hrApplyAccountHrSig_(row);
+    return;
+  }
+  if (slot !== 'emp') return;
+  if (hrIsEmployeeOnly_()) {
+    if (!row || !row.id || !hrCanEmpStampRow_(row)) return;
+  } else if (hrPaperLocked_(row)) {
+    return;
+  }
+  if (_hrSigs[slot]) return;
+  hrStampSlot_(slot, saved, typeof empireGetUser === 'function' ? empireGetUser() : '');
+}
+
+function hrApplyAccountLineSig_(row) {
+  if (!hrLineCanSign_(row)) return;
+  var saved = hrAccountSig_();
+  if (!saved) return;
+  _hrSigs.line = saved;
+  var who = hrAssignedName_(row) || (typeof empireGetUser === 'function' ? empireGetUser() : '');
+  if (who && !hrVal_('hr-lineManagerName')) hrSet_('hr-lineManagerName', who);
+  if (!hrVal_('hr-lineManagerSignedAt')) hrSet_('hr-lineManagerSignedAt', hrToday_());
+  hrSet_('hr-lineManagerStatus', 'approved');
+  hrRenderSig_('line');
+}
+
 function hrStageOf_(r) {
   var s = String((r && r.status) || 'submitted');
+  if (s === 'pending_line') return 'pending_line';
   if (s === 'pending_director') return 'pending_director';
   if (s === 'completed' || s === 'processed' || s === 'director_approved') return 'completed';
   if (s === 'rejected') return 'rejected';
@@ -1043,6 +1940,12 @@ function hrPaperLocked_(row) {
 function hrDirectorCanSign_(row) {
   var st = row ? String(row.status || '') : hrVal_('hr-status');
   return hrIsDirector_() && st === 'pending_director';
+}
+function hrLineCanSign_(row) {
+  row = row || _hrRows.find(function (r) { return String(r.id) === String(hrVal_('hr-id') || ''); });
+  var st = row ? String(row.status || '') : hrVal_('hr-status');
+  if (st !== 'pending_line') return false;
+  return hrPaperAssignedToMe_(row || {});
 }
 
 var HR_DIR_CELL = { x: 0.695, y: 0.402, w: 0.175, h: 0.036 };
@@ -1061,11 +1964,22 @@ function hrScanNeedsSnap_(scan) {
   return hrScanLooksDefault_(scan) || hrScanPlaceOversized_(scan) || hrScanPlaceTooLow_(scan);
 }
 
+function hrLockDirectorStampPlace_(place, row) {
+  var cell = hrDirectorCellPos_();
+  var n = hrVac2PageOf_(place, row);
+  var pos = n ? hrVac2DirBox_(n) : (place || cell);
+  var x = Number(pos && pos.x);
+  var y = Number(pos && pos.y);
+  if (!isFinite(x)) x = cell.x;
+  if (!isFinite(y)) y = cell.y;
+  x = Math.max(0, Math.min(1 - cell.w, x));
+  y = Math.max(0, Math.min(1 - cell.h, y));
+  return { x: x, y: y, w: cell.w, h: cell.h };
+}
+
 function hrDirectorBoxPos_() {
   var n = hrVac2PageOf_(_hrScan);
-  if (n) return hrVac2DirBox_(n);
-  var saved = hrLoadDirSigPlace_();
-  if (saved && !hrScanNeedsSnap_(saved)) return saved;
+  if (n) return hrLockDirectorStampPlace_(hrVac2DirBox_(n));
   return hrDirectorCellPos_();
 }
 
@@ -1111,9 +2025,8 @@ function hrScanPlaceOversized_(scan) {
 
 function hrScanDisplayPlace_(scan, row) {
   var n = hrVac2PageOf_(scan, row);
-  if (n) return hrVac2DirBox_(n);
-  if (hrScanNeedsSnap_(scan)) return hrDirectorCellPos_();
-  return hrNormScanPlace_(scan);
+  if (n) return hrLockDirectorStampPlace_(hrVac2DirBox_(n), row);
+  return hrDirectorCellPos_();
 }
 
 function hrMountDirSig_(parent, scan, row) {
@@ -1128,6 +2041,7 @@ function hrMountDirSig_(parent, scan, row) {
   var sig = document.createElement('img');
   sig.className = 'hr-scan-dir-sig';
   sig.alt = 'Director e-signature';
+  sig.draggable = false;
   sig.src = scan.directorSig;
   box.appendChild(sig);
   parent.appendChild(box);
@@ -1138,7 +2052,7 @@ function hrLoadDirSigPlace_() {
   try {
     var o = JSON.parse(localStorage.getItem(HR_DIR_SIG_PLACE_KEY) || '');
     if (!o || typeof o !== 'object') return null;
-    return hrNormScanPlace_(o);
+    return hrLockDirectorStampPlace_(o);
   } catch (err) {
     return null;
   }
@@ -1146,7 +2060,7 @@ function hrLoadDirSigPlace_() {
 
 function hrSaveDirSigPlace_(place) {
   try {
-    localStorage.setItem(HR_DIR_SIG_PLACE_KEY, JSON.stringify(hrNormScanPlace_(place || _hrScan)));
+    localStorage.setItem(HR_DIR_SIG_PLACE_KEY, JSON.stringify(hrLockDirectorStampPlace_(place || _hrScan)));
   } catch (err) { /* ignore */ }
 }
 
@@ -1160,7 +2074,7 @@ function hrScanPayloadForConfirm_(row, sig) {
   var live = samePaper && _hrScan.url;
   var scan = live ? _hrScan : rowScan;
   if (!scan || !scan.url) return null;
-  var pos = hrScanDisplayPlace_(live ? _hrScan : (hrLoadDirSigPlace_() || scan), row);
+  var pos = hrLockDirectorStampPlace_(hrScanDisplayPlace_(scan, row), row);
   hrSaveDirSigPlace_(pos);
   var url = String(scan.url || '');
   if ((!url || url.indexOf('data:') === 0) && rowScan && rowScan.url && rowScan.url.indexOf('data:') !== 0) {
@@ -1188,6 +2102,9 @@ function hrDirectorSigForConfirm_(row) {
 }
 function hrCanWrite_() {
   if (hrIsDirectorOnly_()) return false;
+  if (hrIsEmployeeOnly_()) return false;
+  if (hrIsEmployeeWrite_()) return true;
+  if (hrIsSignerOnly_()) return false;
   var p = typeof empireGetPerms === 'function' ? empireGetPerms() : {};
   if (p.add === false && p.edit === false) return false;
   return _hrCanWrite;
@@ -1257,7 +2174,7 @@ function hrSelectedLeaveType_() {
   return hrVal_('hr-leaveType');
 }
 function hrMsg_(text, ok) {
-  ['hrFormMsg', 'hrScanMsg'].forEach(function (id) {
+  ['hrFormMsg', 'hrScanMsg', 'hrListMsg'].forEach(function (id) {
     var el = document.getElementById(id);
     if (!el) return;
     el.className = 'hr-form-msg' + (text ? (ok ? ' ok' : ' err') : '');
@@ -1282,11 +2199,16 @@ function hrEmptySigs_() {
   return { emp: '', line: '', director: '', hr: '' };
 }
 
+function hrStampImgHtml_(url) {
+  url = String(url || '').trim();
+  if (!url) return '';
+  return '<img src="' + url + '" alt="" draggable="false">';
+}
+
 function hrRenderSig_(slot) {
   var pad = document.getElementById('hr-sig-' + slot);
   if (!pad) return;
-  var url = _hrSigs[slot] || '';
-  pad.innerHTML = url ? '<img src="' + url + '" alt="">' : '';
+  pad.innerHTML = hrStampImgHtml_(_hrSigs[slot] || '');
 }
 
 function hrRenderAllSigs_() {
@@ -1294,16 +2216,49 @@ function hrRenderAllSigs_() {
 }
 
 function hrOpenSig_(slot) {
-  if (slot === 'hr') return;
-  if (hrDirectorCanSign_() && slot === 'director') {
-    /* director may sign the Director box only */
-  } else if (!hrCanWrite_() || hrPaperLocked_()) {
+  if (_hrSigs[slot] && hrPaperLocked_()) {
+    hrMsg_('This e-signature is locked on this paper.', true);
     return;
   }
-  var inp = document.getElementById('hr-sig-file');
-  if (!inp) return;
-  inp.setAttribute('data-slot', slot);
-  inp.click();
+  if (!hrCanStampSlot_(slot)) {
+    if (hrIsEmployeeOnly_() && slot !== 'emp') {
+      hrMsg_('This account can only stamp the Employee box.', false);
+      return;
+    }
+    if (slot === 'line' && hrIsLine_() && !hrLineCanSign_()) {
+      hrMsg_('This paper is not waiting for you as line manager. Use the Employee box if you are signing as the employee.', false);
+    }
+    return;
+  }
+  var ownSig = hrAccountSig_();
+  if (ownSig && hrOwnStampForClickedBox_(slot)) {
+    hrStampSlot_(slot, ownSig, typeof empireGetUser === 'function' ? empireGetUser() : '');
+    if (slot === 'emp') hrMsg_('Your e-signature was placed in the Employee box.', true);
+    else if (slot === 'line') hrMsg_('Your e-signature was placed in the Line Manager box.', true);
+    else hrMsg_('Your account e-signature was placed.', true);
+    return;
+  }
+  var ownSlot = hrAccountSigSlot_() === slot;
+  var directorSelf = slot === 'director' && hrDirectorCanSign_();
+  var lineSelf = slot === 'line' && hrLineCanSign_();
+  if (ownSig && ownSlot && (slot !== 'director' || directorSelf) && (slot !== 'line' || lineSelf || hrIsHrStaff_())) {
+    hrStampSlot_(slot, ownSig, typeof empireGetUser === 'function' ? empireGetUser() : '');
+    hrMsg_('Your account e-signature was placed.', true);
+    return;
+  }
+  hrLoadSavedSigs_(function () {
+    var choices = hrSigsForSlot_(slot);
+    if (slot === 'director' && !directorSelf) choices = [];
+    if (slot === 'line' && lineSelf) choices = [];
+    if (choices.length) {
+      hrSigPickOpen_(slot, choices);
+      return;
+    }
+    if ((ownSlot || hrOwnStampForClickedBox_(slot)) && !ownSig) {
+      hrMsg_('Upload your e-signature once. It is saved on this account for next time.', true);
+    }
+    hrSigPickUpload_(slot);
+  });
 }
 
 function hrProcessSigImage_(dataUrl, cb) {
@@ -1394,11 +2349,22 @@ function hrOnSigFile_(e) {
   if (!file || !slot) return;
   var reader = new FileReader();
   reader.onload = function () {
-    hrProcessSigImage_(String(reader.result || ''), function (url) {
-      _hrSigs[slot] = url;
-      hrRenderSig_(slot);
-      if (slot === 'director') hrApplyDirectorOnly_(url, false);
-    });
+    var raw = String(reader.result || '');
+    var place = function (url) {
+      if (slot === 'line' || slot === 'director') {
+        hrStampSlot_(slot, url, typeof empireGetUser === 'function' ? empireGetUser() : '');
+      } else {
+        _hrSigs[slot] = url;
+        hrRenderSig_(slot);
+        if (slot === 'hr' && !hrVal_('hr-hrSignedAt')) hrSet_('hr-hrSignedAt', hrToday_());
+        if (slot === 'emp' && !hrVal_('hr-empSignedAt')) hrSet_('hr-empSignedAt', hrToday_());
+      }
+      if (hrAccountSigSlot_() === slot) {
+        hrRememberAccountSig_(url);
+        hrMsg_('E-signature saved on your account.', true);
+      }
+    };
+    place(raw);
   };
   reader.readAsDataURL(file);
 }
@@ -1549,20 +2515,18 @@ function hrFillForm_(row) {
     if (ents.__scan.w != null) _hrScan.w = Number(ents.__scan.w) || _hrScan.w;
     if (ents.__scan.h != null) _hrScan.h = Number(ents.__scan.h) || _hrScan.h;
     if (_hrScan.directorSig && !_hrSigs.director) _hrSigs.director = _hrScan.directorSig;
-    var vac2 = hrVac2PageOf_(_hrScan, row);
-    if (vac2 || hrScanNeedsSnap_(_hrScan)) {
-      var lock = vac2 ? hrVac2DirBox_(vac2) : hrDirectorCellPos_();
-      _hrScan.x = lock.x;
-      _hrScan.y = lock.y;
-      _hrScan.w = lock.w;
-      _hrScan.h = lock.h;
-    }
+    var locked = hrLockDirectorStampPlace_(_hrScan, row);
+    _hrScan.x = locked.x;
+    _hrScan.y = locked.y;
+    _hrScan.w = locked.w;
+    _hrScan.h = locked.h;
   }
   if (hrStageOf_(row) === 'rejected') {
     _hrSigs.director = '';
     if (_hrScan) _hrScan.directorSig = '';
   }
   hrApplyAccountDirectorSig_(row);
+  hrApplyAccountSlotSig_(row);
   hrRenderEntitlements_(ents);
   hrRenderAllSigs_();
   hrRenderScan_();
@@ -1587,6 +2551,7 @@ function hrFillForm_(row) {
 }
 
 function hrClearForm_() {
+  if (!hrCanWrite_()) return;
   _hrSigs = hrEmptySigs_();
   _hrScan = hrEmptyScan_();
   hrFillForm_({
@@ -1664,7 +2629,7 @@ function hrReturnToList_() {
     hrOpenArchive_(null, _hrArchiveSection);
     return;
   }
-  var tab = _hrReturnTab === 'done' || _hrReturnTab === 'confirmed' ? _hrReturnTab : 'list';
+  var tab = _hrReturnTab === 'done' || _hrReturnTab === 'confirmed' || _hrReturnTab === 'signed' ? _hrReturnTab : 'list';
   hrSetListEditing_(false);
   hrSwitchTab_(null, tab);
 }
@@ -1672,6 +2637,7 @@ function hrReturnToList_() {
 function hrReturnBtnLabel_() {
   if (_hrReturnTab === 'done') return 'Return to completed request';
   if (_hrReturnTab === 'confirmed') return 'Return to director confirmed';
+  if (_hrReturnTab === 'signed') return 'Return to my e-signatures';
   if (_hrReturnTab === 'archive') {
     var meta = hrArchiveMeta_(_hrArchiveSection);
     return meta ? 'Return to ' + meta.label : 'Return to section';
@@ -1684,21 +2650,13 @@ function hrTabBtnId_(tab) {
   if (tab === 'scan') return 'tabBtnScan';
   if (tab === 'done') return 'tabBtnDone';
   if (tab === 'confirmed') return 'tabBtnConfirmed';
+  if (tab === 'signed') return 'tabBtnSigned';
   if (tab === 'archive') return 'tabBtnArchive-' + (_hrArchiveSection || 'annual');
   return 'tabBtnList';
 }
 
 function hrPrintRow_(id) {
-  var row = _hrRows.find(function (r) { return String(r.id) === String(id); });
-  if (!row) return;
-  hrRepairRowScan_(row);
-  if (hrRowScan_(row)) {
-    hrPrintRowsByIds_([row.id]);
-    return;
-  }
-  if (!(_hrListEditing && hrVal_('hr-id') === String(id))) hrFillForm_(row);
-  var src = document.getElementById('hrPrintRoot');
-  hrWaitImages_(src || document.body, hrPrint_);
+  hrPrintRowsByIds_([id], 'This paper could not be printed.');
 }
 
 function hrDeleteRow_(id) {
@@ -1735,11 +2693,18 @@ function hrOpenLeaveNav_() {
 function hrClickLeaveNav_(ev) {
   hrOpenLeaveNav_();
   hrCloseSettings_();
-  if (hrIsDirectorOnly_()) {
+  if (hrCanSeeTab_('form') && (hrIsHrStaff_() || (hrIsEmployeeWrite_() && !hrIsEmployeeOnly_())) && !hrIsLine_()) {
+    hrSwitchTab_(ev, 'form');
+    return;
+  }
+  if (hrCanSeeTab_('list')) {
     hrSwitchTab_(null, 'list');
     return;
   }
-  hrSwitchTab_(ev, 'form');
+  if (hrCanSeeTab_('form')) {
+    hrSwitchTab_(ev, 'form');
+    return;
+  }
 }
 
 function hrCloseSettings_() {
@@ -1768,8 +2733,12 @@ function hrToggleSettings_(e) {
 
 function hrSwitchTab_(ev, tab) {
   hrCloseSettings_();
-  if (_hrListEditing && (tab === 'list' || tab === 'done' || tab === 'confirmed' || tab === 'archive') && ev && ev.currentTarget) hrSetListEditing_(false);
-  else if (tab !== 'list' && tab !== 'done' && tab !== 'confirmed' && tab !== 'archive' && _hrListEditing) hrSetListEditing_(false);
+  if (!hrCanSeeTab_(tab)) {
+    tab = hrHomeTab_();
+    ev = null;
+  }
+  if (_hrListEditing && (tab === 'list' || tab === 'done' || tab === 'confirmed' || tab === 'signed' || tab === 'archive') && ev && ev.currentTarget) hrSetListEditing_(false);
+  else if (tab !== 'list' && tab !== 'done' && tab !== 'confirmed' && tab !== 'signed' && tab !== 'archive' && _hrListEditing) hrSetListEditing_(false);
   document.querySelectorAll('.tab-content').forEach(function (el) { el.classList.remove('active'); });
   document.querySelectorAll('.tab-btn').forEach(function (el) { el.classList.remove('active'); });
   var pane = document.getElementById(tab);
@@ -1779,7 +2748,7 @@ function hrSwitchTab_(ev, tab) {
     var btn = document.getElementById(hrTabBtnId_(tab));
     if (btn) btn.classList.add('active');
   }
-  if (tab === 'form' || tab === 'scan' || tab === 'list' || tab === 'done' || tab === 'confirmed' || tab === 'archive') {
+  if (tab === 'form' || tab === 'scan' || tab === 'list' || tab === 'done' || tab === 'confirmed' || tab === 'signed' || tab === 'archive') {
     hrOpenLeaveNav_();
   }
   if (tab === 'form' && !hrVal_('hr-id') && !hrVal_('hr-empSignedAt')) {
@@ -1791,6 +2760,7 @@ function hrSwitchTab_(ev, tab) {
     hrRenderScan_();
   }
   if (tab === 'list' && !_hrListEditing) hrRenderTable_();
+  if (tab === 'signed' && !_hrListEditing) hrRenderSignedTable_();
   if (tab === 'done' && !_hrListEditing) hrRenderDoneTable_();
   if (tab === 'confirmed' && !_hrListEditing) hrRenderConfirmedTable_();
   if (tab === 'archive' && !_hrListEditing) hrRenderArchiveTable_();
@@ -1839,6 +2809,14 @@ function hrPaperList_() {
   return (_hrRows || []).filter(function (r) {
     var stage = hrStageOf_(r);
     if (hrIsDirectorOnly_() && stage !== 'pending_director') return false;
+    if (hrIsEmployeeOnly_()) {
+      if (stage === 'completed' || stage === 'rejected') return false;
+      if (hrUserSignedPaper_(r) && !hrLineCanSign_(r)) return false;
+    } else if (hrIsLineOnly_()) {
+      var mine = hrLineCanSign_(r);
+      var ownInbox = hrDualEmpLine_() && stage === 'inbox';
+      if (!mine && !ownInbox) return false;
+    }
     if (status === 'completed') {
       if (stage !== 'completed') return false;
     } else if (status) {
@@ -1883,22 +2861,29 @@ function hrApplyPaperLock_() {
   var root = document.getElementById('hrPrintRoot');
   var locked = hrPaperLocked_();
   var directorSign = hrDirectorCanSign_();
-  var freeze = locked && !directorSign;
+  var lineSign = hrLineCanSign_();
+  var empOnly = hrIsEmployeeOnly_();
+  var openRow = (_hrRows || []).find(function (r) { return String(r.id) === String(hrVal_('hr-id')); });
+  var empSign = empOnly && hrCanEmpStampRow_(openRow);
+  var freeze = (locked || empOnly) && !directorSign && !lineSign;
   if (root) {
     root.classList.toggle('hr-paper-locked', freeze);
     root.classList.toggle('hr-paper-director-sign', directorSign);
+    root.classList.toggle('hr-paper-line-sign', lineSign);
+    root.classList.toggle('hr-paper-emp-sign', !!empSign);
     root.querySelectorAll('input, select, textarea').forEach(function (el) {
       var id = el.id || '';
       var blank = !!(el.closest && el.closest('.hr-f06-blank')) || !!el.getAttribute('data-ent') ||
         id === 'hr-hrComment' || id === 'hr-hrSignature' || id === 'hr-hrSignedAt' || id === 'hr-hrSignedAt-view';
       var directorField = id === 'hr-directorName' || id === 'hr-directorSignedAt' || id === 'hr-directorSignedAt-view';
-      var block = blank || freeze || (directorSign && !directorField);
+      var lineField = id === 'hr-lineManagerName' || id === 'hr-lineManagerSignedAt' || id === 'hr-lineManagerSignedAt-view';
+      var block = blank || freeze || (directorSign && !directorField) || (lineSign && !lineField);
       if (el.tagName === 'SELECT') el.disabled = block;
       else el.readOnly = block;
     });
   }
   var statusEl = document.getElementById('hr-status');
-  if (statusEl) statusEl.disabled = locked || directorSign || hrIsDirectorOnly_();
+  if (statusEl) statusEl.disabled = locked || directorSign || lineSign || hrIsSignerOnly_() || empOnly;
   var saveBtn = document.getElementById('hrSaveBtn');
   var saveBtn2 = document.getElementById('hrSaveBtn2');
   var delBtn = document.getElementById('hrDeleteBtn');
@@ -1908,10 +2893,12 @@ function hrApplyPaperLock_() {
   var rejectBtn2 = document.getElementById('hrRejectBtn2');
   var st = hrVal_('hr-status');
   var showSave = hrCanWrite_() && !locked;
-  var showDel = showSave && !!hrVal_('hr-id');
+  var showDel = hrIsHrStaff_() && !locked && !!hrVal_('hr-id');
   var showConfirm = (!!hrVal_('hr-id')) && (
-    (hrIsHrStaff_() && hrStageOf_({ status: st }) === 'inbox') ||
-    (hrIsDirector_() && st === 'pending_director')
+    (hrIsHrStaff_() && !hrIsSignerOnly_() && hrStageOf_({ status: st }) === 'inbox') ||
+    (hrIsDirector_() && st === 'pending_director') ||
+    hrLineCanSign_(openRow) ||
+    (empOnly && hrCanEmpStampRow_(openRow))
   );
   var showReject = (!!hrVal_('hr-id')) && hrIsDirector_() && st === 'pending_director';
   if (saveBtn) saveBtn.style.display = showSave ? '' : 'none';
@@ -1924,6 +2911,23 @@ function hrApplyPaperLock_() {
   if (rejectBtn) rejectBtn.style.display = showReject ? '' : 'none';
   if (rejectBtn2) rejectBtn2.style.display = showReject ? '' : 'none';
   hrSyncScanChrome_();
+  hrSyncDualSignBtns_();
+}
+
+function hrSyncDualSignBtns_() {
+  var dual = hrDualEmpLine_();
+  var showEmp = dual && hrCanStampSlot_('emp');
+  var showLine = dual && hrCanStampSlot_('line');
+  ['hrSignEmpBtn', 'hrSignEmpBtn2'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = showEmp ? '' : 'none';
+  });
+  ['hrSignLineBtn', 'hrSignLineBtn2'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = showLine ? '' : 'none';
+  });
+  var help = document.getElementById('hrDualSignHelp');
+  if (help) help.style.display = dual ? '' : 'none';
 }
 
 function hrConfirmRow_(id) {
@@ -1931,6 +2935,33 @@ function hrConfirmRow_(id) {
   if (!id) return;
   var row = _hrRows.find(function (r) { return String(r.id) === id; });
   var stage = hrStageOf_(row || { status: hrVal_('hr-status') });
+  if (hrDualEmpLine_() && (hrCanEmpStampRow_(row) || hrLineCanSign_(row))) {
+    hrPickSignBox_().then(function (slot) {
+      if (!slot) return;
+      if (slot === 'emp') hrRunSelectedEmp_([id]);
+      else hrRunSelectedLine_([id]);
+    });
+    return;
+  }
+  if (hrIsEmployeeOnly_() && hrCanEmpStampRow_(row)) {
+    hrRunSelectedEmp_([id]);
+    return;
+  }
+  if (hrLineCanSign_(row)) {
+    hrMsg_('Signing Line Manager box…', true);
+    hrLineConfirmRequest_(id)
+      .then(function () {
+        hrMsg_('Line manager signed. Sent to the director.', true);
+        hrSetListEditing_(false);
+        return hrLoad_(true).then(function () {
+          hrSwitchTab_(null, hrAfterSignTab_());
+        });
+      })
+      .catch(function (err) {
+        hrMsg_(err.message || 'Confirm failed.', false);
+      });
+    return;
+  }
   if (hrIsDirector_() && stage === 'pending_director') {
     hrMsg_('Signing Director box…', true);
     hrDirectorConfirmRequest_(id)
@@ -1951,21 +2982,8 @@ function hrConfirmRow_(id) {
       });
     return;
   }
-  if (!(hrIsHrStaff_() && stage === 'inbox')) return;
-  var extra = { action: 'confirmHrLeaveRequest', token: hrToken_(), id: id };
-  hrMsg_('Confirming…', true);
-  fetchJSONRetry(extra, 1, 30000)
-    .then(function (d) {
-      if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) return;
-      if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Confirm failed');
-      hrMsg_('Sent to Pending Director.', true);
-      hrSetListEditing_(false);
-      hrSwitchTab_(null, 'list');
-      return hrLoad_(true);
-    })
-    .catch(function (err) {
-      hrMsg_(err.message || 'Confirm failed.', false);
-    });
+  if (!(hrIsHrStaff_() && !hrIsSignerOnly_() && stage === 'inbox')) return;
+  hrStaffConfirmInbox_([id]);
 }
 
 function hrRejectRow_(id) {
@@ -2003,6 +3021,7 @@ function hrRejectRow_(id) {
 }
 
 function hrNewPaper_(typeId) {
+  if (!hrCanWrite_() || !hrCanSeeTab_('form')) return;
   hrSetListEditing_(false);
   hrClearForm_();
   hrRenderLeaveTypes_(typeId || 'Lateness');
@@ -2096,7 +3115,7 @@ function hrFillPaperClone_(root, row) {
   ['emp', 'line', 'director', 'hr'].forEach(function (slot) {
     var pad = root.querySelector('[data-hr-id="hr-sig-' + slot + '"]') ||
       root.querySelector('#hr-sig-' + slot);
-    if (pad) pad.innerHTML = sigs[slot] ? '<img src="' + sigs[slot] + '" alt="">' : '';
+    if (pad) pad.innerHTML = hrStampImgHtml_(sigs[slot]);
   });
   HR_ENTITLE_KEYS.forEach(function (r) {
     var d = ents[r.key] || {};
@@ -2209,14 +3228,22 @@ function hrRenderKpis_(list) {
   if (!host) return;
   var all = _hrRows || [];
   var pendingDir = all.filter(function (r) { return hrStageOf_(r) === 'pending_director'; }).length;
+  var pendingLine = all.filter(function (r) { return hrStageOf_(r) === 'pending_line'; }).length;
   var completed = all.filter(function (r) { return hrStageOf_(r) === 'completed'; }).length;
   var inbox = all.filter(function (r) { return hrStageOf_(r) === 'inbox'; }).length;
   host.innerHTML =
-    (hrIsDirectorOnly_()
+    (hrIsSignerOnly_()
       ? ''
       : '<div class="hr-kpi"><b>' + inbox + '</b><span>Leave requests</span></div>') +
-    '<div class="hr-kpi"><b>' + pendingDir + '</b><span>Pending Director</span></div>' +
-    '<div class="hr-kpi" role="button" tabindex="0" onclick="hrSwitchTab_(null,\'confirmed\')" style="cursor:pointer;"><b>' + completed + '</b><span>Director confirmed</span></div>';
+    (hrIsDirectorOnly_()
+      ? ''
+      : '<div class="hr-kpi"><b>' + pendingLine + '</b><span>Pending line manager</span></div>') +
+    (hrIsLineOnly_() || hrIsEmployeeOnly_()
+      ? ''
+      : '<div class="hr-kpi"><b>' + pendingDir + '</b><span>Pending Director</span></div>') +
+    (hrIsLineOnly_() || hrIsEmployeeOnly_()
+      ? ''
+      : '<div class="hr-kpi" role="button" tabindex="0" onclick="hrSwitchTab_(null,\'confirmed\')" style="cursor:pointer;"><b>' + completed + '</b><span>Director confirmed</span></div>');
 }
 
 function hrRenderTable_() {
@@ -2236,7 +3263,8 @@ function hrRenderTable_() {
     }).join('');
     deptEl.value = keep;
   }
-  var rows = hrIsDirectorOnly_() ? hrPaperList_() : hrFiltered_();
+  var rows = hrUsesPaperList_() ? hrPaperList_() : hrFiltered_();
+  hrListHelp_();
   hrRenderKpis_(hrFiltered_());
   if (summary) {
     summary.textContent = rows.length + ' saved request' + (rows.length === 1 ? '' : 's');
@@ -2255,8 +3283,10 @@ function hrRenderTable_() {
       if (hrIsDirectorOnly_()) {
         h += '<button type="button" class="hr-btn-confirm" onclick="hrRunSelectedPending_(\'confirm\')">Confirm selected</button>';
       } else {
-        h += '<button type="button" class="hr-btn-confirm" onclick="hrRunSelectedInbox_(\'confirm\')">Confirm selected</button>';
-        h += '<button type="button" class="hr-btn-reject" onclick="hrRunSelectedInbox_(\'delete\')">Delete selected</button>';
+        h += '<button type="button" class="hr-btn-confirm" onclick="hrRunSelectedConfirm_()">Confirm selected</button>';
+        if (hrIsHrStaff_() && !hrIsSignerOnly_() && !hrIsLineOnly_()) {
+          h += '<button type="button" class="hr-btn-reject" onclick="hrRunSelectedInbox_(\'delete\')">Delete selected</button>';
+        }
       }
       h += '<button type="button" onclick="hrToggleSelectMode_(false)">Cancel</button>';
     } else {
@@ -2267,8 +3297,14 @@ function hrRenderTable_() {
   h += '</div>';
   if (!rows.length) {
     h += '<p class="hr-stage-empty">' + (hrIsDirectorOnly_()
-      ? 'When HR confirms a paper, it appears here for you to sign.'
-      : 'No saved requests yet.') + '</p></section>';
+      ? 'When the line manager signs, the paper appears here for you to sign.'
+      : (hrIsEmployeeOnly_()
+        ? 'When HR saves a leave paper with your name, it appears here. Stamp the Employee box only — you cannot fill a new leave request.'
+        : (hrIsLineOnly_()
+        ? (hrDualEmpLine_()
+          ? 'Your leave requests and papers waiting for you as line manager appear here. Confirm selected asks Employee box or Line Manager box.'
+          : 'When HR assigns a paper to you, it appears here to sign. After you confirm, it goes to the director.')
+        : 'No saved requests yet.'))) + '</p></section>';
     host.innerHTML = h;
     return;
   }
@@ -2280,13 +3316,20 @@ function hrRenderTable_() {
     var id = hrEsc_(r.id);
     var stage = hrStageOf_(r);
     var st = String(r.status || 'submitted');
-    var canHrConfirm = hrIsHrStaff_() && !hrIsDirectorOnly_() && stage === 'inbox';
+    var canHrConfirm = hrIsHrStaff_() && !hrIsSignerOnly_() && stage === 'inbox';
     var canDirConfirm = hrIsDirector_() && stage === 'pending_director';
+    var canLineConfirm = hrLineCanSign_(r);
+    var canEmpConfirm = hrCanEmpStampRow_(r) && (hrIsEmployeeOnly_() || hrDualEmpLine_());
     var canSel = showSel && hrCanSelectRow_(r);
     var picked = !!_hrSelected[String(r.id)];
-    var statusCell = (canHrConfirm || canDirConfirm) && !showSel
+    var waitingName = hrAssignedName_(r);
+    var statusCell = (canHrConfirm || canDirConfirm || canLineConfirm || canEmpConfirm) && !showSel
       ? '<button type="button" class="hr-btn-confirm-board" onclick="event.stopPropagation();hrConfirmRow_(\'' + id + '\')">Confirm</button>'
-      : '<span class="hr-badge hr-badge-' + hrEsc_(st) + '">' + hrEsc_(HR_STATUS_LABEL[st] || st) + '</span>';
+      : '<span class="hr-badge hr-badge-' + hrEsc_(st) + '">' +
+        (stage === 'pending_line' && waitingName
+          ? hrEsc_('Waiting for ' + waitingName)
+          : hrEsc_(HR_STATUS_LABEL[st] || st)) +
+        '</span>';
     var openFn = (r.entitlements && r.entitlements.__scan && r.entitlements.__scan.url)
       ? 'hrOpenScanRow_'
       : 'hrEditInList_';
@@ -2305,7 +3348,7 @@ function hrRenderTable_() {
       '<td>' + statusCell + '</td>' +
       '<td><div class="hr-row-acts">' +
         '<button type="button" class="hr-btn-edit" onclick="event.stopPropagation();' + openFn + '(\'' + id + '\',\'list\')">View</button>' +
-        (!showSel ? '<button type="button" onclick="event.stopPropagation();hrPrintRow_(\'' + id + '\')">Print</button>' : '') +
+        (!showSel ? '<button type="button" onclick="event.stopPropagation();hrPrintRow_(\'' + id + '\')">Print / PDF</button>' : '') +
       '</div></td></tr>';
   });
   h += '</tbody></table></div></section>';
@@ -2346,7 +3389,7 @@ function hrRenderDoneTable_() {
       '<td><span class="hr-badge hr-badge-' + (rejectedRow ? 'rejected' : 'completed') + '">' + (rejectedRow ? 'Rejected' : 'Completed') + '</span></td>' +
       '<td><div class="hr-row-acts">' +
         '<button type="button" class="hr-btn-edit" onclick="hrEditInList_(\'' + hrEsc_(r.id) + '\',\'done\')">View</button>' +
-        (!showSel ? '<button type="button" onclick="hrPrintRow_(\'' + hrEsc_(r.id) + '\')">Print</button>' : '') +
+        (!showSel ? '<button type="button" onclick="hrPrintRow_(\'' + hrEsc_(r.id) + '\')">Print / PDF</button>' : '') +
       '</div></td></tr>';
   }
   function rejectedHtml(list) {
@@ -2419,7 +3462,7 @@ function hrRenderArchiveTable_() {
   if (help) {
     help.innerHTML = isAll
       ? 'Every paper you move into a leave type also appears here. Search by name or ID.'
-      : 'Papers moved here from Completed request. Use <strong>Select</strong> to print several, move them to another type, or return them to Completed request.';
+      : 'Papers moved here from Completed request. Use <strong>Select</strong> then <strong>Print / PDF</strong> — choose Print or Save as PDF, move them to another type, or return them to Completed request.';
   }
   var allRows = hrFiledRows_(meta.id);
   var rows = hrArchiveVisibleRows_();
@@ -2487,7 +3530,7 @@ function hrRenderArchiveTable_() {
       '<td><span class="hr-badge hr-badge-completed">Completed</span></td>' +
       '<td><div class="hr-row-acts">' +
         '<button type="button" class="hr-btn-edit" onclick="hrEditInList_(\'' + hrEsc_(r.id) + '\',\'archive\')">View</button>' +
-        (!showSel ? '<button type="button" onclick="hrPrintRow_(\'' + hrEsc_(r.id) + '\')">Print</button>' : '') +
+        (!showSel ? '<button type="button" onclick="hrPrintRow_(\'' + hrEsc_(r.id) + '\')">Print / PDF</button>' : '') +
       '</div></td></tr>';
   });
   h += '</tbody></table></div></section>';
@@ -2544,10 +3587,91 @@ function hrRenderConfirmedTable_() {
       '<td><span class="hr-badge hr-badge-completed">Confirmed</span></td>' +
       '<td><div class="hr-row-acts">' +
         '<button type="button" class="hr-btn-edit" onclick="hrEditInList_(\'' + hrEsc_(r.id) + '\',\'confirmed\')">View</button>' +
-        (!showSel ? '<button type="button" onclick="hrPrintRow_(\'' + hrEsc_(r.id) + '\')">Print</button>' : '') +
+        (!showSel ? '<button type="button" onclick="hrPrintRow_(\'' + hrEsc_(r.id) + '\')">Print / PDF</button>' : '') +
       '</div></td></tr>';
   });
   h += '</tbody></table></div></section>';
+  host.innerHTML = h;
+}
+
+function hrSignedRows_() {
+  var status = hrVal_('hrSignedFilter');
+  var q = hrVal_('hrSignedSearch').toLowerCase();
+  return (_hrRows || []).filter(function (r) {
+    if (!hrUserSignedPaper_(r)) return false;
+    var state = hrSignedDirectorState_(r);
+    if (status === 'pending' && state.id !== 'pending') return false;
+    if (status === 'confirmed' && state.id !== 'confirmed') return false;
+    if (q) {
+      var hay = [r.no, r.num, r.empName, r.empCode, r.empDepartment, r.empJobTitle, r.leaveType, r.daysOut, r.replacement, hrUserSignedSlot_(r), state.label]
+        .join(' ').toLowerCase();
+      if (hay.indexOf(q) === -1) return false;
+    }
+    return true;
+  }).sort(function (a, b) {
+    var da = String(hrUserSignedAt_(b) || b.updatedAt || '');
+    var db = String(hrUserSignedAt_(a) || a.updatedAt || '');
+    if (da !== db) return da < db ? -1 : 1;
+    return (Number(b.num) || 0) - (Number(a.num) || 0);
+  });
+}
+
+function hrRenderSignedTable_() {
+  var host = document.getElementById('hrSignedHost');
+  var summary = document.getElementById('hrSignedSummary');
+  if (!host) return;
+  var rows = hrSignedRows_();
+  var pendingN = rows.filter(function (r) { return hrSignedDirectorState_(r).id === 'pending'; }).length;
+  var confirmedN = rows.filter(function (r) { return hrSignedDirectorState_(r).id === 'confirmed'; }).length;
+  if (summary) {
+    summary.textContent = rows.length
+      ? (rows.length + ' signed paper' + (rows.length === 1 ? '' : 's') +
+        ' · ' + pendingN + ' pending · ' + confirmedN + ' director confirmed')
+      : 'No signed papers yet.';
+  }
+  var h = '<section class="hr-stage">';
+  h += '<div class="hr-stage-head hr-saved-head">';
+  h += '<h3 class="hr-stage-title">My e-signatures <span>(' + rows.length + ')</span></h3>';
+  h += '</div>';
+  if (!rows.length) {
+    h += '<p class="hr-stage-empty">When you confirm an e-signature, that paper is saved here with the ID, dates, days, and whether the director has confirmed.</p></section>';
+    host.innerHTML = h;
+    return;
+  }
+  h += '<div class="hr-signed-list">';
+  rows.forEach(function (r) {
+    var id = hrEsc_(r.id);
+    var state = hrSignedDirectorState_(r);
+    var openFn = (r.entitlements && r.entitlements.__scan && r.entitlements.__scan.url)
+      ? 'hrOpenScanRow_'
+      : 'hrEditInList_';
+    var dates = hrFmtDate_(r.startDate) + (r.endDate && r.endDate !== r.startDate ? ' – ' + hrFmtDate_(r.endDate) : '');
+    h += '<article class="hr-signed-card">';
+    h += '<div class="hr-signed-card-top">';
+    h += '<strong>#' + hrEsc_(r.no || r.num || '') + '</strong>';
+    h += '<span class="hr-badge hr-badge-' + hrEsc_(state.badge) + '">' + hrEsc_(state.label) + '</span>';
+    h += '</div>';
+    h += '<h4 class="hr-signed-name">' + hrEsc_(r.empName || '—') + '</h4>';
+    h += '<dl class="hr-signed-dl">';
+    h += '<div><dt>ID</dt><dd>' + hrEsc_(r.empCode || '—') + '</dd></div>';
+    h += '<div><dt>Department</dt><dd>' + hrEsc_(r.empDepartment || '—') + '</dd></div>';
+    h += '<div><dt>Job title</dt><dd>' + hrEsc_(r.empJobTitle || '—') + '</dd></div>';
+    h += '<div><dt>Type</dt><dd>' + hrEsc_(r.leaveType || '—') + '</dd></div>';
+    h += '<div><dt>Dates</dt><dd>' + hrEsc_(dates || '—') + '</dd></div>';
+    h += '<div><dt>Days</dt><dd>' + hrEsc_(r.daysOut || '—') + '</dd></div>';
+    h += '<div><dt>Signed as</dt><dd>' + hrEsc_(hrUserSignedSlot_(r)) + '</dd></div>';
+    h += '<div><dt>Signed on</dt><dd>' + hrEsc_(hrFmtDate_(hrUserSignedAt_(r)) || '—') + '</dd></div>';
+    if (r.replacement) h += '<div><dt>Replacement</dt><dd>' + hrEsc_(r.replacement) + '</dd></div>';
+    if (state.id === 'confirmed' && r.directorSignedAt) {
+      h += '<div><dt>Director signed</dt><dd>' + hrEsc_(hrFmtDate_(r.directorSignedAt)) + '</dd></div>';
+    }
+    h += '</dl>';
+    h += '<div class="hr-row-acts">';
+    h += '<button type="button" class="hr-btn-edit" onclick="' + openFn + '(\'' + id + '\',\'signed\')">View</button>';
+    h += '<button type="button" onclick="hrPrintRow_(\'' + id + '\')">Print / PDF</button>';
+    h += '</div></article>';
+  });
+  h += '</div></section>';
   host.innerHTML = h;
 }
 
@@ -2561,7 +3685,9 @@ function hrLoad_(force) {
         return hrRepairRowScan_(r);
       });
       return hrSeedVac2IfNeeded_().then(function () {
+        if (hrIsHrStaff_() && !hrIsSignerOnly_()) hrLoadLineManagers_();
         hrRenderTable_();
+        hrRenderSignedTable_();
         hrRenderDoneTable_();
         hrRenderConfirmedTable_();
         hrRenderArchiveTable_();
@@ -2578,6 +3704,8 @@ function hrLoad_(force) {
       if (confirmedHost) confirmedHost.innerHTML = errHtml;
       var archiveHost = document.getElementById('hrArchiveHost');
       if (archiveHost) archiveHost.innerHTML = errHtml;
+      var signedHost = document.getElementById('hrSignedHost');
+      if (signedHost) signedHost.innerHTML = errHtml;
     });
 }
 
@@ -2610,9 +3738,7 @@ function hrApplyScanSigBox_() {
   var box = document.getElementById('hrScanDirBox');
   var sig = document.getElementById('hrScanDirSig');
   var target = document.getElementById('hrScanTarget');
-  var pos = (hrScanCanEdit_() && !hrVac2PageOf_(_hrScan))
-    ? hrNormScanPlace_(_hrScan)
-    : hrScanDisplayPlace_(_hrScan);
+  var pos = hrLockDirectorStampPlace_(hrDirectorBoxPos_());
   _hrScan.x = pos.x;
   _hrScan.y = pos.y;
   _hrScan.w = pos.w;
@@ -2629,14 +3755,11 @@ function hrApplyScanSigBox_() {
   box.style.top = (pos.y * 100) + '%';
   box.style.width = (pos.w * 100) + '%';
   box.style.height = (pos.h * 100) + '%';
-  var canEdit = hrScanCanEdit_();
-  box.classList.toggle('hr-scan-dir-edit', canEdit);
-  box.classList.toggle('hr-scan-dir-locked', !canEdit);
+  box.classList.remove('hr-scan-dir-edit');
+  box.classList.add('hr-scan-dir-locked');
   if (sig) {
-    sig.style.left = '0';
-    sig.style.top = '0';
-    sig.style.width = '100%';
-    sig.style.height = '100%';
+    sig.removeAttribute('style');
+    sig.draggable = false;
   }
 }
 
@@ -2654,7 +3777,7 @@ function hrRenderScan_() {
     img.removeAttribute('src');
     if (box) box.hidden = true;
     if (sig) { sig.hidden = true; sig.removeAttribute('src'); }
-    if (hint) hint.textContent = 'No paper yet. Scan or upload the leave form, then put the director e-signature on the Director box.';
+    if (hint) hint.textContent = 'No paper yet. Scan or upload the leave form, then put your account e-signature on the Director box.';
     return;
   }
   wrap.style.display = '';
@@ -2673,8 +3796,8 @@ function hrRenderScan_() {
   }
   hrApplyScanSigBox_();
   if (hint) {
-    if (!_hrScan.directorSig) hint.textContent = 'Scan loaded. Add the director e-signature only.';
-    else if (hrScanCanEdit_()) hint.textContent = 'Drag to move. Use the corners to resize. Confirm locks this size and place for every paper.';
+    if (!_hrScan.directorSig) hint.textContent = 'Scan loaded. Add your account e-signature on the Director box.';
+    else if (hrScanCanEdit_()) hint.textContent = 'Director e-signature placed.';
     else hint.textContent = 'Director e-signature is locked on this paper.';
   }
   hrSyncScanChrome_();
@@ -2685,37 +3808,34 @@ function hrApplyDirectorOnly_(dataUrl, openPickerDone) {
   if (!url) return;
   _hrSigs.director = url;
   _hrScan.directorSig = url;
-  var pos = hrDirectorBoxPos_();
-  if (hrScanLooksDefault_(_hrScan) || hrScanPlaceOversized_(_hrScan)) {
-    _hrScan.x = pos.x;
-    _hrScan.y = pos.y;
-    _hrScan.w = pos.w;
-    _hrScan.h = pos.h;
-  }
+  var pos = hrLockDirectorStampPlace_(hrDirectorBoxPos_());
+  _hrScan.x = pos.x;
+  _hrScan.y = pos.y;
+  _hrScan.w = pos.w;
+  _hrScan.h = pos.h;
   hrSet_('hr-directorSignedAt', hrToday_());
   hrSet_('hr-directorStatus', 'approved');
   hrRenderSig_('director');
   hrRenderScan_();
-  if (openPickerDone) hrMsg_('Drag to move. Use the corners to resize, then Confirm.', true);
+  if (openPickerDone) hrMsg_('Director e-signature placed.', true);
 }
 
 function hrOpenScanDirectorSig_() {
   if (!_hrScan.url) { hrMsg_('Scan or upload the paper first.', false); return; }
   if (_hrScan.directorSig) {
-    hrMsg_(hrScanCanEdit_()
-      ? 'Drag to move. Use the corners to resize. Confirm locks it.'
-      : 'Director e-signature is locked on this paper.', true);
+    hrMsg_('Director e-signature is locked on this paper.', true);
     return;
   }
-  var saved = hrAccountDirectorSig_();
+  var saved = hrAccountSig_();
   if (saved) {
-    hrApplyDirectorOnly_(saved, true);
+    hrApplyDirectorOnly_(saved, false);
     return;
   }
-  if (!hrCanWrite_()) {
-    hrMsg_('Your director e-signature is not on this account yet.', false);
+  if (!hrCanWrite_() && !hrDirectorCanSign_()) {
+    hrMsg_('Your e-signature is not on this account yet. Ask admin to upload it on Users.', false);
     return;
   }
+  hrMsg_('Upload your e-signature once. It is saved on this account for next time.', true);
   var inp = document.getElementById('hr-scan-dir-sig');
   if (inp) inp.click();
 }
@@ -2724,12 +3844,15 @@ function hrOnScanDirectorSig_(e) {
   var file = e.target.files && e.target.files[0];
   e.target.value = '';
   if (!file) return;
-  if (!hrCanWrite_()) return;
+  if (!hrCanWrite_() && !hrDirectorCanSign_()) return;
   var reader = new FileReader();
   reader.onload = function () {
-    hrProcessSigImage_(String(reader.result || ''), function (url) {
-      hrApplyDirectorOnly_(url, true);
-    });
+    var url = String(reader.result || '');
+    hrApplyDirectorOnly_(url, true);
+    if (hrDirectorCanSign_()) {
+      hrRememberAccountSig_(url);
+      hrMsg_('E-signature saved on your account.', true);
+    }
   };
   reader.readAsDataURL(file);
 }
@@ -2786,7 +3909,7 @@ function hrOnScanFile_(e) {
     var finish = function (url) {
       if (url) _hrScan.url = url;
       hrRenderScan_();
-      hrMsg_('Scan loaded. Add the director e-signature only.', true);
+      hrMsg_('Scan loaded. Add your account e-signature on the Director box.', true);
       setTimeout(hrOpenScanDirectorSig_, 250);
     };
     if (out.blob && typeof empireUploadPhotoAsync === 'function') {
@@ -2856,35 +3979,25 @@ function hrPrintScan_() {
     hrPrintRow_(id);
     return;
   }
-  document.body.classList.add('hr-print-scan');
-  var wrap = document.getElementById('hrScanStageWrap');
-  if (wrap) wrap.style.display = '';
-  window.print();
-  setTimeout(function () { document.body.classList.remove('hr-print-scan'); }, 400);
+  hrPickPrintMode_().then(function (mode) {
+    if (!mode) return;
+    var scanRow = row || {
+      empName: hrVal_('hr-empName'),
+      entitlements: { __scan: _hrScan }
+    };
+    if (!row) {
+      scanRow.entitlements = { __scan: _hrScan };
+    }
+    var page = hrBatchScanPage_(scanRow);
+    page.className = 'hr-print-page hr-batch-scan-page';
+    hrWaitImages_(page, function () {
+      hrRunPrintFrame_(page.outerHTML, 'Leave Request', mode);
+    });
+  });
 }
 
 function hrScanDirPointerDown_(ev, handle) {
-  if (!hrScanCanEdit_()) return;
-  ev.preventDefault();
-  ev.stopPropagation();
-  var stage = document.getElementById('hrScanStage');
-  if (!stage) return;
-  var rec = stage.getBoundingClientRect();
-  if (!rec.width || !rec.height) return;
-  var pos = hrNormScanPlace_(_hrScan);
-  _hrScanDrag = {
-    stage: stage,
-    handle: handle || 'move',
-    px: (ev.clientX - rec.left) / rec.width,
-    py: (ev.clientY - rec.top) / rec.height,
-    x: pos.x,
-    y: pos.y,
-    w: pos.w,
-    h: pos.h
-  };
-  if (ev.currentTarget && ev.pointerId != null && ev.currentTarget.setPointerCapture) {
-    try { ev.currentTarget.setPointerCapture(ev.pointerId); } catch (err) {}
-  }
+  return;
 }
 
 function hrScanDirPointerMove_(ev) {
@@ -2904,12 +4017,9 @@ function hrScanDirPointerMove_(ev) {
     x = _hrScanDrag.x + dx;
     y = _hrScanDrag.y + dy;
   } else {
-    if (handle.indexOf('w') !== -1) { x = _hrScanDrag.x + dx; w = _hrScanDrag.w - dx; }
-    if (handle.indexOf('e') !== -1) { w = _hrScanDrag.w + dx; }
-    if (handle.indexOf('n') !== -1) { y = _hrScanDrag.y + dy; h = _hrScanDrag.h - dy; }
-    if (handle.indexOf('s') !== -1) { h = _hrScanDrag.h + dy; }
+    return;
   }
-  var next = hrNormScanPlace_({ x: x, y: y, w: w, h: h });
+  var next = hrLockDirectorStampPlace_({ x: x, y: y, w: w, h: h });
   _hrScan.x = next.x;
   _hrScan.y = next.y;
   _hrScan.w = next.w;
@@ -2938,7 +4048,7 @@ function hrBindScanDrag_() {
 var HR_TRASH_SHEETS = ['HrLeaveRequests'];
 
 function hrShowStaffTools_() {
-  var show = hrCanWrite_() && !hrIsDirectorOnly_();
+  var show = hrIsHrStaff_() && !hrIsSignerOnly_();
   var trash = document.getElementById('btnHrTrash');
   var reset = document.getElementById('btnHrReset');
   if (trash) trash.style.display = show ? '' : 'none';
@@ -2946,7 +4056,7 @@ function hrShowStaffTools_() {
 }
 
 function hrRbOpen_() {
-  if (!hrCanWrite_()) return;
+  if (!hrIsHrStaff_()) return;
   var m = document.getElementById('hrRbModal');
   if (m) m.style.display = 'flex';
   hrRbLoad_();
@@ -3213,11 +4323,11 @@ function hrBakePrintClone_(src) {
     var el = srcFields[i];
     var dest = destFields[i];
     if (!dest || !dest.parentNode) continue;
-    if (el.classList.contains('hr-date-native') || el.type === 'hidden' || el.type === 'file') {
+    var key = hrPaperFieldKey_(el);
+    if (el.classList.contains('hr-date-native') || el.type === 'hidden' || el.type === 'file' || key === 'hr-lineManagerName' || key === 'hr-empSignature' || key === 'hr-hrSignature') {
       dest.parentNode.removeChild(dest);
       continue;
     }
-    var key = hrPaperFieldKey_(el);
     var span = document.createElement('span');
     span.className = (dest.className || 'hr-cell-input').replace(/\bhr-date-native\b/g, '').trim() || 'hr-cell-input';
     if (key === 'hr-startDate-view' || key === 'hr-endDate-view') {
@@ -3246,14 +4356,35 @@ function hrPrintFrameCss_() {
     + 'html,body{margin:0;padding:0;width:210mm;background:#fff;color:#000;}'
     + '*{color:#000;-webkit-text-fill-color:#000;box-sizing:border-box;}'
     + 'th,td,.hr-lbl,.hr-f06-sec td,.hr-f06-sec th{color:#000!important;-webkit-text-fill-color:#000!important;text-transform:none!important;background:#fff!important;}'
-    + '@media print{html,body{width:210mm;}body *{visibility:visible!important;color:#000!important;-webkit-text-fill-color:#000!important;}}'
-    + '.hr-print-page,.hr-batch-page{width:210mm;height:297mm;overflow:hidden;page-break-after:always;break-after:page;box-sizing:border-box;}'
+    + 'html,body,html *,body *{visibility:visible!important;}'
+    + 'html,body{font-family:Calibri,Arial,Helvetica,sans-serif;font-size:10pt;line-height:1.15;}'
+    + 'table{border-collapse:collapse;border-spacing:0;table-layout:fixed;empty-cells:show;}'
+    + '.hr-f06-emp col:nth-child(1){width:23.16%;}.hr-f06-emp col:nth-child(2){width:30.52%;}'
+    + '.hr-f06-emp col:nth-child(3),.hr-f06-emp col:nth-child(4){width:23.16%;}'
+    + '.hr-f06-absence col.c-start,.hr-f06-absence col.c-days{width:34.55%;}.hr-f06-absence col.c-end{width:30.91%;}'
+    + '.hr-f06-approvals col.c-lm-lab{width:17.27%;}.hr-f06-approvals col.c-lm-sig{width:32.73%;}'
+    + '.hr-f06-approvals col.c-dir-lab{width:16.36%;}.hr-f06-approvals col.c-dir-sig{width:33.64%;}'
+    + '.hr-f06-entitle col.c-type{width:16.45%;}.hr-f06-entitle col.c-ann{width:19.93%;}.hr-f06-entitle col.c-avail{width:21.83%;}'
+    + '.hr-f06-entitle col.c-req{width:19.10%;}.hr-f06-entitle col.c-rem{width:22.69%;}'
+    + '.hr-f06-grid th,.hr-f06-grid td,.hr-f06-entitle th,.hr-f06-entitle td,.hr-f06-hr td{padding:0 5.4pt;height:18pt;min-height:18pt;vertical-align:middle;font-size:10pt;}'
+    + '.hr-f06-sec td,.hr-f06-sec th{font-size:12pt;font-weight:700;height:22.3pt;min-height:22.3pt;}'
+    + '.hr-f06-absence .hr-f06-sec td{height:24.05pt;min-height:24.05pt;}'
+    + '.hr-f06-approvals .hr-f06-sec td{height:22.7pt;min-height:22.7pt;}'
+    + '.hr-f06-entitle .hr-f06-sec td{height:21.85pt;min-height:21.85pt;}'
+    + '.hr-f06-hr .hr-f06-sec td{height:24.9pt;min-height:24.9pt;}'
+    + '.hr-sig-row td{height:28.95pt;min-height:28.95pt;}.hr-approve-row td{height:32.1pt;min-height:32.1pt;}'
+    + '.hr-f06-hr tr.hr-f06-hr-foot td{height:24.45pt;min-height:24.45pt;}'
+    + '.hr-f06-head{position:absolute;}.hr-f06-doc-foot{position:absolute;}'
+    + '.hr-center{text-align:center;}.hr-lbl{font-weight:400;}'
+    + '.hr-batch-scan-page,.hr-batch-scan-page .hr-scan-stage{width:210mm;height:297mm;overflow:hidden;}'
+    + '.hr-batch-scan-img{display:block;width:210mm!important;height:297mm!important;object-fit:contain!important;}'
+    + '.hr-print-page,.hr-batch-page{position:relative!important;width:210mm;height:297mm;overflow:hidden;page-break-after:always;break-after:page;box-sizing:border-box;}'
     + '.hr-print-page:last-child,.hr-batch-page:last-child{page-break-after:auto;break-after:auto;}'
     + '.hr-note{width:210mm!important;height:297mm!important;min-height:297mm!important;max-width:210mm!important;padding:0!important;margin:0!important;border:none!important;box-shadow:none!important;box-sizing:border-box!important;overflow:hidden!important;position:relative!important;background:#fff!important;}'
     + '.hr-f06-sheet{position:absolute!important;left:0!important;top:0!important;width:210mm!important;height:297mm!important;min-height:297mm!important;padding:33.27mm 16.26mm 25.4mm 17.52mm!important;box-sizing:border-box!important;transform:scale(0.94)!important;transform-origin:center center!important;}'
     + '.hr-f06-head{position:absolute!important;top:7mm!important;left:17.52mm!important;margin:0!important;transform:translate(2mm,4.5mm) scale(0.94)!important;transform-origin:top left!important;}'
     + '.hr-f06-logo{width:51.22mm!important;height:25.30mm!important;}'
-    + '.hr-f06-title{margin:0!important;padding:0!important;height:14pt!important;line-height:14pt!important;font-size:14pt!important;font-weight:400!important;color:#0d0d0d!important;}'
+    + '.hr-f06-title{margin:0!important;padding:0!important;height:14pt!important;line-height:14pt!important;font-size:14pt!important;font-weight:400!important;color:#0d0d0d!important;text-align:center!important;width:100%!important;display:block!important;position:relative!important;left:auto!important;top:auto!important;}'
     + '.hr-f06-grid,.hr-f06-entitle,.hr-f06-hr{width:174.63mm!important;max-width:174.63mm!important;box-sizing:border-box!important;margin:0!important;border:none!important;}'
     + '.hr-f06-emp{margin:7.6mm 0 0!important;transform:translate(1mm,-1.5mm)!important;}'
     + '.hr-f06-absence,.hr-f06-approvals{margin:0 auto!important;}'
@@ -3273,79 +4404,259 @@ function hrPrintFrameCss_() {
     + '.hr-f06-doc-foot{right:16.26mm!important;bottom:6mm!important;transform:translate(0,-13mm)!important;}'
     + '.hr-cell-input,.hr-date-view{color:#000!important;-webkit-text-fill-color:#000!important;display:inline-block;width:100%;font:inherit;background:#fff!important;}'
     + 'input::placeholder{color:transparent!important;opacity:0!important;}'
-    + '.hr-days-out{display:block;white-space:pre-wrap;overflow:visible;height:auto;text-align:center;}'
+    + '.hr-days-out{display:block;white-space:pre-wrap;overflow:hidden!important;resize:none!important;height:auto;text-align:center;appearance:none!important;-webkit-appearance:none!important;}'
+    + '.hr-days-out::-webkit-resizer,.hr-days-out::-webkit-scrollbar,.hr-days-out::-webkit-inner-spin-button,.hr-days-out::-webkit-outer-spin-button{display:none!important;}'
     + '.hr-date-native,select,input,textarea,button{display:none!important;}'
-    + '.hr-batch-scan-img{display:block;width:100%;height:auto;}'
     + '.hr-scan-stage{position:relative;width:100%;}'
-    + '.hr-scan-dir-box{position:absolute;box-sizing:border-box;overflow:hidden;}'
-    + '.hr-scan-dir-box .hr-scan-dir-sig{position:static;width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important;left:auto;top:auto;}'
-    + '.hr-scan-dir-sig{position:absolute;max-width:100%;max-height:100%;object-fit:contain;}'
+    + '.hr-scan-dir-box{position:absolute;box-sizing:border-box;overflow:visible;pointer-events:none;}'
+    + '.hr-scan-dir-box .hr-scan-dir-sig{position:absolute!important;left:0!important;top:50%!important;transform:translateY(-50%)!important;width:100%!important;height:56pt!important;max-width:100%!important;max-height:56pt!important;object-fit:contain!important;object-position:center!important;}'
+    + '.hr-scan-dir-sig{position:absolute;max-width:100%;max-height:56pt;object-fit:contain;}'
     + '.hr-scan-handle,.hr-scan-target{display:none!important;}'
-    + '.hr-sig-pad img,.hr-sig-pad-director img{max-height:26pt!important;max-width:100%!important;object-fit:contain!important;display:block!important;}'
-    + '.hr-approve-row td.sig-cell-director{overflow:visible!important;}';
+    + '.hr-f06-emp,.hr-f06-approvals,.hr-f06-hr{overflow:visible!important;clip-path:inset(-18pt -8pt)!important;}'
+    + '.hr-sig-pad,.hr-sig-pad-line,.hr-sig-pad-director,.hr-f06-hr-foot .hr-sig-pad-inline{overflow:visible!important;position:relative!important;z-index:3!important;}'
+    + '.hr-sig-pad-line,.hr-sig-pad-director{width:100%!important;height:32.1pt!important;min-height:32.1pt!important;max-height:32.1pt!important;}'
+    + '.hr-sig-row .hr-sig-pad{width:100%!important;height:28.95pt!important;min-height:28.95pt!important;max-height:28.95pt!important;}'
+    + '.hr-f06-hr-foot .hr-sig-pad-inline{width:52%!important;height:24.45pt!important;min-height:24.45pt!important;}'
+    + '.hr-sig-pad img,.hr-sig-pad-line img,.hr-sig-pad-director img{position:absolute!important;left:0!important;top:50%!important;transform:translateY(-50%)!important;width:100%!important;height:56pt!important;max-width:100%!important;max-height:56pt!important;margin:0!important;object-fit:contain!important;object-position:center!important;display:block!important;overflow:visible!important;}'
+    + '.hr-sig-row .hr-sig-pad img{left:50%!important;transform:translate(-50%,-50%)!important;width:100%!important;max-width:100%!important;object-position:center!important;}'
+    + '.hr-f06-hr-foot .hr-sig-pad img{left:0!important;transform:translateY(-50%)!important;object-position:left center!important;}'
+    + '.sig-cell .hr-sig-ghost,.sig-line .hr-sig-ghost,.hr-approve-row .hr-sig-ghost{display:none!important;height:0!important;min-height:0!important;overflow:hidden!important;padding:0!important;margin:0!important;}'
+    + '.hr-sig-row td.sig-cell,.hr-approve-row td.sig-cell,.hr-approve-row td.sig-cell-director,.hr-f06-hr-foot td.sig-line{overflow:visible!important;clip-path:none!important;}';
 }
 
 function hrLayoutInit_() {
   try { localStorage.removeItem('egs-hr-f06-layout-v1'); } catch (err) { /* ignore */ }
 }
 
-function hrOpenPrintFrame_(bodyHtml, title) {
-  document.body.classList.remove('hr-print-scan');
-  document.body.classList.remove('hr-print-batch');
+function hrHidePrintFrame_() {
+  var frame = document.getElementById('hrPrintFrame');
+  if (!frame) return;
+  frame.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;border:0;';
+  try { frame.removeAttribute('srcdoc'); } catch (err) { /* ignore */ }
+}
+
+function hrBuildPrintHtml_(bodyHtml, title) {
   var base = location.origin + location.pathname.replace(/[^/]+$/, '');
-  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + hrEsc_(title || 'Leave Request') + '</title>'
+  return '<!DOCTYPE html><html class="hr-print-frame"><head><meta charset="UTF-8"><title>'
+    + hrEsc_(title || 'Leave Request') + '</title>'
     + '<base href="' + String(base).replace(/"/g, '') + '">'
-    + '<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-10-dir-box4">'
-    + '<style>' + hrPrintFrameCss_() + '</style></head><body>' + bodyHtml + '</body></html>';
+    + '<style>' + hrPrintFrameCss_() + '</style></head>'
+    + '<body class="hr-print-frame">' + (bodyHtml || '') + '</body></html>';
+}
+
+function hrPdfLib_() {
+  return (window.jspdf && window.jspdf.jsPDF) || window.jsPDF || null;
+}
+
+function hrEnsurePdfLibs_(cb) {
+  if (window.html2canvas && hrPdfLib_()) {
+    cb(true);
+    return;
+  }
+  var left = 2;
+  var tick = function () {
+    left--;
+    if (left > 0) return;
+    cb(!!(window.html2canvas && hrPdfLib_()));
+  };
+  function add(src) {
+    var s = document.createElement('script');
+    s.src = src;
+    s.onload = tick;
+    s.onerror = tick;
+    document.head.appendChild(s);
+  }
+  add('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js');
+  add('https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js');
+}
+
+function hrPinPrintPage_(pages, current) {
+  var n;
+  for (n = 0; n < pages.length; n++) {
+    var el = pages[n];
+    var on = el === current;
+    el.style.display = on ? 'block' : 'none';
+    el.style.position = on ? 'absolute' : 'relative';
+    el.style.left = on ? '0' : '';
+    el.style.top = on ? '0' : '';
+    el.style.margin = '0';
+  }
+  var doc = current && current.ownerDocument;
+  if (doc) {
+    if (doc.documentElement) doc.documentElement.scrollTop = 0;
+    if (doc.body) doc.body.scrollTop = 0;
+    if (doc.defaultView && doc.defaultView.scrollTo) doc.defaultView.scrollTo(0, 0);
+  }
+}
+
+function hrLockPrintTitleClone_(cloned) {
+  var titles = cloned.querySelectorAll('.hr-f06-title');
+  var t;
+  for (t = 0; t < titles.length; t++) {
+    titles[t].style.setProperty('text-align', 'center', 'important');
+    titles[t].style.setProperty('margin', '0', 'important');
+    titles[t].style.setProperty('width', '100%', 'important');
+    titles[t].style.setProperty('display', 'block', 'important');
+    titles[t].style.setProperty('position', 'relative', 'important');
+    titles[t].style.setProperty('left', 'auto', 'important');
+    titles[t].style.setProperty('top', 'auto', 'important');
+  }
+  var heads = cloned.querySelectorAll('.hr-f06-head');
+  var h;
+  for (h = 0; h < heads.length; h++) {
+    heads[h].style.setProperty('position', 'absolute', 'important');
+    heads[h].style.setProperty('top', '7mm', 'important');
+    heads[h].style.setProperty('left', '17.52mm', 'important');
+  }
+}
+
+function hrSavePrintPdf_(doc, title, cb) {
+  var JsPDF = hrPdfLib_();
+  if (!window.html2canvas || !JsPDF) {
+    cb(false);
+    return;
+  }
+  var pages = Array.prototype.slice.call(doc.querySelectorAll('.hr-batch-page, .hr-print-page, .hr-batch-scan-page'));
+  if (!pages.length) pages = [doc.body];
+  var pdf = new JsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+  var i = 0;
+  var pxW = Math.round(210 * 96 / 25.4);
+  var pxH = Math.round(297 * 96 / 25.4);
+  function next() {
+    if (i >= pages.length) {
+      var name = String(title || 'Leave-Request').replace(/[^\w\- ]+/g, '').trim() || 'Leave-Request';
+      pdf.save(name + '.pdf');
+      cb(true);
+      return;
+    }
+    var page = pages[i++];
+    hrPinPrintPage_(pages, page);
+    window.html2canvas(page, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+      logging: false,
+      scrollX: 0,
+      scrollY: 0,
+      x: 0,
+      y: 0,
+      windowWidth: pxW,
+      windowHeight: pxH,
+      onclone: hrLockPrintTitleClone_
+    }).then(function (canvas) {
+      var img = canvas.toDataURL('image/jpeg', 0.93);
+      if (i > 1) pdf.addPage('a4', 'portrait');
+      pdf.addImage(img, 'JPEG', 0, 0, 210, 297);
+      next();
+    }).catch(function () {
+      cb(false);
+    });
+  }
+  next();
+}
+
+function hrOpenPrintFrame_(bodyHtml, title) {
+  hrPickPrintMode_().then(function (mode) {
+    if (!mode) return;
+    hrRunPrintFrame_(bodyHtml, title, mode);
+  });
+}
+
+function hrRunPrintFrame_(bodyHtml, title, mode) {
+  mode = String(mode || '').trim().toLowerCase();
+  if (mode !== 'pdf') mode = 'print';
+  hrMsg_(mode === 'pdf' ? 'Saving PDF…' : 'Opening print…', true);
+  var html = hrBuildPrintHtml_(bodyHtml, title);
   var frame = document.getElementById('hrPrintFrame');
   if (!frame) {
     frame = document.createElement('iframe');
     frame.id = 'hrPrintFrame';
-    frame.setAttribute('aria-hidden', 'true');
-    frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:210mm;height:297mm;border:0;opacity:0;pointer-events:none;';
+    frame.setAttribute('title', 'Print preview');
     document.body.appendChild(frame);
   }
+  frame.style.cssText = 'position:fixed;left:0;top:0;width:210mm;height:297mm;border:0;z-index:2147483000;background:#fff;';
   var win = frame.contentWindow;
   var doc = frame.contentDocument || (win && win.document);
   if (!doc || !win) {
-    window.print();
+    if (mode === 'print') window.print();
+    else hrMsg_('Could not save PDF. Try Print instead.', false);
     return;
   }
+  var done = false;
+  var finish = function (savedPdf) {
+    if (done) return;
+    done = true;
+    hrHidePrintFrame_();
+    if (mode === 'pdf' && savedPdf) hrMsg_('PDF saved.', true);
+    else if (mode === 'pdf') hrMsg_('Could not save PDF. Try Print instead.', false);
+  };
   doc.open();
   doc.write(html);
   doc.close();
   hrWaitImages_(doc.body, function () {
-    setTimeout(function () {
+    if (mode === 'print') {
       try {
         win.focus();
         win.print();
+        if (win.addEventListener) {
+          win.addEventListener('afterprint', function () {
+            setTimeout(function () { finish(false); }, 400);
+          });
+        }
       } catch (err) {
         window.print();
+        setTimeout(function () { finish(false); }, 400);
       }
-    }, 250);
+      setTimeout(function () { finish(false); }, 120000);
+      hrMsg_('Print window opened.', true);
+      return;
+    }
+    hrEnsurePdfLibs_(function (ready) {
+      if (!ready) {
+        hrMsg_('Could not save PDF here. Opening print instead.', false);
+        try {
+          win.focus();
+          win.print();
+        } catch (err) {
+          window.print();
+        }
+        if (win.addEventListener) {
+          win.addEventListener('afterprint', function () {
+            setTimeout(function () { finish(false); }, 400);
+          });
+        }
+        setTimeout(function () { finish(false); }, 120000);
+        return;
+      }
+      hrSavePrintPdf_(doc, title, finish);
+    });
   });
 }
 
 function hrPrint_() {
   var id = hrVal_('hr-id');
-  var row = id && (_hrRows || []).find(function (r) { return String(r.id) === String(id); });
-  if (row) {
-    hrRepairRowScan_(row);
-    if (hrRowScan_(row)) {
-      hrPrintRowsByIds_([row.id]);
-      return;
-    }
+  if (id) {
+    hrPrintRowsByIds_([id]);
+    return;
   }
   var src = document.getElementById('hrPrintRoot');
   if (!src) {
-    window.print();
+    hrPickPrintMode_().then(function (mode) {
+      if (!mode) return;
+      if (mode === 'pdf') hrMsg_('Open this paper first, then Save as PDF.', false);
+      else window.print();
+    });
     return;
   }
-  var page = document.createElement('div');
-  page.className = 'hr-print-page';
-  page.appendChild(hrBakePrintClone_(src));
-  hrWaitImages_(page, function () {
-    hrOpenPrintFrame_(page.outerHTML, 'Leave Request');
+  hrPickPrintMode_().then(function (mode) {
+    if (!mode) return;
+    var page = document.createElement('div');
+    page.className = 'hr-batch-page';
+    page.appendChild(hrBakePrintClone_(src));
+    hrWaitImages_(page, function () {
+      hrRunPrintFrame_(page.outerHTML, 'Leave Request', mode);
+    });
   });
 }
 
@@ -3361,31 +4672,30 @@ function hrEnterApp_() {
     empireAuthRefreshPerms(function () {
       _hrCanWrite = hrCanWrite_();
       hrShowStaffTools_();
+      hrApplyNavAccess_();
       var openId = hrVal_('hr-id');
       var openRow = openId && (_hrRows || []).find(function (r) { return String(r.id) === String(openId); });
       if (hrDirectorCanSign_(openRow || undefined)) {
         hrApplyAccountDirectorSig_(openRow);
         hrRenderSig_('director');
       }
+      if (!hrDualEmpLine_() && hrLineCanSign_(openRow || undefined)) {
+        hrApplyAccountLineSig_(openRow);
+        hrRenderSig_('line');
+      }
+      hrApplyAccountSlotSig_(openRow || undefined);
+      hrRenderAllSigs_();
+      hrLoadSavedSigs_();
     });
   }
   _hrCanWrite = hrCanWrite_();
-  if (!hrVal_('hr-id')) {
+  if (!hrVal_('hr-id') && hrCanSeeTab_('form') && hrCanWrite_()) {
     hrClearForm_();
   }
   hrApplyPaperLock_();
-  if (hrIsDirectorOnly_()) {
-    var scanBtn = document.getElementById('tabBtnScan');
-    if (scanBtn) scanBtn.style.display = 'none';
-    var doneBtn = document.getElementById('tabBtnDone');
-    if (doneBtn) doneBtn.style.display = 'none';
-    var archiveNav = document.getElementById('hrArchiveNav');
-    if (archiveNav) archiveNav.style.display = 'none';
-    var confirmedBtn = document.getElementById('tabBtnConfirmed');
-    if (confirmedBtn) confirmedBtn.style.display = '';
-    hrOpenLeaveNav_();
-    hrSwitchTab_(null, 'list');
-  }
+  hrApplyNavAccess_();
+  hrOpenLeaveNav_();
+  hrSwitchTab_(null, hrHomeTab_());
   hrShowStaffTools_();
   hrRenderScan_();
   hrLoad_(true);
@@ -3414,6 +4724,7 @@ function hrInit_() {
   window.addEventListener('afterprint', function () {
     document.body.classList.remove('hr-print-scan');
     hrClearBatchPrint_();
+    hrHidePrintFrame_();
   });
   if (!empireAuthPageBoot({
     dept: HR_DEPT,

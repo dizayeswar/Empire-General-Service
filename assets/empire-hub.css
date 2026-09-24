@@ -929,6 +929,7 @@ h3 {
 }
 
 input[type='text'],
+input[type='search'],
 input[type='date'],
 input[type='month'],
 input[type='number'],

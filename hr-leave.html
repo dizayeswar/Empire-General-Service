@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="manifest" href="manifest.webmanifest?v=2026-09-15-sec-acc">
+<link rel="manifest" href="manifest.webmanifest?v=2026-09-23-skip-line">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,9 +12,9 @@
 <link rel="icon" href="logo-light.png" type="image/png">
 <title>Leave Request — HR Department — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
-<link rel="stylesheet" href="assets/empire.css?v=2026-09-15-sec-acc">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-15-sec-acc">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-15-sec-acc">
+<link rel="stylesheet" href="assets/empire.css?v=2026-09-22-search-pill">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-23-skip-line">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-23-skip-line">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -59,6 +59,10 @@
             <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span>
             <span class="lbl">Saved requests</span>
           </button>
+          <button class="tab-btn" id="tabBtnSigned" onclick="hrSwitchTab_(event,'signed')">
+            <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m9 15 2 2 4-4"/></svg></span>
+            <span class="lbl">My e-signatures</span>
+          </button>
           <button class="tab-btn" id="tabBtnConfirmed" onclick="hrSwitchTab_(event,'confirmed')">
             <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg></span>
             <span class="lbl">Director confirmed</span>
@@ -100,13 +104,15 @@
         <div id="hrListBrowse">
         <div class="form-section">
           <h2>Saved requests</h2>
-          <p class="hr-tab-help">Confirm a paper to send it to the director. After they sign, it comes back to Completed request.</p>
+          <p class="hr-tab-help">Confirm a paper, then choose: assign a line manager, or send it straight to the director with no assignment. After the director signs, it comes back to Completed request.</p>
+          <p class="hr-form-msg no-print" id="hrListMsg"></p>
           <div class="form-row filter-toolbar">
             <div class="form-group">
               <label>Status</label>
               <select id="hrFilterStatus" onchange="hrRenderTable_()">
                 <option value="">All statuses</option>
                 <option value="submitted">Submitted</option>
+                <option value="pending_line">Pending line manager</option>
                 <option value="pending_director">Pending Director</option>
                 <option value="completed">Completed</option>
                 <option value="rejected">Rejected</option>
@@ -135,7 +141,7 @@
             </div>
             <div class="form-group filter-grow">
               <label>Search</label>
-              <input type="text" id="hrFilterSearch" oninput="hrRenderTable_()" placeholder="name, code, type…">
+              <input type="search" id="hrFilterSearch" oninput="hrRenderTable_()" placeholder="name, code, type…" autocomplete="off">
             </div>
             <div class="form-group filter-actions">
               <label>&nbsp;</label>
@@ -149,10 +155,33 @@
         </div>
       </div>
 
+      <div id="signed" class="tab-content">
+        <div class="form-section">
+          <h2>My e-signatures</h2>
+          <p class="hr-tab-help">Papers you confirmed with your e-signature. <strong>Pending</strong> means the director has not signed yet. <strong>Director confirmed</strong> means the director signed.</p>
+          <div class="form-row filter-toolbar">
+            <div class="form-group">
+              <label>Status</label>
+              <select id="hrSignedFilter" onchange="hrRenderSignedTable_()">
+                <option value="">All</option>
+                <option value="pending">Pending</option>
+                <option value="confirmed">Director confirmed</option>
+              </select>
+            </div>
+            <div class="form-group filter-grow">
+              <label>Search</label>
+              <input type="search" id="hrSignedSearch" oninput="hrRenderSignedTable_()" placeholder="Name, ID, type…" autocomplete="off">
+            </div>
+          </div>
+          <p class="hr-summary" id="hrSignedSummary"></p>
+          <div id="hrSignedHost"><p>Loading…</p></div>
+        </div>
+      </div>
+
       <div id="confirmed" class="tab-content">
         <div class="form-section">
           <h2>Director confirmed</h2>
-          <p class="hr-tab-help">Papers the director has signed. Use <strong>Select</strong> to save several as one PDF (Print → Save as PDF). HR also sees them in Completed request.</p>
+          <p class="hr-tab-help">Papers the director has signed. Use <strong>Select</strong> then <strong>Print / PDF</strong> — choose Print or Save as PDF. HR also sees them in Completed request.</p>
           <p class="hr-summary" id="hrConfirmedSummary"></p>
           <div id="hrConfirmedHost"><p>Loading…</p></div>
         </div>
@@ -165,7 +194,7 @@
           <div class="form-row filter-toolbar">
             <div class="form-group filter-grow">
               <label>Search</label>
-              <input type="text" id="hrDoneSearch" oninput="hrRenderDoneTable_()" placeholder="Name or ID" autocomplete="off">
+              <input type="search" id="hrDoneSearch" oninput="hrRenderDoneTable_()" placeholder="Name or ID" autocomplete="off">
             </div>
           </div>
           <p class="hr-summary" id="hrDoneSummary"></p>
@@ -175,11 +204,11 @@
       <div id="archive" class="tab-content">
         <div class="form-section">
           <h2 id="hrArchiveTitle">Annual leave</h2>
-          <p class="hr-tab-help" id="hrArchiveHelp">Papers moved here from Completed request. Use <strong>Select</strong> to print several, move them to another type, or return them to Completed request.</p>
+          <p class="hr-tab-help" id="hrArchiveHelp">Papers moved here from Completed request. Use <strong>Select</strong> then <strong>Print / PDF</strong> — choose Print or Save as PDF, move them to another type, or return them to Completed request.</p>
           <div class="form-row filter-toolbar">
             <div class="form-group filter-grow">
               <label>Search</label>
-              <input type="text" id="hrArchiveSearch" oninput="hrRenderArchiveTable_()" placeholder="Name or ID" autocomplete="off">
+              <input type="search" id="hrArchiveSearch" oninput="hrRenderArchiveTable_()" placeholder="Name or ID" autocomplete="off">
             </div>
           </div>
           <p class="hr-summary" id="hrArchiveSummary"></p>
@@ -191,7 +220,7 @@
       <div id="scan" class="tab-content">
         <div class="form-section hr-scan-app">
           <h2>Scan paper leave form</h2>
-          <p class="hr-tab-help">Photograph or upload the filled paper. After the scan loads, add an e-signature on the <strong>Director</strong> box only — not employee, line manager, or HR.</p>
+          <p class="hr-tab-help">Photograph or upload the filled paper. After the scan loads, your account e-signature is placed on the <strong>Director</strong> box only — not employee, line manager, or HR.</p>
           <p class="hr-form-msg" id="hrScanMsg"></p>
           <div class="form-row">
             <div class="form-group">
@@ -211,11 +240,11 @@
             <button type="button" onclick="hrClearScan_()">Remove scan</button>
             <button type="button" onclick="hrSaveFromScan_()">Save</button>
             </span>
-            <button type="button" id="hrScanDirBtn" onclick="hrOpenScanDirectorSig_()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Director e-signature</button>
+            <button type="button" id="hrScanDirBtn" onclick="hrOpenScanDirectorSig_()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">My e-signature</button>
             <button type="button" id="hrScanConfirmBtn" onclick="hrConfirmRow_()" class="hr-btn-confirm" style="display:none;">Confirm</button>
-            <button type="button" onclick="hrPrintScan_()">Print signed scan</button>
+            <button type="button" onclick="hrPrintScan_()">Print / PDF</button>
           </div>
-          <p class="hr-scan-hint" id="hrScanHint">No paper yet. Scan or upload the leave form, then put the director e-signature on the Director box.</p>
+          <p class="hr-scan-hint" id="hrScanHint">No paper yet. Scan or upload the leave form, then put your account e-signature on the Director box.</p>
           <div class="hr-scan-stage-wrap" id="hrScanStageWrap" style="display:none;">
             <div class="hr-scan-stage" id="hrScanStage">
               <img id="hrScanImg" alt="Scanned leave form">
@@ -250,17 +279,19 @@
             <button type="button" data-hr-form-only="1" onclick="hrClearForm_()">New</button>
             <button type="button" data-hr-form-only="1" onclick="hrClearForm_()">Clear</button>
             <button type="button" id="hrSaveBtn" onclick="hrSave_()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Save</button>
+            <button type="button" id="hrSignEmpBtn" onclick="hrOpenSig_('emp')" style="display:none;">Employee e-signature</button>
+            <button type="button" id="hrSignLineBtn" onclick="hrOpenSig_('line')" style="display:none;">Line Manager e-signature</button>
             <button type="button" id="hrConfirmBtn" onclick="hrConfirmRow_()" class="hr-btn-confirm" style="display:none;">Confirm</button>
             <button type="button" id="hrRejectBtn" onclick="hrRejectRow_()" class="hr-btn-reject" style="display:none;">Rejected</button>
             <button type="button" data-hr-form-only="1" onclick="hrSwitchTab_(null,'scan')">Scan paper</button>
-            <button type="button" id="hrPrintBtn" onclick="hrPrint_()">Print / Save as PDF</button>
+            <button type="button" id="hrPrintBtn" onclick="hrPrint_()">Print / PDF</button>
             <button type="button" id="hrDeleteBtn" onclick="hrDelete_()" style="display:none;color:#fff;background:#C5504F;border-color:#C5504F;">Delete</button>
           </div>
           <p class="hr-form-msg no-print" id="hrFormMsg"></p>
           <div class="hr-scan-card no-print" id="hrScanCardOnForm" data-hr-form-only="1">
             <div>
               <strong>Paper scan</strong>
-              <p>Scan or upload the printed leave form. Only the Director box gets an e-signature.</p>
+              <p>Scan or upload the printed leave form. Your account e-signature goes on the Director box.</p>
             </div>
             <div class="hr-scan-card-acts">
               <button type="button" onclick="hrSwitchTab_(null,'scan')">Open scan section</button>
@@ -381,7 +412,7 @@
                 <td class="lab"><span class="hr-lbl">Employee Signature</span></td>
                 <td class="val sig-cell" colspan="2" onclick="hrOpenSig_('emp')">
                   <div class="hr-sig-pad" id="hr-sig-emp"></div>
-                  <input id="hr-empSignature" class="hr-cell-input hr-sig-ghost" type="text" autocomplete="off" onclick="event.stopPropagation()">
+                  <input id="hr-empSignature" type="hidden" autocomplete="off">
                 </td>
               </tr>
             </table>
@@ -392,8 +423,8 @@
               <tr class="hr-approve-row">
                 <td class="lab hr-center"><span class="hr-lbl">Line Manager</span></td>
                 <td class="val sig-cell" onclick="hrOpenSig_('line')">
-                  <div class="hr-sig-pad" id="hr-sig-line"></div>
-                  <input id="hr-lineManagerName" class="hr-cell-input hr-sig-ghost" type="text" autocomplete="off" onclick="event.stopPropagation()">
+                  <div class="hr-sig-pad hr-sig-pad-line" id="hr-sig-line"></div>
+                  <input id="hr-lineManagerName" type="hidden" autocomplete="off">
                 </td>
                 <td class="lab hr-center"><span class="hr-lbl">Director</span></td>
                 <td class="val sig-cell sig-cell-director" onclick="hrOpenSig_('director')">
@@ -430,10 +461,10 @@
                 </td>
               </tr>
               <tr class="hr-f06-hr-foot">
-                <td class="sig-line">
+                <td class="sig-line" onclick="hrOpenSig_('hr')">
                   <span class="hr-lbl">Signature</span>
-                  <span class="hr-sig-pad hr-sig-pad-inline" id="hr-sig-hr"></span>
-                  <input id="hr-hrSignature" class="hr-cell-input hr-sig-ghost" type="text" autocomplete="off" readonly tabindex="-1">
+                  <span class="hr-sig-pad hr-sig-pad-inline hr-sig-pad-account" id="hr-sig-hr"></span>
+                  <input id="hr-hrSignature" type="hidden" autocomplete="off">
                 </td>
                 <td class="date-line">
                   <span class="hr-lbl">Date</span>
@@ -456,11 +487,14 @@
             <button type="button" id="hrReturnBtn2" onclick="hrReturnToList_()" style="display:none;">Return to saved requests</button>
             <button type="button" data-hr-form-only="1" onclick="hrClearForm_()">New</button>
             <button type="button" id="hrSaveBtn2" onclick="hrSave_()" style="color:#fff;background:var(--accent2);border-color:var(--accent2);">Save</button>
+            <button type="button" id="hrSignEmpBtn2" onclick="hrOpenSig_('emp')" style="display:none;">Employee e-signature</button>
+            <button type="button" id="hrSignLineBtn2" onclick="hrOpenSig_('line')" style="display:none;">Line Manager e-signature</button>
             <button type="button" id="hrConfirmBtn2" onclick="hrConfirmRow_()" class="hr-btn-confirm" style="display:none;">Confirm</button>
             <button type="button" id="hrRejectBtn2" onclick="hrRejectRow_()" class="hr-btn-reject" style="display:none;">Rejected</button>
-            <button type="button" onclick="hrPrint_()">Print / Save as PDF</button>
+            <button type="button" onclick="hrPrint_()">Print / PDF</button>
             <button type="button" data-hr-form-only="1" onclick="hrClearForm_()">Clear form</button>
           </div>
+          <p class="no-print" id="hrDualSignHelp" style="display:none;color:var(--text-soft);font-size:12px;margin:8px 0 0;">This account is Employee and Line Manager. Choose one box only — Employee or Line Manager. Your e-signature goes in that box. You cannot sign both boxes on the same paper.</p>
           <p class="no-print" style="color:var(--text-soft);font-size:12px;margin-top:10px;">Official form <strong>HR-F-06</strong>. In the print window choose <strong>A4</strong>, <strong>Portrait</strong>, <strong>Margins: None</strong>, and scale <strong>100%</strong> (do not fit to page).</p>
         </div>
       </div>
@@ -499,11 +533,79 @@
 
 <div id="hrBatchPrint" class="hr-batch-print" hidden></div>
 
-<script src="config.js?v=2026-09-15-sec-acc"></script>
-<script src="assets/empire-api.js?v=2026-09-15-sec-acc"></script>
-<script src="assets/empire-auth.js?v=2026-09-15-sec-acc"></script>
-<script src="assets/empire-core.js?v=2026-09-15-sec-acc"></script>
-<script src="assets/empire-storage.js?v=2026-09-15-sec-acc"></script>
-<script src="assets/empire-hr-leave.js?v=2026-09-15-sec-acc"></script>
+<div id="hrSigPick" class="hr-sig-pick no-print" hidden onclick="if(event.target===this)hrSigPickClose_()">
+  <div class="hr-sig-pick-card" role="dialog" aria-labelledby="hrSigPickTitle">
+    <h3 id="hrSigPickTitle">Choose a signature</h3>
+    <p class="hr-sig-pick-help" id="hrSigPickHelp">Pick a saved account, or upload a photo.</p>
+    <div id="hrSigPickList" class="hr-sig-pick-list"></div>
+    <div class="hr-sig-pick-acts">
+      <button type="button" onclick="hrSigPickUpload_()">Upload a photo</button>
+      <button type="button" onclick="hrSigPickClose_()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div id="hrRoutePick" class="hr-sig-pick no-print" hidden onclick="if(event.target===this)hrRoutePickClose_()">
+  <div class="hr-sig-pick-card" role="dialog" aria-labelledby="hrRoutePickTitle">
+    <h3 id="hrRoutePickTitle">Assign or send to director?</h3>
+    <p class="hr-sig-pick-help">Some papers need a line manager. Others go straight to the director with no assignment.</p>
+    <div class="hr-box-pick-choice">
+      <button type="button" onclick="hrRoutePickChoose_('assign')"><strong>Assign line manager</strong><span>They sign this paper, then it goes to the director.</span></button>
+      <button type="button" class="hr-btn-confirm" onclick="hrRoutePickChoose_('director')"><strong>Send to director</strong><span>No line manager. The director sees it now.</span></button>
+    </div>
+    <div class="hr-sig-pick-acts">
+      <button type="button" onclick="hrRoutePickClose_()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div id="hrAssignPick" class="hr-sig-pick no-print" hidden onclick="if(event.target===this)hrAssignCancel_()">
+  <div class="hr-sig-pick-card" role="dialog" aria-labelledby="hrAssignTitle">
+    <h3 id="hrAssignTitle">Assign line manager</h3>
+    <p class="hr-sig-pick-help">Who should sign this paper? After they confirm, it goes to the director.</p>
+    <input id="hrAssignSearch" type="search" placeholder="Search name…" autocomplete="off" oninput="hrRenderAssignList_(this.value)" style="width:100%;margin:0 0 10px;padding:8px 16px;border:2px solid var(--input-border);border-radius:999px;background:var(--input-bg);color:var(--text);-webkit-appearance:none;appearance:none;">
+    <div id="hrAssignList" class="hr-sig-pick-list" style="max-height:min(52vh,420px);overflow:auto;"></div>
+    <div class="hr-sig-pick-acts">
+      <button type="button" onclick="hrAssignCancel_()">Cancel</button>
+      <button type="button" class="hr-btn-confirm" onclick="hrAssignOk_()">Assign</button>
+    </div>
+  </div>
+</div>
+
+<div id="hrBoxPick" class="hr-sig-pick no-print" hidden onclick="if(event.target===this)hrBoxPickClose_()">
+  <div class="hr-sig-pick-card" role="dialog" aria-labelledby="hrBoxPickTitle">
+    <h3 id="hrBoxPickTitle">Which box?</h3>
+    <p class="hr-sig-pick-help">Choose one box. Your e-signature goes only there, then the paper goes to the director.</p>
+    <div class="hr-box-pick-choice">
+      <button type="button" onclick="hrBoxPickChoose_('emp')"><strong>Employee box</strong><span>Stamp the Employee box only, then send to the director.</span></button>
+      <button type="button" class="hr-btn-confirm" onclick="hrBoxPickChoose_('line')"><strong>Line Manager box</strong><span>Stamp the Line Manager box only, then send to the director.</span></button>
+    </div>
+    <div class="hr-sig-pick-acts">
+      <button type="button" onclick="hrBoxPickClose_()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div id="hrPrintPick" class="hr-sig-pick no-print" hidden onclick="if(event.target===this)hrPrintPickClose_()">
+  <div class="hr-sig-pick-card" role="dialog" aria-labelledby="hrPrintPickTitle">
+    <h3 id="hrPrintPickTitle">Print or PDF?</h3>
+    <p class="hr-sig-pick-help">Choose one. Print sends the papers to the printer. PDF saves a file on this computer.</p>
+    <div class="hr-box-pick-choice">
+      <button type="button" onclick="hrPrintPickChoose_('print')"><strong>Print</strong><span>Open the print window and send to the printer.</span></button>
+      <button type="button" class="hr-btn-confirm" onclick="hrPrintPickChoose_('pdf')"><strong>Save as PDF</strong><span>Download the papers as a PDF file.</span></button>
+    </div>
+    <div class="hr-sig-pick-acts">
+      <button type="button" onclick="hrPrintPickClose_()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="config.js?v=2026-09-23-skip-line"></script>
+<script src="assets/empire-api.js?v=2026-09-23-skip-line"></script>
+<script src="assets/empire-auth.js?v=2026-09-23-skip-line"></script>
+<script src="assets/empire-core.js?v=2026-09-23-skip-line"></script>
+<script src="assets/empire-storage.js?v=2026-09-23-skip-line"></script>
+<script src="assets/empire-sw-update.js?v=2026-09-23-skip-line"></script>
+<script src="assets/empire-hr-leave.js?v=2026-09-23-skip-line"></script>
 </body>
 </html>

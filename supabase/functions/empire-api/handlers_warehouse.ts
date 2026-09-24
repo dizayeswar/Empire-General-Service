@@ -1024,6 +1024,14 @@ async function loadDeptLinkedInvoiceNos_() {
   return { civil, mep };
 }
 
+function invHasAmount_(usd: string, iqd: string): boolean {
+  const parse = (s: string) => {
+    const n = Number(String(s || "").replace(/,/g, "").replace(/[^\d.-]/g, "").trim());
+    return Number.isFinite(n) ? n : 0;
+  };
+  return parse(usd) > 0 || parse(iqd) > 0;
+}
+
 function invRowToApi(r: Record<string, unknown>, linked?: { civil: Set<string>; mep: Set<string> }) {
   const payload = (r.payload && typeof r.payload === "object") ? r.payload as InvPayload : {};
   const department = String(payload.department || "").trim().toUpperCase();
@@ -1048,6 +1056,9 @@ function invRowToApi(r: Record<string, unknown>, linked?: { civil: Set<string>; 
     createdBy: String(r.created_by || ""),
     createdAt: String(r.created_at || ""),
     updatedAt: String(r.updated_at || ""),
+    edited: payload.edited === true || Number(payload.editedCount) > 0,
+    editedAt: String(payload.editedAt || ""),
+    editedBy: String(payload.editedBy || ""),
     linkStatus,
     payload,
   };
@@ -1088,6 +1099,9 @@ export async function handleSaveWarehouseInvoice(body: Record<string, unknown>, 
   if (!date) {
     return { ok: false, success: false, error: "missing_date", message: "Date is required." };
   }
+  if (!invHasAmount_(amountUsd, amountIqd)) {
+    return { ok: false, success: false, error: "missing_amount", message: "Amount is required." };
+  }
   let id = String(body.id || "").trim();
   const now = isoNow();
   const rowPayload: InvPayload = {
@@ -1103,8 +1117,13 @@ export async function handleSaveWarehouseInvoice(body: Record<string, unknown>, 
   };
 
   if (id) {
-    const { data: ex } = await sb().from("warehouse_invoices").select("id,num").eq("id", id).maybeSingle();
+    const { data: ex } = await sb().from("warehouse_invoices").select("id,num,payload").eq("id", id).maybeSingle();
     if (!ex) return { ok: false, success: false, error: "not_found" };
+    const prev = (ex.payload && typeof ex.payload === "object") ? ex.payload as InvPayload : {};
+    rowPayload.edited = true;
+    rowPayload.editedAt = now;
+    rowPayload.editedBy = String(auth.username || "");
+    rowPayload.editedCount = (Number(prev.editedCount) || 0) + 1;
     const { error } = await sb().from("warehouse_invoices").update({
       invoice_no: invoiceNo,
       invoice_date: date,
@@ -1117,11 +1136,15 @@ export async function handleSaveWarehouseInvoice(body: Record<string, unknown>, 
       updated_at: now,
     }).eq("id", id);
     if (error) throw error;
-    return { ok: true, success: true, id, num: Number(ex.num || 0) || 0 };
+    return { ok: true, success: true, id, num: Number(ex.num || 0) || 0, edited: true };
   }
 
   id = `whinv-${Date.now()}`;
   const num = await nextCounter("whinv_WarehouseInvoices");
+  delete rowPayload.edited;
+  delete rowPayload.editedAt;
+  delete rowPayload.editedBy;
+  delete rowPayload.editedCount;
   const { error } = await sb().from("warehouse_invoices").insert({
     id,
     num,
