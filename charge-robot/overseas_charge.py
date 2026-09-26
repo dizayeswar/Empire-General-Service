@@ -13,7 +13,16 @@ from pywinauto.keyboard import send_keys
 from pywinauto.mouse import click, double_click
 
 from bot_switch import require_bot_on
-from charge_easy import _keep_request_awake, finish_phone, items_from_phone, wake
+from charge_easy import (
+    _keep_request_awake,
+    clear_need_pin,
+    finish_paid_pin,
+    finish_phone,
+    items_from_phone,
+    load_need_pin,
+    save_need_pin,
+    wake,
+)
 
 ROOT = Path(__file__).resolve().parent
 SHOT = ROOT / "logs" / "screenshots"
@@ -111,6 +120,42 @@ def sign_in_if_needed(win):
     return win
 
 
+def find_customer_name_search(items):
+    """Search icon next to Customer Name (left side). Never the Unit ID search."""
+    _, r = find(items, "Hyperlink", "Search", lambda rr: rr.left < 1200)
+    if r is not None:
+        return r
+    _, r = find(items, "Button", "Search", lambda rr: rr.left < 1200)
+    if r is not None:
+        return r
+    name_r = None
+    for _ctrl, text, _el, rr in items:
+        if (text or "").strip().lower() == "customer name":
+            name_r = rr
+            break
+    if name_r is None:
+        return None
+    mid = (name_r.top + name_r.bottom) // 2
+    for _ctrl, text, _el, rr in items:
+        if text != "Search":
+            continue
+        if abs(((rr.top + rr.bottom) // 2) - mid) < 50 and rr.left < name_r.left + 400:
+            return rr
+    return None
+
+
+def wait_customer_name_search(timeout: float = 8.0):
+    t0 = time.time()
+    items = []
+    while time.time() - t0 < timeout:
+        items = named(edge())
+        r = find_customer_name_search(items)
+        if r is not None:
+            return items, r
+        time.sleep(0.8)
+    return items, None
+
+
 def open_sts(win):
     click_home(win)
     items = named(win)
@@ -154,7 +199,7 @@ def selector_rows(items, unit: str) -> list:
         label = cells[0][0]
         for t, rr in cells:
             key = t.replace(" ", "").upper()
-            if key == want or want in key or key in want:
+            if key == want:
                 match_r = rr
                 label = t
                 break
@@ -291,8 +336,7 @@ def sts_search_and_recharge(unit: str, amount: str, restarted: bool = False) -> 
     win = sign_in_if_needed(win)
     close_sts_tab(win)
     items = open_sts(win)
-
-    _, r = find(items, "Hyperlink", "Search", lambda rr: rr.left < 1200)
+    items, r = wait_customer_name_search()
     if r is None:
         if not restarted:
             print("STS jumped before Customer Name search — start again")
@@ -331,20 +375,28 @@ def sts_search_and_recharge(unit: str, amount: str, restarted: bool = False) -> 
     items = named(win)
     rows = selector_rows(items, typed)
     print(f"selector rows={len(rows)} {[t for t, _r, _m in rows][:8]}")
+    want = typed.replace(" ", "").upper()
+    exact = [
+        (t, rr, m)
+        for t, rr, m in rows
+        if (t or "").replace(" ", "").upper() == want
+    ]
+    print(f"selector exact={len(exact)} {[t for t, _r, _m in exact][:8]}")
     if len(rows) == 0:
         send_keys("{ESC}")
         time.sleep(0.4)
         close_sts_tab(edge())
         click_home(edge())
         return "no_row"
-    if len(rows) > 1:
+    if len(exact) != 1:
         send_keys("{ESC}")
         time.sleep(0.4)
         close_sts_tab(edge())
         click_home(edge())
         return "ambiguous"
 
-    _t, rr, _m = rows[0]
+    _t, rr, _m = exact[0]
+    print("selector pick exact", _t)
     double_click(coords=((rr.left + rr.right) // 2, (rr.top + rr.bottom) // 2))
     time.sleep(1.6)
     items = named(edge())
@@ -388,13 +440,32 @@ def finish_overseas(ru: str) -> None:
 
 
 def main() -> int:
-    require_bot_on()
-    ru = sys.argv[1]
-    unit = sys.argv[2] if len(sys.argv) > 2 else ""
+    pin_only = "--pin-only" in sys.argv
+    argv = [a for a in sys.argv[1:] if a != "--pin-only"]
+    ru = argv[0]
+    unit = argv[1] if len(argv) > 1 else ""
     from save_dashboard import utc_iso
-    from watch_open import nav_should_retry
+    from watch_open import nav_should_retry, unit_on_hold
 
-    started_at = sys.argv[3] if len(sys.argv) > 3 else utc_iso()
+    started_at = argv[2] if len(argv) > 2 else utc_iso()
+    list_amount = argv[3] if len(argv) > 3 else ""
+    need = load_need_pin()
+    leftover = pin_only or bool(need and need.get("ru") == ru)
+    require_bot_on(allow_unread=leftover)
+    if leftover:
+        n = need or {}
+        print(f"SET PIN leftover overseas {ru} — no second Recharge")
+        return finish_paid_pin(
+            ru=ru,
+            unit=unit or n.get("unit") or "",
+            amount=str(n.get("amount") or ""),
+            tariff=n.get("tariff") or "",
+            source="overseas",
+            started_at=n.get("started_at") or started_at,
+        )
+    if unit_on_hold(unit):
+        print(f"HOLD skip {ru} {unit} — no Recharge")
+        return 2
     print(f"PLANB START OVERSEAS {ru} {unit}")
     pause_keep()
     stay = threading.Event()
@@ -402,8 +473,17 @@ def main() -> int:
     keeper.start()
     charged = False
     try:
-        tariff, amount = items_from_phone(ru)
-        print(f"ITEMS {tariff} {amount} (overseas ignores T1/T2)")
+        tariff, amount, detail_unit = items_from_phone(ru)
+        print(f"ITEMS {tariff} {amount} unit={detail_unit} (overseas ignores T1/T2)")
+        from charge_easy import require_same_request
+
+        require_same_request(
+            ru=ru,
+            list_unit=unit,
+            list_amount=list_amount,
+            detail_unit=detail_unit,
+            items_amount=amount,
+        )
         result = sts_search_and_recharge(unit, amount)
         if result != "charged":
             from save_dashboard import save_skip
@@ -425,6 +505,14 @@ def main() -> int:
             return 2
         charged = True
         grab_pdf_invoice(ru)
+        save_need_pin(
+            ru=ru,
+            unit=unit,
+            amount=amount,
+            tariff=tariff,
+            source="overseas",
+            started_at=started_at,
+        )
         stay.set()
         keeper.join(timeout=2)
         last_pin = None
@@ -433,6 +521,11 @@ def main() -> int:
                 finish_phone(ru)
                 last_pin = None
                 break
+            except SystemExit as exc:
+                last_pin = exc
+                print("SET PIN retry", attempt + 1, exc)
+                if exc.code == 3:
+                    raise
             except Exception as exc:
                 last_pin = exc
                 print("SET PIN retry", attempt + 1, exc)
@@ -457,9 +550,15 @@ def main() -> int:
             wake("dashboard save failed", f"{ru} {unit} overseas {amount} {exc}")
         else:
             wake("AUTO PAID + SET PIN", f"{ru} {unit} overseas {amount}")
+        clear_need_pin()
         return 0
     except SystemExit as exc:
+        if exc.code == 3:
+            return 3
         if exc.code == 4:
+            if charged:
+                wake("SET PIN leftover", f"{ru} {unit} overseas bot switch unread after Recharge")
+                return 6
             wake("laptop stopped", f"{ru} {unit} overseas bot switch unread")
             try:
                 close_pdf_tab()
@@ -477,9 +576,11 @@ def main() -> int:
             click_home(edge())
         except Exception:
             pass
-        if not charged and nav_should_retry(exc):
-            return 5
-        return 2
+        if charged:
+            return 6
+        if "MISMATCH" in str(exc):
+            return 2
+        return 5
     finally:
         stay.set()
         unpause_keep()

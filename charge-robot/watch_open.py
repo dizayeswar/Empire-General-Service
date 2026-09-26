@@ -194,30 +194,33 @@ def overseas_busy() -> str:
 
 
 def parse_cards(texts: list[str]) -> list[dict]:
+    """One card at a time. A new Buy - RU- starts a blank card — never keep the last unit/IQD."""
     cards: list[dict] = []
-    current = {"date": "", "ru": "", "unit": "", "money": ""}
+    current: dict | None = None
+
+    def flush() -> None:
+        if not current or not current.get("ru"):
+            return
+        if any(c["ru"] == current["ru"] for c in cards):
+            return
+        cards.append(dict(current))
+
     for t in texts:
+        if t.startswith("Buy - RU-"):
+            flush()
+            current = {"date": "", "ru": t.replace("Buy - ", "").strip(), "unit": "", "money": ""}
+            continue
+        if current is None:
+            continue
         if re.search(r"September-20|August-20|October-20|July-20|June-20", t) or re.match(
             r"^\d{2}-[A-Za-z]+-\d{4}$", t
         ):
             current["date"] = t
-        if t.startswith("Buy - RU-"):
-            current["ru"] = t.replace("Buy - ", "").strip()
         if t.startswith("Unit -"):
             current["unit"] = t.replace("Unit -", "").strip()
-        if "IQD" in t and current["ru"]:
+        if t.startswith("IQD"):
             current["money"] = t.replace("IQD", "").replace(",", "").strip()
-        if current["ru"] and not any(c["ru"] == current["ru"] for c in cards):
-            cards.append(dict(current))
-        elif current["ru"]:
-            for c in cards:
-                if c["ru"] == current["ru"]:
-                    if current["unit"]:
-                        c["unit"] = current["unit"]
-                    if current["money"]:
-                        c["money"] = current["money"]
-                    if current["date"]:
-                        c["date"] = current["date"]
+    flush()
     return cards
 
 
@@ -328,7 +331,21 @@ def settle_open(
             ui = dump_screen(f"{name}-load{i}")
             continue
         if kind == "open":
-            return ui
+            cards = parse_cards(ui.texts)
+            if cards:
+                return ui
+            state = load_state()
+            last = float(state.get("last_force_refresh") or 0)
+            if time.time() - last < 12:
+                return ui
+            log("Open empty — Requests sync")
+            tap_staff(ui.nodes, "Requests")
+            state = load_state()
+            state["last_force_refresh"] = time.time()
+            save_state(state)
+            time.sleep(1.1)
+            ui = dump_screen(f"{name}-sync{i}")
+            continue
         if kind == "unknown" and not empire_focused():
             reopen_empire()
             ui = dump_screen(f"{name}-reopen{i}")
@@ -606,6 +623,7 @@ def main() -> int:
                 c["ru"],
                 c.get("unit") or "",
                 started,
+                c.get("money") or "",
             ],
             cwd=str(ROOT),
         )

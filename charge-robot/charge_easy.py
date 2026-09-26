@@ -74,6 +74,39 @@ def wake(reason: str, detail: str) -> None:
     print(f"HARD {reason} {detail}", flush=True)
 
 
+def norm_unit(unit: str) -> str:
+    return (unit or "").strip().upper().replace(" ", "")
+
+
+def norm_money(raw: str) -> str:
+    s = str(raw or "").replace("IQD", "").replace(",", "").strip()
+    s = s.split(".")[0].strip()
+    return s
+
+
+def same_unit(a: str, b: str) -> bool:
+    return bool(norm_unit(a)) and norm_unit(a) == norm_unit(b)
+
+
+def same_money(a: str, b: str) -> bool:
+    try:
+        return int(norm_money(a) or 0) == int(norm_money(b) or 0) and int(norm_money(a) or 0) > 0
+    except ValueError:
+        return False
+
+
+def require_same_request(*, ru: str, list_unit: str, list_amount: str, detail_unit: str, items_amount: str) -> None:
+    """Open card, Request Detail, and Items must be the same apartment and IQD. Else no Pay."""
+    if not list_unit or not detail_unit:
+        raise RuntimeError(f"MISMATCH unit {ru} list={list_unit!r} detail={detail_unit!r} — no Pay")
+    if not same_unit(list_unit, detail_unit):
+        raise RuntimeError(f"MISMATCH unit {ru} list={list_unit} detail={detail_unit} — no Pay")
+    if list_amount and not same_money(list_amount, items_amount):
+        raise RuntimeError(
+            f"MISMATCH amount {ru} list={list_amount} items={items_amount} — no Pay"
+        )
+
+
 def nova_query(unit: str) -> str:
     u = (unit or "").strip().upper()
     m = re.match(r"^ES-4-(\d+)-(\d+)$", u)
@@ -85,7 +118,7 @@ def nova_query(unit: str) -> str:
     return u
 
 
-def items_from_phone(ru: str) -> tuple[str, str]:
+def items_from_phone(ru: str) -> tuple[str, str, str]:
     from watch_open import dump_texts
 
     last: Exception | None = None
@@ -106,9 +139,17 @@ def items_from_phone(ru: str) -> tuple[str, str]:
         from phone_screen import dump_screen, tap_items
 
         items_ui = dump_screen("items-tab")
+        detail_unit = ""
+        for t in items_ui.texts:
+            if t.startswith("Unit -"):
+                detail_unit = t.replace("Unit -", "").strip()
         tap_items(items_ui.nodes)
         time.sleep(1.2)
         texts = dump_texts("items-b")
+        if not detail_unit:
+            for t in texts:
+                if t.startswith("Unit -"):
+                    detail_unit = t.replace("Unit -", "").strip()
         tariff = ""
         amount = ""
         for t in texts:
@@ -121,7 +162,7 @@ def items_from_phone(ru: str) -> tuple[str, str]:
                 raw = t.replace("IQD", "").replace(",", "").strip()
                 amount = raw.split(".")[0].strip()
         if tariff in {"T1", "T2"} and amount.isdigit():
-            return tariff, amount
+            return tariff, amount, detail_unit
         last = RuntimeError(f"bad items tariff={tariff} amount={amount} texts={texts[:16]}")
         print("items retry", attempt + 1, last)
     assert last is not None
@@ -307,6 +348,7 @@ def main() -> int:
     from save_dashboard import utc_iso
 
     started_at = argv[2] if len(argv) > 2 else utc_iso()
+    list_amount = argv[3] if len(argv) > 3 else ""
     need = load_need_pin()
     leftover = pin_only or bool(need and need.get("ru") == ru)
     require_bot_on(allow_unread=leftover)
@@ -325,8 +367,15 @@ def main() -> int:
         print(f"HOLD skip {ru} {unit} — no Pay")
         return 2
     try:
-        tariff, amount = items_from_phone(ru)
-        print(f"ITEMS {tariff} {amount}")
+        tariff, amount, detail_unit = items_from_phone(ru)
+        print(f"ITEMS {tariff} {amount} unit={detail_unit}")
+        require_same_request(
+            ru=ru,
+            list_unit=unit,
+            list_amount=list_amount,
+            detail_unit=detail_unit,
+            items_amount=amount,
+        )
     except SystemExit as exc:
         if exc.code == 4:
             wake("laptop stopped", f"{ru} {unit} bot switch unread")
