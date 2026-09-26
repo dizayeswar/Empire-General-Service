@@ -834,7 +834,8 @@ var HR_ACCOUNT_PERSON_ALIASES = {
   muhamadlawyer: ['mohammed abdulkhaliq', 'mohammed abdulkhaliq hamasharif', '101786'],
   delanapp: ['dilan abdulsatar', 'dilan abdulsatar jawhar', '101447'],
   adnanblbas: ['adnan abdulrahman', 'adnan abdulrahman sulaiman', '100115'],
-  herish: ['hersh adnan', 'herish adnan']
+  herish: ['hersh adnan', 'herish adnan', 'hersh adnan abdulrahman', '100060'],
+  delanmahdi: ['delan mahdi', 'delan mahdi fard', '100733']
 };
 
 function hrUsernameMatchesEmployee_(username, name, extra) {
@@ -1352,7 +1353,70 @@ function hrPickConfirmRoute_() {
   });
 }
 
-function hrStaffConfirmInbox_(ids) {
+var _hrEmployees = [];
+var _hrEmployeesLoaded = false;
+var HR_MANAGER_LOGINS = { '100060': 'herish', '100115': 'adnanblbas', '100733': 'delanmahdi' };
+
+function hrEnsureEmployees_() {
+  if (_hrEmployeesLoaded) return Promise.resolve(_hrEmployees);
+  return fetchJSONRetry({ action: 'listHrEmployees', token: hrToken_() }, 1, 30000).then(function (d) {
+    if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Could not load employees.');
+    _hrEmployees = Array.isArray(d.people) ? d.people : [];
+    _hrEmployeesLoaded = true;
+    return _hrEmployees;
+  });
+}
+
+function hrReloadEmployees_() {
+  _hrEmployeesLoaded = false;
+  return hrEnsureEmployees_();
+}
+
+function hrFindEmployee_(row) {
+  var code = String((row && row.empCode) || '').trim();
+  var name = String((row && row.empName) || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  var list = _hrEmployees || [];
+  if (code) {
+    var byCode = list.find(function (p) { return String(p.code) === code && p.active !== false; });
+    if (byCode) return byCode;
+  }
+  if (!name) return null;
+  return list.find(function (p) {
+    return String(p.name || '').trim().toLowerCase().replace(/\s+/g, ' ') === name && p.active !== false;
+  }) || null;
+}
+
+function hrRuleForEmployee_(person) {
+  if (!person) return null;
+  if (person.route !== 'line' || !person.managerCode) return { director: true };
+  var mgr = (_hrEmployees || []).find(function (p) {
+    return String(p.code) === String(person.managerCode) && p.active !== false;
+  });
+  if (!mgr) return { missingManager: person.managerName || person.name };
+  return {
+    assignee: {
+      name: mgr.name,
+      username: HR_MANAGER_LOGINS[String(mgr.code)] || ''
+    }
+  };
+}
+
+function hrConfirmDoneText_(jobs) {
+  var directors = jobs.filter(function (job) { return job.rule.director; }).length;
+  var names = {};
+  jobs.forEach(function (job) {
+    if (job.rule.director) return;
+    names[job.rule.assignee.name] = (names[job.rule.assignee.name] || 0) + 1;
+  });
+  var parts = [];
+  if (directors) parts.push(directors + (directors === 1 ? ' sent to the director' : ' sent to the director'));
+  Object.keys(names).forEach(function (name) {
+    parts.push(names[name] + ' assigned to ' + name);
+  });
+  return parts.join('. ') + '.';
+}
+
+function hrStaffConfirmAsk_(ids) {
   ids = (ids || []).map(function (id) { return String(id || '').trim(); }).filter(Boolean);
   if (!ids.length) return;
   var n = ids.length;
@@ -1382,6 +1446,277 @@ function hrStaffConfirmInbox_(ids) {
     });
   }).catch(function (err) {
     hrMsg_(err.message || 'Confirm failed.', false);
+  });
+}
+
+function hrStaffConfirmFromDirectory_(ids) {
+  var unknown = [];
+  var jobs = [];
+  var blocked = '';
+  ids.forEach(function (id) {
+    var row = _hrRows.find(function (r) { return String(r.id) === String(id); });
+    var person = hrFindEmployee_(row || {});
+    if (!person) {
+      unknown.push(id);
+      return;
+    }
+    var rule = hrRuleForEmployee_(person);
+    if (rule && rule.missingManager) {
+      blocked = person.name;
+      return;
+    }
+    jobs.push({ id: id, rule: rule });
+  });
+  if (blocked) {
+    hrMsg_(blocked + ' needs a line manager who is still on the Employees list. Open Employees and update that person.', false);
+    return;
+  }
+  if (!jobs.length) {
+    hrStaffConfirmAsk_(unknown.length ? unknown : ids);
+    return;
+  }
+  hrRunBulkIds_(jobs.map(function (job) { return job.id; }), function (id) {
+    var job = jobs.find(function (item) { return item.id === id; });
+    if (job.rule.director) return hrStaffConfirmRequest_(id, null, true);
+    return hrStaffConfirmRequest_(id, job.rule.assignee);
+  }, {
+    working: 'Confirming ' + jobs.length + '…',
+    done: hrConfirmDoneText_(jobs) + (unknown.length ? ' ' + unknown.length + ' not on the Employees list — select those again to choose.' : ''),
+    tab: 'list'
+  });
+}
+
+function hrStaffConfirmInbox_(ids) {
+  ids = (ids || []).map(function (id) { return String(id || '').trim(); }).filter(Boolean);
+  if (!ids.length) return;
+  hrEnsureEmployees_().then(function () {
+    hrStaffConfirmFromDirectory_(ids);
+  }).catch(function () {
+    hrStaffConfirmAsk_(ids);
+  });
+}
+
+function hrEmployeeGroups_() {
+  var seen = {};
+  var out = [];
+  (_hrEmployees || []).forEach(function (p) {
+    var g = String(p.group || 'Employees');
+    if (seen[g]) return;
+    seen[g] = true;
+    out.push(g);
+  });
+  return out;
+}
+
+function hrEmployeeManagerLabel_(p) {
+  if (!p || p.route !== 'line' || !p.managerCode) return 'Director';
+  if (p.managerName && p.managerActive === false) return p.managerName + ' (removed)';
+  return p.managerName || 'Director';
+}
+
+function hrRenderEmployees_() {
+  var host = document.getElementById('hrEmployeesHost');
+  var summary = document.getElementById('hrEmployeesSummary');
+  if (!host) return;
+  if (!_hrEmployeesLoaded) {
+    host.innerHTML = '<p>Loading…</p>';
+    hrEnsureEmployees_().then(function () { hrRenderEmployees_(); }).catch(function (err) {
+      host.innerHTML = '<p>' + hrEsc_(err.message || 'Could not load employees.') + '</p>';
+    });
+    return;
+  }
+  var q = hrVal_('hrEmpSearch').toLowerCase();
+  var group = hrVal_('hrEmpGroup');
+  var rows = (_hrEmployees || []).filter(function (p) {
+    if (p.active === false) return false;
+    if (group && String(p.group || '') !== group) return false;
+    if (!q) return true;
+    var hay = [p.code, p.name, p.job, p.department, p.section, hrEmployeeManagerLabel_(p)].join(' ').toLowerCase();
+    return hay.indexOf(q) !== -1;
+  });
+  if (summary) summary.textContent = rows.length + ' employee' + (rows.length === 1 ? '' : 's');
+  var groupSel = document.getElementById('hrEmpGroup');
+  if (groupSel && groupSel.getAttribute('data-ready') !== '1') {
+    var keep = groupSel.value;
+    groupSel.innerHTML = '<option value="">All sections</option>' + hrEmployeeGroups_().map(function (g) {
+      return '<option value="' + hrEsc_(g) + '">' + hrEsc_(g) + '</option>';
+    }).join('');
+    groupSel.value = keep;
+    groupSel.setAttribute('data-ready', '1');
+  }
+  if (!rows.length) {
+    host.innerHTML = '<p>No employees match.</p>';
+    return;
+  }
+  var h = '<div class="hr-table-wrap"><table class="hr-list-table"><thead><tr>' +
+    '<th>Code</th><th>Name</th><th>Job title</th><th>Department</th><th>Section</th><th>Line manager</th><th>Updated</th><th></th>' +
+    '</tr></thead><tbody>';
+  rows.forEach(function (p) {
+    h += '<tr><td>' + hrEsc_(p.code) + '</td><td><strong>' + hrEsc_(p.name) + '</strong></td><td>' + hrEsc_(p.job || '—') +
+      '</td><td>' + hrEsc_(p.department || '—') + '</td><td>' + hrEsc_(p.section || '—') + '</td><td>' +
+      hrEsc_(hrEmployeeManagerLabel_(p)) + '</td><td>' + hrEsc_(p.updatedAt || '') + '</td><td><div class="hr-row-acts">' +
+      '<button type="button" class="hr-btn-edit" onclick="hrEditEmployee_(\'' + hrEsc_(p.code) + '\')">Edit</button>' +
+      '<button type="button" class="hr-btn-del" onclick="hrRemoveEmployee_(\'' + hrEsc_(p.code) + '\')">Remove</button>' +
+      '</div></td></tr>';
+  });
+  h += '</tbody></table></div>';
+  host.innerHTML = h;
+}
+
+function hrFillManagerSelect_(selected, skipCode) {
+  var sel = document.getElementById('hrEmpEditManager');
+  if (!sel) return;
+  var html = '<option value="">Director — no line manager</option>';
+  (_hrEmployees || []).forEach(function (p) {
+    if (p.active === false) return;
+    if (skipCode && String(p.code) === String(skipCode)) return;
+    html += '<option value="' + hrEsc_(p.code) + '">' + hrEsc_(p.name) + ' (' + hrEsc_(p.code) + ')</option>';
+  });
+  sel.innerHTML = html;
+  sel.value = selected || '';
+}
+
+function hrEditEmployee_(code) {
+  code = String(code || '');
+  var person = code ? (_hrEmployees || []).find(function (p) { return String(p.code) === code; }) : null;
+  var wrap = document.getElementById('hrEmpEdit');
+  if (!wrap) return;
+  document.getElementById('hrEmpEditPrev').value = person ? person.code : '';
+  document.getElementById('hrEmpEditCode').value = person ? person.code : '';
+  document.getElementById('hrEmpEditName').value = person ? person.name : '';
+  document.getElementById('hrEmpEditJob').value = person ? (person.job || '') : '';
+  document.getElementById('hrEmpEditDept').value = person ? (person.department || '') : '';
+  document.getElementById('hrEmpEditSection').value = person ? (person.section || '') : '';
+  document.getElementById('hrEmpEditGroup').value = person ? (person.group || '') : '';
+  hrFillManagerSelect_(person && person.route === 'line' ? person.managerCode : '', person ? person.code : '');
+  var title = document.getElementById('hrEmpEditTitle');
+  if (title) title.textContent = person ? 'Edit employee' : 'Add employee';
+  wrap.hidden = false;
+}
+
+function hrEmpEditClose_() {
+  var wrap = document.getElementById('hrEmpEdit');
+  if (wrap) wrap.hidden = true;
+}
+
+function hrEmpEditSave_() {
+  var prev = hrVal_('hrEmpEditPrev');
+  var managerCode = hrVal_('hrEmpEditManager');
+  var body = {
+    action: 'saveHrEmployee',
+    token: hrToken_(),
+    prevCode: prev,
+    code: hrVal_('hrEmpEditCode'),
+    name: hrVal_('hrEmpEditName'),
+    job: hrVal_('hrEmpEditJob'),
+    department: hrVal_('hrEmpEditDept'),
+    section: hrVal_('hrEmpEditSection'),
+    group: hrVal_('hrEmpEditGroup') || hrVal_('hrEmpEditDept') || 'Employees',
+    route: managerCode ? 'line' : 'director',
+    managerCode: managerCode
+  };
+  hrMsg_('Saving employee…', true);
+  fetchJSONRetry(body, 1, 30000).then(function (d) {
+    if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Save failed');
+    hrEmpEditClose_();
+    var groupSel = document.getElementById('hrEmpGroup');
+    if (groupSel) groupSel.removeAttribute('data-ready');
+    return hrReloadEmployees_().then(function () {
+      hrMsg_('Employee saved. The updated date is today.', true);
+      hrRenderEmployees_();
+    });
+  }).catch(function (err) {
+    hrMsg_(err.message || 'Save failed.', false);
+  });
+}
+
+function hrRemoveEmployee_(code) {
+  var person = (_hrEmployees || []).find(function (p) { return String(p.code) === String(code); });
+  var label = person ? person.name : code;
+  var go = function () {
+    fetchJSONRetry({ action: 'removeHrEmployee', token: hrToken_(), code: code }, 1, 30000).then(function (d) {
+      if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Remove failed');
+      return hrReloadEmployees_().then(function () {
+        hrMsg_(label + ' removed from the employee list.', true);
+        hrRenderEmployees_();
+      });
+    }).catch(function (err) {
+      hrMsg_(err.message || 'Remove failed.', false);
+    });
+  };
+  var msg = 'Remove ' + label + ' from the employee list? Old leave papers stay. New leave requests will no longer find this name.';
+  if (typeof uiConfirm === 'function') {
+    uiConfirm(msg, { danger: true }).then(function (ok) { if (ok) go(); });
+    return;
+  }
+  if (confirm(msg)) go();
+}
+
+function hrApplyEmployee_(person) {
+  if (!person) return;
+  hrSet_('hr-empName', person.name || '');
+  hrSet_('hr-empCode', person.code || '');
+  hrSet_('hr-empJobTitle', person.job || '');
+  hrSet_('hr-empDepartment', person.department || '');
+  var scan = document.getElementById('hr-scanEmpName');
+  if (scan) scan.value = person.name || '';
+  var box = document.getElementById('hrEmpSuggest');
+  if (box) box.hidden = true;
+}
+
+function hrShowEmpSuggest_(input) {
+  var box = document.getElementById('hrEmpSuggest');
+  if (!box || !input) return;
+  var q = String(input.value || '').trim().toLowerCase();
+  if (q.length < 2) {
+    box.hidden = true;
+    return;
+  }
+  var hits = (_hrEmployees || []).filter(function (p) {
+    if (p.active === false) return false;
+    var hay = (String(p.name || '') + ' ' + String(p.code || '')).toLowerCase();
+    return hay.indexOf(q) !== -1;
+  }).slice(0, 8);
+  if (!hits.length) {
+    box.hidden = true;
+    return;
+  }
+  box.innerHTML = hits.map(function (p) {
+    return '<button type="button" data-code="' + hrEsc_(p.code) + '"><strong>' + hrEsc_(p.name) +
+      '</strong><span>' + hrEsc_(p.code) + ' · ' + hrEsc_(p.job || '') + ' · ' + hrEsc_(p.department || '') + '</span></button>';
+  }).join('');
+  var rect = input.getBoundingClientRect();
+  box.style.left = Math.max(8, rect.left) + 'px';
+  box.style.top = (rect.bottom + 4) + 'px';
+  box.style.width = Math.max(rect.width, 280) + 'px';
+  box.hidden = false;
+  box.querySelectorAll('button').forEach(function (btn) {
+    btn.addEventListener('mousedown', function (ev) {
+      ev.preventDefault();
+      var person = (_hrEmployees || []).find(function (p) { return String(p.code) === btn.getAttribute('data-code'); });
+      hrApplyEmployee_(person);
+    });
+  });
+}
+
+function hrBindEmpSuggest_() {
+  ['hr-empName', 'hr-scanEmpName'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el || el.getAttribute('data-hr-suggest')) return;
+    el.setAttribute('data-hr-suggest', '1');
+    el.setAttribute('autocomplete', 'off');
+    el.addEventListener('input', function () { hrShowEmpSuggest_(el); });
+    el.addEventListener('focus', function () {
+      if (String(el.value || '').trim().length >= 2) hrShowEmpSuggest_(el);
+    });
+  });
+  if (document.body.getAttribute('data-hr-suggest-doc')) return;
+  document.body.setAttribute('data-hr-suggest-doc', '1');
+  document.addEventListener('click', function (ev) {
+    var box = document.getElementById('hrEmpSuggest');
+    if (!box || box.hidden) return;
+    if (ev.target.closest && ev.target.closest('#hrEmpSuggest, #hr-empName, #hr-scanEmpName')) return;
+    box.hidden = true;
   });
 }
 
@@ -1561,6 +1896,7 @@ function hrCanSeeTab_(tab) {
   if (tab === 'signed') return (hrIsLine_() || hrIsEmployeeWrite_()) && !hrIsHrStaff_();
   if (tab === 'confirmed') return hrIsHrStaff_() || hrIsDirector_();
   if (tab === 'done' || tab === 'archive') return hrIsHrStaff_();
+  if (tab === 'employees') return hrIsHrStaff_() && !hrIsSignerOnly_();
   return false;
 }
 
@@ -1583,6 +1919,7 @@ function hrApplyNavAccess_() {
   show('tabBtnConfirmed', hrCanSeeTab_('confirmed'));
   show('tabBtnDone', hrCanSeeTab_('done'));
   show('tabBtnForm', hrCanSeeTab_('form'));
+  show('tabBtnEmployees', hrCanSeeTab_('employees'));
   var archiveNav = document.getElementById('hrArchiveNav');
   if (archiveNav) archiveNav.style.display = hrCanSeeTab_('archive') ? '' : 'none';
   document.querySelectorAll('[data-hr-form-only]').forEach(function (el) {
@@ -1609,7 +1946,7 @@ function hrListHelp_() {
   } else if (hrIsDirectorOnly_()) {
     el.innerHTML = 'Sign papers waiting for you as director. After you confirm, they come back to HR as Completed request.';
   } else {
-    el.innerHTML = 'Confirm a paper, then choose: assign a line manager, or send it straight to the director with no assignment. After the director signs, it comes back to Completed request.';
+    el.innerHTML = 'Confirm uses the Employees list. A line manager is assigned automatically. People with no line manager go straight to the director. After the director signs, the paper comes back to Completed request.';
   }
 }
 function hrIsDirector_() {
@@ -2651,6 +2988,7 @@ function hrTabBtnId_(tab) {
   if (tab === 'done') return 'tabBtnDone';
   if (tab === 'confirmed') return 'tabBtnConfirmed';
   if (tab === 'signed') return 'tabBtnSigned';
+  if (tab === 'employees') return 'tabBtnEmployees';
   if (tab === 'archive') return 'tabBtnArchive-' + (_hrArchiveSection || 'annual');
   return 'tabBtnList';
 }
@@ -2764,6 +3102,7 @@ function hrSwitchTab_(ev, tab) {
   if (tab === 'done' && !_hrListEditing) hrRenderDoneTable_();
   if (tab === 'confirmed' && !_hrListEditing) hrRenderConfirmedTable_();
   if (tab === 'archive' && !_hrListEditing) hrRenderArchiveTable_();
+  if (tab === 'employees') hrRenderEmployees_();
 }
 
 function hrUniqueDepts_() {
@@ -3686,6 +4025,11 @@ function hrLoad_(force) {
       });
       return hrSeedVac2IfNeeded_().then(function () {
         if (hrIsHrStaff_() && !hrIsSignerOnly_()) hrLoadLineManagers_();
+        if (hrCanSeeTab_('employees') || hrCanSeeTab_('form')) {
+          hrEnsureEmployees_().then(function () {
+            if (document.getElementById('employees') && document.getElementById('employees').classList.contains('active')) hrRenderEmployees_();
+          }).catch(function () { /* suggest stays empty until refresh */ });
+        }
         hrRenderTable_();
         hrRenderSignedTable_();
         hrRenderDoneTable_();
@@ -4713,6 +5057,7 @@ function hrLogout_() {
 
 function hrInit_() {
   hrBindScanDrag_();
+  hrBindEmpSuggest_();
   hrLayoutInit_();
   hrRenderEntitlements_(hrEmptyEntitlements_());
   document.addEventListener('click', function (e) {

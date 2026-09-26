@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="manifest" href="manifest.webmanifest?v=2026-09-23-skip-line">
+<link rel="manifest" href="manifest.webmanifest?v=2026-09-26-employees">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,8 +13,8 @@
 <title>Leave Request — HR Department — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-09-22-search-pill">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-23-skip-line">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-23-skip-line">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-26-employees">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-26-employees">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -82,6 +82,10 @@
             <button class="tab-btn" id="tabBtnArchive-all" onclick="hrOpenArchive_(event,'all')"><span class="lbl">(all)</span></button>
           </div>
         </div>
+        <button class="tab-btn" id="tabBtnEmployees" onclick="hrSwitchTab_(event,'employees')">
+          <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+          <span class="lbl">Employees</span>
+        </button>
       </nav>
       <div class="side-actions hr-settings" id="hrSettingsWrap">
         <button onclick="hrLoad_(true)"><span class="nav-icon spin-icon" id="navRefreshIcon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> <span class="lbl">Refresh</span></button>
@@ -104,7 +108,7 @@
         <div id="hrListBrowse">
         <div class="form-section">
           <h2>Saved requests</h2>
-          <p class="hr-tab-help">Confirm a paper, then choose: assign a line manager, or send it straight to the director with no assignment. After the director signs, it comes back to Completed request.</p>
+          <p class="hr-tab-help">Confirm uses the Employees list. A line manager is assigned automatically. People with no line manager go straight to the director. After the director signs, the paper comes back to Completed request.</p>
           <p class="hr-form-msg no-print" id="hrListMsg"></p>
           <div class="form-row filter-toolbar">
             <div class="form-group">
@@ -215,6 +219,28 @@
           <div id="hrArchiveHost"><p>Loading…</p></div>
         </div>
       </div>
+      <div id="employees" class="tab-content">
+        <div class="form-section">
+          <h2>Employees</h2>
+          <p class="hr-tab-help">Code, name, job title, and department for leave requests. The date is the day that person was last changed. Edit a department, remove someone who left, or add a new person. Their line manager is used automatically when you confirm a leave.</p>
+          <div class="form-row filter-toolbar">
+            <div class="form-group filter-grow">
+              <label>Search</label>
+              <input type="search" id="hrEmpSearch" oninput="hrRenderEmployees_()" placeholder="Name, code, job…" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label>Section</label>
+              <select id="hrEmpGroup" onchange="hrRenderEmployees_()"><option value="">All sections</option></select>
+            </div>
+            <div class="form-group" style="align-self:end;">
+              <button type="button" class="hr-btn-confirm" onclick="hrEditEmployee_('')">Add employee</button>
+            </div>
+          </div>
+          <p class="hr-summary" id="hrEmployeesSummary"></p>
+          <div id="hrEmployeesHost"><p>Loading…</p></div>
+        </div>
+      </div>
+
       <div id="hrListEditor" class="hr-list-editor" hidden></div>
 
       <div id="scan" class="tab-content">
@@ -600,12 +626,40 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-09-23-skip-line"></script>
-<script src="assets/empire-api.js?v=2026-09-23-skip-line"></script>
-<script src="assets/empire-auth.js?v=2026-09-23-skip-line"></script>
-<script src="assets/empire-core.js?v=2026-09-23-skip-line"></script>
-<script src="assets/empire-storage.js?v=2026-09-23-skip-line"></script>
-<script src="assets/empire-sw-update.js?v=2026-09-23-skip-line"></script>
-<script src="assets/empire-hr-leave.js?v=2026-09-23-skip-line"></script>
+<div id="hrEmpSuggest" class="hr-emp-suggest no-print" hidden></div>
+
+<div id="hrEmpEdit" class="hr-sig-pick no-print" hidden onclick="if(event.target===this)hrEmpEditClose_()">
+  <div class="hr-sig-pick-card hr-emp-edit-card" role="dialog" aria-labelledby="hrEmpEditTitle">
+    <h3 id="hrEmpEditTitle">Edit employee</h3>
+    <p class="hr-sig-pick-help">Saving updates the date. Leave the line manager on Director when this person goes straight to the director.</p>
+    <input id="hrEmpEditPrev" type="hidden">
+    <label class="hr-emp-edit-label">Code</label>
+    <input id="hrEmpEditCode" type="text" autocomplete="off">
+    <label class="hr-emp-edit-label">Name</label>
+    <input id="hrEmpEditName" type="text" autocomplete="off">
+    <label class="hr-emp-edit-label">Job title</label>
+    <input id="hrEmpEditJob" type="text" autocomplete="off">
+    <label class="hr-emp-edit-label">Department</label>
+    <input id="hrEmpEditDept" type="text" autocomplete="off">
+    <label class="hr-emp-edit-label">Section</label>
+    <input id="hrEmpEditSection" type="text" autocomplete="off">
+    <label class="hr-emp-edit-label">List section</label>
+    <input id="hrEmpEditGroup" type="text" autocomplete="off" placeholder="Civil, Cleaning, Finance…">
+    <label class="hr-emp-edit-label">Line manager</label>
+    <select id="hrEmpEditManager"></select>
+    <div class="hr-sig-pick-acts">
+      <button type="button" onclick="hrEmpEditClose_()">Cancel</button>
+      <button type="button" class="hr-btn-confirm" onclick="hrEmpEditSave_()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="config.js?v=2026-09-26-employees"></script>
+<script src="assets/empire-api.js?v=2026-09-26-employees"></script>
+<script src="assets/empire-auth.js?v=2026-09-26-employees"></script>
+<script src="assets/empire-core.js?v=2026-09-26-employees"></script>
+<script src="assets/empire-storage.js?v=2026-09-26-employees"></script>
+<script src="assets/empire-sw-update.js?v=2026-09-26-employees"></script>
+<script src="assets/empire-hr-leave.js?v=2026-09-26-employees"></script>
 </body>
 </html>

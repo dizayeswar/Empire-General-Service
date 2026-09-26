@@ -98,7 +98,8 @@ const ACCOUNT_PERSON_ALIASES: Record<string, string[]> = {
   muhamadlawyer: ["mohammed abdulkhaliq", "mohammed abdulkhaliq hamasharif", "101786"],
   delanapp: ["dilan abdulsatar", "dilan abdulsatar jawhar", "101447"],
   adnanblbas: ["adnan abdulrahman", "adnan abdulrahman sulaiman", "100115"],
-  herish: ["hersh adnan", "herish adnan"],
+  herish: ["hersh adnan", "herish adnan", "hersh adnan abdulrahman", "100060"],
+  delanmahdi: ["delan mahdi", "delan mahdi fard", "100733"],
 };
 
 function usernameMatchesEmployee(
@@ -211,7 +212,7 @@ function rosterEntry(raw: unknown): string {
   const compact = compactKey(want);
   const found = LINE_MANAGER_ROSTER.find((n) => {
     const low = n.toLowerCase();
-    return low === want || compactKey(n) === compact || rosterSlug(n) === normalizeWorkerId(want);
+    return low === want || want.startsWith(low + " ") || compactKey(n) === compact || rosterSlug(n) === normalizeWorkerId(want);
   });
   return found || "";
 }
@@ -417,7 +418,8 @@ function wantsSkipLine(body: Record<string, unknown>): boolean {
 }
 
 async function resolveAssignee(body: Record<string, unknown>) {
-  const wantedName = rosterEntry(body.lineManagerName || body.lineManager || body.assignTo);
+  const rawName = String(body.lineManagerName || body.lineManager || body.assignTo || "").trim();
+  const wantedName = rosterEntry(rawName) || rawName;
   const wantedUser = normalizeWorkerId(body.lineManagerUser || body.assignee || "");
   if (!wantedName && !wantedUser) {
     return { ok: false as const, message: "Choose who should sign as line manager." };
@@ -425,7 +427,7 @@ async function resolveAssignee(body: Record<string, unknown>) {
   const users = await loadUsernames();
   const matched = matchRosterUser(wantedName || wantedUser, users);
   const name = wantedName || matched.name;
-  if (!rosterEntry(name)) {
+  if (!String(name || "").trim()) {
     return { ok: false as const, message: "Choose a line manager from the list." };
   }
   let username = wantedUser || matched.username;
@@ -1322,4 +1324,156 @@ export async function handleSeedHrPdfAnnualPapers(_body: Record<string, unknown>
   }
 
   return { ok: true, success: true, updated: upserts.length, removed: extraIds.length };
+}
+
+const HR_EMPLOYEES_KEY = "hr_employees_v1";
+
+type HrPerson = {
+  code: string;
+  name: string;
+  job: string;
+  department: string;
+  section: string;
+  group: string;
+  route: "line" | "director";
+  managerCode: string;
+  active: boolean;
+  updatedAt: string;
+};
+
+function cleanPersonText(raw: unknown): string {
+  return String(raw || "").trim().replace(/\s+/g, " ");
+}
+
+function asHrPerson(raw: Record<string, unknown>): HrPerson {
+  const managerCode = cleanPersonText(raw.managerCode);
+  const route = managerCode && String(raw.route || "").trim().toLowerCase() !== "director" ? "line" : "director";
+  return {
+    code: cleanPersonText(raw.code),
+    name: cleanPersonText(raw.name),
+    job: cleanPersonText(raw.job),
+    department: cleanPersonText(raw.department),
+    section: cleanPersonText(raw.section),
+    group: cleanPersonText(raw.group) || cleanPersonText(raw.department) || "Employees",
+    route: route === "line" && managerCode ? "line" : "director",
+    managerCode: route === "line" ? managerCode : "",
+    active: raw.active !== false,
+    updatedAt: String(raw.updatedAt || "").slice(0, 10),
+  };
+}
+
+async function readHrEmployees(): Promise<HrPerson[]> {
+  const { data, error } = await sb().from("ui_settings").select("settings").eq("key", HR_EMPLOYEES_KEY).maybeSingle();
+  if (error) throw error;
+  const settings = data?.settings as Record<string, unknown> | undefined;
+  const stored = settings && Array.isArray(settings.people) ? settings.people as Record<string, unknown>[] : null;
+  if (stored) return stored.map((row) => asHrPerson(row));
+  const seedUrl = new URL("./hr_employees_seed.json", import.meta.url);
+  const seed = JSON.parse(await Deno.readTextFile(seedUrl)) as { people?: Record<string, unknown>[] };
+  const people = (seed.people || []).map((row) => asHrPerson(row));
+  const { error: upErr } = await sb().from("ui_settings").upsert({
+    key: HR_EMPLOYEES_KEY,
+    settings: { people, installedOn: "2026-09-26" },
+    updated_at: isoNow(),
+  });
+  if (upErr) throw upErr;
+  return people;
+}
+
+async function writeHrEmployees(people: HrPerson[]) {
+  const { error } = await sb().from("ui_settings").upsert({
+    key: HR_EMPLOYEES_KEY,
+    settings: { people },
+    updated_at: isoNow(),
+  });
+  if (error) throw error;
+}
+
+function publishHrPerson(person: HrPerson, all: HrPerson[]) {
+  const mgr = all.find((row) => row.code === person.managerCode);
+  return {
+    code: person.code,
+    name: person.name,
+    job: person.job,
+    department: person.department,
+    section: person.section,
+    group: person.group,
+    route: person.route,
+    managerCode: person.managerCode,
+    managerName: mgr ? mgr.name : "",
+    managerActive: !!(mgr && mgr.active),
+    active: person.active,
+    updatedAt: person.updatedAt,
+  };
+}
+
+function canReadHrEmployees(auth: AuthOk): boolean {
+  return isHrStaff(auth) || isHrEmpWrite(auth) || isHrLine(auth) || isHrDirector(auth);
+}
+
+function canEditHrEmployees(auth: AuthOk): boolean {
+  return isHrStaff(auth) && !isDirectorOnly(auth);
+}
+
+export async function handleListHrEmployees(auth: AuthOk) {
+  if (!canReadHrEmployees(auth)) {
+    return { ok: false, success: false, error: "not_allowed", message: "Not allowed." };
+  }
+  const people = await readHrEmployees();
+  return {
+    ok: true,
+    success: true,
+    people: people.filter((row) => row.active).map((row) => publishHrPerson(row, people)),
+  };
+}
+
+export async function handleSaveHrEmployee(body: Record<string, unknown>, auth: AuthOk) {
+  if (!canEditHrEmployees(auth)) {
+    return { ok: false, success: false, error: "not_allowed", message: "Not allowed." };
+  }
+  const next = asHrPerson(body);
+  const prevCode = cleanPersonText(body.prevCode) || next.code;
+  if (!/^\d{3,}$/.test(next.code)) {
+    return { ok: false, success: false, error: "bad_code", message: "Employee code is required." };
+  }
+  if (!next.name) {
+    return { ok: false, success: false, error: "bad_name", message: "Employee name is required." };
+  }
+  if (next.route === "line" && next.managerCode === next.code) {
+    return { ok: false, success: false, error: "bad_manager", message: "A person cannot be their own line manager." };
+  }
+  const people = await readHrEmployees();
+  if (next.route === "line" && !people.some((row) => row.code === next.managerCode && row.active && row.code !== prevCode)) {
+    return { ok: false, success: false, error: "bad_manager", message: "Choose a line manager from the employee list, or send the leave to the director." };
+  }
+  if (people.some((row) => row.code === next.code && row.code !== prevCode)) {
+    return { ok: false, success: false, error: "duplicate_code", message: "That employee code is already on the list." };
+  }
+  next.updatedAt = isoNow().slice(0, 10);
+  next.active = true;
+  const idx = people.findIndex((row) => row.code === prevCode);
+  if (idx >= 0) people[idx] = next;
+  else people.push(next);
+  if (prevCode !== next.code) {
+    people.forEach((row) => {
+      if (row.managerCode === prevCode) row.managerCode = next.code;
+    });
+  }
+  await writeHrEmployees(people);
+  return { ok: true, success: true, person: publishHrPerson(next, people) };
+}
+
+export async function handleRemoveHrEmployee(body: Record<string, unknown>, auth: AuthOk) {
+  if (!canEditHrEmployees(auth)) {
+    return { ok: false, success: false, error: "not_allowed", message: "Not allowed." };
+  }
+  const code = cleanPersonText(body.code);
+  const people = await readHrEmployees();
+  const idx = people.findIndex((row) => row.code === code && row.active);
+  if (idx < 0) {
+    return { ok: false, success: false, error: "not_found", message: "That employee is not on the list." };
+  }
+  people[idx] = { ...people[idx], active: false, updatedAt: isoNow().slice(0, 10) };
+  await writeHrEmployees(people);
+  return { ok: true, success: true, code };
 }

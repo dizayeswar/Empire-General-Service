@@ -1629,3 +1629,44 @@
     height: auto !important;
   }
 }
+
+.hr-emp-suggest {
+  position: fixed;
+  z-index: 5000;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 280px;
+  overflow: auto;
+  padding: 6px;
+  background: var(--panel, #fff);
+  border: 1px solid var(--input-border, #ccc);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(16, 8, 20, .18);
+}
+.hr-emp-suggest[hidden] { display: none !important; }
+.hr-emp-suggest button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+.hr-emp-suggest button span {
+  display: block;
+  font-size: 12px;
+  color: var(--text-soft);
+  font-weight: 400;
+}
+.hr-emp-edit-card { width: min(480px, 100%); }
+.hr-emp-edit-label { display: block; margin: 8px 0 4px; font-size: 12px; font-weight: 700; }
+.hr-emp-edit-card input,
+.hr-emp-edit-card select {
+  width: 100%;
+  margin: 0 0 4px;
+  padding: 8px 12px;
+  border: 2px solid var(--input-border);
+  border-radius: 10px;
+  background: var(--input-bg);
+  color: var(--text);
+}
