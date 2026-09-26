@@ -1549,7 +1549,7 @@ function hrRenderEmployees_() {
     return;
   }
   var h = '<div class="hr-table-wrap"><table class="hr-list-table"><thead><tr>' +
-    '<th>Code</th><th>Name</th><th>Job title</th><th>Department</th><th>Section</th><th>Line manager</th><th>Updated</th><th></th>' +
+    '<th>Code</th><th>Name</th><th>Job title</th><th>Department</th><th>Division</th><th>Line manager</th><th>Updated</th><th></th>' +
     '</tr></thead><tbody>';
   rows.forEach(function (p) {
     h += '<tr><td>' + hrEsc_(p.code) + '</td><td><strong>' + hrEsc_(p.name) + '</strong></td><td>' + hrEsc_(p.job || '—') +
@@ -1658,6 +1658,7 @@ function hrApplyEmployee_(person) {
   hrSet_('hr-empCode', person.code || '');
   hrSet_('hr-empJobTitle', person.job || '');
   hrSet_('hr-empDepartment', person.department || '');
+  hrSet_('hr-empDivision', person.section || '');
   var scan = document.getElementById('hr-scanEmpName');
   if (scan) scan.value = person.name || '';
   var box = document.getElementById('hrEmpSuggest');
@@ -1683,7 +1684,8 @@ function hrShowEmpSuggest_(input) {
   }
   box.innerHTML = hits.map(function (p) {
     return '<button type="button" data-code="' + hrEsc_(p.code) + '"><strong>' + hrEsc_(p.name) +
-      '</strong><span>' + hrEsc_(p.code) + ' · ' + hrEsc_(p.job || '') + ' · ' + hrEsc_(p.department || '') + '</span></button>';
+      '</strong><span>' + hrEsc_(p.code) + ' · ' + hrEsc_(p.job || '') + ' · ' + hrEsc_(p.department || '') +
+      (p.section ? ' · ' + hrEsc_(p.section) : '') + '</span></button>';
   }).join('');
   var rect = input.getBoundingClientRect();
   box.style.left = Math.max(8, rect.left) + 'px';

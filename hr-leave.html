@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="manifest" href="manifest.webmanifest?v=2026-09-26-employees">
+<link rel="manifest" href="manifest.webmanifest?v=2026-09-26-division">
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,8 +13,8 @@
 <title>Leave Request — HR Department — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-09-22-search-pill">
-<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-26-employees">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-26-employees">
+<link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-26-division">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-26-division">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -222,7 +222,7 @@
       <div id="employees" class="tab-content">
         <div class="form-section">
           <h2>Employees</h2>
-          <p class="hr-tab-help">Code, name, job title, and department for leave requests. The date is the day that person was last changed. Edit a department, remove someone who left, or add a new person. Their line manager is used automatically when you confirm a leave.</p>
+          <p class="hr-tab-help">Code, name, job title, department, and division for leave requests. The date is the day that person was last changed. Edit a department, remove someone who left, or add a new person. Their line manager is used automatically when you confirm a leave.</p>
           <div class="form-row filter-toolbar">
             <div class="form-group filter-grow">
               <label>Search</label>
@@ -641,7 +641,7 @@
     <input id="hrEmpEditJob" type="text" autocomplete="off">
     <label class="hr-emp-edit-label">Department</label>
     <input id="hrEmpEditDept" type="text" autocomplete="off">
-    <label class="hr-emp-edit-label">Section</label>
+    <label class="hr-emp-edit-label">Division</label>
     <input id="hrEmpEditSection" type="text" autocomplete="off">
     <label class="hr-emp-edit-label">List section</label>
     <input id="hrEmpEditGroup" type="text" autocomplete="off" placeholder="Civil, Cleaning, Finance…">
@@ -654,12 +654,12 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-09-26-employees"></script>
-<script src="assets/empire-api.js?v=2026-09-26-employees"></script>
-<script src="assets/empire-auth.js?v=2026-09-26-employees"></script>
-<script src="assets/empire-core.js?v=2026-09-26-employees"></script>
-<script src="assets/empire-storage.js?v=2026-09-26-employees"></script>
-<script src="assets/empire-sw-update.js?v=2026-09-26-employees"></script>
-<script src="assets/empire-hr-leave.js?v=2026-09-26-employees"></script>
+<script src="config.js?v=2026-09-26-division"></script>
+<script src="assets/empire-api.js?v=2026-09-26-division"></script>
+<script src="assets/empire-auth.js?v=2026-09-26-division"></script>
+<script src="assets/empire-core.js?v=2026-09-26-division"></script>
+<script src="assets/empire-storage.js?v=2026-09-26-division"></script>
+<script src="assets/empire-sw-update.js?v=2026-09-26-division"></script>
+<script src="assets/empire-hr-leave.js?v=2026-09-26-division"></script>
 </body>
 </html>
