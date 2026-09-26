@@ -1,4 +1,5 @@
 import { AuthOk, getUser } from "./auth.ts";
+import { HR_EMPLOYEE_SEED } from "./hr_employees_seed.ts";
 import { resetPasswordOk } from "./config.ts";
 import { fmtDate, isoNow, sb, selectAllRows, trashRows } from "./db.ts";
 import {
@@ -1368,9 +1369,7 @@ async function readHrEmployees(): Promise<HrPerson[]> {
   const settings = data?.settings as Record<string, unknown> | undefined;
   const stored = settings && Array.isArray(settings.people) ? settings.people as Record<string, unknown>[] : null;
   if (stored) return stored.map((row) => asHrPerson(row));
-  const seedUrl = new URL("./hr_employees_seed.json", import.meta.url);
-  const seed = JSON.parse(await Deno.readTextFile(seedUrl)) as { people?: Record<string, unknown>[] };
-  const people = (seed.people || []).map((row) => asHrPerson(row));
+  const people = (HR_EMPLOYEE_SEED.people || []).map((row) => asHrPerson(row));
   const { error: upErr } = await sb().from("ui_settings").upsert({
     key: HR_EMPLOYEES_KEY,
     settings: { people, installedOn: "2026-09-26" },
