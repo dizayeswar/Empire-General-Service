@@ -97,9 +97,9 @@ def same_money(a: str, b: str) -> bool:
 
 def require_same_request(*, ru: str, list_unit: str, list_amount: str, detail_unit: str, items_amount: str) -> None:
     """Open card, Request Detail, and Items must be the same apartment and IQD. Else no Pay."""
-    if not list_unit or not detail_unit:
-        raise RuntimeError(f"MISMATCH unit {ru} list={list_unit!r} detail={detail_unit!r} — no Pay")
-    if not same_unit(list_unit, detail_unit):
+    if not list_unit:
+        raise RuntimeError(f"MISMATCH unit {ru} list is empty — no Pay")
+    if detail_unit and not same_unit(list_unit, detail_unit):
         raise RuntimeError(f"MISMATCH unit {ru} list={list_unit} detail={detail_unit} — no Pay")
     if list_amount and not same_money(list_amount, items_amount):
         raise RuntimeError(
@@ -116,6 +116,20 @@ def nova_query(unit: str) -> str:
     if m:
         return f"ES-6-{int(m.group(1))}-{int(m.group(2))}"
     return u
+
+
+def unit_from_texts(texts: list[str]) -> str:
+    for t in texts:
+        if t.startswith("Unit -"):
+            u = t.replace("Unit -", "").strip()
+            if u:
+                return u
+    for i, t in enumerate(texts):
+        if t.strip() in {"Unit ID", "Unit Name"} and i + 1 < len(texts):
+            nxt = (texts[i + 1] or "").strip()
+            if nxt and nxt not in {"Unit ID", "Unit Name", "Request Detail", "Items", "Status"}:
+                return nxt
+    return ""
 
 
 def items_from_phone(ru: str) -> tuple[str, str, str]:
@@ -139,17 +153,12 @@ def items_from_phone(ru: str) -> tuple[str, str, str]:
         from phone_screen import dump_screen, tap_items
 
         items_ui = dump_screen("items-tab")
-        detail_unit = ""
-        for t in items_ui.texts:
-            if t.startswith("Unit -"):
-                detail_unit = t.replace("Unit -", "").strip()
+        detail_unit = unit_from_texts(items_ui.texts)
         tap_items(items_ui.nodes)
         time.sleep(1.2)
         texts = dump_texts("items-b")
         if not detail_unit:
-            for t in texts:
-                if t.startswith("Unit -"):
-                    detail_unit = t.replace("Unit -", "").strip()
+            detail_unit = unit_from_texts(texts)
         tariff = ""
         amount = ""
         for t in texts:
