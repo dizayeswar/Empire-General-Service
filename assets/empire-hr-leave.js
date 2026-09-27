@@ -1395,7 +1395,7 @@ function hrPickConfirmRoute_() {
 
 var _hrEmployees = [];
 var _hrEmployeesLoaded = false;
-var HR_MANAGER_LOGINS = { '100060': 'herish', '100115': 'adnanblbas', '100733': 'delanmahdi' };
+var HR_MANAGER_LOGINS = { '100060': 'hersh.adnan.abdulrahman', '100115': 'adnan.abdulrahman.sulaiman', '100733': 'delan.mahdi.fard' };
 
 function hrEnsureEmployees_() {
   if (_hrEmployeesLoaded) return Promise.resolve(_hrEmployees);
