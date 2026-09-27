@@ -1392,11 +1392,15 @@ async function readHrEmployees(): Promise<HrPerson[]> {
   if (stored) {
     const people = stored.map((row) => asHrPerson(row));
     const fixed = people.map((person) => {
-      if (person.code !== "101501") return person;
-      if (person.name.trim().toLowerCase() !== "hamat hasan ahmad rasool") return person;
-      return { ...person, name: "Halmat Hasan Ahmad Rasool", updatedAt: "2026-09-27" };
+      if (person.code === "101501" && person.name.trim().toLowerCase() === "hamat hasan ahmad rasool") {
+        return { ...person, name: "Halmat Hasan Ahmad Rasool", updatedAt: "2026-09-27" };
+      }
+      if (person.code === "100420" && person.route !== "director") {
+        return { ...person, route: "director" as const, managerCode: "", updatedAt: "2026-09-27" };
+      }
+      return person;
     });
-    if (fixed.some((person, i) => person.name !== people[i].name)) {
+    if (fixed.some((person, i) => person.name !== people[i].name || person.route !== people[i].route || person.managerCode !== people[i].managerCode)) {
       const installedOn = typeof settings?.installedOn === "string" ? settings.installedOn : "2026-09-26";
       const { error: upErr } = await sb().from("ui_settings").upsert({
         key: HR_EMPLOYEES_KEY,
