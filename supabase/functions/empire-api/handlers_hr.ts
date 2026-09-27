@@ -342,6 +342,72 @@ function hasEmpStamp(row: Record<string, unknown>): boolean {
   return !!(String(sigs.emp || "").trim() || String(row.empSignedAt || row.emp_signed_at || "").trim());
 }
 
+function empSigRole(raw: unknown): string {
+  const s = String(raw || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+  if (s === "employee") return "emp";
+  if (s === "line_manager" || s === "manager") return "line";
+  if (s === "human_resources") return "hr";
+  return s;
+}
+
+function wentStraightToDirector(raw: Record<string, unknown>): boolean {
+  if (paperSkipsLine(raw)) return true;
+  if (String(raw.status || "").trim().toLowerCase() !== "pending_director") return false;
+  if (hasLineStamp(raw)) return false;
+  return !String(raw.line_manager_name || raw.lineManagerName || "").trim();
+}
+
+async function loadEmployeeSigAccounts(): Promise<Array<{ username: string; signatureRole: string }>> {
+  const full = await sb().from("users").select("username,signature_role");
+  const missingRole = full.error && String(full.error.message || "").toLowerCase().includes("signature_role");
+  const data = missingRole
+    ? (await sb().from("users").select("username")).data
+    : full.data;
+  if (full.error && !missingRole) throw full.error;
+  return (data || []).map((row) => ({
+    username: normalizeWorkerId(row.username),
+    signatureRole: empSigRole((row as { signature_role?: unknown }).signature_role),
+  })).filter((row) => !!row.username);
+}
+
+async function employeeAccountStamp(
+  name: string,
+  code: string,
+  accounts?: Array<{ username: string; signatureRole: string }>,
+  sigCache?: Map<string, string>,
+): Promise<{ username: string; signature: string } | null> {
+  const list = accounts || await loadEmployeeSigAccounts();
+  const hits = list.filter((account) => {
+    if (account.signatureRole === "line" || account.signatureRole === "director" || account.signatureRole === "hr") return false;
+    return usernameMatchesEmployee(account.username, name, { code });
+  });
+  hits.sort((a, b) => Number(b.signatureRole === "emp") - Number(a.signatureRole === "emp"));
+  const best = hits[0];
+  if (!best) return null;
+  const cache = sigCache || new Map<string, string>();
+  if (!cache.has(best.username)) {
+    const { data, error } = await sb().from("users").select("signature").eq("username", best.username).maybeSingle();
+    if (error) throw error;
+    cache.set(best.username, String(data?.signature || "").trim());
+  }
+  const signature = cache.get(best.username) || "";
+  if (!signature) return null;
+  return { username: best.username, signature };
+}
+
+function placeEmployeeStamp(
+  ents: Record<string, unknown>,
+  stamp: { username: string; signature: string },
+): void {
+  const sigs = ents.__sigs && typeof ents.__sigs === "object" && !Array.isArray(ents.__sigs)
+    ? { ...(ents.__sigs as Record<string, string>) }
+    : {};
+  if (String(sigs.emp || "").trim()) return;
+  sigs.emp = stamp.signature;
+  ents.__sigs = sigs;
+  setSignerSlot(ents, "emp", stamp.username);
+}
+
 function hasLineStamp(row: Record<string, unknown>): boolean {
   const sigs = stampMap(row);
   const st = String(row.lineManagerStatus || row.line_manager_status || "").trim().toLowerCase();
@@ -643,10 +709,32 @@ async function releaseGailanFromLineManager(rows: Record<string, unknown>[]) {
   if (jobs.length) await Promise.all(jobs);
 }
 
+async function stampDirectorPapersWithEmployeeSig(rows: Record<string, unknown>[]) {
+  const need = rows.filter((raw) => wentStraightToDirector(raw) && !String(stampMap(raw).emp || "").trim());
+  if (!need.length) return;
+  const accounts = await loadEmployeeSigAccounts();
+  const sigCache = new Map<string, string>();
+  const jobs = need.map(async (raw) => {
+    const stamp = await employeeAccountStamp(String(raw.emp_name || ""), String(raw.emp_code || ""), accounts, sigCache);
+    if (!stamp) return;
+    const ents = parseEntitlements(raw.entitlements) as Record<string, unknown>;
+    placeEmployeeStamp(ents, stamp);
+    const patch: Record<string, unknown> = {
+      entitlements: entitlementsJson(ents),
+      updated_at: isoNow(),
+    };
+    if (!String(raw.emp_signed_at || "").trim()) patch.emp_signed_at = isoNow().slice(0, 10);
+    const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", raw.id);
+    if (!error) Object.assign(raw, patch, { entitlements: ents });
+  });
+  await Promise.all(jobs);
+}
+
 export async function handleGetHrLeaveRequests(auth?: AuthOk) {
   const data = await selectAllRows<Record<string, unknown>>("hr_leave_requests");
   await healExclusiveDualStamps(data);
   await releaseGailanFromLineManager(data);
+  await stampDirectorPapersWithEmployeeSig(data);
   const users = await loadUsernames();
   let out = data.map((raw) => applyResolvedAssignee(rowToApi(raw), raw, users));
   if (auth && isDirectorOnly(auth)) {
@@ -1079,13 +1167,20 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
     const existing = parseEntitlements(ex.entitlements) as Record<string, unknown>;
     if (wantsSkipLine(body)) {
       existing.__assign = { skipLine: true };
-      const patch = {
+      const patch: Record<string, unknown> = {
         status: "pending_director",
         line_manager_signed_at: "",
         line_manager_status: "",
-        entitlements: entitlementsJson(existing),
         updated_at: isoNow(),
       };
+      if (!String(stampMap(ex).emp || "").trim()) {
+        const stamp = await employeeAccountStamp(String(ex.emp_name || ""), String(ex.emp_code || ""));
+        if (stamp) {
+          placeEmployeeStamp(existing, stamp);
+          if (!String(ex.emp_signed_at || "").trim()) patch.emp_signed_at = isoNow().slice(0, 10);
+        }
+      }
+      patch.entitlements = entitlementsJson(existing);
       const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", id);
       if (error) throw error;
       return {
