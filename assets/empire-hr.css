@@ -108,6 +108,14 @@
 .hr-stage-completed { border-color: #b7e0cf; background: #f3faf7; }
 .hr-stage-rejected { border-color: #f0c4c3; background: #fdf6f6; }
 
+.hr-team-sig {
+  display: block;
+  height: 48px;
+  max-width: 180px;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 4px;
+}
 .hr-list-table {
   width: 100%;
   border-collapse: collapse;

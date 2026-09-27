@@ -1729,6 +1729,71 @@ function canEditHrEmployees(auth: AuthOk): boolean {
   return isHrStaff(auth) && !isDirectorOnly(auth);
 }
 
+function findPersonForAccount(people: HrPerson[], username: string): HrPerson | null {
+  const user = normalizeWorkerId(username);
+  if (!user) return null;
+  const active = people.filter((p) => p.active);
+  const byCode = active.find((p) => compactKey(p.code) === compactKey(user));
+  if (byCode) return byCode;
+  const hits = active.filter((p) => usernameMatchesEmployee(user, p.name, { code: p.code, job: p.job }));
+  if (hits.length === 1) return hits[0];
+  if (!hits.length) return null;
+  const managers = hits.filter((p) => active.some((row) => row.managerCode === p.code && row.code !== p.code));
+  return managers.length === 1 ? managers[0] : hits[0];
+}
+
+function signatureForPerson(
+  person: HrPerson,
+  accounts: Array<{ username: string; signature: string }>,
+): string {
+  const code = compactKey(person.code);
+  const exact = accounts.find((a) => compactKey(a.username) === code && a.signature);
+  if (exact) return exact.signature;
+  const hit = accounts.find((a) =>
+    !!a.signature && usernameMatchesEmployee(a.username, person.name, { code: person.code, job: person.job })
+  );
+  return hit ? hit.signature : "";
+}
+
+export async function handleListHrTeam(auth: AuthOk) {
+  if (!isHrLine(auth) && !isHrStaff(auth)) {
+    return { ok: false, success: false, error: "not_allowed", message: "Not allowed." };
+  }
+  const people = await readHrEmployees();
+  const me = findPersonForAccount(people, auth.username);
+  if (!me) {
+    return {
+      ok: true,
+      success: true,
+      managerName: "",
+      people: [],
+      message: "Your login is not on the Employees list, so your team cannot be shown.",
+    };
+  }
+  const team = people
+    .filter((row) => row.active && row.route === "line" && row.managerCode === me.code && row.code !== me.code)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const { data, error } = await sb().from("users").select("username, signature");
+  if (error) throw error;
+  const accounts = (data || []).map((row) => ({
+    username: normalizeWorkerId(row.username),
+    signature: String(row.signature || "").trim(),
+  })).filter((row) => row.username);
+  return {
+    ok: true,
+    success: true,
+    managerName: me.name,
+    people: team.map((row) => ({
+      code: row.code,
+      name: row.name,
+      job: row.job,
+      department: row.department,
+      section: row.section,
+      signature: signatureForPerson(row, accounts),
+    })),
+  };
+}
+
 export async function handleListHrEmployees(auth: AuthOk) {
   if (!canReadHrEmployees(auth)) {
     return { ok: false, success: false, error: "not_allowed", message: "Not allowed." };

@@ -1554,6 +1554,56 @@ function hrEmployeeManagerLabel_(p) {
   return p.managerName || 'Director';
 }
 
+var _hrTeam = [];
+var _hrTeamLoaded = false;
+var _hrTeamNote = '';
+
+function hrRenderTeam_() {
+  var host = document.getElementById('hrTeamHost');
+  var summary = document.getElementById('hrTeamSummary');
+  if (!host) return;
+  if (!_hrTeamLoaded) {
+    host.innerHTML = '<p>Loading…</p>';
+    fetchJSONRetry({ action: 'listHrTeam', token: hrToken_() }, 1, 45000).then(function (d) {
+      if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Could not load your employees.');
+      _hrTeam = Array.isArray(d.people) ? d.people : [];
+      _hrTeamNote = d.message || '';
+      _hrTeamLoaded = true;
+      hrRenderTeam_();
+    }).catch(function (err) {
+      host.innerHTML = '<p>' + hrEsc_(err.message || 'Could not load your employees.') + '</p>';
+    });
+    return;
+  }
+  var q = hrVal_('hrTeamSearch').toLowerCase();
+  var rows = _hrTeam.filter(function (p) {
+    if (!q) return true;
+    var hay = [p.code, p.name, p.job, p.department, p.section].join(' ').toLowerCase();
+    return hay.indexOf(q) !== -1;
+  });
+  if (summary) {
+    summary.textContent = rows.length + ' employee' + (rows.length === 1 ? '' : 's');
+  }
+  if (!rows.length) {
+    host.innerHTML = '<p>' + hrEsc_(_hrTeamNote || 'No employees are assigned to you.') + '</p>';
+    return;
+  }
+  var h = '<div class="hr-table-wrap"><table class="hr-list-table"><thead><tr>' +
+    '<th>Code</th><th>Name</th><th>Job title</th><th>Department</th><th>Division</th><th>E-signature</th>' +
+    '</tr></thead><tbody>';
+  rows.forEach(function (p) {
+    var sig = String(p.signature || '');
+    var sigCell = sig.indexOf('data:image/') === 0
+      ? '<img class="hr-team-sig" alt="" src="' + hrEsc_(sig) + '">'
+      : '—';
+    h += '<tr><td>' + hrEsc_(p.code) + '</td><td><strong>' + hrEsc_(p.name) + '</strong></td><td>' +
+      hrEsc_(p.job || '—') + '</td><td>' + hrEsc_(p.department || '—') + '</td><td>' +
+      hrEsc_(p.section || '—') + '</td><td>' + sigCell + '</td></tr>';
+  });
+  h += '</tbody></table></div>';
+  host.innerHTML = h;
+}
+
 function hrRenderEmployees_() {
   var host = document.getElementById('hrEmployeesHost');
   var summary = document.getElementById('hrEmployeesSummary');
@@ -1942,6 +1992,7 @@ function hrCanSeeTab_(tab) {
   if (tab === 'confirmed') return hrIsHrStaff_() || hrIsDirector_();
   if (tab === 'done' || tab === 'archive') return hrIsHrStaff_();
   if (tab === 'employees') return hrIsHrStaff_() && !hrIsSignerOnly_();
+  if (tab === 'team') return hrIsLine_() && !hrIsHrStaff_();
   return false;
 }
 
@@ -1965,6 +2016,7 @@ function hrApplyNavAccess_() {
   show('tabBtnDone', hrCanSeeTab_('done'));
   show('tabBtnForm', hrCanSeeTab_('form'));
   show('tabBtnEmployees', hrCanSeeTab_('employees'));
+  show('tabBtnTeam', hrCanSeeTab_('team'));
   var archiveNav = document.getElementById('hrArchiveNav');
   if (archiveNav) archiveNav.style.display = hrCanSeeTab_('archive') ? '' : 'none';
   document.querySelectorAll('[data-hr-form-only]').forEach(function (el) {
@@ -3091,6 +3143,7 @@ function hrTabBtnId_(tab) {
   if (tab === 'confirmed') return 'tabBtnConfirmed';
   if (tab === 'signed') return 'tabBtnSigned';
   if (tab === 'employees') return 'tabBtnEmployees';
+  if (tab === 'team') return 'tabBtnTeam';
   if (tab === 'archive') return 'tabBtnArchive-' + (_hrArchiveSection || 'annual');
   return 'tabBtnList';
 }
@@ -3205,6 +3258,7 @@ function hrSwitchTab_(ev, tab) {
   if (tab === 'confirmed' && !_hrListEditing) hrRenderConfirmedTable_();
   if (tab === 'archive' && !_hrListEditing) hrRenderArchiveTable_();
   if (tab === 'employees') hrRenderEmployees_();
+  if (tab === 'team') hrRenderTeam_();
 }
 
 function hrUniqueDepts_() {

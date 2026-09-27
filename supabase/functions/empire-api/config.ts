@@ -220,6 +220,7 @@ export const DEPT_BY_ACTION: Record<string, string> = {
   confirmHrLeaveRequests: "hr",
   listHrLineManagers: "hr",
   listHrEmployees: "hr",
+  listHrTeam: "hr",
   saveHrEmployee: "hr",
   removeHrEmployee: "hr",
   rejectHrLeaveRequest: "hr",

@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-09-22-search-pill">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-27-gailan-paper">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-27-filedday">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-27-team">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -82,6 +82,10 @@
             <button class="tab-btn" id="tabBtnArchive-all" onclick="hrOpenArchive_(event,'all')"><span class="lbl">(all)</span></button>
           </div>
         </div>
+        <button class="tab-btn" id="tabBtnTeam" onclick="hrSwitchTab_(event,'team')">
+          <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+          <span class="lbl">My employees</span>
+        </button>
         <button class="tab-btn" id="tabBtnEmployees" onclick="hrSwitchTab_(event,'employees')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
           <span class="lbl">Employees</span>
@@ -217,6 +221,20 @@
           </div>
           <p class="hr-summary" id="hrArchiveSummary"></p>
           <div id="hrArchiveHost"><p>Loading…</p></div>
+        </div>
+      </div>
+      <div id="team" class="tab-content">
+        <div class="form-section">
+          <h2>My employees</h2>
+          <p class="hr-tab-help">People assigned to you as line manager, with their job title and the e-signature on their account.</p>
+          <div class="form-row filter-toolbar">
+            <div class="form-group filter-grow">
+              <label>Search</label>
+              <input type="search" id="hrTeamSearch" oninput="hrRenderTeam_()" placeholder="Name, code, job…" autocomplete="off">
+            </div>
+          </div>
+          <p class="hr-summary" id="hrTeamSummary"></p>
+          <div id="hrTeamHost"><p>Loading…</p></div>
         </div>
       </div>
       <div id="employees" class="tab-content">
@@ -660,6 +678,6 @@
 <script src="assets/empire-core.js?v=2026-09-27-gailan-paper"></script>
 <script src="assets/empire-storage.js?v=2026-09-27-gailan-paper"></script>
 <script src="assets/empire-sw-update.js?v=2026-09-27-gailan-paper"></script>
-<script src="assets/empire-hr-leave.js?v=2026-09-27-filedday"></script>
+<script src="assets/empire-hr-leave.js?v=2026-09-27-team"></script>
 </body>
 </html>
