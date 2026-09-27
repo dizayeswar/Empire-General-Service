@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="manifest" href="manifest.webmanifest?v=2026-09-21-emp-stamp-only">
+  <link rel="manifest" href="manifest.webmanifest?v=2026-09-27-gailan-sig">
   <meta name="theme-color" content="#8d015d">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -202,11 +202,11 @@
     <div id="usersTableHost"></div>
   </div>
 
-  <script src="config.js?v=2026-09-21-emp-stamp-only"></script>
-  <script src="assets/empire-api.js?v=2026-09-21-emp-stamp-only"></script>
-  <script src="assets/empire-auth.js?v=2026-09-21-emp-stamp-only"></script>
-  <script src="assets/empire-core.js?v=2026-09-21-emp-stamp-only"></script>
-  <script src="assets/empire-sw-update.js?v=2026-09-21-emp-stamp-only"></script>
+  <script src="config.js?v=2026-09-27-gailan-sig"></script>
+  <script src="assets/empire-api.js?v=2026-09-27-gailan-sig"></script>
+  <script src="assets/empire-auth.js?v=2026-09-27-gailan-sig"></script>
+  <script src="assets/empire-core.js?v=2026-09-27-gailan-sig"></script>
+  <script src="assets/empire-sw-update.js?v=2026-09-27-gailan-sig"></script>
   <script>
     var allUsers = [];
     var editingUsername = null;
@@ -811,7 +811,7 @@
       (skippedIds || []).forEach(function (id) {
         if (id) have[id] = 1;
       });
-      return fetch('assets/account-sigs/index.json?v=2026-09-21-emp-stamp-only')
+      return fetch('assets/account-sigs/index.json?v=2026-09-27-gailan-sig')
         .then(function (r) {
           if (!r.ok) throw new Error('Could not load prepared stamps');
           return r.json();
@@ -838,7 +838,7 @@
           }
           missing.forEach(function (it) {
             chain = chain.then(function () {
-              return fetch('assets/account-sigs/' + encodeURIComponent(it.file) + '?v=2026-09-21-emp-stamp-only')
+              return fetch('assets/account-sigs/' + encodeURIComponent(it.file) + '?v=2026-09-27-gailan-sig')
                 .then(function (r) {
                   if (!r.ok) throw new Error('Missing stamp ' + it.file);
                   return r.blob();
