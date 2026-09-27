@@ -95,6 +95,29 @@ function foldPersonKey(raw: unknown): string {
     .replace(/hersh/g, "herish");
 }
 
+function personWords(raw: unknown): string[] {
+  return String(raw || "")
+    .toLowerCase()
+    .split(/\s+/)
+    .map((w) => foldPersonKey(w))
+    .filter(Boolean);
+}
+
+function wordsArePrefix(shorter: string[], longer: string[]): boolean {
+  if (!shorter.length || shorter.length > longer.length) return false;
+  for (let i = 0; i < shorter.length; i++) {
+    if (shorter[i] !== longer[i]) return false;
+  }
+  return true;
+}
+
+function aliasMatchesName(alias: string, name: string): boolean {
+  const aw = personWords(alias);
+  const nw = personWords(name);
+  if (!aw.length || !nw.length) return false;
+  return wordsArePrefix(aw, nw) || wordsArePrefix(nw, aw);
+}
+
 const ACCOUNT_PERSON_ALIASES: Record<string, string[]> = {
   muhamadlawyer: ["mohammed abdulkhaliq", "mohammed abdulkhaliq hamasharif", "101786"],
   delanapp: ["dilan abdulsatar", "dilan abdulsatar jawhar", "101447"],
@@ -119,11 +142,9 @@ function usernameMatchesEmployee(
   const nameFolded = foldPersonKey(name);
   for (const alias of (ACCOUNT_PERSON_ALIASES[user] || [])) {
     const ac = compactKey(alias);
-    const af = foldPersonKey(alias);
     if (!ac) continue;
     if (code && ac === code) return true;
-    if (nameCompact && (nameCompact === ac || nameCompact.indexOf(ac) !== -1 || ac.indexOf(nameCompact) !== -1)) return true;
-    if (nameFolded && af && (nameFolded === af || nameFolded.indexOf(af) !== -1 || af.indexOf(nameFolded) !== -1)) return true;
+    if (aliasMatchesName(alias, String(name || ""))) return true;
   }
 
   const label = String(name || "").trim();

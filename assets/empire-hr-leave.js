@@ -830,6 +830,25 @@ function hrFoldPersonKey_(raw) {
     .replace(/hersh/g, 'herish');
 }
 
+function hrPersonWords_(raw) {
+  return String(raw || '').toLowerCase().split(/\s+/).map(hrFoldPersonKey_).filter(Boolean);
+}
+
+function hrWordsArePrefix_(shorter, longer) {
+  if (!shorter.length || shorter.length > longer.length) return false;
+  for (var i = 0; i < shorter.length; i++) {
+    if (shorter[i] !== longer[i]) return false;
+  }
+  return true;
+}
+
+function hrAliasMatchesName_(alias, name) {
+  var aw = hrPersonWords_(alias);
+  var nw = hrPersonWords_(name);
+  if (!aw.length || !nw.length) return false;
+  return hrWordsArePrefix_(aw, nw) || hrWordsArePrefix_(nw, aw);
+}
+
 var HR_ACCOUNT_PERSON_ALIASES = {
   muhamadlawyer: ['mohammed abdulkhaliq', 'mohammed abdulkhaliq hamasharif', '101786'],
   delanapp: ['dilan abdulsatar', 'dilan abdulsatar jawhar', '101447'],
@@ -851,11 +870,9 @@ function hrUsernameMatchesEmployee_(username, name, extra) {
   var aliases = HR_ACCOUNT_PERSON_ALIASES[user] || [];
   for (var i = 0; i < aliases.length; i++) {
     var ac = hrCompactKey_(aliases[i]);
-    var af = hrFoldPersonKey_(aliases[i]);
     if (!ac) continue;
     if (code && ac === code) return true;
-    if (nameCompact && (nameCompact === ac || nameCompact.indexOf(ac) !== -1 || ac.indexOf(nameCompact) !== -1)) return true;
-    if (nameFolded && af && (nameFolded === af || nameFolded.indexOf(af) !== -1 || af.indexOf(nameFolded) !== -1)) return true;
+    if (hrAliasMatchesName_(aliases[i], name)) return true;
   }
   var label = String(name || '').trim();
   if (!label) return false;
