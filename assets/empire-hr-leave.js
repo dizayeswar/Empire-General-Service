@@ -3681,6 +3681,9 @@ function hrRenderTable_() {
     var canSel = showSel && hrCanSelectRow_(r);
     var picked = !!_hrSelected[String(r.id)];
     var waitingName = hrAssignedName_(r);
+    if (!waitingName && stage === 'pending_line' && r.entitlements && r.entitlements.__assign && (r.entitlements.__assign.skipLine || r.entitlements.__assign.skip)) {
+      waitingName = r.empName || '';
+    }
     var statusCell = (canHrConfirm || canDirConfirm || canLineConfirm || canEmpConfirm) && !showSel
       ? '<button type="button" class="hr-btn-confirm-board" onclick="event.stopPropagation();hrConfirmRow_(\'' + id + '\')">Confirm</button>'
       : '<span class="hr-badge hr-badge-' + hrEsc_(st) + '">' +

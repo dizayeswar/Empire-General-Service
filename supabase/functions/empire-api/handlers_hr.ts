@@ -612,9 +612,41 @@ async function healExclusiveDualStamps(rows: Record<string, unknown>[]) {
   if (jobs.length) await Promise.all(jobs);
 }
 
+function paperSkipsLine(raw: Record<string, unknown>): boolean {
+  const ents = parseEntitlements(raw.entitlements) as Record<string, unknown>;
+  const assign = ents.__assign && typeof ents.__assign === "object" && !Array.isArray(ents.__assign)
+    ? ents.__assign as Record<string, unknown>
+    : {};
+  return assign.skipLine === true || assign.skip === true;
+}
+
+async function releaseGailanFromLineManager(rows: Record<string, unknown>[]) {
+  const jobs = rows.filter((raw) => {
+    if (String(raw.emp_code || "").trim() !== "100420") return false;
+    if (String(raw.status || "").trim().toLowerCase() !== "pending_line") return false;
+    if (paperSkipsLine(raw)) return false;
+    return true;
+  }).map(async (raw) => {
+    const ents = parseEntitlements(raw.entitlements) as Record<string, unknown>;
+    ents.__assign = { skipLine: true };
+    const patch: Record<string, unknown> = {
+      entitlements: entitlementsJson(ents),
+      line_manager_name: "",
+      line_manager_signed_at: "",
+      line_manager_status: "",
+      updated_at: isoNow(),
+    };
+    if (hasEmpStamp(raw)) patch.status = "pending_director";
+    const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", raw.id);
+    if (!error) Object.assign(raw, patch, { entitlements: ents });
+  });
+  if (jobs.length) await Promise.all(jobs);
+}
+
 export async function handleGetHrLeaveRequests(auth?: AuthOk) {
   const data = await selectAllRows<Record<string, unknown>>("hr_leave_requests");
   await healExclusiveDualStamps(data);
+  await releaseGailanFromLineManager(data);
   const users = await loadUsernames();
   let out = data.map((raw) => applyResolvedAssignee(rowToApi(raw), raw, users));
   if (auth && isDirectorOnly(auth)) {
@@ -993,7 +1025,7 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
     if (status === "pending_line") {
       const users = await loadUsernames();
       const resolved = resolveAssignedAccount(ex, users);
-      sendToDirector = resolved.username === me;
+      sendToDirector = paperSkipsLine(ex) || resolved.username === me;
     }
     const patch = empConfirmPatch(ex, empSig, { sendToDirector, username: me });
     const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", id);
