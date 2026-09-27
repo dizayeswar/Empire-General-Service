@@ -11,6 +11,13 @@
   color: var(--text-soft);
   font-size: 13px;
 }
+.hr-filed-days {
+  display: block;
+  margin-top: 6px;
+  color: var(--text);
+  font-weight: 600;
+  line-height: 1.45;
+}
 
 .hr-kpi-row {
   display: flex;

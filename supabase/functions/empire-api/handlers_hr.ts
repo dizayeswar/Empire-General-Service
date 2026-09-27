@@ -1467,8 +1467,13 @@ export async function handleFileHrLeaveRequests(body: Record<string, unknown>, a
     if (!completed.has(String(ex.status || "").trim().toLowerCase())) continue;
     const existing = parseEntitlements(ex.entitlements) as Record<string, unknown>;
     const merged: Record<string, unknown> = { ...existing };
-    if (archive) merged.__archive = archive;
-    else delete merged.__archive;
+    if (archive) {
+      merged.__archive = archive;
+      merged.__filedOn = isoNow().slice(0, 10);
+    } else {
+      delete merged.__archive;
+      delete merged.__filedOn;
+    }
     const patch = { entitlements: entitlementsJson(merged), updated_at: isoNow() };
     const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", id);
     if (error) throw error;

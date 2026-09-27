@@ -146,6 +146,30 @@ function hrArchiveKey_(row) {
   return String(a || '').trim().toLowerCase();
 }
 
+function hrFiledOn_(row) {
+  var ents = row && row.entitlements;
+  var stored = String((ents && ents.__filedOn) || '').slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(stored)) return stored;
+  var updated = String((row && row.updatedAt) || '').slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(updated)) return updated;
+  return '';
+}
+
+function hrFiledDaySummary_(rows) {
+  var counts = {};
+  (rows || []).forEach(function (r) {
+    var day = hrFiledOn_(r);
+    if (!day) return;
+    counts[day] = (counts[day] || 0) + 1;
+  });
+  var today = hrToday_();
+  return Object.keys(counts).sort().reverse().map(function (day) {
+    var n = counts[day];
+    var when = (day === today ? 'Today, ' : '') + hrFmtDate_(day);
+    return when + ' — ' + n + ' moved here';
+  }).join('<br>');
+}
+
 function hrArchiveMeta_(id) {
   id = String(id || '').trim().toLowerCase();
   if (id === 'all') return HR_ARCHIVE_ALL;
@@ -3890,11 +3914,11 @@ function hrRenderArchiveTable_() {
   var rows = hrArchiveVisibleRows_();
   var q = hrVal_('hrArchiveSearch');
   if (summary) {
-    if (q) {
-      summary.textContent = rows.length + ' of ' + allRows.length + ' paper' + (allRows.length === 1 ? '' : 's') + ' matching “' + q + '”';
-    } else {
-      summary.textContent = allRows.length + ' paper' + (allRows.length === 1 ? '' : 's') + ' in ' + meta.label;
-    }
+    var base = q
+      ? (rows.length + ' of ' + allRows.length + ' paper' + (allRows.length === 1 ? '' : 's') + ' matching “' + q + '”')
+      : (allRows.length + ' paper' + (allRows.length === 1 ? '' : 's') + ' in ' + meta.label);
+    var days = hrFiledDaySummary_(allRows);
+    summary.innerHTML = hrEsc_(base) + (days ? '<span class="hr-filed-days">' + days + '</span>' : '');
   }
   var showSel = !hrIsDirectorOnly_() && _hrArchiveSelectMode && rows.length;
   var selN = hrArchiveSelectedIds_().length;
