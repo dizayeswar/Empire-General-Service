@@ -686,6 +686,7 @@ export async function handleImportAccountSigs(body: Record<string, unknown>, aut
     if (id && !skipped.includes(id)) skipped.push(id);
   };
   let added = 0;
+  let replaced = 0;
   for (const raw of incoming) {
     const recIn = (raw && typeof raw === "object") ? raw as Record<string, unknown> : {};
     const sigIn = parseUserSignature(recIn.image != null ? recIn.image : recIn.signature);
@@ -693,6 +694,16 @@ export async function handleImportAccountSigs(body: Record<string, unknown>, aut
     const wantedId = String(recIn.id || "").trim();
     const id = /^[a-zA-Z0-9._-]{3,80}$/.test(wantedId) ? wantedId : ("acsig-" + crypto.randomUUID());
     if (byId.has(id)) {
+      if (recIn.replace === true) {
+        const prev = byId.get(id)!;
+        prev.image = sigIn.value;
+        const who = normalizeWorkerId(recIn.username || prev.assignedTo);
+        if (who) {
+          await sb().from("users").update({ signature: sigIn.value, updated_at: isoNow() }).eq("username", who);
+          if (!prev.assignedTo) prev.assignedTo = who;
+        }
+        replaced++;
+      }
       markSkipped(id);
       continue;
     }
@@ -710,12 +721,13 @@ export async function handleImportAccountSigs(body: Record<string, unknown>, aut
     markSkipped(id);
     added++;
   }
-  if (added || skipped.length !== row.skippedIds.length) await writeAccountLib(items, auth, skipped);
+  if (added || replaced || skipped.length !== row.skippedIds.length) await writeAccountLib(items, auth, skipped);
   return {
     ok: true,
     success: true,
     items,
     added,
+    replaced,
     skippedIds: skipped,
     message: added ? (added + " e-signature(s) saved. Attach each one to a user.") : "Those stamps are already saved.",
   };

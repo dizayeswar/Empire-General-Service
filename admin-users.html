@@ -811,14 +811,20 @@
       (skippedIds || []).forEach(function (id) {
         if (id) have[id] = 1;
       });
-      return fetch('assets/account-sigs/index.json?v=2026-09-27-gailan-sig')
+      return fetch('assets/account-sigs/index.json?v=2026-09-27-sigthin')
         .then(function (r) {
           if (!r.ok) throw new Error('Could not load prepared stamps');
           return r.json();
         })
         .then(function (list) {
+          var replaceUser = {
+            'photo-05': 'bexal',
+            'photo-12': 'kaifydizayee',
+            'photo-14': 'delanmahdi',
+            'photo-20': 'sangar'
+          };
           var missing = (Array.isArray(list) ? list : []).filter(function (it) {
-            return it && it.id && it.file && !have[it.id];
+            return it && it.id && it.file && (!have[it.id] || replaceUser[it.id]);
           });
           if (!missing.length) return false;
           setMsg('sigLibMsg', 'Saving ' + missing.length + ' e-signature(s)…', true);
@@ -838,14 +844,20 @@
           }
           missing.forEach(function (it) {
             chain = chain.then(function () {
-              return fetch('assets/account-sigs/' + encodeURIComponent(it.file) + '?v=2026-09-27-gailan-sig')
+              return fetch('assets/account-sigs/' + encodeURIComponent(it.file) + '?v=2026-09-27-sigthin')
                 .then(function (r) {
                   if (!r.ok) throw new Error('Missing stamp ' + it.file);
                   return r.blob();
                 })
                 .then(blobToDataURL)
                 .then(function (url) {
-                  chunk.push({ id: it.id, label: it.label || 'Signature', image: url });
+                  chunk.push({
+                    id: it.id,
+                    label: it.label || 'Signature',
+                    image: url,
+                    replace: !!replaceUser[it.id],
+                    username: replaceUser[it.id] || ''
+                  });
                   if (chunk.length >= 4) return flush();
                 });
             });
