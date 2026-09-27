@@ -13,7 +13,7 @@ from PIL import Image
 from pywinauto.mouse import click
 
 from nova_check_unit import search as nova_search
-from nova_login import handle_login_locked
+from nova_login import ensure_nova_open, handle_login_locked
 from nova_search_filter import (
     PersonalAccountError,
     assert_unit_only_in_personal_account,
@@ -403,7 +403,7 @@ def main() -> int:
         keeper.start()
         try:
             apt = nova_query(unit)
-            handle_login_locked(20)
+            ensure_nova_open(40)
             bot = NovaSysRobot()
             bot.connect()
             bot._open_payments()

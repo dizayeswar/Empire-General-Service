@@ -54,11 +54,14 @@ class NovaSysRobot:
         self.notes.append(message)
 
     def connect(self):
+        from nova_login import ensure_nova_open
+
         try:
+            ensure_nova_open()
             self.win = find_novasys_window()
         except Exception as exc:
             raise RuntimeError(
-                "NovaSys EnergySale is not open. Open it and leave it logged in, then try again."
+                "NovaSys EnergySale is not open. Searched the desktop; open failed."
             ) from exc
         self.win.set_focus()
         time.sleep(0.3)
