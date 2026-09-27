@@ -839,6 +839,8 @@
   left: 50% !important;
   transform: translate(-50%, -50%) !important;
   width: 100% !important;
+  height: 24pt !important;
+  max-height: 24pt !important;
   object-position: center !important;
 }
 .hr-f06-hr-foot .hr-sig-pad img {
@@ -1450,6 +1452,8 @@
     transform: translate(-50%, -50%) !important;
     width: 100% !important;
     max-width: 100% !important;
+    height: 24pt !important;
+    max-height: 24pt !important;
     object-position: center !important;
   }
   .hr-f06-hr-foot .hr-sig-pad img {
