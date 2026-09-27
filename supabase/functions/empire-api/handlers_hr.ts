@@ -124,6 +124,7 @@ const ACCOUNT_PERSON_ALIASES: Record<string, string[]> = {
   adnanblbas: ["adnan abdulrahman", "adnan abdulrahman sulaiman", "100115"],
   herish: ["hersh adnan", "herish adnan", "hersh adnan abdulrahman", "100060"],
   delanmahdi: ["delan mahdi", "delan mahdi fard", "100733"],
+  marwan: ["marwan deyab", "marwan deyab saeed", "100195"],
 };
 
 function usernameMatchesEmployee(
