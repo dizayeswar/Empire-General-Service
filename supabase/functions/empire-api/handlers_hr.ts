@@ -350,11 +350,21 @@ function empSigRole(raw: unknown): string {
   return s;
 }
 
-function wentStraightToDirector(raw: Record<string, unknown>): boolean {
-  if (paperSkipsLine(raw)) return true;
-  if (String(raw.status || "").trim().toLowerCase() !== "pending_director") return false;
+function needsEmployeeBoxStamp(raw: Record<string, unknown>, directorCodes: Set<string>): boolean {
+  if (String(stampMap(raw).emp || "").trim()) return false;
   if (hasLineStamp(raw)) return false;
+  if (paperSkipsLine(raw)) return true;
+  const code = String(raw.emp_code || "").trim();
+  if (code && directorCodes.has(code)) return true;
+  if (String(raw.status || "").trim().toLowerCase() !== "pending_director") return false;
   return !String(raw.line_manager_name || raw.lineManagerName || "").trim();
+}
+
+function sigRoleRank(role: string): number {
+  if (role === "emp") return 0;
+  if (!role) return 1;
+  if (role === "line") return 2;
+  return 3;
 }
 
 async function loadEmployeeSigAccounts(): Promise<Array<{ username: string; signatureRole: string }>> {
@@ -370,29 +380,52 @@ async function loadEmployeeSigAccounts(): Promise<Array<{ username: string; sign
   })).filter((row) => !!row.username);
 }
 
+async function loadSignatureLibrary(): Promise<Array<{ label: string; image: string; role: string; assignedTo: string }>> {
+  const { data, error } = await sb().from("ui_settings").select("settings").eq("key", "account_signatures").maybeSingle();
+  if (error || !data) return [];
+  const settings = data.settings && typeof data.settings === "object" ? data.settings as Record<string, unknown> : {};
+  const items = Array.isArray(settings.items) ? settings.items : [];
+  return items.map((it) => {
+    const row = it && typeof it === "object" ? it as Record<string, unknown> : {};
+    return {
+      label: String(row.label || row.name || "").trim(),
+      image: String(row.image || "").trim(),
+      role: empSigRole(row.role),
+      assignedTo: normalizeWorkerId(row.assignedTo || row.assigned_to || ""),
+    };
+  }).filter((item) => !!item.image);
+}
+
 async function employeeAccountStamp(
   name: string,
   code: string,
   accounts?: Array<{ username: string; signatureRole: string }>,
   sigCache?: Map<string, string>,
+  library?: Array<{ label: string; image: string; role: string; assignedTo: string }>,
 ): Promise<{ username: string; signature: string } | null> {
   const list = accounts || await loadEmployeeSigAccounts();
-  const hits = list.filter((account) => {
-    if (account.signatureRole === "line" || account.signatureRole === "director" || account.signatureRole === "hr") return false;
-    return usernameMatchesEmployee(account.username, name, { code });
-  });
-  hits.sort((a, b) => Number(b.signatureRole === "emp") - Number(a.signatureRole === "emp"));
-  const best = hits[0];
-  if (!best) return null;
+  const hits = list.filter((account) => usernameMatchesEmployee(account.username, name, { code }));
+  hits.sort((a, b) => sigRoleRank(a.signatureRole) - sigRoleRank(b.signatureRole));
   const cache = sigCache || new Map<string, string>();
-  if (!cache.has(best.username)) {
-    const { data, error } = await sb().from("users").select("signature").eq("username", best.username).maybeSingle();
-    if (error) throw error;
-    cache.set(best.username, String(data?.signature || "").trim());
+  for (const account of hits) {
+    if (!cache.has(account.username)) {
+      const { data, error } = await sb().from("users").select("signature").eq("username", account.username).maybeSingle();
+      if (error) throw error;
+      cache.set(account.username, String(data?.signature || "").trim());
+    }
+    const signature = cache.get(account.username) || "";
+    if (signature) return { username: account.username, signature };
   }
-  const signature = cache.get(best.username) || "";
-  if (!signature) return null;
-  return { username: best.username, signature };
+  const books = library || await loadSignatureLibrary();
+  const fromLib = books.filter((item) => {
+    if (item.assignedTo && usernameMatchesEmployee(item.assignedTo, name, { code })) return true;
+    if (code && compactKey(item.label) === compactKey(code)) return true;
+    return !!(item.label && aliasMatchesName(item.label, name));
+  });
+  fromLib.sort((a, b) => sigRoleRank(a.role) - sigRoleRank(b.role));
+  const picked = fromLib[0];
+  if (!picked) return null;
+  return { username: picked.assignedTo || compactKey(name), signature: picked.image };
 }
 
 function placeEmployeeStamp(
@@ -709,25 +742,41 @@ async function releaseGailanFromLineManager(rows: Record<string, unknown>[]) {
   if (jobs.length) await Promise.all(jobs);
 }
 
+async function writeEmployeeBoxStamp(raw: Record<string, unknown>, stamp: { username: string; signature: string }) {
+  const ents = parseEntitlements(raw.entitlements) as Record<string, unknown>;
+  placeEmployeeStamp(ents, stamp);
+  const patch: Record<string, unknown> = {
+    entitlements: entitlementsJson(ents),
+    updated_at: isoNow(),
+  };
+  if (!String(raw.emp_signed_at || "").trim()) patch.emp_signed_at = isoNow().slice(0, 10);
+  const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", raw.id);
+  if (!error) Object.assign(raw, patch, { entitlements: ents });
+}
+
 async function stampDirectorPapersWithEmployeeSig(rows: Record<string, unknown>[]) {
-  const need = rows.filter((raw) => wentStraightToDirector(raw) && !String(stampMap(raw).emp || "").trim());
+  const people = await readHrEmployees();
+  const directorCodes = new Set(people.filter((person) => person.active && person.route === "director").map((person) => person.code));
+  const need = rows.filter((raw) => needsEmployeeBoxStamp(raw, directorCodes));
   if (!need.length) return;
   const accounts = await loadEmployeeSigAccounts();
   const sigCache = new Map<string, string>();
-  const jobs = need.map(async (raw) => {
-    const stamp = await employeeAccountStamp(String(raw.emp_name || ""), String(raw.emp_code || ""), accounts, sigCache);
+  const missing: Record<string, unknown>[] = [];
+  await Promise.all(need.map(async (raw) => {
+    const stamp = await employeeAccountStamp(String(raw.emp_name || ""), String(raw.emp_code || ""), accounts, sigCache, []);
+    if (!stamp) {
+      missing.push(raw);
+      return;
+    }
+    await writeEmployeeBoxStamp(raw, stamp);
+  }));
+  if (!missing.length) return;
+  const library = await loadSignatureLibrary();
+  await Promise.all(missing.map(async (raw) => {
+    const stamp = await employeeAccountStamp(String(raw.emp_name || ""), String(raw.emp_code || ""), accounts, sigCache, library);
     if (!stamp) return;
-    const ents = parseEntitlements(raw.entitlements) as Record<string, unknown>;
-    placeEmployeeStamp(ents, stamp);
-    const patch: Record<string, unknown> = {
-      entitlements: entitlementsJson(ents),
-      updated_at: isoNow(),
-    };
-    if (!String(raw.emp_signed_at || "").trim()) patch.emp_signed_at = isoNow().slice(0, 10);
-    const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", raw.id);
-    if (!error) Object.assign(raw, patch, { entitlements: ents });
-  });
-  await Promise.all(jobs);
+    await writeEmployeeBoxStamp(raw, stamp);
+  }));
 }
 
 export async function handleGetHrLeaveRequests(auth?: AuthOk) {
