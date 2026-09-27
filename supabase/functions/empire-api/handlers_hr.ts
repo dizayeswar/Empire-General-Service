@@ -816,11 +816,25 @@ async function stampDirectorPapersWithEmployeeSig(rows: Record<string, unknown>[
   }));
 }
 
+const LEAVE_LIST_COLS = [
+  "id", "num", "emp_name", "emp_department", "emp_code", "emp_division", "emp_job_title",
+  "replacement", "start_date", "end_date", "days_out", "leave_type", "leave_other",
+  "emp_signed_at", "line_manager_name", "line_manager_signed_at", "line_manager_status",
+  "director_name", "director_signed_at", "director_status", "hr_comment", "hr_signed_at",
+  "status", "created_by", "created_at", "updated_at",
+].join(",");
+
 export async function handleGetHrLeaveRequests(auth?: AuthOk) {
-  const data = await selectAllRows<Record<string, unknown>>("hr_leave_requests");
-  await healExclusiveDualStamps(data);
-  await releaseGailanFromLineManager(data);
-  await stampDirectorPapersWithEmployeeSig(data);
+  const light = !auth || !isHrStaff(auth);
+  const data = await selectAllRows<Record<string, unknown>>(
+    "hr_leave_requests",
+    light ? { columns: LEAVE_LIST_COLS } : undefined,
+  );
+  if (!light) {
+    await healExclusiveDualStamps(data);
+    await releaseGailanFromLineManager(data);
+    await stampDirectorPapersWithEmployeeSig(data);
+  }
   const users = await loadUsernames();
   let out = data.map((raw) => applyResolvedAssignee(rowToApi(raw, { slim: true }), raw, users));
   if (auth && isDirectorOnly(auth)) {
