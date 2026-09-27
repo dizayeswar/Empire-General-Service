@@ -373,6 +373,7 @@ function hrPrintRowsByIds_(ids, emptyMsg) {
     alert(emptyMsg || 'Select at least one paper first.');
     return;
   }
+  Promise.all(ids.map(function (id) { return hrEnsureFullRow_(id); })).then(function () {
   var rows = ids.map(function (id) {
     return _hrRows.find(function (r) { return String(r.id) === String(id); });
   }).filter(Boolean);
@@ -391,6 +392,7 @@ function hrPrintRowsByIds_(ids, emptyMsg) {
     });
     hrMsg_('Preparing ' + rows.length + ' paper' + (rows.length === 1 ? '' : 's') + '…', true);
     hrRunPrintFrame_(wrap.innerHTML, rows.length === 1 ? 'Leave Request' : 'Leave Requests', mode);
+  });
   });
 }
 
@@ -785,19 +787,16 @@ function hrDirectorConfirmRequest_(id) {
     action: 'confirmHrLeaveRequest',
     token: hrToken_(),
     id: id,
-    directorSignature: sig,
     directorName: (hrVal_('hr-id') === id ? hrVal_('hr-directorName') : row.directorName) ||
       (typeof empireGetUser === 'function' ? empireGetUser() : ''),
-    directorSignedAt: (hrVal_('hr-id') === id ? hrVal_('hr-directorSignedAt') : row.directorSignedAt) || hrToday_()
+    directorSignedAt: (hrVal_('hr-id') === id ? hrVal_('hr-directorSignedAt') : row.directorSignedAt) || hrToday_(),
+    scanPlace: hrDirectorCellPos_()
   };
-  var scanPay = hrScanPayloadForConfirm_(row, sig);
-  if (scanPay) extra.entitlements = { __scan: scanPay };
   return fetchJSONRetry(extra, 1, 30000).then(function (d) {
     if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) {
       throw new Error('Session expired');
     }
     if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Confirm failed');
-    if (scanPay) hrSaveDirSigPlace_(scanPay);
     return d;
   });
 }
@@ -1238,9 +1237,9 @@ function hrDirectorConfirmSelected_(ids) {
       if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Confirm failed');
       var got = Number(d.confirmed || (d.ids && d.ids.length) || n);
       hrMsg_('Sent ' + got + ' to Director confirmed.', true);
-      return hrLoad_(true).then(function () {
-        hrSwitchTab_(null, 'confirmed');
-      });
+      hrRefreshLists_();
+      hrSwitchTab_(null, 'confirmed');
+      return;
     })
     .catch(function (err) {
       hrMsg_(err.message || 'Confirm failed.', false);
@@ -1831,13 +1830,16 @@ function hrRunBulkIds_(ids, requestFn, msgs) {
       _hrSelectMode = false;
       _hrSelected = {};
       hrSetListEditing_(false);
-      return hrLoad_(true).then(function () {
-        if (msgs.tab) hrSwitchTab_(null, msgs.tab);
-        if (fail) hrMsg_((n - fail) + ' done, ' + fail + ' failed' + (lastErr ? ': ' + lastErr : '.'), false);
-        else hrMsg_(msgs.done, true);
-      });
+      hrRefreshLists_();
+      if (msgs.tab) hrSwitchTab_(null, msgs.tab);
+      if (fail) hrMsg_((n - fail) + ' done, ' + fail + ' failed' + (lastErr ? ': ' + lastErr : '.'), false);
+      else hrMsg_(msgs.done, true);
+      return;
     }
-    requestFn(ids[i++]).then(function () { step(); }).catch(function (err) {
+    requestFn(ids[i++]).then(function (d) {
+      if (d && d.row) hrApplyServerRow_(d.row);
+      step();
+    }).catch(function (err) {
       fail++;
       lastErr = err && err.message ? err.message : String(err || 'failed');
       step();
@@ -2963,8 +2965,65 @@ function hrSetListEditing_(on) {
   if (on) setTimeout(hrAutosizeDaysOut_, 0);
 }
 
+function hrRefreshLists_() {
+  hrRenderTable_();
+  hrRenderSignedTable_();
+  hrRenderDoneTable_();
+  hrRenderConfirmedTable_();
+  hrRenderArchiveTable_();
+}
+
+function hrApplyServerRow_(row) {
+  if (!row || !row.id) return;
+  var i = -1;
+  var n;
+  for (n = 0; n < _hrRows.length; n++) {
+    if (String(_hrRows[n].id) === String(row.id)) { i = n; break; }
+  }
+  if (i < 0) {
+    _hrRows.unshift(row);
+    return;
+  }
+  var prev = _hrRows[i];
+  if (row.lite && prev && !prev.lite) {
+    prev.status = row.status || prev.status;
+    prev.empSignedAt = row.empSignedAt || prev.empSignedAt;
+    prev.lineManagerName = row.lineManagerName;
+    prev.lineManagerUser = row.lineManagerUser;
+    prev.lineManagerSignedAt = row.lineManagerSignedAt;
+    prev.lineManagerStatus = row.lineManagerStatus;
+    prev.directorName = row.directorName;
+    prev.directorSignedAt = row.directorSignedAt;
+    prev.directorStatus = row.directorStatus;
+    prev.updatedAt = row.updatedAt || prev.updatedAt;
+    prev.entitlements = prev.entitlements || {};
+    var nextEnt = row.entitlements || {};
+    if (nextEnt.__assign) prev.entitlements.__assign = nextEnt.__assign;
+    if (nextEnt.__signers) prev.entitlements.__signers = nextEnt.__signers;
+    return;
+  }
+  _hrRows[i] = row;
+}
+
+function hrEnsureFullRow_(id) {
+  var row = (_hrRows || []).find(function (r) { return String(r.id) === String(id); });
+  if (!row || !row.lite) return Promise.resolve(row || null);
+  return fetchJSONRetry({ action: 'getHrLeaveRequest', token: hrToken_(), id: String(id) }, 1, 30000).then(function (d) {
+    if (!d || d.ok === false || !d.row) return row;
+    d.row.lite = false;
+    hrApplyServerRow_(hrRepairRowScan_(d.row));
+    return (_hrRows || []).find(function (r) { return String(r.id) === String(id); }) || d.row;
+  }).catch(function () {
+    return row;
+  });
+}
+
 function hrEditInList_(id, fromTab) {
   var row = _hrRows.find(function (r) { return String(r.id) === String(id); });
+  if (row && row.lite) {
+    hrEnsureFullRow_(id).then(function () { hrEditInList_(id, fromTab); });
+    return;
+  }
   if (!row) return;
   hrRepairRowScan_(row);
   if (fromTab) _hrReturnTab = fromTab;
@@ -3308,12 +3367,13 @@ function hrConfirmRow_(id) {
   if (hrLineCanSign_(row)) {
     hrMsg_('Signing Line Manager box…', true);
     hrLineConfirmRequest_(id)
-      .then(function () {
+      .then(function (d) {
         hrMsg_('Line manager signed. Sent to the director.', true);
         hrSetListEditing_(false);
-        return hrLoad_(true).then(function () {
-          hrSwitchTab_(null, hrAfterSignTab_());
-        });
+        if (d && d.row) hrApplyServerRow_(d.row);
+        hrRefreshLists_();
+        hrSwitchTab_(null, hrAfterSignTab_());
+        return;
       })
       .catch(function (err) {
         hrMsg_(err.message || 'Confirm failed.', false);
@@ -3323,12 +3383,13 @@ function hrConfirmRow_(id) {
   if (hrIsDirector_() && stage === 'pending_director') {
     hrMsg_('Signing Director box…', true);
     hrDirectorConfirmRequest_(id)
-      .then(function () {
+      .then(function (d) {
         hrMsg_('Director e-signature placed. Sent back to HR as Completed.', true);
         hrSetListEditing_(false);
-        return hrLoad_(true).then(function () {
-          hrSwitchTab_(null, hrIsDirectorOnly_() ? 'confirmed' : 'done');
-        });
+        if (d && d.row) hrApplyServerRow_(d.row);
+        hrRefreshLists_();
+        hrSwitchTab_(null, hrIsDirectorOnly_() ? 'confirmed' : 'done');
+        return;
       })
       .catch(function (err) {
         if (String(err && err.message || '').indexOf('e-signature') !== -1 && hrVal_('hr-id') !== id) {
@@ -4309,6 +4370,10 @@ function hrSaveFromScan_() {
 
 function hrOpenScanRow_(id, fromTab) {
   var row = _hrRows.find(function (r) { return String(r.id) === String(id); });
+  if (row && row.lite) {
+    hrEnsureFullRow_(id).then(function () { hrOpenScanRow_(id, fromTab); });
+    return;
+  }
   if (!row) return;
   hrRepairRowScan_(row);
   if (fromTab) _hrReturnTab = fromTab;

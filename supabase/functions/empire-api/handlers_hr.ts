@@ -575,7 +575,40 @@ function normLeaveType(raw: unknown): string {
   return found || s;
 }
 
-function rowToApi(r: Record<string, unknown>) {
+function flagImage(raw: unknown): string {
+  return String(raw || "").trim() ? "1" : "";
+}
+
+function slimEntitlements(raw: unknown): { ents: Record<string, unknown>; hasScan: boolean } {
+  const ents = parseEntitlements(raw) as Record<string, unknown>;
+  const sigs = ents.__sigs && typeof ents.__sigs === "object" && !Array.isArray(ents.__sigs)
+    ? ents.__sigs as Record<string, unknown>
+    : {};
+  const scan = ents.__scan && typeof ents.__scan === "object" && !Array.isArray(ents.__scan)
+    ? ents.__scan as Record<string, unknown>
+    : {};
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(ents)) {
+    if (key === "__sigs" || key === "__scan") continue;
+    if (typeof value === "string" && value.length > 180) continue;
+    out[key] = value;
+  }
+  out.__sigs = {
+    emp: flagImage(sigs.emp),
+    line: flagImage(sigs.line),
+    director: flagImage(sigs.director),
+    hr: flagImage(sigs.hr),
+  };
+  return { ents: out, hasScan: !!String(scan.url || "").trim() };
+}
+
+function rowToApi(r: Record<string, unknown>, opts?: { slim?: boolean }) {
+  const slim = !!opts?.slim;
+  const packed = slim ? slimEntitlements(r.entitlements) : null;
+  const ents = packed ? packed.ents : parseEntitlements(r.entitlements);
+  const fullScan = !packed && ents.__scan && typeof ents.__scan === "object" && !Array.isArray(ents.__scan)
+    ? ents.__scan as Record<string, unknown>
+    : {};
   return {
     id: String(r.id || ""),
     no: String(r.num || ""),
@@ -591,7 +624,9 @@ function rowToApi(r: Record<string, unknown>) {
     daysOut: String(r.days_out || ""),
     leaveType: String(r.leave_type || ""),
     leaveOther: String(r.leave_other || ""),
-    empSignature: String(r.emp_signature || ""),
+    lite: slim,
+    hasScan: packed ? packed.hasScan : !!String(fullScan.url || "").trim(),
+    empSignature: slim ? "" : String(r.emp_signature || ""),
     empSignedAt: String(r.emp_signed_at || ""),
     lineManagerName: String(r.line_manager_name || ""),
     lineManagerSignedAt: String(r.line_manager_signed_at || ""),
@@ -600,9 +635,9 @@ function rowToApi(r: Record<string, unknown>) {
     directorName: String(r.director_name || ""),
     directorSignedAt: String(r.director_signed_at || ""),
     directorStatus: String(r.director_status || ""),
-    entitlements: parseEntitlements(r.entitlements),
+    entitlements: ents,
     hrComment: String(r.hr_comment || ""),
-    hrSignature: String(r.hr_signature || ""),
+    hrSignature: slim ? "" : String(r.hr_signature || ""),
     hrSignedAt: String(r.hr_signed_at || ""),
     status: String(r.status || "submitted"),
     createdBy: String(r.created_by || ""),
@@ -755,9 +790,11 @@ async function writeEmployeeBoxStamp(raw: Record<string, unknown>, stamp: { user
 }
 
 async function stampDirectorPapersWithEmployeeSig(rows: Record<string, unknown>[]) {
+  const unstamped = rows.filter((raw) => !String(stampMap(raw).emp || "").trim() && !hasLineStamp(raw));
+  if (!unstamped.length) return;
   const people = await readHrEmployees();
   const directorCodes = new Set(people.filter((person) => person.active && person.route === "director").map((person) => person.code));
-  const need = rows.filter((raw) => needsEmployeeBoxStamp(raw, directorCodes));
+  const need = unstamped.filter((raw) => needsEmployeeBoxStamp(raw, directorCodes));
   if (!need.length) return;
   const accounts = await loadEmployeeSigAccounts();
   const sigCache = new Map<string, string>();
@@ -785,7 +822,7 @@ export async function handleGetHrLeaveRequests(auth?: AuthOk) {
   await releaseGailanFromLineManager(data);
   await stampDirectorPapersWithEmployeeSig(data);
   const users = await loadUsernames();
-  let out = data.map((raw) => applyResolvedAssignee(rowToApi(raw), raw, users));
+  let out = data.map((raw) => applyResolvedAssignee(rowToApi(raw, { slim: true }), raw, users));
   if (auth && isDirectorOnly(auth)) {
     out = out.filter((r) => {
       const s = String(r.status || "").trim().toLowerCase();
@@ -816,6 +853,47 @@ export async function handleGetHrLeaveRequests(auth?: AuthOk) {
   }
   out.sort((a, b) => (b.num || 0) - (a.num || 0));
   return { ok: true, success: true, rows: out };
+}
+
+function leaveRowVisible(row: Record<string, unknown>, auth?: AuthOk): boolean {
+  if (!auth) return true;
+  const s = String(row.status || "").trim().toLowerCase();
+  if (isDirectorOnly(auth)) {
+    return s === "pending_director" || s === "completed" || s === "director_approved" || s === "processed";
+  }
+  if (isLineOnly(auth)) {
+    const me = normalizeWorkerId(auth.username);
+    const empWrite = isHrEmpWrite(auth);
+    const done = s === "completed" || s === "processed" || s === "director_approved" || s === "rejected";
+    if (s === "pending_line" && paperAssignedToUser(row, me)) return true;
+    if (empWrite && !done && employeeOwnsPaper(row, me)) return true;
+    if (paperSignedByUser(row, me)) return true;
+    return false;
+  }
+  if (isHrEmpOnly(auth)) {
+    const me = normalizeWorkerId(auth.username);
+    const done = s === "completed" || s === "processed" || s === "director_approved" || s === "rejected";
+    if (paperSignedByUser(row, me)) return true;
+    if (done) return false;
+    if (employeeOwnsPaper(row, me)) return true;
+    if (s === "pending_line" && paperAssignedToUser(row, me)) return true;
+    return false;
+  }
+  return true;
+}
+
+export async function handleGetHrLeaveRequest(body: Record<string, unknown>, auth?: AuthOk) {
+  const id = String(body.id || "").trim();
+  if (!id) return { ok: false, success: false, error: "missing_id", message: "Request id is required." };
+  const { data, error } = await sb().from("hr_leave_requests").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  if (!data) return { ok: false, success: false, error: "not_found", message: "Leave request not found." };
+  const users = await loadUsernames();
+  const row = applyResolvedAssignee(rowToApi(data), data, users);
+  if (!leaveRowVisible(row, auth)) {
+    return { ok: false, success: false, error: "not_allowed", message: "Not allowed." };
+  }
+  return { ok: true, success: true, row };
 }
 
 export async function handleAddHrLeaveRequest(body: Record<string, unknown>, auth: AuthOk) {
@@ -1167,7 +1245,7 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
     const patch = empConfirmPatch(ex, empSig, { sendToDirector, username: me });
     const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", id);
     if (error) throw error;
-    return { ok: true, success: true, id, row: rowToApi({ ...ex, ...patch }), signedBox: "emp", sentTo: sendToDirector ? "director" : "" };
+    return { ok: true, success: true, id, row: rowToApi({ ...ex, ...patch }, { slim: true }), signedBox: "emp", sentTo: sendToDirector ? "director" : "" };
   }
 
   if (slot === "line" && status !== "pending_line") {
@@ -1202,14 +1280,14 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
     const patch = lineConfirmPatch(ex, lineSig, auth, { ...body, lineManagerUser: resolved.username });
     const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", id);
     if (error) throw error;
-    return { ok: true, success: true, id, row: rowToApi({ ...ex, ...patch }), sentTo: "director" };
+    return { ok: true, success: true, id, row: rowToApi({ ...ex, ...patch }, { slim: true }), sentTo: "director" };
   }
 
   if (staff && !directorOnly && status === "line_approved") {
     const patch = { status: "pending_director", updated_at: isoNow() };
     const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", id);
     if (error) throw error;
-    return { ok: true, success: true, id, row: rowToApi({ ...ex, ...patch }) };
+    return { ok: true, success: true, id, row: rowToApi({ ...ex, ...patch }, { slim: true }) };
   }
 
   if (staff && !directorOnly && !isLockedStatus(status) && status !== "line_approved") {
@@ -1236,7 +1314,7 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
         ok: true,
         success: true,
         id,
-        row: rowToApi({ ...ex, ...patch }),
+        row: rowToApi({ ...ex, ...patch }, { slim: true }),
         sentTo: "director",
         skippedLine: true,
       };
@@ -1263,7 +1341,7 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
       ok: true,
       success: true,
       id,
-      row: rowToApi({ ...ex, ...patch }),
+      row: rowToApi({ ...ex, ...patch }, { slim: true }),
       assignedTo: assignee.username,
       assignedName: assignee.name,
     };
@@ -1285,7 +1363,7 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
     const patch = directorConfirmPatch(ex, directorSig, auth, body);
     const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", id);
     if (error) throw error;
-    return { ok: true, success: true, id, row: rowToApi({ ...ex, ...patch }) };
+    return { ok: true, success: true, id, row: rowToApi({ ...ex, ...patch }, { slim: true }) };
   }
 
   if (!staff && !director && !isHrLine(auth)) {
@@ -1355,7 +1433,7 @@ export async function handleRejectHrLeaveRequest(body: Record<string, unknown>, 
   };
   const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", id);
   if (error) throw error;
-  return { ok: true, success: true, id, row: rowToApi({ ...ex, ...patch }) };
+  return { ok: true, success: true, id, row: rowToApi({ ...ex, ...patch }, { slim: true }) };
 }
 
 const ARCHIVE_KEYS = new Set([
