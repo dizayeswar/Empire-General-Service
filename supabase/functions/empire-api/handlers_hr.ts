@@ -124,7 +124,6 @@ const ACCOUNT_PERSON_ALIASES: Record<string, string[]> = {
   adnanblbas: ["adnan abdulrahman", "adnan abdulrahman sulaiman", "100115"],
   herish: ["hersh adnan", "herish adnan", "hersh adnan abdulrahman", "100060"],
   delanmahdi: ["delan mahdi", "delan mahdi fard", "100733"],
-  marwan: ["marwan deyab", "marwan deyab saeed", "100195"],
 };
 
 function usernameMatchesEmployee(
@@ -1743,16 +1742,28 @@ function findPersonForAccount(people: HrPerson[], username: string): HrPerson | 
   return managers.length === 1 ? managers[0] : hits[0];
 }
 
+function accountIsThisPerson(username: string, person: HrPerson): boolean {
+  const user = normalizeWorkerId(username);
+  if (!user) return false;
+  const ck = compactKey(user);
+  const code = compactKey(person.code);
+  if (code && (ck === code || user === code)) return true;
+  const label = String(person.name || "").trim();
+  if (!label) return false;
+  if (ck === compactKey(label) || foldPersonKey(user) === foldPersonKey(label)) return true;
+  if (user === rosterSlug(label)) return true;
+  for (const alias of (ACCOUNT_PERSON_ALIASES[user] || [])) {
+    if (code && compactKey(alias) === code) return true;
+    if (personWords(alias).length >= 2 && aliasMatchesName(alias, label)) return true;
+  }
+  return false;
+}
+
 function signatureForPerson(
   person: HrPerson,
   accounts: Array<{ username: string; signature: string }>,
 ): string {
-  const code = compactKey(person.code);
-  const exact = accounts.find((a) => compactKey(a.username) === code && a.signature);
-  if (exact) return exact.signature;
-  const hit = accounts.find((a) =>
-    !!a.signature && usernameMatchesEmployee(a.username, person.name, { code: person.code, job: person.job })
-  );
+  const hit = accounts.find((a) => !!a.signature && accountIsThisPerson(a.username, person));
   return hit ? hit.signature : "";
 }
 
