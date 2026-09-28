@@ -1548,6 +1548,13 @@ function hrEmployeeGroups_() {
   return out;
 }
 
+function hrFmtDays_(n) {
+  if (n == null || n === '') return '—';
+  var x = Number(n);
+  if (!isFinite(x)) return '—';
+  return String(Math.round(x * 10) / 10);
+}
+
 function hrEmployeeManagerLabel_(p) {
   if (!p || p.route !== 'line' || !p.managerCode) return 'Director';
   if (p.managerName && p.managerActive === false) return p.managerName + ' (removed)';
@@ -1589,7 +1596,7 @@ function hrRenderTeam_() {
     return;
   }
   var h = '<div class="hr-table-wrap"><table class="hr-list-table"><thead><tr>' +
-    '<th>Code</th><th>Name</th><th>Job title</th><th>Department</th><th>Division</th><th>E-signature</th>' +
+    '<th>Code</th><th>Name</th><th>Job title</th><th>Department</th><th>Division</th><th>E-signature</th><th>Days left</th>' +
     '</tr></thead><tbody>';
   rows.forEach(function (p) {
     var sig = String(p.signature || '');
@@ -1598,7 +1605,8 @@ function hrRenderTeam_() {
       : '—';
     h += '<tr><td>' + hrEsc_(p.code) + '</td><td><strong>' + hrEsc_(p.name) + '</strong></td><td>' +
       hrEsc_(p.job || '—') + '</td><td>' + hrEsc_(p.department || '—') + '</td><td>' +
-      hrEsc_(p.section || '—') + '</td><td>' + sigCell + '</td></tr>';
+      hrEsc_(p.section || '—') + '</td><td>' + sigCell + '</td><td class="hr-days-left">' +
+      hrEsc_(hrFmtDays_(p.daysBalance)) + '</td></tr>';
   });
   h += '</tbody></table></div>';
   host.innerHTML = h;
@@ -1639,11 +1647,12 @@ function hrRenderEmployees_() {
     return;
   }
   var h = '<div class="hr-table-wrap"><table class="hr-list-table"><thead><tr>' +
-    '<th>Code</th><th>Name</th><th>Job title</th><th>Department</th><th>Division</th><th>Line manager</th><th>Updated</th><th></th>' +
+    '<th>Code</th><th>Name</th><th>Job title</th><th>Department</th><th>Division</th><th>Days left</th><th>Line manager</th><th>Updated</th><th></th>' +
     '</tr></thead><tbody>';
   rows.forEach(function (p) {
     h += '<tr><td>' + hrEsc_(p.code) + '</td><td><strong>' + hrEsc_(p.name) + '</strong></td><td>' + hrEsc_(p.job || '—') +
       '</td><td>' + hrEsc_(p.department || '—') + '</td><td>' + hrEsc_(p.section || '—') + '</td><td>' +
+      hrEsc_(hrFmtDays_(p.daysBalance)) + '</td><td>' +
       hrEsc_(hrEmployeeManagerLabel_(p)) + '</td><td>' + hrEsc_(p.updatedAt || '') + '</td><td><div class="hr-row-acts">' +
       '<button type="button" class="hr-btn-edit" onclick="hrEditEmployee_(\'' + hrEsc_(p.code) + '\')">Edit</button>' +
       '<button type="button" class="hr-btn-del" onclick="hrRemoveEmployee_(\'' + hrEsc_(p.code) + '\')">Remove</button>' +
@@ -1678,6 +1687,7 @@ function hrEditEmployee_(code) {
   document.getElementById('hrEmpEditDept').value = person ? (person.department || '') : '';
   document.getElementById('hrEmpEditSection').value = person ? (person.section || '') : '';
   document.getElementById('hrEmpEditGroup').value = person ? (person.group || '') : '';
+  document.getElementById('hrEmpEditDays').value = person && person.daysBalance != null && person.daysBalance !== '' ? hrFmtDays_(person.daysBalance) : '';
   hrFillManagerSelect_(person && person.route === 'line' ? person.managerCode : '', person ? person.code : '');
   var title = document.getElementById('hrEmpEditTitle');
   if (title) title.textContent = person ? 'Edit employee' : 'Add employee';
@@ -1692,6 +1702,11 @@ function hrEmpEditClose_() {
 function hrEmpEditSave_() {
   var prev = hrVal_('hrEmpEditPrev');
   var managerCode = hrVal_('hrEmpEditManager');
+  var daysRaw = hrVal_('hrEmpEditDays');
+  if (daysRaw && !/^\d+(\.\d+)?$/.test(daysRaw)) {
+    hrMsg_('Days left must be a number, such as 20 or 18.5.', false);
+    return;
+  }
   var body = {
     action: 'saveHrEmployee',
     token: hrToken_(),
@@ -1703,7 +1718,8 @@ function hrEmpEditSave_() {
     section: hrVal_('hrEmpEditSection'),
     group: hrVal_('hrEmpEditGroup') || hrVal_('hrEmpEditDept') || 'Employees',
     route: managerCode ? 'line' : 'director',
-    managerCode: managerCode
+    managerCode: managerCode,
+    daysBalance: hrVal_('hrEmpEditDays')
   };
   hrMsg_('Saving employee…', true);
   fetchJSONRetry(body, 1, 30000).then(function (d) {
@@ -4176,6 +4192,10 @@ function hrRenderSignedTable_() {
 }
 
 function hrLoad_(force) {
+  if (force) {
+    _hrEmployeesLoaded = false;
+    _hrTeamLoaded = false;
+  }
   hrRenderTable_();
   return fetchJSONRetry({ action: 'getHrLeaveRequests', token: hrToken_() }, force ? 1 : 2, 45000)
     .then(function (d) {
@@ -4196,6 +4216,7 @@ function hrLoad_(force) {
         hrRenderDoneTable_();
         hrRenderConfirmedTable_();
         hrRenderArchiveTable_();
+        if (document.getElementById('team') && document.getElementById('team').classList.contains('active')) hrRenderTeam_();
       });
     })
     .catch(function (err) {

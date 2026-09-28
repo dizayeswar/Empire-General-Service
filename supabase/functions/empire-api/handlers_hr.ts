@@ -941,6 +941,7 @@ export async function handleAddHrLeaveRequest(body: Record<string, unknown>, aut
   };
   const { error } = await sb().from("hr_leave_requests").insert(row);
   if (error) throw error;
+  await applyLeaveDays(fields.emp_code, parseLeaveDays(fields.days_out));
   return { ok: true, success: true, id, num, row: rowToApi(row) };
 }
 
@@ -962,6 +963,15 @@ export async function handleUpdateHrLeaveRequest(body: Record<string, unknown>, 
   const patch = { ...fields, updated_at: isoNow() };
   const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", id);
   if (error) throw error;
+  const oldCode = String(ex.emp_code || "").trim();
+  const oldDays = parseLeaveDays(ex.days_out);
+  const newDays = parseLeaveDays(fields.days_out);
+  if (oldCode && oldCode === fields.emp_code) {
+    await applyLeaveDays(fields.emp_code, Math.round((newDays - oldDays) * 10) / 10);
+  } else {
+    if (oldCode) await applyLeaveDays(oldCode, -oldDays);
+    await applyLeaveDays(fields.emp_code, newDays);
+  }
   return { ok: true, success: true, id, row: rowToApi({ ...ex, ...patch }) };
 }
 
@@ -979,6 +989,7 @@ export async function handleDeleteHrLeaveRequest(body: Record<string, unknown>, 
   await trashRows("HrLeaveRequests", [ex], "delete", String(auth.username || body.username || ""));
   const { error } = await sb().from("hr_leave_requests").delete().eq("id", id);
   if (error) throw error;
+  await applyLeaveDays(String(ex.emp_code || "").trim(), -parseLeaveDays(ex.days_out));
   return { ok: true, success: true, id, trashed: true };
 }
 
@@ -1632,9 +1643,27 @@ type HrPerson = {
   group: string;
   route: "line" | "director";
   managerCode: string;
+  daysBalance: number | null;
   active: boolean;
   updatedAt: string;
 };
+
+function parseLeaveDays(raw: unknown): number {
+  const s = String(raw || "").trim().toLowerCase();
+  if (!s) return 0;
+  if (/^half\b/.test(s)) return 0.5;
+  const m = s.match(/\d+(?:\.\d+)?/);
+  if (!m) return 0;
+  const n = Number(m[0]);
+  return Number.isFinite(n) ? Math.round(n * 10) / 10 : 0;
+}
+
+function parseDaysBalance(raw: unknown): number | null {
+  if (raw == null || String(raw).trim() === "") return null;
+  const n = Number(String(raw).trim());
+  if (!Number.isFinite(n)) return null;
+  return Math.round(n * 10) / 10;
+}
 
 function cleanPersonText(raw: unknown): string {
   return String(raw || "").trim().replace(/\s+/g, " ");
@@ -1652,6 +1681,7 @@ function asHrPerson(raw: Record<string, unknown>): HrPerson {
     group: cleanPersonText(raw.group) || cleanPersonText(raw.department) || "Employees",
     route: route === "line" && managerCode ? "line" : "director",
     managerCode: route === "line" ? managerCode : "",
+    daysBalance: parseDaysBalance(raw.daysBalance),
     active: raw.active !== false,
     updatedAt: String(raw.updatedAt || "").slice(0, 10),
   };
@@ -1694,6 +1724,16 @@ async function readHrEmployees(): Promise<HrPerson[]> {
   return people;
 }
 
+async function applyLeaveDays(code: string, delta: number) {
+  const days = Math.round(Number(delta) * 10) / 10;
+  if (!code || !days) return;
+  const people = await readHrEmployees();
+  const person = people.find((row) => row.code === code && row.active);
+  if (!person || person.daysBalance == null) return;
+  person.daysBalance = Math.round((person.daysBalance - days) * 10) / 10;
+  await writeHrEmployees(people);
+}
+
 async function writeHrEmployees(people: HrPerson[]) {
   const { error } = await sb().from("ui_settings").upsert({
     key: HR_EMPLOYEES_KEY,
@@ -1716,6 +1756,7 @@ function publishHrPerson(person: HrPerson, all: HrPerson[]) {
     managerCode: person.managerCode,
     managerName: mgr ? mgr.name : "",
     managerActive: !!(mgr && mgr.active),
+    daysBalance: person.daysBalance,
     active: person.active,
     updatedAt: person.updatedAt,
   };
@@ -1801,6 +1842,7 @@ export async function handleListHrTeam(auth: AuthOk) {
       job: row.job,
       department: row.department,
       section: row.section,
+      daysBalance: row.daysBalance,
       signature: signatureForPerson(row, accounts),
     })),
   };
