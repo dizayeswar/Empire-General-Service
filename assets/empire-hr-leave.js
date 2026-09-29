@@ -1548,6 +1548,31 @@ function hrEmployeeGroups_() {
   return out;
 }
 
+function hrFitPhone_() {
+  if (!window.matchMedia || !window.matchMedia('(max-width: 840px)').matches) return;
+  var sb = document.getElementById('sidebar');
+  if (!sb) return;
+  var saved = '';
+  try { saved = localStorage.getItem('empire_sidebar_collapsed') || ''; } catch (e) {}
+  if (saved !== '0') sb.classList.add('collapsed');
+}
+
+function hrLabelListTables_(root) {
+  if (!root || !root.querySelectorAll) return;
+  root.querySelectorAll('table.hr-list-table').forEach(function (table) {
+    var heads = [];
+    table.querySelectorAll('thead th').forEach(function (th) {
+      heads.push(String(th.textContent || '').replace(/\s+/g, ' ').trim());
+    });
+    table.querySelectorAll('tbody tr').forEach(function (tr) {
+      var cells = tr.children;
+      for (var i = 0; i < cells.length; i++) {
+        if (heads[i]) cells[i].setAttribute('data-label', heads[i]);
+      }
+    });
+  });
+}
+
 function hrFmtDays_(n) {
   if (n == null || n === '') return '—';
   var x = Number(n);
@@ -1610,6 +1635,7 @@ function hrRenderTeam_() {
   });
   h += '</tbody></table></div>';
   host.innerHTML = h;
+  hrLabelListTables_(host);
 }
 
 function hrRenderEmployees_() {
@@ -1660,6 +1686,7 @@ function hrRenderEmployees_() {
   });
   h += '</tbody></table></div>';
   host.innerHTML = h;
+  hrLabelListTables_(host);
 }
 
 function hrFillManagerSelect_(selected, skipCode) {
@@ -3819,6 +3846,7 @@ function hrRenderTable_() {
           : 'When HR assigns a paper to you, it appears here to sign. After you confirm, it goes to the director.')
         : 'No saved requests yet.'))) + '</p></section>';
     host.innerHTML = h;
+  hrLabelListTables_(host);
     return;
   }
   h += '<div class="hr-table-wrap"><table class="hr-list-table hr-board-table"><thead><tr>' +
@@ -3869,6 +3897,7 @@ function hrRenderTable_() {
   });
   h += '</tbody></table></div></section>';
   host.innerHTML = h;
+  hrLabelListTables_(host);
 }
 
 function hrRenderDoneTable_() {
@@ -4018,11 +4047,13 @@ function hrRenderArchiveTable_() {
       ? 'No filed papers yet. Move papers from Completed request into a leave type, and they also appear here.'
       : 'No papers in ' + hrEsc_(meta.label) + ' yet. Select papers in Completed request and move them here.') + '</p></section>';
     host.innerHTML = h;
+  hrLabelListTables_(host);
     return;
   }
   if (!rows.length) {
     h += '<p class="hr-stage-empty">No papers match that name or ID.</p></section>';
     host.innerHTML = h;
+  hrLabelListTables_(host);
     return;
   }
   h += '<div class="hr-table-wrap"><table class="hr-list-table"><thead><tr>' +
@@ -4051,6 +4082,7 @@ function hrRenderArchiveTable_() {
   });
   h += '</tbody></table></div></section>';
   host.innerHTML = h;
+  hrLabelListTables_(host);
 }
 
 function hrRenderConfirmedTable_() {
@@ -4082,6 +4114,7 @@ function hrRenderConfirmedTable_() {
   if (!completed.length) {
     h += '<p class="hr-stage-empty">Papers the director confirms appear here.</p></section>';
     host.innerHTML = h;
+  hrLabelListTables_(host);
     return;
   }
   h += '<div class="hr-table-wrap"><table class="hr-list-table"><thead><tr>' +
@@ -4108,6 +4141,7 @@ function hrRenderConfirmedTable_() {
   });
   h += '</tbody></table></div></section>';
   host.innerHTML = h;
+  hrLabelListTables_(host);
 }
 
 function hrSignedRows_() {
@@ -4152,6 +4186,7 @@ function hrRenderSignedTable_() {
   if (!rows.length) {
     h += '<p class="hr-stage-empty">When you confirm an e-signature, that paper is saved here with the ID, dates, days, and whether the director has confirmed.</p></section>';
     host.innerHTML = h;
+  hrLabelListTables_(host);
     return;
   }
   h += '<div class="hr-signed-list">';
@@ -4189,6 +4224,7 @@ function hrRenderSignedTable_() {
   });
   h += '</div></section>';
   host.innerHTML = h;
+  hrLabelListTables_(host);
 }
 
 function hrLoad_(force) {
@@ -5198,6 +5234,7 @@ function hrEnterApp_() {
   if (typeof empireAuthMarkLoginVisible === 'function') empireAuthMarkLoginVisible(false);
   var who = document.getElementById('whoLabel');
   if (who) who.textContent = 'Logged in as: ' + (empireGetUser() || '');
+  hrFitPhone_();
   if (typeof empireAuthRefreshPerms === 'function') {
     empireAuthRefreshPerms(function () {
       _hrCanWrite = hrCanWrite_();

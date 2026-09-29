@@ -1242,8 +1242,57 @@
   -webkit-text-fill-color: #000;
 }
 
-@media (max-width: 720px) {
+@media screen and (max-width: 840px) {
+  .login-page { padding: 16px; }
+  .login-box { padding: 24px 18px; }
+  .container { padding: 12px; }
+  .form-section { padding: 14px; margin-bottom: 14px; }
+  .main-area { width: 100%; overflow-x: hidden; }
+  .hr-app,
+  .hr-list-editor {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
   .hr-note { padding: 12px; }
+  .filter-toolbar .form-group,
+  .hr-file-select { flex: 1 1 100%; width: 100%; max-width: none; }
+  .hr-kpi { flex: 1 1 calc(50% - 10px); min-width: 0; }
+  .hr-table-wrap { overflow: visible; }
+  .hr-list-table,
+  .hr-list-table tbody,
+  .hr-list-table tr,
+  .hr-list-table td { display: block; width: 100%; }
+  .hr-list-table thead { display: none; }
+  .hr-list-table tr {
+    margin: 0 0 10px;
+    padding: 8px 12px;
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    background: var(--panel);
+  }
+  .hr-list-table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 0;
+    border-bottom: 0;
+    text-align: right;
+  }
+  .hr-list-table td[data-label]::before {
+    content: attr(data-label);
+    flex: 0 0 38%;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--text-soft);
+  }
+  .hr-list-table td .hr-row-acts { justify-content: flex-end; }
+  .hr-team-sig { height: 40px; max-width: 140px; }
+  .hr-sig-pick-card, .hr-emp-edit-card { width: min(440px, calc(100vw - 24px)); }
 }
 
 .hr-nav-sub {
