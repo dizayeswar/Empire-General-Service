@@ -1295,9 +1295,6 @@
   .hr-sig-pick-card, .hr-emp-edit-card { width: min(440px, calc(100vw - 24px)); }
 }
 
-.hr-field-head,
-.hr-mobile-dock { display: contents; }
-
 .hr-nav-sub {
   display: flex;
   flex-direction: column;
@@ -1307,20 +1304,17 @@
 .hr-nav-sub[hidden] { display: none !important; }
 #hrSavedFilters[hidden] { display: none !important; }
 
-/* Line manager and employee phones: sections sit in a bottom bar. HR keeps the top menu. */
+/* Line manager and employee phones: sections sit in a bottom bar. HR keeps the top menu.
+   Real boxes only — iPhone drops buttons out of a bar built with display:contents. */
 @media screen and (max-width: 840px) {
-  body.hr-field-nav .sidebar { display: contents; }
-  body.hr-field-nav .hr-field-head {
+  body.hr-field-nav .sidebar {
     display: block;
-    align-self: stretch;
     width: 100%;
-    box-sizing: border-box;
-    background: var(--header-bg);
-    border-radius: var(--radius-lg, 24px);
-    padding: 14px 14px 12px;
     margin: 0 0 12px;
-    box-shadow: 0 2px 10px var(--shadow);
-    border-bottom: 3px solid var(--accent-line);
+    padding: 14px 14px 12px;
+    position: relative;
+    top: auto;
+    max-height: none;
   }
   body.hr-field-nav .side-toggle { display: none; }
   body.hr-field-nav .sidebar-top { margin-bottom: 8px; }
@@ -1342,18 +1336,47 @@
     padding: 6px 4px;
     box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
   }
-  body.hr-field-nav .side-nav,
-  body.hr-field-nav .side-actions {
-    display: contents;
+  body.hr-field-nav .side-nav {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    flex: 4 1 0%;
+    gap: 2px;
+    margin: 0;
+    min-width: 0;
   }
   body.hr-field-nav .hr-nav-sub,
   body.hr-field-nav .hr-nav-sub[hidden] {
-    display: contents !important;
+    display: flex !important;
+    flex-direction: row;
+    align-items: stretch;
+    flex: 2 1 0%;
+    gap: 2px;
+    margin: 0;
+    min-width: 0;
   }
-  body.hr-field-nav .side-nav .tab-btn,
+  body.hr-field-nav .side-actions {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    flex: 2 1 0%;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+    position: relative;
+  }
+  body.hr-field-nav .sidebar.collapsed .side-nav,
+  body.hr-field-nav .sidebar.collapsed .side-actions {
+    display: flex;
+  }
+  body.hr-field-nav .side-nav > .tab-btn,
+  body.hr-field-nav .hr-nav-sub > .tab-btn,
   body.hr-field-nav .side-actions > button,
   body.hr-field-nav .hr-settings-toggle {
-    flex: 1 1 0;
+    flex: 1 1 0%;
+    display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
@@ -1369,13 +1392,15 @@
     text-align: center;
     transform: none;
   }
-  body.hr-field-nav .side-nav .tab-btn:hover,
+  body.hr-field-nav .side-nav > .tab-btn:hover,
+  body.hr-field-nav .hr-nav-sub > .tab-btn:hover,
   body.hr-field-nav .side-actions > button:hover,
   body.hr-field-nav .hr-settings-toggle:hover {
     transform: none;
     background: transparent;
   }
-  body.hr-field-nav .side-nav .tab-btn.active,
+  body.hr-field-nav .side-nav > .tab-btn.active,
+  body.hr-field-nav .hr-nav-sub > .tab-btn.active,
   body.hr-field-nav .hr-settings.open .hr-settings-toggle {
     background: var(--tab-active);
     color: var(--tab-active-text);
@@ -1387,20 +1412,14 @@
   }
   body.hr-field-nav .hr-mobile-dock .lbl {
     display: block;
-    max-width: 68px;
+    max-width: 100%;
     font-size: 9px;
     line-height: 1.15;
     font-weight: 700;
     text-align: center;
     white-space: normal;
   }
-  body.hr-field-nav .sidebar.collapsed .side-nav,
-  body.hr-field-nav .sidebar.collapsed .side-actions {
-    display: contents;
-  }
-  body.hr-field-nav .sidebar.collapsed .lbl {
-    display: block;
-  }
+  body.hr-field-nav .sidebar.collapsed .lbl,
   body.hr-field-nav .sidebar.collapsed .hr-mobile-dock .lbl {
     display: block;
   }
