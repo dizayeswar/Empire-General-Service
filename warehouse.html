@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-09-22-search-pill">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-17-gin-dmy">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-09-30-inv-xlsx2">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-09-30-inv-qty">
 </head>
 <body class="auth-login-visible wh-page">
 <div class="login-page show" id="loginPage">
@@ -629,7 +629,7 @@
 <script src="assets/empire-core.js?v=2026-09-17-gin-dmy"></script>
 <script src="assets/empire-sw-update.js?v=2026-09-17-gin-dmy"></script>
 <script src="assets/empire-warehouse-sp.js?v=2026-09-17-gin-dmy"></script>
-<script src="assets/issue-excel-export.js?v=2026-09-30-inv-xlsx2"></script>
+<script src="assets/issue-excel-export.js?v=2026-09-30-inv-qty"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_COMPANIES = ['CAI','MEP','AC','MDM','CLEANING','GM','AGRICULTURE','EM NET'];
@@ -5291,12 +5291,35 @@ function whInvExcelMoneyCell_(v){
   if(!s || s==='—') return '';
   return whInvParseMoney_(s);
 }
+function whInvExcelQtyParts_(v){
+  var s=String(v==null?'':v).replace(/\r\n/g,'\n').replace(/\r/g,'\n').trim();
+  if(!s || s==='—') return [];
+  return s.split('\n').map(function(p){ return p.trim(); }).filter(function(p){ return p && p!=='—'; });
+}
 function whInvExcelQtyCell_(v){
-  var s=String(v==null?'':v).trim();
-  if(!s || s==='—') return '';
-  if(s.indexOf('\n')!==-1) return s;
-  var n=parseFloat(s.replace(/,/g,''));
-  return isFinite(n) ? n : s;
+  var parts=whInvExcelQtyParts_(v);
+  if(!parts.length) return '';
+  if(parts.length===1){
+    var n=parseFloat(String(parts[0]).replace(/,/g,''));
+    return isFinite(n) ? n : parts[0];
+  }
+  return parts.join('\r\n');
+}
+function whInvExcelQtySum_(v){
+  var parts=whInvExcelQtyParts_(v);
+  var sum=0, any=false;
+  parts.forEach(function(p){
+    var n=parseFloat(String(p).replace(/,/g,''));
+    if(!isFinite(n)) return;
+    sum+=n;
+    any=true;
+  });
+  if(!any) return '';
+  return Math.abs(sum-Math.round(sum))<1e-9 ? Math.round(sum) : Math.round(sum*1000)/1000;
+}
+function whInvExcelMultiline_(v){
+  var s=String(v==null?'':v).replace(/\r\n/g,'\n').replace(/\r/g,'\n').trim();
+  return s ? s.split('\n').join('\r\n') : '';
 }
 function whInvExcelStatus_(st){
   st=String(st||'');
@@ -5316,6 +5339,20 @@ function whInvLoadXlsx_(){
   if(window.XLSX) return Promise.resolve(window.XLSX);
   return Promise.reject(new Error('Could not load Excel library. Check your internet connection.'));
 }
+function whInvExcelFixCells_(ws){
+  if(!ws) return;
+  Object.keys(ws).forEach(function(addr){
+    if(addr.charAt(0)==='!') return;
+    var cell=ws[addr];
+    if(!cell) return;
+    if(typeof cell.v==='string' && /[\r\n]/.test(cell.v)){
+      cell.t='s';
+      cell.v=String(cell.v).replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n').join('\r\n');
+      cell.z='@';
+      cell.s={ alignment:{ wrapText:true, vertical:'top' } };
+    }
+  });
+}
 function whInvWriteExcel_(filename, sheets, btn){
   whInvExcelBusy_(btn, true);
   return whInvLoadXlsx_().then(function(XLSX){
@@ -5323,12 +5360,13 @@ function whInvWriteExcel_(filename, sheets, btn){
     var wb=XLSX.utils.book_new();
     (sheets||[]).forEach(function(sh){
       if(!sh || !sh.rows || !sh.rows.length) return;
-      var ws=XLSX.utils.aoa_to_sheet(sh.rows);
+      var ws=XLSX.utils.aoa_to_sheet(sh.rows, { raw:true });
       if(sh.cols) ws['!cols']=sh.cols;
+      whInvExcelFixCells_(ws);
       XLSX.utils.book_append_sheet(wb, ws, String(sh.name||'Sheet').slice(0,31));
     });
     if(!wb.SheetNames.length) throw new Error('Nothing to export.');
-    XLSX.writeFile(wb, filename);
+    XLSX.writeFile(wb, filename, { cellStyles:true });
   }).catch(function(e){
     alert(String((e && e.message) || e || 'Could not export Excel.'));
   }).then(function(){
@@ -5349,7 +5387,7 @@ function whInvExportExcel(){
   var monthLabel=_whInvListMonth ? ('Month '+_whInvListMonth+' (26th–25th)') : 'All months';
   if(_whInvListBookStart && _whInvListBookEnd) monthLabel='Book R V '+_whInvListBookStart+'–'+_whInvListBookEnd;
   var deptAoa=whInvDeptTotalsAoa_(deptRows, monthLabel);
-  var invAoa=[['#','Book','SP','Item description','COM','Dept','Status','Qty','Amount USD','Amount IQD','R V num','Date','Name','Property','Edited']];
+  var invAoa=[['#','Book','SP','Item description','COM','Dept','Status','Qty','Qty total','Amount USD','Amount IQD','R V num','Date','Name','Property','Edited']];
   var usd=0, iqd=0;
   rows.forEach(function(r, idx){
     var usdCell=whInvExcelMoneyCell_(r.amountUsd);
@@ -5360,12 +5398,13 @@ function whInvExportExcel(){
     invAoa.push([
       r.num||(idx+1),
       bookNo||'',
-      r.sp||'',
-      r.desc||'',
+      whInvExcelMultiline_(r.sp),
+      whInvExcelMultiline_(r.desc),
       r.company||'',
       r.department||'',
       whInvExcelStatus_(r.linkStatus),
       whInvExcelQtyCell_(r.qty),
+      whInvExcelQtySum_(r.qty),
       usdCell,
       iqdCell,
       r.invoiceNo||'',
@@ -5375,7 +5414,7 @@ function whInvExportExcel(){
       r.edited ? 'Yes' : ''
     ]);
   });
-  if(rows.length) invAoa.push(['','','','','','','Total','', usd, iqd, '','','','','']);
+  if(rows.length) invAoa.push(['','','','','','','Total','','', usd, iqd, '','','','','']);
   var bookAoa=[['Book','R V from','R V to','Pages used','Book pages','Invoices','Amount USD','Amount IQD','Status','Handled by','Handled at']];
   shownBooks.forEach(function(b){
     bookAoa.push([
@@ -5402,7 +5441,7 @@ function whInvExportExcel(){
     { name:'By department', rows:deptAoa, cols:[{wch:18},{wch:12},{wch:14},{wch:14}] }
   ];
   if(rows.length){
-    sheets.push({ name:'Invoices', rows:invAoa, cols:[{wch:6},{wch:8},{wch:14},{wch:36},{wch:8},{wch:8},{wch:12},{wch:10},{wch:14},{wch:14},{wch:12},{wch:12},{wch:16},{wch:14},{wch:8}] });
+    sheets.push({ name:'Invoices', rows:invAoa, cols:[{wch:6},{wch:8},{wch:16},{wch:36},{wch:8},{wch:8},{wch:12},{wch:10},{wch:10},{wch:14},{wch:14},{wch:12},{wch:12},{wch:16},{wch:14},{wch:8}] });
   }
   if(shownBooks.length){
     sheets.push({ name:'Books', rows:bookAoa, cols:[{wch:8},{wch:12},{wch:12},{wch:12},{wch:12},{wch:10},{wch:14},{wch:14},{wch:16},{wch:16},{wch:14}] });
