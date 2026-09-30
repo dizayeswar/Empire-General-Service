@@ -86,6 +86,7 @@ body.wh-page .wh-saved-app .form-section {
 }
 .wh-toolbar .wh-spacer { flex: 1; }
 .wh-toolbar button { font-family: inherit; cursor: pointer; }
+.wh-toolbar button .nav-icon { margin-inline-end: 4px; }
 .wh-select-count {
   font-size: 13px;
   font-weight: 600;
