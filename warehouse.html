@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-09-22-search-pill">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-17-gin-dmy">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-09-30-inv-lines">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-09-30-inv-merge">
 </head>
 <body class="auth-login-visible wh-page">
 <div class="login-page show" id="loginPage">
@@ -629,7 +629,7 @@
 <script src="assets/empire-core.js?v=2026-09-17-gin-dmy"></script>
 <script src="assets/empire-sw-update.js?v=2026-09-17-gin-dmy"></script>
 <script src="assets/empire-warehouse-sp.js?v=2026-09-17-gin-dmy"></script>
-<script src="assets/issue-excel-export.js?v=2026-09-30-inv-lines"></script>
+<script src="assets/issue-excel-export.js?v=2026-09-30-inv-merge"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_COMPANIES = ['CAI','MEP','AC','MDM','CLEANING','GM','AGRICULTURE','EM NET'];
@@ -5316,6 +5316,7 @@ function whInvExcelExpandLines_(rows){
       var desc=descs[i]||'';
       if(!desc && i===0 && !sps.length) desc='Work Wages';
       out.push({
+        id: r.id||'',
         num: r.num||0,
         invoiceNo: r.invoiceNo||'',
         sp: sps[i]||'',
@@ -5376,6 +5377,14 @@ function whInvWriteExcel_(filename, sheets, btn){
       if(!sh || !sh.rows || !sh.rows.length) return;
       var ws=XLSX.utils.aoa_to_sheet(sh.rows, { raw:true });
       if(sh.cols) ws['!cols']=sh.cols;
+      if(sh.merges && sh.merges.length){
+        ws['!merges']=sh.merges;
+        sh.merges.forEach(function(m){
+          var addr='A'+(m.s.r+1);
+          if(!ws[addr]) ws[addr]={ t:'s', v:'' };
+          ws[addr].s={ alignment:{ horizontal:'center', vertical:'center' } };
+        });
+      }
       whInvExcelFixCells_(ws);
       XLSX.utils.book_append_sheet(wb, ws, String(sh.name||'Sheet').slice(0,31));
     });
@@ -5404,12 +5413,27 @@ function whInvExportExcel(){
   var invAoa=[['#','Book','SP','Item description','COM','Dept','Status','Qty','Amount USD','Amount IQD','R V num','Date','Name','Property','Edited']];
   var usd=0, iqd=0;
   var lines=whInvExcelExpandLines_(rows);
+  var merges=[];
+  var groupStart=null;
+  var groupKey=null;
+  function flushColA_(endRow){
+    if(groupStart!=null && endRow>groupStart){
+      merges.push({ s:{ r:groupStart, c:0 }, e:{ r:endRow, c:0 } });
+    }
+  }
   lines.forEach(function(line){
     if(typeof line.amountUsd==='number') usd+=line.amountUsd;
     if(typeof line.amountIqd==='number') iqd+=line.amountIqd;
     var bookNo=whInvBookNoForRv_(books, whInvRvNum_(line.invoiceNo));
+    var key=String(line.id||line.invoiceNo||line.num||'');
+    var row=invAoa.length;
+    if(key!==groupKey){
+      flushColA_(row-1);
+      groupStart=row;
+      groupKey=key;
+    }
     invAoa.push([
-      line.num||'',
+      row===groupStart ? (line.num||'') : '',
       bookNo||'',
       line.sp,
       line.desc,
@@ -5426,6 +5450,7 @@ function whInvExportExcel(){
       line.edited ? 'Yes' : ''
     ]);
   });
+  flushColA_(invAoa.length-1);
   if(lines.length) invAoa.push(['','','','','','','Total','', usd, iqd, '','','','','']);
   var bookAoa=[['Book','R V from','R V to','Pages used','Book pages','Invoices','Amount USD','Amount IQD','Status','Handled by','Handled at']];
   shownBooks.forEach(function(b){
@@ -5453,7 +5478,7 @@ function whInvExportExcel(){
     { name:'By department', rows:deptAoa, cols:[{wch:18},{wch:12},{wch:14},{wch:14}] }
   ];
   if(rows.length){
-    sheets.push({ name:'Invoices', rows:invAoa, cols:[{wch:6},{wch:8},{wch:16},{wch:36},{wch:8},{wch:8},{wch:12},{wch:8},{wch:14},{wch:14},{wch:12},{wch:12},{wch:16},{wch:14},{wch:8}] });
+    sheets.push({ name:'Invoices', rows:invAoa, cols:[{wch:6},{wch:8},{wch:16},{wch:36},{wch:8},{wch:8},{wch:12},{wch:8},{wch:14},{wch:14},{wch:12},{wch:12},{wch:16},{wch:14},{wch:8}], merges:merges });
   }
   if(shownBooks.length){
     sheets.push({ name:'Books', rows:bookAoa, cols:[{wch:8},{wch:12},{wch:12},{wch:12},{wch:12},{wch:10},{wch:14},{wch:14},{wch:16},{wch:16},{wch:14}] });
