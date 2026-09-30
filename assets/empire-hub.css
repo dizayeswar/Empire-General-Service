@@ -165,6 +165,37 @@ header p {
   background: var(--bg);
 }
 
+/* Dark hub wash slowly drifts between the same blue and magenta. */
+html[data-theme='dark'] body,
+html[data-theme='dark'] .hub-dashboard {
+  background-image: linear-gradient(
+    125deg,
+    #0a4a88 0%,
+    #0f5a9e 18%,
+    #243c8c 38%,
+    #6a1874 62%,
+    #8d015d 82%,
+    #0f5a9e 100%
+  );
+  background-size: 260% 260%;
+  animation: hub-bg-drift 22s ease-in-out infinite;
+}
+
+@keyframes hub-bg-drift {
+  0% { background-position: 6% 18%; }
+  50% { background-position: 94% 82%; }
+  100% { background-position: 6% 18%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme='dark'] body,
+  html[data-theme='dark'] .hub-dashboard {
+    animation: none;
+    background: var(--bg);
+    background-size: auto;
+  }
+}
+
 .hub-toolbar {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
