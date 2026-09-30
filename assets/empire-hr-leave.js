@@ -2057,7 +2057,7 @@ function hrApplyNavAccess_() {
   show('tabBtnSigned', hrCanSeeTab_('signed'));
   show('tabBtnConfirmed', hrCanSeeTab_('confirmed'));
   show('tabBtnDone', hrCanSeeTab_('done'));
-  show('tabBtnForm', hrCanSeeTab_('form'));
+  show('tabBtnForm', hrCanSeeTab_('form') && hrIsHrStaff_());
   show('tabBtnEmployees', hrCanSeeTab_('employees'));
   show('tabBtnTeam', hrCanSeeTab_('team'));
   var archiveNav = document.getElementById('hrArchiveNav');
@@ -4230,10 +4230,47 @@ function hrRenderSignedTable_() {
   hrLabelListTables_(host);
 }
 
-function hrLoad_(force) {
+function hrSpinRefresh_(on) {
+  var icon = document.getElementById('navRefreshIcon');
+  if (icon) icon.classList.toggle('spinning', !!on);
+  var btn = icon && icon.closest ? icon.closest('button') : null;
+  if (btn) btn.setAttribute('aria-busy', on ? 'true' : 'false');
+}
+
+function hrFetchTeam_() {
+  if (!hrCanSeeTab_('team')) return Promise.resolve();
+  _hrTeamLoaded = false;
+  return fetchJSONRetry({ action: 'listHrTeam', token: hrToken_() }, 1, 45000).then(function (d) {
+    if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Could not load your employees.');
+    _hrTeam = Array.isArray(d.people) ? d.people : [];
+    _hrTeamNote = d.message || '';
+    _hrTeamLoaded = true;
+    var team = document.getElementById('team');
+    if (team && team.classList.contains('active')) hrRenderTeam_();
+  }).catch(function () {
+    _hrTeamLoaded = false;
+  });
+}
+
+function hrRefresh_() {
+  return hrLoad_(true, true);
+}
+
+function hrLoad_(force, spin) {
+  if (spin) {
+    var iconBusy = document.getElementById('navRefreshIcon');
+    if (iconBusy && iconBusy.classList.contains('spinning')) return;
+    hrSpinRefresh_(true);
+  }
   if (force) {
     _hrEmployeesLoaded = false;
     _hrTeamLoaded = false;
+  }
+  var spinStarted = spin ? Date.now() : 0;
+  function stopSpin_() {
+    if (!spin) return;
+    var wait = Math.max(0, 800 - (Date.now() - spinStarted));
+    setTimeout(function () { hrSpinRefresh_(false); }, wait);
   }
   hrRenderTable_();
   return fetchJSONRetry({ action: 'getHrLeaveRequests', token: hrToken_() }, force ? 1 : 2, 45000)
@@ -4255,6 +4292,7 @@ function hrLoad_(force) {
         hrRenderDoneTable_();
         hrRenderConfirmedTable_();
         hrRenderArchiveTable_();
+        if (spin) return hrFetchTeam_();
         if (document.getElementById('team') && document.getElementById('team').classList.contains('active')) hrRenderTeam_();
       });
     })
@@ -4271,7 +4309,8 @@ function hrLoad_(force) {
       if (archiveHost) archiveHost.innerHTML = errHtml;
       var signedHost = document.getElementById('hrSignedHost');
       if (signedHost) signedHost.innerHTML = errHtml;
-    });
+    })
+    .then(function () { stopSpin_(); }, function () { stopSpin_(); });
 }
 
 function hrEmptyScan_() {

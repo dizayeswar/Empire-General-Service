@@ -1340,7 +1340,7 @@
     display: flex;
     flex-direction: row;
     align-items: stretch;
-    flex: 4 1 0%;
+    flex: 3 1 0%;
     gap: 2px;
     margin: 0;
     min-width: 0;
@@ -1409,6 +1409,10 @@
   body.hr-field-nav .hr-mobile-dock .nav-icon svg {
     width: 20px;
     height: 20px;
+  }
+  body.hr-field-nav .hr-mobile-dock #navRefreshIcon.spinning svg {
+    animation: empireSpin 0.8s linear infinite;
+    transform-origin: 50% 50%;
   }
   body.hr-field-nav .hr-mobile-dock .lbl {
     display: block;
