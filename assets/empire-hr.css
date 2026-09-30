@@ -1302,6 +1302,7 @@
   margin: 0 0 0 12px;
 }
 .hr-nav-sub[hidden] { display: none !important; }
+#hrSavedFilters[hidden] { display: none !important; }
 .hr-nav-archive {
   display: flex;
   flex-direction: column;

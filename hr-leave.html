@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-09-22-search-pill">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-27-gailan-paper">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-29-mobile">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-09-30-hr-filters">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -114,6 +114,48 @@
           <h2>Saved requests</h2>
           <p class="hr-tab-help">Confirm uses the Employees list. A line manager is assigned automatically. People with no line manager go straight to the director. After the director signs, the paper comes back to Completed request.</p>
           <p class="hr-form-msg no-print" id="hrListMsg"></p>
+          <div class="form-row filter-toolbar" id="hrSavedFilters" hidden>
+            <div class="form-group">
+              <label>Status</label>
+              <select id="hrFilterStatus" onchange="hrRenderTable_()">
+                <option value="">All statuses</option>
+                <option value="submitted">Submitted</option>
+                <option value="pending_line">Pending line manager</option>
+                <option value="pending_director">Pending Director</option>
+                <option value="completed">Completed</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Type</label>
+              <select id="hrFilterType" onchange="hrRenderTable_()">
+                <option value="">All types</option>
+                <option value="Lateness">Lateness</option>
+                <option value="Annual Leave">Annual leave</option>
+                <option value="Sick leave">Sick leave</option>
+                <option value="Unpaid Leave">Unpaid Leave</option>
+                <option value="Bereavement">Bereavement</option>
+                <option value="Marriage Leave">Marriage Leave</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Department</label>
+              <select id="hrFilterDept" onchange="hrRenderTable_()"></select>
+            </div>
+            <div class="form-group">
+              <label>Month</label>
+              <input type="month" id="hrFilterMonth" onchange="hrRenderTable_()">
+            </div>
+            <div class="form-group filter-grow">
+              <label>Search</label>
+              <input type="search" id="hrFilterSearch" oninput="hrRenderTable_()" placeholder="name, code, type…" autocomplete="off">
+            </div>
+            <div class="form-group filter-actions">
+              <label>&nbsp;</label>
+              <button type="button" onclick="hrLoad_(true)"><span class="nav-icon spin-icon" id="listRefreshIcon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> Refresh</button>
+            </div>
+          </div>
           <div class="hr-kpi-row" id="hrKpiRow"></div>
           <p class="hr-summary" id="hrSummary"></p>
           <div id="hrTableHost"><p>Loading…</p></div>
@@ -638,6 +680,6 @@
 <script src="assets/empire-core.js?v=2026-09-27-gailan-paper"></script>
 <script src="assets/empire-storage.js?v=2026-09-27-gailan-paper"></script>
 <script src="assets/empire-sw-update.js?v=2026-09-27-gailan-paper"></script>
-<script src="assets/empire-hr-leave.js?v=2026-09-30-no-saved-filters"></script>
+<script src="assets/empire-hr-leave.js?v=2026-09-30-hr-filters"></script>
 </body>
 </html>

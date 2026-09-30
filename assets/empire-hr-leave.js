@@ -2072,6 +2072,7 @@ function hrApplyNavAccess_() {
   var scanOnForm = document.getElementById('hrScanCardOnForm');
   if (scanOnForm) scanOnForm.style.display = hrIsHrStaff_() ? '' : 'none';
   hrListHelp_();
+  hrSyncSavedFilters_();
 }
 
 function hrListHelp_() {
@@ -3304,14 +3305,51 @@ function hrSwitchTab_(ev, tab) {
   if (tab === 'team') hrRenderTeam_();
 }
 
+function hrSyncSavedFilters_() {
+  var box = document.getElementById('hrSavedFilters');
+  if (box) box.hidden = !hrIsHrStaff_();
+}
+
+function hrUniqueDepts_() {
+  var seen = {};
+  var out = [];
+  (_hrRows || []).forEach(function (r) {
+    var d = String(r.empDepartment || '').trim();
+    if (!d || seen[d.toLowerCase()]) return;
+    seen[d.toLowerCase()] = true;
+    out.push(d);
+  });
+  out.sort(function (a, b) { return a.localeCompare(b); });
+  return out;
+}
+
 function hrFiltered_() {
-  return _hrRows.filter(function (r) {
+  var status = hrVal_('hrFilterStatus');
+  var type = hrVal_('hrFilterType');
+  var dept = hrVal_('hrFilterDept');
+  var month = hrVal_('hrFilterMonth');
+  var q = hrVal_('hrFilterSearch').toLowerCase();
+  return (_hrRows || []).filter(function (r) {
+    if (status && String(r.status || '') !== status) return false;
+    if (type && String(r.leaveType || '') !== type) return false;
+    if (dept && String(r.empDepartment || '') !== dept) return false;
+    if (month && String(r.startDate || '').slice(0, 7) !== month) return false;
     if (hrStageOf_(r) === 'completed' || hrStageOf_(r) === 'rejected') return false;
+    if (q) {
+      var hay = [r.no, r.empName, r.empCode, r.empDepartment, r.empJobTitle, r.leaveType, r.replacement, r.daysOut]
+        .join(' ').toLowerCase();
+      if (hay.indexOf(q) === -1) return false;
+    }
     return true;
   });
 }
 
 function hrPaperList_() {
+  var status = hrVal_('hrFilterStatus');
+  var type = hrVal_('hrFilterType');
+  var dept = hrVal_('hrFilterDept');
+  var month = hrVal_('hrFilterMonth');
+  var q = hrVal_('hrFilterSearch').toLowerCase();
   return (_hrRows || []).filter(function (r) {
     var stage = hrStageOf_(r);
     if (hrIsDirectorOnly_() && stage !== 'pending_director') return false;
@@ -3323,7 +3361,21 @@ function hrPaperList_() {
       var ownInbox = hrDualEmpLine_() && stage === 'inbox';
       if (!mine && !ownInbox) return false;
     }
-    if (stage === 'rejected') return false;
+    if (status === 'completed') {
+      if (stage !== 'completed') return false;
+    } else if (status) {
+      if (String(r.status || '') !== status) return false;
+    } else if (stage === 'rejected') {
+      return false;
+    }
+    if (type && String(r.leaveType || '') !== type) return false;
+    if (dept && String(r.empDepartment || '') !== dept) return false;
+    if (month && String(r.startDate || '').slice(0, 7) !== month) return false;
+    if (q) {
+      var hay = [r.no, r.empName, r.empCode, r.empDepartment, r.empJobTitle, r.leaveType, r.replacement, r.daysOut]
+        .join(' ').toLowerCase();
+      if (hay.indexOf(q) === -1) return false;
+    }
     return true;
   });
 }
@@ -3744,6 +3796,15 @@ function hrRenderTable_() {
   var host = document.getElementById('hrTableHost');
   var summary = document.getElementById('hrSummary');
   if (!host) return;
+  hrSyncSavedFilters_();
+  var deptEl = document.getElementById('hrFilterDept');
+  if (deptEl && hrIsHrStaff_()) {
+    var keep = deptEl.value;
+    deptEl.innerHTML = '<option value="">All departments</option>' + hrUniqueDepts_().map(function (d) {
+      return '<option value="' + hrEsc_(d) + '">' + hrEsc_(d) + '</option>';
+    }).join('');
+    if (keep) deptEl.value = keep;
+  }
   var rows = hrUsesPaperList_() ? hrPaperList_() : hrFiltered_();
   hrListHelp_();
   hrRenderKpis_(hrFiltered_());
