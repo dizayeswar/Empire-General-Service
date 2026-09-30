@@ -1,4 +1,5 @@
 import { AuthOk, getUser } from "./auth.ts";
+import { HR_DAYS_LEFT } from "./hr_days_left.ts";
 import { HR_EMPLOYEE_SEED } from "./hr_employees_seed.ts";
 import { resetPasswordOk } from "./config.ts";
 import { fmtDate, isoNow, sb, selectAllRows, trashRows } from "./db.ts";
@@ -1669,6 +1670,12 @@ function cleanPersonText(raw: unknown): string {
   return String(raw || "").trim().replace(/\s+/g, " ");
 }
 
+function withDaysLeft(person: HrPerson): HrPerson {
+  if (person.daysBalance != null) return person;
+  if (!Object.prototype.hasOwnProperty.call(HR_DAYS_LEFT, person.code)) return person;
+  return { ...person, daysBalance: HR_DAYS_LEFT[person.code], updatedAt: "2026-09-30" };
+}
+
 function asHrPerson(raw: Record<string, unknown>): HrPerson {
   const managerCode = cleanPersonText(raw.managerCode);
   const route = managerCode && String(raw.route || "").trim().toLowerCase() !== "director" ? "line" : "director";
@@ -1695,15 +1702,16 @@ async function readHrEmployees(): Promise<HrPerson[]> {
   if (stored) {
     const people = stored.map((row) => asHrPerson(row));
     const fixed = people.map((person) => {
+      let next = person;
       if (person.code === "101501" && person.name.trim().toLowerCase() === "hamat hasan ahmad rasool") {
-        return { ...person, name: "Halmat Hasan Ahmad Rasool", updatedAt: "2026-09-27" };
+        next = { ...next, name: "Halmat Hasan Ahmad Rasool", updatedAt: "2026-09-27" };
       }
-      if (person.code === "100420" && person.route !== "director") {
-        return { ...person, route: "director" as const, managerCode: "", updatedAt: "2026-09-27" };
+      if (next.code === "100420" && next.route !== "director") {
+        next = { ...next, route: "director" as const, managerCode: "", updatedAt: "2026-09-27" };
       }
-      return person;
+      return withDaysLeft(next);
     });
-    if (fixed.some((person, i) => person.name !== people[i].name || person.route !== people[i].route || person.managerCode !== people[i].managerCode)) {
+    if (fixed.some((person, i) => person.name !== people[i].name || person.route !== people[i].route || person.managerCode !== people[i].managerCode || person.daysBalance !== people[i].daysBalance)) {
       const installedOn = typeof settings?.installedOn === "string" ? settings.installedOn : "2026-09-26";
       const { error: upErr } = await sb().from("ui_settings").upsert({
         key: HR_EMPLOYEES_KEY,
@@ -1714,7 +1722,7 @@ async function readHrEmployees(): Promise<HrPerson[]> {
     }
     return fixed;
   }
-  const people = (HR_EMPLOYEE_SEED.people || []).map((row) => asHrPerson(row));
+  const people = (HR_EMPLOYEE_SEED.people || []).map((row) => withDaysLeft(asHrPerson(row)));
   const { error: upErr } = await sb().from("ui_settings").upsert({
     key: HR_EMPLOYEES_KEY,
     settings: { people, installedOn: "2026-09-26" },
