@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-09-22-search-pill">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-17-gin-dmy">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-09-30-inv-xlsx">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-09-30-inv-xlsx2">
 </head>
 <body class="auth-login-visible wh-page">
 <div class="login-page show" id="loginPage">
@@ -629,7 +629,7 @@
 <script src="assets/empire-core.js?v=2026-09-17-gin-dmy"></script>
 <script src="assets/empire-sw-update.js?v=2026-09-17-gin-dmy"></script>
 <script src="assets/empire-warehouse-sp.js?v=2026-09-17-gin-dmy"></script>
-<script src="assets/issue-excel-export.js?v=2026-09-30-inv-xlsx"></script>
+<script src="assets/issue-excel-export.js?v=2026-09-30-inv-xlsx2"></script>
 <script>
 var WH_LINE_COUNT = 23;
 var WH_COMPANIES = ['CAI','MEP','AC','MDM','CLEANING','GM','AGRICULTURE','EM NET'];
@@ -4614,6 +4614,63 @@ function whInvAmtDeptSummary_(rows){
     return String(a.dept).localeCompare(String(b.dept));
   });
 }
+function whInvDeptMoney_(r){
+  var usd=r && r.amountUsd, iqd=r && r.amountIqd;
+  if(typeof usd!=='number') usd=whInvExcelMoneyCell_(usd);
+  if(typeof iqd!=='number') iqd=whInvExcelMoneyCell_(iqd);
+  return { usd:Number(usd)||0, iqd:Number(iqd)||0 };
+}
+function whInvDeptTotalsList_(rows){
+  var order=['CAI','MEP','AC','MDM'];
+  var map={};
+  order.forEach(function(d){ map[d]={ dept:d, invoices:0, usd:0, iqd:0 }; });
+  (rows||[]).forEach(function(r){
+    if(!r) return;
+    var d=String(r.department||r.dept||'').trim().toUpperCase() || '—';
+    if(!map[d]) map[d]={ dept:d, invoices:0, usd:0, iqd:0 };
+    var m=whInvDeptMoney_(r);
+    map[d].invoices += 1;
+    map[d].usd += m.usd;
+    map[d].iqd += m.iqd;
+  });
+  var list=order.slice();
+  Object.keys(map).sort().forEach(function(k){
+    if(list.indexOf(k)===-1) list.push(k);
+  });
+  return list.map(function(k){ return map[k]; });
+}
+function whInvDeptTotalsAoa_(rows, subtitle){
+  var list=whInvDeptTotalsList_(rows);
+  var usd=0, iqd=0, n=0;
+  var aoa=[['Totals by department']];
+  if(subtitle) aoa.push([subtitle]);
+  aoa.push([]);
+  aoa.push(['Dept','Invoices','Amount USD','Amount IQD']);
+  list.forEach(function(r){
+    n+=Number(r.invoices)||0;
+    usd+=Number(r.usd)||0;
+    iqd+=Number(r.iqd)||0;
+    aoa.push([r.dept, Number(r.invoices)||0, Number(r.usd)||0, Number(r.iqd)||0]);
+  });
+  aoa.push(['All departments', n, usd, iqd]);
+  return aoa;
+}
+function whInvAllDeptSheetRows_(month, bookStart, bookEnd){
+  var rows=whInvSheetRows_(_whInvCache||[]);
+  month=month==null ? '' : String(month);
+  bookStart=Number(bookStart)||0;
+  bookEnd=Number(bookEnd)||0;
+  if(month){
+    rows=rows.filter(function(r){ return whInvBillingMonth_(r.date)===month; });
+  }
+  if(bookStart && bookEnd){
+    rows=rows.filter(function(r){
+      var rv=whInvRvNum_(r.invoiceNo);
+      return rv>=bookStart && rv<=bookEnd;
+    });
+  }
+  return rows;
+}
 function whInvAmtFiltered_(){
   var rows=whInvAmtRows_(_whInvAmtFilter, _whInvAmtMonth);
   if(_whInvAmtSearch){
@@ -4693,15 +4750,12 @@ function whInvAmtRender_(){
 function whInvAmtExportExcel(){
   whInvAmtEnsureMonth_();
   var rows=whInvAmtFiltered_();
-  if(!rows.length){ alert('No invoice amounts to export for the current month, department, and search.'); return; }
-  var deptRows=whInvAmtDeptSummary_(rows);
+  var allDeptRows=whInvAmtRows_('', _whInvAmtMonth);
+  if(!rows.length && !allDeptRows.length){ alert('No invoice amounts to export for the current month, department, and search.'); return; }
+  var monthLabel=_whInvAmtMonth ? ('Month '+_whInvAmtMonth+' (26th–25th)') : 'All months';
+  var deptAoa=whInvDeptTotalsAoa_(allDeptRows, monthLabel);
   var totalUsd=0, totalIqd=0;
   rows.forEach(function(r){ totalUsd+=Number(r.amountUsd)||0; totalIqd+=Number(r.amountIqd)||0; });
-  var deptAoa=[['Dept','Invoices','Amount USD','Amount IQD']];
-  deptRows.forEach(function(r){
-    deptAoa.push([r.dept||'', Number(r.invoices)||0, Number(r.usd)||0, Number(r.iqd)||0]);
-  });
-  deptAoa.push(['Total', rows.length, totalUsd, totalIqd]);
   var invAoa=[['#','R V num','Date','Dept','COM','Name','Property','Amount USD','Amount IQD','Kind','Edited']];
   rows.forEach(function(r, idx){
     invAoa.push([
@@ -4718,14 +4772,17 @@ function whInvAmtExportExcel(){
       r.edited ? 'Yes' : ''
     ]);
   });
-  invAoa.push(['Total','','','','','','', totalUsd, totalIqd, '', '']);
+  if(rows.length) invAoa.push(['Total','','','','','','', totalUsd, totalIqd, '', '']);
   var stamp=new Date().toISOString().slice(0,10);
   var month=_whInvAmtMonth || 'all-months';
   var dept=_whInvAmtFilter || 'all-depts';
-  whInvWriteExcel_('Empire-Warehouse-Invoice-Amount-'+month+'-'+dept+'-'+stamp+'.xlsx', [
-    { name:'By department', rows:deptAoa, cols:[{wch:12},{wch:12},{wch:14},{wch:14}] },
-    { name:'Invoices', rows:invAoa, cols:[{wch:8},{wch:12},{wch:12},{wch:8},{wch:8},{wch:16},{wch:14},{wch:14},{wch:14},{wch:12},{wch:8}] }
-  ], document.getElementById('whInvAmtExcelBtn'));
+  var sheets=[
+    { name:'By department', rows:deptAoa, cols:[{wch:18},{wch:12},{wch:14},{wch:14}] }
+  ];
+  if(rows.length){
+    sheets.push({ name:'Invoices', rows:invAoa, cols:[{wch:8},{wch:12},{wch:12},{wch:8},{wch:8},{wch:16},{wch:14},{wch:14},{wch:14},{wch:12},{wch:8}] });
+  }
+  whInvWriteExcel_('Empire-Warehouse-Invoice-Amount-'+month+'-'+dept+'-'+stamp+'.xlsx', sheets, document.getElementById('whInvAmtExcelBtn'));
 }
 function whInvSheetRows_(items){
   var rows=[];
@@ -5284,10 +5341,14 @@ function whInvExportExcel(){
   var books=whInvBuildBooks_(all);
   var rows=whInvFilteredRows_(all);
   var shownBooks=whInvFilterShownBooks_(books);
-  if(!rows.length && !shownBooks.length){
+  var deptRows=whInvAllDeptSheetRows_(_whInvListMonth, _whInvListBookStart, _whInvListBookEnd);
+  if(!rows.length && !shownBooks.length && !deptRows.length){
     alert('No invoices or books to export. Refresh the list, or change the month / search.');
     return;
   }
+  var monthLabel=_whInvListMonth ? ('Month '+_whInvListMonth+' (26th–25th)') : 'All months';
+  if(_whInvListBookStart && _whInvListBookEnd) monthLabel='Book R V '+_whInvListBookStart+'–'+_whInvListBookEnd;
+  var deptAoa=whInvDeptTotalsAoa_(deptRows, monthLabel);
   var invAoa=[['#','Book','SP','Item description','COM','Dept','Status','Qty','Amount USD','Amount IQD','R V num','Date','Name','Property','Edited']];
   var usd=0, iqd=0;
   rows.forEach(function(r, idx){
@@ -5337,7 +5398,9 @@ function whInvExportExcel(){
   else parts.push(_whInvListMonth || 'all-months');
   if(_whInvListDept) parts.push(_whInvListDept);
   parts.push(stamp);
-  var sheets=[];
+  var sheets=[
+    { name:'By department', rows:deptAoa, cols:[{wch:18},{wch:12},{wch:14},{wch:14}] }
+  ];
   if(rows.length){
     sheets.push({ name:'Invoices', rows:invAoa, cols:[{wch:6},{wch:8},{wch:14},{wch:36},{wch:8},{wch:8},{wch:12},{wch:10},{wch:14},{wch:14},{wch:12},{wch:12},{wch:16},{wch:14},{wch:8}] });
   }
