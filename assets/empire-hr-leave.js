@@ -2073,6 +2073,7 @@ function hrApplyNavAccess_() {
   if (scanOnForm) scanOnForm.style.display = hrIsHrStaff_() ? '' : 'none';
   hrListHelp_();
   hrSyncSavedFilters_();
+  document.body.classList.toggle('hr-field-nav', !hrIsHrStaff_() && (hrIsLine_() || hrIsEmployeeWrite_()));
 }
 
 function hrListHelp_() {
