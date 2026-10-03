@@ -826,6 +826,7 @@ const LEAVE_LIST_COLS = [
 ].join(",");
 
 export async function handleGetHrLeaveRequests(auth?: AuthOk) {
+  await healUnconfirmedLeaveDays();
   const light = !auth || !isHrStaff(auth);
   const data = await selectAllRows<Record<string, unknown>>(
     "hr_leave_requests",
@@ -940,9 +941,11 @@ export async function handleAddHrLeaveRequest(body: Record<string, unknown>, aut
     created_at: now,
     updated_at: now,
   };
+  const held = parseEntitlements(fields.entitlements) as Record<string, unknown>;
+  held.__daysCharged = false;
+  row.entitlements = entitlementsJson(held);
   const { error } = await sb().from("hr_leave_requests").insert(row);
   if (error) throw error;
-  await applyLeaveDays(fields.emp_code, parseLeaveDays(fields.days_out));
   return { ok: true, success: true, id, num, row: rowToApi(row) };
 }
 
@@ -961,17 +964,23 @@ export async function handleUpdateHrLeaveRequest(body: Record<string, unknown>, 
   if (!fields.emp_name) {
     return { ok: false, success: false, error: "missing_name", message: "Employee name is required." };
   }
+  const oldEnts = parseEntitlements(ex.entitlements) as Record<string, unknown>;
+  const newEnts = parseEntitlements(fields.entitlements) as Record<string, unknown>;
+  if (Object.prototype.hasOwnProperty.call(oldEnts, "__daysCharged")) newEnts.__daysCharged = oldEnts.__daysCharged;
+  fields.entitlements = entitlementsJson(newEnts);
   const patch = { ...fields, updated_at: isoNow() };
   const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", id);
   if (error) throw error;
-  const oldCode = String(ex.emp_code || "").trim();
-  const oldDays = parseLeaveDays(ex.days_out);
-  const newDays = parseLeaveDays(fields.days_out);
-  if (oldCode && oldCode === fields.emp_code) {
-    await applyLeaveDays(fields.emp_code, Math.round((newDays - oldDays) * 10) / 10);
-  } else {
-    if (oldCode) await applyLeaveDays(oldCode, -oldDays);
-    await applyLeaveDays(fields.emp_code, newDays);
+  if (leaveDaysCharged(ex)) {
+    const oldCode = String(ex.emp_code || "").trim();
+    const oldDays = parseLeaveDays(ex.days_out);
+    const newDays = parseLeaveDays(fields.days_out);
+    if (oldCode && oldCode === fields.emp_code) {
+      await applyLeaveDays(fields.emp_code, Math.round((newDays - oldDays) * 10) / 10);
+    } else {
+      if (oldCode) await applyLeaveDays(oldCode, -oldDays);
+      await applyLeaveDays(fields.emp_code, newDays);
+    }
   }
   return { ok: true, success: true, id, row: rowToApi({ ...ex, ...patch }) };
 }
@@ -990,7 +999,9 @@ export async function handleDeleteHrLeaveRequest(body: Record<string, unknown>, 
   await trashRows("HrLeaveRequests", [ex], "delete", String(auth.username || body.username || ""));
   const { error } = await sb().from("hr_leave_requests").delete().eq("id", id);
   if (error) throw error;
-  await applyLeaveDays(String(ex.emp_code || "").trim(), -parseLeaveDays(ex.days_out));
+  if (leaveDaysCharged(ex)) {
+    await applyLeaveDays(String(ex.emp_code || "").trim(), -parseLeaveDays(ex.days_out));
+  }
   return { ok: true, success: true, id, trashed: true };
 }
 
@@ -1374,7 +1385,10 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
   }
 
   if (director && status === "pending_director") {
-    const existing = parseEntitlements(ex.entitlements) as Record<string, unknown>;
+    await healUnconfirmedLeaveDays();
+    const { data: fresh } = await sb().from("hr_leave_requests").select("*").eq("id", id).maybeSingle();
+    const paper = (fresh || ex) as Record<string, unknown>;
+    const existing = parseEntitlements(paper.entitlements) as Record<string, unknown>;
     const existingSigs = existing.__sigs && typeof existing.__sigs === "object" && !Array.isArray(existing.__sigs)
       ? existing.__sigs as Record<string, string>
       : {};
@@ -1386,10 +1400,12 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
     if (!directorSig) {
       return { ok: false, success: false, error: "missing_signature", message: "Your e-signature is not on this account yet. Ask admin to upload it on Users, or place it on the Director box once." };
     }
-    const patch = directorConfirmPatch(ex, directorSig, auth, body);
-    const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", id);
-    if (error) throw error;
-    return { ok: true, success: true, id, row: rowToApi({ ...ex, ...patch }, { slim: true }) };
+    const patch = directorConfirmPatch(paper, directorSig, auth, body);
+    const saved = await saveDirectorConfirm_(paper, patch);
+    if (!saved) {
+      return { ok: false, success: false, error: "bad_status", message: "This paper is not waiting for the director." };
+    }
+    return { ok: true, success: true, id, row: rowToApi({ ...paper, ...patch }, { slim: true }) };
   }
 
   if (!staff && !director && !isHrLine(auth)) {
@@ -1511,6 +1527,7 @@ export async function handleConfirmHrLeaveRequests(body: Record<string, unknown>
   if (!isHrDirector(auth)) {
     return { ok: false, success: false, error: "not_allowed", message: "Only the director can confirm these papers." };
   }
+  await healUnconfirmedLeaveDays();
   const raw = Array.isArray(body.ids) ? body.ids : [];
   const ids = [...new Set(raw.map((v) => String(v || "").trim()).filter(Boolean))].slice(0, 80);
   if (!ids.length) return { ok: false, success: false, error: "missing_id", message: "Select at least one paper." };
@@ -1529,9 +1546,8 @@ export async function handleConfirmHrLeaveRequests(body: Record<string, unknown>
   const confirmed: string[] = [];
   await Promise.all(pending.map(async (ex) => {
     const patch = directorConfirmPatch(ex, directorSig, auth, extra);
-    const { error: upErr } = await sb().from("hr_leave_requests").update(patch).eq("id", String(ex.id || ""));
-    if (upErr) throw upErr;
-    confirmed.push(String(ex.id || ""));
+    const saved = await saveDirectorConfirm_(ex, patch);
+    if (saved) confirmed.push(String(ex.id || ""));
   }));
   return { ok: true, success: true, confirmed: confirmed.length, ids: confirmed };
 }
@@ -1542,6 +1558,7 @@ export async function handleRejectHrLeaveRequest(body: Record<string, unknown>, 
   if (!isHrDirector(auth)) {
     return { ok: false, success: false, error: "not_allowed", message: "Only the director can reject a pending paper." };
   }
+  await healUnconfirmedLeaveDays();
   const { data: ex } = await sb().from("hr_leave_requests").select("*").eq("id", id).maybeSingle();
   if (!ex) return { ok: false, success: false, error: "not_found", message: "Leave request not found." };
   if (String(ex.status || "") !== "pending_director") {
@@ -1552,7 +1569,8 @@ export async function handleRejectHrLeaveRequest(body: Record<string, unknown>, 
     ? { ...(existing.__sigs as Record<string, string>) }
     : {};
   existingSigs.director = "";
-  const merged: Record<string, unknown> = { ...existing, __sigs: existingSigs };
+  const restoreDays = leaveDaysCharged(ex);
+  const merged: Record<string, unknown> = { ...existing, __sigs: existingSigs, __daysCharged: false };
   if (existing.__scan && typeof existing.__scan === "object" && !Array.isArray(existing.__scan)) {
     const scan = { ...(existing.__scan as Record<string, unknown>) };
     scan.directorSig = "";
@@ -1566,8 +1584,11 @@ export async function handleRejectHrLeaveRequest(body: Record<string, unknown>, 
     entitlements: entitlementsJson(merged),
     updated_at: isoNow(),
   };
-  const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", id);
+  const { data: rejected, error } = await sb().from("hr_leave_requests").update(patch).eq("id", id).eq("status", "pending_director").select("id");
   if (error) throw error;
+  if (restoreDays && rejected && rejected.length) {
+    await applyLeaveDays(String(ex.emp_code || "").trim(), -parseLeaveDays(ex.days_out));
+  }
   return { ok: true, success: true, id, row: rowToApi({ ...ex, ...patch }, { slim: true }) };
 }
 
@@ -1841,6 +1862,92 @@ async function readHrEmployees(): Promise<HrPerson[]> {
   return people;
 }
 
+function leaveDaysCharged(ex: Record<string, unknown>): boolean {
+  const ents = parseEntitlements(ex.entitlements) as Record<string, unknown>;
+  const flag = ents.__daysCharged;
+  if (flag === false || flag === "false" || flag === 0) return false;
+  return true;
+}
+
+function markDaysCharged(entitlements: unknown): string {
+  const ents = parseEntitlements(entitlements) as Record<string, unknown>;
+  ents.__daysCharged = true;
+  return entitlementsJson(ents);
+}
+
+async function saveDirectorConfirm_(ex: Record<string, unknown>, patch: Record<string, unknown>): Promise<boolean> {
+  const charge = !leaveDaysCharged(ex);
+  patch.entitlements = markDaysCharged(patch.entitlements);
+  const id = String(ex.id || "").trim();
+  const { data, error } = await sb()
+    .from("hr_leave_requests")
+    .update(patch)
+    .eq("id", id)
+    .eq("status", "pending_director")
+    .select("id");
+  if (error) throw error;
+  const saved = Array.isArray(data) && data.length > 0;
+  if (saved && charge) {
+    await applyLeaveDays(String(ex.emp_code || "").trim(), parseLeaveDays(ex.days_out));
+  }
+  return saved;
+}
+
+const DAYS_ON_CONFIRM_KEY = "hr_days_on_director_confirm";
+
+async function healUnconfirmedLeaveDays() {
+  const { data: flagRow, error: flagErr } = await sb().from("ui_settings").select("settings, updated_at").eq("key", DAYS_ON_CONFIRM_KEY).maybeSingle();
+  if (flagErr) throw flagErr;
+  const flagged = flagRow && flagRow.settings && typeof flagRow.settings === "object"
+    ? flagRow.settings as { done?: boolean }
+    : null;
+  if (flagged && flagged.done) return;
+  if (flagRow) {
+    const started = Date.parse(String(flagRow.updated_at || ""));
+    if (Number.isFinite(started) && Date.now() - started < 120000) return;
+  } else {
+    const { error: claimErr } = await sb().from("ui_settings").insert({
+      key: DAYS_ON_CONFIRM_KEY,
+      settings: { done: false },
+      updated_at: isoNow(),
+    });
+    if (claimErr) return;
+  }
+  const rows = await selectAllRows<Record<string, unknown>>("hr_leave_requests", {
+    columns: "id,status,emp_code,days_out,entitlements",
+  });
+  const people = await readHrEmployees();
+  let dirty = false;
+  for (const row of rows) {
+    const ents = parseEntitlements(row.entitlements) as Record<string, unknown>;
+    if (Object.prototype.hasOwnProperty.call(ents, "__daysCharged")) continue;
+    const status = String(row.status || "").trim().toLowerCase();
+    const kept = status === "completed" || status === "processed" || status === "director_approved";
+    ents.__daysCharged = kept;
+    const next = entitlementsJson(ents);
+    const { error: stampErr } = await sb()
+      .from("hr_leave_requests")
+      .update({ entitlements: next })
+      .eq("id", String(row.id || ""));
+    if (stampErr) throw stampErr;
+    if (kept) continue;
+    const code = String(row.emp_code || "").trim();
+    const days = parseLeaveDays(row.days_out);
+    if (!code || !days) continue;
+    const person = people.find((p) => p.code === code && p.active);
+    if (!person || person.daysBalance == null) continue;
+    person.daysBalance = Math.round((person.daysBalance + days) * 10) / 10;
+    dirty = true;
+  }
+  if (dirty) await writeHrEmployees(people);
+  const { error: doneErr } = await sb().from("ui_settings").upsert({
+    key: DAYS_ON_CONFIRM_KEY,
+    settings: { done: true },
+    updated_at: isoNow(),
+  });
+  if (doneErr) throw doneErr;
+}
+
 async function applyLeaveDays(code: string, delta: number) {
   const days = Math.round(Number(delta) * 10) / 10;
   if (!code || !days) return;
@@ -1926,6 +2033,7 @@ function signatureForPerson(
 }
 
 export async function handleListHrTeam(auth: AuthOk) {
+  await healUnconfirmedLeaveDays();
   if (!isHrLine(auth) && !isHrStaff(auth)) {
     return { ok: false, success: false, error: "not_allowed", message: "Not allowed." };
   }
@@ -1966,6 +2074,7 @@ export async function handleListHrTeam(auth: AuthOk) {
 }
 
 export async function handleListHrEmployees(auth: AuthOk) {
+  await healUnconfirmedLeaveDays();
   if (!canReadHrEmployees(auth)) {
     return { ok: false, success: false, error: "not_allowed", message: "Not allowed." };
   }
