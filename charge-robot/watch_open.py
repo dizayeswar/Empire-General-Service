@@ -522,6 +522,18 @@ def main() -> int:
             log("OVERSEAS LIVE")
             last_live_log = time.time()
 
+        if leftover:
+            busy = _charge_busy()
+            if busy == "Edit Photo":
+                from phone_finish_ru import confirm_ucrop
+
+                log("leftover SET PIN — tap Crop")
+                confirm_ucrop()
+                time.sleep(0.6)
+            elif busy == "Invoice":
+                log("leftover SET PIN — close Invoice so PIN can run")
+                clear_idle_leftovers("Invoice")
+                time.sleep(0.4)
         busy = _charge_busy()
         if busy:
             if leftover:

@@ -71,6 +71,38 @@ def on_edit_photo() -> bool:
     return False
 
 
+def confirm_ucrop() -> bool:
+    """Tap the Crop check. The button sits under the status bar — hide it first."""
+    if not on_edit_photo():
+        return True
+    adb("shell", "settings", "put", "global", "policy_control", "immersive.status=*")
+    time.sleep(0.5)
+    for attempt in range(4):
+        root = dump(f"fin-crop{attempt}")
+        crop = None
+        for n in root.iter("node"):
+            desc = (n.attrib.get("content-desc") or "").strip()
+            rid = n.attrib.get("resource-id") or ""
+            if desc == "Crop" or rid.endswith("menu_crop"):
+                b = n.attrib.get("bounds") or ""
+                nums = [int(x) for x in b.replace("][", ",").replace("[", "").replace("]", "").split(",") if x]
+                if len(nums) == 4:
+                    crop = nums
+                    break
+        if crop:
+            tap(*center(crop))
+            print("Crop tapped", crop)
+        else:
+            tap(1012, 78)
+            print("Crop fallback (1012,78)")
+        time.sleep(1.1)
+        if not on_edit_photo():
+            adb("shell", "settings", "delete", "global", "policy_control")
+            return True
+    adb("shell", "settings", "delete", "global", "policy_control")
+    return not on_edit_photo()
+
+
 def invoice_image() -> Image.Image:
     """Use the Invoice paper window. Never crop Nova's payments grid."""
     try:
@@ -97,6 +129,10 @@ def push_invoice(dest_name: str) -> None:
         w, h = im.size
         im.crop((w // 2 - 300, 50, w // 2 + 340, h - 40)).convert("RGB").save(dest, quality=90)
     adb("push", str(dest), f"/sdcard/DCIM/Camera/{dest_name}")
+    _media_scan(f"/sdcard/DCIM/Camera/{dest_name}")
+
+
+def _media_scan(path: str) -> None:
     adb(
         "shell",
         "am",
@@ -104,8 +140,27 @@ def push_invoice(dest_name: str) -> None:
         "-a",
         "android.intent.action.MEDIA_SCANNER_SCAN_FILE",
         "-d",
-        f"file:///sdcard/DCIM/Camera/{dest_name}",
+        f"file://{path}",
     )
+
+
+def rename_crop_to_ru(dest_name: str) -> None:
+    """UCrop writes IMG_….jpg. Put that crop on the RU name so Gallery never offers a stray IMG_."""
+    listing = adb("shell", "ls", "-t", "/sdcard/DCIM/Camera")
+    newest_img = ""
+    for line in listing.splitlines():
+        name = line.strip()
+        if name.startswith("IMG_") and name.lower().endswith(".jpg"):
+            newest_img = name
+            break
+    if not newest_img:
+        return
+    src = f"/sdcard/DCIM/Camera/{newest_img}"
+    dest = f"/sdcard/DCIM/Camera/{dest_name}"
+    adb("shell", "mv", "-f", src, dest)
+    _media_scan(src)
+    _media_scan(dest)
+    print(f"renamed {newest_img} -> {dest_name}")
 
 
 def ru_invoice_name(ru: str) -> str:
@@ -115,13 +170,52 @@ def ru_invoice_name(ru: str) -> str:
 
 def main() -> None:
     from bot_switch import require_bot_on
+    from charge_easy import load_need_pin
 
-    require_bot_on()
     ru = sys.argv[1]
+    from watch_open import (
+        dismiss_sleep_clock,
+        dump_texts,
+        phone_has_pin_pad,
+        phone_on_login,
+        phone_sleep_clock,
+        tap_staff_sign_in,
+    )
+
+    fin0 = dump_texts("fin-lock")
+    if phone_on_login(fin0):
+        tap_staff_sign_in()
+        fin0 = dump_texts("fin-signin")
+        if phone_on_login(fin0):
+            print("EMPIRE SIGN IN still up — no type")
+            raise SystemExit("empire sign in")
+    if phone_has_pin_pad(fin0):
+        print("PHONE PIN PAD — no tap, no type")
+        raise SystemExit("phone PIN pad")
+    if phone_sleep_clock(fin0):
+        dismiss_sleep_clock()
+        fin0 = dump_texts("fin-lock-swipe")
+        if phone_has_pin_pad(fin0) or phone_sleep_clock(fin0):
+            print("PHONE still on clock/PIN after swipe")
+            raise SystemExit("phone still asleep")
+    need = load_need_pin()
+    require_bot_on(allow_unread=bool(need and need.get("ru") == ru))
     dest_name = ru_invoice_name(ru)
     if len(sys.argv) > 2 and ru.replace("RU-", "") in sys.argv[2]:
         dest_name = sys.argv[2]
     print("attach-file", dest_name)
+    lock = Path(__file__).resolve().parent / "logs" / "setpin.lock"
+    lock.write_text(ru, encoding="utf-8")
+    try:
+        _finish_locked(ru, dest_name)
+    finally:
+        try:
+            lock.unlink()
+        except Exception:
+            pass
+
+
+def _finish_locked(ru: str, dest_name: str) -> None:
     push_invoice(dest_name)
 
     root = dump("fin0")
@@ -129,10 +223,14 @@ def main() -> None:
     if ru not in t:
         raise SystemExit(f"phone is not on {ru}: {t[:12]}")
 
-    adb("shell", "input", "swipe", "540", "1700", "540", "600", "200")
-    time.sleep(0.4)
-    root = dump("fin1")
-    att = bounds_for(root, "Attachments")
+    att = None
+    for _ in range(4):
+        adb("shell", "input", "swipe", "540", "1700", "540", "600", "200")
+        time.sleep(0.4)
+        root = dump("fin1")
+        att = bounds_for(root, "Attachments")
+        if att:
+            break
     if not att:
         raise SystemExit("no Attachments field")
     # the input box is the second Attachments or the taller box
@@ -148,7 +246,9 @@ def main() -> None:
     picked = None
     for n in root.iter("node"):
         desc = n.attrib.get("content-desc") or ""
-        if dest_name in desc and not desc.startswith("Preview"):
+        if desc.startswith("Preview") or desc.startswith("IMG_"):
+            continue
+        if dest_name in desc:
             b = n.attrib.get("bounds") or ""
             nums = [int(x) for x in b.replace("][", ",").replace("[", "").replace("]", "").split(",") if x]
             if len(nums) == 4:
@@ -156,28 +256,14 @@ def main() -> None:
                 break
     if not picked:
         raise SystemExit(f"{dest_name} not in gallery")
-    tap((picked[0] + picked[2]) // 2, (picked[1] + picked[3] * 3) // 4)
+    # Left side of the tile — Preview sits on the right and can open the wrong thing.
+    tap(picked[0] + 70, (picked[1] + picked[3]) // 2)
     time.sleep(1.2)
     if on_edit_photo():
-        adb("shell", "settings", "put", "global", "policy_control", "immersive.status=*")
-        time.sleep(0.45)
-        root = dump("fin-crop")
-        crop = None
-        for n in root.iter("node"):
-            if (n.attrib.get("content-desc") or "") == "Crop":
-                b = n.attrib.get("bounds") or ""
-                nums = [int(x) for x in b.replace("][", ",").replace("[", "").replace("]", "").split(",") if x]
-                if len(nums) == 4:
-                    crop = nums
-                    break
-        if crop:
-            tap(*center(crop))
-        tap(1020, 110)
-        time.sleep(1.8)
-        adb("shell", "settings", "delete", "global", "policy_control")
-        time.sleep(0.6)
-        if on_edit_photo():
+        if not confirm_ucrop():
             raise SystemExit("Edit Photo still open after Crop")
+        rename_crop_to_ru(dest_name)
+        time.sleep(0.6)
 
     root = dump("fin4")
     t = texts(root)
@@ -188,6 +274,14 @@ def main() -> None:
         t = texts(root)
     if not any(".jpg" in x.lower() for x in t):
         raise SystemExit(f"photo not attached: {t}")
+    joined = " ".join(t)
+    if dest_name in joined:
+        print(f"attached {dest_name}")
+    elif any(x.startswith("IMG_") and x.lower().endswith(".jpg") for x in t):
+        # UCrop labels the request IMG_; the file we picked and renamed is dest_name.
+        print(f"attached crop of {dest_name}")
+    else:
+        raise SystemExit(f"attached file is not {dest_name}: {t}")
 
     pin = bounds_for(root, "PIN")
     if not pin:
