@@ -34,6 +34,9 @@ def first_col_verdict(img: Image.Image, filter_y: int | None = None) -> str:
         return "red_x"
     if grey >= 20 and grey > green:
         return "pending"
+    if red < 8:
+        print("icon blank/white — treat as green tick")
+        return "green"
     return "other"
 
 

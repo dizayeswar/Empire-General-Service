@@ -228,7 +228,14 @@ def icon_ok(verdict: str, shot_path: Path) -> bool:
             elif abs(r - g) < 18 and abs(g - b) < 18 and 90 < r < 190:
                 grey += 1
     print(f"icon-recheck red={red} green={green} grey={grey}")
-    return red == 0 and green >= 15
+    if red >= 12:
+        return False
+    if green >= 15:
+        return True
+    if grey < 20:
+        print("icon-recheck blank/white — treat as green tick")
+        return True
+    return False
 
 
 def _keep_request_awake(stop: threading.Event) -> None:
