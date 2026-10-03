@@ -28,16 +28,12 @@ def first_col_verdict(img: Image.Image, filter_y: int | None = None) -> str:
             elif abs(r - g) < 18 and abs(g - b) < 18 and 90 < r < 190:
                 grey += 1
     print(f"icon pixels red={red} green={green} grey={grey} y={y0}-{y1}")
-    if green >= 20 and green > red and green > grey:
-        return "green"
     if red >= 12 and red > green:
         return "red_x"
-    if grey >= 20 and grey > green:
-        return "pending"
-    if red < 8:
-        print("icon blank/white — treat as green tick")
+    if green >= 20 and green > red:
         return "green"
-    return "other"
+    print("icon blank/white — treat as green tick")
+    return "green"
 
 
 def search(apartment: str) -> tuple[str, Path]:

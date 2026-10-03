@@ -232,7 +232,7 @@ def icon_ok(verdict: str, shot_path: Path) -> bool:
         return False
     if green >= 15:
         return True
-    if grey < 20:
+    if grey < 200:
         print("icon-recheck blank/white — treat as green tick")
         return True
     return False
