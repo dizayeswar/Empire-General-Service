@@ -30,8 +30,10 @@ def first_col_verdict(img: Image.Image, filter_y: int | None = None) -> str:
     print(f"icon pixels red={red} green={green} grey={grey} y={y0}-{y1}")
     if red >= 12 and red > green:
         return "red_x"
-    if green >= 20 and green > red:
+    if green >= 20 and green > red and green > grey:
         return "green"
+    if grey >= 100 and grey > green:
+        return "pending"
     print("icon blank/white — treat as green tick")
     return "green"
 

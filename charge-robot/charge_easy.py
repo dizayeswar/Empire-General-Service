@@ -433,7 +433,26 @@ def main() -> int:
                 wake("wrong Nova filter", f"{ru} {apt} {exc}")
                 return 2
             print(f"SEARCH {apt} {verdict} {path}")
-            if not icon_ok(verdict, path):
+            if verdict == "red_x":
+                from save_dashboard import save_skip
+
+                save_skip(
+                    ru=ru,
+                    unit=apt,
+                    status="cannot_charge",
+                    note=f"Nova red X {path}",
+                    source="nova",
+                    amount=amount,
+                    tariff=tariff,
+                    started_at=started_at,
+                )
+                wake("not green tick", f"{ru} {apt} {verdict} {path}")
+                return 2
+            if verdict == "pending":
+                print("pending — Refresh once beside Pay, then Pay")
+                click_nova_refresh()
+                verdict, path = nova_search(apt)
+                print(f"SEARCH after refresh {apt} {verdict} {path}")
                 if verdict == "red_x":
                     from save_dashboard import save_skip
 
@@ -441,26 +460,7 @@ def main() -> int:
                         ru=ru,
                         unit=apt,
                         status="cannot_charge",
-                        note=f"Nova red X {path}",
-                        source="nova",
-                        amount=amount,
-                        tariff=tariff,
-                        started_at=started_at,
-                    )
-                    wake("not green tick", f"{ru} {apt} {verdict} {path}")
-                    return 2
-                print("pending — Refresh once beside Pay")
-                click_nova_refresh()
-                verdict, path = nova_search(apt)
-                print(f"SEARCH after refresh {apt} {verdict} {path}")
-                if not icon_ok(verdict, path):
-                    from save_dashboard import save_skip
-
-                    save_skip(
-                        ru=ru,
-                        unit=apt,
-                        status="cannot_charge",
-                        note=f"Nova pending after one Refresh {path}",
+                        note=f"Nova red X after Refresh {path}",
                         source="nova",
                         amount=amount,
                         tariff=tariff,
