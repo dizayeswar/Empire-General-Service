@@ -1094,6 +1094,74 @@ function hrPickPrintMode_() {
   });
 }
 
+function hrMarkSelectedSigned_(row, slot, when, sig, me) {
+  if (!row.entitlements || typeof row.entitlements !== 'object') row.entitlements = {};
+  if (!row.entitlements.__sigs || typeof row.entitlements.__sigs !== 'object') row.entitlements.__sigs = {};
+  if (!row.entitlements.__signers || typeof row.entitlements.__signers !== 'object') row.entitlements.__signers = {};
+  if (slot === 'line') {
+    row.status = 'pending_director';
+    row.lineManagerStatus = 'approved';
+    row.lineManagerSignedAt = when;
+    if (!row.lineManagerName) row.lineManagerName = hrAssignedName_(row);
+    if (sig) row.entitlements.__sigs.line = sig;
+    if (me) row.entitlements.__signers.line = me;
+    return;
+  }
+  if (!row.empSignedAt) row.empSignedAt = when;
+  if (sig) row.entitlements.__sigs.emp = sig;
+  if (me) row.entitlements.__signers.emp = me;
+  if (String(row.status || '') === 'pending_line' && hrPaperAssignedToMe_(row)) row.status = 'pending_director';
+}
+
+function hrConfirmSelectedBatch_(ids, slot) {
+  if (_hrBulkBusy) return;
+  ids = (ids || []).map(function (id) { return String(id || '').trim(); }).filter(Boolean);
+  if (!ids.length) return;
+  var sig = String(hrAccountSig_() || (_hrSigs && (slot === 'line' ? _hrSigs.line : _hrSigs.emp)) || '').trim();
+  if (!sig) {
+    hrMsg_('Your e-signature is not on this account yet. Ask admin to upload it on Users, or open a paper and upload it once.', false);
+    return;
+  }
+  var n = ids.length;
+  var when = hrToday_();
+  var me = hrMe_();
+  _hrBulkBusy = true;
+  ids.forEach(function (id) {
+    var row = (_hrRows || []).find(function (r) { return String(r.id) === id; });
+    if (row) hrMarkSelectedSigned_(row, slot, when, sig, me);
+  });
+  _hrSelectMode = false;
+  _hrSelected = {};
+  hrRefreshLists_();
+  hrSwitchTab_(null, hrAfterSignTab_());
+  var done = slot === 'line'
+    ? ('Signed ' + n + '. Sent to the director.')
+    : (hrIsEmployeeOnly_()
+      ? ('Employee e-signature placed on ' + n + '.')
+      : ('Employee e-signature placed on ' + n + '. Sent to the director.'));
+  hrMsg_(done, true);
+  fetchJSONRetry({
+    action: 'confirmHrLeaveRequests',
+    token: hrToken_(),
+    ids: ids,
+    signatureSlot: slot,
+    lineManagerSignedAt: when
+  }, 1, 60000).then(function (d) {
+    if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) return;
+    if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Confirm failed');
+    var failed = d.failed && d.failed.length ? d.failed.length : 0;
+    if (failed) {
+      hrMsg_((d.confirmed || 0) + ' signed, ' + failed + ' could not be signed.', false);
+      return hrLoad_(true);
+    }
+  }).catch(function (err) {
+    hrMsg_(err.message || 'Confirm failed.', false);
+    return hrLoad_(true);
+  }).then(function () {
+    _hrBulkBusy = false;
+  });
+}
+
 function hrRunSelectedEmp_(ids) {
   ids = (ids || []).map(function (id) { return String(id || '').trim(); }).filter(Boolean);
   if (_hrBulkBusy) return;
@@ -1101,14 +1169,7 @@ function hrRunSelectedEmp_(ids) {
     hrMsg_('Select papers first, then choose Employee box or Line Manager box.', false);
     return;
   }
-  var n = ids.length;
-  hrRunBulkIds_(ids, hrEmpConfirmRequest_, {
-    working: 'Signing Employee box on ' + n + '…',
-    done: hrIsEmployeeOnly_()
-      ? 'Employee e-signature placed on ' + n + '.'
-      : 'Employee e-signature placed on ' + n + '. Sent to the director.',
-    tab: hrAfterSignTab_()
-  });
+  hrConfirmSelectedBatch_(ids, 'emp');
 }
 
 function hrRunSelectedLine_(ids) {
@@ -1121,11 +1182,7 @@ function hrRunSelectedLine_(ids) {
   }
   var n = ids.length;
   var go = function () {
-    hrRunBulkIds_(ids, hrLineConfirmRequest_, {
-      working: 'Signing Line Manager box on ' + n + '…',
-      done: 'Signed ' + n + '. Sent to the director.',
-      tab: hrAfterSignTab_()
-    });
+    hrConfirmSelectedBatch_(ids, 'line');
   };
   if (hrDualEmpLine_()) {
     go();

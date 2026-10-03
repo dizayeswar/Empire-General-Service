@@ -1398,7 +1398,116 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
   return { ok: false, success: false, error: "bad_status", message: "This paper cannot be confirmed in its current status." };
 }
 
+function confirmSignerPatch(
+  ex: Record<string, unknown>,
+  body: Record<string, unknown>,
+  auth: AuthOk,
+  slot: "emp" | "line",
+  users: Array<{ username: string }>,
+  sig: string,
+): { ok: true; patch: Record<string, unknown> } | { ok: false; message: string } {
+  const status = String(ex.status || "submitted");
+  const staff = isHrStaff(auth);
+  const me = normalizeWorkerId(auth.username);
+  if (!sig) {
+    return { ok: false, message: "Your e-signature is not on this account yet. Ask admin to upload it on Users, or place it on the box once." };
+  }
+  if (slot === "emp") {
+    if (!isHrEmpWrite(auth) && !staff) return { ok: false, message: "Not allowed." };
+    const inbox = !isLockedStatus(status);
+    if (inbox) {
+      if (!staff && !employeeOwnsPaper(ex, me)) {
+        return { ok: false, message: "You can only stamp the Employee box on your own leave paper." };
+      }
+    } else if (status === "pending_line") {
+      if (!isHrEmpWrite(auth)) return { ok: false, message: "Not allowed." };
+      if (!staff) {
+        const resolved = resolveAssignedAccount(ex, users);
+        if (resolved.username !== me && !employeeOwnsPaper(ex, me)) {
+          return { ok: false, message: "You can only put the Employee e-signature on your paper, or on a paper waiting for you." };
+        }
+      }
+    } else {
+      return { ok: false, message: "This paper cannot take an Employee e-signature now." };
+    }
+    let sendToDirector = false;
+    if (status === "pending_line") {
+      const resolved = resolveAssignedAccount(ex, users);
+      sendToDirector = paperSkipsLine(ex) || resolved.username === me;
+    }
+    return { ok: true, patch: empConfirmPatch(ex, sig, { sendToDirector, username: me }) };
+  }
+  if (status !== "pending_line") {
+    return { ok: false, message: "This paper is not waiting for you as line manager." };
+  }
+  const resolved = resolveAssignedAccount(ex, users);
+  if (resolved.username !== me && !paperAssignedToUser(ex, me)) {
+    return {
+      ok: false,
+      message: resolved.name
+        ? ("This paper is waiting for " + resolved.name + " to sign.")
+        : "This paper is waiting for the assigned line manager.",
+    };
+  }
+  const assign = assignFromRow(ex);
+  return {
+    ok: true,
+    patch: lineConfirmPatch(ex, sig, auth, {
+      lineManagerUser: resolved.username,
+      lineManagerName: assign.name || String(ex.line_manager_name || ""),
+      lineManagerSignedAt: String(body.lineManagerSignedAt || "").trim(),
+    }),
+  };
+}
+
+async function confirmSignerBatch(body: Record<string, unknown>, auth: AuthOk, slot: "emp" | "line") {
+  const raw = Array.isArray(body.ids) ? body.ids : [];
+  const ids = [...new Set(raw.map((v) => String(v || "").trim()).filter(Boolean))].slice(0, 80);
+  if (!ids.length) return { ok: false, success: false, error: "missing_id", message: "Select at least one paper." };
+  const sig = await resolveLineSignature(body, auth, "");
+  if (!sig) {
+    return { ok: false, success: false, error: "missing_signature", message: "Your e-signature is not on this account yet. Ask admin to upload it on Users, or place it on the box once." };
+  }
+  const users = await loadUsernames();
+  const { data: rows, error } = await sb().from("hr_leave_requests").select("*").in("id", ids);
+  if (error) throw error;
+  const byId = new Map((rows || []).map((r) => [String(r.id || ""), r]));
+  const confirmed: string[] = [];
+  const failed: Array<{ id: string; message: string }> = [];
+  await Promise.all(ids.map(async (id) => {
+    const ex = byId.get(id);
+    if (!ex) {
+      failed.push({ id, message: "Leave request not found." });
+      return;
+    }
+    const decided = confirmSignerPatch(ex, body, auth, slot, users, sig);
+    if (!decided.ok) {
+      failed.push({ id, message: decided.message });
+      return;
+    }
+    const { error: upErr } = await sb().from("hr_leave_requests").update(decided.patch).eq("id", id);
+    if (upErr) {
+      failed.push({ id, message: "Could not save." });
+      return;
+    }
+    confirmed.push(id);
+  }));
+  if (!confirmed.length) {
+    return {
+      ok: false,
+      success: false,
+      error: "confirm_failed",
+      message: (failed[0] && failed[0].message) || "Confirm failed",
+      confirmed: 0,
+      failed,
+    };
+  }
+  return { ok: true, success: true, confirmed: confirmed.length, ids: confirmed, failed };
+}
+
 export async function handleConfirmHrLeaveRequests(body: Record<string, unknown>, auth: AuthOk) {
+  const slot = requestedSignBox(body);
+  if (slot === "emp" || slot === "line") return confirmSignerBatch(body, auth, slot);
   if (!isHrDirector(auth)) {
     return { ok: false, success: false, error: "not_allowed", message: "Only the director can confirm these papers." };
   }
