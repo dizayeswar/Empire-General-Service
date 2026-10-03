@@ -213,6 +213,7 @@ export const DEPT_BY_ACTION: Record<string, string> = {
   getWarehouseInvoiceBooks: "warehouse",
   saveWarehouseInvoiceBooks: "warehouse",
   getHrLeaveRequests: "hr",
+  getHrLeaveRequest: "hr",
   addHrLeaveRequest: "hr",
   updateHrLeaveRequest: "hr",
   deleteHrLeaveRequest: "hr",

@@ -3199,7 +3199,13 @@ function hrEnsureFullRow_(id) {
 function hrEditInList_(id, fromTab) {
   var row = _hrRows.find(function (r) { return String(r.id) === String(id); });
   if (row && row.lite) {
-    hrEnsureFullRow_(id).then(function () { hrEditInList_(id, fromTab); });
+    hrEnsureFullRow_(id).then(function (full) {
+      if (!full || full.lite) {
+        hrMsg_('Could not open this paper.', false);
+        return;
+      }
+      hrEditInList_(id, fromTab);
+    });
     return;
   }
   if (!row) return;
@@ -4605,7 +4611,13 @@ function hrSaveFromScan_() {
 function hrOpenScanRow_(id, fromTab) {
   var row = _hrRows.find(function (r) { return String(r.id) === String(id); });
   if (row && row.lite) {
-    hrEnsureFullRow_(id).then(function () { hrOpenScanRow_(id, fromTab); });
+    hrEnsureFullRow_(id).then(function (full) {
+      if (!full || full.lite) {
+        hrMsg_('Could not open this paper.', false);
+        return;
+      }
+      hrOpenScanRow_(id, fromTab);
+    });
     return;
   }
   if (!row) return;
