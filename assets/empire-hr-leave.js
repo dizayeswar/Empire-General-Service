@@ -415,7 +415,8 @@ function hrPrintRowsByIds_(ids, emptyMsg) {
       wrap.appendChild(scan && scan.url ? hrBatchScanPage_(row) : hrBatchFormPage_(row, i));
     });
     hrMsg_('Preparing ' + rows.length + ' paper' + (rows.length === 1 ? '' : 's') + '…', true);
-    hrRunPrintFrame_(wrap.innerHTML, rows.length === 1 ? 'Leave Request' : 'Leave Requests', mode);
+    if (mode === 'print') hrPrintViaPage_(wrap);
+    else hrRunPrintFrame_(wrap.innerHTML, rows.length === 1 ? 'Leave Request' : 'Leave Requests', mode);
   });
   });
 }
@@ -5240,10 +5241,15 @@ function hrOpenPrintFrame_(bodyHtml, title) {
   });
 }
 
-function hrPrintViaPage_(bodyHtml) {
+function hrPrintViaPage_(source) {
   var host = document.getElementById('hrBatchPrint');
   if (!host) return false;
-  host.innerHTML = bodyHtml || '';
+  host.innerHTML = '';
+  if (source && source.nodeType === 1) {
+    while (source.firstChild) host.appendChild(source.firstChild);
+  } else {
+    host.innerHTML = source || '';
+  }
   if (!host.querySelector('.hr-batch-page, .hr-print-page, .hr-note, img')) {
     host.innerHTML = '';
     hrMsg_('Could not prepare the paper.', false);

@@ -1798,13 +1798,21 @@
   body.hr-print-batch .login-page * { visibility: hidden !important; display: none !important; }
   body.hr-print-batch #scan,
   body.hr-print-batch #scan * { visibility: hidden !important; }
+  body.hr-print-batch {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
   body.hr-print-batch #hrBatchPrint {
     display: block !important;
     visibility: visible !important;
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
-    width: 100% !important;
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    width: 210mm !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
     margin: 0 !important;
     padding: 0 !important;
     background: #fff !important;
@@ -1813,13 +1821,17 @@
   body.hr-print-batch #hrBatchPrint * { visibility: visible !important; }
   body.hr-print-batch .hr-batch-page,
   body.hr-print-batch .hr-print-page {
+    display: block !important;
     page-break-after: always;
     break-after: page;
+    page-break-inside: avoid;
+    break-inside: avoid;
     margin: 0;
     padding: 0;
     width: 210mm;
-    height: 297mm;
-    overflow: hidden;
+    height: auto;
+    max-height: none;
+    overflow: visible;
     box-sizing: border-box;
     position: relative;
   }
@@ -1836,8 +1848,10 @@
     width: 210mm !important;
     height: 297mm !important;
     min-height: 297mm !important;
+    max-height: 297mm !important;
     padding: 0 !important;
     position: relative !important;
+    overflow: hidden !important;
     box-sizing: border-box !important;
   }
   body.hr-print-batch .hr-batch-scan-page .hr-scan-stage {
