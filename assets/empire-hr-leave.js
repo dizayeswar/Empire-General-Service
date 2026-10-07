@@ -5243,73 +5243,62 @@ function hrOpenPrintFrame_(bodyHtml, title) {
 }
 
 function hrPrintViaPage_(source) {
-  var host = document.getElementById('hrBatchPrint');
-  if (!host) return false;
-  host.innerHTML = '';
-  if (source && source.nodeType === 1) {
-    while (source.firstChild) host.appendChild(source.firstChild);
-  } else {
-    host.innerHTML = source || '';
+  hrClearBatchPrint_();
+  var frame = document.getElementById('hrPrintFrame');
+  if (!frame) {
+    frame = document.createElement('iframe');
+    frame.id = 'hrPrintFrame';
+    frame.setAttribute('title', 'Print preview');
+    document.body.appendChild(frame);
   }
-  if (!host.querySelector('.hr-batch-page, .hr-print-page, .hr-note, img')) {
-    host.innerHTML = '';
-    hrMsg_('Could not prepare the paper.', false);
-    return true;
-  }
-  host.hidden = false;
-  host.style.setProperty('display', 'block', 'important');
-  host.style.setProperty('position', 'static', 'important');
-  host.style.setProperty('width', '210mm', 'important');
-  host.style.setProperty('height', 'auto', 'important');
-  host.style.setProperty('max-height', 'none', 'important');
-  host.style.setProperty('overflow', 'visible', 'important');
-  var pages = host.querySelectorAll('.hr-batch-page, .hr-print-page');
-  var p;
-  for (p = 0; p < pages.length; p++) {
-    pages[p].style.setProperty('display', 'block', 'important');
-    pages[p].style.setProperty('position', 'relative', 'important');
-    pages[p].style.setProperty('width', '210mm', 'important');
-    pages[p].style.setProperty('min-height', '297mm', 'important');
-    pages[p].style.setProperty('height', 'auto', 'important');
-    pages[p].style.setProperty('overflow', 'visible', 'important');
-    pages[p].style.setProperty('break-after', p === pages.length - 1 ? 'auto' : 'page', 'important');
-    pages[p].style.setProperty('page-break-after', p === pages.length - 1 ? 'auto' : 'always', 'important');
-    pages[p].style.setProperty('break-inside', 'auto', 'important');
-  }
-  var notes = host.querySelectorAll('.hr-note');
-  for (p = 0; p < notes.length; p++) {
-    notes[p].style.setProperty('height', '297mm', 'important');
-    notes[p].style.setProperty('min-height', '297mm', 'important');
-    notes[p].style.setProperty('max-height', '297mm', 'important');
-    notes[p].style.setProperty('overflow', 'hidden', 'important');
-  }
-  document.body.classList.add('hr-print-batch');
-  if (host.offsetHeight) { /* force every sheet to lay out before the dialog opens */ }
-  hrMsg_('Opening print… ' + (pages.length || '') + (pages.length === 1 ? ' paper' : ' papers'), true);
-  hrWaitImages_(host, function () {
-    setTimeout(function () {
-      var done = false;
-      var cleanup = function () {
-        if (done) return;
-        done = true;
-        hrClearBatchPrint_();
-      };
-      window.addEventListener('afterprint', function onAfter() {
-        window.removeEventListener('afterprint', onAfter);
-        cleanup();
-      });
-      try {
-        window.focus();
-        window.print();
-      } catch (err) {
-        hrMsg_('Could not open print.', false);
-        cleanup();
-        return;
+  frame.style.cssText = 'position:fixed;left:0;top:0;width:100%;height:100%;border:0;background:#fff;z-index:2147483646;';
+  var printed = false;
+  var start = function () {
+    if (printed) return;
+    var live = frame.contentDocument || (frame.contentWindow && frame.contentWindow.document);
+    var win = frame.contentWindow;
+    if (!live || !live.body || !win) return;
+    if (live.body.innerHTML.indexOf('hr-print-') === -1) return;
+    if (!live.body.querySelector('.hr-batch-page, .hr-print-page, .hr-note, img')) {
+      if (source && source.nodeType === 1) {
+        while (source.firstChild) live.body.appendChild(source.firstChild);
+      } else if (source) {
+        live.body.innerHTML += String(source);
       }
-      hrMsg_('Print window opened.', true);
-      setTimeout(cleanup, 180000);
-    }, 300);
-  });
+    }
+    var pages = live.body.querySelectorAll('.hr-batch-page, .hr-print-page');
+    if (!pages.length && !live.body.querySelector('.hr-note, img')) {
+      printed = true;
+      hrMsg_('Could not prepare the paper.', false);
+      hrHidePrintFrame_();
+      return;
+    }
+    printed = true;
+    var n = pages.length;
+    hrMsg_('Opening print… ' + (n || '') + (n === 1 ? ' paper' : ' papers'), true);
+    hrWaitImages_(live.body, function () {
+      setTimeout(function () {
+        try {
+          win.focus();
+          win.print();
+        } catch (err) {
+          hrMsg_('Could not open print.', false);
+          hrHidePrintFrame_();
+          return;
+        }
+        hrMsg_('Print window opened.', true);
+        if (win.addEventListener) {
+          win.addEventListener('afterprint', function () {
+            setTimeout(hrHidePrintFrame_, 800);
+          });
+        }
+        setTimeout(hrHidePrintFrame_, 180000);
+      }, 300);
+    });
+  };
+  frame.onload = start;
+  frame.srcdoc = hrBuildPrintHtml_('<!--hr-print-' + Date.now() + '-->', 'Leave Requests');
+  setTimeout(start, 400);
   return true;
 }
 
@@ -5489,7 +5478,6 @@ function hrInit_() {
   window.addEventListener('afterprint', function () {
     document.body.classList.remove('hr-print-scan');
     hrClearBatchPrint_();
-    hrHidePrintFrame_();
   });
   if (!empireAuthPageBoot({
     dept: HR_DEPT,

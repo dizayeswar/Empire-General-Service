@@ -1528,13 +1528,6 @@
 
 .hr-batch-print { display: none; }
 
-/* Lay every paper out on screen before print. A box that stays hidden until
-   the print dialog opens is only partly paginated (about the first few sheets). */
-body.hr-print-batch #mainContainer,
-body.hr-print-batch .login-page,
-body.hr-print-batch #hrPrintFrame {
-  display: none !important;
-}
 body.hr-print-batch #hrBatchPrint {
   display: block !important;
   visibility: visible !important;
@@ -1590,6 +1583,10 @@ body.hr-print-batch .hr-print-page .hr-note {
   @page { size: A4 portrait; margin: 0; }
   html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; width: 210mm !important; }
   body * { visibility: hidden !important; }
+  #hrPrintFrame {
+    visibility: visible !important;
+    display: block !important;
+  }
   #hrPrintRoot,
   #hrPrintRoot *,
   #hrBatchPrint,
