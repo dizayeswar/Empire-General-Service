@@ -5240,10 +5240,53 @@ function hrOpenPrintFrame_(bodyHtml, title) {
   });
 }
 
+function hrPrintViaPage_(bodyHtml) {
+  var host = document.getElementById('hrBatchPrint');
+  if (!host) return false;
+  host.innerHTML = bodyHtml || '';
+  if (!host.querySelector('.hr-batch-page, .hr-print-page, .hr-note, img')) {
+    host.innerHTML = '';
+    hrMsg_('Could not prepare the paper.', false);
+    return true;
+  }
+  host.hidden = false;
+  document.body.classList.add('hr-print-batch');
+  hrMsg_('Opening print…', true);
+  hrWaitImages_(host, function () {
+    setTimeout(function () {
+      var done = false;
+      var cleanup = function () {
+        if (done) return;
+        done = true;
+        hrClearBatchPrint_();
+      };
+      window.addEventListener('afterprint', function onAfter() {
+        window.removeEventListener('afterprint', onAfter);
+        setTimeout(cleanup, 600);
+      });
+      try {
+        window.focus();
+        window.print();
+      } catch (err) {
+        hrMsg_('Could not open print.', false);
+        cleanup();
+        return;
+      }
+      hrMsg_('Print window opened.', true);
+      setTimeout(cleanup, 180000);
+    }, 300);
+  });
+  return true;
+}
+
 function hrRunPrintFrame_(bodyHtml, title, mode) {
   mode = String(mode || '').trim().toLowerCase();
   if (mode !== 'pdf') mode = 'print';
-  hrMsg_(mode === 'pdf' ? 'Saving PDF…' : 'Opening print…', true);
+  if (mode === 'print') {
+    hrPrintViaPage_(bodyHtml);
+    return;
+  }
+  hrMsg_('Saving PDF…', true);
   var html = hrBuildPrintHtml_(bodyHtml, title);
   var frame = document.getElementById('hrPrintFrame');
   if (!frame) {
@@ -5252,7 +5295,7 @@ function hrRunPrintFrame_(bodyHtml, title, mode) {
     frame.setAttribute('title', 'Print preview');
     document.body.appendChild(frame);
   }
-  frame.style.cssText = 'position:fixed;left:0;top:0;width:210mm;height:297mm;border:0;z-index:2147483000;background:#fff;';
+  frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:210mm;height:297mm;border:0;background:#fff;';
   var win = frame.contentWindow;
   var doc = frame.contentDocument || (win && win.document);
   if (!doc || !win) {
@@ -5268,10 +5311,13 @@ function hrRunPrintFrame_(bodyHtml, title, mode) {
     if (mode === 'pdf' && savedPdf) hrMsg_('PDF saved.', true);
     else if (mode === 'pdf') hrMsg_('Could not save PDF. Try Print instead.', false);
   };
-  doc.open();
-  doc.write(html);
-  doc.close();
-  hrWaitImages_(doc.body, function () {
+  var started = false;
+  var start = function () {
+    if (started) return;
+    var live = frame.contentDocument || (frame.contentWindow && frame.contentWindow.document);
+    if (!live || !live.body || !live.body.childNodes.length) return;
+    started = true;
+    hrWaitImages_(live.body, function () {
     if (mode === 'print') {
       try {
         win.focus();
@@ -5308,7 +5354,13 @@ function hrRunPrintFrame_(bodyHtml, title, mode) {
       }
       hrSavePrintPdf_(doc, title, finish);
     });
-  });
+    });
+  };
+  frame.onload = start;
+  doc.open();
+  doc.write(html);
+  doc.close();
+  setTimeout(start, 400);
 }
 
 function hrPrint_() {
