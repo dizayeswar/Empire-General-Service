@@ -1528,6 +1528,64 @@
 
 .hr-batch-print { display: none; }
 
+/* Lay every paper out on screen before print. A box that stays hidden until
+   the print dialog opens is only partly paginated (about the first few sheets). */
+body.hr-print-batch #mainContainer,
+body.hr-print-batch .login-page,
+body.hr-print-batch #hrPrintFrame {
+  display: none !important;
+}
+body.hr-print-batch #hrBatchPrint {
+  display: block !important;
+  visibility: visible !important;
+  position: static !important;
+  left: auto !important;
+  top: auto !important;
+  width: 210mm !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: #fff !important;
+}
+body.hr-print-batch .hr-batch-page,
+body.hr-print-batch .hr-print-page {
+  display: block !important;
+  position: relative !important;
+  width: 210mm !important;
+  height: auto !important;
+  min-height: 297mm !important;
+  max-height: none !important;
+  overflow: visible !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+  break-after: page;
+  page-break-after: always;
+  break-inside: auto;
+  page-break-inside: auto;
+}
+body.hr-print-batch .hr-batch-page:last-child,
+body.hr-print-batch .hr-print-page:last-child {
+  break-after: auto;
+  page-break-after: auto;
+}
+body.hr-print-batch .hr-batch-page .hr-note,
+body.hr-print-batch .hr-print-page .hr-note {
+  width: 210mm !important;
+  height: 297mm !important;
+  min-height: 297mm !important;
+  max-height: 297mm !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+  position: relative !important;
+  box-sizing: border-box !important;
+}
+
 @media print {
   @page { size: A4 portrait; margin: 0; }
   html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; width: 210mm !important; }
@@ -1824,8 +1882,8 @@
     display: block !important;
     page-break-after: always;
     break-after: page;
-    page-break-inside: avoid;
-    break-inside: avoid;
+    page-break-inside: auto;
+    break-inside: auto;
     margin: 0;
     padding: 0;
     width: 210mm;

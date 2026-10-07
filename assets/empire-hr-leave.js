@@ -388,6 +388,7 @@ function hrClearBatchPrint_() {
   if (host) {
     host.innerHTML = '';
     host.hidden = true;
+    host.style.cssText = '';
   }
 }
 
@@ -5256,8 +5257,35 @@ function hrPrintViaPage_(source) {
     return true;
   }
   host.hidden = false;
+  host.style.setProperty('display', 'block', 'important');
+  host.style.setProperty('position', 'static', 'important');
+  host.style.setProperty('width', '210mm', 'important');
+  host.style.setProperty('height', 'auto', 'important');
+  host.style.setProperty('max-height', 'none', 'important');
+  host.style.setProperty('overflow', 'visible', 'important');
+  var pages = host.querySelectorAll('.hr-batch-page, .hr-print-page');
+  var p;
+  for (p = 0; p < pages.length; p++) {
+    pages[p].style.setProperty('display', 'block', 'important');
+    pages[p].style.setProperty('position', 'relative', 'important');
+    pages[p].style.setProperty('width', '210mm', 'important');
+    pages[p].style.setProperty('min-height', '297mm', 'important');
+    pages[p].style.setProperty('height', 'auto', 'important');
+    pages[p].style.setProperty('overflow', 'visible', 'important');
+    pages[p].style.setProperty('break-after', p === pages.length - 1 ? 'auto' : 'page', 'important');
+    pages[p].style.setProperty('page-break-after', p === pages.length - 1 ? 'auto' : 'always', 'important');
+    pages[p].style.setProperty('break-inside', 'auto', 'important');
+  }
+  var notes = host.querySelectorAll('.hr-note');
+  for (p = 0; p < notes.length; p++) {
+    notes[p].style.setProperty('height', '297mm', 'important');
+    notes[p].style.setProperty('min-height', '297mm', 'important');
+    notes[p].style.setProperty('max-height', '297mm', 'important');
+    notes[p].style.setProperty('overflow', 'hidden', 'important');
+  }
   document.body.classList.add('hr-print-batch');
-  hrMsg_('Opening print…', true);
+  if (host.offsetHeight) { /* force every sheet to lay out before the dialog opens */ }
+  hrMsg_('Opening print… ' + (pages.length || '') + (pages.length === 1 ? ' paper' : ' papers'), true);
   hrWaitImages_(host, function () {
     setTimeout(function () {
       var done = false;
@@ -5268,7 +5296,7 @@ function hrPrintViaPage_(source) {
       };
       window.addEventListener('afterprint', function onAfter() {
         window.removeEventListener('afterprint', onAfter);
-        setTimeout(cleanup, 600);
+        cleanup();
       });
       try {
         window.focus();
