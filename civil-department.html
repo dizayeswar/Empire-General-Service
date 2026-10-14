@@ -209,8 +209,9 @@
             <span class="month-ph">Select month</span>
           </div>
         </div>
-        <div class="form-group" style="justify-content:flex-end;">
-          <button id="dlBtn" onclick="downloadReport()"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg></span> Download Report (offline HTML)</button>
+        <div class="form-group" style="justify-content:flex-end;gap:10px;">
+          <button id="dlBtn" onclick="downloadReport()" style="width:100%;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/></svg></span> Download Report (offline HTML)</button>
+          <button id="xlBtn" onclick="downloadReportExcel()" style="width:100%;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M8 13h2"/><path d="M14 13h2"/><path d="M8 17h2"/><path d="M14 17h2"/></svg></span> Export to Excel</button>
         </div>
       </div>
       <div class="form-group" style="margin-top:10px;">
@@ -720,6 +721,67 @@ async function downloadReport(){
   var blob=new Blob([html],{type:'text/html;charset=utf-8'});
   var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='Empire-Civil-Report-'+m+'.html'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
   btn.disabled=false; btn.textContent=orig;
+}
+function reportExcelAmountFormat_(ws, col, rowCount){
+  if(!window.XLSX) return;
+  for(var r=1;r<=rowCount;r++){
+    var cell=ws[XLSX.utils.encode_cell({r:r,c:col})];
+    if(cell && typeof cell.v==='number') cell.z='#,##0';
+  }
+}
+async function downloadReportExcel(){
+  var m=document.getElementById('job-rep-month').value; if(!m){ alert('Please select a month first.'); return; }
+  var jobs=allJobs.filter(r=>monthOf(r)===m);
+  if(jobs.length===0){ alert('No records for '+m+'.'); return; }
+  jobs.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  var btn=document.getElementById('xlBtn'); var orig=btn?btn.innerHTML:'';
+  if(btn){ btn.disabled=true; btn.textContent='Exporting…'; }
+  try{
+    if(typeof loadXlsxLib!=='function') throw new Error('Excel export is not available on this page.');
+    await loadXlsxLib();
+    var refJobs=jobs.filter(function(r){ return r.type==='refundable'; });
+    var refTotal=refJobs.reduce(function(s,r){ return s+parseAmountValue_(r.amount); },0);
+    var rows=[['#','Date','Job','Location','Materials','Staff','Type','Amount (IQD)','Invoice No','Notes']];
+    jobs.forEach(function(r,i){
+      var amt=parseAmountValue_(r.amount);
+      rows.push([
+        i+1,
+        r.date||'',
+        r.job||'',
+        r.location||'',
+        materialsDisplay_(r.materials)||'',
+        r.staff||'',
+        r.type==='refundable'?'Refundable Work':'General Maintenance',
+        amt>0?amt:'',
+        r.invoiceNo||'',
+        r.notes||''
+      ]);
+    });
+    rows.push(['','','','','','','Refundable total', refTotal, '', '']);
+    var wb=XLSX.utils.book_new();
+    var ws=XLSX.utils.aoa_to_sheet(rows);
+    reportExcelAmountFormat_(ws, 7, rows.length-1);
+    ws['!cols']=[{wch:6},{wch:14},{wch:32},{wch:24},{wch:28},{wch:22},{wch:22},{wch:16},{wch:14},{wch:36}];
+    XLSX.utils.book_append_sheet(wb, ws, 'Maintenance Jobs');
+    var summary=(document.getElementById('rep-summary').value||'').trim();
+    var sumRows=[
+      ['Month', m],
+      ['Maintenance Jobs', jobs.length],
+      ['Refundable', refJobs.length],
+      ['Refundable Amount (IQD)', refTotal],
+      ['Total Records', jobs.length]
+    ];
+    if(summary) sumRows.push(['Monthly Summary', summary]);
+    var wsSum=XLSX.utils.aoa_to_sheet(sumRows);
+    reportExcelAmountFormat_(wsSum, 1, 4);
+    wsSum['!cols']=[{wch:26},{wch:80}];
+    XLSX.utils.book_append_sheet(wb, wsSum, 'Summary');
+    XLSX.writeFile(wb, 'Empire-Civil-Report-'+m+'.xlsx');
+  }catch(e){
+    alert('Export failed: '+((e&&e.message)||e));
+  }finally{
+    if(btn){ btn.disabled=false; btn.innerHTML=orig; }
+  }
 }
 function buildReportHtml(jobs,summary,map,logo,monthLabel,gen){
   var b='<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Empire Civil Report — '+_esc(monthLabel)+'</title>';
