@@ -2597,7 +2597,7 @@ function seedCleaningSupervisors() {
   }
   var seeds = [
     {user:'ibrahim', pass:'empire2026', projects:'ec,es'},
-    {user:'rawa', pass:'empire2026', projects:'ra,wd'},
+    {user:'rawa', pass:'empire2026', projects:'ra'},
     {user:'emad', pass:'empire2026', projects:'ww'},
     {user:'muhamad', pass:'empire2026', projects:'ww2'}
   ];
