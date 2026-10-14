@@ -25,6 +25,19 @@
   if (window.__empireSwRegistering) return;
   window.__empireSwRegistering = true;
 
+  navigator.serviceWorker.addEventListener('controllerchange', function () {
+    if (window.__empireSwReloading) return;
+    window.__empireSwReloading = true;
+    try {
+      var mark = 'empire_sw_reload_' + BUILD;
+      if (sessionStorage.getItem(mark) === '1') return;
+      sessionStorage.setItem(mark, '1');
+    } catch (e) {
+      return;
+    }
+    location.reload();
+  });
+
   navigator.serviceWorker.register('./firebase-messaging-sw.js?v=' + BUILD, {
     scope: './',
     updateViaCache: 'none'
