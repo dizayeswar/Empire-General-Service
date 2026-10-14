@@ -1413,6 +1413,16 @@ function saveSummary(){
     .then(r=>r.json()).then(()=>{ document.getElementById('summaryMsg').textContent='✅ Summary saved!'; setTimeout(()=>{ document.getElementById('summaryMsg').textContent=''; },3000); })
     .catch(e=>alert('❌ '+e.message));
 }
+function jobRefundAmount_(r){
+  if(!r||r.type!=='refundable') return 0;
+  var amt=parseFloat(r.amount);
+  return isNaN(amt)||amt<=0?0:amt;
+}
+function jobRefundAmountHtml_(r, color){
+  var amt=jobRefundAmount_(r);
+  if(amt<=0) return '—';
+  return '<span style="color:'+(color||'var(--c-money)')+';font-weight:600;white-space:nowrap;">'+fmtMoney(amt)+' IQD</span>';
+}
 function renderReportPreview(){
   var m=document.getElementById('rep-month').value||''; if(!m){ document.getElementById('reportPreview').innerHTML='<p style="color:var(--text-faint);">Select a month above.</p>'; return; }
   var jobs=allJobs.filter(r=>monthOf(r)===m&&r.type!=='callcenter');
@@ -1421,10 +1431,12 @@ function renderReportPreview(){
   cc.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
   var monthIndexMap=buildJobMonthIndexMap_(allJobs);
   var total=jobs.length+cc.length;
-  var h='<div class="stats"><div class="stat-box"><div class="stat-value">'+jobs.length+'</div><div class="stat-label">Maintenance Jobs</div></div><div class="stat-box"><div class="stat-value" style="color:var(--c-refundable);">'+jobs.filter(r=>r.type==='refundable').length+'</div><div class="stat-label">Refundable</div></div><div class="stat-box"><div class="stat-value" style="color:var(--c-callcenter);">'+cc.length+'</div><div class="stat-label">Call Center Shifts</div></div><div class="stat-box"><div class="stat-value">'+total+'</div><div class="stat-label">Total Records</div></div></div>';
+  var refTotal=jobs.reduce((s,r)=>s+jobRefundAmount_(r),0);
+  var h='<div class="stats"><div class="stat-box"><div class="stat-value">'+jobs.length+'</div><div class="stat-label">Maintenance Jobs</div></div><div class="stat-box"><div class="stat-value" style="color:var(--c-refundable);">'+jobs.filter(r=>r.type==='refundable').length+'</div><div class="stat-label">Refundable</div></div><div class="stat-box"><div class="stat-value" style="color:var(--c-money);font-size:18px;">'+fmtMoney(refTotal)+'</div><div class="stat-label">Refundable Amount (IQD)</div></div><div class="stat-box"><div class="stat-value" style="color:var(--c-callcenter);">'+cc.length+'</div><div class="stat-label">Call Center Shifts</div></div><div class="stat-box"><div class="stat-value">'+total+'</div><div class="stat-label">Total Records</div></div></div>';
   if(jobs.length>0){
-    h+='<h3>Maintenance Jobs ('+jobs.length+')</h3><div style="overflow-x:auto;"><table><thead><tr><th>#</th><th>Ref</th><th>Date</th><th>Job</th><th>Location</th><th>Materials</th><th>Staff</th><th>Notes</th></tr></thead><tbody>';
-    jobs.forEach(r=>{ h+='<tr><td>'+jobMonthIndex_(r, monthIndexMap)+'</td><td>'+jobRef_(r)+'</td><td>'+r.date+'</td><td>'+_esc(r.job)+'</td><td>'+_esc(r.location||'')+'</td><td>'+_esc(materialsDisplay_(r.materials))+'</td><td>'+_esc(r.staff||'')+'</td><td><span class="badge '+(r.type==='refundable'?'refundable':'general')+'">'+(r.type==='refundable'?'Refundable Work':'General Maintenance')+'</span></td></tr>'; });
+    h+='<h3>Maintenance Jobs ('+jobs.length+')</h3><div style="overflow-x:auto;"><table><thead><tr><th>#</th><th>Ref</th><th>Date</th><th>Job</th><th>Location</th><th>Materials</th><th>Staff</th><th>Amount</th><th>Notes</th></tr></thead><tbody>';
+    jobs.forEach(r=>{ h+='<tr><td>'+jobMonthIndex_(r, monthIndexMap)+'</td><td>'+jobRef_(r)+'</td><td>'+r.date+'</td><td>'+_esc(r.job)+'</td><td>'+_esc(r.location||'')+'</td><td>'+_esc(materialsDisplay_(r.materials))+'</td><td>'+_esc(r.staff||'')+'</td><td>'+jobRefundAmountHtml_(r)+'</td><td><span class="badge '+(r.type==='refundable'?'refundable':'general')+'">'+(r.type==='refundable'?'Refundable Work':'General Maintenance')+'</span></td></tr>'; });
+    h+='<tr style="font-weight:700;border-top:2px solid var(--accent2);"><td colspan="7" style="text-align:right;color:var(--text-soft);">Refundable total</td><td style="color:var(--c-money);white-space:nowrap;">'+fmtMoney(refTotal)+' IQD</td><td></td></tr>';
     h+='</tbody></table></div>';
   }
   if(cc.length>0){
@@ -1461,8 +1473,10 @@ function buildReportHtml(jobs,cc,summary,map,logo,monthLabel,gen){
   if(jobs.length>0){
     b+='<h2>A- Daily Operation and Maintenance ('+jobs.length+' jobs)</h2>';
     var monthIndexMap=buildJobMonthIndexMap_(jobs.concat(cc));
-    b+='<table><thead><tr><th>#</th><th>Ref</th><th>Date</th><th>Electricity Establishment</th><th>Location</th><th>Using Quantity</th><th>Staff</th><th>Notes</th></tr></thead><tbody>';
-    jobs.forEach(r=>{ b+='<tr><td>'+jobMonthIndex_(r, monthIndexMap)+'</td><td>'+_esc(jobRef_(r))+'</td><td>'+_esc(r.date)+'</td><td>'+_esc(r.job)+'</td><td>'+_esc(r.location||'')+'</td><td>'+_esc(materialsDisplay_(r.materials)||'0')+'</td><td>'+_esc(r.staff||'')+'</td><td><span class="badge '+(r.type==='refundable'?'refundable':'general')+'">'+(r.type==='refundable'?'Refundable Work':'General Maintenance')+'</span></td></tr>'; });
+    var refTotal=jobs.reduce(function(s,r){ return s+jobRefundAmount_(r); },0);
+    b+='<table><thead><tr><th>#</th><th>Ref</th><th>Date</th><th>Electricity Establishment</th><th>Location</th><th>Using Quantity</th><th>Staff</th><th>Amount (IQD)</th><th>Notes</th></tr></thead><tbody>';
+    jobs.forEach(r=>{ b+='<tr><td>'+jobMonthIndex_(r, monthIndexMap)+'</td><td>'+_esc(jobRef_(r))+'</td><td>'+_esc(r.date)+'</td><td>'+_esc(r.job)+'</td><td>'+_esc(r.location||'')+'</td><td>'+_esc(materialsDisplay_(r.materials)||'0')+'</td><td>'+_esc(r.staff||'')+'</td><td>'+jobRefundAmountHtml_(r,'#9a6b00')+'</td><td><span class="badge '+(r.type==='refundable'?'refundable':'general')+'">'+(r.type==='refundable'?'Refundable Work':'General Maintenance')+'</span></td></tr>'; });
+    b+='<tr style="font-weight:700;"><td colspan="7" style="text-align:right;">Refundable total</td><td style="color:#9a6b00;white-space:nowrap;">'+fmtMoney(refTotal)+' IQD</td><td></td></tr>';
     b+='</tbody></table>';
     var photos=jobs.filter(r=>r.photo);
     if(photos.length>0){ b+='<h2>Photos</h2><div class="photos">'; photos.forEach(r=>{ var src=map[r.photo]||r.photo; b+='<figure><a href="'+src+'" target="_blank"><img src="'+src+'"></a><figcaption>'+_esc(r.job)+' — '+_esc(r.location||'')+'</figcaption></figure>'; }); b+='</div>'; }
