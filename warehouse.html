@@ -460,7 +460,10 @@
             <div class="wh-inv-fields">
               <div class="wh-inv-row">
                 <label for="wh-inv-from"><strong>Received from:</strong></label>
-                <input id="wh-inv-from" class="wh-cell-input" type="text" autocomplete="off">
+                <div class="wh-combo" id="wh-inv-from-combo">
+                  <input id="wh-inv-from" class="wh-cell-input" type="text" autocomplete="off" oninput="whFilterInvFrom(this)" onfocus="whFilterInvFrom(this)">
+                  <div class="wh-combo-list" id="wh-inv-from-list" hidden></div>
+                </div>
               </div>
               <div class="wh-inv-row">
                 <label for="wh-inv-property"><strong>Property:</strong></label>
@@ -640,6 +643,22 @@ var WH_TECHNICIANS = [
   'Hashim Omar','Ibrahim Sadi','Ahmad Sadullah','Mariwan Saeed','Soran Ibrahim',
   'Darbaz Majid','Jasim Muhammad','Chia Mustafa','Wrya Muhammad','Ibrahim Muhammad',
   'Muhammad Hassan','Harim Sarkawt'
+];
+/* E2 LS payroll — name, second name, and father only. Received from suggests these names. */
+var WH_INV_FROM_NAMES = [
+  'Shakhwan Dilshad Sulaiman','Saeed Shahuth Khalaf','Mohammed Luqman Qadir','Barzan Sherzad Burhan',
+  'Halmat Abozaid Mohammed','Adnan Ahmed Khdhir','Akam Edris Abbas','Aram Majid Saeed',
+  'Sardam Sardar Sadiq','Farman Ahmed Khidhir','Mohammed Qasim Othman','Rayan Hazhar Siddiq',
+  'Ali Ameer Kareem','Shwan Ali Hamad','Abdulsamad Sulaiaman Mustafa','Luay Khalil Farman',
+  'Sangar Salah Braim','Mohammed Kamal Hamad','Sarhad Hawez Ahmed','Kasro Khasro Hossein',
+  'Sarhang Mohammed Kareem','Mudhafar Ridha Ahmed','Alan Mahdi Mohammed','Mohammed Ramadan Ibrahim',
+  'Muslim Azad Abdulaziz','Samir Khalil Farman','Himdad Omar Ibrahim','Nashwan Khiry Aziz',
+  'Mariwan Saeed Mohammad','Ahmed Saadullah Hassan','Wrya Mohammed Ahmed','Hashim Omer Ali',
+  'Chya Mustafa Raouf','Ibrahim Mohammed Qadir','Ibrahim Saadi Mohammed','Darbaz Majeed Mohammed',
+  'Soran Ibrahim Kareem','Jassim Mohammed Abdullah','Mohammed Hassan Ahmed','Harem Sarkawt Majid',
+  'Shakhawan Younis Ismail','Mohammad Aboud Mughebr','Mahmood Jamal Hashim','Sako Sami Bakir',
+  'Karzan Saeed Mohammad','Karzan Jamal Omer','Dlawar Kamal Hamad','Ari Shwan Salim',
+  'Sangar Ahmed lsmail','Mohammed Sarkout Ahmad','Zryan Zrar Omar','Mohammed Khalil Ahmed'
 ];
 var _whOpenCombo = null;
 var _whSig = { auth:'', issued:'', received:'', invRecipient:'' };
@@ -3967,6 +3986,8 @@ function whBindComboClicks_(){
       whInvPickPill_('dept', btn.getAttribute('data-wh-name')||'');
     } else if(kind==='inv-sp'){
       whInvPickSp(Number(btn.getAttribute('data-wh-row')||0), btn.getAttribute('data-wh-code')||'');
+    } else if(kind==='inv-from'){
+      whPickInvFrom(btn.getAttribute('data-wh-name')||'');
     }
   }, true);
   window.addEventListener('scroll', function(e){
@@ -4042,6 +4063,88 @@ function whPickCompany(name){
   if(el) el.value=name||'';
   whCloseCombos();
   whDraftSchedule_();
+}
+function whInvFromRank_(name, q){
+  var n=String(name||'').toLowerCase();
+  if(n.indexOf(q)===0) return 0;
+  var parts=n.split(' ');
+  for(var i=0;i<parts.length;i++){
+    if(parts[i].indexOf(q)===0) return 1;
+  }
+  return n.indexOf(q)===-1 ? 9 : 2;
+}
+function whFilterInvFrom(el){
+  var list=document.getElementById('wh-inv-from-list');
+  var wrap=document.getElementById('wh-inv-from-combo');
+  if(_whInvViewOnly){
+    if(list){ list.hidden=true; list.innerHTML=''; }
+    return;
+  }
+  whBindComboClicks_();
+  whInvFromBindKeys_();
+  if(!list||!el) return;
+  var q=String(el.value||'').trim().toLowerCase().replace(/\s+/g,' ');
+  if(q.length<1){
+    list.hidden=true;
+    list.innerHTML='';
+    return;
+  }
+  var hits=WH_INV_FROM_NAMES.filter(function(n){ return whInvFromRank_(n, q)<9; });
+  hits.sort(function(a,b){
+    var d=whInvFromRank_(a, q)-whInvFromRank_(b, q);
+    if(d) return d;
+    return WH_INV_FROM_NAMES.indexOf(a)-WH_INV_FROM_NAMES.indexOf(b);
+  });
+  if(!hits.length){
+    list.innerHTML='<button type="button" disabled>No name match</button>';
+    whMarkComboOpen_(wrap, list, el);
+    return;
+  }
+  list.innerHTML=hits.map(function(n, i){
+    var sel=i===0 ? ' wh-combo-active' : '';
+    return '<button type="button" class="'+sel.trim()+'" data-wh-pick="inv-from" data-wh-name="'+whEsc(n)+'">'+whEsc(n)+'</button>';
+  }).join('');
+  whMarkComboOpen_(wrap, list, el);
+}
+function whPickInvFrom(name){
+  var el=document.getElementById('wh-inv-from');
+  if(el) el.value=name||'';
+  whCloseCombos();
+  if(el) el.focus();
+}
+function whInvFromBindKeys_(){
+  var el=document.getElementById('wh-inv-from');
+  if(!el || el._whFromKeys) return;
+  el._whFromKeys=true;
+  el.addEventListener('keydown', function(e){
+    var list=document.getElementById('wh-inv-from-list');
+    if(!list || list.hidden) return;
+    var btns=list.querySelectorAll('button[data-wh-pick="inv-from"]:not([disabled])');
+    if(e.key==='Escape'){
+      e.preventDefault();
+      whCloseCombos();
+      return;
+    }
+    if(!btns.length) return;
+    if(e.key==='ArrowDown' || e.key==='ArrowUp'){
+      e.preventDefault();
+      var cur=-1;
+      for(var i=0;i<btns.length;i++){
+        if(btns[i].classList.contains('wh-combo-active')){ cur=i; break; }
+      }
+      var next=e.key==='ArrowDown' ? (cur<0 ? 0 : Math.min(btns.length-1, cur+1)) : (cur<0 ? btns.length-1 : Math.max(0, cur-1));
+      btns.forEach(function(b){ b.classList.remove('wh-combo-active'); });
+      btns[next].classList.add('wh-combo-active');
+      try{ btns[next].scrollIntoView({ block:'nearest' }); }catch(err){}
+      return;
+    }
+    if(e.key==='Enter'){
+      var active=list.querySelector('button.wh-combo-active[data-wh-pick="inv-from"]') || btns[0];
+      if(!active) return;
+      e.preventDefault();
+      whPickInvFrom(active.getAttribute('data-wh-name')||'');
+    }
+  });
 }
 function whInvEnsureDefaults_(){
   var d=document.getElementById('wh-inv-date');
