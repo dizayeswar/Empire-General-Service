@@ -1102,6 +1102,10 @@ export async function handleSaveWarehouseInvoice(body: Record<string, unknown>, 
   if (!invHasAmount_(amountUsd, amountIqd)) {
     return { ok: false, success: false, error: "missing_amount", message: "Amount is required." };
   }
+  const deptCode = department.toUpperCase();
+  if (!["CAI", "MEP", "AC", "MDM"].includes(deptCode)) {
+    return { ok: false, success: false, error: "missing_department", message: "Department is required." };
+  }
   let id = String(body.id || "").trim();
   const now = isoNow();
   const rowPayload: InvPayload = {
@@ -1109,7 +1113,7 @@ export async function handleSaveWarehouseInvoice(body: Record<string, unknown>, 
     invoiceNo,
     date,
     company,
-    department,
+    department: deptCode,
     name,
     propertyCode,
     amountUsd,

@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-09-22-search-pill">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-17-gin-dmy">
-<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-09-30-inv-merge">
+<link rel="stylesheet" href="assets/empire-warehouse.css?v=2026-10-14-inv-dept">
 </head>
 <body class="auth-login-visible wh-page">
 <div class="login-page show" id="loginPage">
@@ -448,7 +448,7 @@
                   </td>
                   <td>
                     <div class="wh-combo wh-inv-pill-dd" id="wh-inv-dept-combo">
-                      <button type="button" class="wh-inv-pill-btn" id="wh-inv-dept-btn" onclick="whInvOpenPill('dept')">—</button>
+                      <button type="button" class="wh-inv-pill-btn is-empty" id="wh-inv-dept-btn" onclick="whInvOpenPill('dept')">Required</button>
                       <input type="hidden" id="wh-inv-dept" value="">
                       <div class="wh-combo-list wh-inv-pill-list" id="wh-inv-dept-list" hidden></div>
                     </div>
@@ -4344,6 +4344,7 @@ function whInvSave(){
   if(!payload.invoiceNo){ alert('Enter Invoice No.'); var el=document.getElementById('wh-inv-number'); if(el) el.focus(); return; }
   if(!payload.date){ alert('Enter Date.'); var d=document.getElementById('wh-inv-date'); if(d) d.focus(); return; }
   if(!whInvHasAmount_(payload)){ alert('Enter the amount. You cannot save an invoice without an amount.'); var a=document.getElementById('wh-inv-amount'); if(a) a.focus(); return; }
+  if(!String(payload.department||'').trim()){ alert('Enter the department. You cannot save an invoice without a department.'); whInvOpenPill('dept'); return; }
   var token=typeof empireGetToken==='function' ? empireGetToken() : '';
   if(!token){ alert('Not logged in.'); return; }
   var btn=document.getElementById('whInvSaveBtn');
@@ -5838,16 +5839,19 @@ function whInvPickCompany(name){
   whCloseCombos();
 }
 var WH_INV_CURRENCIES=['IQD','USD'];
-var WH_INV_DEPTS=['','CAI','MEP','AC','MDM'];
+var WH_INV_DEPTS=['CAI','MEP','AC','MDM'];
 function whInvPillLabel_(kind, val){
   val=String(val||'');
-  if(kind==='dept') return val || '—';
+  if(kind==='dept') return val || 'Required';
   return val || 'IQD';
 }
 function whInvSyncPillBtn_(kind){
   var hid=document.getElementById(kind==='dept' ? 'wh-inv-dept' : 'wh-inv-currency');
   var btn=document.getElementById(kind==='dept' ? 'wh-inv-dept-btn' : 'wh-inv-currency-btn');
-  if(btn) btn.textContent=whInvPillLabel_(kind, hid ? hid.value : '');
+  if(!btn) return;
+  var value=hid ? String(hid.value||'') : '';
+  btn.textContent=whInvPillLabel_(kind, value);
+  if(kind==='dept') btn.classList.toggle('is-empty', !value.trim());
 }
 function whInvOpenPill(kind){
   if(_whInvViewOnly){ alert('This invoice is view only.'); return; }
