@@ -1680,7 +1680,7 @@ function hrRenderTeam_() {
     return;
   }
   var h = '<div class="hr-table-wrap"><table class="hr-list-table"><thead><tr>' +
-    '<th>Code</th><th>Name</th><th>Job title</th><th>Department</th><th>Division</th><th>E-signature</th><th>Days left</th>' +
+    '<th>Code</th><th>Name</th><th>Job title</th><th>Department</th><th>Division</th><th>E-signature</th><th>Days left</th><th>Joining</th>' +
     '</tr></thead><tbody>';
   rows.forEach(function (p) {
     var sig = String(p.signature || '');
@@ -1690,7 +1690,7 @@ function hrRenderTeam_() {
     h += '<tr><td>' + hrEsc_(p.code) + '</td><td><strong>' + hrEsc_(p.name) + '</strong></td><td>' +
       hrEsc_(p.job || '—') + '</td><td>' + hrEsc_(p.department || '—') + '</td><td>' +
       hrEsc_(p.section || '—') + '</td><td>' + sigCell + '</td><td class="hr-days-left">' +
-      hrEsc_(hrFmtDays_(p.daysBalance)) + '</td></tr>';
+      hrEsc_(hrFmtDays_(p.daysBalance)) + '</td><td>' + hrEsc_(hrFmtDate_(p.joiningDate)) + '</td></tr>';
   });
   h += '</tbody></table></div>';
   host.innerHTML = h;
@@ -1732,12 +1732,12 @@ function hrRenderEmployees_() {
     return;
   }
   var h = '<div class="hr-table-wrap"><table class="hr-list-table"><thead><tr>' +
-    '<th>Code</th><th>Name</th><th>Job title</th><th>Department</th><th>Division</th><th>Days left</th><th>Line manager</th><th>Updated</th><th></th>' +
+    '<th>Code</th><th>Name</th><th>Job title</th><th>Department</th><th>Division</th><th>Days left</th><th>Joining</th><th>Line manager</th><th>Updated</th><th></th>' +
     '</tr></thead><tbody>';
   rows.forEach(function (p) {
     h += '<tr><td>' + hrEsc_(p.code) + '</td><td><strong>' + hrEsc_(p.name) + '</strong></td><td>' + hrEsc_(p.job || '—') +
       '</td><td>' + hrEsc_(p.department || '—') + '</td><td>' + hrEsc_(p.section || '—') + '</td><td>' +
-      hrEsc_(hrFmtDays_(p.daysBalance)) + '</td><td>' +
+      hrEsc_(hrFmtDays_(p.daysBalance)) + '</td><td>' + hrEsc_(hrFmtDate_(p.joiningDate)) + '</td><td>' +
       hrEsc_(hrEmployeeManagerLabel_(p)) + '</td><td>' + hrEsc_(p.updatedAt || '') + '</td><td><div class="hr-row-acts">' +
       '<button type="button" class="hr-btn-edit" onclick="hrEditEmployee_(\'' + hrEsc_(p.code) + '\')">Edit</button>' +
       '<button type="button" class="hr-btn-del" onclick="hrRemoveEmployee_(\'' + hrEsc_(p.code) + '\')">Remove</button>' +

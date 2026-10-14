@@ -1,5 +1,6 @@
 import { AuthOk, getUser } from "./auth.ts";
 import { HR_DAYS_LEFT } from "./hr_days_left.ts";
+import { HR_JOINING } from "./hr_joining.ts";
 import { HR_EMPLOYEE_SEED } from "./hr_employees_seed.ts";
 import { resetPasswordOk } from "./config.ts";
 import { fmtDate, isoNow, sb, selectAllRows, trashRows } from "./db.ts";
@@ -1967,6 +1968,10 @@ async function writeHrEmployees(people: HrPerson[]) {
   if (error) throw error;
 }
 
+function joiningDateFor(code: string): string {
+  return HR_JOINING[String(code || "").trim()] || "";
+}
+
 function publishHrPerson(person: HrPerson, all: HrPerson[]) {
   const mgr = all.find((row) => row.code === person.managerCode);
   return {
@@ -1981,6 +1986,7 @@ function publishHrPerson(person: HrPerson, all: HrPerson[]) {
     managerName: mgr ? mgr.name : "",
     managerActive: !!(mgr && mgr.active),
     daysBalance: person.daysBalance,
+    joiningDate: joiningDateFor(person.code),
     active: person.active,
     updatedAt: person.updatedAt,
   };
@@ -2069,6 +2075,7 @@ export async function handleListHrTeam(auth: AuthOk) {
       department: row.department,
       section: row.section,
       daysBalance: row.daysBalance,
+      joiningDate: joiningDateFor(row.code),
       signature: signatureForPerson(row, accounts),
     })),
   };
