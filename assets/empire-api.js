@@ -36,26 +36,40 @@ function empireErrorHtml(msg, retryLabel) {
 }
 
 function fetchWithTimeout(url, options, timeoutMs) {
-  timeoutMs = timeoutMs || 90000;
+  timeoutMs = timeoutMs || 45000;
   var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
   var timer;
+  var timedOut = false;
   options = options || {};
-  if (ctrl) {
-    options.signal = ctrl.signal;
+  if (ctrl) options.signal = ctrl.signal;
+  var timeoutPromise = new Promise(function (_resolve, reject) {
     timer = setTimeout(function () {
+      timedOut = true;
       try {
-        ctrl.abort();
+        if (ctrl) ctrl.abort();
       } catch (e) {}
+      var err = new Error('The server took too long. Check the connection and try again.');
+      err.name = 'AbortError';
+      reject(err);
     }, timeoutMs);
-  }
-  return fetch(url, options).finally(function () {
+  });
+  var req = fetch(url, options).then(function (r) {
+    if (timedOut) {
+      var err = new Error('The server took too long. Check the connection and try again.');
+      err.name = 'AbortError';
+      throw err;
+    }
+    return r;
+  });
+  return Promise.race([req, timeoutPromise]).finally(function () {
     if (timer) clearTimeout(timer);
   });
 }
 
-function fetchJSONRetry(body, tries, timeoutMs) {
+function fetchJSONRetry(body, tries, timeoutMs, opts) {
   tries = tries || 2;
-  timeoutMs = timeoutMs || 90000;
+  timeoutMs = timeoutMs || 45000;
+  opts = opts || {};
   var apiUrl = (typeof EMPIRE_API_ENDPOINT !== 'undefined' && EMPIRE_API_ENDPOINT)
     ? EMPIRE_API_ENDPOINT
     : GOOGLE_SCRIPT_URL;
@@ -69,24 +83,24 @@ function fetchJSONRetry(body, tries, timeoutMs) {
       try {
         data = JSON.parse(text);
       } catch (e) {
-        throw new Error('Invalid server response. Refresh and try again. If it keeps failing, redeploy empire-api.');
+        throw new Error('Invalid server response. Refresh and try again.');
       }
-      if (typeof empireAuthHandleInvalidSession_ === 'function') {
+      if (!opts.skipAuthLogout && typeof empireAuthHandleInvalidSession_ === 'function') {
         var page = '';
-        try { page = String(location.pathname || '').split('/').pop() || ''; } catch (e) {}
+        try { page = String(location.pathname || '').split('/').pop() || ''; } catch (e2) {}
         empireAuthHandleInvalidSession_(data, { redirect: page || 'index.html' });
       }
       return data;
     })
     .catch(function (e) {
       if (e && e.name === 'AbortError') {
-        throw new Error('Server timed out (timeout). Google Apps Script can be slow — wait a moment and try again.');
+        throw new Error('The server took too long. Check the connection and try again.');
       }
       if (tries > 1) {
         return new Promise(function (res) {
           setTimeout(res, 400);
         }).then(function () {
-          return fetchJSONRetry(body, tries - 1, timeoutMs);
+          return fetchJSONRetry(body, tries - 1, timeoutMs, opts);
         });
       }
       throw e;
@@ -106,7 +120,8 @@ function empireVerifyPassword(username, password) {
   return fetchJSONRetry(
     { action: 'verifyPassword', username: username, password: password },
     1,
-    30000
+    20000,
+    { skipAuthLogout: true }
   );
 }
 
@@ -116,17 +131,18 @@ function empireLogin(opts) {
   var msgEl = opts.messageEl;
   var started = Date.now();
   var slowTimer;
-  empireShowLoginMessage(msgEl, '⏳ Signing in…', false);
+  empireShowLoginMessage(msgEl, 'Signing in…', false);
   if (msgEl) {
     slowTimer = setInterval(function () {
-      if (Date.now() - started < 12000) return;
-      empireShowLoginMessage(msgEl, '⏳ Still signing in… Google server can take 20–60 seconds.', false);
-    }, 12000);
+      if (Date.now() - started < 8000) return;
+      empireShowLoginMessage(msgEl, 'Still signing in… a slow connection can take a few more seconds.', false);
+    }, 8000);
   }
   return fetchJSONRetry(
     { action: 'verifyLogin', username: opts.username, password: opts.password, dept: opts.dept },
     2,
-    90000
+    40000,
+    { skipAuthLogout: true }
   )
     .then(function (d) {
       if (d && d.success) return d;

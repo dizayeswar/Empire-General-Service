@@ -40,9 +40,46 @@ function empireAuthLs(k) {
   return localStorage.getItem(EMPIRE_AUTH_KEYS[k]) || '';
 }
 
+function empireIsAuthStorageKey_(key) {
+  var vals = EMPIRE_AUTH_KEYS;
+  for (var name in vals) {
+    if (Object.prototype.hasOwnProperty.call(vals, name) && vals[name] === key) return true;
+  }
+  return false;
+}
+
+function empireFreeStorageForAuth_() {
+  var keep = { empire_theme: 1, empire_sidebar_collapsed: 1, empire_build_id: 1 };
+  var drop = [];
+  try {
+    for (var i = 0; i < localStorage.length; i++) {
+      var key = localStorage.key(i);
+      if (!key || keep[key] || empireIsAuthStorageKey_(key)) continue;
+      drop.push(key);
+    }
+  } catch (e) {}
+  drop.forEach(function (key) {
+    try { localStorage.removeItem(key); } catch (e2) {}
+  });
+}
+
 function empireAuthSet(k, v) {
-  if (v === undefined || v === null || v === '') localStorage.removeItem(EMPIRE_AUTH_KEYS[k]);
-  else localStorage.setItem(EMPIRE_AUTH_KEYS[k], v);
+  var key = EMPIRE_AUTH_KEYS[k];
+  function write() {
+    if (v === undefined || v === null || v === '') localStorage.removeItem(key);
+    else localStorage.setItem(key, v);
+  }
+  try {
+    write();
+  } catch (e) {
+    empireFreeStorageForAuth_();
+    try {
+      write();
+    } catch (e2) {
+      if (k === 'signature' || k === 'signatureRole') return;
+      throw new Error('This browser could not save the login. Close other Empire tabs and try again.');
+    }
+  }
 }
 
 function empireMigrateSession() {
@@ -946,7 +983,14 @@ function empireAuthLogin(e, dept, opts) {
   var p = (document.getElementById(opts.passwordId || 'loginPassword') || {}).value || '';
   var m = opts.messageEl || document.getElementById('loginMessage');
   return empireLogin({ username: u, password: p, dept: dept, messageEl: m }).then(function (d) {
-    empireSetSession(u, d);
+    try {
+      empireSetSession(u, d);
+    } catch (err) {
+      if (typeof empireShowLoginMessage === 'function') {
+        empireShowLoginMessage(m, (err && err.message) || 'Could not save the login on this computer.', true);
+      }
+      throw err;
+    }
     empireClearLegacyKeys();
     if (typeof opts.onSuccess === 'function') opts.onSuccess(d);
     empireGuardUsernameAutofill();
@@ -986,6 +1030,7 @@ function empireAuthPageBoot(opts) {
 }
 
 var _empireSessionLogoutActive = false;
+var _empireSessionCheck = null;
 
 function empireAuthSessionLogout(opts) {
   if (_empireSessionLogoutActive) return;
@@ -1008,10 +1053,45 @@ function empireSessionInvalid_(d) {
   return false;
 }
 
+function empireConfirmSession_(token) {
+  if (typeof fetchJSONRetry !== 'function') return Promise.resolve(true);
+  function read(d) {
+    if (d && d.ok) return true;
+    if (empireSessionInvalid_(d)) return false;
+    return true;
+  }
+  return fetchJSONRetry({ action: 'sessionPing', token: token }, 1, 20000, { skipAuthLogout: true })
+    .then(function (d) {
+      if (d && d.ok) return true;
+      if (d && String(d.error || '').toLowerCase() === 'unknown action') {
+        return fetchJSONRetry({ action: 'getPerms', token: token }, 1, 20000, { skipAuthLogout: true }).then(read);
+      }
+      return read(d);
+    })
+    .catch(function () {
+      return true;
+    });
+}
+
 function empireAuthHandleInvalidSession_(d, opts) {
   opts = opts || {};
+  if (opts.skipAuthLogout) return false;
   if (!empireSessionInvalid_(d)) return false;
-  empireAuthSessionLogout(opts);
+  var tk = empireGetToken();
+  if (!tk) {
+    if (!empireOnLoginPage()) empireAuthSessionLogout(opts);
+    return true;
+  }
+  if (_empireSessionLogoutActive || _empireSessionCheck) return true;
+  var tokenAtCheck = tk;
+  _empireSessionCheck = empireConfirmSession_(tokenAtCheck).then(function (valid) {
+    _empireSessionCheck = null;
+    if (empireGetToken() !== tokenAtCheck) return;
+    if (valid) return;
+    empireAuthSessionLogout(opts);
+  }).catch(function () {
+    _empireSessionCheck = null;
+  });
   return true;
 }
 

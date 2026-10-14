@@ -1,5 +1,5 @@
 /* Empire EGS — service worker (cache + Firebase background push) */
-var CACHE_VERSION = '2026-09-30-bg-drift';
+var CACHE_VERSION = '2026-10-14-session-stay';
 var CACHE_NAME = 'empire-egs-' + CACHE_VERSION;
 var NOTIFY_ICON = 'https://dizayeswar.github.io/Empire-General-Service/icons/icon-192.png';
 var NOTIFY_BASE = 'https://dizayeswar.github.io/Empire-General-Service/civil-issue.html';
@@ -174,6 +174,7 @@ function isApiRequest(url) {
 
 function isLiveConfigAsset(pathname) {
   return /config\.js$/i.test(pathname) ||
+    /empire-api\.js$/i.test(pathname) ||
     /empire-push\.js$/i.test(pathname) ||
     /empire-sw-update\.js$/i.test(pathname) ||
     /empire-auth\.js$/i.test(pathname) ||
@@ -183,25 +184,51 @@ function isLiveConfigAsset(pathname) {
     /issue-configs\.js$/i.test(pathname);
 }
 
+function fetchWithSwTimeout_(request, ms) {
+  return new Promise(function (resolve, reject) {
+    var timer = setTimeout(function () { reject(new Error('timeout')); }, ms || 15000);
+    fetch(request).then(function (response) {
+      clearTimeout(timer);
+      resolve(response);
+    }).catch(function (err) {
+      clearTimeout(timer);
+      reject(err);
+    });
+  });
+}
+
+function offlineRetryPage_(path) {
+  var again = String(path || './').replace(/["<>]/g, '');
+  var html = '<!doctype html><meta charset="utf-8"><title>Empire EGS</title>' +
+    '<p style="font-family:Calibri,sans-serif;padding:28px;font-size:16px">Connection problem. You are still signed in on this computer. ' +
+    '<a href="' + again + '">Try again</a>.</p>';
+  return new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+}
+
+function matchPageOrRetry_(url, path) {
+  return caches.match(url).then(function (hit) { return hit || offlineRetryPage_(path); });
+}
+
 function isHtmlAsset(pathname) {
   return /\.html$/i.test(pathname) || pathname === '/' || /\/$/.test(pathname);
 }
 
 function offlineNavigateFallback_(request) {
+  var path = new URL(request.url).pathname;
   return caches.match(request).then(function (cached) {
     if (cached) return cached;
-    var path = new URL(request.url).pathname;
-    if (path.indexOf('electric-issue') !== -1) return caches.match('./electric-issue.html');
-    if (path.indexOf('civil-issue') !== -1) return caches.match('./civil-issue.html');
-    if (path.indexOf('civil-department') !== -1) return caches.match('./civil-department.html');
-    if (path.indexOf('cleaning-dashboard') !== -1) return caches.match('./cleaning-dashboard.html');
-    if (path.indexOf('cleaning-mobile') !== -1) return caches.match('./cleaning-mobile.html');
-    if (path.indexOf('asaas') !== -1) return caches.match('./asaas.html');
-    if (path.indexOf('electrical') !== -1) return caches.match('./electrical.html');
-    if (path.indexOf('hr-leave') !== -1) return caches.match('./hr-leave.html');
-    if (path.indexOf('hr-department') !== -1) return caches.match('./hr-department.html');
-    if (path.indexOf('charging-electricity') !== -1) return caches.match('./charging-electricity.html');
-    return caches.match('./index.html');
+    if (path.indexOf('electric-issue') !== -1) return matchPageOrRetry_('./electric-issue.html', path);
+    if (path.indexOf('civil-issue') !== -1) return matchPageOrRetry_('./civil-issue.html', path);
+    if (path.indexOf('civil-department') !== -1) return matchPageOrRetry_('./civil-department.html', path);
+    if (path.indexOf('cleaning-dashboard') !== -1) return matchPageOrRetry_('./cleaning-dashboard.html', path);
+    if (path.indexOf('cleaning-mobile') !== -1) return matchPageOrRetry_('./cleaning-mobile.html', path);
+    if (path.indexOf('asaas') !== -1) return matchPageOrRetry_('./asaas.html', path);
+    if (path.indexOf('electrical') !== -1) return matchPageOrRetry_('./electrical.html', path);
+    if (path.indexOf('hr-leave') !== -1) return matchPageOrRetry_('./hr-leave.html', path);
+    if (path.indexOf('hr-department') !== -1) return matchPageOrRetry_('./hr-department.html', path);
+    if (path.indexOf('charging-electricity') !== -1) return matchPageOrRetry_('./charging-electricity.html', path);
+    if (path.indexOf('index.html') !== -1 || /\/$/.test(path)) return matchPageOrRetry_('./index.html', path);
+    return offlineRetryPage_(path);
   });
 }
 
@@ -220,7 +247,9 @@ self.addEventListener('fetch', function (event) {
         }
         return response;
       }).catch(function () {
-        return caches.match(event.request);
+        return caches.match(event.request).then(function (hit) {
+          return hit || new Response('', { status: 504, statusText: 'Offline' });
+        });
       })
     );
     return;
@@ -228,9 +257,13 @@ self.addEventListener('fetch', function (event) {
 
   if (event.request.mode === 'navigate' || isHtmlAsset(url.pathname)) {
     event.respondWith(
-      fetch(event.request)
+      fetchWithSwTimeout_(event.request, 15000)
         .then(function (response) {
-          if (response && response.ok) return response;
+          if (response && response.ok) {
+            var copy = response.clone();
+            caches.open(CACHE_NAME).then(function (cache) { cache.put(event.request, copy); });
+            return response;
+          }
           throw new Error('navigate failed');
         })
         .catch(function () {

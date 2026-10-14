@@ -52,6 +52,11 @@ Deno.serve(async (req) => {
     if (action === "getChargingBotEnabled") return json(await charging.handleGetChargingBotEnabled());
     if (action === "login" || action === "verifyLogin") return json(await handleLogin(body));
     if (action === "verifyPassword") return json(await verifyPassword(body));
+    if (action === "sessionPing") {
+      const ping = await verifyTokenSession(String(body.token || ""));
+      if (!ping.ok) return json(ping);
+      return json({ ok: true });
+    }
     if (action === "getPerms") return json(await handleGetPerms(body));
     if (action === "saveMySignature") {
       let sigAuth = await verifyTokenSession(String(body.token || ""));

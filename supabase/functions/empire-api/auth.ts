@@ -66,6 +66,19 @@ export async function projectAllowedForUser(username: string, project: unknown):
   return projects.indexOf(String(project || "").trim().toLowerCase()) !== -1;
 }
 
+function passwordMatches(password: string, hash: string): Promise<boolean> {
+  if (!password || !hash) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    try {
+      bcrypt.compare(password, hash, (err: unknown, ok: boolean) => {
+        resolve(!err && !!ok);
+      });
+    } catch (_e) {
+      resolve(false);
+    }
+  });
+}
+
 export async function verifyPassword(body: Record<string, unknown>) {
   const username = normalizeWorkerId(body.username);
   const password = String(body.password || "").trim();
@@ -74,7 +87,7 @@ export async function verifyPassword(body: Record<string, unknown>) {
     return { ok: false, success: false, error: "bad_password", message: "Wrong password." };
   }
   const hash = String(user.password_hash || "");
-  if (!hash || !bcrypt.compareSync(password, hash)) {
+  if (!await passwordMatches(password, hash)) {
     return { ok: false, success: false, error: "bad_password", message: "Wrong password." };
   }
   return { ok: true, success: true };
@@ -97,7 +110,7 @@ export async function handleLogin(body: Record<string, unknown>) {
     };
   }
   const hash = String(user.password_hash || "");
-  const passOk = !!hash && bcrypt.compareSync(password, hash);
+  const passOk = await passwordMatches(password, hash);
   if (!passOk) {
     return {
       ok: false,
@@ -218,20 +231,29 @@ export async function handleGetPerms(body: Record<string, unknown>) {
   };
 }
 
+/** Unix seconds (~1e9) from older rows, or Date.now() milliseconds (~1e12). */
+function sessionCreatedMs(raw: unknown): number {
+  const n = Number(raw) || 0;
+  if (!n || !isFinite(n)) return 0;
+  if (n < 1e11) return Math.round(n * 1000);
+  return n;
+}
+
 export async function verifyTokenSession(token: string): Promise<AuthOk | AuthFail> {
   if (!token) return { ok: false, error: "No token" };
   const { data, error } = await sb().from("sessions").select("*").eq("token", token).maybeSingle();
   if (error) throw error;
   if (!data) return { ok: false, error: "Invalid token" };
-  const created = Number(data.created_at) || 0;
+  const created = sessionCreatedMs(data.created_at);
   const age = Date.now() - created;
   if (!created || age > TOKEN_TTL_MS) {
     return { ok: false, error: "Token expired" };
   }
   // Desk PCs stay logged in for weeks. Refresh the clock while they are still using the app
   // so a 30-day login does not die mid-shift. Idle sessions still expire after TOKEN_TTL_MS.
+  // Do not await: a slow clock update must not stall the request that proved the session.
   if (age > 12 * 60 * 60 * 1000) {
-    await sb().from("sessions").update({ created_at: Date.now() }).eq("token", token);
+    sb().from("sessions").update({ created_at: Date.now() }).eq("token", token).then(() => {}).catch(() => {});
   }
   const user = await getUser(data.username);
   const access = user ? resolveModuleAccessForUser(user as Record<string, unknown>) : undefined;
