@@ -19,6 +19,31 @@ var HR_ENTITLE_KEYS = [
   { key: 'marriage', label: 'Marriage Leave', type: 'Marriage Leave' },
   { key: 'other', label: 'Other', type: 'Other' }
 ];
+function hrT(key, fallback, params) {
+  if (typeof hrFieldT === 'function') return hrFieldT(key, fallback, params);
+  if (typeof fallback === 'function') return fallback(params || {});
+  return fallback != null ? String(fallback) : String(key || '');
+}
+function hrStatusText_(st) {
+  return hrT('st_' + String(st || ''), HR_STATUS_LABEL[st] || st || '');
+}
+function hrLeaveTypeText_(id) {
+  var map = {
+    'Lateness': 'typeLateness',
+    'Annual Leave': 'typeAnnual',
+    'Sick leave': 'typeSick',
+    'Unpaid Leave': 'typeUnpaid',
+    'Bereavement': 'typeBereavement',
+    'Marriage Leave': 'typeMarriage',
+    'Other': 'typeOther'
+  };
+  var key = map[String(id || '')];
+  return key ? hrT(key, id) : (id || '—');
+}
+function hrToggleTheme_() {
+  if (typeof toggleTheme === 'function') toggleTheme();
+  if (typeof hrApplyFieldLang === 'function') hrApplyFieldLang();
+}
 var HR_STATUS_LABEL = {
   submitted: 'Submitted',
   pending_line: 'Pending line manager',
@@ -973,13 +998,13 @@ function hrUserSignedPaper_(row) {
 function hrUserSignedSlot_(row) {
   var me = hrMe_();
   var signers = hrSigners_(row);
-  if (signers.emp === me && signers.line === me) return 'Employee / Line Manager';
-  if (signers.emp === me) return 'Employee';
-  if (signers.line === me) return 'Line Manager';
-  if (signers.director === me) return 'Director';
-  if (hrPaperIsMineEmp_(row) && hrHasEmpStamp_(row)) return 'Employee';
-  if (hrPaperAssignedToMe_(row) && hrHasLineStamp_(row)) return 'Line Manager';
-  return 'E-signature';
+  if (signers.emp === me && signers.line === me) return hrT('slotBoth', 'Employee / Line Manager');
+  if (signers.emp === me) return hrT('slotEmp', 'Employee');
+  if (signers.line === me) return hrT('slotLine', 'Line Manager');
+  if (signers.director === me) return hrT('slotDirector', 'Director');
+  if (hrPaperIsMineEmp_(row) && hrHasEmpStamp_(row)) return hrT('slotEmp', 'Employee');
+  if (hrPaperAssignedToMe_(row) && hrHasLineStamp_(row)) return hrT('slotLine', 'Line Manager');
+  return hrT('slotSig', 'E-signature');
 }
 
 function hrUserSignedAt_(row) {
@@ -999,11 +1024,11 @@ function hrUserSignedAt_(row) {
 
 function hrSignedDirectorState_(row) {
   var stage = hrStageOf_(row);
-  if (stage === 'completed') return { id: 'confirmed', label: 'Director confirmed', badge: 'completed' };
-  if (stage === 'rejected') return { id: 'rejected', label: 'Rejected', badge: 'rejected' };
-  if (stage === 'pending_director') return { id: 'pending', label: 'Pending director', badge: 'pending_director' };
-  if (stage === 'pending_line') return { id: 'pending', label: 'Pending', badge: 'pending_line' };
-  return { id: 'pending', label: 'Pending', badge: String(row && row.status || 'submitted') };
+  if (stage === 'completed') return { id: 'confirmed', label: hrT('directorConfirmed', 'Director confirmed'), badge: 'completed' };
+  if (stage === 'rejected') return { id: 'rejected', label: hrT('st_rejected', 'Rejected'), badge: 'rejected' };
+  if (stage === 'pending_director') return { id: 'pending', label: hrT('st_pending_director', 'Pending Director'), badge: 'pending_director' };
+  if (stage === 'pending_line') return { id: 'pending', label: hrT('pending', 'Pending'), badge: 'pending_line' };
+  return { id: 'pending', label: hrT('pending', 'Pending'), badge: String(row && row.status || 'submitted') };
 }
 
 function hrAfterSignTab_() {
@@ -1121,7 +1146,7 @@ function hrConfirmSelectedBatch_(ids, slot) {
   if (!ids.length) return;
   var sig = String(hrAccountSig_() || (_hrSigs && (slot === 'line' ? _hrSigs.line : _hrSigs.emp)) || '').trim();
   if (!sig) {
-    hrMsg_('Your e-signature is not on this account yet. Ask admin to upload it on Users, or open a paper and upload it once.', false);
+    hrMsg_(hrT('needSig', 'Your e-signature is not on this account yet. Ask admin to upload it on Users, or open a paper and upload it once.'), false);
     return;
   }
   var n = ids.length;
@@ -1137,10 +1162,10 @@ function hrConfirmSelectedBatch_(ids, slot) {
   hrRefreshLists_();
   hrSwitchTab_(null, hrAfterSignTab_());
   var done = slot === 'line'
-    ? ('Signed ' + n + '. Sent to the director.')
+    ? hrT('signedLine', 'Signed ' + n + '. Sent to the director.', { n: n })
     : (hrIsEmployeeOnly_()
-      ? ('Employee e-signature placed on ' + n + '.')
-      : ('Employee e-signature placed on ' + n + '. Sent to the director.'));
+      ? hrT('signedEmp', 'Employee e-signature placed on ' + n + '.', { n: n })
+      : hrT('signedEmpDirector', 'Employee e-signature placed on ' + n + '. Sent to the director.', { n: n }));
   hrMsg_(done, true);
   fetchJSONRetry({
     action: 'confirmHrLeaveRequests',
@@ -1153,11 +1178,11 @@ function hrConfirmSelectedBatch_(ids, slot) {
     if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Confirm failed');
     var failed = d.failed && d.failed.length ? d.failed.length : 0;
     if (failed) {
-      hrMsg_((d.confirmed || 0) + ' signed, ' + failed + ' could not be signed.', false);
+      hrMsg_(hrT('partialSigned', (d.confirmed || 0) + ' signed, ' + failed + ' could not be signed.', { ok: d.confirmed || 0, bad: failed }), false);
       return hrLoad_(true);
     }
   }).catch(function (err) {
-    hrMsg_(err.message || 'Confirm failed.', false);
+    hrMsg_(err.message || hrT('confirmFailed', 'Confirm failed'), false);
     return hrLoad_(true);
   }).then(function () {
     _hrBulkBusy = false;
@@ -1168,7 +1193,7 @@ function hrRunSelectedEmp_(ids) {
   ids = (ids || []).map(function (id) { return String(id || '').trim(); }).filter(Boolean);
   if (_hrBulkBusy) return;
   if (!ids.length) {
-    hrMsg_('Select papers first, then choose Employee box or Line Manager box.', false);
+    hrMsg_(hrT('selectEmpFirst', 'Select papers first, then choose Employee box or Line Manager box.'), false);
     return;
   }
   hrConfirmSelectedBatch_(ids, 'emp');
@@ -1179,7 +1204,7 @@ function hrRunSelectedLine_(ids) {
   ids = Array.isArray(ids) ? ids : hrSelectedLineIds_();
   ids = ids.map(function (id) { return String(id || '').trim(); }).filter(Boolean);
   if (!ids.length) {
-    hrMsg_('Select papers waiting for you as line manager.', false);
+    hrMsg_(hrT('selectLineFirst', 'Select papers waiting for you as line manager.'), false);
     return;
   }
   var n = ids.length;
@@ -1207,7 +1232,7 @@ function hrRunSelectedConfirm_() {
   var empIds = hrSelectedEmpIds_();
   if (hrDualEmpLine_()) {
     if (!lineIds.length && !empIds.length) {
-      hrMsg_('Select papers first.', false);
+      hrMsg_(hrT('selectFirst', 'Select papers first.'), false);
       return;
     }
     hrPickSignBox_().then(function (slot) {
@@ -1252,7 +1277,7 @@ function hrRunSelectedPending_(kind) {
     return;
   }
   if (kind === 'confirm' && !hrAccountSig_() && !(_hrSigs && _hrSigs.director)) {
-    hrMsg_('Your e-signature is not on this account yet. Ask admin to upload it on Users, or open a paper and upload it once.', false);
+    hrMsg_(hrT('needSig', 'Your e-signature is not on this account yet. Ask admin to upload it on Users, or open a paper and upload it once.'), false);
     return;
   }
   var n = ids.length;
@@ -1325,7 +1350,7 @@ function hrDirectorConfirmSelected_(ids) {
       return;
     })
     .catch(function (err) {
-      hrMsg_(err.message || 'Confirm failed.', false);
+      hrMsg_(err.message || hrT('confirmFailed', 'Confirm failed'), false);
       return hrLoad_(true);
     })
     .then(function () {
@@ -1544,7 +1569,7 @@ function hrStaffConfirmAsk_(ids) {
       });
     });
   }).catch(function (err) {
-    hrMsg_(err.message || 'Confirm failed.', false);
+    hrMsg_(err.message || hrT('confirmFailed', 'Confirm failed'), false);
   });
 }
 
@@ -1673,14 +1698,14 @@ function hrRenderTeam_() {
     return hay.indexOf(q) !== -1;
   });
   if (summary) {
-    summary.textContent = rows.length + ' employee' + (rows.length === 1 ? '' : 's');
+    summary.textContent = hrT('teamCount', rows.length + ' employee' + (rows.length === 1 ? '' : 's'), { n: rows.length });
   }
   if (!rows.length) {
-    host.innerHTML = '<p>' + hrEsc_(_hrTeamNote || 'No employees are assigned to you.') + '</p>';
+    host.innerHTML = '<p>' + hrEsc_(_hrTeamNote || hrT('teamEmpty', 'No employees are assigned to you.')) + '</p>';
     return;
   }
   var h = '<div class="hr-table-wrap"><table class="hr-list-table"><thead><tr>' +
-    '<th>Code</th><th>Name</th><th>Job title</th><th>Department</th><th>Division</th><th>E-signature</th><th>Days left</th><th>Joining</th>' +
+    '<th>' + hrEsc_(hrT('colCode', 'Code')) + '</th><th>' + hrEsc_(hrT('colName', 'Name')) + '</th><th>' + hrEsc_(hrT('colJob', 'Job title')) + '</th><th>' + hrEsc_(hrT('colDepartment', 'Department')) + '</th><th>' + hrEsc_(hrT('colDivision', 'Division')) + '</th><th>' + hrEsc_(hrT('colSig', 'E-signature')) + '</th><th>' + hrEsc_(hrT('colDaysLeft', 'Days left')) + '</th><th>' + hrEsc_(hrT('colJoining', 'Joining')) + '</th>' +
     '</tr></thead><tbody>';
   rows.forEach(function (p) {
     var sig = String(p.signature || '');
@@ -2133,17 +2158,18 @@ function hrApplyNavAccess_() {
   hrListHelp_();
   hrSyncSavedFilters_();
   document.body.classList.toggle('hr-field-nav', !hrIsHrStaff_() && (hrIsLine_() || hrIsEmployeeWrite_()));
+  if (typeof hrApplyFieldLang === 'function') hrApplyFieldLang();
 }
 
 function hrListHelp_() {
   var el = document.querySelector('#list .hr-tab-help');
   if (!el) return;
   if (hrDualEmpLine_()) {
-    el.innerHTML = 'Select papers and <strong>Confirm selected</strong>. Choose <strong>Employee box</strong> or <strong>Line Manager box</strong> — only that box gets your stamp. Confirmed papers are saved in <strong>My e-signatures</strong>.';
+    el.innerHTML = hrT('listHelpDual', 'Select papers and <strong>Confirm selected</strong>. Choose <strong>Employee box</strong> or <strong>Line Manager box</strong> — only that box gets your stamp. Confirmed papers are saved in <strong>My e-signatures</strong>.');
   } else if (hrIsEmployeeOnly_()) {
-    el.innerHTML = 'Your leave papers, and papers HR assigned to you. Stamp the <strong>Employee box</strong> on your own paper. After you confirm, the paper is saved in <strong>My e-signatures</strong> with the days, dates, and whether the director confirmed.';
+    el.innerHTML = hrT('listHelpEmp', 'Your leave papers, and papers HR assigned to you. Stamp the <strong>Employee box</strong> on your own paper. After you confirm, the paper is saved in <strong>My e-signatures</strong> with the days, dates, and whether the director confirmed.');
   } else if (hrIsLineOnly_()) {
-    el.innerHTML = 'Papers HR assigned to you. <strong>Confirm selected</strong> puts your e-signature in the Line Manager box, then each paper is saved in <strong>My e-signatures</strong> and goes to the director.';
+    el.innerHTML = hrT('listHelpLine', 'Papers HR assigned to you. <strong>Confirm selected</strong> puts your e-signature in the Line Manager box, then each paper is saved in <strong>My e-signatures</strong> and goes to the director.');
   } else if (hrIsDirectorOnly_()) {
     el.innerHTML = 'Sign papers waiting for you as director. After you confirm, they come back to HR as Completed request.';
   } else {
@@ -3203,7 +3229,7 @@ function hrEditInList_(id, fromTab) {
   if (row && row.lite) {
     hrEnsureFullRow_(id).then(function (full) {
       if (!full || full.lite) {
-        hrMsg_('Could not open this paper.', false);
+        hrMsg_(hrT('openFailed', 'Could not open this paper.'), false);
         return;
       }
       hrEditInList_(id, fromTab);
@@ -3238,12 +3264,12 @@ function hrReturnToList_() {
 function hrReturnBtnLabel_() {
   if (_hrReturnTab === 'done') return 'Return to completed request';
   if (_hrReturnTab === 'confirmed') return 'Return to director confirmed';
-  if (_hrReturnTab === 'signed') return 'Return to my e-signatures';
+  if (_hrReturnTab === 'signed') return hrT('returnSigned', 'Return to my e-signatures');
   if (_hrReturnTab === 'archive') {
     var meta = hrArchiveMeta_(_hrArchiveSection);
     return meta ? 'Return to ' + meta.label : 'Return to section';
   }
-  return 'Return to saved requests';
+  return hrT('returnSaved', 'Return to saved requests');
 }
 
 function hrTabBtnId_(tab) {
@@ -3569,7 +3595,7 @@ function hrConfirmRow_(id) {
         return;
       })
       .catch(function (err) {
-        hrMsg_(err.message || 'Confirm failed.', false);
+        hrMsg_(err.message || hrT('confirmFailed', 'Confirm failed'), false);
       });
     return;
   }
@@ -3590,7 +3616,7 @@ function hrConfirmRow_(id) {
           if (need && need.entitlements && need.entitlements.__scan && need.entitlements.__scan.url) hrOpenScanRow_(id);
           else hrEditInList_(id);
         }
-        hrMsg_(err.message || 'Confirm failed.', false);
+        hrMsg_(err.message || hrT('confirmFailed', 'Confirm failed'), false);
       });
     return;
   }
@@ -3875,11 +3901,11 @@ function hrRenderTable_() {
   hrListHelp_();
   hrRenderKpis_(hrFiltered_());
   if (summary) {
-    summary.textContent = rows.length + ' saved request' + (rows.length === 1 ? '' : 's');
+    summary.textContent = hrT('savedCount', rows.length + ' saved request' + (rows.length === 1 ? '' : 's'), { n: rows.length });
   }
   var h = '<section class="hr-stage">';
   h += '<div class="hr-stage-head hr-saved-head">';
-  h += '<h3 class="hr-stage-title">Saved requests <span>(' + rows.length + ')</span></h3>';
+  h += '<h3 class="hr-stage-title">' + hrEsc_(hrT('stageSaved', 'Saved requests (' + rows.length + ')', { n: rows.length })) + '</h3>';
   var selectable = rows.filter(hrCanSelectRow_);
   var showSel = _hrSelectMode && selectable.length;
   var selN = hrSelectedIds_().length;
@@ -3887,39 +3913,39 @@ function hrRenderTable_() {
   if (selectable.length) {
     h += '<div class="hr-stage-acts">';
     if (showSel) {
-      h += '<span class="hr-select-count" id="hrSelectCount">' + (selN ? selN + ' selected' : 'Select papers') + '</span>';
+      h += '<span class="hr-select-count" id="hrSelectCount">' + hrEsc_(hrT('selectedCount', selN ? selN + ' selected' : 'Select papers', { n: selN })) + '</span>';
       if (hrIsDirectorOnly_()) {
         h += '<button type="button" class="hr-btn-confirm" onclick="hrRunSelectedPending_(\'confirm\')">Confirm selected</button>';
       } else {
-        h += '<button type="button" class="hr-btn-confirm" onclick="hrRunSelectedConfirm_()">Confirm selected</button>';
+        h += '<button type="button" class="hr-btn-confirm" onclick="hrRunSelectedConfirm_()">' + hrEsc_(hrT('confirmSelected', 'Confirm selected')) + '</button>';
         if (hrIsHrStaff_() && !hrIsSignerOnly_() && !hrIsLineOnly_()) {
           h += '<button type="button" class="hr-btn-reject" onclick="hrRunSelectedInbox_(\'delete\')">Delete selected</button>';
         }
       }
-      h += '<button type="button" onclick="hrToggleSelectMode_(false)">Cancel</button>';
+      h += '<button type="button" onclick="hrToggleSelectMode_(false)">' + hrEsc_(hrT('cancel', 'Cancel')) + '</button>';
     } else {
-      h += '<button type="button" onclick="hrToggleSelectMode_(true)">Select</button>';
+      h += '<button type="button" onclick="hrToggleSelectMode_(true)">' + hrEsc_(hrT('select', 'Select')) + '</button>';
     }
     h += '</div>';
   }
   h += '</div>';
   if (!rows.length) {
-    h += '<p class="hr-stage-empty">' + (hrIsDirectorOnly_()
+    h += '<p class="hr-stage-empty">' + hrEsc_(hrIsDirectorOnly_()
       ? 'When the line manager signs, the paper appears here for you to sign.'
       : (hrIsEmployeeOnly_()
-        ? 'When HR saves a leave paper with your name, it appears here. Stamp the Employee box only — you cannot fill a new leave request.'
+        ? hrT('listEmptyEmp', 'When HR saves a leave paper with your name, it appears here. Stamp the Employee box only — you cannot fill a new leave request.')
         : (hrIsLineOnly_()
         ? (hrDualEmpLine_()
-          ? 'Your leave requests and papers waiting for you as line manager appear here. Confirm selected asks Employee box or Line Manager box.'
-          : 'When HR assigns a paper to you, it appears here to sign. After you confirm, it goes to the director.')
-        : 'No saved requests yet.'))) + '</p></section>';
+          ? hrT('listEmptyDual', 'Your leave requests and papers waiting for you as line manager appear here. Confirm selected asks Employee box or Line Manager box.')
+          : hrT('listEmptyLine', 'When HR assigns a paper to you, it appears here to sign. After you confirm, it goes to the director.'))
+        : hrT('listEmpty', 'No saved requests yet.')))) + '</p></section>';
     host.innerHTML = h;
   hrLabelListTables_(host);
     return;
   }
   h += '<div class="hr-table-wrap"><table class="hr-list-table hr-board-table"><thead><tr>' +
     (showSel ? '<th class="hr-sel-col"><input type="checkbox" id="hrSelAll" onclick="hrSelectAllVisible_(event)"' + (selectable.length && groupSelN === selectable.length ? ' checked' : '') + '></th>' : '') +
-    '<th>#</th><th>Employee</th><th>Department</th><th>Type</th><th>Dates</th><th>Days</th><th>Status</th><th></th>' +
+    '<th>' + hrEsc_(hrT('colHash', '#')) + '</th><th>' + hrEsc_(hrT('colEmployee', 'Employee')) + '</th><th>' + hrEsc_(hrT('colDepartment', 'Department')) + '</th><th>' + hrEsc_(hrT('colType', 'Type')) + '</th><th>' + hrEsc_(hrT('colDates', 'Dates')) + '</th><th>' + hrEsc_(hrT('colDays', 'Days')) + '</th><th>' + hrEsc_(hrT('colStatus', 'Status')) + '</th><th></th>' +
     '</tr></thead><tbody>';
   rows.forEach(function (r) {
     var id = hrEsc_(r.id);
@@ -3936,11 +3962,11 @@ function hrRenderTable_() {
       waitingName = r.empName || '';
     }
     var statusCell = (canHrConfirm || canDirConfirm || canLineConfirm || canEmpConfirm) && !showSel
-      ? '<button type="button" class="hr-btn-confirm-board" onclick="event.stopPropagation();hrConfirmRow_(\'' + id + '\')">Confirm</button>'
+      ? '<button type="button" class="hr-btn-confirm-board" onclick="event.stopPropagation();hrConfirmRow_(\'' + id + '\')">' + hrEsc_(hrT('confirm', 'Confirm')) + '</button>'
       : '<span class="hr-badge hr-badge-' + hrEsc_(st) + '">' +
         (stage === 'pending_line' && waitingName
-          ? hrEsc_('Waiting for ' + waitingName)
-          : hrEsc_(HR_STATUS_LABEL[st] || st)) +
+          ? hrEsc_(hrT('waitingFor', 'Waiting for ' + waitingName, { name: waitingName }))
+          : hrEsc_(hrStatusText_(st))) +
         '</span>';
     var openFn = (r.entitlements && r.entitlements.__scan && r.entitlements.__scan.url)
       ? 'hrOpenScanRow_'
@@ -3954,13 +3980,13 @@ function hrRenderTable_() {
       '<td>' + hrEsc_(r.no || r.num || '') + '</td>' +
       '<td><strong>' + hrEsc_(r.empName || '—') + '</strong><div style="color:var(--text-soft);font-size:12px;">' + hrEsc_(r.empCode || '') + '</div></td>' +
       '<td>' + hrEsc_(r.empDepartment || '—') + '</td>' +
-      '<td>' + hrEsc_(r.leaveType || '—') + '</td>' +
+      '<td>' + hrEsc_(hrLeaveTypeText_(r.leaveType) || '—') + '</td>' +
       '<td>' + hrEsc_(hrFmtDate_(r.startDate)) + (r.endDate && r.endDate !== r.startDate ? ' – ' + hrEsc_(hrFmtDate_(r.endDate)) : '') + '</td>' +
       '<td>' + hrEsc_(r.daysOut || '—') + '</td>' +
       '<td>' + statusCell + '</td>' +
       '<td><div class="hr-row-acts">' +
-        '<button type="button" class="hr-btn-edit" onclick="event.stopPropagation();' + openFn + '(\'' + id + '\',\'list\')">View</button>' +
-        (!showSel ? '<button type="button" onclick="event.stopPropagation();hrPrintRow_(\'' + id + '\')">Print / PDF</button>' : '') +
+        '<button type="button" class="hr-btn-edit" onclick="event.stopPropagation();' + openFn + '(\'' + id + '\',\'list\')">' + hrEsc_(hrT('view', 'View')) + '</button>' +
+        (!showSel ? '<button type="button" onclick="event.stopPropagation();hrPrintRow_(\'' + id + '\')">' + hrEsc_(hrT('printPdf', 'Print / PDF')) + '</button>' : '') +
       '</div></td></tr>';
   });
   h += '</tbody></table></div></section>';
@@ -4242,17 +4268,17 @@ function hrRenderSignedTable_() {
   var pendingN = rows.filter(function (r) { return hrSignedDirectorState_(r).id === 'pending'; }).length;
   var confirmedN = rows.filter(function (r) { return hrSignedDirectorState_(r).id === 'confirmed'; }).length;
   if (summary) {
-    summary.textContent = rows.length
+    summary.textContent = hrT('signedSummary', rows.length
       ? (rows.length + ' signed paper' + (rows.length === 1 ? '' : 's') +
         ' · ' + pendingN + ' pending · ' + confirmedN + ' director confirmed')
-      : 'No signed papers yet.';
+      : 'No signed papers yet.', { n: rows.length, pending: pendingN, confirmed: confirmedN });
   }
   var h = '<section class="hr-stage">';
   h += '<div class="hr-stage-head hr-saved-head">';
-  h += '<h3 class="hr-stage-title">My e-signatures <span>(' + rows.length + ')</span></h3>';
+  h += '<h3 class="hr-stage-title">' + hrEsc_(hrT('signedHead', 'My e-signatures (' + rows.length + ')', { n: rows.length })) + '</h3>';
   h += '</div>';
   if (!rows.length) {
-    h += '<p class="hr-stage-empty">When you confirm an e-signature, that paper is saved here with the ID, dates, days, and whether the director has confirmed.</p></section>';
+    h += '<p class="hr-stage-empty">' + hrEsc_(hrT('signedEmpty', 'When you confirm an e-signature, that paper is saved here with the ID, dates, days, and whether the director has confirmed.')) + '</p></section>';
     host.innerHTML = h;
   hrLabelListTables_(host);
     return;
@@ -4272,22 +4298,22 @@ function hrRenderSignedTable_() {
     h += '</div>';
     h += '<h4 class="hr-signed-name">' + hrEsc_(r.empName || '—') + '</h4>';
     h += '<dl class="hr-signed-dl">';
-    h += '<div><dt>ID</dt><dd>' + hrEsc_(r.empCode || '—') + '</dd></div>';
-    h += '<div><dt>Department</dt><dd>' + hrEsc_(r.empDepartment || '—') + '</dd></div>';
-    h += '<div><dt>Job title</dt><dd>' + hrEsc_(r.empJobTitle || '—') + '</dd></div>';
-    h += '<div><dt>Type</dt><dd>' + hrEsc_(r.leaveType || '—') + '</dd></div>';
-    h += '<div><dt>Dates</dt><dd>' + hrEsc_(dates || '—') + '</dd></div>';
-    h += '<div><dt>Days</dt><dd>' + hrEsc_(r.daysOut || '—') + '</dd></div>';
-    h += '<div><dt>Signed as</dt><dd>' + hrEsc_(hrUserSignedSlot_(r)) + '</dd></div>';
-    h += '<div><dt>Signed on</dt><dd>' + hrEsc_(hrFmtDate_(hrUserSignedAt_(r)) || '—') + '</dd></div>';
-    if (r.replacement) h += '<div><dt>Replacement</dt><dd>' + hrEsc_(r.replacement) + '</dd></div>';
+    h += '<div><dt>' + hrEsc_(hrT('id', 'ID')) + '</dt><dd>' + hrEsc_(r.empCode || '—') + '</dd></div>';
+    h += '<div><dt>' + hrEsc_(hrT('colDepartment', 'Department')) + '</dt><dd>' + hrEsc_(r.empDepartment || '—') + '</dd></div>';
+    h += '<div><dt>' + hrEsc_(hrT('colJob', 'Job title')) + '</dt><dd>' + hrEsc_(r.empJobTitle || '—') + '</dd></div>';
+    h += '<div><dt>' + hrEsc_(hrT('colType', 'Type')) + '</dt><dd>' + hrEsc_(hrLeaveTypeText_(r.leaveType) || '—') + '</dd></div>';
+    h += '<div><dt>' + hrEsc_(hrT('colDates', 'Dates')) + '</dt><dd>' + hrEsc_(dates || '—') + '</dd></div>';
+    h += '<div><dt>' + hrEsc_(hrT('colDays', 'Days')) + '</dt><dd>' + hrEsc_(r.daysOut || '—') + '</dd></div>';
+    h += '<div><dt>' + hrEsc_(hrT('signedAs', 'Signed as')) + '</dt><dd>' + hrEsc_(hrUserSignedSlot_(r)) + '</dd></div>';
+    h += '<div><dt>' + hrEsc_(hrT('signedOn', 'Signed on')) + '</dt><dd>' + hrEsc_(hrFmtDate_(hrUserSignedAt_(r)) || '—') + '</dd></div>';
+    if (r.replacement) h += '<div><dt>' + hrEsc_(hrT('replacement', 'Replacement')) + '</dt><dd>' + hrEsc_(r.replacement) + '</dd></div>';
     if (state.id === 'confirmed' && r.directorSignedAt) {
-      h += '<div><dt>Director signed</dt><dd>' + hrEsc_(hrFmtDate_(r.directorSignedAt)) + '</dd></div>';
+      h += '<div><dt>' + hrEsc_(hrT('directorSigned', 'Director signed')) + '</dt><dd>' + hrEsc_(hrFmtDate_(r.directorSignedAt)) + '</dd></div>';
     }
     h += '</dl>';
     h += '<div class="hr-row-acts">';
-    h += '<button type="button" class="hr-btn-edit" onclick="' + openFn + '(\'' + id + '\',\'signed\')">View</button>';
-    h += '<button type="button" onclick="hrPrintRow_(\'' + id + '\')">Print / PDF</button>';
+    h += '<button type="button" class="hr-btn-edit" onclick="' + openFn + '(\'' + id + '\',\'signed\')">' + hrEsc_(hrT('view', 'View')) + '</button>';
+    h += '<button type="button" onclick="hrPrintRow_(\'' + id + '\')">' + hrEsc_(hrT('printPdf', 'Print / PDF')) + '</button>';
     h += '</div></article>';
   });
   h += '</div></section>';
@@ -4615,7 +4641,7 @@ function hrOpenScanRow_(id, fromTab) {
   if (row && row.lite) {
     hrEnsureFullRow_(id).then(function (full) {
       if (!full || full.lite) {
-        hrMsg_('Could not open this paper.', false);
+        hrMsg_(hrT('openFailed', 'Could not open this paper.'), false);
         return;
       }
       hrOpenScanRow_(id, fromTab);

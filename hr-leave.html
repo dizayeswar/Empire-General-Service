@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-09-22-search-pill">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-27-gailan-paper">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-10-07-printstay">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-10-14-lang">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -42,8 +42,8 @@
         <button class="side-toggle" onclick="toggleSidebar()" id="sideToggleBtn" aria-label="Collapse sidebar">&#9776;</button>
       </div>
       <div class="side-title">
-        <h1>HR Department</h1>
-        <p>Leave request — HR-F-06</p>
+        <h1 data-hr-i18n="deptTitle">HR Department</h1>
+        <p data-hr-i18n="deptSub">Leave request — HR-F-06</p>
       </div>
       <p id="whoLabel"></p>
       </div>
@@ -60,11 +60,11 @@
           </button>
           <button class="tab-btn" id="tabBtnList" onclick="hrSwitchTab_(event,'list')">
             <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 4H7"/><path d="m18 16 3 3-3 3"/><path d="M3 4v13a2 2 0 0 0 2 2h16"/><path d="M7 14h7"/><path d="M7 9h12"/></svg></span>
-            <span class="lbl">Saved requests</span>
+            <span class="lbl" data-hr-i18n="navSaved">Saved requests</span>
           </button>
           <button class="tab-btn" id="tabBtnSigned" onclick="hrSwitchTab_(event,'signed')">
             <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m9 15 2 2 4-4"/></svg></span>
-            <span class="lbl">My e-signatures</span>
+            <span class="lbl" data-hr-i18n="navSigned">My e-signatures</span>
           </button>
           <button class="tab-btn" id="tabBtnConfirmed" onclick="hrSwitchTab_(event,'confirmed')">
             <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg></span>
@@ -87,7 +87,7 @@
         </div>
         <button class="tab-btn" id="tabBtnTeam" onclick="hrSwitchTab_(event,'team')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
-          <span class="lbl">My employees</span>
+          <span class="lbl" data-hr-i18n="navTeam">My employees</span>
         </button>
         <button class="tab-btn" id="tabBtnEmployees" onclick="hrSwitchTab_(event,'employees')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
@@ -95,17 +95,23 @@
         </button>
       </nav>
       <div class="side-actions hr-settings" id="hrSettingsWrap">
-        <button type="button" onclick="hrRefresh_()"><span class="nav-icon spin-icon" id="navRefreshIcon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> <span class="lbl">Refresh</span></button>
+        <button type="button" onclick="hrRefresh_()"><span class="nav-icon spin-icon" id="navRefreshIcon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> <span class="lbl" data-hr-i18n="navRefresh">Refresh</span></button>
         <button type="button" class="hr-settings-toggle" id="hrSettingsBtn" onclick="hrToggleSettings_(event)" aria-expanded="false" aria-controls="hrSettingsPanel">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span>
-          <span class="lbl">Settings</span>
+          <span class="lbl" data-hr-i18n="navSettings">Settings</span>
         </button>
         <div class="hr-settings-panel" id="hrSettingsPanel" hidden>
-          <button type="button" class="theme-btn" onclick="toggleTheme()" aria-label="Toggle theme"><span class="nav-icon theme-icon"></span> <span class="lbl">Light Mode</span></button>
+          <div class="hr-lang-pick" id="hrLangPick" hidden>
+            <span class="hr-lang-label" data-hr-i18n="langLabel">Language</span>
+            <button type="button" data-hr-lang="en" onclick="hrSetFieldLang('en')">English</button>
+            <button type="button" data-hr-lang="ar" onclick="hrSetFieldLang('ar')">العربية</button>
+            <button type="button" data-hr-lang="ckb" onclick="hrSetFieldLang('ckb')">کوردی</button>
+          </div>
+          <button type="button" class="theme-btn" onclick="hrToggleTheme_()" aria-label="Toggle theme"><span class="nav-icon theme-icon"></span> <span class="lbl">Light Mode</span></button>
           <button type="button" id="btnHrTrash" onclick="hrCloseSettings_();hrRbOpen_()" style="display:none;color:#fff;background:#1d9e75;border-color:#1d9e75;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 19H4.815a1.83 1.83 0 0 1-1.57-.881 1.785 1.785 0 0 1-.004-1.784L7.196 9.5"/><path d="M11 19h8.203a1.83 1.83 0 0 0 1.556-.89 1.784 1.784 0 0 0 0-1.775l-1.226-2.12"/><path d="m14 16-3 3 3 3"/><path d="M8.293 13.596 7.196 9.5 3.1 10.598"/><path d="m9.344 5.811 1.093-1.892A1.83 1.83 0 0 1 11.985 3a1.784 1.784 0 0 1 1.546.888l3.943 6.843"/><path d="m13.378 9.633 4.096 1.098 1.097-4.096"/></svg></span> <span class="lbl">Recycle Bin</span></button>
           <button type="button" id="btnHrReset" onclick="hrCloseSettings_();hrOpenResetModal_()" style="display:none;color:#fff;background:#C5734F;border-color:#C5734F;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 5H3"/><path d="M7 12H3"/><path d="M7 19H3"/><path d="M12 18a5 5 0 0 0 9-3 4.5 4.5 0 0 0-4.5-4.5c-1.33 0-2.54.54-3.41 1.41L11 14"/><path d="M11 10v4h4"/></svg></span> <span class="lbl">Reset Data</span></button>
-          <button type="button" onclick="location.href='index.html'"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg></span> <span class="lbl">Hub</span></button>
-          <button type="button" onclick="hrLogout_()" style="color:#fff;background:#C5504F;border-color:#C5504F;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg></span> <span class="lbl">Logout</span></button>
+          <button type="button" onclick="location.href='index.html'"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg></span> <span class="lbl" data-hr-i18n="navHub">Hub</span></button>
+          <button type="button" onclick="hrLogout_()" style="color:#fff;background:#C5504F;border-color:#C5504F;"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg></span> <span class="lbl" data-hr-i18n="navLogout">Logout</span></button>
         </div>
       </div>
       </div>
@@ -115,7 +121,7 @@
       <div id="list" class="tab-content">
         <div id="hrListBrowse">
         <div class="form-section">
-          <h2>Saved requests</h2>
+          <h2 data-hr-i18n="listTitle">Saved requests</h2>
           <p class="hr-tab-help">Confirm uses the Employees list. A line manager is assigned automatically. People with no line manager go straight to the director. After the director signs, the paper comes back to Completed request.</p>
           <p class="hr-form-msg no-print" id="hrListMsg"></p>
           <div class="form-row filter-toolbar" id="hrSavedFilters" hidden>
@@ -169,11 +175,11 @@
 
       <div id="signed" class="tab-content">
         <div class="form-section">
-          <h2>My e-signatures</h2>
-          <p class="hr-tab-help">Papers you confirmed with your e-signature. <strong>Pending</strong> means the director has not signed yet. <strong>Director confirmed</strong> means the director signed.</p>
+          <h2 data-hr-i18n="signedTitle">My e-signatures</h2>
+          <p class="hr-tab-help" data-hr-i18n-html="signedHelp">Papers you confirmed with your e-signature. <strong>Pending</strong> means the director has not signed yet. <strong>Director confirmed</strong> means the director signed.</p>
           <div class="form-row filter-toolbar">
             <div class="form-group">
-              <label>Status</label>
+              <label data-hr-i18n="status">Status</label>
               <select id="hrSignedFilter" onchange="hrRenderSignedTable_()">
                 <option value="">All</option>
                 <option value="pending">Pending</option>
@@ -181,8 +187,8 @@
               </select>
             </div>
             <div class="form-group filter-grow">
-              <label>Search</label>
-              <input type="search" id="hrSignedSearch" oninput="hrRenderSignedTable_()" placeholder="Name, ID, type…" autocomplete="off">
+              <label data-hr-i18n="search">Search</label>
+              <input type="search" id="hrSignedSearch" oninput="hrRenderSignedTable_()" data-hr-i18n-placeholder="searchSigned" placeholder="Name, ID, type…" autocomplete="off">
             </div>
           </div>
           <p class="hr-summary" id="hrSignedSummary"></p>
@@ -229,12 +235,12 @@
       </div>
       <div id="team" class="tab-content">
         <div class="form-section">
-          <h2>My employees</h2>
-          <p class="hr-tab-help">Your own row is first, then the people assigned to you as line manager, with code, job title, department, division, days left, joining date, and the e-signature on the account.</p>
+          <h2 data-hr-i18n="teamTitle">My employees</h2>
+          <p class="hr-tab-help" data-hr-i18n-html="teamHelp">Your own row is first, then the people assigned to you as line manager, with code, job title, department, division, days left, joining date, and the e-signature on the account.</p>
           <div class="form-row filter-toolbar">
             <div class="form-group filter-grow">
-              <label>Search</label>
-              <input type="search" id="hrTeamSearch" oninput="hrRenderTeam_()" placeholder="Name, code, job…" autocomplete="off">
+              <label data-hr-i18n="search">Search</label>
+              <input type="search" id="hrTeamSearch" oninput="hrRenderTeam_()" data-hr-i18n-placeholder="searchTeam" placeholder="Name, code, job…" autocomplete="off">
             </div>
           </div>
           <p class="hr-summary" id="hrTeamSummary"></p>
@@ -622,28 +628,28 @@
 
 <div id="hrBoxPick" class="hr-sig-pick no-print" hidden onclick="if(event.target===this)hrBoxPickClose_()">
   <div class="hr-sig-pick-card" role="dialog" aria-labelledby="hrBoxPickTitle">
-    <h3 id="hrBoxPickTitle">Which box?</h3>
-    <p class="hr-sig-pick-help">Choose one box. Your e-signature goes only there, then the paper goes to the director.</p>
+    <h3 id="hrBoxPickTitle" data-hr-i18n="whichBox">Which box?</h3>
+    <p class="hr-sig-pick-help" data-hr-i18n="boxHelp">Choose one box. Your e-signature goes only there, then the paper goes to the director.</p>
     <div class="hr-box-pick-choice">
-      <button type="button" onclick="hrBoxPickChoose_('emp')"><strong>Employee box</strong><span>Stamp the Employee box only, then send to the director.</span></button>
-      <button type="button" class="hr-btn-confirm" onclick="hrBoxPickChoose_('line')"><strong>Line Manager box</strong><span>Stamp the Line Manager box only, then send to the director.</span></button>
+      <button type="button" onclick="hrBoxPickChoose_('emp')"><strong data-hr-i18n="empBox">Employee box</strong><span data-hr-i18n="empBoxHint">Stamp the Employee box only, then send to the director.</span></button>
+      <button type="button" class="hr-btn-confirm" onclick="hrBoxPickChoose_('line')"><strong data-hr-i18n="lineBox">Line Manager box</strong><span data-hr-i18n="lineBoxHint">Stamp the Line Manager box only, then send to the director.</span></button>
     </div>
     <div class="hr-sig-pick-acts">
-      <button type="button" onclick="hrBoxPickClose_()">Cancel</button>
+      <button type="button" onclick="hrBoxPickClose_()" data-hr-i18n="cancel">Cancel</button>
     </div>
   </div>
 </div>
 
 <div id="hrPrintPick" class="hr-sig-pick no-print" hidden onclick="if(event.target===this)hrPrintPickClose_()">
   <div class="hr-sig-pick-card" role="dialog" aria-labelledby="hrPrintPickTitle">
-    <h3 id="hrPrintPickTitle">Print or PDF?</h3>
-    <p class="hr-sig-pick-help">Choose one. Print sends the papers to the printer. PDF saves a file on this computer.</p>
+    <h3 id="hrPrintPickTitle" data-hr-i18n="printTitle">Print or PDF?</h3>
+    <p class="hr-sig-pick-help" data-hr-i18n="printHelp">Choose one. Print sends the papers to the printer. PDF saves a file on this computer.</p>
     <div class="hr-box-pick-choice">
-      <button type="button" onclick="hrPrintPickChoose_('print')"><strong>Print</strong><span>Open the print window and send to the printer.</span></button>
-      <button type="button" class="hr-btn-confirm" onclick="hrPrintPickChoose_('pdf')"><strong>Save as PDF</strong><span>Download the papers as a PDF file.</span></button>
+      <button type="button" onclick="hrPrintPickChoose_('print')"><strong data-hr-i18n="print">Print</strong><span data-hr-i18n="printHint">Open the print window and send to the printer.</span></button>
+      <button type="button" class="hr-btn-confirm" onclick="hrPrintPickChoose_('pdf')"><strong data-hr-i18n="savePdf">Save as PDF</strong><span data-hr-i18n="savePdfHint">Download the papers as a PDF file.</span></button>
     </div>
     <div class="hr-sig-pick-acts">
-      <button type="button" onclick="hrPrintPickClose_()">Cancel</button>
+      <button type="button" onclick="hrPrintPickClose_()" data-hr-i18n="cancel">Cancel</button>
     </div>
   </div>
 </div>
@@ -684,6 +690,7 @@
 <script src="assets/empire-core.js?v=2026-09-27-gailan-paper"></script>
 <script src="assets/empire-storage.js?v=2026-09-27-gailan-paper"></script>
 <script src="assets/empire-sw-update.js?v=2026-09-27-gailan-paper"></script>
-<script src="assets/empire-hr-leave.js?v=2026-10-14-joining"></script>
+<script src="assets/empire-hr-field-i18n.js?v=2026-10-14-lang"></script>
+<script src="assets/empire-hr-leave.js?v=2026-10-14-lang"></script>
 </body>
 </html>

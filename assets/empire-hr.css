@@ -1440,6 +1440,49 @@
     box-shadow: 0 12px 28px var(--shadow);
     z-index: 2;
   }
+  body.hr-field-nav .hr-lang-pick {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0 0 8px;
+  }
+  body.hr-field-nav .hr-lang-pick[hidden] { display: none !important; }
+  body.hr-field-nav .hr-lang-label {
+    flex: 1 1 100%;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--text-soft);
+  }
+  body.hr-field-nav .hr-lang-pick button {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 8px 4px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  body.hr-field-nav .hr-lang-pick button.active {
+    color: #fff;
+    background: var(--accent2, #6f3aa0);
+    border-color: var(--accent2, #6f3aa0);
+  }
+  body.hr-field-nav.hr-lang-rtl .main-area,
+  body.hr-field-nav.hr-lang-rtl .hr-field-head,
+  body.hr-field-nav.hr-lang-rtl .hr-mobile-dock,
+  body.hr-field-nav.hr-lang-rtl .hr-settings-panel {
+    direction: rtl;
+  }
+  body.hr-field-nav.hr-lang-rtl #hrApp,
+  body.hr-field-nav.hr-lang-rtl .hr-list-editor,
+  body.hr-field-nav.hr-lang-rtl .hr-paper,
+  body.hr-field-nav.hr-lang-rtl .hr-paper * {
+    direction: ltr;
+  }
+  body.hr-field-nav.hr-lang-rtl .hr-settings-panel {
+    right: auto;
+    left: 0;
+  }
   body.hr-field-nav .hr-settings-panel[hidden] { display: none !important; }
   body.hr-field-nav .hr-settings-panel button {
     flex-direction: row;
