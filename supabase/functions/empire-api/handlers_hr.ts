@@ -2051,6 +2051,7 @@ export async function handleListHrTeam(auth: AuthOk) {
   const team = people
     .filter((row) => row.active && row.route === "line" && row.managerCode === me.code && row.code !== me.code)
     .sort((a, b) => a.name.localeCompare(b.name));
+  if (me.active) team.unshift(me);
   const { data, error } = await sb().from("users").select("username, signature");
   if (error) throw error;
   const accounts = (data || []).map((row) => ({
