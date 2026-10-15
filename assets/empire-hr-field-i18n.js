@@ -9,8 +9,8 @@
 
   var STR = {
     en: {
-      navSaved: 'Saved requests',
-      navSigned: 'My e-signatures',
+      navSaved: 'Leave requests',
+      navSigned: 'Archive',
       navTeam: 'My employees',
       navRefresh: 'Refresh',
       navSettings: 'Settings',
@@ -21,16 +21,16 @@
       deptTitle: 'HR Department',
       deptSub: 'Leave request — HR-F-06',
       loggedIn: function (p) { return 'Logged in as: ' + (p.name || ''); },
-      listTitle: 'Saved requests',
-      signedTitle: 'My e-signatures',
+      listTitle: 'Leave requests',
+      signedTitle: 'Archive',
       teamTitle: 'My employees',
-      listHelpDual: 'Select papers and <strong>Confirm selected</strong>. Choose <strong>Employee box</strong> or <strong>Line Manager box</strong> — only that box gets your stamp. Confirmed papers are saved in <strong>My e-signatures</strong>.',
-      listHelpEmp: 'Your leave papers, and papers HR assigned to you. Stamp the <strong>Employee box</strong> on your own paper. After you confirm, the paper is saved in <strong>My e-signatures</strong>.',
-      listHelpLine: 'Papers HR assigned to you. <strong>Confirm selected</strong> puts your e-signature in the Line Manager box, then each paper is saved in <strong>My e-signatures</strong> and goes to the director.',
+      listHelpDual: 'Select papers and <strong>Confirm selected</strong>. Choose <strong>Employee box</strong> or <strong>Line Manager box</strong> — only that box gets your stamp. Confirmed papers are kept in <strong>Archive</strong>.',
+      listHelpEmp: 'Your leave papers, and papers HR assigned to you. Stamp the <strong>Employee box</strong> on your own paper. After you confirm, the paper is kept in <strong>Archive</strong>.',
+      listHelpLine: 'Papers HR assigned to you. <strong>Confirm selected</strong> puts your e-signature in the Line Manager box, then each paper is kept in <strong>Archive</strong> and goes to the director.',
       listEmptyDual: 'Your leave requests and papers waiting for you as line manager appear here. Confirm selected asks Employee box or Line Manager box.',
       listEmptyEmp: 'When HR saves a leave paper with your name, it appears here. Stamp the Employee box only.',
       listEmptyLine: 'When HR assigns a paper to you, it appears here to sign. After you confirm, it goes to the director.',
-      listEmpty: 'No saved requests yet.',
+      listEmpty: 'No leave requests yet.',
       signedHelp: 'Papers you confirmed with your e-signature. <strong>Pending</strong> means the director has not signed yet. <strong>Director confirmed</strong> means the director signed.',
       teamHelp: 'Your own row is first, then the people assigned to you as line manager, with code, job title, department, division, days left, joining date, and the e-signature on the account.',
       status: 'Status',
@@ -72,19 +72,19 @@
       slotSig: 'E-signature',
       savedCount: function (p) {
         var n = p.n || 0;
-        return n + ' saved request' + (n === 1 ? '' : 's');
+        return n + ' leave request' + (n === 1 ? '' : 's');
       },
       selectedCount: function (p) {
         var n = p.n || 0;
         return n ? (n + ' selected') : 'Select papers';
       },
-      stageSaved: function (p) { return 'Saved requests (' + (p.n || 0) + ')'; },
+      stageSaved: function (p) { return 'Leave requests (' + (p.n || 0) + ')'; },
       signedSummary: function (p) {
         if (!p.n) return 'No signed papers yet.';
         return p.n + ' signed paper' + (p.n === 1 ? '' : 's') + ' · ' + (p.pending || 0) + ' pending · ' + (p.confirmed || 0) + ' director confirmed';
       },
-      signedEmpty: 'When you confirm an e-signature, that paper is saved here with the ID, dates, days, and whether the director has confirmed.',
-      signedHead: function (p) { return 'My e-signatures (' + (p.n || 0) + ')'; },
+      signedEmpty: 'When you confirm a paper, it is kept here in Archive with the ID, dates, days, and whether the director has confirmed.',
+      signedHead: function (p) { return 'Archive (' + (p.n || 0) + ')'; },
       teamCount: function (p) {
         var n = p.n || 0;
         return n + ' employee' + (n === 1 ? '' : 's');
@@ -119,8 +119,8 @@
       printHint: 'Open the print window and send to the printer.',
       savePdf: 'Save as PDF',
       savePdfHint: 'Download the papers as a PDF file.',
-      returnSaved: 'Return to saved requests',
-      returnSigned: 'Return to my e-signatures',
+      returnSaved: 'Return to leave requests',
+      returnSigned: 'Return to archive',
       signedLine: function (p) { return 'Signed ' + (p.n || 0) + '. Sent to the director.'; },
       signedEmp: function (p) { return 'Employee e-signature placed on ' + (p.n || 0) + '.'; },
       signedEmpDirector: function (p) { return 'Employee e-signature placed on ' + (p.n || 0) + '. Sent to the director.'; },
@@ -134,8 +134,8 @@
       langLabel: 'Language'
     },
     ar: {
-      navSaved: 'الطلبات',
-      navSigned: 'تواقيعي',
+      navSaved: 'طلبات الإجازة',
+      navSigned: 'الأرشيف',
       navTeam: 'موظفيني',
       navRefresh: 'تحديث',
       navSettings: 'الإعدادات',
@@ -146,16 +146,16 @@
       deptTitle: 'الموارد البشرية',
       deptSub: 'طلب إجازة — HR-F-06',
       loggedIn: function (p) { return 'مسجّل الدخول: ' + (p.name || ''); },
-      listTitle: 'الطلبات المحفوظة',
-      signedTitle: 'تواقيعي الإلكترونية',
+      listTitle: 'طلبات الإجازة',
+      signedTitle: 'الأرشيف',
       teamTitle: 'موظفيني',
-      listHelpDual: 'حدّد الأوراق ثم <strong>تأكيد المحدد</strong>. اختر <strong>خانة الموظف</strong> أو <strong>خانة المدير المباشر</strong> — الختم يذهب إلى تلك الخانة فقط. الأوراق المؤكدة تُحفظ في <strong>تواقيعي</strong>.',
-      listHelpEmp: 'أوراق إجازتك، والأوراق التي عيّنتها لك الموارد البشرية. ضع الختم في <strong>خانة الموظف</strong> على ورقتك. بعد التأكيد تُحفظ في <strong>تواقيعي</strong>.',
-      listHelpLine: 'أوراق عيّنتها لك الموارد البشرية. <strong>تأكيد المحدد</strong> يضع توقيعك في خانة المدير المباشر، ثم تُحفظ كل ورقة في <strong>تواقيعي</strong> وتذهب إلى المدير.',
+      listHelpDual: 'حدّد الأوراق ثم <strong>تأكيد المحدد</strong>. اختر <strong>خانة الموظف</strong> أو <strong>خانة المدير المباشر</strong> — الختم يذهب إلى تلك الخانة فقط. الأوراق المؤكدة تُحفظ في <strong>الأرشيف</strong>.',
+      listHelpEmp: 'أوراق إجازتك، والأوراق التي عيّنتها لك الموارد البشرية. ضع الختم في <strong>خانة الموظف</strong> على ورقتك. بعد التأكيد تُحفظ في <strong>الأرشيف</strong>.',
+      listHelpLine: 'أوراق عيّنتها لك الموارد البشرية. <strong>تأكيد المحدد</strong> يضع توقيعك في خانة المدير المباشر، ثم تُحفظ كل ورقة في <strong>الأرشيف</strong> وتذهب إلى المدير.',
       listEmptyDual: 'طلبات إجازتك والأوراق التي تنتظرك كمدير مباشر تظهر هنا. تأكيد المحدد يسألك: خانة الموظف أو خانة المدير المباشر.',
       listEmptyEmp: 'عندما تحفظ الموارد البشرية ورقة إجازة باسمك، تظهر هنا. الختم في خانة الموظف فقط.',
       listEmptyLine: 'عندما تعيّن لك الموارد البشرية ورقة، تظهر هنا للتوقيع. بعد التأكيد تذهب إلى المدير.',
-      listEmpty: 'لا توجد طلبات محفوظة بعد.',
+      listEmpty: 'لا توجد طلبات إجازة بعد.',
       signedHelp: 'الأوراق التي أكّدتها بتوقيعك. <strong>قيد الانتظار</strong> يعني أن المدير لم يوقّع بعد. <strong>أكدها المدير</strong> يعني أن المدير وقّع.',
       teamHelp: 'صفك أولاً، ثم الأشخاص المعيّنون لك كمدير مباشر، مع الرمز والمسمى والقسم والشعبة والأيام المتبقية وتاريخ المباشرة والتوقيع.',
       status: 'الحالة',
@@ -197,21 +197,21 @@
       slotSig: 'توقيع',
       savedCount: function (p) {
         var n = p.n || 0;
-        if (n === 1) return 'طلب محفوظ واحد';
-        if (n === 2) return 'طلبان محفوظان';
-        return n + ' طلبات محفوظة';
+        if (n === 1) return 'طلب إجازة واحد';
+        if (n === 2) return 'طلبا إجازة';
+        return n + ' طلبات إجازة';
       },
       selectedCount: function (p) {
         var n = p.n || 0;
         return n ? (n + ' محدد') : 'حدّد الأوراق';
       },
-      stageSaved: function (p) { return 'الطلبات المحفوظة (' + (p.n || 0) + ')'; },
+      stageSaved: function (p) { return 'طلبات الإجازة (' + (p.n || 0) + ')'; },
       signedSummary: function (p) {
         if (!p.n) return 'لا توجد أوراق موقّعة بعد.';
         return p.n + ' ورقة موقّعة · ' + (p.pending || 0) + ' قيد الانتظار · ' + (p.confirmed || 0) + ' أكدها المدير';
       },
       signedEmpty: 'عندما تؤكد التوقيع، تُحفظ الورقة هنا مع الرمز والتواريخ والأيام وهل أكدها المدير.',
-      signedHead: function (p) { return 'تواقيعي (' + (p.n || 0) + ')'; },
+      signedHead: function (p) { return 'الأرشيف (' + (p.n || 0) + ')'; },
       teamCount: function (p) {
         var n = p.n || 0;
         if (n === 1) return 'موظف واحد';
@@ -248,8 +248,8 @@
       printHint: 'فتح نافذة الطباعة والإرسال إلى الطابعة.',
       savePdf: 'حفظ PDF',
       savePdfHint: 'تنزيل الأوراق كملف PDF.',
-      returnSaved: 'العودة إلى الطلبات',
-      returnSigned: 'العودة إلى تواقيعي',
+      returnSaved: 'العودة إلى طلبات الإجازة',
+      returnSigned: 'العودة إلى الأرشيف',
       signedLine: function (p) { return 'تم توقيع ' + (p.n || 0) + '. أُرسلت إلى المدير.'; },
       signedEmp: function (p) { return 'وُضع توقيع الموظف على ' + (p.n || 0) + '.'; },
       signedEmpDirector: function (p) { return 'وُضع توقيع الموظف على ' + (p.n || 0) + '. أُرسلت إلى المدير.'; },
@@ -263,8 +263,8 @@
       langLabel: 'اللغة'
     },
     ckb: {
-      navSaved: 'داواکاری',
-      navSigned: 'واژۆکانم',
+      navSaved: 'داواکاری مۆڵەت',
+      navSigned: 'ئەرشیف',
       navTeam: 'کارمەندەکانم',
       navRefresh: 'نوێکردنەوە',
       navSettings: 'ڕێکخستن',
@@ -275,12 +275,12 @@
       deptTitle: 'سەرچاوە مرۆییەکان',
       deptSub: 'داواکاری مۆڵەت — HR-F-06',
       loggedIn: function (p) { return 'چوویتە ژوورەوە: ' + (p.name || ''); },
-      listTitle: 'داواکارییە پاشەکەوتکراوەکان',
-      signedTitle: 'واژۆ ئەلیکترۆنییەکانم',
+      listTitle: 'داواکارییەکانی مۆڵەت',
+      signedTitle: 'ئەرشیف',
       teamTitle: 'کارمەندەکانم',
-      listHelpDual: 'کاغەزەکان هەڵبژێرە و <strong>پەسەندکردنی هەڵبژێردراو</strong> دابگرە. <strong>خانەی کارمەند</strong> یان <strong>خانەی بەڕێوەبەری ڕاستەوخۆ</strong> هەڵبژێرە — مۆرەکە تەنها دەچێتە ئەو خانەیە. کاغەزە پەسەندکراوەکان لە <strong>واژۆکانم</strong> دەمێننەوە.',
-      listHelpEmp: 'کاغەزی مۆڵەتی خۆت، و ئەوانەی سەرچاوە مرۆییەکان بۆ تۆی دیاری کردووە. مۆر لە <strong>خانەی کارمەند</strong> دابنێ. دوای پەسەندکردن لە <strong>واژۆکانم</strong> دەمێنێتەوە.',
-      listHelpLine: 'کاغەزەکان کە سەرچاوە مرۆییەکان بۆ تۆی دیاری کردووە. <strong>پەسەندکردنی هەڵبژێردراو</strong> واژۆکەت دەخاتە خانەی بەڕێوەبەری ڕاستەوخۆ، پاشان هەر کاغەزێک لە <strong>واژۆکانم</strong> دەمێنێتەوە و دەچێتە لای بەڕێوەبەر.',
+      listHelpDual: 'کاغەزەکان هەڵبژێرە و <strong>پەسەندکردنی هەڵبژێردراو</strong> دابگرە. <strong>خانەی کارمەند</strong> یان <strong>خانەی بەڕێوەبەری ڕاستەوخۆ</strong> هەڵبژێرە — مۆرەکە تەنها دەچێتە ئەو خانەیە. کاغەزە پەسەندکراوەکان لە <strong>ئەرشیف</strong> دەمێننەوە.',
+      listHelpEmp: 'کاغەزی مۆڵەتی خۆت، و ئەوانەی سەرچاوە مرۆییەکان بۆ تۆی دیاری کردووە. مۆر لە <strong>خانەی کارمەند</strong> دابنێ. دوای پەسەندکردن لە <strong>ئەرشیف</strong> دەمێنێتەوە.',
+      listHelpLine: 'کاغەزەکان کە سەرچاوە مرۆییەکان بۆ تۆی دیاری کردووە. <strong>پەسەندکردنی هەڵبژێردراو</strong> واژۆکەت دەخاتە خانەی بەڕێوەبەری ڕاستەوخۆ، پاشان هەر کاغەزێک لە <strong>ئەرشیف</strong> دەمێنێتەوە و دەچێتە لای بەڕێوەبەر.',
       listEmptyDual: 'داواکارییەکانی مۆڵەتی خۆت و کاغەزەکان کە وەک بەڕێوەبەری ڕاستەوخۆ چاوەڕێتن لێرە دەردەکەون. پەسەندکردنی هەڵبژێردراو دەپرسێت: خانەی کارمەند یان خانەی بەڕێوەبەری ڕاستەوخۆ.',
       listEmptyEmp: 'کاتێک سەرچاوە مرۆییەکان کاغەزێک بە ناوی تۆ دەپارێزن، لێرە دەردەکەوێت. مۆر تەنها لە خانەی کارمەند.',
       listEmptyLine: 'کاتێک کاغەزێکت بۆ دەنێردرێت، لێرە دەردەکەوێت بۆ واژۆ. دوای پەسەندکردن دەچێتە لای بەڕێوەبەر.',
@@ -326,19 +326,19 @@
       slotSig: 'واژۆ',
       savedCount: function (p) {
         var n = p.n || 0;
-        return n + ' داواکاریی پاشەکەوتکراو';
+        return n + ' داواکاری مۆڵەت';
       },
       selectedCount: function (p) {
         var n = p.n || 0;
         return n ? (n + ' هەڵبژێردراو') : 'کاغەزەکان هەڵبژێرە';
       },
-      stageSaved: function (p) { return 'داواکارییەکان (' + (p.n || 0) + ')'; },
+      stageSaved: function (p) { return 'داواکارییەکانی مۆڵەت (' + (p.n || 0) + ')'; },
       signedSummary: function (p) {
         if (!p.n) return 'هێشتا هیچ کاغەزێکی واژۆکراو نییە.';
         return p.n + ' کاغەزی واژۆکراو · ' + (p.pending || 0) + ' چاوەڕوان · ' + (p.confirmed || 0) + ' بەڕێوەبەر پەسەندی کرد';
       },
       signedEmpty: 'کاتێک واژۆیەک پەسەند دەکەیت، کاغەزەکە لێرە دەمێنێتەوە لەگەڵ کۆد و بەروار و ڕۆژ و ئەوەی بەڕێوەبەر پەسەندی کردووە یان نا.',
-      signedHead: function (p) { return 'واژۆکانم (' + (p.n || 0) + ')'; },
+      signedHead: function (p) { return 'ئەرشیف (' + (p.n || 0) + ')'; },
       teamCount: function (p) {
         var n = p.n || 0;
         return n + ' کارمەند';
@@ -373,8 +373,8 @@
       printHint: 'پەنجەرەی چاپ بکەرەوە و بنێرە بۆ چاپکەر.',
       savePdf: 'پاشەکەوت وەک PDF',
       savePdfHint: 'کاغەزەکان وەک فایلی PDF دابگرە.',
-      returnSaved: 'گەڕانەوە بۆ داواکارییەکان',
-      returnSigned: 'گەڕانەوە بۆ واژۆکانم',
+      returnSaved: 'گەڕانەوە بۆ داواکارییەکانی مۆڵەت',
+      returnSigned: 'گەڕانەوە بۆ ئەرشیف',
       signedLine: function (p) { return (p.n || 0) + ' واژۆ کرا. نێردرا بۆ بەڕێوەبەر.'; },
       signedEmp: function (p) { return 'واژۆی کارمەند دانرا لەسەر ' + (p.n || 0) + '.'; },
       signedEmpDirector: function (p) { return 'واژۆی کارمەند دانرا لەسەر ' + (p.n || 0) + '. نێردرا بۆ بەڕێوەبەر.'; },
@@ -406,7 +406,11 @@
   }
 
   function hrFieldT(key, fallback, params) {
-    var lang = fieldOn() ? _lang : 'en';
+    if (!fieldOn()) {
+      if (typeof fallback === 'function') return fallback(params || {});
+      return fallback != null ? String(fallback) : String(key || '');
+    }
+    var lang = _lang;
     var pack = STR[lang] || STR.en;
     var val = pack[key];
     if (val == null && lang !== 'en') val = STR.en[key];
