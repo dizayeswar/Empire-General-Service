@@ -731,26 +731,64 @@ function hrFileSectionOptions_(exceptId) {
   }).join('');
 }
 
+function hrFileProgress_(done, total) {
+  var text = 'Moving ' + done + ' of ' + total + '…';
+  ['hrDoneSummary', 'hrArchiveSummary'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    var tab = el.closest && el.closest('.tab-content');
+    if (tab && !tab.classList.contains('active')) return;
+    el.textContent = text;
+  });
+}
+
+function hrFileErrorText_(err, moved) {
+  if (moved) {
+    return 'Moved ' + moved + ' paper' + (moved === 1 ? '' : 's') + '. Press Move again for the ones still on this list.';
+  }
+  var msg = (err && err.message) || 'Could not move papers.';
+  if (/took too long|timed out|timeout/i.test(msg)) return 'The move took too long. Press Move again.';
+  return msg;
+}
+
 function hrFileRequests_(ids, archive) {
   ids = (ids || []).map(function (id) { return String(id || '').trim(); }).filter(Boolean);
   archive = String(archive || '').trim().toLowerCase();
   if (!ids.length) return Promise.reject(new Error('Select at least one paper first.'));
   if (_hrFileBusy) return Promise.reject(new Error('Already moving papers.'));
   _hrFileBusy = true;
-  return fetchJSONRetry({
-    action: 'fileHrLeaveRequests',
-    token: hrToken_(),
-    ids: ids,
-    archive: archive
-  }, 1, 30000).then(function (d) {
+  var CHUNK = 20;
+  var filed = 0;
+  var index = 0;
+  function step() {
+    if (index >= ids.length) return Promise.resolve({ ok: true, filed: filed });
+    var chunk = ids.slice(index, index + CHUNK);
+    index += chunk.length;
+    hrFileProgress_(Math.min(index, ids.length), ids.length);
+    return fetchJSONRetry({
+      action: 'fileHrLeaveRequests',
+      token: hrToken_(),
+      ids: chunk,
+      archive: archive
+    }, 1, 50000).then(function (d) {
+      if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) {
+        throw new Error('Session expired');
+      }
+      if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Could not move papers');
+      filed += (d && typeof d.filed === 'number') ? d.filed : chunk.length;
+      chunk.forEach(function (id) {
+        delete _hrDoneSelected[id];
+        delete _hrArchiveSelected[id];
+      });
+      return step();
+    });
+  }
+  return step().then(function (d) {
     _hrFileBusy = false;
-    if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) {
-      throw new Error('Session expired');
-    }
-    if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Could not move papers');
     return d;
   }).catch(function (err) {
     _hrFileBusy = false;
+    if (err && err.filed == null) err.filed = filed;
     throw err;
   });
 }
@@ -773,7 +811,11 @@ function hrFileSelectedCompleted_() {
       if (title) title.textContent = 'Moved ' + n + ' paper' + (n === 1 ? '' : 's') + ' to ' + (meta ? meta.label : archive) + '.';
     });
   }).catch(function (err) {
-    alert(err.message || 'Could not move papers.');
+    var moved = err && err.filed ? Number(err.filed) : 0;
+    var reload = moved ? hrLoad_(true) : Promise.resolve();
+    reload.then(function () {
+      alert(hrFileErrorText_(err, moved));
+    });
   });
 }
 
@@ -795,7 +837,11 @@ function hrFileSelectedArchive_() {
       if (title) title.textContent = 'Moved ' + n + ' paper' + (n === 1 ? '' : 's') + ' to ' + (meta ? meta.label : archive) + '.';
     });
   }).catch(function (err) {
-    alert(err.message || 'Could not move papers.');
+    var moved = err && err.filed ? Number(err.filed) : 0;
+    var reload = moved ? hrLoad_(true) : Promise.resolve();
+    reload.then(function () {
+      alert(hrFileErrorText_(err, moved));
+    });
   });
 }
 
@@ -810,7 +856,13 @@ function hrReturnSelectedArchive_() {
       hrSwitchTab_(null, 'done');
     });
   }).catch(function (err) {
-    alert(err.message || 'Could not return papers.');
+    var moved = err && err.filed ? Number(err.filed) : 0;
+    var reload = moved ? hrLoad_(true) : Promise.resolve();
+    reload.then(function () {
+      alert(moved
+        ? ('Returned ' + moved + ' paper' + (moved === 1 ? '' : 's') + '. Press Return again for the ones still here.')
+        : hrFileErrorText_(err, 0));
+    });
   });
 }
 

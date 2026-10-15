@@ -1603,6 +1603,48 @@ const ARCHIVE_KEYS = new Set([
   "other",
 ]);
 
+const FILE_COMPLETED = new Set(["completed", "processed", "director_approved"]);
+
+function rpcMissing_(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  const code = String(error.code || "");
+  const msg = String(error.message || "");
+  return code === "PGRST202" || /could not find the function/i.test(msg) || /schema cache/i.test(msg);
+}
+
+/** Used only if the file_hr_leave_requests SQL function is not installed yet. */
+async function fileHrLeaveRequestsFallback_(ids: string[], archive: string, now: string): Promise<number> {
+  const filedOn = now.slice(0, 10);
+  let filed = 0;
+  for (let i = 0; i < ids.length; i += 40) {
+    const chunk = ids.slice(i, i + 40);
+    const { data: rows, error } = await sb().from("hr_leave_requests").select("id,status,entitlements").in("id", chunk);
+    if (error) throw error;
+    const jobs = (rows || []).filter((ex) => FILE_COMPLETED.has(String(ex.status || "").trim().toLowerCase()));
+    for (let j = 0; j < jobs.length; j += 8) {
+      const slice = jobs.slice(j, j + 8);
+      await Promise.all(slice.map(async (ex) => {
+        const existing = parseEntitlements(ex.entitlements) as Record<string, unknown>;
+        const merged: Record<string, unknown> = { ...existing };
+        if (archive) {
+          merged.__archive = archive;
+          merged.__filedOn = filedOn;
+        } else {
+          delete merged.__archive;
+          delete merged.__filedOn;
+        }
+        const { error: upErr } = await sb().from("hr_leave_requests").update({
+          entitlements: entitlementsJson(merged),
+          updated_at: now,
+        }).eq("id", ex.id);
+        if (upErr) throw upErr;
+      }));
+      filed += slice.length;
+    }
+  }
+  return filed;
+}
+
 export async function handleFileHrLeaveRequests(body: Record<string, unknown>, auth: AuthOk) {
   if (!canWrite(auth)) {
     return { ok: false, success: false, error: "not_allowed", message: "Read-only accounts cannot file leave requests." };
@@ -1613,30 +1655,25 @@ export async function handleFileHrLeaveRequests(body: Record<string, unknown>, a
   if (!ids.length) {
     return { ok: false, success: false, error: "missing_ids", message: "Select at least one paper." };
   }
+  if (ids.length > 500) {
+    return { ok: false, success: false, error: "too_many", message: "Move fewer papers at a time." };
+  }
   if (archive && !ARCHIVE_KEYS.has(archive)) {
     return { ok: false, success: false, error: "bad_section", message: "Choose a leave section." };
   }
-  const completed = new Set(["completed", "processed", "director_approved"]);
-  let filed = 0;
-  for (const id of ids) {
-    const { data: ex } = await sb().from("hr_leave_requests").select("*").eq("id", id).maybeSingle();
-    if (!ex) continue;
-    if (!completed.has(String(ex.status || "").trim().toLowerCase())) continue;
-    const existing = parseEntitlements(ex.entitlements) as Record<string, unknown>;
-    const merged: Record<string, unknown> = { ...existing };
-    if (archive) {
-      merged.__archive = archive;
-      merged.__filedOn = isoNow().slice(0, 10);
-    } else {
-      delete merged.__archive;
-      delete merged.__filedOn;
-    }
-    const patch = { entitlements: entitlementsJson(merged), updated_at: isoNow() };
-    const { error } = await sb().from("hr_leave_requests").update(patch).eq("id", id);
-    if (error) throw error;
-    filed++;
+  const now = isoNow();
+  const { data, error } = await sb().rpc("file_hr_leave_requests", {
+    p_ids: ids,
+    p_archive: archive,
+    p_filed_on: now.slice(0, 10),
+    p_updated_at: now,
+  });
+  if (error) {
+    if (!rpcMissing_(error)) throw error;
+    const filed = await fileHrLeaveRequestsFallback_(ids, archive, now);
+    return { ok: true, success: true, filed };
   }
-  return { ok: true, success: true, filed };
+  return { ok: true, success: true, filed: Number(data) || 0 };
 }
 
 type PdfAnnualPerson = {
