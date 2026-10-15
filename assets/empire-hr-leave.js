@@ -2164,6 +2164,7 @@ function hrIsHrStaff_() {
 }
 function hrCanSeeTab_(tab) {
   tab = String(tab || '');
+  if (tab === 'settings') return true;
   if (tab === 'form') return hrIsHrStaff_() || (hrIsEmployeeWrite_() && !hrIsEmployeeOnly_());
   if (tab === 'scan') return hrIsHrStaff_();
   if (tab === 'list') return hrIsHrStaff_() || hrIsDirector_() || hrIsLine_() || hrIsEmployeeOnly_();
@@ -3333,6 +3334,7 @@ function hrTabBtnId_(tab) {
   if (tab === 'employees') return 'tabBtnEmployees';
   if (tab === 'team') return 'tabBtnTeam';
   if (tab === 'archive') return 'tabBtnArchive-' + (_hrArchiveSection || 'annual');
+  if (tab === 'settings') return 'hrSettingsBtn';
   return 'tabBtnList';
 }
 
@@ -3388,32 +3390,13 @@ function hrClickLeaveNav_(ev) {
   }
 }
 
-function hrCloseSettings_() {
-  var wrap = document.getElementById('hrSettingsWrap');
-  var btn = document.getElementById('hrSettingsBtn');
-  var panel = document.getElementById('hrSettingsPanel');
-  if (wrap) wrap.classList.remove('open');
-  if (btn) btn.setAttribute('aria-expanded', 'false');
-  if (panel) panel.hidden = true;
-}
+function hrCloseSettings_() {}
 
 function hrToggleSettings_(e) {
-  if (e) {
-    e.preventDefault();
-    e.stopPropagation();
-  }
-  var wrap = document.getElementById('hrSettingsWrap');
-  var btn = document.getElementById('hrSettingsBtn');
-  var panel = document.getElementById('hrSettingsPanel');
-  if (!wrap || !panel) return;
-  var open = !wrap.classList.contains('open');
-  wrap.classList.toggle('open', open);
-  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-  panel.hidden = !open;
+  hrSwitchTab_(e, 'settings');
 }
 
 function hrSwitchTab_(ev, tab) {
-  hrCloseSettings_();
   if (!hrCanSeeTab_(tab)) {
     tab = hrHomeTab_();
     ev = null;
@@ -5547,12 +5530,6 @@ function hrInit_() {
   hrBindEmpSuggest_();
   hrLayoutInit_();
   hrRenderEntitlements_(hrEmptyEntitlements_());
-  document.addEventListener('click', function (e) {
-    var wrap = document.getElementById('hrSettingsWrap');
-    if (!wrap || !wrap.classList.contains('open')) return;
-    if (wrap.contains(e.target)) return;
-    hrCloseSettings_();
-  });
   window.addEventListener('afterprint', function () {
     document.body.classList.remove('hr-print-scan');
     hrClearBatchPrint_();

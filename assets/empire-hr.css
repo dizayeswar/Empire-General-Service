@@ -1401,7 +1401,7 @@
   }
   body.hr-field-nav .side-nav > .tab-btn.active,
   body.hr-field-nav .hr-nav-sub > .tab-btn.active,
-  body.hr-field-nav .hr-settings.open .hr-settings-toggle {
+  body.hr-field-nav #hrSettingsBtn.active {
     background: var(--tab-active);
     color: var(--tab-active-text);
     border-color: transparent;
@@ -1427,50 +1427,10 @@
   body.hr-field-nav .sidebar.collapsed .hr-mobile-dock .lbl {
     display: block;
   }
-  body.hr-field-nav .hr-settings-panel {
-    position: absolute;
-    right: 0;
-    bottom: calc(100% + 10px);
-    left: auto;
-    width: 220px;
-    padding: 8px;
-    background: var(--header-bg);
-    border: 1px solid var(--card-border);
-    border-radius: 16px;
-    box-shadow: 0 12px 28px var(--shadow);
-    z-index: 2;
-  }
-  body.hr-field-nav .hr-lang-pick {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin: 0 0 8px;
-  }
-  body.hr-field-nav .hr-lang-pick[hidden] { display: none !important; }
-  body.hr-field-nav .hr-lang-label {
-    flex: 1 1 100%;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    color: var(--text-soft);
-  }
-  body.hr-field-nav .hr-lang-pick button {
-    flex: 1 1 0;
-    min-width: 0;
-    padding: 8px 4px;
-    font-size: 12px;
-    font-weight: 700;
-  }
-  body.hr-field-nav .hr-lang-pick button.active {
-    color: #fff;
-    background: var(--accent2, #6f3aa0);
-    border-color: var(--accent2, #6f3aa0);
-  }
   body.hr-field-nav.hr-lang-rtl .main-area,
   body.hr-field-nav.hr-lang-rtl .hr-field-head,
   body.hr-field-nav.hr-lang-rtl .hr-mobile-dock,
-  body.hr-field-nav.hr-lang-rtl .hr-settings-panel {
+  body.hr-field-nav.hr-lang-rtl .hr-settings-page {
     direction: rtl;
   }
   body.hr-field-nav.hr-lang-rtl #hrApp,
@@ -1478,19 +1438,6 @@
   body.hr-field-nav.hr-lang-rtl .hr-paper,
   body.hr-field-nav.hr-lang-rtl .hr-paper * {
     direction: ltr;
-  }
-  body.hr-field-nav.hr-lang-rtl .hr-settings-panel {
-    right: auto;
-    left: 0;
-  }
-  body.hr-field-nav .hr-settings-panel[hidden] { display: none !important; }
-  body.hr-field-nav .hr-settings-panel button {
-    flex-direction: row;
-    justify-content: flex-start;
-    width: 100%;
-    padding: 10px 12px;
-    font-size: 13px;
-    border-radius: 999px;
   }
   body.hr-field-nav #pwa-install-banner {
     bottom: calc(96px + env(safe-area-inset-bottom));
@@ -1538,24 +1485,58 @@
   font: inherit;
   font-weight: 600;
 }
+.hr-settings-toggle.active,
 .hr-settings.open .hr-settings-toggle {
   background: var(--tab-active);
   border-color: var(--tab-active);
   color: var(--tab-active-text);
 }
-.hr-settings-panel {
+.hr-settings-page .hr-settings-panel {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
   padding: 8px 0 0;
 }
-.hr-settings-panel[hidden] { display: none !important; }
-.hr-settings-panel button {
+.hr-settings-page .hr-lang-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+}
+.hr-settings-page .hr-lang-pick[hidden] { display: none !important; }
+.hr-settings-page .hr-lang-label {
+  flex: 1 1 100%;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+.hr-settings-page .hr-lang-pick button {
+  flex: 1 1 0;
+  justify-content: center;
+  min-width: 0;
+  min-height: 46px;
+  padding: 12px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+.hr-settings-page .hr-lang-pick button.active {
+  color: #fff;
+  background: var(--accent2, #6f3aa0);
+  border-color: var(--accent2, #6f3aa0);
+}
+.hr-settings-page .hr-settings-panel > button {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 9px;
+  gap: 10px;
   width: 100%;
+  min-height: 50px;
+  padding: 12px 16px;
+  border-radius: 999px;
+  font-size: 16px;
+  font-weight: 700;
   text-align: left;
   box-sizing: border-box;
 }

@@ -131,7 +131,8 @@
       confirmFailed: 'Confirm failed',
       partialSigned: function (p) { return (p.ok || 0) + ' signed, ' + (p.bad || 0) + ' could not be signed.'; },
       needSig: 'Your e-signature is not on this account yet. Ask admin to upload it on Users, or open a paper and upload it once.',
-      langLabel: 'Language'
+      langLabel: 'Language',
+      settingsHelp: 'Language, appearance, and account.'
     },
     ar: {
       navSaved: 'طلبات الإجازة',
@@ -260,7 +261,8 @@
       confirmFailed: 'فشل التأكيد',
       partialSigned: function (p) { return (p.ok || 0) + ' وُقّعت، و' + (p.bad || 0) + ' تعذّر توقيعها.'; },
       needSig: 'توقيعك غير موجود على هذا الحساب بعد. اطلب من المسؤول رفعه، أو ارفعه مرة واحدة من ورقة.',
-      langLabel: 'اللغة'
+      langLabel: 'اللغة',
+      settingsHelp: 'اللغة والمظهر والحساب.'
     },
     ckb: {
       navSaved: 'داواکاری مۆڵەت',
@@ -385,7 +387,8 @@
       confirmFailed: 'پەسەندکردن سەرنەکەوت',
       partialSigned: function (p) { return (p.ok || 0) + ' واژۆ کرا، ' + (p.bad || 0) + ' نەتوانرا واژۆ بکرێت.'; },
       needSig: 'واژۆکەت هێشتا لەسەر ئەم هەژمارە نییە. داوا لە بەڕێوەبەر بکە باری بکات، یان جارێک لەسەر کاغەزێک باری بکە.',
-      langLabel: 'زمان'
+      langLabel: 'زمان',
+      settingsHelp: 'زمان، ڕووکار، و هەژمار.'
     }
   };
 
