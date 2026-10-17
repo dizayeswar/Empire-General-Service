@@ -4021,7 +4021,7 @@ function hrRenderTable_() {
       '<td>' + hrEsc_(hrFmtDate_(r.startDate)) + (r.endDate && r.endDate !== r.startDate ? ' – ' + hrEsc_(hrFmtDate_(r.endDate)) : '') + '</td>' +
       '<td>' + hrEsc_(r.daysOut || '—') + '</td>' +
       '<td>' + statusCell + '</td>' +
-      '<td><div class="hr-row-acts">' +
+      '<td class="hr-phone-acts"><div class="hr-row-acts">' +
         '<button type="button" class="hr-btn-edit" onclick="event.stopPropagation();' + openFn + '(\'' + id + '\',\'list\')">' + hrEsc_(hrT('view', 'View')) + '</button>' +
         (!showSel ? '<button type="button" onclick="event.stopPropagation();hrPrintRow_(\'' + id + '\')">' + hrEsc_(hrT('printPdf', 'Print / PDF')) + '</button>' : '') +
       '</div></td></tr>';
@@ -4063,7 +4063,7 @@ function hrRenderDoneTable_() {
       '<td>' + hrEsc_(hrFmtDate_(r.startDate)) + (r.endDate && r.endDate !== r.startDate ? ' – ' + hrEsc_(hrFmtDate_(r.endDate)) : '') + '</td>' +
       '<td>' + hrEsc_(r.daysOut || '—') + '</td>' +
       '<td><span class="hr-badge hr-badge-' + (rejectedRow ? 'rejected' : 'completed') + '">' + (rejectedRow ? 'Rejected' : 'Completed') + '</span></td>' +
-      '<td><div class="hr-row-acts">' +
+      '<td class="hr-phone-acts"><div class="hr-row-acts">' +
         '<button type="button" class="hr-btn-edit" onclick="hrEditInList_(\'' + hrEsc_(r.id) + '\',\'done\')">View</button>' +
         (!showSel ? '<button type="button" onclick="hrPrintRow_(\'' + hrEsc_(r.id) + '\')">Print / PDF</button>' : '') +
       '</div></td></tr>';
@@ -4206,7 +4206,7 @@ function hrRenderArchiveTable_() {
       '<td>' + hrEsc_(hrFmtDate_(r.startDate)) + (r.endDate && r.endDate !== r.startDate ? ' – ' + hrEsc_(hrFmtDate_(r.endDate)) : '') + '</td>' +
       '<td>' + hrEsc_(r.daysOut || '—') + '</td>' +
       '<td><span class="hr-badge hr-badge-completed">Completed</span></td>' +
-      '<td><div class="hr-row-acts">' +
+      '<td class="hr-phone-acts"><div class="hr-row-acts">' +
         '<button type="button" class="hr-btn-edit" onclick="hrEditInList_(\'' + hrEsc_(r.id) + '\',\'archive\')">View</button>' +
         (!showSel ? '<button type="button" onclick="hrPrintRow_(\'' + hrEsc_(r.id) + '\')">Print / PDF</button>' : '') +
       '</div></td></tr>';
@@ -4265,7 +4265,7 @@ function hrRenderConfirmedTable_() {
       '<td>' + hrEsc_(hrFmtDate_(r.startDate)) + (r.endDate && r.endDate !== r.startDate ? ' – ' + hrEsc_(hrFmtDate_(r.endDate)) : '') + '</td>' +
       '<td>' + hrEsc_(r.daysOut || '—') + '</td>' +
       '<td><span class="hr-badge hr-badge-completed">Confirmed</span></td>' +
-      '<td><div class="hr-row-acts">' +
+      '<td class="hr-phone-acts"><div class="hr-row-acts">' +
         '<button type="button" class="hr-btn-edit" onclick="hrEditInList_(\'' + hrEsc_(r.id) + '\',\'confirmed\')">View</button>' +
         (!showSel ? '<button type="button" onclick="hrPrintRow_(\'' + hrEsc_(r.id) + '\')">Print / PDF</button>' : '') +
       '</div></td></tr>';
@@ -4348,7 +4348,7 @@ function hrRenderSignedTable_() {
       h += '<div><dt>' + hrEsc_(hrT('directorSigned', 'Director signed')) + '</dt><dd>' + hrEsc_(hrFmtDate_(r.directorSignedAt)) + '</dd></div>';
     }
     h += '</dl>';
-    h += '<div class="hr-row-acts">';
+    h += '<div class="hr-row-acts hr-phone-acts">';
     h += '<button type="button" class="hr-btn-edit" onclick="' + openFn + '(\'' + id + '\',\'signed\')">' + hrEsc_(hrT('view', 'View')) + '</button>';
     h += '<button type="button" onclick="hrPrintRow_(\'' + id + '\')">' + hrEsc_(hrT('printPdf', 'Print / PDF')) + '</button>';
     h += '</div></article>';

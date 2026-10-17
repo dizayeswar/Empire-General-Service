@@ -1291,6 +1291,7 @@
     color: var(--text-soft);
   }
   .hr-list-table td .hr-row-acts { justify-content: flex-end; }
+  .hr-phone-acts { display: none !important; }
   .hr-team-sig { height: 40px; max-width: 140px; }
   .hr-sig-pick-card, .hr-emp-edit-card { width: min(440px, calc(100vw - 24px)); }
 }
