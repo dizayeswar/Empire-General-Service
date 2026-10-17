@@ -490,6 +490,7 @@
               <button type="button" id="whInvListFilterMEP" class="wh-sp-filter" onclick="whInvListSetDept('MEP')">MEP</button>
               <button type="button" id="whInvListFilterAC" class="wh-sp-filter" onclick="whInvListSetDept('AC')">AC</button>
               <button type="button" id="whInvListFilterMDM" class="wh-sp-filter" onclick="whInvListSetDept('MDM')">MDM</button>
+              <button type="button" id="whInvListFilterEGS" class="wh-sp-filter" onclick="whInvListSetDept('EGS')">EGS</button>
               <button type="button" id="whInvListClearBook" class="wh-sp-filter" onclick="whInvListClearBook()" hidden>All books</button>
               <button type="button" onclick="whInvLoadList(true)">Refresh</button>
               <button type="button" id="whInvExcelBtn" onclick="whInvExportExcel()"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/><path d="M8 9h2"/></svg></span> Export to Excel</button>
@@ -520,6 +521,7 @@
               <button type="button" id="whInvSpFilterMEP" class="wh-sp-filter" onclick="whInvSpUsageSetFilter('MEP')">MEP</button>
               <button type="button" id="whInvSpFilterAC" class="wh-sp-filter" onclick="whInvSpUsageSetFilter('AC')">AC</button>
               <button type="button" id="whInvSpFilterMDM" class="wh-sp-filter" onclick="whInvSpUsageSetFilter('MDM')">MDM</button>
+              <button type="button" id="whInvSpFilterEGS" class="wh-sp-filter" onclick="whInvSpUsageSetFilter('EGS')">EGS</button>
               <button type="button" onclick="whInvSpUsageRefresh(true)">Refresh</button>
               <button type="button" id="whInvSpExcelBtn" onclick="whInvSpUsageExportExcel()"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/><path d="M8 9h2"/></svg></span> Export to Excel</button>
             </div>
@@ -548,6 +550,7 @@
               <button type="button" id="whInvAmtFilterMEP" class="wh-sp-filter" onclick="whInvAmtSetFilter('MEP')">MEP</button>
               <button type="button" id="whInvAmtFilterAC" class="wh-sp-filter" onclick="whInvAmtSetFilter('AC')">AC</button>
               <button type="button" id="whInvAmtFilterMDM" class="wh-sp-filter" onclick="whInvAmtSetFilter('MDM')">MDM</button>
+              <button type="button" id="whInvAmtFilterEGS" class="wh-sp-filter" onclick="whInvAmtSetFilter('EGS')">EGS</button>
               <button type="button" onclick="whInvAmtRefresh(true)">Refresh</button>
               <button type="button" id="whInvAmtExcelBtn" onclick="whInvAmtExportExcel()"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/><path d="M8 9h2"/></svg></span> Export to Excel</button>
             </div>
@@ -4452,7 +4455,7 @@ function whInvSpUsageClearMonth(){
 }
 function whInvSpUsageSetFilter(dept){
   _whInvSpFilter=String(dept||'').toUpperCase();
-  ['','CAI','MEP','AC','MDM'].forEach(function(d){
+  ['','CAI','MEP','AC','MDM','EGS'].forEach(function(d){
     var id=d ? ('whInvSpFilter'+d) : 'whInvSpFilterAll';
     var btn=document.getElementById(id);
     if(btn) btn.classList.toggle('active', (d||'')===_whInvSpFilter);
@@ -4630,7 +4633,7 @@ function whInvAmtClearMonth(){
 }
 function whInvAmtSetFilter(dept){
   _whInvAmtFilter=String(dept||'').toUpperCase();
-  ['','CAI','MEP','AC','MDM'].forEach(function(d){
+  ['','CAI','MEP','AC','MDM','EGS'].forEach(function(d){
     var id=d ? ('whInvAmtFilter'+d) : 'whInvAmtFilterAll';
     var btn=document.getElementById(id);
     if(btn) btn.classList.toggle('active', (d||'')===_whInvAmtFilter);
@@ -4714,7 +4717,7 @@ function whInvDeptMoney_(r){
   return { usd:Number(usd)||0, iqd:Number(iqd)||0 };
 }
 function whInvDeptTotalsList_(rows){
-  var order=['CAI','MEP','AC','MDM'];
+  var order=['CAI','MEP','AC','MDM','EGS'];
   var map={};
   order.forEach(function(d){ map[d]={ dept:d, invoices:0, usd:0, iqd:0 }; });
   (rows||[]).forEach(function(r){
@@ -5320,7 +5323,7 @@ function whInvListClearMonth(){
 }
 function whInvListSetDept(dept){
   _whInvListDept=String(dept||'').toUpperCase();
-  ['','CAI','MEP','AC','MDM'].forEach(function(d){
+  ['','CAI','MEP','AC','MDM','EGS'].forEach(function(d){
     var id=d ? ('whInvListFilter'+d) : 'whInvListFilterAll';
     var btn=document.getElementById(id);
     if(btn) btn.classList.toggle('active', (d||'')===_whInvListDept);
@@ -5839,7 +5842,7 @@ function whInvPickCompany(name){
   whCloseCombos();
 }
 var WH_INV_CURRENCIES=['IQD','USD'];
-var WH_INV_DEPTS=['CAI','MEP','AC','MDM'];
+var WH_INV_DEPTS=['CAI','MEP','AC','MDM','EGS'];
 function whInvPillLabel_(kind, val){
   val=String(val||'');
   if(kind==='dept') return val || 'Required';

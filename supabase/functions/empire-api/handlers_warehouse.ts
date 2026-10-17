@@ -1103,7 +1103,7 @@ export async function handleSaveWarehouseInvoice(body: Record<string, unknown>, 
     return { ok: false, success: false, error: "missing_amount", message: "Amount is required." };
   }
   const deptCode = department.toUpperCase();
-  if (!["CAI", "MEP", "AC", "MDM"].includes(deptCode)) {
+  if (!["CAI", "MEP", "AC", "MDM", "EGS"].includes(deptCode)) {
     return { ok: false, success: false, error: "missing_department", message: "Department is required." };
   }
   let id = String(body.id || "").trim();
