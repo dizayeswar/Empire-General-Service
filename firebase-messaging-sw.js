@@ -1,5 +1,5 @@
 /* Empire EGS — service worker (cache + Firebase background push) */
-var CACHE_VERSION = '2026-10-15-settings';
+var CACHE_VERSION = '2026-10-17-tour';
 var CACHE_NAME = 'empire-egs-' + CACHE_VERSION;
 var NOTIFY_ICON = 'https://dizayeswar.github.io/Empire-General-Service/icons/icon-192.png';
 var NOTIFY_BASE = 'https://dizayeswar.github.io/Empire-General-Service/civil-issue.html';
@@ -93,6 +93,7 @@ var PRECACHE = [
   './assets/empire-hr.css',
   './assets/empire-hr-leave.js',
   './assets/empire-hr-field-i18n.js',
+  './assets/empire-hr-tour.js',
   './assets/empire-charging.css',
   './assets/empire-charging.js',
   './assets/empire-storage.js'
@@ -181,6 +182,7 @@ function isLiveConfigAsset(pathname) {
     /empire-auth\.js$/i.test(pathname) ||
     /empire-hr-leave\.js$/i.test(pathname) ||
     /empire-hr-field-i18n\.js$/i.test(pathname) ||
+    /empire-hr-tour\.js$/i.test(pathname) ||
     /empire-hr\.css$/i.test(pathname) ||
     /issue-tracker\.js$/i.test(pathname) ||
     /issue-configs\.js$/i.test(pathname);

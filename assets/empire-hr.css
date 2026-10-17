@@ -1304,7 +1304,7 @@
 .hr-nav-sub[hidden] { display: none !important; }
 #hrSavedFilters[hidden] { display: none !important; }
 
-/* Line manager and employee phones: sections sit in a bottom bar. HR keeps the top menu.
+/* Line manager, employee, and director phones: sections sit in a bottom bar. HR keeps the top menu.
    Real boxes only — iPhone drops buttons out of a bar built with display:contents. */
 @media screen and (max-width: 840px) {
   body.hr-field-nav .sidebar {
@@ -1983,3 +1983,65 @@ body.hr-print-batch .hr-print-page .hr-note {
   background: var(--input-bg);
   color: var(--text);
 }
+
+/* Phone tour overlay. Sits above the dock and never inside the HR-F-06 paper. */
+#hrTourDockBtn[hidden],
+#hrTourSettingsBtn[hidden],
+.hr-tour[hidden] { display: none !important; }
+.hr-tour {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  pointer-events: auto;
+}
+.hr-tour-shade {
+  position: absolute;
+  inset: 0;
+  background: rgba(16, 8, 20, 0.55);
+}
+.hr-tour.has-hole .hr-tour-shade { background: transparent; }
+.hr-tour-hole {
+  position: fixed;
+  border-radius: 16px;
+  box-shadow: 0 0 0 9999px rgba(16, 8, 20, 0.55);
+  outline: 2px solid #fff;
+  pointer-events: none;
+  z-index: 1;
+}
+.hr-tour-hole[hidden] { display: none !important; }
+.hr-tour-card {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  top: 12px;
+  z-index: 2;
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 16px 16px 12px;
+  background: var(--panel, #fff);
+  color: var(--text, #1a1020);
+  border: 1px solid var(--card-border, #ddd);
+  border-radius: 16px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+}
+.hr-tour-kicker {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--text-soft, #666);
+}
+.hr-tour-card h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  line-height: 1.3;
+}
+.hr-tour-card p { margin: 0; font-size: 15px; line-height: 1.45; }
+.hr-tour-acts {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+.hr-tour-acts button { flex: 1 1 0; }
+.hr-tour-acts button[hidden] { display: none !important; }
+body.hr-lang-rtl .hr-tour-card { direction: rtl; text-align: start; }

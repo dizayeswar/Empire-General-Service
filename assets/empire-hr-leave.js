@@ -2210,8 +2210,10 @@ function hrApplyNavAccess_() {
   if (scanOnForm) scanOnForm.style.display = hrIsHrStaff_() ? '' : 'none';
   hrListHelp_();
   hrSyncSavedFilters_();
-  document.body.classList.toggle('hr-field-nav', !hrIsHrStaff_() && (hrIsLine_() || hrIsEmployeeWrite_()));
+  document.body.classList.toggle('hr-field-nav', !hrIsHrStaff_() && (hrIsLine_() || hrIsEmployeeWrite_() || hrIsDirectorOnly_()));
+  if (typeof hrTourSyncButtons_ === 'function') hrTourSyncButtons_();
   if (typeof hrApplyFieldLang === 'function') hrApplyFieldLang();
+  if (typeof hrTourMaybeOffer_ === 'function') hrTourMaybeOffer_();
 }
 
 function hrListHelp_() {
@@ -2224,7 +2226,7 @@ function hrListHelp_() {
   } else if (hrIsLineOnly_()) {
     el.innerHTML = hrT('listHelpLine', 'Papers HR assigned to you. <strong>Confirm selected</strong> puts your e-signature in the Line Manager box, then each paper is saved in <strong>My e-signatures</strong> and goes to the director.');
   } else if (hrIsDirectorOnly_()) {
-    el.innerHTML = 'Sign papers waiting for you as director. After you confirm, they come back to HR as Completed request.';
+    el.innerHTML = hrT('listHelpDirector', 'Sign papers waiting for you as director. After you confirm, they come back to HR as Completed request.');
   } else {
     el.innerHTML = 'Confirm uses the Employees list. A line manager is assigned automatically. People with no line manager go straight to the director. After the director signs, the paper comes back to Completed request.';
   }
@@ -3913,10 +3915,10 @@ function hrRenderKpis_(list) {
       : '<div class="hr-kpi"><b>' + pendingLine + '</b><span>Pending line manager</span></div>') +
     (hrIsLineOnly_() || hrIsEmployeeOnly_()
       ? ''
-      : '<div class="hr-kpi"><b>' + pendingDir + '</b><span>Pending Director</span></div>') +
+      : '<div class="hr-kpi"><b>' + pendingDir + '</b><span>' + hrEsc_(hrT('st_pending_director', 'Pending Director')) + '</span></div>') +
     (hrIsLineOnly_() || hrIsEmployeeOnly_()
       ? ''
-      : '<div class="hr-kpi" role="button" tabindex="0" onclick="hrSwitchTab_(null,\'confirmed\')" style="cursor:pointer;"><b>' + completed + '</b><span>Director confirmed</span></div>');
+      : '<div class="hr-kpi" role="button" tabindex="0" onclick="hrSwitchTab_(null,\'confirmed\')" style="cursor:pointer;"><b>' + completed + '</b><span>' + hrEsc_(hrT('directorConfirmed', 'Director confirmed')) + '</span></div>');
 }
 
 function hrRenderTable_() {
@@ -3950,23 +3952,23 @@ function hrRenderTable_() {
     if (showSel) {
       h += '<span class="hr-select-count" id="hrSelectCount">' + hrEsc_(hrT('selectedCount', selN ? selN + ' selected' : 'Select papers', { n: selN })) + '</span>';
       if (hrIsDirectorOnly_()) {
-        h += '<button type="button" class="hr-btn-confirm" onclick="hrRunSelectedPending_(\'confirm\')">Confirm selected</button>';
+        h += '<button type="button" class="hr-btn-confirm" id="hrListConfirmBtn" onclick="hrRunSelectedPending_(\'confirm\')">' + hrEsc_(hrT('confirmSelected', 'Confirm selected')) + '</button>';
       } else {
-        h += '<button type="button" class="hr-btn-confirm" onclick="hrRunSelectedConfirm_()">' + hrEsc_(hrT('confirmSelected', 'Confirm selected')) + '</button>';
+        h += '<button type="button" class="hr-btn-confirm" id="hrListConfirmBtn" onclick="hrRunSelectedConfirm_()">' + hrEsc_(hrT('confirmSelected', 'Confirm selected')) + '</button>';
         if (hrIsHrStaff_() && !hrIsSignerOnly_() && !hrIsLineOnly_()) {
           h += '<button type="button" class="hr-btn-reject" onclick="hrRunSelectedInbox_(\'delete\')">Delete selected</button>';
         }
       }
       h += '<button type="button" onclick="hrToggleSelectMode_(false)">' + hrEsc_(hrT('cancel', 'Cancel')) + '</button>';
     } else {
-      h += '<button type="button" onclick="hrToggleSelectMode_(true)">' + hrEsc_(hrT('select', 'Select')) + '</button>';
+      h += '<button type="button" id="hrListSelectBtn" onclick="hrToggleSelectMode_(true)">' + hrEsc_(hrT('select', 'Select')) + '</button>';
     }
     h += '</div>';
   }
   h += '</div>';
   if (!rows.length) {
-    h += '<p class="hr-stage-empty">' + hrEsc_(hrIsDirectorOnly_()
-      ? 'When the line manager signs, the paper appears here for you to sign.'
+    h += '<p class="hr-stage-empty" id="hrListEmpty">' + hrEsc_(hrIsDirectorOnly_()
+      ? hrT('listEmptyDirector', 'When the line manager signs, the paper appears here for you to sign.')
       : (hrIsEmployeeOnly_()
         ? hrT('listEmptyEmp', 'When HR saves a leave paper with your name, it appears here. Stamp the Employee box only — you cannot fill a new leave request.')
         : (hrIsLineOnly_()
@@ -4436,7 +4438,10 @@ function hrLoad_(force, spin) {
       var signedHost = document.getElementById('hrSignedHost');
       if (signedHost) signedHost.innerHTML = errHtml;
     })
-    .then(function () { stopSpin_(); }, function () { stopSpin_(); });
+    .then(function () {
+      stopSpin_();
+      if (typeof hrTourMaybeOffer_ === 'function') hrTourMaybeOffer_();
+    }, function () { stopSpin_(); });
 }
 
 function hrEmptyScan_() {
