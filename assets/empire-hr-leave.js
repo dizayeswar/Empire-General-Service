@@ -3909,7 +3909,7 @@ function hrRenderKpis_(list) {
   host.innerHTML =
     (hrIsSignerOnly_()
       ? ''
-      : '<div class="hr-kpi"><b>' + inbox + '</b><span>Leave requests</span></div>') +
+      : '<div class="hr-kpi hr-kpi-inbox"><b>' + inbox + '</b><span>Leave requests</span></div>') +
     (hrIsDirectorOnly_()
       ? ''
       : '<div class="hr-kpi"><b>' + pendingLine + '</b><span>Pending line manager</span></div>') +
