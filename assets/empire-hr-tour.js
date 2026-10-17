@@ -26,7 +26,7 @@
   }
 
   function audience() {
-    return (typeof hrIsHrStaff_ !== 'function' || !hrIsHrStaff_()) && (directorTrack() || lineTrack());
+    return false;
   }
 
   function storageKey() {

@@ -1292,7 +1292,15 @@
   }
   .hr-list-table td .hr-row-acts { justify-content: flex-end; }
   .hr-phone-acts { display: none !important; }
+  body.hr-field-nav .side-title h1,
   body.hr-field-nav .side-title p { display: none !important; }
+  body.hr-field-nav #whoLabel {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--header-accent);
+    line-height: 1.3;
+    margin-top: 0;
+  }
   body.hr-field-nav #list .hr-tab-help { display: none !important; }
   body.hr-field-nav .hr-kpi-inbox { display: none !important; }
   .hr-team-sig { height: 40px; max-width: 140px; }
