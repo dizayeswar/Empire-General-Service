@@ -1,5 +1,5 @@
 /* Empire EGS — service worker (cache + Firebase background push) */
-var CACHE_VERSION = '2026-10-17-tour';
+var CACHE_VERSION = '2026-10-18-hr-push';
 var CACHE_NAME = 'empire-egs-' + CACHE_VERSION;
 var NOTIFY_ICON = 'https://dizayeswar.github.io/Empire-General-Service/icons/icon-192.png';
 var NOTIFY_BASE = 'https://dizayeswar.github.io/Empire-General-Service/civil-issue.html';
@@ -35,7 +35,7 @@ if (typeof FIREBASE_SW_CONFIG !== 'undefined' && FIREBASE_SW_CONFIG && FIREBASE_
       icon: NOTIFY_ICON,
       badge: NOTIFY_ICON,
       data: { url: url, issueId: issueId },
-      tag: 'empire-job',
+      tag: issueId ? ('empire-' + issueId) : 'empire-job',
       renotify: true
     });
   });

@@ -2057,3 +2057,27 @@ body.hr-print-batch .hr-print-page .hr-note {
 .hr-tour-acts button { flex: 1 1 0; }
 .hr-tour-acts button[hidden] { display: none !important; }
 body.hr-lang-rtl .hr-tour-card { direction: rtl; text-align: start; }
+.hr-push-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border, #e4e4e7);
+  border-radius: 14px;
+  background: var(--card, #fff);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.35;
+}
+.hr-push-bar[hidden] { display: none !important; }
+.hr-push-bar button {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.hr-push-bar button[hidden] { display: none !important; }

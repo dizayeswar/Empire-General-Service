@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #mainContainer{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-09-22-search-pill">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-27-gailan-paper">
-<link rel="stylesheet" href="assets/empire-hr.css?v=2026-10-18-phone-name">
+<link rel="stylesheet" href="assets/empire-hr.css?v=2026-10-18-hr-push">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -109,6 +109,10 @@
         <div id="hrListBrowse">
         <div class="form-section">
           <h2 data-hr-i18n="listTitle">Saved requests</h2>
+          <div id="hrPushBar" class="hr-push-bar" hidden>
+            <span id="hrPushText" data-hr-i18n="pushAsk">Allow notifications when HR assigns you a paper.</span>
+            <button type="button" id="hrPushBtn" onclick="hrPushEnable_()" data-hr-i18n="pushAllow">Allow</button>
+          </div>
           <p class="hr-tab-help">Confirm uses the Employees list. A line manager is assigned automatically. People with no line manager go straight to the director. After the director signs, the paper comes back to Completed request.</p>
           <p class="hr-form-msg no-print" id="hrListMsg"></p>
           <div class="form-row filter-toolbar" id="hrSavedFilters" hidden>
@@ -705,14 +709,16 @@
   </div>
 </div>
 
-<script src="config.js?v=2026-10-17-tour"></script>
+<script src="config.js?v=2026-10-18-hr-push"></script>
 <script src="assets/empire-api.js?v=2026-10-15-file-move"></script>
 <script src="assets/empire-auth.js?v=2026-09-27-gailan-paper"></script>
 <script src="assets/empire-core.js?v=2026-09-27-gailan-paper"></script>
 <script src="assets/empire-storage.js?v=2026-09-27-gailan-paper"></script>
 <script src="assets/empire-sw-update.js?v=2026-09-27-gailan-paper"></script>
-<script src="assets/empire-hr-field-i18n.js?v=2026-10-18-auto-box"></script>
-<script src="assets/empire-hr-leave.js?v=2026-10-18-auto-box"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js"></script>
+<script src="assets/empire-hr-field-i18n.js?v=2026-10-18-hr-push"></script>
+<script src="assets/empire-hr-leave.js?v=2026-10-18-hr-push"></script>
 <script src="assets/empire-hr-tour.js?v=2026-10-18-phone-name"></script>
 </body>
 </html>

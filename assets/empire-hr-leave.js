@@ -2293,6 +2293,100 @@ function hrApplyNavAccess_() {
   if (typeof hrTourSyncButtons_ === 'function') hrTourSyncButtons_();
   if (typeof hrApplyFieldLang === 'function') hrApplyFieldLang();
   if (typeof hrTourMaybeOffer_ === 'function') hrTourMaybeOffer_();
+  hrPushSync_();
+}
+
+function hrPushWant_() {
+  return hrIsLine_() && !hrIsHrStaff_();
+}
+
+function hrPushShow_(mode) {
+  var bar = document.getElementById('hrPushBar');
+  var text = document.getElementById('hrPushText');
+  var btn = document.getElementById('hrPushBtn');
+  if (!bar) return;
+  if (!mode) {
+    bar.hidden = true;
+    return;
+  }
+  bar.hidden = false;
+  if (text) {
+    text.textContent = mode === 'home'
+      ? hrT('pushHome', 'Add Leave to your Home Screen, then allow notifications when HR assigns you a paper.')
+      : hrT('pushAsk', 'Allow notifications when HR assigns you a paper.');
+  }
+  if (btn) btn.hidden = mode !== 'ask';
+}
+
+function hrPushSync_() {
+  if (!hrPushWant_()) {
+    hrPushShow_('');
+    return;
+  }
+  if (typeof Notification === 'undefined') {
+    hrPushShow_('home');
+    return;
+  }
+  if (Notification.permission === 'granted') {
+    hrPushShow_('');
+    hrPushSave_(true);
+    return;
+  }
+  if (Notification.permission === 'denied') {
+    hrPushShow_('');
+    return;
+  }
+  hrPushShow_('ask');
+}
+
+function hrPushToken_() {
+  if (typeof FIREBASE_CONFIG === 'undefined' || !FIREBASE_CONFIG || !FIREBASE_CONFIG.apiKey) {
+    return Promise.reject(new Error('Firebase not configured'));
+  }
+  if (typeof FIREBASE_VAPID_KEY === 'undefined' || !FIREBASE_VAPID_KEY) {
+    return Promise.reject(new Error('Firebase not configured'));
+  }
+  if (typeof firebase === 'undefined' || !firebase.messaging) {
+    return Promise.reject(new Error('Firebase did not load'));
+  }
+  if (!('serviceWorker' in navigator)) return Promise.reject(new Error('Service worker missing'));
+  return navigator.serviceWorker.ready.then(function (reg) {
+    if (!firebase.apps || !firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    return firebase.messaging().getToken({ vapidKey: FIREBASE_VAPID_KEY, serviceWorkerRegistration: reg });
+  });
+}
+
+function hrPushSave_(silent) {
+  var user = typeof empireGetUser === 'function' ? String(empireGetUser() || '').trim().toLowerCase() : '';
+  var token = hrToken_();
+  if (!user || !token) return;
+  hrPushToken_().then(function (fcm) {
+    if (!fcm) return;
+    return fetchJSONRetry({
+      action: 'saveWorkerPushToken',
+      token: token,
+      username: user,
+      fcmToken: fcm,
+      platform: 'web-fcm'
+    }, 1, 30000);
+  }).then(function () {
+    if (!silent) hrPushShow_('');
+  }).catch(function () {
+    if (!silent) hrPushShow_('ask');
+  });
+}
+
+function hrPushEnable_() {
+  if (!hrPushWant_() || typeof Notification === 'undefined') {
+    hrPushShow_('home');
+    return;
+  }
+  Notification.requestPermission().then(function (perm) {
+    if (perm === 'granted') hrPushSave_(false);
+    else hrPushShow_('');
+  }).catch(function () {
+    hrPushShow_('ask');
+  });
 }
 
 function hrListHelp_() {

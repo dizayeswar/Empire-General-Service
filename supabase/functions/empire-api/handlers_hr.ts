@@ -4,6 +4,7 @@ import { HR_JOINING } from "./hr_joining.ts";
 import { HR_EMPLOYEE_SEED } from "./hr_employees_seed.ts";
 import { resetPasswordOk } from "./config.ts";
 import { fmtDate, isoNow, sb, selectAllRows, trashRows } from "./db.ts";
+import { notifyUsers_ } from "./fcm.ts";
 import {
   deriveAccountFromModuleAccess,
   moduleAccessToJson,
@@ -1375,6 +1376,15 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
     try {
       await grantHrLineAccess(assignee.username);
     } catch (_e) { /* account may not exist yet */ }
+    try {
+      const emp = String(ex.emp_name || "").trim();
+      const kind = String(ex.leave_type || "Leave").trim() || "Leave";
+      await notifyUsers_([assignee.username], "Leave paper assigned", emp ? emp + " — " + kind : kind, {
+        type: "hr_assign",
+        deptPage: "hr-leave.html",
+        issueId: id,
+      });
+    } catch (_e) { /* a missed alert must not undo the assignment */ }
     return {
       ok: true,
       success: true,
