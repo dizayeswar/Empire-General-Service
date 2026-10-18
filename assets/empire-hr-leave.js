@@ -1274,6 +1274,93 @@ function hrRunSelectedLine_(ids) {
   if (confirm('Confirm ' + n + ' papers?')) go();
 }
 
+function hrDualSlotForRow_(row) {
+  if (!row) return '';
+  if (hrPaperIsMineEmp_(row)) return 'emp';
+  if (hrLineCanSign_(row)) return 'line';
+  if (hrCanEmpStampRow_(row)) return 'emp';
+  return '';
+}
+
+function hrConfirmMixed_(empIds, lineIds) {
+  if (_hrBulkBusy) return;
+  empIds = empIds || [];
+  lineIds = lineIds || [];
+  var sig = String(hrAccountSig_() || (_hrSigs && (_hrSigs.emp || _hrSigs.line)) || '').trim();
+  if (!sig) {
+    hrMsg_(hrT('needSig', 'Your e-signature is not on this account yet. Ask admin to upload it on Users, or open a paper and upload it once.'), false);
+    return;
+  }
+  var when = hrToday_();
+  var me = hrMe_();
+  var groups = [];
+  if (empIds.length) groups.push({ slot: 'emp', ids: empIds });
+  if (lineIds.length) groups.push({ slot: 'line', ids: lineIds });
+  _hrBulkBusy = true;
+  groups.forEach(function (g) {
+    g.ids.forEach(function (id) {
+      var row = (_hrRows || []).find(function (r) { return String(r.id) === id; });
+      if (row) hrMarkSelectedSigned_(row, g.slot, when, sig, me);
+    });
+  });
+  _hrSelectMode = false;
+  _hrSelected = {};
+  hrRefreshLists_();
+  hrSwitchTab_(null, hrAfterSignTab_());
+  var n = empIds.length + lineIds.length;
+  hrMsg_(hrT('signedMixed', 'Signed ' + n + '. Your own papers used the Employee box. The others used the Line Manager box.', { n: n }), true);
+  Promise.all(groups.map(function (g) {
+    return fetchJSONRetry({
+      action: 'confirmHrLeaveRequests',
+      token: hrToken_(),
+      ids: g.ids,
+      signatureSlot: g.slot,
+      lineManagerSignedAt: when
+    }, 1, 60000);
+  })).then(function (results) {
+    var failed = 0;
+    var badSession = false;
+    results.forEach(function (d) {
+      if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) badSession = true;
+      if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Confirm failed');
+      failed += d.failed && d.failed.length ? d.failed.length : 0;
+    });
+    if (badSession) return;
+    if (failed) {
+      hrMsg_(hrT('partialSigned', (n - failed) + ' signed, ' + failed + ' could not be signed.', { ok: n - failed, bad: failed }), false);
+      return hrLoad_(true);
+    }
+  }).catch(function (err) {
+    hrMsg_(err.message || hrT('confirmFailed', 'Confirm failed'), false);
+    return hrLoad_(true);
+  }).then(function () {
+    _hrBulkBusy = false;
+  });
+}
+
+function hrRunDualAutoConfirm_(ids) {
+  if (_hrBulkBusy) return;
+  ids = (ids || []).map(function (id) { return String(id || '').trim(); }).filter(Boolean);
+  var empIds = [];
+  var lineIds = [];
+  ids.forEach(function (id) {
+    var row = (_hrRows || []).find(function (r) { return String(r.id) === id; });
+    var slot = hrDualSlotForRow_(row);
+    if (slot === 'line') lineIds.push(id);
+    else if (slot === 'emp') empIds.push(id);
+  });
+  if (!empIds.length && !lineIds.length) {
+    hrMsg_(hrT('selectFirst', 'Select papers first.'), false);
+    return;
+  }
+  if (empIds.length && lineIds.length) {
+    hrConfirmMixed_(empIds, lineIds);
+    return;
+  }
+  if (empIds.length) hrRunSelectedEmp_(empIds);
+  else hrRunSelectedLine_(lineIds);
+}
+
 function hrRunSelectedConfirm_() {
   if (_hrBulkBusy) return;
   if (hrIsDirectorOnly_()) {
@@ -1283,15 +1370,7 @@ function hrRunSelectedConfirm_() {
   var lineIds = hrSelectedLineIds_();
   var empIds = hrSelectedEmpIds_();
   if (hrDualEmpLine_()) {
-    if (!lineIds.length && !empIds.length) {
-      hrMsg_(hrT('selectFirst', 'Select papers first.'), false);
-      return;
-    }
-    hrPickSignBox_().then(function (slot) {
-      if (!slot) return;
-      if (slot === 'emp') hrRunSelectedEmp_(hrSelectedEmpIds_());
-      else hrRunSelectedLine_(hrSelectedLineIds_());
-    });
+    hrRunDualAutoConfirm_(hrSelectedIds_());
     return;
   }
   if (lineIds.length && hrIsLine_()) {
@@ -2220,7 +2299,7 @@ function hrListHelp_() {
   var el = document.querySelector('#list .hr-tab-help');
   if (!el) return;
   if (hrDualEmpLine_()) {
-    el.innerHTML = hrT('listHelpDual', 'Select papers and <strong>Confirm selected</strong>. Choose <strong>Employee box</strong> or <strong>Line Manager box</strong> — only that box gets your stamp. Confirmed papers are saved in <strong>My e-signatures</strong>.');
+    el.innerHTML = hrT('listHelpDual', 'Select papers and <strong>Confirm selected</strong>. Your own paper is stamped in the <strong>Employee box</strong>. Someone else’s paper is stamped in the <strong>Line Manager box</strong>. Confirmed papers are saved in <strong>My e-signatures</strong>.');
   } else if (hrIsEmployeeOnly_()) {
     el.innerHTML = hrT('listHelpEmp', 'Your leave papers, and papers HR assigned to you. Stamp the <strong>Employee box</strong> on your own paper. After you confirm, the paper is saved in <strong>My e-signatures</strong> with the days, dates, and whether the director confirmed.');
   } else if (hrIsLineOnly_()) {
@@ -3609,11 +3688,9 @@ function hrConfirmRow_(id) {
   var row = _hrRows.find(function (r) { return String(r.id) === id; });
   var stage = hrStageOf_(row || { status: hrVal_('hr-status') });
   if (hrDualEmpLine_() && (hrCanEmpStampRow_(row) || hrLineCanSign_(row))) {
-    hrPickSignBox_().then(function (slot) {
-      if (!slot) return;
-      if (slot === 'emp') hrRunSelectedEmp_([id]);
-      else hrRunSelectedLine_([id]);
-    });
+    var slot = hrDualSlotForRow_(row);
+    if (slot === 'emp') hrRunSelectedEmp_([id]);
+    else if (slot === 'line') hrRunSelectedLine_([id]);
     return;
   }
   if (hrIsEmployeeOnly_() && hrCanEmpStampRow_(row)) {
@@ -3973,7 +4050,7 @@ function hrRenderTable_() {
         ? hrT('listEmptyEmp', 'When HR saves a leave paper with your name, it appears here. Stamp the Employee box only — you cannot fill a new leave request.')
         : (hrIsLineOnly_()
         ? (hrDualEmpLine_()
-          ? hrT('listEmptyDual', 'Your leave requests and papers waiting for you as line manager appear here. Confirm selected asks Employee box or Line Manager box.')
+          ? hrT('listEmptyDual', 'Your leave requests and papers waiting for you as line manager appear here. Your own paper is stamped in the Employee box. Someone else’s paper is stamped in the Line Manager box.')
           : hrT('listEmptyLine', 'When HR assigns a paper to you, it appears here to sign. After you confirm, it goes to the director.'))
         : hrT('listEmpty', 'No saved requests yet.')))) + '</p></section>';
     host.innerHTML = h;
