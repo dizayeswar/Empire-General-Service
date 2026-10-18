@@ -414,7 +414,7 @@ const ELECTRIC_STAFF = [
   'Soran Ibrahim','Darbaz Majid','Jasim Muhammad','Chia Mustafa',
   'Wrya Muhammad','Ibrahim Muhammad','Muhammad Hassan','Harim Sarkawt'
 ];
-let allJobs = [], allFieldReports = [], currentPhoto = '', currentInvoicePhoto = '', uploading = false, uploadingInvoice = false, currentFormType = 'maintenance', _fieldReportEditingId = '', _fieldReportTransferring = false, _issueMonthlySaving = false, _frStaffOutsideBound = false;
+let allJobs = [], allFieldReports = [], currentPhoto = '', _editPhotoRaw = '', currentInvoicePhoto = '', uploading = false, uploadingInvoice = false, currentFormType = 'maintenance', _fieldReportEditingId = '', _fieldReportTransferring = false, _issueMonthlySaving = false, _frStaffOutsideBound = false;
 function tok(){ return empireGetToken(); }
 function currentUser(){ return empireGetUser(); }
 function PERMS(){ return typeof empireGetElectricalPerms==='function' ? empireGetElectricalPerms() : empireGetPerms(); }
@@ -445,6 +445,17 @@ function processPhoto(file){ if(!file)return; document.getElementById('j-imageAr
 function processInvoicePhoto(file){ if(!file)return; var area=document.getElementById('j-invoiceArea'); if(area) area.innerHTML='⏳ Uploading…'; uploadingInvoice=true; compressImage(file,url=>{ uploadingInvoice=false; if(url){ currentInvoicePhoto=url; var img=document.getElementById('j-invoice-image'); if(img){ img.src=url; img.style.display='block'; } if(area) area.innerHTML='✅ Invoice photo uploaded'; } else if(area){ area.innerHTML='❌ Upload failed, try again'; } }); }
 function handleJobInvoiceFile(e){ var f=e.target.files&&e.target.files[0]; if(f) processInvoicePhoto(f); e.target.value=''; }
 function handleJobInvoicePaste(e){ var items=e.clipboardData&&e.clipboardData.items; if(!items)return; for(var i=0;i<items.length;i++){ if(items[i].type.indexOf('image')!==-1){ e.preventDefault(); processInvoicePhoto(items[i].getAsFile()); return; } } }
+function electricJobPhotoUrl_(r){
+  var raw=String((r&&r.photo)||'').trim();
+  if(!raw) return '';
+  if(raw.charAt(0)==='['){
+    try{
+      var a=JSON.parse(raw);
+      if(Array.isArray(a)&&a.length) return String(a[0]||'').trim();
+    }catch(e){}
+  }
+  return raw.split('|')[0]||'';
+}
 function jobPhotoCell_(url, label){
   if(!url) return '<span style="color:var(--text-faint);font-size:11px;">—</span>';
   var img = (typeof empireThumbImgHtml === 'function')
@@ -489,6 +500,7 @@ function clearForm(){
   document.getElementById('cc-shift').value='Call Center (08:00)-To-(16:00)';
   document.getElementById('cc-staff').value='';
   currentPhoto='';
+  _editPhotoRaw='';
   currentInvoicePhoto='';
   document.getElementById('addFormTitle').innerHTML='<span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg></span> Add Job / Shift';
   document.getElementById('cancelEditBtn').style.display='none';
@@ -523,7 +535,7 @@ function saveJob(){
       materials:materialsDisplay_(document.getElementById('j-materials').value),
       staff:document.getElementById('j-staff').value,
       type:document.getElementById('j-type').value,
-      photo:currentPhoto, invoicePhoto:currentInvoicePhoto, invoiceNo:invoiceNo, notes:document.getElementById('j-notes').value,
+      photo:(editId && currentPhoto && currentPhoto===electricJobPhotoUrl_({photo:_editPhotoRaw})) ? _editPhotoRaw : currentPhoto, invoicePhoto:currentInvoicePhoto, invoiceNo:invoiceNo, notes:document.getElementById('j-notes').value,
       amount:document.getElementById('j-amount').value||'', token:tok() };
   }
   fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify(rec)}).then(r=>r.json()).then(d=>{
@@ -1349,7 +1361,7 @@ function renderJobs(){
   rows.forEach(r=>{
     var monthNo=jobMonthIndex_(r, monthIndexMap);
     var typeBadge='<span class="badge '+r.type+'">'+(r.type==='general'?'General':r.type==='refundable'?'Refundable':'Call Center')+'</span>';
-    var jobPhotoUrl=String(r.photo||'').split('|')[0]||'';
+    var jobPhotoUrl=electricJobPhotoUrl_(r);
     var photo=jobPhotoCell_(jobPhotoUrl, 'Job');
     var invoice=jobPhotoCell_(r.invoicePhoto||'', 'Invoice');
     var amountCell=r.type==='refundable'&&r.amount?'<span style="color:var(--c-money);font-weight:600;">'+fmtMoney(parseFloat(r.amount))+' IQD</span>':'—';
@@ -1388,7 +1400,8 @@ function editJob(id){
     toggleAmount();
     var invNoEl=document.getElementById('j-invoice-no');
     if(invNoEl) invNoEl.value=r.invoiceNo||'';
-    currentPhoto=String(r.photo||'').split('|')[0]||'';
+    _editPhotoRaw=String(r.photo||'');
+    currentPhoto=electricJobPhotoUrl_(r);
     currentInvoicePhoto=r.invoicePhoto||'';
     if(currentPhoto){ document.getElementById('j-image').src=currentPhoto; document.getElementById('j-image').style.display='block'; document.getElementById('j-imageArea').innerHTML='✅ Photo loaded'; }
     else { document.getElementById('j-image').style.display='none'; document.getElementById('j-imageArea').innerHTML='Click here and paste (Ctrl+V)'; }
