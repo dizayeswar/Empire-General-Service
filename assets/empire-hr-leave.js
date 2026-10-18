@@ -2312,10 +2312,23 @@ function hrPushShow_(mode) {
   bar.hidden = false;
   if (text) {
     text.textContent = mode === 'home'
-      ? hrT('pushHome', 'Add Leave to your Home Screen, then allow notifications when HR assigns you a paper.')
+      ? hrT('pushHome', 'On iPhone, tap Share, then Add to Home Screen. Open Leave from that icon and tap Allow.')
       : hrT('pushAsk', 'Allow notifications when HR assigns you a paper.');
   }
   if (btn) btn.hidden = mode !== 'ask';
+}
+
+function hrPushIos_() {
+  var ua = navigator.userAgent || '';
+  if (/iPhone|iPad|iPod/i.test(ua)) return true;
+  return navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+}
+
+function hrPushInstalled_() {
+  if (window.navigator.standalone === true) return true;
+  if (!window.matchMedia) return false;
+  return window.matchMedia('(display-mode: standalone)').matches ||
+    window.matchMedia('(display-mode: fullscreen)').matches;
 }
 
 function hrPushSync_() {
@@ -2323,7 +2336,11 @@ function hrPushSync_() {
     hrPushShow_('');
     return;
   }
-  if (typeof Notification === 'undefined') {
+  if (hrPushIos_() && !hrPushInstalled_()) {
+    hrPushShow_('home');
+    return;
+  }
+  if (typeof Notification === 'undefined' || !('PushManager' in window) || !('serviceWorker' in navigator)) {
     hrPushShow_('home');
     return;
   }
@@ -2339,20 +2356,27 @@ function hrPushSync_() {
   hrPushShow_('ask');
 }
 
-function hrPushToken_() {
-  if (typeof FIREBASE_CONFIG === 'undefined' || !FIREBASE_CONFIG || !FIREBASE_CONFIG.apiKey) {
-    return Promise.reject(new Error('Firebase not configured'));
-  }
-  if (typeof FIREBASE_VAPID_KEY === 'undefined' || !FIREBASE_VAPID_KEY) {
-    return Promise.reject(new Error('Firebase not configured'));
-  }
-  if (typeof firebase === 'undefined' || !firebase.messaging) {
-    return Promise.reject(new Error('Firebase did not load'));
-  }
-  if (!('serviceWorker' in navigator)) return Promise.reject(new Error('Service worker missing'));
+function hrPushKeyBytes_() {
+  var key = typeof HR_PUSH_VAPID_KEY === 'string' ? HR_PUSH_VAPID_KEY : '';
+  if (!key) return null;
+  var pad = '='.repeat((4 - key.length % 4) % 4);
+  var b64 = (key + pad).replace(/-/g, '+').replace(/_/g, '/');
+  var raw = atob(b64);
+  var out = new Uint8Array(raw.length);
+  for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+
+function hrPushSubscribe_() {
+  var key = hrPushKeyBytes_();
+  if (!key) return Promise.reject(new Error('Push key missing'));
   return navigator.serviceWorker.ready.then(function (reg) {
-    if (!firebase.apps || !firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
-    return firebase.messaging().getToken({ vapidKey: FIREBASE_VAPID_KEY, serviceWorkerRegistration: reg });
+    return reg.pushManager.getSubscription().then(function (existing) {
+      if (existing) return existing;
+      return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+    });
+  }).then(function (sub) {
+    return sub ? JSON.stringify(sub.toJSON()) : '';
   });
 }
 
@@ -2360,14 +2384,14 @@ function hrPushSave_(silent) {
   var user = typeof empireGetUser === 'function' ? String(empireGetUser() || '').trim().toLowerCase() : '';
   var token = hrToken_();
   if (!user || !token) return;
-  hrPushToken_().then(function (fcm) {
-    if (!fcm) return;
+  hrPushSubscribe_().then(function (sub) {
+    if (!sub) return;
     return fetchJSONRetry({
       action: 'saveWorkerPushToken',
       token: token,
       username: user,
-      fcmToken: fcm,
-      platform: 'web-fcm'
+      fcmToken: sub,
+      platform: 'web-push'
     }, 1, 30000);
   }).then(function () {
     if (!silent) hrPushShow_('');

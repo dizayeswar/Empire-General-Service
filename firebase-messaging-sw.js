@@ -1,5 +1,5 @@
 /* Empire EGS — service worker (cache + Firebase background push) */
-var CACHE_VERSION = '2026-10-18-hr-push';
+var CACHE_VERSION = '2026-10-18-hr-webpush';
 var CACHE_NAME = 'empire-egs-' + CACHE_VERSION;
 var NOTIFY_ICON = 'https://dizayeswar.github.io/Empire-General-Service/icons/icon-192.png';
 var NOTIFY_BASE = 'https://dizayeswar.github.io/Empire-General-Service/civil-issue.html';
@@ -21,6 +21,22 @@ function notifyUrlForData_(data) {
 importScripts('./assets/firebase-sw-config.js');
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');
+
+self.addEventListener('push', function (event) {
+  var data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (e) { return; }
+  if (!data || data.type !== 'hr_assign') return;
+  var issueId = data.issueId || data.jobId || '';
+  var url = notifyUrlForData_(data);
+  event.waitUntil(self.registration.showNotification(data.title || 'Leave paper assigned', {
+    body: data.body || '',
+    icon: NOTIFY_ICON,
+    badge: NOTIFY_ICON,
+    data: { url: url, issueId: issueId },
+    tag: issueId ? ('empire-' + issueId) : 'empire-hr',
+    renotify: true
+  }));
+});
 
 if (typeof FIREBASE_SW_CONFIG !== 'undefined' && FIREBASE_SW_CONFIG && FIREBASE_SW_CONFIG.apiKey) {
   firebase.initializeApp(FIREBASE_SW_CONFIG);

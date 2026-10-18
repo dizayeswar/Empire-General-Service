@@ -1,3 +1,4 @@
+import webpush from "npm:web-push@3.6.7";
 import { sb } from "./db.ts";
 import { normalizeWorkerId } from "./helpers.ts";
 
@@ -78,6 +79,29 @@ async function fcmAccessToken(sa: ServiceAccount): Promise<{ token: string; proj
   return { token: _access, projectId };
 }
 
+function vapidKeys_(): { publicKey: string; privateKey: string; subject: string } | null {
+  const publicKey = String(Deno.env.get("VAPID_PUBLIC_KEY") || "").trim();
+  const privateKey = String(Deno.env.get("VAPID_PRIVATE_KEY") || "").trim();
+  const subject = String(Deno.env.get("VAPID_SUBJECT") || "mailto:hr@empireworld.com").trim();
+  if (!publicKey || !privateKey) return null;
+  return { publicKey, privateKey, subject };
+}
+
+async function sendWebPush_(raw: string, payload: string): Promise<boolean> {
+  const vapid = vapidKeys_();
+  if (!vapid) return false;
+  let sub: { endpoint?: string };
+  try {
+    sub = JSON.parse(raw) as { endpoint?: string };
+  } catch {
+    return false;
+  }
+  if (!sub.endpoint) return false;
+  webpush.setVapidDetails(vapid.subject, vapid.publicKey, vapid.privateKey);
+  await webpush.sendNotification(sub, payload, { TTL: 60 * 60 * 24, urgency: "high" });
+  return true;
+}
+
 export async function notifyUsers_(
   usernames: string[],
   title: string,
@@ -86,20 +110,11 @@ export async function notifyUsers_(
 ): Promise<number> {
   const want = [...new Set(usernames.map((u) => normalizeWorkerId(u)).filter(Boolean))];
   if (!want.length) return 0;
-  const sa = loadServiceAccount();
-  if (!sa) return 0;
   const { data: rows, error } = await sb()
     .from("worker_push_tokens")
     .select("username,fcm_token")
     .in("username", want);
   if (error || !rows || !rows.length) return 0;
-  let auth: { token: string; projectId: string };
-  try {
-    auth = await fcmAccessToken(sa);
-  } catch {
-    return 0;
-  }
-  if (!auth.projectId || !auth.token) return 0;
   const page = String(data.deptPage || "hr-leave.html");
   const id = String(data.issueId || data.jobId || "");
   const link = "https://dizayeswar.github.io/Empire-General-Service/" + page +
@@ -109,10 +124,29 @@ export async function notifyUsers_(
   fcmData.title = title;
   fcmData.body = body;
   fcmData.deptPage = page;
+  const payload = JSON.stringify(fcmData);
+  const sa = loadServiceAccount();
+  let auth: { token: string; projectId: string } | null = null;
+  if (sa) {
+    try {
+      auth = await fcmAccessToken(sa);
+    } catch {
+      auth = null;
+    }
+  }
   let sent = 0;
   for (const row of rows) {
     const fcm = String(row.fcm_token || "").trim();
     if (!fcm) continue;
+    if (fcm.startsWith("{")) {
+      try {
+        if (await sendWebPush_(fcm, payload)) sent++;
+      } catch {
+        /* one phone failing must not stop the assignment */
+      }
+      continue;
+    }
+    if (!auth || !auth.projectId || !auth.token) continue;
     try {
       const resp = await fetch(
         "https://fcm.googleapis.com/v1/projects/" + auth.projectId + "/messages:send",
