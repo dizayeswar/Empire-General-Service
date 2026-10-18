@@ -1,6 +1,6 @@
 # Empire General Service — Deployment Guide
 
-Use this guide when you update the frontend (GitHub Pages) or backend (Google Apps Script).
+Use this guide when you update the frontend (GitHub Pages) or backend (Supabase Edge Function `empire-api`).
 
 **Live site:** https://dizayeswar.github.io/Empire-General-Service/
 
@@ -11,11 +11,11 @@ Use this guide when you update the frontend (GitHub Pages) or backend (Google Ap
 | Layer | What it does | Where it lives |
 |-------|----------------|----------------|
 | **Frontend** | HTML, CSS, JS dashboards | GitHub → GitHub Pages |
-| **Backend API** | Login, save reports, issues, task photos | Google Apps Script (`empire-all-in-one.gs`) |
-| **Database** | All operational data | Google Sheet (linked in the script) |
+| **Backend API** | Login, save reports, issues, task photos | Supabase Edge Function `supabase/functions/empire-api` |
+| **Database** | All operational data | Supabase Postgres (`supabase/migrations`) |
 | **Photos** | Image hosting | Supabase Storage (see [SUPABASE-MIGRATION.md](SUPABASE-MIGRATION.md)) |
 
-The frontend calls the Apps Script URL in `config.js`. Data is **not** stored only in the browser — it is saved to Google Sheets via the API.
+The frontend calls `EMPIRE_API_URL` in `config.js`. Data is **not** stored only in the browser — it is saved to Supabase via the API. The old Google Apps Script backend was retired after the 2026-08-10 cutover.
 
 ---
 
@@ -37,45 +37,41 @@ Open: https://dizayeswar.github.io/Empire-General-Service/
 
 ---
 
-## 2. Deploy backend (Google Apps Script)
+## 2. Deploy backend (Supabase Edge Function)
 
-**Required** after any change to `empire-all-in-one.gs`.
+**Required** after any change under `supabase/functions/empire-api/`.
 
 ### Steps
 
-1. Open [Google Apps Script](https://script.google.com) for the Empire project.
-2. Replace the editor contents with the latest `empire-all-in-one.gs` from this repo.
-3. **Deploy → Manage deployments → Edit (pencil) → Version: New version → Deploy**  
-   (Or **Deploy → New deployment** if this is the first time.)
-4. Deployment type: **Web app**
-   - Execute as: **Me**
-   - Who has access: **Anyone**
-5. Copy the web app URL if it changed, and update `GOOGLE_SCRIPT_URL` in `config.js` if needed.
+```
+npx supabase functions deploy empire-api --no-verify-jwt --project-ref nobcitpaudeopzfymgzi
+```
+
+Database changes go in a new file under `supabase/migrations/` and are run in Supabase **SQL Editor**.
 
 ### Verify backend
 
 Open in a browser (GET request):
 
 ```
-https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec
+https://nobcitpaudeopzfymgzi.supabase.co/functions/v1/empire-api
 ```
 
 Expected response:
 
 ```json
-{"ok":true,"msg":"Empire API running","version":"2026-07-12-password-change-logout"}
+{"ok":true,"msg":"Empire API running (Supabase)","version":"..."}
 ```
 
-The `version` string must match `SCRIPT_VERSION` at the top of `empire-all-in-one.gs`.
+The `version` string must match the one returned in `supabase/functions/empire-api/index.ts`.
 
 ### Common backend issues
 
 | Symptom | Fix |
 |---------|-----|
-| “Invalid server response” / HTML instead of JSON | Redeploy Apps Script; wait 1–2 minutes |
-| “Unknown action” on recycle bin or batch photos | Backend not updated — redeploy |
-| Login very slow (20–60 s) | Normal for cold Google Apps Script; retry |
-| User logged out after password change | Expected — password digest changed in Users sheet |
+| “Invalid server response” / HTML instead of JSON | Redeploy `empire-api`; check Edge Function logs |
+| “Unknown action” | Backend not updated — redeploy `empire-api` |
+| User logged out after password change | Expected — password digest changed |
 
 ---
 
@@ -152,28 +148,17 @@ When an engineer assigns a job, assigned workers get a **popup notification** �
 1. Create a [Firebase project](https://console.firebase.google.com/) (free).
 2. Add a **Web app** with your live URL host: `dizayeswar.github.io`.
 3. In Firebase → **Project settings → Cloud Messaging → Web configuration**, generate a **Web Push certificate** (VAPID key pair). Copy the **public key** (Key pair).
-4. In Firebase → **Project settings → Service accounts**, click **Generate new private key**. Save the JSON file — Apps Script uses this to send notifications (FCM HTTP v1 API).
+4. In Firebase → **Project settings → Service accounts**, click **Generate new private key**. Save the JSON file — `empire-api` uses this to send notifications (FCM HTTP v1 API).
 5. Fill in `config.js`:
    - `FIREBASE_CONFIG` — apiKey, authDomain, projectId, messagingSenderId, appId from Firebase web app settings
    - `FIREBASE_VAPID_KEY` — the Web Push public key from step 3
-6. In Apps Script → **Project settings → Script properties**, add:
-   - Name: `FCM_SERVICE_ACCOUNT_JSON` — value: entire contents of the service account JSON file (paste as one line is fine)
+6. In Supabase → **Edge Functions → Secrets**, add:
+   - `FCM_SERVICE_ACCOUNT_JSON` — entire contents of the service account JSON file (one line is fine)
    - Optional: `FCM_PROJECT_ID` — only if not already inside the JSON (`project_id` field)
-7. Redeploy **frontend** (GitHub) and **backend** (Apps Script).
+   - `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` — for leave-assignment alerts (`HR_PUSH_VAPID_KEY` in `config.js` is the public half)
+7. Redeploy **frontend** (GitHub) and **backend** (`empire-api`).
 
-**Authorize push sending (required once):**
-
-Apps Script must be allowed to call Firebase (external URLs). Without this, assign notifications never leave the server.
-
-1. In Apps Script editor, paste latest `empire-all-in-one.gs`
-2. Enable manifest: **Project settings** → check **Show "appsscript.json" manifest file in editor**
-3. Open `appsscript.json` and ensure `oauthScopes` includes `https://www.googleapis.com/auth/script.external_request` (see repo `appsscript.json`)
-4. Select function **`authorizePushSetup`** from the dropdown → click **Run** ▶
-5. Click **Review permissions** → choose your Google account → **Allow**
-6. Open **Executions** — should log `SUCCESS: FCM auth OK`
-7. **Deploy → Manage deployments → Edit → New version → Deploy**
-
-If Diagnose on the worker phone shows `FCM:FAIL` or `external_request`, repeat steps 4–7.
+If Diagnose on the worker phone shows `FCM:FAIL`, check the secrets above and the Edge Function logs.
 
 **On each worker phone:**
 
@@ -190,7 +175,7 @@ If Diagnose on the worker phone shows `FCM:FAIL` or `external_request`, repeat s
 
 If Firebase is not configured yet, workers still see an **Enable alerts** banner and get in-app popups when the app is open (polls every ~90 seconds).
 
-Backend stores device tokens in sheet tab **WorkerPushTokens** (created automatically).
+Backend stores device tokens in Supabase (created automatically when a phone enables alerts).
 
 ---
 
@@ -208,9 +193,8 @@ Cleaning supervisors can save task photos without signal. Photos queue in the br
 
 Use this after each release:
 
-- [ ] `empire-all-in-one.gs` copied to Apps Script and redeployed
-- [ ] GET `/exec` returns expected `SCRIPT_VERSION`
-- [ ] `config.js` `GOOGLE_SCRIPT_URL` matches deployment URL
+- [ ] `empire-api` redeployed if `supabase/functions/empire-api/` changed
+- [ ] GET `empire-api` returns the expected `version`
 - [ ] `config.js` `APP_VERSION` bumped if needed
 - [ ] `service-worker.js` `CACHE_VERSION` bumped for frontend changes
 - [ ] Changes pushed to `main` on GitHub
@@ -230,7 +214,7 @@ electrical.html         Electrical jobs
 hse-inspection.html     HSE fire equipment checks
 *-issue.html            Issue trackers (civil / fire / electric)
 config.js               API URL + app version
-empire-all-in-one.gs    Backend (Apps Script — not served by GitHub)
+supabase/               Backend: Edge Function empire-api + Postgres migrations
 assets/empire-auth.js   Login, session, logout
 assets/empire-api.js    fetchJSONRetry, login helper
 assets/empire-core.js   Theme, filters, PWA loader

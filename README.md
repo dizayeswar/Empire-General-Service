@@ -24,7 +24,7 @@ Web dashboards for Empire World departments: cleaning, civil, electrical, HSE, a
 ## Features
 
 - Single login with session across dashboards
-- Role-based access (admin / editor / viewer) via Google Sheet **Users** tab
+- Role-based access (admin / editor / viewer), managed on the **Admin** page
 - Per-user project scope for cleaning supervisors
 - Per-user section hiding (e.g. hide Analytics)
 - Live open-issue counts on the hub
@@ -38,9 +38,9 @@ Web dashboards for Empire World departments: cleaning, civil, electrical, HSE, a
 
 ## Data storage
 
-**Today (default):** reports, issues, jobs, and users are saved to a **Google Sheet** through Google Apps Script. Photos go to **Supabase Storage**; URLs are stored with the rows.
+Reports, issues, jobs, and users are saved to **Supabase Postgres** through the Edge Function `empire-api` (`EMPIRE_API_URL` in `config.js`). Photos go to **Supabase Storage**; URLs are stored with the rows.
 
-**Supabase database migration:** schema, import tooling, and Edge Function `empire-api` are in this repo. Production keeps using Apps Script until you set `EMPIRE_API_URL` in `config.js`. Full runbook: **[SUPABASE-DATABASE-MIGRATION.md](SUPABASE-DATABASE-MIGRATION.md)**. ImgBB → Storage only: **[SUPABASE-MIGRATION.md](SUPABASE-MIGRATION.md)**.
+The old Google Sheets + Apps Script backend was retired after the 2026-08-10 cutover. History: **[SUPABASE-DATABASE-MIGRATION.md](SUPABASE-DATABASE-MIGRATION.md)**, **[SUPABASE-MIGRATION.md](SUPABASE-MIGRATION.md)**.
 
 ---
 
@@ -48,15 +48,15 @@ Web dashboards for Empire World departments: cleaning, civil, electrical, HSE, a
 
 See **[DEPLOY.md](DEPLOY.md)** for:
 
-- Redeploying Google Apps Script after backend changes
+- Redeploying `empire-api` after backend changes
 - GitHub Pages frontend updates
-- Users sheet column reference
+- User field reference
 - PWA and offline queue notes
 - Release checklist
 
 ### Quick redeploy reminder
 
-1. Copy `empire-all-in-one.gs` → Apps Script → **Deploy new version**
+1. If backend changed: `npx supabase functions deploy empire-api --no-verify-jwt --project-ref nobcitpaudeopzfymgzi`
 2. Push frontend changes to GitHub `main`
 3. Hard refresh the live site
 
@@ -77,9 +77,8 @@ See **[DEPLOY.md](DEPLOY.md)** for:
 ```
 assets/           Shared CSS, JS (auth, API, core, issue tracker, PWA, offline queue)
 icons/            PWA home-screen icons
-config.js         Backend URL and app version (EMPIRE_API_URL for Supabase cutover)
-empire-all-in-one.gs   Legacy backend API (Apps Script; freeze during cutover)
-supabase/         Postgres migration SQL + Edge Function empire-api
+config.js         Backend URL (EMPIRE_API_URL) and app version
+supabase/         Postgres migration SQL + Edge Function empire-api (the backend)
 scripts/          Sheet export, import-to-supabase, smoke tests
 *.html            Department dashboards
 charge-robot/     Local NovaSys charge robot (Windows laptop only)
@@ -93,4 +92,4 @@ SUPABASE-DATABASE-MIGRATION.md   Sheets → Postgres cutover runbook
 
 Prepared by **Swar Dizayee**.
 
-For deployment or access changes, update the **Users** sheet and redeploy Apps Script as described in [DEPLOY.md](DEPLOY.md).
+For access changes, use the **Admin** page. For deployment, see [DEPLOY.md](DEPLOY.md).

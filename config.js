@@ -1,16 +1,10 @@
 /** Empire World EGS — shared config (Phase 2) */
-const GOOGLE_SCRIPT_URL_LEGACY =
-  'https://script.google.com/macros/s/AKfycbz-qxaEXcGH_b8g-k7RmwIV3f16MDHZV-VMUxoYS5YFeGaWlKyURfLwfOoVXQ1ONyYO/exec';
 
-/**
- * After Supabase cutover, set this to the Edge Function URL, e.g.
- * 'https://nobcitpaudeopzfymgzi.supabase.co/functions/v1/empire-api'
- * Leave empty to keep using Google Apps Script (safe default).
- */
+/** Supabase Edge Function that serves every page. */
 const EMPIRE_API_URL = 'https://nobcitpaudeopzfymgzi.supabase.co/functions/v1/empire-api';
 
-/** Active API — used by all pages (legacy name kept for compatibility). */
-const GOOGLE_SCRIPT_URL = EMPIRE_API_URL || GOOGLE_SCRIPT_URL_LEGACY;
+/** Old name still read by many pages; it points at Supabase, not Google. */
+const GOOGLE_SCRIPT_URL = EMPIRE_API_URL;
 const EMPIRE_API_ENDPOINT = GOOGLE_SCRIPT_URL;
 
 const APP_VERSION = '2026-10-18-css-heal';

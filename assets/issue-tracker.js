@@ -1111,7 +1111,7 @@ function loadWorkerLocations(force) {
   fetchJSONRetry(locBody, 1, 30000)
     .then(function (d) {
       if (d && d.error === 'Unknown action') {
-        throw new Error('Server not updated yet. Redeploy empire-all-in-one.gs in Google Apps Script, then try again.');
+        throw new Error('Server not updated yet. Deploy the latest empire-api, then try again.');
       }
       if (d && d.ok === false) {
         if (empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts())) return;
@@ -2333,7 +2333,7 @@ function selectAllVisibleIssues(){ var ids=window._visibleIssueIds||[]; ids.forE
 function assignIssueErrorMsg(e) {
   var msg = (e && e.message) ? e.message : 'Assign failed';
   if (/unknown action|invalid server response/i.test(msg)) {
-    msg += '\n\nRedeploy empire-all-in-one.gs in Google Apps Script, then hard-refresh this page.';
+    msg += '\n\nDeploy the latest empire-api, then hard-refresh this page.';
   } else if (/not_allowed|only engineer/i.test(msg)) {
     msg += '\n\nLog out and log in again, or set your Users sheet role to editor or admin.';
   }
@@ -2724,7 +2724,7 @@ function loadIssues(force){ force=!!force; try {
       if(forceSessionLogout(d)) return;
       if(isCivilWorker() && !workerJobsDisplayed_()) workerShowJobsError_(new Error(d.message||d.error||'Could not load jobs'));
     } else if(isCivilWorker() && !Array.isArray(d) && !workerJobsDisplayed_()){
-      workerShowJobsError_(new Error('Unexpected server response. Redeploy empire-all-in-one.gs, then try again.'));
+      workerShowJobsError_(new Error('Unexpected server response. Deploy the latest empire-api, then try again.'));
     }
   }).catch(function(e){
     if(workerFetch && fetchSeq!==_workerIssuesFetchSeq) return;
@@ -2957,7 +2957,7 @@ function toggleIssueFixDelay(id) {
     if (!ok) return;
     fetchJSONRetry({ action: ISSUE_CFG.actions.setFixDelay, id: id, toggle: true, token: issueToken() || '' }).then(function (d) {
       if (d && d.error === 'Unknown action') {
-        throw new Error('Server not updated yet. Paste the latest empire-all-in-one.gs into Apps Script and deploy a new web app version.');
+        throw new Error('Server not updated yet. Deploy the latest empire-api, then try again.');
       }
       if (d && d.ok === false) {
         if (empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts())) return;
@@ -2983,7 +2983,7 @@ function routeIssueNotCivil(id) {
     if (!ok) return;
     fetchJSONRetry({ action: ISSUE_CFG.actions.routeNotCivil, id: id, token: issueToken() || '' }).then(function (d) {
       if (d && d.error === 'Unknown action') {
-        throw new Error('Server not updated yet. Paste the latest empire-all-in-one.gs into Apps Script and deploy a new web app version.');
+        throw new Error('Server not updated yet. Deploy the latest empire-api, then try again.');
       }
       if (d && d.ok === false) {
         if (empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts())) return;
@@ -3004,7 +3004,7 @@ function restoreCivilIssue(id) {
     if (!ok) return;
     fetchJSONRetry({ action: ISSUE_CFG.actions.restoreCivil, id: id, token: issueToken() || '' }).then(function (d) {
       if (d && d.error === 'Unknown action') {
-        throw new Error('Server not updated yet. Paste the latest empire-all-in-one.gs into Apps Script and deploy a new web app version.');
+        throw new Error('Server not updated yet. Deploy the latest empire-api, then try again.');
       }
       if (d && d.ok === false) {
         if (empireAuthHandleInvalidSession_(d, issueSessionLogoutOpts())) return;
