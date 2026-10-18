@@ -1,5 +1,5 @@
 /* Empire EGS — service worker (cache + Firebase background push) */
-var CACHE_VERSION = '2026-10-18-hr-webpush';
+var CACHE_VERSION = '2026-10-18-css-heal';
 var CACHE_NAME = 'empire-egs-' + CACHE_VERSION;
 var NOTIFY_ICON = 'https://dizayeswar.github.io/Empire-General-Service/icons/icon-192.png';
 var NOTIFY_BASE = 'https://dizayeswar.github.io/Empire-General-Service/civil-issue.html';
@@ -179,6 +179,12 @@ self.addEventListener('activate', function (event) {
       );
     }).then(function () {
       return self.clients.claim();
+    }).then(function () {
+      return self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    }).then(function (list) {
+      return Promise.all(list.map(function (client) {
+        if (client.navigate) return client.navigate(client.url);
+      }));
     })
   );
 });
@@ -190,18 +196,42 @@ function isApiRequest(url) {
     url.hostname.indexOf('supabase.co') !== -1;
 }
 
-function isLiveConfigAsset(pathname) {
-  return /config\.js$/i.test(pathname) ||
-    /empire-api\.js$/i.test(pathname) ||
-    /empire-push\.js$/i.test(pathname) ||
-    /empire-sw-update\.js$/i.test(pathname) ||
-    /empire-auth\.js$/i.test(pathname) ||
-    /empire-hr-leave\.js$/i.test(pathname) ||
-    /empire-hr-field-i18n\.js$/i.test(pathname) ||
-    /empire-hr-tour\.js$/i.test(pathname) ||
-    /empire-hr\.css$/i.test(pathname) ||
-    /issue-tracker\.js$/i.test(pathname) ||
-    /issue-configs\.js$/i.test(pathname);
+function isCodeAsset(pathname) {
+  return /\.(?:css|js)$/i.test(pathname);
+}
+
+function putCleanCache_(request, response) {
+  if (!response || !response.ok) return Promise.resolve();
+  var path = '';
+  try { path = new URL(request.url).pathname; } catch (e) { return Promise.resolve(); }
+  var isCss = /\.css$/i.test(path);
+  var isJs = /\.js$/i.test(path);
+  var prepared = (isCss || isJs)
+    ? response.clone().text().then(function (text) {
+        if (!text) return null;
+        if (isCss && text.indexOf('{') === -1) return null;
+        var headers = new Headers();
+        headers.set('Content-Type', isCss ? 'text/css; charset=utf-8' : 'application/javascript; charset=utf-8');
+        return new Response(text, { status: 200, statusText: 'OK', headers: headers });
+      })
+    : Promise.resolve(response.clone());
+  return prepared.then(function (body) {
+    if (!body) return;
+    return caches.open(CACHE_NAME).then(function (cache) { return cache.put(request, body); });
+  }).catch(function () {});
+}
+
+function networkFirst_(request, timeoutMs) {
+  var fresh = new Request(request.url, { cache: 'no-cache', credentials: 'same-origin' });
+  return fetchWithSwTimeout_(fresh, timeoutMs || 12000).then(function (response) {
+    if (response && response.ok) putCleanCache_(request, response);
+    if (response && response.ok) return response;
+    throw new Error('bad response');
+  }).catch(function () {
+    return caches.match(request).then(function (hit) {
+      return hit || new Response('', { status: 504, statusText: 'Offline' });
+    });
+  });
 }
 
 function fetchWithSwTimeout_(request, ms) {
@@ -258,20 +288,8 @@ self.addEventListener('fetch', function (event) {
   if (url.origin !== self.location.origin) return;
   if (isApiRequest(url)) return;
 
-  if (isLiveConfigAsset(url.pathname)) {
-    event.respondWith(
-      fetch(event.request).then(function (response) {
-        if (response && response.ok) {
-          var copy = response.clone();
-          caches.open(CACHE_NAME).then(function (cache) { cache.put(event.request, copy); });
-        }
-        return response;
-      }).catch(function () {
-        return caches.match(event.request).then(function (hit) {
-          return hit || new Response('', { status: 504, statusText: 'Offline' });
-        });
-      })
-    );
+  if (isCodeAsset(url.pathname)) {
+    event.respondWith(networkFirst_(event.request, 12000));
     return;
   }
 

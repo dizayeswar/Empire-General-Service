@@ -13,7 +13,7 @@ const EMPIRE_API_URL = 'https://nobcitpaudeopzfymgzi.supabase.co/functions/v1/em
 const GOOGLE_SCRIPT_URL = EMPIRE_API_URL || GOOGLE_SCRIPT_URL_LEGACY;
 const EMPIRE_API_ENDPOINT = GOOGLE_SCRIPT_URL;
 
-const APP_VERSION = '2026-10-18-hr-webpush';
+const APP_VERSION = '2026-10-18-css-heal';
 
 /** Public key for leave-assignment alerts. The private key stays in Supabase. */
 const HR_PUSH_VAPID_KEY = 'BDt3fPM1uMH97WqLsfvMvx5HklXvRWe3uS-zCb_1Aa2k9FeX6RIAtv--SQ-UqkKQPvsF_IkZjEQ4ML35sIBzNPw';
