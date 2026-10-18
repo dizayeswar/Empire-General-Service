@@ -323,9 +323,12 @@ const MODULE_DEPTS: Record<ModuleAccessKey, string[]> = {
   hr_director: ["hr"],
   hr_line: ["hr"],
   hr_emp: ["hr"],
-  dtask_send_electrical: ["dept tasks"],
-  dtask_worker_electrical: ["dept tasks"],
+  // Kept out of the dept list so existing single-department logins still go straight home.
+  dtask_send_electrical: [],
+  dtask_worker_electrical: [],
 };
+
+export const DTASK_MODULE_KEYS: ModuleAccessKey[] = ["dtask_send_electrical", "dtask_worker_electrical"];
 
 export function emptyModuleAccess(): ModuleAccessMap {
   const out = {} as ModuleAccessMap;
@@ -700,6 +703,7 @@ export function deriveAccountFromModuleAccess(
     for (const d of MODULE_DEPTS[k]) depts.add(d);
   }
   let dept = [...depts].join(",");
+  if (!dept && DTASK_MODULE_KEYS.some((k) => a[k] !== "none")) dept = "dept tasks";
 
   const sections: WarehouseSigSlot[] = [];
   if (!warehouseGinWrite_(a)) {

@@ -106,6 +106,30 @@ Deno.serve(async (req) => {
       if (action === "importAccountSigs") return json(await users.handleImportAccountSigs(body, a));
     }
 
+    const dtaskHandlers: Record<string, (b: Record<string, unknown>, a: AuthOk) => Promise<unknown>> = {
+      getDtaskLocations: dtasks.handleGetDtaskLocations,
+      addDtaskLocation: dtasks.handleAddDtaskLocation,
+      getDtaskIssueTypes: dtasks.handleGetDtaskIssueTypes,
+      getDtaskWorkers: dtasks.handleGetDtaskWorkers,
+      getDtasks: dtasks.handleGetDtasks,
+      getDtask: dtasks.handleGetDtask,
+      createDtask: dtasks.handleCreateDtask,
+      acceptDtask: dtasks.handleAcceptDtask,
+      updateDtaskItem: dtasks.handleUpdateDtaskItem,
+      completeDtask: dtasks.handleCompleteDtask,
+      reopenDtask: dtasks.handleReopenDtask,
+      cancelDtask: dtasks.handleCancelDtask,
+      reassignDtask: dtasks.handleReassignDtask,
+      addDtaskNote: dtasks.handleAddDtaskNote,
+      addDtaskPhoto: dtasks.handleAddDtaskPhoto,
+    };
+    if (dtaskHandlers[action]) {
+      let dtAuth = await verifyTokenSession(String(body.token || ""));
+      if (!dtAuth.ok) return json(dtAuth);
+      dtAuth = await enrichAuthRole(dtAuth as AuthOk);
+      return json(await dtaskHandlers[action](body, dtAuth as AuthOk));
+    }
+
     const requiredDept = TRASH_ACTIONS[action] ? String(body.dept || "") : DEPT_BY_ACTION[action];
     if (!requiredDept) return json({ ok: false, error: "Unknown action" });
 
@@ -402,22 +426,6 @@ Deno.serve(async (req) => {
       case "markChargingManual": return json(await charging.handleMarkChargingManual(body, a));
       case "deleteChargingRequest": return json(await charging.handleDeleteChargingRequest(body, a));
       case "clearChargingRequests": return json(await charging.handleClearChargingRequests(body, a));
-
-      case "getDtaskLocations": return json(await dtasks.handleGetDtaskLocations(body, a));
-      case "addDtaskLocation": return json(await dtasks.handleAddDtaskLocation(body, a));
-      case "getDtaskIssueTypes": return json(await dtasks.handleGetDtaskIssueTypes(body, a));
-      case "getDtaskWorkers": return json(await dtasks.handleGetDtaskWorkers(body, a));
-      case "getDtasks": return json(await dtasks.handleGetDtasks(body, a));
-      case "getDtask": return json(await dtasks.handleGetDtask(body, a));
-      case "createDtask": return json(await dtasks.handleCreateDtask(body, a));
-      case "acceptDtask": return json(await dtasks.handleAcceptDtask(body, a));
-      case "updateDtaskItem": return json(await dtasks.handleUpdateDtaskItem(body, a));
-      case "completeDtask": return json(await dtasks.handleCompleteDtask(body, a));
-      case "reopenDtask": return json(await dtasks.handleReopenDtask(body, a));
-      case "cancelDtask": return json(await dtasks.handleCancelDtask(body, a));
-      case "reassignDtask": return json(await dtasks.handleReassignDtask(body, a));
-      case "addDtaskNote": return json(await dtasks.handleAddDtaskNote(body, a));
-      case "addDtaskPhoto": return json(await dtasks.handleAddDtaskPhoto(body, a));
 
       case "getTrash": return json(await misc.handleGetTrash(body));
       case "restoreTrash": return json(await misc.handleRestoreTrash(body));

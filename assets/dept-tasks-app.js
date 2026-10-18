@@ -70,7 +70,7 @@ function dtApi_(action, extra) {
 // ---------------------------------------------------------------------------
 
 function dtHandleLogin_(e) {
-  empireAuthLogin(e, DT_LOGIN_DEPT, { onSuccess: function () { dtEnter_(); } }).catch(function () {});
+  empireAuthLogin(e, 'auto', { onSuccess: function () { dtEnter_(); } }).catch(function () {});
 }
 
 function dtLogout_() {

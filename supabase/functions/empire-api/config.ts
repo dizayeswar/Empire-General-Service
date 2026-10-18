@@ -237,21 +237,6 @@ export const DEPT_BY_ACTION: Record<string, string> = {
   markChargingManual: "charging",
   deleteChargingRequest: "charging",
   clearChargingRequests: "charging",
-  getDtaskLocations: "dept tasks",
-  addDtaskLocation: "dept tasks",
-  getDtaskIssueTypes: "dept tasks",
-  getDtaskWorkers: "dept tasks",
-  getDtasks: "dept tasks",
-  getDtask: "dept tasks",
-  createDtask: "dept tasks",
-  acceptDtask: "dept tasks",
-  updateDtaskItem: "dept tasks",
-  completeDtask: "dept tasks",
-  reopenDtask: "dept tasks",
-  cancelDtask: "dept tasks",
-  reassignDtask: "dept tasks",
-  addDtaskNote: "dept tasks",
-  addDtaskPhoto: "dept tasks",
 };
 
 export const TRASH_ACTIONS: Record<string, number> = {
