@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest?v=2026-09-15-sec-acc">
+<meta name="theme-color" content="#8d015d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Dept Tasks">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="logo-light.png" type="image/png">
+<title>Department Tasks — Empire World</title>
+<style id="empire-auth-boot">body.auth-login-visible #dtDeskApp,body.auth-login-visible #dtPhoneApp,body.auth-login-visible .worker-modal{display:none!important}</style>
+<link rel="stylesheet" href="assets/empire.css?v=2026-09-22-search-pill">
+<link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-09-22-search-pill">
+<link rel="stylesheet" href="assets/dept-tasks.css?v=2026-10-18-dtasks">
+</head>
+<body class="auth-login-visible">
+<div class="login-page show" id="loginPage">
+  <div class="login-box">
+    <button class="theme-btn login-theme" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span></button>
+    <img src="logo-light.png" alt="Empire World" style="height:44px;width:auto;display:block;margin:0 auto 16px;">
+    <a class="back" href="index.html">← Back to hub</a>
+    <h1>📋 Department Tasks</h1>
+    <p style="text-align:center;color:var(--text-soft);font-size:14px;margin:-8px 0 16px;">Electrical</p>
+    <div class="login-message" id="loginMessage"></div>
+    <form class="login-form" onsubmit="dtHandleLogin_(event)">
+      <input type="text" id="loginUsername" placeholder="Username" required autocomplete="username">
+      <input type="password" id="loginPassword" placeholder="Password" required autocomplete="current-password">
+      <button type="submit">Login</button>
+    </form>
+  </div>
+</div>
+
+<!-- Desk: task senders (e.g. Aso) -->
+<div id="dtDeskApp" class="container">
+  <header class="dt-desk-head">
+    <div class="header-top">
+      <div class="header-title">
+        <h1>📋 Department Tasks — Electrical</h1>
+        <p id="dtDeskWho"></p>
+      </div>
+      <div class="header-controls">
+        <button type="button" id="dtToPhoneBtn" style="display:none" onclick="dtSwitchMode_('phone')">Phone view</button>
+        <button type="button" class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span></button>
+        <button type="button" onclick="location.href='index.html'">Hub</button>
+        <button type="button" class="dt-logout-btn" onclick="dtLogout_()">Logout</button>
+      </div>
+    </div>
+  </header>
+  <div class="tabs">
+    <button type="button" class="tab-btn active" id="dtTabNew" onclick="dtDeskTab_('new')">New task</button>
+    <button type="button" class="tab-btn" id="dtTabList" onclick="dtDeskTab_('list')">Tasks <span id="dtOpenCount" class="side-nav-badge" style="display:none"></span></button>
+  </div>
+
+  <div id="dtPaneNew" class="tab-content active">
+    <div class="form-section">
+      <h2>Send a task to Electrical</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="dtProject">Project</label>
+          <select id="dtProject" onchange="dtOnProjectChange_()"></select>
+        </div>
+        <div class="form-group">
+          <label for="dtBuilding">Building</label>
+          <select id="dtBuilding" onchange="dtOnBuildingChange_()"></select>
+        </div>
+        <div class="form-group">
+          <label for="dtFloor">Floor</label>
+          <select id="dtFloor" onchange="dtOnFloorChange_()"></select>
+        </div>
+        <div class="form-group">
+          <label for="dtUnit">Apartment</label>
+          <input type="text" id="dtUnit" list="dtUnitList" placeholder="e.g. A, 12B — empty for corridor" autocomplete="off">
+          <datalist id="dtUnitList"></datalist>
+        </div>
+      </div>
+      <h3>Issues found</h3>
+      <div id="dtIssuePicker" class="dt-issue-picker"><p>Loading…</p></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="dtAssign">Send to</label>
+          <select id="dtAssign"><option value="">Whole Electrical department</option></select>
+        </div>
+        <div class="form-group">
+          <label for="dtPriority">Priority</label>
+          <select id="dtPriority">
+            <option value="normal">Normal</option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
+            <option value="low">Low</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="dtNote">Note for the electrician</label>
+        <textarea id="dtNote" rows="3" placeholder="Anything they should know (access, tenant phone, time)…"></textarea>
+      </div>
+      <div class="dt-actions">
+        <button type="button" id="dtSendBtn" class="dt-primary" onclick="dtSendTask_()">Send to Electrical</button>
+        <span id="dtSendMsg" class="dt-msg" aria-live="polite"></span>
+      </div>
+    </div>
+  </div>
+
+  <div id="dtPaneList" class="tab-content">
+    <div class="form-section">
+      <div class="form-row">
+        <div class="form-group">
+          <label for="dtFilterStatus">Status</label>
+          <select id="dtFilterStatus" onchange="dtRenderDeskList_()">
+            <option value="">All</option>
+            <option value="open">Open</option>
+            <option value="in_progress">In progress</option>
+            <option value="done">Done</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="dtFilterSearch">Search</label>
+          <input type="search" id="dtFilterSearch" placeholder="Task #, building, apartment, worker…" autocomplete="off" oninput="dtRenderDeskList_()">
+        </div>
+        <div class="form-group"><label>&nbsp;</label><button type="button" onclick="dtLoadTasks_(true)">Refresh</button></div>
+      </div>
+      <div id="dtDeskList"><p>Loading…</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- Phone: electricians -->
+<div id="dtPhoneApp" class="worker-app">
+  <header class="worker-head">
+    <img src="logo-light.png" alt="Empire World" class="worker-logo">
+    <div class="worker-head-text"><h1 id="dtPhoneTitle">Electrical tasks</h1></div>
+    <div class="worker-head-actions">
+      <button type="button" id="dtToDeskBtn" class="worker-lang-btn" style="display:none" onclick="dtSwitchMode_('desk')">Desk</button>
+      <button type="button" class="worker-logout-head" onclick="dtLogout_()">Logout</button>
+      <button type="button" class="worker-icon-btn worker-refresh" onclick="dtLoadTasks_(true)" aria-label="Refresh">⟳</button>
+    </div>
+  </header>
+  <div class="worker-count-bar" id="dtPhoneCount">Loading…</div>
+  <nav class="worker-tab-bar" aria-label="Task lists">
+    <button type="button" class="worker-tab-btn active" id="dtPTabNew" onclick="dtPhoneTab_('new')">New</button>
+    <button type="button" class="worker-tab-btn" id="dtPTabMine" onclick="dtPhoneTab_('mine')">My tasks</button>
+    <button type="button" class="worker-tab-btn" id="dtPTabDone" onclick="dtPhoneTab_('done')">Done</button>
+  </nav>
+  <div id="dtPhoneList" class="dt-phone-list"></div>
+</div>
+
+<!-- Task detail (both modes) -->
+<div id="dtDetail" class="worker-modal" role="dialog" aria-modal="true">
+  <header class="worker-modal-head">
+    <button type="button" class="worker-modal-back" onclick="dtCloseDetail_()" aria-label="Back">&larr;</button>
+    <strong id="dtDetailTitle">Task</strong>
+  </header>
+  <div class="worker-modal-scroll"><div id="dtDetailBody" class="dt-detail"></div></div>
+</div>
+
+<input type="file" id="dtPhotoCamera" class="worker-sr-file-input" accept="image/*" capture="environment" onchange="dtHandlePhotoFile_(event)">
+<input type="file" id="dtPhotoGallery" class="worker-sr-file-input" accept="image/*" onchange="dtHandlePhotoFile_(event)">
+
+<div id="dtImgModal" class="dt-img-modal" onclick="this.classList.remove('show')"><img id="dtImgBig" alt=""></div>
+
+<script src="assets/empire-sw-update.js?v=2026-09-15-sec-acc"></script>
+<script src="config.js?v=2026-09-15-sec-acc"></script>
+<script src="assets/empire-storage.js?v=2026-09-15-sec-acc"></script>
+<script src="assets/empire-api.js?v=2026-09-15-sec-acc"></script>
+<script src="assets/empire-auth.js?v=2026-10-18-dtasks"></script>
+<script src="assets/empire-core.js?v=2026-09-15-sec-acc"></script>
+<script src="assets/dept-tasks-app.js?v=2026-10-18-dtasks"></script>
+</body>
+</html>

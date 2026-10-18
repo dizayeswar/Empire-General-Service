@@ -304,7 +304,10 @@
       { key: 'warehouse_invamount', label: 'Invoice Amount', child: true, parent: 'warehouse' },
       { key: 'warehouse_sig_auth', label: 'Sign: Authorized by', child: true, parent: 'warehouse' },
       { key: 'warehouse_sig_issued', label: 'Sign: Issued by', child: true, parent: 'warehouse' },
-      { key: 'warehouse_sig_received', label: 'Sign: Received by', child: true, parent: 'warehouse' }
+      { key: 'warehouse_sig_received', label: 'Sign: Received by', child: true, parent: 'warehouse' },
+      { key: 'dtask_mod', label: 'Department Tasks', n: 15, group: true },
+      { key: 'dtask_send_electrical', label: 'Electrical: send tasks (desk)', child: true, parent: 'dtask_mod' },
+      { key: 'dtask_worker_electrical', label: 'Electrical: do tasks (phone)', child: true, parent: 'dtask_mod' }
     ];
 
     function resetExpandedGroups(access) {

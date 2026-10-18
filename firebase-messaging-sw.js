@@ -25,10 +25,10 @@ importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-com
 self.addEventListener('push', function (event) {
   var data = {};
   try { data = event.data ? event.data.json() : {}; } catch (e) { return; }
-  if (!data || data.type !== 'hr_assign') return;
+  if (!data || (data.type !== 'hr_assign' && data.type !== 'dtask_assign')) return;
   var issueId = data.issueId || data.jobId || '';
   var url = notifyUrlForData_(data);
-  event.waitUntil(self.registration.showNotification(data.title || 'Leave paper assigned', {
+  event.waitUntil(self.registration.showNotification(data.title || (data.type === 'dtask_assign' ? 'New task' : 'Leave paper assigned'), {
     body: data.body || '',
     icon: NOTIFY_ICON,
     badge: NOTIFY_ICON,
@@ -112,7 +112,10 @@ var PRECACHE = [
   './assets/empire-hr-tour.js',
   './assets/empire-charging.css',
   './assets/empire-charging.js',
-  './assets/empire-storage.js'
+  './assets/empire-storage.js',
+  './dept-tasks.html',
+  './assets/dept-tasks.css',
+  './assets/dept-tasks-app.js'
 ];
 
 self.addEventListener('notificationclick', function (event) {

@@ -20,6 +20,7 @@ import * as hr from "./handlers_hr.ts";
 import * as charging from "./handlers_charging.ts";
 import * as storage from "./handlers_storage.ts";
 import * as users from "./handlers_users.ts";
+import * as dtasks from "./handlers_dtasks.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -401,6 +402,22 @@ Deno.serve(async (req) => {
       case "markChargingManual": return json(await charging.handleMarkChargingManual(body, a));
       case "deleteChargingRequest": return json(await charging.handleDeleteChargingRequest(body, a));
       case "clearChargingRequests": return json(await charging.handleClearChargingRequests(body, a));
+
+      case "getDtaskLocations": return json(await dtasks.handleGetDtaskLocations(body, a));
+      case "addDtaskLocation": return json(await dtasks.handleAddDtaskLocation(body, a));
+      case "getDtaskIssueTypes": return json(await dtasks.handleGetDtaskIssueTypes(body, a));
+      case "getDtaskWorkers": return json(await dtasks.handleGetDtaskWorkers(body, a));
+      case "getDtasks": return json(await dtasks.handleGetDtasks(body, a));
+      case "getDtask": return json(await dtasks.handleGetDtask(body, a));
+      case "createDtask": return json(await dtasks.handleCreateDtask(body, a));
+      case "acceptDtask": return json(await dtasks.handleAcceptDtask(body, a));
+      case "updateDtaskItem": return json(await dtasks.handleUpdateDtaskItem(body, a));
+      case "completeDtask": return json(await dtasks.handleCompleteDtask(body, a));
+      case "reopenDtask": return json(await dtasks.handleReopenDtask(body, a));
+      case "cancelDtask": return json(await dtasks.handleCancelDtask(body, a));
+      case "reassignDtask": return json(await dtasks.handleReassignDtask(body, a));
+      case "addDtaskNote": return json(await dtasks.handleAddDtaskNote(body, a));
+      case "addDtaskPhoto": return json(await dtasks.handleAddDtaskPhoto(body, a));
 
       case "getTrash": return json(await misc.handleGetTrash(body));
       case "restoreTrash": return json(await misc.handleRestoreTrash(body));
