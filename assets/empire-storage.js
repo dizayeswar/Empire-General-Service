@@ -50,15 +50,30 @@ function empireThumbUrl(url, width) {
     (rest.indexOf('?') === -1 ? '?' : '&') + 'width=' + width + '&resize=contain&quality=70';
 }
 
+function empireThumbFailed(img) {
+  if (!img) return;
+  var full = img.getAttribute('data-full') || '';
+  if (full && img.src !== full && !img.hasAttribute('data-tried-full')) {
+    img.setAttribute('data-tried-full', '1');
+    img.src = full;
+    return;
+  }
+  img.onerror = null;
+  img.onclick = null;
+  img.removeAttribute('src');
+  img.classList.add('empire-photo-missing');
+  img.setAttribute('alt', '');
+  img.setAttribute('title', 'Photo could not be loaded');
+}
+
 function empireThumbImgHtml(url, cls, alt, width) {
   var full = String(url || '').trim();
   if (!full) return '';
   var thumb = empireThumbUrl(full, width || 240);
   var a = alt != null ? String(alt) : '';
-  var usingThumb = thumb !== full;
   return '<img class="' + (cls || 'thumb') + '" src="' + thumb + '" data-full="' + full.replace(/"/g, '&quot;') +
     '" loading="lazy" decoding="async" alt="' + a.replace(/"/g, '&quot;') +
-    '" onerror="if(' + (usingThumb ? 'true' : 'false') + '&&window.empireMarkThumbTransformFailed)empireMarkThumbTransformFailed();if(this.dataset.full&&this.src!==this.dataset.full){this.src=this.dataset.full;}">';
+    '" onerror="empireThumbFailed(this)">';
 }
 
 /** One-time probe: if transforms are off, skip render URLs for the rest of the session. */

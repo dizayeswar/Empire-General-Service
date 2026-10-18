@@ -375,7 +375,7 @@ function applyDeptPerms(){ if(window.tsPerm) window.tsPerm(); if(window.tsLoadGl
 function handleLogin(e){ empireAuthLogin(e, 'civil department', { onSuccess: function(){ enterApp(); } }); }
 function logout(){ empireAuthLogout({ extraKeys: ['civdept_jobs_cache'], redirect: 'index.html', reload: false }); }
 function forceSessionLogout(d){ empireAuthHandleInvalidSession_(d, { extraKeys: ['civdept_jobs_cache'], redirect: 'index.html', reload: false }); }
-function enterDeptApp(){ if(String(empireGetRole()||'').toLowerCase()==='worker'){ location.replace('civil-issue.html'); return; } document.getElementById('loginPage').classList.remove('show'); if(typeof empireAuthMarkLoginVisible==='function') empireAuthMarkLoginVisible(false); document.getElementById('mainContainer').classList.add('show'); applyDeptPerms(); refreshPerms(); initStaffMulti(); document.getElementById('j-date').value=new Date().toISOString().split('T')[0]; if(typeof empireMaterialsPickerMount==='function') empireMaterialsPickerMount('j-materials'); empireBindFilterPersistence({ key:'civdept_list_filters_v2_month', fields:['jf-month','jf-type','jf-search'], onApply:function(){ loadJobs(true); } }); var jm=document.getElementById('jf-month'); if(jm&&!jm.value){ jm.value=currentBillingMonth_(); if(typeof syncMonthInput==='function') syncMonthInput(jm); } loadJobs(); loadFieldReports(); }
+function enterDeptApp(){ if(String(empireGetRole()||'').toLowerCase()==='worker'){ location.replace('civil-issue.html'); return; } document.getElementById('loginPage').classList.remove('show'); if(typeof empireAuthMarkLoginVisible==='function') empireAuthMarkLoginVisible(false); document.getElementById('mainContainer').classList.add('show'); applyDeptPerms(); refreshPerms(); initStaffMulti(); document.getElementById('j-date').value=new Date().toISOString().split('T')[0]; if(typeof empireMaterialsPickerMount==='function') empireMaterialsPickerMount('j-materials'); empireBindFilterPersistence({ key:'civdept_list_filters_v2_month', fields:['jf-month','jf-type','jf-search'], onApply:function(){ if(allJobs.length) renderJobs(); } }); var jm=document.getElementById('jf-month'); if(jm&&!jm.value){ jm.value=currentBillingMonth_(); if(typeof syncMonthInput==='function') syncMonthInput(jm); } loadJobs(); loadFieldReports(); }
 function refreshPerms(){ var now=Date.now(); if(now-(_lastPermFetch||0)<300000) return; _lastPermFetch=Date.now(); empireAuthRefreshPerms(function(){ applyDeptPerms(); if(window._applyIssuePerms) window._applyIssuePerms(); }); }
 var _lastPermFetch=0;
 window.addEventListener('load',()=>{ empireAuthPageBoot({ dept: 'civil department', onEnter: enterApp }); });
@@ -570,21 +570,24 @@ function jobsCacheStorageKey_(){
 }
 function readJobsCache(){ try{ var s=localStorage.getItem(jobsCacheStorageKey_()); if(!s) return null; var a=JSON.parse(s); return Array.isArray(a)?a:null; }catch(e){ return null; } }
 function writeJobsCache(a){ try{ localStorage.setItem(jobsCacheStorageKey_(), JSON.stringify(a)); }catch(e){} }
+var _jobsLoadSeq=0, _jobsTableHtml='';
 function loadJobs(force){
+  var seq=++_jobsLoadSeq;
   var spin=document.getElementById('jobsRefreshIcon');
   if(spin) spin.classList.add('spinning');
   var cached=readJobsCache();
-  if(cached && !force){ allJobs=cached; renderJobs(); renderJobAnalytics(); renderReportPreview(); }
-  else if(!cached || force){ document.getElementById('jobsTable').innerHTML=LOADING_HTML; }
+  if(cached){ allJobs=cached; renderJobs(); renderJobAnalytics(); renderReportPreview(); }
+  else { allJobs=[]; _jobsTableHtml=''; document.getElementById('jobsTable').innerHTML=LOADING_HTML; }
   var body={action:'getCivilJobs',token:tok()};
   var jm=document.getElementById('jf-month'); if(jm&&jm.value) body.month=jm.value;
   fetchJSONRetry(body)
     .then(d=>{
+      if(seq!==_jobsLoadSeq) return;
       if(Array.isArray(d)){ allJobs=d; writeJobsCache(d); renderJobs(); renderJobAnalytics(); renderReportPreview(); }
       else if(d&&d.ok===false){ forceSessionLogout(d); }
-      else if(!cached||force){ document.getElementById('jobsTable').innerHTML=empireErrorHtml('Could not load jobs.','Refresh the page or try again in a moment.'); }
-    }).catch(e=>{ if(!cached||force) document.getElementById('jobsTable').innerHTML=empireErrorHtml(e.message||'Network error','Check your connection, then refresh.'); })
-    .finally(function(){ if(spin) spin.classList.remove('spinning'); });
+      else if(!cached){ _jobsTableHtml=''; document.getElementById('jobsTable').innerHTML=empireErrorHtml('Could not load jobs.','Refresh the page or try again in a moment.'); }
+    }).catch(e=>{ if(seq!==_jobsLoadSeq) return; if(!cached){ _jobsTableHtml=''; document.getElementById('jobsTable').innerHTML=empireErrorHtml(e.message||'Network error','Check your connection, then refresh.'); } })
+    .finally(function(){ if(seq===_jobsLoadSeq && spin) spin.classList.remove('spinning'); });
 }
 function dayOf(r){ var d=String(r.date||r.createdAt||''); if(/^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0,10); var dt=new Date(d.replace(' ','T')); if(!isNaN(dt.getTime())){ var z=function(n){return String(n).padStart(2,'0');}; return dt.getFullYear()+'-'+z(dt.getMonth()+1)+'-'+z(dt.getDate()); } return ''; }
 function monthOf(r){
@@ -638,6 +641,8 @@ function renderJobs(){
     h+='<tr class="job-row"><td>'+num+'</td><td>'+r.date+'</td><td>'+typeBadge+'</td><td>'+_esc(r.job)+'</td><td>'+_esc(r.location||'')+'</td><td style="max-width:160px;word-break:break-word;">'+_esc(r.materials||'—')+'</td><td>'+_esc(r.staff||'')+'</td><td>'+amountCell+'</td><td>'+photo+'</td><td>'+invoice+'</td>'+(showActions?('<td>'+(acts||'—')+'</td>'):'')+'</tr>';
   });
   h+='</tbody></table></div>';
+  if(h===_jobsTableHtml) return;
+  _jobsTableHtml=h;
   document.getElementById('jobsTable').innerHTML=h;
 }
 function editJob(id){

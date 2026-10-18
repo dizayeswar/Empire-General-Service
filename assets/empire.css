@@ -398,6 +398,7 @@ select option:checked { background:rgba(141,1,93,0.14); }
 /* Faster scrolling lists */
 .issue-card { content-visibility: auto; contain-intrinsic-size: 280px; }
 img.thumb, img.issue-card-photo, img.worker-job-thumb { background: var(--panel); }
+img.empire-photo-missing { cursor: default; pointer-events: none; opacity: .55; background: var(--input-bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a90a0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m2 2 20 20'/%3E%3Cpath d='M10.4 4h3.2a2 2 0 0 1 1.76 1.05l.49.9A2 2 0 0 0 17.6 7H20a2 2 0 0 1 2 2v7.3'/%3E%3Cpath d='M20 20H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1'/%3E%3C/svg%3E") center / 45% no-repeat; }
 
 .empire-state { text-align: center; padding: 28px 16px; color: var(--text-soft); }
 .empire-empty-title, .empire-error-title { font-size: 16px; font-weight: 700; color: var(--text); margin: 0 0 8px; }
