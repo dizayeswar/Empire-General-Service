@@ -30,24 +30,10 @@ function empireStoragePublicUrl(path) {
   return base + '/storage/v1/object/public/' + bucket + '/' + String(path || '').replace(/^\/+/, '');
 }
 
-/** Smaller image URL for list cards (falls back to original if transform unavailable). */
-var _empireThumbTransformOk = true;
-function empireMarkThumbTransformFailed() {
-  _empireThumbTransformOk = false;
-  try { sessionStorage.setItem('empire_thumbs_ok', '0'); } catch (e) {}
-}
+/** List-card image URL. Returns the original: Supabase image transforms are billed per origin image (Pro includes 100/month). */
+function empireMarkThumbTransformFailed() {}
 function empireThumbUrl(url, width) {
-  var u = String(url || '').trim();
-  if (!u || !empireStorageConfigured() || !_empireThumbTransformOk) return u;
-  width = width || 240;
-  var base = String(SUPABASE_CONFIG.url || '').replace(/\/$/, '');
-  var marker = '/storage/v1/object/public/';
-  var idx = u.indexOf(marker);
-  if (idx === -1) return u;
-  var rest = u.slice(idx + marker.length);
-  if (!rest) return u;
-  return base + '/storage/v1/render/image/public/' + rest +
-    (rest.indexOf('?') === -1 ? '?' : '&') + 'width=' + width + '&resize=contain&quality=70';
+  return String(url || '').trim();
 }
 
 function empireThumbFailed(img) {
@@ -74,34 +60,6 @@ function empireThumbImgHtml(url, cls, alt, width) {
   return '<img class="' + (cls || 'thumb') + '" src="' + thumb + '" data-full="' + full.replace(/"/g, '&quot;') +
     '" loading="lazy" decoding="async" alt="' + a.replace(/"/g, '&quot;') +
     '" onerror="empireThumbFailed(this)">';
-}
-
-/** One-time probe: if transforms are off, skip render URLs for the rest of the session. */
-function empireProbeThumbSupport_() {
-  if (!empireStorageConfigured() || !_empireThumbTransformOk) return;
-  try {
-    if (sessionStorage.getItem('empire_thumbs_ok') === '0') {
-      _empireThumbTransformOk = false;
-      return;
-    }
-    if (sessionStorage.getItem('empire_thumbs_ok') === '1') return;
-  } catch (e) {}
-  var probe = String(SUPABASE_CONFIG.url || '').replace(/\/$/, '') +
-    '/storage/v1/render/image/public/' + encodeURIComponent(SUPABASE_CONFIG.bucket || 'empire-photos') +
-    '/__empire_thumb_probe__.jpg?width=8';
-  fetch(probe, { method: 'GET', mode: 'cors' }).then(function (r) {
-    // 400/404 = endpoint exists but file missing (transforms likely ON)
-    // 403/402/5xx with feature disabled often appears as 403
-    var ok = r.status === 400 || r.status === 404 || r.status === 200;
-    _empireThumbTransformOk = ok;
-    try { sessionStorage.setItem('empire_thumbs_ok', ok ? '1' : '0'); } catch (e2) {}
-  }).catch(function () {
-    /* keep trying thumbs; img onerror will disable */
-  });
-}
-if (typeof document !== 'undefined') {
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', empireProbeThumbSupport_);
-  else setTimeout(empireProbeThumbSupport_, 0);
 }
 
 function empireStorageSafeFolder(folder) {
