@@ -305,9 +305,12 @@
       { key: 'warehouse_sig_auth', label: 'Sign: Authorized by', child: true, parent: 'warehouse' },
       { key: 'warehouse_sig_issued', label: 'Sign: Issued by', child: true, parent: 'warehouse' },
       { key: 'warehouse_sig_received', label: 'Sign: Received by', child: true, parent: 'warehouse' },
-      { key: 'dtask_mod', label: 'Department Tasks', n: 15, group: true },
-      { key: 'dtask_send_electrical', label: 'Electrical: send tasks (desk)', child: true, parent: 'dtask_mod' },
-      { key: 'dtask_worker_electrical', label: 'Electrical: do tasks (phone)', child: true, parent: 'dtask_mod' }
+      { key: 'dtask_mod', label: 'Send Task', n: 15, group: true },
+      { key: 'send_task', label: 'Send tasks to departments', child: true, parent: 'dtask_mod' },
+      { key: 'dtask_worker_electrical', label: 'Electrical: receive tasks (phone)', child: true, parent: 'dtask_mod' },
+      { key: 'dtask_worker_civil', label: 'Civil: receive tasks (phone)', child: true, parent: 'dtask_mod' },
+      { key: 'dtask_worker_hvac', label: 'HVAC: receive tasks (phone)', child: true, parent: 'dtask_mod' },
+      { key: 'dtask_worker_mechanical', label: 'Mechanical: receive tasks (phone)', child: true, parent: 'dtask_mod' }
     ];
 
     function resetExpandedGroups(access) {

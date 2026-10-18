@@ -110,7 +110,6 @@ Deno.serve(async (req) => {
       getDtaskLocations: dtasks.handleGetDtaskLocations,
       addDtaskLocation: dtasks.handleAddDtaskLocation,
       getDtaskIssueTypes: dtasks.handleGetDtaskIssueTypes,
-      getDtaskWorkers: dtasks.handleGetDtaskWorkers,
       getDtasks: dtasks.handleGetDtasks,
       getDtask: dtasks.handleGetDtask,
       createDtask: dtasks.handleCreateDtask,
@@ -119,7 +118,6 @@ Deno.serve(async (req) => {
       completeDtask: dtasks.handleCompleteDtask,
       reopenDtask: dtasks.handleReopenDtask,
       cancelDtask: dtasks.handleCancelDtask,
-      reassignDtask: dtasks.handleReassignDtask,
       addDtaskNote: dtasks.handleAddDtaskNote,
       addDtaskPhoto: dtasks.handleAddDtaskPhoto,
     };

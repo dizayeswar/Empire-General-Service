@@ -113,9 +113,9 @@ var PRECACHE = [
   './assets/empire-charging.css',
   './assets/empire-charging.js',
   './assets/empire-storage.js',
-  './dept-tasks.html',
-  './assets/dept-tasks.css',
-  './assets/dept-tasks-app.js'
+  './send-task.html',
+  './assets/send-task.css',
+  './assets/send-task-app.js'
 ];
 
 self.addEventListener('notificationclick', function (event) {

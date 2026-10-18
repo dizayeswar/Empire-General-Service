@@ -1,9 +1,13 @@
-/* Department Tasks — senders send apartment tasks, workers do them on the phone */
-var DT_DEPT = 'electrical';
-var DT_LOGIN_DEPT = 'dept tasks';
-var DT_SEND_KEY = 'dtask_send_electrical';
-var DT_WORK_KEY = 'dtask_worker_electrical';
-var DT_PHOTO_FOLDER = 'dtasks/electrical';
+/* Send Task — senders send apartment tasks to a department, department staff do them on the phone */
+var DT_LOGIN_DEPT = 'send task';
+var DT_SEND_KEY = 'send_task';
+var DT_WORK_KEYS = {
+  electrical: 'dtask_worker_electrical',
+  civil: 'dtask_worker_civil',
+  hvac: 'dtask_worker_hvac',
+  mechanical: 'dtask_worker_mechanical'
+};
+var DT_DEPT_LABELS = { electrical: 'Electrical', civil: 'Civil', hvac: 'HVAC', mechanical: 'Mechanical' };
 var DT_POLL_MS = 60000;
 var DT_PROJECT_NAMES = { ec: 'Empire Complex', es: 'Empire Square', wd: 'West Diamond', ww: 'West Wing', ra: 'Royal Apartment' };
 var DT_STATUS_LABEL = { open: 'Open', in_progress: 'In progress', done: 'Done', cancelled: 'Cancelled' };
@@ -13,7 +17,7 @@ var DT_PRIORITY_LABEL = { low: 'Low', normal: 'Normal', high: 'High', urgent: 'U
 var _dtMode = '';
 var _dtLocations = [];
 var _dtIssueTypes = [];
-var _dtWorkers = [];
+var _dtCatalogLoaded = false;
 var _dtTasks = [];
 var _dtDetail = null;
 var _dtPhoneTab = 'new';
@@ -29,7 +33,13 @@ function dtMe_() { return String(empireGetUser() || '').trim().toLowerCase(); }
 function dtIsAdmin_() { return typeof empireIsAdminRole === 'function' && empireIsAdminRole(); }
 function dtCanSend_() { return dtIsAdmin_() || empireModuleLevel(DT_SEND_KEY) !== 'none'; }
 function dtCanSendWrite_() { return dtIsAdmin_() || empireModuleLevel(DT_SEND_KEY) === 'write'; }
-function dtCanWork_() { return dtIsAdmin_() || empireModuleLevel(DT_WORK_KEY) === 'write'; }
+function dtWorkDepts_() {
+  return Object.keys(DT_WORK_KEYS).filter(function (k) {
+    return dtIsAdmin_() || empireModuleLevel(DT_WORK_KEYS[k]) === 'write';
+  });
+}
+function dtCanWork_() { return dtWorkDepts_().length > 0; }
+function dtDeptLabel_(k) { return DT_DEPT_LABELS[k] || k; }
 function dtPretty_(u) {
   return String(u || '').split(/[_.\s]+/).filter(Boolean).map(function (p) {
     return p.charAt(0).toUpperCase() + p.slice(1);
@@ -42,6 +52,7 @@ function dtWhen_(isoStr) {
   var z = function (n) { return String(n).padStart(2, '0'); };
   return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + ' ' + z(d.getHours()) + ':' + z(d.getMinutes());
 }
+function dtVisit_(t) { return t.visitAt ? dtWhen_(t.visitAt) : 'No set time'; }
 function dtLoc_(t) {
   return [t.building, t.floor, t.unit].filter(function (x) { return String(x || '').trim(); }).join(' · ');
 }
@@ -51,13 +62,16 @@ function dtStatusBadge_(status) {
 function dtItemBadge_(status) {
   return '<span class="dt-badge dt-it-' + dtEsc_(status) + '">' + dtEsc_(DT_ITEM_LABEL[status] || status) + '</span>';
 }
+function dtDeptBadge_(dept) {
+  return '<span class="dt-dept dt-dept-' + dtEsc_(dept) + '">' + dtEsc_(dtDeptLabel_(dept)) + '</span>';
+}
 function dtProgress_(t) {
   var items = t.items || [];
   var closed = items.filter(function (i) { return i.status !== 'pending'; }).length;
   return closed + '/' + items.length;
 }
 function dtApi_(action, extra) {
-  var body = { action: action, token: empireGetToken(), dept: DT_DEPT };
+  var body = { action: action, token: empireGetToken() };
   Object.keys(extra || {}).forEach(function (k) { body[k] = extra[k]; });
   return fetchJSONRetry(body, 2, 45000).then(function (d) {
     if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Request failed');
@@ -89,7 +103,7 @@ function dtEnter_() {
     var msg = document.getElementById('loginMessage');
     document.getElementById('loginPage').classList.add('show');
     empireAuthMarkLoginVisible(true);
-    empireShowLoginMessage(msg, 'This account has no Department Tasks access. Ask an admin to enable it.', true);
+    empireShowLoginMessage(msg, 'This account has no Send Task access. Ask an admin to enable it.', true);
     return;
   }
   var saved = '';
@@ -104,16 +118,14 @@ function dtEnter_() {
 function dtSwitchMode_(mode) {
   _dtMode = mode;
   try { localStorage.setItem('dt_mode_' + dtMe_(), mode); } catch (e) {}
-  var desk = document.getElementById('dtDeskApp');
-  var phone = document.getElementById('dtPhoneApp');
-  desk.classList.toggle('show', mode === 'desk');
-  phone.classList.toggle('show', mode === 'phone');
+  document.getElementById('dtDeskApp').classList.toggle('show', mode === 'desk');
+  document.getElementById('dtPhoneApp').classList.toggle('show', mode === 'phone');
   document.body.classList.toggle('dt-phone-mode', mode === 'phone');
   document.getElementById('dtToPhoneBtn').style.display = (mode === 'desk' && dtCanWork_()) ? '' : 'none';
   document.getElementById('dtToDeskBtn').style.display = (mode === 'phone' && dtCanSend_()) ? '' : 'none';
   document.getElementById('dtDeskWho').textContent = 'Signed in as ' + dtPretty_(dtMe_());
-  document.getElementById('dtPhoneTitle').textContent = dtPretty_(dtMe_()) || 'Electrical tasks';
-  if (mode === 'desk') dtLoadCatalogs_();
+  if (mode === 'phone') dtSetupPhoneDepts_();
+  dtLoadCatalogs_();
   dtLoadTasks_(true);
   dtStartPoll_();
 }
@@ -147,21 +159,33 @@ function dtStopPoll_() {
 // ---------------------------------------------------------------------------
 
 function dtLoadCatalogs_() {
-  if (_dtLocations.length && _dtIssueTypes.length) return;
-  Promise.all([
-    dtApi_('getDtaskLocations'),
-    dtApi_('getDtaskIssueTypes'),
-    dtApi_('getDtaskWorkers').catch(function () { return { workers: [] }; })
-  ]).then(function (res) {
+  if (_dtCatalogLoaded) return;
+  Promise.all([dtApi_('getDtaskLocations'), dtApi_('getDtaskIssueTypes')]).then(function (res) {
+    _dtCatalogLoaded = true;
     _dtLocations = res[0].locations || [];
     _dtIssueTypes = res[1].issueTypes || [];
-    _dtWorkers = res[2].workers || [];
+    var depts = (res[1].departments || []).map(function (d) { return d.key; });
+    if (depts.length) dtFillDeptSelects_(depts);
     dtFillProjects_();
     dtRenderIssuePicker_();
-    dtFillWorkers_();
   }).catch(function (err) {
     document.getElementById('dtIssuePicker').innerHTML = empireErrorHtml(err.message);
   });
+}
+
+function dtFillDeptSelects_(depts) {
+  var sendSel = document.getElementById('dtDept');
+  var prev = sendSel.value;
+  sendSel.innerHTML = '<option value="">— Pick a department —</option>' + depts.map(function (k) {
+    return '<option value="' + dtEsc_(k) + '">' + dtEsc_(dtDeptLabel_(k)) + ' Department</option>';
+  }).join('');
+  if (prev) sendSel.value = prev;
+  var filterSel = document.getElementById('dtFilterDept');
+  var prevF = filterSel.value;
+  filterSel.innerHTML = '<option value="">All departments</option>' + depts.map(function (k) {
+    return '<option value="' + dtEsc_(k) + '">' + dtEsc_(dtDeptLabel_(k)) + '</option>';
+  }).join('');
+  filterSel.value = prevF;
 }
 
 function dtFillSelect_(id, values, labelFn) {
@@ -215,22 +239,25 @@ function dtOnFloorChange_() {
   }).join('');
 }
 
-function dtFillWorkers_() {
-  var el = document.getElementById('dtAssign');
-  var h = '<option value="">Whole Electrical department</option>';
-  _dtWorkers.forEach(function (w) {
-    h += '<option value="' + dtEsc_(w.username) + '">' + dtEsc_(w.name) + '</option>';
-  });
-  el.innerHTML = h;
+function dtOnDeptChange_() {
+  dtRenderIssuePicker_();
+  dtSetMsg_('dtSendMsg', '');
 }
 
 function dtRenderIssuePicker_() {
   var host = document.getElementById('dtIssuePicker');
-  if (!_dtIssueTypes.length) {
-    host.innerHTML = empireEmptyHtml('No issue types yet', 'Run the Department Tasks SQL in Supabase first.');
+  var dept = document.getElementById('dtDept').value;
+  document.getElementById('dtIssuesTitle').textContent = dept ? dtDeptLabel_(dept) + ' issues found' : 'Issues found';
+  if (!dept) {
+    host.innerHTML = '<p class="dt-hint">Pick the department first. Its issue list shows here.</p>';
     return;
   }
-  host.innerHTML = _dtIssueTypes.map(function (t) {
+  var types = _dtIssueTypes.filter(function (t) { return t.dept === dept; });
+  if (!types.length) {
+    host.innerHTML = empireEmptyHtml('No issue types for this department yet', 'Run the Send Task SQL in Supabase first.');
+    return;
+  }
+  host.innerHTML = types.map(function (t) {
     return '<div class="dt-issue-row" data-type-id="' + dtEsc_(t.id) + '">' +
       '<label class="dt-issue-check"><input type="checkbox" onchange="dtOnIssueToggle_(this)"> ' + dtEsc_(t.label) + '</label>' +
       '<input type="text" class="dt-issue-note" placeholder="' + (t.code === 'other' ? 'Describe the issue (required)' : 'Detail (optional) — which room, how many…') + '" style="display:none" autocomplete="off">' +
@@ -244,6 +271,18 @@ function dtOnIssueToggle_(cb) {
   if (cb.checked) row.querySelector('.dt-issue-note').focus();
 }
 
+function dtOnVisitModeChange_() {
+  var mode = (document.querySelector('input[name="dtVisitMode"]:checked') || {}).value;
+  var el = document.getElementById('dtVisitAt');
+  el.style.display = mode === 'time' ? '' : 'none';
+  if (mode === 'time' && !el.value) {
+    var d = new Date(Date.now() + 60 * 60 * 1000);
+    d.setMinutes(0, 0, 0);
+    var z = function (n) { return String(n).padStart(2, '0'); };
+    el.value = d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + 'T' + z(d.getHours()) + ':00';
+  }
+}
+
 function dtSetMsg_(id, text, isError) {
   var el = document.getElementById(id);
   if (!el) return;
@@ -253,6 +292,8 @@ function dtSetMsg_(id, text, isError) {
 
 function dtSendTask_() {
   if (_dtBusy) return;
+  var dept = document.getElementById('dtDept').value;
+  if (!dept) { dtSetMsg_('dtSendMsg', 'Pick the department to send to.', true); return; }
   var items = [];
   var missingOther = false;
   document.querySelectorAll('#dtIssuePicker .dt-issue-row').forEach(function (row) {
@@ -265,13 +306,24 @@ function dtSendTask_() {
   });
   if (!items.length) { dtSetMsg_('dtSendMsg', 'Tick at least one issue.', true); return; }
   if (missingOther) { dtSetMsg_('dtSendMsg', 'Describe the "Other" issue.', true); return; }
+
+  var visitAt = '';
+  var visitMode = (document.querySelector('input[name="dtVisitMode"]:checked') || {}).value;
+  if (visitMode === 'time') {
+    var raw = document.getElementById('dtVisitAt').value;
+    var vd = raw ? new Date(raw) : null;
+    if (!vd || isNaN(vd.getTime())) { dtSetMsg_('dtSendMsg', 'Pick the visit date and time, or choose "No set time".', true); return; }
+    visitAt = vd.toISOString();
+  }
+
   var payload = {
+    dept: dept,
     project: document.getElementById('dtProject').value,
     building: document.getElementById('dtBuilding').value,
     floor: document.getElementById('dtFloor').value,
     unit: document.getElementById('dtUnit').value.trim(),
     priority: document.getElementById('dtPriority').value,
-    assignedTo: document.getElementById('dtAssign').value,
+    visitAt: visitAt,
     note: document.getElementById('dtNote').value.trim(),
     items: items
   };
@@ -281,7 +333,7 @@ function dtSendTask_() {
   btn.disabled = true;
   dtSetMsg_('dtSendMsg', 'Sending…');
   dtApi_('createDtask', payload).then(function (d) {
-    dtSetMsg_('dtSendMsg', 'Sent ' + (d.task && d.task.ref ? d.task.ref : 'task') + ' to Electrical.');
+    dtSetMsg_('dtSendMsg', 'Sent ' + (d.task && d.task.ref ? d.task.ref : 'task') + ' to the ' + dtDeptLabel_(dept) + ' department.');
     if (payload.unit && !_dtLocations.some(function (l) {
       return l.project === payload.project && l.building === payload.building && l.floor === payload.floor && l.unit === payload.unit;
     })) {
@@ -301,7 +353,9 @@ function dtResetForm_() {
   document.getElementById('dtUnit').value = '';
   document.getElementById('dtNote').value = '';
   document.getElementById('dtPriority').value = 'normal';
-  document.getElementById('dtAssign').value = '';
+  document.getElementById('dtVisitAt').value = '';
+  document.querySelector('input[name="dtVisitMode"][value="none"]').checked = true;
+  dtOnVisitModeChange_();
   document.querySelectorAll('#dtIssuePicker .dt-issue-row').forEach(function (row) {
     row.querySelector('input[type=checkbox]').checked = false;
     row.classList.remove('checked');
@@ -347,12 +401,14 @@ function dtRenderDeskList_() {
   badge.textContent = String(openCount);
   badge.style.display = openCount ? '' : 'none';
 
+  var dept = document.getElementById('dtFilterDept').value;
   var status = document.getElementById('dtFilterStatus').value;
   var q = document.getElementById('dtFilterSearch').value.trim().toLowerCase();
   var rows = _dtTasks.filter(function (t) {
+    if (dept && t.dept !== dept) return false;
     if (status && t.status !== status) return false;
     if (!q) return true;
-    var blob = [t.ref, t.building, t.floor, t.unit, t.assignedTo, dtPretty_(t.assignedTo), t.createdBy, t.note]
+    var blob = [t.ref, t.deptLabel, t.building, t.floor, t.unit, t.assignedTo, dtPretty_(t.assignedTo), t.createdBy, t.note]
       .concat((t.items || []).map(function (i) { return i.issueLabel; })).join(' ').toLowerCase();
     return blob.indexOf(q) !== -1;
   });
@@ -362,21 +418,40 @@ function dtRenderDeskList_() {
     return;
   }
   var h = '<div class="dt-table-wrap"><table><thead><tr>' +
-    '<th>Task</th><th>Apartment</th><th>Issues</th><th>Status</th><th>Assigned</th><th>Sent by</th><th>Sent</th>' +
+    '<th>Task</th><th>Department</th><th>Apartment</th><th>Issues</th><th>Visit</th><th>Status</th><th>Taken by</th><th>Sent</th>' +
     '</tr></thead><tbody>';
   rows.forEach(function (t) {
     h += '<tr class="issue-row" onclick="dtOpenDetail_(\'' + dtEsc_(t.id) + '\')">' +
       '<td><strong>' + dtEsc_(t.ref) + '</strong>' + (t.priority !== 'normal' ? ' <span class="dt-prio dt-prio-' + dtEsc_(t.priority) + '">' + dtEsc_(DT_PRIORITY_LABEL[t.priority] || t.priority) + '</span>' : '') + '</td>' +
+      '<td>' + dtDeptBadge_(t.dept) + '</td>' +
       '<td>' + dtEsc_(dtLoc_(t)) + '</td>' +
       '<td>' + dtEsc_(dtProgress_(t)) + ' — ' + dtEsc_((t.items || []).map(function (i) { return i.issueLabel; }).join(', ')) + '</td>' +
+      '<td>' + dtEsc_(dtVisit_(t)) + '</td>' +
       '<td>' + dtStatusBadge_(t.status) + '</td>' +
-      '<td>' + dtEsc_(t.assignedTo ? dtPretty_(t.assignedTo) : 'Department') + '</td>' +
-      '<td>' + dtEsc_(dtPretty_(t.createdBy)) + '</td>' +
-      '<td>' + dtEsc_(dtWhen_(t.sentAt || t.createdAt)) + '</td>' +
+      '<td>' + dtEsc_(t.assignedTo ? dtPretty_(t.assignedTo) : '—') + '</td>' +
+      '<td>' + dtEsc_(dtWhen_(t.sentAt || t.createdAt)) + '<br><span class="dt-sub">by ' + dtEsc_(dtPretty_(t.createdBy)) + '</span></td>' +
       '</tr>';
   });
   h += '</tbody></table></div>';
   host.innerHTML = h;
+}
+
+function dtSetupPhoneDepts_() {
+  var depts = dtWorkDepts_();
+  var wrap = document.getElementById('dtPhoneDeptWrap');
+  var sel = document.getElementById('dtPhoneDept');
+  if (depts.length > 1) {
+    sel.innerHTML = '<option value="">All my departments</option>' + depts.map(function (k) {
+      return '<option value="' + dtEsc_(k) + '">' + dtEsc_(dtDeptLabel_(k)) + '</option>';
+    }).join('');
+    wrap.style.display = '';
+  } else {
+    sel.innerHTML = '';
+    wrap.style.display = 'none';
+  }
+  document.getElementById('dtPhoneTitle').textContent = depts.length === 1
+    ? dtDeptLabel_(depts[0]) + ' tasks — ' + dtPretty_(dtMe_())
+    : 'Tasks — ' + dtPretty_(dtMe_());
 }
 
 function dtPhoneTab_(tab) {
@@ -389,11 +464,18 @@ function dtPhoneTab_(tab) {
 
 function dtPhoneBuckets_() {
   var me = dtMe_();
+  var deptSel = document.getElementById('dtPhoneDept').value;
   var b = { new: [], mine: [], done: [] };
   _dtTasks.forEach(function (t) {
-    if (t.status === 'open' && (!t.assignedTo || t.assignedTo === me)) b.new.push(t);
+    if (deptSel && t.dept !== deptSel) return;
+    if (t.status === 'open' && !t.assignedTo) b.new.push(t);
     else if (t.status === 'in_progress' && t.assignedTo === me) b.mine.push(t);
     else if ((t.status === 'done' || t.status === 'cancelled') && t.assignedTo === me) b.done.push(t);
+  });
+  b.new.sort(function (x, y) {
+    var vx = x.visitAt ? new Date(x.visitAt).getTime() : Infinity;
+    var vy = y.visitAt ? new Date(y.visitAt).getTime() : Infinity;
+    return vx - vy;
   });
   return b;
 }
@@ -412,13 +494,16 @@ function dtRenderPhoneList_() {
     host.innerHTML = '<p class="worker-empty">' + (_dtPhoneTab === 'new' ? 'No new tasks.' : _dtPhoneTab === 'mine' ? 'Nothing in progress. Accept a task from New.' : 'No finished tasks yet.') + '</p>';
     return;
   }
+  var showDept = dtWorkDepts_().length > 1;
   host.innerHTML = list.map(function (t) {
     return '<button type="button" class="dt-card" onclick="dtOpenDetail_(\'' + dtEsc_(t.id) + '\')">' +
       '<div class="dt-card-top"><strong>' + dtEsc_(t.ref) + '</strong>' + dtStatusBadge_(t.status) +
+      (showDept ? dtDeptBadge_(t.dept) : '') +
       (t.priority !== 'normal' ? '<span class="dt-prio dt-prio-' + dtEsc_(t.priority) + '">' + dtEsc_(DT_PRIORITY_LABEL[t.priority] || t.priority) + '</span>' : '') + '</div>' +
       '<div class="dt-card-loc">' + dtEsc_(dtLoc_(t)) + '</div>' +
       '<div class="dt-card-issues">' + dtEsc_((t.items || []).map(function (i) { return i.issueLabel; }).join(', ')) + '</div>' +
-      '<div class="dt-card-meta">' + dtEsc_(dtProgress_(t)) + ' issues · ' + dtEsc_(dtWhen_(t.sentAt || t.createdAt)) + '</div>' +
+      '<div class="dt-card-visit' + (t.visitAt ? ' dt-has-visit' : '') + '">🕒 ' + dtEsc_(dtVisit_(t)) + '</div>' +
+      '<div class="dt-card-meta">' + dtEsc_(dtProgress_(t)) + ' issues · sent ' + dtEsc_(dtWhen_(t.sentAt || t.createdAt)) + '</div>' +
       '</button>';
   }).join('');
 }
@@ -462,19 +547,21 @@ function dtRenderDetail_() {
   if (!t) return;
   var me = dtMe_();
   var isAssignee = t.assignedTo === me;
-  var workerActive = _dtMode === 'phone' && dtCanWork_() && isAssignee && t.status === 'in_progress';
+  var canWorkDept = dtWorkDepts_().indexOf(t.dept) !== -1;
+  var workerActive = _dtMode === 'phone' && canWorkDept && isAssignee && t.status === 'in_progress';
   var senderMode = _dtMode === 'desk' && dtCanSendWrite_();
   document.getElementById('dtDetailTitle').textContent = t.ref + ' — ' + (DT_STATUS_LABEL[t.status] || t.status);
 
   var h = '<h2>' + dtEsc_(dtLoc_(t) || 'Task') + '</h2>';
-  h += '<div class="dt-meta">' + dtStatusBadge_(t.status) +
+  h += '<div class="dt-meta">' + dtDeptBadge_(t.dept) + ' ' + dtStatusBadge_(t.status) +
     ' <span class="dt-prio dt-prio-' + dtEsc_(t.priority) + '">' + dtEsc_(DT_PRIORITY_LABEL[t.priority] || t.priority) + '</span>' +
     ' <span>Project: ' + dtEsc_(DT_PROJECT_NAMES[t.project] || t.project || '—') + '</span>' +
     ' <span>Sent by ' + dtEsc_(dtPretty_(t.createdBy)) + ' · ' + dtEsc_(dtWhen_(t.sentAt || t.createdAt)) + '</span>' +
-    ' <span>Assigned: ' + dtEsc_(t.assignedTo ? dtPretty_(t.assignedTo) : 'Whole department') + '</span></div>';
+    (t.assignedTo ? ' <span>Taken by ' + dtEsc_(dtPretty_(t.assignedTo)) + '</span>' : '') + '</div>';
+  h += '<p class="dt-visit-box' + (t.visitAt ? ' dt-has-visit' : '') + '">🕒 Visit: <strong>' + dtEsc_(dtVisit_(t)) + '</strong></p>';
   if (t.note) h += '<p class="dt-note-box">' + dtEsc_(t.note) + '</p>';
 
-  if (_dtMode === 'phone' && dtCanWork_() && t.status === 'open' && (!t.assignedTo || isAssignee)) {
+  if (_dtMode === 'phone' && canWorkDept && t.status === 'open' && !t.assignedTo) {
     h += '<button type="button" class="dt-primary dt-wide" onclick="dtAccept_()">Accept task</button>';
   }
 
@@ -483,7 +570,7 @@ function dtRenderDetail_() {
     h += '<div class="dt-item dt-item-' + dtEsc_(it.status) + '">' +
       '<div class="dt-item-top"><strong>' + dtEsc_(it.issueLabel) + '</strong>' + dtItemBadge_(it.status) + '</div>';
     if (it.note) h += '<div class="dt-item-note">' + dtEsc_(it.note) + '</div>';
-    if (it.workerNote) h += '<div class="dt-item-wnote">Electrician: ' + dtEsc_(it.workerNote) + '</div>';
+    if (it.workerNote) h += '<div class="dt-item-wnote">Worker: ' + dtEsc_(it.workerNote) + '</div>';
     if (it.completedBy) h += '<div class="dt-item-by">' + dtEsc_(dtPretty_(it.completedBy)) + ' · ' + dtEsc_(dtWhen_(it.completedAt)) + '</div>';
     var itPhotos = (t.photos || []).filter(function (p) { return p.itemId === it.id; });
     if (itPhotos.length) h += dtPhotosHtml_(itPhotos);
@@ -513,14 +600,7 @@ function dtRenderDetail_() {
   }
 
   if (senderMode && (t.status === 'open' || t.status === 'in_progress')) {
-    h += '<h3>Manage</h3><div class="dt-actions">' +
-      '<select id="dtReassignSel"><option value="">Whole Electrical department</option>' +
-      _dtWorkers.map(function (w) {
-        return '<option value="' + dtEsc_(w.username) + '"' + (w.username === t.assignedTo ? ' selected' : '') + '>' + dtEsc_(w.name) + '</option>';
-      }).join('') + '</select>' +
-      '<button type="button" onclick="dtReassign_()">Reassign</button>' +
-      '<button type="button" class="dt-danger" onclick="dtCancel_()">Cancel task</button>' +
-      '</div>';
+    h += '<div class="dt-actions"><button type="button" class="dt-danger" onclick="dtCancel_()">Cancel task</button></div>';
   }
   if (senderMode && t.status === 'done') {
     h += '<div class="dt-actions"><button type="button" class="dt-warn" onclick="dtReopen_()">Reopen — not fixed properly</button></div>';
@@ -558,15 +638,16 @@ function dtEventText_(ev) {
   var p = ev.payload || {};
   var issue = p.issue ? ' “' + dtEsc_(p.issue) + '”' : '';
   switch (ev.action) {
-    case 'created': return who + ' created the task (' + dtEsc_((p.items || []).length) + ' issues)';
-    case 'sent': return who + ' sent it to ' + dtEsc_(p.to === 'department' ? 'the Electrical department' : dtPretty_(p.to));
+    case 'created':
+      return who + ' created the task (' + dtEsc_((p.items || []).length) + ' issues' +
+        (p.visitAt ? ', visit ' + dtEsc_(dtWhen_(p.visitAt)) : ', no set time') + ')';
+    case 'sent': return who + ' sent it to the ' + dtEsc_(dtDeptLabel_(p.to)) + ' department';
     case 'viewed': return who + ' opened the task';
     case 'accepted': return who + ' accepted the task';
     case 'item_updated': return who + ' marked' + issue + ' as ' + dtEsc_(DT_ITEM_LABEL[p.to] || p.to) + (p.workerNote ? ' — ' + dtEsc_(p.workerNote) : '');
     case 'completed': return who + ' completed the task' + (p.note ? ' — ' + dtEsc_(p.note) : '');
     case 'reopened': return who + ' reopened the task — ' + dtEsc_(p.reason || '');
     case 'cancelled': return who + ' cancelled the task — ' + dtEsc_(p.reason || '');
-    case 'reassigned': return who + ' reassigned from ' + dtEsc_(p.fromWorker === 'department' ? 'department' : dtPretty_(p.fromWorker)) + ' to ' + dtEsc_(p.toWorker === 'department' ? 'department' : dtPretty_(p.toWorker)) + (p.reason ? ' — ' + dtEsc_(p.reason) : '');
     case 'note': return who + ' noted: ' + dtEsc_(p.text || '');
     case 'photo': return who + ' added a ' + dtEsc_(p.kind || '') + ' photo';
     default: return who + ' ' + dtEsc_(ev.action);
@@ -606,11 +687,6 @@ function dtComplete_() {
   dtDetailAction_('completeDtask', {}, 'Task completed.');
 }
 
-function dtReassign_() {
-  var to = document.getElementById('dtReassignSel').value;
-  dtDetailAction_('reassignDtask', { assignedTo: to }, 'Task reassigned.');
-}
-
 function dtCancel_() {
   var reason = window.prompt('Why cancel this task?') || '';
   if (!reason.trim()) return;
@@ -644,7 +720,7 @@ function dtHandlePhotoFile_(ev) {
   var target = _dtPhotoTarget;
   _dtPhotoTarget = null;
   dtSetMsg_('dtDetailMsg', 'Uploading photo…');
-  empireCompressImage(file, DT_PHOTO_FOLDER, function (url) {
+  empireCompressImage(file, 'dtasks/' + _dtDetail.dept, function (url) {
     if (!url) {
       dtSetMsg_('dtDetailMsg', (typeof _lastEmpireUploadError !== 'undefined' && _lastEmpireUploadError) || 'Photo upload failed.', true);
       return;

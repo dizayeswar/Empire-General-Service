@@ -7,14 +7,14 @@
 <meta name="theme-color" content="#8d015d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Dept Tasks">
+<meta name="apple-mobile-web-app-title" content="Send Task">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="icon" href="logo-light.png" type="image/png">
-<title>Department Tasks — Empire World</title>
+<title>Send Task — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #dtDeskApp,body.auth-login-visible #dtPhoneApp,body.auth-login-visible .worker-modal{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-09-22-search-pill">
 <link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-09-22-search-pill">
-<link rel="stylesheet" href="assets/dept-tasks.css?v=2026-10-18-dtasks">
+<link rel="stylesheet" href="assets/send-task.css?v=2026-10-18-send-task">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -22,8 +22,8 @@
     <button class="theme-btn login-theme" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span></button>
     <img src="logo-light.png" alt="Empire World" style="height:44px;width:auto;display:block;margin:0 auto 16px;">
     <a class="back" href="index.html">← Back to hub</a>
-    <h1>📋 Department Tasks</h1>
-    <p style="text-align:center;color:var(--text-soft);font-size:14px;margin:-8px 0 16px;">Electrical</p>
+    <h1>📋 Send Task</h1>
+    <p style="text-align:center;color:var(--text-soft);font-size:14px;margin:-8px 0 16px;">Electrical · Civil · HVAC · Mechanical</p>
     <div class="login-message" id="loginMessage"></div>
     <form class="login-form" onsubmit="dtHandleLogin_(event)">
       <input type="text" id="loginUsername" placeholder="Username" required autocomplete="username">
@@ -33,12 +33,12 @@
   </div>
 </div>
 
-<!-- Desk: task senders (e.g. Aso) -->
+<!-- Desk: task senders -->
 <div id="dtDeskApp" class="container">
   <header class="dt-desk-head">
     <div class="header-top">
       <div class="header-title">
-        <h1>📋 Department Tasks — Electrical</h1>
+        <h1>📋 Send Task</h1>
         <p id="dtDeskWho"></p>
       </div>
       <div class="header-controls">
@@ -51,12 +51,18 @@
   </header>
   <div class="tabs">
     <button type="button" class="tab-btn active" id="dtTabNew" onclick="dtDeskTab_('new')">New task</button>
-    <button type="button" class="tab-btn" id="dtTabList" onclick="dtDeskTab_('list')">Tasks <span id="dtOpenCount" class="side-nav-badge" style="display:none"></span></button>
+    <button type="button" class="tab-btn" id="dtTabList" onclick="dtDeskTab_('list')">Sent tasks <span id="dtOpenCount" class="side-nav-badge" style="display:none"></span></button>
   </div>
 
   <div id="dtPaneNew" class="tab-content active">
     <div class="form-section">
-      <h2>Send a task to Electrical</h2>
+      <h2>Send a task</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="dtDept">Send to department</label>
+          <select id="dtDept" onchange="dtOnDeptChange_()"></select>
+        </div>
+      </div>
       <div class="form-row">
         <div class="form-group">
           <label for="dtProject">Project</label>
@@ -76,12 +82,16 @@
           <datalist id="dtUnitList"></datalist>
         </div>
       </div>
-      <h3>Issues found</h3>
+      <h3 id="dtIssuesTitle">Issues found</h3>
       <div id="dtIssuePicker" class="dt-issue-picker"><p>Loading…</p></div>
       <div class="form-row">
         <div class="form-group">
-          <label for="dtAssign">Send to</label>
-          <select id="dtAssign"><option value="">Whole Electrical department</option></select>
+          <label>When should they go?</label>
+          <div class="dt-visit-choice">
+            <label><input type="radio" name="dtVisitMode" value="none" checked onchange="dtOnVisitModeChange_()"> No set time</label>
+            <label><input type="radio" name="dtVisitMode" value="time" onchange="dtOnVisitModeChange_()"> Set a time</label>
+          </div>
+          <input type="datetime-local" id="dtVisitAt" style="display:none">
         </div>
         <div class="form-group">
           <label for="dtPriority">Priority</label>
@@ -94,11 +104,11 @@
         </div>
       </div>
       <div class="form-group">
-        <label for="dtNote">Note for the electrician</label>
-        <textarea id="dtNote" rows="3" placeholder="Anything they should know (access, tenant phone, time)…"></textarea>
+        <label for="dtNote">Note for the department</label>
+        <textarea id="dtNote" rows="3" placeholder="Anything they should know (access, tenant phone)…"></textarea>
       </div>
       <div class="dt-actions">
-        <button type="button" id="dtSendBtn" class="dt-primary" onclick="dtSendTask_()">Send to Electrical</button>
+        <button type="button" id="dtSendBtn" class="dt-primary" onclick="dtSendTask_()">Send task</button>
         <span id="dtSendMsg" class="dt-msg" aria-live="polite"></span>
       </div>
     </div>
@@ -107,6 +117,10 @@
   <div id="dtPaneList" class="tab-content">
     <div class="form-section">
       <div class="form-row">
+        <div class="form-group">
+          <label for="dtFilterDept">Department</label>
+          <select id="dtFilterDept" onchange="dtRenderDeskList_()"><option value="">All departments</option></select>
+        </div>
         <div class="form-group">
           <label for="dtFilterStatus">Status</label>
           <select id="dtFilterStatus" onchange="dtRenderDeskList_()">
@@ -119,7 +133,7 @@
         </div>
         <div class="form-group">
           <label for="dtFilterSearch">Search</label>
-          <input type="search" id="dtFilterSearch" placeholder="Task #, building, apartment, worker…" autocomplete="off" oninput="dtRenderDeskList_()">
+          <input type="search" id="dtFilterSearch" placeholder="Task #, building, apartment, issue…" autocomplete="off" oninput="dtRenderDeskList_()">
         </div>
         <div class="form-group"><label>&nbsp;</label><button type="button" onclick="dtLoadTasks_(true)">Refresh</button></div>
       </div>
@@ -128,11 +142,11 @@
   </div>
 </div>
 
-<!-- Phone: electricians -->
+<!-- Phone: department staff -->
 <div id="dtPhoneApp" class="worker-app">
   <header class="worker-head">
     <img src="logo-light.png" alt="Empire World" class="worker-logo">
-    <div class="worker-head-text"><h1 id="dtPhoneTitle">Electrical tasks</h1></div>
+    <div class="worker-head-text"><h1 id="dtPhoneTitle">Tasks</h1></div>
     <div class="worker-head-actions">
       <button type="button" id="dtToDeskBtn" class="worker-lang-btn" style="display:none" onclick="dtSwitchMode_('desk')">Desk</button>
       <button type="button" class="worker-logout-head" onclick="dtLogout_()">Logout</button>
@@ -140,6 +154,9 @@
     </div>
   </header>
   <div class="worker-count-bar" id="dtPhoneCount">Loading…</div>
+  <div id="dtPhoneDeptWrap" class="dt-phone-dept" style="display:none">
+    <select id="dtPhoneDept" onchange="dtRenderPhoneList_()"></select>
+  </div>
   <nav class="worker-tab-bar" aria-label="Task lists">
     <button type="button" class="worker-tab-btn active" id="dtPTabNew" onclick="dtPhoneTab_('new')">New</button>
     <button type="button" class="worker-tab-btn" id="dtPTabMine" onclick="dtPhoneTab_('mine')">My tasks</button>
@@ -164,10 +181,10 @@
 
 <script src="assets/empire-sw-update.js?v=2026-09-15-sec-acc"></script>
 <script src="config.js?v=2026-09-15-sec-acc"></script>
-<script src="assets/empire-storage.js?v=2026-10-18-no-transform"></script>
+<script src="assets/empire-storage.js?v=2026-09-15-sec-acc"></script>
 <script src="assets/empire-api.js?v=2026-09-15-sec-acc"></script>
-<script src="assets/empire-auth.js?v=2026-10-18-dtasks"></script>
+<script src="assets/empire-auth.js?v=2026-10-18-send-task"></script>
 <script src="assets/empire-core.js?v=2026-09-15-sec-acc"></script>
-<script src="assets/dept-tasks-app.js?v=2026-10-18-dtasks"></script>
+<script src="assets/send-task-app.js?v=2026-10-18-send-task"></script>
 </body>
 </html>
