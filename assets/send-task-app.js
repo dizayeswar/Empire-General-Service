@@ -206,6 +206,7 @@ function dtFillDeptSelects_(depts) {
     return '<option value="' + dtEsc_(k) + '">' + dtEsc_(dtDeptLabel_(k)) + '</option>';
   }).join('');
   filterSel.value = prevF;
+  dtSyncSendBtn_();
 }
 
 function dtFillSelect_(id, values, labelFn) {
@@ -272,8 +273,17 @@ function dtUpdateLocPreview_() {
   el.textContent = (p && b && f && u) ? ('Location: ' + p.toUpperCase() + '-' + b + '-' + f + '-' + u) : '';
 }
 
+function dtSyncSendBtn_() {
+  var btn = document.getElementById('dtSendBtn');
+  var dept = document.getElementById('dtDept');
+  if (!btn || !dept) return;
+  var missing = !dept.value;
+  btn.disabled = missing;
+  btn.title = missing ? 'Pick the department first' : '';
+}
 function dtOnDeptChange_() {
   dtRenderIssuePicker_();
+  dtSyncSendBtn_();
   dtSetMsg_('dtSendMsg', '');
 }
 
