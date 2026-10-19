@@ -108,6 +108,7 @@ Deno.serve(async (req) => {
 
     const dtaskHandlers: Record<string, (b: Record<string, unknown>, a: AuthOk) => Promise<unknown>> = {
       getDtaskLocations: dtasks.handleGetDtaskLocations,
+      getDtaskApartments: dtasks.handleGetDtaskApartments,
       addDtaskLocation: dtasks.handleAddDtaskLocation,
       getDtaskIssueTypes: dtasks.handleGetDtaskIssueTypes,
       getDtasks: dtasks.handleGetDtasks,

@@ -232,7 +232,14 @@ async function notifySafe(usernames: string[], title: string, body: string, task
 }
 
 function locText(t: Row): string {
-  return [t.building, t.floor, t.unit].map((x) => String(x || "").trim()).filter(Boolean).join(" ");
+  const p = String(t.project || "").trim().toUpperCase();
+  const b = String(t.building || "").trim();
+  const f = String(t.floor || "").trim();
+  const u = String(t.unit || "").trim();
+  if (p && b && f && u && b.indexOf("-") === -1 && !b.toUpperCase().startsWith(p)) {
+    return p + "-" + b + "-" + f + "-" + u;
+  }
+  return [b, f, u].filter(Boolean).join(" ");
 }
 
 function visitText(t: Row): string {
@@ -297,6 +304,28 @@ export async function handleAddDtaskLocation(body: Body, auth: AuthOk) {
     .single();
   if (error) throw error;
   return { ok: true, success: true, location: data };
+}
+
+export async function handleGetDtaskApartments(_body: Body, auth: AuthOk) {
+  if (!hasAnyAccess(auth)) return fail("No access to Send Task.");
+  const rows = await selectAllRows<Row>("application_checks", {
+    columns: "project,property_id",
+    filter: (q) => q.order("property_id"),
+  });
+  const apartments: Row[] = [];
+  for (const r of rows) {
+    const code = String(r.property_id || "").trim().toUpperCase();
+    const parts = code.split("-");
+    if (parts.length !== 4) continue;
+    apartments.push({
+      project: String(r.project || parts[0]).trim().toLowerCase(),
+      building: parts[1],
+      floor: parts[2],
+      unit: parts[3],
+      code,
+    });
+  }
+  return { ok: true, success: true, apartments };
 }
 
 export async function handleGetDtaskIssueTypes(_body: Body, auth: AuthOk) {

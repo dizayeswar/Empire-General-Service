@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #dtDeskApp,body.auth-login-visible #dtPhoneApp,body.auth-login-visible .worker-modal{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-09-22-search-pill">
 <link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-09-22-search-pill">
-<link rel="stylesheet" href="assets/send-task.css?v=2026-10-19-send-task">
+<link rel="stylesheet" href="assets/send-task.css?v=2026-10-19-apartments">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -78,10 +78,10 @@
         </div>
         <div class="form-group">
           <label for="dtUnit">Apartment</label>
-          <input type="text" id="dtUnit" list="dtUnitList" placeholder="e.g. A, 12B — empty for corridor" autocomplete="off">
-          <datalist id="dtUnitList"></datalist>
+          <select id="dtUnit" onchange="dtUpdateLocPreview_()"></select>
         </div>
       </div>
+      <p id="dtLocPreview" class="dt-loc-preview"></p>
       <h3 id="dtIssuesTitle">Issues found</h3>
       <div id="dtIssuePicker" class="dt-issue-picker"><p>Loading…</p></div>
       <div class="form-row">
@@ -196,6 +196,6 @@
 <script src="assets/empire-api.js?v=2026-09-15-sec-acc"></script>
 <script src="assets/empire-auth.js?v=2026-10-18-send-task"></script>
 <script src="assets/empire-core.js?v=2026-09-15-sec-acc"></script>
-<script src="assets/send-task-app.js?v=2026-10-19-send-voice"></script>
+<script src="assets/send-task-app.js?v=2026-10-19-apartments"></script>
 </body>
 </html>

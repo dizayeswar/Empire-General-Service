@@ -17,7 +17,7 @@ var DT_ITEM_LABEL = { pending: 'Pending', done: 'Done', cant_fix: "Can't fix" };
 var DT_PRIORITY_LABEL = { low: 'Low', normal: 'Normal', high: 'High', urgent: 'Urgent' };
 
 var _dtMode = '';
-var _dtLocations = [];
+var _dtApartments = [];
 var _dtIssueTypes = [];
 var _dtCatalogLoaded = false;
 var _dtTasks = [];
@@ -56,7 +56,25 @@ function dtWhen_(isoStr) {
 }
 function dtVisit_(t) { return t.visitAt ? dtWhen_(t.visitAt) : 'No set time'; }
 function dtLoc_(t) {
-  return [t.building, t.floor, t.unit].filter(function (x) { return String(x || '').trim(); }).join(' · ');
+  var p = String(t.project || '').toUpperCase();
+  var b = String(t.building || '').trim();
+  var f = String(t.floor || '').trim();
+  var u = String(t.unit || '').trim();
+  if (p && b && f && u && b.indexOf('-') === -1 && b.toUpperCase().indexOf(p) !== 0) {
+    return p + '-' + b + '-' + f + '-' + u;
+  }
+  return [b, f, u].filter(Boolean).join(' · ');
+}
+function dtBuildingLabel_(project, building) {
+  var p = String(project || '').toUpperCase();
+  if (p === 'WD' || p === 'RA') return p + '-' + building;
+  return p + building;
+}
+function dtFloorLabel_(floor) {
+  return String(floor).toUpperCase() === 'G' ? 'Ground' : String(floor);
+}
+function dtSortToken_(a, b) {
+  return String(a).localeCompare(String(b), undefined, { numeric: true });
 }
 function dtStatusBadge_(status) {
   return '<span class="dt-badge dt-st-' + dtEsc_(status) + '">' + dtEsc_(DT_STATUS_LABEL[status] || status) + '</span>';
@@ -162,9 +180,9 @@ function dtStopPoll_() {
 
 function dtLoadCatalogs_() {
   if (_dtCatalogLoaded) return;
-  Promise.all([dtApi_('getDtaskLocations'), dtApi_('getDtaskIssueTypes')]).then(function (res) {
+  Promise.all([dtApi_('getDtaskApartments'), dtApi_('getDtaskIssueTypes')]).then(function (res) {
     _dtCatalogLoaded = true;
-    _dtLocations = res[0].locations || [];
+    _dtApartments = res[0].apartments || [];
     _dtIssueTypes = res[1].issueTypes || [];
     var depts = (res[1].departments || []).map(function (d) { return d.key; });
     if (depts.length) dtFillDeptSelects_(depts);
@@ -209,36 +227,49 @@ function dtUnique_(list) {
 }
 
 function dtFillProjects_() {
-  var projects = dtUnique_(_dtLocations.map(function (l) { return l.project; }));
+  var projects = dtUnique_(_dtApartments.map(function (l) { return l.project; }));
+  projects.sort();
   dtFillSelect_('dtProject', projects, function (p) { return DT_PROJECT_NAMES[p] || p.toUpperCase(); });
   dtOnProjectChange_();
 }
 function dtOnProjectChange_() {
   var p = document.getElementById('dtProject').value;
-  var buildings = dtUnique_(_dtLocations.filter(function (l) { return l.project === p; }).map(function (l) { return l.building; }));
-  buildings.sort(function (a, b) { return a.localeCompare(b, undefined, { numeric: true }); });
-  dtFillSelect_('dtBuilding', buildings);
+  var buildings = dtUnique_(_dtApartments.filter(function (l) { return l.project === p; }).map(function (l) { return l.building; }));
+  buildings.sort(dtSortToken_);
+  dtFillSelect_('dtBuilding', buildings, function (b) { return dtBuildingLabel_(p, b); });
   dtOnBuildingChange_();
 }
 function dtOnBuildingChange_() {
   var p = document.getElementById('dtProject').value;
   var b = document.getElementById('dtBuilding').value;
-  var rows = _dtLocations.filter(function (l) { return l.project === p && l.building === b && !l.unit; });
-  rows.sort(function (x, y) { return x.sortOrder - y.sortOrder; });
-  dtFillSelect_('dtFloor', dtUnique_(rows.map(function (l) { return l.floor; })));
+  var floors = dtUnique_(_dtApartments.filter(function (l) { return l.project === p && l.building === b; }).map(function (l) { return l.floor; }));
+  floors.sort(function (a, c) {
+    if (String(a).toUpperCase() === 'G') return -1;
+    if (String(c).toUpperCase() === 'G') return 1;
+    return dtSortToken_(a, c);
+  });
+  dtFillSelect_('dtFloor', floors, dtFloorLabel_);
   dtOnFloorChange_();
 }
 function dtOnFloorChange_() {
   var p = document.getElementById('dtProject').value;
   var b = document.getElementById('dtBuilding').value;
   var f = document.getElementById('dtFloor').value;
-  var units = dtUnique_(_dtLocations.filter(function (l) {
-    return l.project === p && l.building === b && l.floor === f && l.unit;
+  var units = dtUnique_(_dtApartments.filter(function (l) {
+    return l.project === p && l.building === b && l.floor === f;
   }).map(function (l) { return l.unit; }));
-  units.sort(function (a, c) { return a.localeCompare(c, undefined, { numeric: true }); });
-  document.getElementById('dtUnitList').innerHTML = units.map(function (u) {
-    return '<option value="' + dtEsc_(u) + '"></option>';
-  }).join('');
+  units.sort(dtSortToken_);
+  dtFillSelect_('dtUnit', units);
+  dtUpdateLocPreview_();
+}
+function dtUpdateLocPreview_() {
+  var el = document.getElementById('dtLocPreview');
+  if (!el) return;
+  var p = document.getElementById('dtProject').value;
+  var b = document.getElementById('dtBuilding').value;
+  var f = document.getElementById('dtFloor').value;
+  var u = document.getElementById('dtUnit').value;
+  el.textContent = (p && b && f && u) ? ('Location: ' + p.toUpperCase() + '-' + b + '-' + f + '-' + u) : '';
 }
 
 function dtOnDeptChange_() {
@@ -323,13 +354,13 @@ function dtSendTask_() {
     project: document.getElementById('dtProject').value,
     building: document.getElementById('dtBuilding').value,
     floor: document.getElementById('dtFloor').value,
-    unit: document.getElementById('dtUnit').value.trim(),
+    unit: document.getElementById('dtUnit').value,
     priority: document.getElementById('dtPriority').value,
     visitAt: visitAt,
     note: document.getElementById('dtNote').value.trim(),
     items: items
   };
-  if (!payload.building || !payload.floor) { dtSetMsg_('dtSendMsg', 'Pick a building and floor.', true); return; }
+  if (!payload.building || !payload.floor || !payload.unit) { dtSetMsg_('dtSendMsg', 'Pick a building, floor and apartment.', true); return; }
   if (_dtDraftRec) { dtSetMsg_('dtSendMsg', 'Stop the voice message first, or cancel it.', true); return; }
   var draftVoice = _dtDraftVoice;
   _dtBusy = true;
@@ -350,11 +381,6 @@ function dtSendTask_() {
   }).then(function (d) {
     var voiceNote = draftVoice ? ' The voice message is on the task.' : '';
     dtSetMsg_('dtSendMsg', 'Sent ' + (d.task && d.task.ref ? d.task.ref : 'task') + ' to the ' + dtDeptLabel_(dept) + ' department.' + voiceNote);
-    if (payload.unit && !_dtLocations.some(function (l) {
-      return l.project === payload.project && l.building === payload.building && l.floor === payload.floor && l.unit === payload.unit;
-    })) {
-      _dtLocations.push({ project: payload.project, building: payload.building, floor: payload.floor, unit: payload.unit, sortOrder: 0 });
-    }
     dtResetForm_();
     dtLoadTasks_(false);
   }).catch(function (err) {
