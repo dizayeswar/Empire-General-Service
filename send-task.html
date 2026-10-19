@@ -107,6 +107,16 @@
         <label for="dtNote">Note for the department</label>
         <textarea id="dtNote" rows="3" placeholder="Anything they should know (access, tenant phone)…"></textarea>
       </div>
+      <div class="form-group">
+        <label>Voice message for the workers</label>
+        <p class="dt-hint">Optional. The workers hear it on this task only. It is not part of the report.</p>
+        <div class="dt-actions">
+          <button type="button" id="dtDraftVoiceBtn" onclick="dtDraftVoiceToggle_()">🎤 Record voice</button>
+          <button type="button" id="dtDraftVoiceCancel" style="display:none" onclick="dtDraftVoiceCancel_()">Cancel</button>
+          <button type="button" id="dtDraftVoiceRemove" style="display:none" onclick="dtDraftVoiceRemove_()">Remove voice</button>
+        </div>
+        <audio id="dtDraftVoicePlay" controls style="display:none"></audio>
+      </div>
       <div class="dt-actions">
         <button type="button" id="dtSendBtn" class="dt-primary" onclick="dtSendTask_()">Send task</button>
         <span id="dtSendMsg" class="dt-msg" aria-live="polite"></span>
@@ -186,6 +196,6 @@
 <script src="assets/empire-api.js?v=2026-09-15-sec-acc"></script>
 <script src="assets/empire-auth.js?v=2026-10-18-send-task"></script>
 <script src="assets/empire-core.js?v=2026-09-15-sec-acc"></script>
-<script src="assets/send-task-app.js?v=2026-10-19-send-task"></script>
+<script src="assets/send-task-app.js?v=2026-10-19-send-voice"></script>
 </body>
 </html>

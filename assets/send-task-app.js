@@ -330,12 +330,26 @@ function dtSendTask_() {
     items: items
   };
   if (!payload.building || !payload.floor) { dtSetMsg_('dtSendMsg', 'Pick a building and floor.', true); return; }
+  if (_dtDraftRec) { dtSetMsg_('dtSendMsg', 'Stop the voice message first, or cancel it.', true); return; }
+  var draftVoice = _dtDraftVoice;
   _dtBusy = true;
   var btn = document.getElementById('dtSendBtn');
   btn.disabled = true;
   dtSetMsg_('dtSendMsg', 'Sending…');
   dtApi_('createDtask', payload).then(function (d) {
-    dtSetMsg_('dtSendMsg', 'Sent ' + (d.task && d.task.ref ? d.task.ref : 'task') + ' to the ' + dtDeptLabel_(dept) + ' department.');
+    if (!draftVoice || !d.task) return d;
+    dtSetMsg_('dtSendMsg', 'Sending the voice message…');
+    return empireUploadAudioAsync(draftVoice.blob, 'dtasks/' + dept + '/voice').then(function (url) {
+      if (!url) {
+        var err = new Error((typeof _lastEmpireUploadError !== 'undefined' && _lastEmpireUploadError) || 'Voice upload failed.');
+        err.taskSent = d.task;
+        throw err;
+      }
+      return dtApi_('addDtaskVoice', { id: d.task.id, url: url, durationSec: draftVoice.sec }).then(function () { return d; });
+    });
+  }).then(function (d) {
+    var voiceNote = draftVoice ? ' The voice message is on the task.' : '';
+    dtSetMsg_('dtSendMsg', 'Sent ' + (d.task && d.task.ref ? d.task.ref : 'task') + ' to the ' + dtDeptLabel_(dept) + ' department.' + voiceNote);
     if (payload.unit && !_dtLocations.some(function (l) {
       return l.project === payload.project && l.building === payload.building && l.floor === payload.floor && l.unit === payload.unit;
     })) {
@@ -344,6 +358,12 @@ function dtSendTask_() {
     dtResetForm_();
     dtLoadTasks_(false);
   }).catch(function (err) {
+    if (err && err.taskSent) {
+      dtSetMsg_('dtSendMsg', 'The task was sent, but the voice message did not go through. Open the task and record it again.', true);
+      dtResetForm_();
+      dtLoadTasks_(false);
+      return;
+    }
     dtSetMsg_('dtSendMsg', err.message, true);
   }).finally(function () {
     _dtBusy = false;
@@ -366,6 +386,89 @@ function dtResetForm_() {
     n.style.display = 'none';
   });
   dtOnFloorChange_();
+  dtDraftVoiceRemove_();
+}
+
+var _dtDraftRec = null;
+var _dtDraftVoice = null;
+
+function dtDraftVoiceUi_() {
+  var btn = document.getElementById('dtDraftVoiceBtn');
+  var cancel = document.getElementById('dtDraftVoiceCancel');
+  var remove = document.getElementById('dtDraftVoiceRemove');
+  var play = document.getElementById('dtDraftVoicePlay');
+  if (!btn) return;
+  if (_dtDraftRec) {
+    btn.textContent = '⏹ Stop (' + dtFmtSec_(_dtDraftRec.sec) + ')';
+    if (cancel) cancel.style.display = '';
+    if (remove) remove.style.display = 'none';
+    return;
+  }
+  btn.textContent = _dtDraftVoice ? '🎤 Record again' : '🎤 Record voice';
+  if (cancel) cancel.style.display = 'none';
+  if (remove) remove.style.display = _dtDraftVoice ? '' : 'none';
+  if (play) {
+    play.style.display = _dtDraftVoice ? '' : 'none';
+    if (_dtDraftVoice) play.src = _dtDraftVoice.url;
+  }
+}
+
+function dtDraftVoiceToggle_() {
+  if (_dtDraftRec) { dtDraftVoiceFinish_(true); return; }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === 'undefined') {
+    dtSetMsg_('dtSendMsg', 'Voice messages are not supported on this device.', true);
+    return;
+  }
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+    var mime = ['audio/webm', 'audio/mp4', 'audio/ogg'].filter(function (m) {
+      return MediaRecorder.isTypeSupported(m);
+    })[0] || '';
+    var rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    var chunks = [];
+    rec.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+    rec.start();
+    _dtDraftRec = { rec: rec, stream: stream, chunks: chunks, sec: 0 };
+    dtDraftVoiceUi_();
+    _dtDraftRec.timer = setInterval(function () {
+      if (!_dtDraftRec) return;
+      _dtDraftRec.sec++;
+      if (_dtDraftRec.sec >= DT_VOICE_MAX_SEC) { dtDraftVoiceFinish_(true); return; }
+      dtDraftVoiceUi_();
+    }, 1000);
+  }).catch(function () {
+    dtSetMsg_('dtSendMsg', 'Allow the microphone to record a voice message.', true);
+  });
+}
+
+function dtDraftVoiceCancel_() { dtDraftVoiceFinish_(false); }
+
+function dtDraftVoiceFinish_(keep) {
+  var v = _dtDraftRec;
+  if (!v) return;
+  _dtDraftRec = null;
+  clearInterval(v.timer);
+  v.stream.getTracks().forEach(function (tr) { tr.stop(); });
+  v.rec.onstop = function () {
+    if (!keep || v.sec < 1 || !v.chunks.length) {
+      dtDraftVoiceUi_();
+      if (keep) dtSetMsg_('dtSendMsg', 'Voice message was too short. Hold it a little longer.', true);
+      return;
+    }
+    if (_dtDraftVoice && _dtDraftVoice.url) URL.revokeObjectURL(_dtDraftVoice.url);
+    var blob = new Blob(v.chunks, { type: v.rec.mimeType || 'audio/webm' });
+    _dtDraftVoice = { blob: blob, sec: v.sec, url: URL.createObjectURL(blob) };
+    dtDraftVoiceUi_();
+    dtSetMsg_('dtSendMsg', 'Voice message ready. It goes with the task when you send it.');
+  };
+  if (v.rec.state !== 'inactive') v.rec.stop();
+  else dtDraftVoiceUi_();
+}
+
+function dtDraftVoiceRemove_() {
+  if (_dtDraftRec) dtDraftVoiceFinish_(false);
+  if (_dtDraftVoice && _dtDraftVoice.url) URL.revokeObjectURL(_dtDraftVoice.url);
+  _dtDraftVoice = null;
+  dtDraftVoiceUi_();
 }
 
 function dtDeskTab_(tab) {
