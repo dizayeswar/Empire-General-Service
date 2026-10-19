@@ -10,7 +10,9 @@ var DT_WORK_KEYS = {
 var DT_DEPT_LABELS = { electrical: 'Electrical', civil: 'Civil', hvac: 'HVAC', mechanical: 'Mechanical' };
 var DT_POLL_MS = 60000;
 var DT_PROJECT_NAMES = { ec: 'Empire Complex', es: 'Empire Square', wd: 'West Diamond', ww: 'West Wing', ra: 'Royal Apartment' };
-var DT_STATUS_LABEL = { open: 'Open', in_progress: 'In progress', done: 'Done', cancelled: 'Cancelled' };
+var DT_STATUS_LABEL = { open: 'Open', in_progress: 'In progress', done: 'Done', closed: 'Closed', cancelled: 'Cancelled' };
+var DT_PHOTO_LABEL = { before: 'Before', after: 'After', invoice: 'Invoice' };
+var DT_VOICE_MAX_SEC = 180;
 var DT_ITEM_LABEL = { pending: 'Pending', done: 'Done', cant_fix: "Can't fix" };
 var DT_PRIORITY_LABEL = { low: 'Low', normal: 'Normal', high: 'High', urgent: 'Urgent' };
 
@@ -427,7 +429,7 @@ function dtRenderDeskList_() {
       '<td>' + dtEsc_(dtLoc_(t)) + '</td>' +
       '<td>' + dtEsc_(dtProgress_(t)) + ' — ' + dtEsc_((t.items || []).map(function (i) { return i.issueLabel; }).join(', ')) + '</td>' +
       '<td>' + dtEsc_(dtVisit_(t)) + '</td>' +
-      '<td>' + dtStatusBadge_(t.status) + '</td>' +
+      '<td>' + dtStatusBadge_(t.status) + (t.refundable ? ' <span class="dt-refund-badge">Refundable</span>' : '') + '</td>' +
       '<td>' + dtEsc_(t.assignedTo ? dtPretty_(t.assignedTo) : '—') + '</td>' +
       '<td>' + dtEsc_(dtWhen_(t.sentAt || t.createdAt)) + '<br><span class="dt-sub">by ' + dtEsc_(dtPretty_(t.createdBy)) + '</span></td>' +
       '</tr>';
@@ -470,7 +472,7 @@ function dtPhoneBuckets_() {
     if (deptSel && t.dept !== deptSel) return;
     if (t.status === 'open' && !t.assignedTo) b.new.push(t);
     else if (t.status === 'in_progress' && t.assignedTo === me) b.mine.push(t);
-    else if ((t.status === 'done' || t.status === 'cancelled') && t.assignedTo === me) b.done.push(t);
+    else if ((t.status === 'done' || t.status === 'closed' || t.status === 'cancelled') && t.assignedTo === me) b.done.push(t);
   });
   b.new.sort(function (x, y) {
     var vx = x.visitAt ? new Date(x.visitAt).getTime() : Infinity;
@@ -499,8 +501,10 @@ function dtRenderPhoneList_() {
     return '<button type="button" class="dt-card" onclick="dtOpenDetail_(\'' + dtEsc_(t.id) + '\')">' +
       '<div class="dt-card-top"><strong>' + dtEsc_(t.ref) + '</strong>' + dtStatusBadge_(t.status) +
       (showDept ? dtDeptBadge_(t.dept) : '') +
-      (t.priority !== 'normal' ? '<span class="dt-prio dt-prio-' + dtEsc_(t.priority) + '">' + dtEsc_(DT_PRIORITY_LABEL[t.priority] || t.priority) + '</span>' : '') + '</div>' +
+      (t.priority !== 'normal' ? '<span class="dt-prio dt-prio-' + dtEsc_(t.priority) + '">' + dtEsc_(DT_PRIORITY_LABEL[t.priority] || t.priority) + '</span>' : '') +
+      (t.refundable ? '<span class="dt-refund-badge">Refundable</span>' : '') + '</div>' +
       '<div class="dt-card-loc">' + dtEsc_(dtLoc_(t)) + '</div>' +
+      '<div class="dt-card-from">From: <strong>' + dtEsc_(dtPretty_(t.createdBy)) + '</strong></div>' +
       '<div class="dt-card-issues">' + dtEsc_((t.items || []).map(function (i) { return i.issueLabel; }).join(', ')) + '</div>' +
       '<div class="dt-card-visit' + (t.visitAt ? ' dt-has-visit' : '') + '">🕒 ' + dtEsc_(dtVisit_(t)) + '</div>' +
       '<div class="dt-card-meta">' + dtEsc_(dtProgress_(t)) + ' issues · sent ' + dtEsc_(dtWhen_(t.sentAt || t.createdAt)) + '</div>' +
@@ -554,6 +558,7 @@ function dtRenderDetail_() {
 
   var h = '<h2>' + dtEsc_(dtLoc_(t) || 'Task') + '</h2>';
   h += '<div class="dt-meta">' + dtDeptBadge_(t.dept) + ' ' + dtStatusBadge_(t.status) +
+    (t.refundable ? ' <span class="dt-refund-badge">Refundable</span>' : '') +
     ' <span class="dt-prio dt-prio-' + dtEsc_(t.priority) + '">' + dtEsc_(DT_PRIORITY_LABEL[t.priority] || t.priority) + '</span>' +
     ' <span>Project: ' + dtEsc_(DT_PROJECT_NAMES[t.project] || t.project || '—') + '</span>' +
     ' <span>Sent by ' + dtEsc_(dtPretty_(t.createdBy)) + ' · ' + dtEsc_(dtWhen_(t.sentAt || t.createdAt)) + '</span>' +
@@ -591,27 +596,46 @@ function dtRenderDetail_() {
 
   if (workerActive) {
     var pending = (t.items || []).filter(function (i) { return i.status === 'pending'; }).length;
+    var hasAfter = (t.photos || []).some(function (p) { return p.kind === 'after'; });
+    var hasInvoice = (t.photos || []).some(function (p) { return p.kind === 'invoice'; });
+    h += '<label class="dt-refund-check"><input type="checkbox" onchange="dtSetRefundable_(this)"' +
+      (t.refundable ? ' checked' : '') + '> Refundable — this job costs money</label>';
     h += '<div class="dt-actions">' +
-      '<button type="button" onclick="dtPickPhoto_(\'\',\'before\')">📷 Before photo</button>' +
-      '<button type="button" onclick="dtPickPhoto_(\'\',\'after\')">📷 After photo</button>' +
+      '<button type="button" onclick="dtPickPhoto_(\'\',\'before\')">📷 Before photo <span class="dt-opt">optional</span></button>' +
+      '<button type="button" onclick="dtPickPhoto_(\'\',\'after\')">📷 After photo <span class="dt-req">required</span></button>' +
+      (t.refundable ? '<button type="button" onclick="dtPickPhoto_(\'\',\'invoice\')">📷 Invoice photo <span class="dt-req">required</span></button>' : '') +
       '</div>';
-    h += '<button type="button" class="dt-primary dt-wide"' + (pending ? ' disabled' : '') + ' onclick="dtComplete_()">' +
-      (pending ? 'Finish all issues to complete (' + pending + ' left)' : 'Complete task') + '</button>';
+    h += '<p class="dt-photo-need">' +
+      (hasAfter ? '✅ After photo added' : '⚠️ After photo is required') +
+      (t.refundable ? (hasInvoice ? ' · ✅ Invoice photo added' : ' · ⚠️ Invoice photo is required') : '') + '</p>';
+    var missing = [];
+    if (pending) missing.push('finish all issues (' + pending + ' left)');
+    if (!hasAfter) missing.push('add an after photo');
+    if (t.refundable && !hasInvoice) missing.push('add the invoice photo');
+    h += '<button type="button" class="dt-primary dt-wide"' + (missing.length ? ' disabled' : '') + ' onclick="dtComplete_()">' +
+      (missing.length ? 'To complete: ' + dtEsc_(missing.join(', ')) : 'Complete task') + '</button>';
   }
 
   if (senderMode && (t.status === 'open' || t.status === 'in_progress')) {
     h += '<div class="dt-actions"><button type="button" class="dt-danger" onclick="dtCancel_()">Cancel task</button></div>';
   }
   if (senderMode && t.status === 'done') {
+    h += '<div class="dt-actions">' +
+      '<button type="button" class="dt-ok" onclick="dtClose_()">Close task — completed</button>' +
+      '<button type="button" class="dt-warn" onclick="dtReopen_()">Reopen — not fixed properly</button></div>';
+  }
+  if (senderMode && t.status === 'closed') {
     h += '<div class="dt-actions"><button type="button" class="dt-warn" onclick="dtReopen_()">Reopen — not fixed properly</button></div>';
   }
 
-  var canNote = (_dtMode === 'desk' && dtCanSend_()) || (_dtMode === 'phone' && isAssignee);
+  var canNote = (_dtMode === 'desk' && dtCanSend_() && t.status !== 'cancelled') || workerActive;
   if (canNote) {
     h += '<div class="dt-note-add"><textarea id="dtNoteText" rows="2" placeholder="Add a note to this task…"></textarea>' +
       '<button type="button" onclick="dtAddNote_()">Add note</button></div>';
   }
   h += '<p id="dtDetailMsg" class="dt-msg" aria-live="polite"></p>';
+
+  h += dtVoiceHtml_(t);
 
   h += '<h3>History</h3><ol class="dt-timeline">';
   (t.events || []).slice().reverse().forEach(function (ev) {
@@ -624,7 +648,7 @@ function dtRenderDetail_() {
 function dtPhotosHtml_(photos) {
   return '<div class="dt-photos">' + photos.map(function (p) {
     return '<figure><img src="' + dtEsc_(p.url) + '" alt="" loading="lazy" onclick="dtBigImg_(this.src)"><figcaption>' +
-      dtEsc_(p.kind === 'before' ? 'Before' : 'After') + ' · ' + dtEsc_(dtPretty_(p.uploadedBy)) + '</figcaption></figure>';
+      dtEsc_(DT_PHOTO_LABEL[p.kind] || p.kind) + ' · ' + dtEsc_(dtPretty_(p.uploadedBy)) + '</figcaption></figure>';
   }).join('') + '</div>';
 }
 
@@ -646,6 +670,8 @@ function dtEventText_(ev) {
     case 'accepted': return who + ' accepted the task';
     case 'item_updated': return who + ' marked' + issue + ' as ' + dtEsc_(DT_ITEM_LABEL[p.to] || p.to) + (p.workerNote ? ' — ' + dtEsc_(p.workerNote) : '');
     case 'completed': return who + ' completed the task' + (p.note ? ' — ' + dtEsc_(p.note) : '');
+    case 'closed': return who + ' closed the task' + (p.note ? ' — ' + dtEsc_(p.note) : '');
+    case 'refundable': return who + (p.to ? ' marked the task as refundable (costs money)' : ' removed the refundable mark');
     case 'reopened': return who + ' reopened the task — ' + dtEsc_(p.reason || '');
     case 'cancelled': return who + ' cancelled the task — ' + dtEsc_(p.reason || '');
     case 'note': return who + ' noted: ' + dtEsc_(p.text || '');
@@ -697,6 +723,122 @@ function dtReopen_() {
   var reason = window.prompt('What is still wrong?') || '';
   if (!reason.trim()) return;
   dtDetailAction_('reopenDtask', { reason: reason.trim() }, 'Task reopened and sent back.');
+}
+
+function dtClose_() {
+  if (!window.confirm('Close this task? It will be marked completed.')) return;
+  dtDetailAction_('closeDtask', {}, 'Task closed.');
+}
+
+function dtSetRefundable_(cb) {
+  dtDetailAction_('setDtaskRefundable', { refundable: !!cb.checked },
+    cb.checked ? 'Marked as refundable. Add the invoice photo.' : 'Refundable removed.');
+}
+
+// ---------------------------------------------------------------------------
+// Voice messages (not part of the report)
+// ---------------------------------------------------------------------------
+
+var _dtVoice = null;
+
+function dtFmtSec_(s) {
+  s = Math.max(0, Math.round(s || 0));
+  return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+}
+
+function dtVoiceHtml_(t) {
+  var canRecord = t.status !== 'cancelled' && (
+    (_dtMode === 'desk' && dtCanSend_()) ||
+    (_dtMode === 'phone' && t.assignedTo === dtMe_() && t.status === 'in_progress')
+  );
+  var voices = t.voice || [];
+  if (!canRecord && !voices.length) return '';
+  var h = '<h3>Voice messages</h3>';
+  h += '<p class="dt-hint">Voice messages are just for talking. They are not included in the report.</p>';
+  if (voices.length) {
+    h += '<div class="dt-voices">' + voices.map(function (v) {
+      return '<div class="dt-voice"><div class="dt-voice-who">' + dtEsc_(dtPretty_(v.sentBy)) + ' · ' + dtEsc_(dtWhen_(v.createdAt)) +
+        (v.durationSec ? ' · ' + dtEsc_(dtFmtSec_(v.durationSec)) : '') + '</div>' +
+        '<audio controls preload="none" src="' + dtEsc_(v.url) + '"></audio></div>';
+    }).join('') + '</div>';
+  }
+  if (canRecord) {
+    var recording = !!_dtVoice;
+    h += '<div class="dt-actions">' +
+      '<button type="button" id="dtVoiceBtn" onclick="dtVoiceToggle_()">' +
+      (recording ? '⏹ Stop and send (' + dtFmtSec_(_dtVoice.sec) + ')' : '🎤 Voice message') + '</button>' +
+      '<button type="button" id="dtVoiceCancel" onclick="dtVoiceCancel_()"' + (recording ? '' : ' style="display:none"') + '>Cancel</button>' +
+      '</div>';
+  }
+  return h;
+}
+
+function dtVoiceToggle_() {
+  if (_dtVoice) { dtVoiceFinish_(true); return; }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === 'undefined') {
+    dtSetMsg_('dtDetailMsg', 'Voice messages are not supported on this device.', true);
+    return;
+  }
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+    var mime = ['audio/webm', 'audio/mp4', 'audio/ogg'].filter(function (m) {
+      return MediaRecorder.isTypeSupported(m);
+    })[0] || '';
+    var rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    var chunks = [];
+    rec.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+    rec.start();
+    _dtVoice = { rec: rec, stream: stream, chunks: chunks, sec: 0 };
+    dtVoiceShowRecording_();
+    _dtVoice.timer = setInterval(function () {
+      if (!_dtVoice) return;
+      _dtVoice.sec++;
+      if (_dtVoice.sec >= DT_VOICE_MAX_SEC) { dtVoiceFinish_(true); return; }
+      dtVoiceShowRecording_();
+    }, 1000);
+  }).catch(function () {
+    dtSetMsg_('dtDetailMsg', 'Allow the microphone to send a voice message.', true);
+  });
+}
+
+function dtVoiceShowRecording_() {
+  var btn = document.getElementById('dtVoiceBtn');
+  var cancel = document.getElementById('dtVoiceCancel');
+  if (btn && _dtVoice) btn.textContent = '⏹ Stop and send (' + dtFmtSec_(_dtVoice.sec) + ')';
+  if (cancel) cancel.style.display = '';
+}
+
+function dtVoiceCancel_() {
+  dtVoiceFinish_(false);
+}
+
+function dtVoiceFinish_(send) {
+  var v = _dtVoice;
+  if (!v) return;
+  _dtVoice = null;
+  clearInterval(v.timer);
+  v.stream.getTracks().forEach(function (tr) { tr.stop(); });
+  var btn = document.getElementById('dtVoiceBtn');
+  if (btn) btn.textContent = '🎤 Voice message';
+  var cancel = document.getElementById('dtVoiceCancel');
+  if (cancel) cancel.style.display = 'none';
+  v.rec.onstop = function () {
+    if (!send || !_dtDetail) return;
+    if (v.sec < 1 || !v.chunks.length) {
+      dtSetMsg_('dtDetailMsg', 'Voice message was too short. Hold it a little longer.', true);
+      return;
+    }
+    var blob = new Blob(v.chunks, { type: v.rec.mimeType || 'audio/webm' });
+    var dept = _dtDetail.dept;
+    dtSetMsg_('dtDetailMsg', 'Sending voice…');
+    empireUploadAudioAsync(blob, 'dtasks/' + dept + '/voice').then(function (url) {
+      if (!url) {
+        dtSetMsg_('dtDetailMsg', (typeof _lastEmpireUploadError !== 'undefined' && _lastEmpireUploadError) || 'Voice upload failed.', true);
+        return;
+      }
+      dtDetailAction_('addDtaskVoice', { url: url, durationSec: v.sec }, 'Voice message sent.');
+    });
+  };
+  if (v.rec.state !== 'inactive') v.rec.stop();
 }
 
 function dtAddNote_() {

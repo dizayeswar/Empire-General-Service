@@ -118,6 +118,9 @@ Deno.serve(async (req) => {
       completeDtask: dtasks.handleCompleteDtask,
       reopenDtask: dtasks.handleReopenDtask,
       cancelDtask: dtasks.handleCancelDtask,
+      closeDtask: dtasks.handleCloseDtask,
+      setDtaskRefundable: dtasks.handleSetDtaskRefundable,
+      addDtaskVoice: dtasks.handleAddDtaskVoice,
       addDtaskNote: dtasks.handleAddDtaskNote,
       addDtaskPhoto: dtasks.handleAddDtaskPhoto,
     };

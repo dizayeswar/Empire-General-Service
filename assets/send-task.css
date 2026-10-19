@@ -27,6 +27,7 @@ textarea { border-radius:var(--radius-sm); width:100%; font-family:var(--app-fon
 .dt-st-open { background:rgba(141,1,93,0.12); color:var(--open-color); }
 .dt-st-in_progress { background:rgba(24,95,165,0.14); color:#185fa5; }
 .dt-st-done, .dt-it-done { background:rgba(29,158,117,0.15); color:#1d9e75; }
+.dt-st-closed { background:rgba(24,95,165,0.14); color:#185fa5; }
 .dt-st-cancelled { background:#e8ebef; color:#8b939e; }
 .dt-it-cant_fix { background:rgba(214,137,16,0.15); color:#d68910; }
 .dt-prio { font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-soft); }
@@ -56,6 +57,20 @@ html[data-theme="dark"] .dt-has-visit { color:#9cc7f2; }
 .dt-card-visit.dt-has-visit { font-weight:700; }
 .dt-phone-dept { padding:8px 12px 0; background:var(--task-bg); }
 .dt-phone-dept select { width:100%; }
+.dt-card-from { font-size:13px; margin-top:4px; color:var(--text-soft); }
+
+.dt-refund-badge { display:inline-block; font-size:11px; font-weight:700; padding:3px 8px; border-radius:999px; background:var(--accent2); color:#fff; }
+.dt-refund-check { display:flex; align-items:center; gap:8px; margin:14px 0 4px; font-weight:700; cursor:pointer; }
+.dt-refund-check input { width:18px; height:18px; accent-color:var(--accent2); }
+.dt-opt, .dt-req { font-size:10px; font-weight:700; text-transform:uppercase; margin-left:4px; }
+.dt-opt { color:var(--text-faint); }
+.dt-req { color:#C5504F; }
+.dt-photo-need { font-size:13px; font-weight:600; margin:0 0 8px; }
+
+.dt-voices { display:flex; flex-direction:column; gap:8px; margin-bottom:8px; }
+.dt-voice { background:var(--panel); border:2px solid var(--card-border); border-radius:12px; padding:8px 10px; }
+.dt-voice-who { font-size:12px; color:var(--text-soft); margin-bottom:4px; }
+.dt-voice audio { width:100%; height:36px; }
 
 .dt-phone-list { padding:10px 12px 40px; display:flex; flex-direction:column; gap:10px; }
 .dt-card { display:block; width:100%; text-align:left; background:var(--panel); color:var(--text); border:2px solid var(--card-border); border-radius:14px; padding:12px 14px; box-shadow:none; }

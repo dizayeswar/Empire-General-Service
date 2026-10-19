@@ -26,9 +26,10 @@ const DTASK_DEPTS: Record<string, DeptCfg> = {
 const DEPT_KEYS = Object.keys(DTASK_DEPTS);
 
 const DTASK_PAGE = "send-task.html";
-const TASK_STATUSES = ["open", "in_progress", "done", "cancelled"];
+const TASK_STATUSES = ["open", "in_progress", "done", "closed", "cancelled"];
 const ITEM_STATUSES = ["pending", "done", "cant_fix"];
-const PHOTO_KINDS = ["before", "after"];
+const PHOTO_KINDS = ["before", "after", "invoice"];
+const VOICE_MAX_SEC = 180;
 const PRIORITIES = ["low", "normal", "high", "urgent"];
 const VIEW_DEDUPE_MS = 10 * 60 * 1000;
 
@@ -111,15 +112,32 @@ function taskToApi(r: Row): Row {
     priority: r.priority || "normal",
     note: r.note || "",
     visitAt: iso(r.visit_at),
+    refundable: !!r.refundable,
     createdBy: r.created_by || "",
     assignedTo: r.assigned_to || "",
     createdAt: iso(r.created_at),
     sentAt: iso(r.sent_at),
     acceptedAt: iso(r.accepted_at),
     completedAt: iso(r.completed_at),
+    closedAt: iso(r.closed_at),
     cancelledAt: iso(r.cancelled_at),
     updatedAt: iso(r.updated_at),
   };
+}
+
+function voiceToApi(r: Row): Row {
+  return {
+    id: r.id,
+    url: r.url || "",
+    durationSec: Number(r.duration_sec) || 0,
+    sentBy: r.sent_by || "",
+    createdAt: iso(r.created_at),
+  };
+}
+
+/** Worker input (notes, photos, voice) is only open while they are working the task. */
+function workerCanInput(task: Row, me: string): boolean {
+  return String(task.assigned_to || "") === me && String(task.status) === "in_progress";
 }
 
 function itemToApi(r: Row): Row {
@@ -369,14 +387,16 @@ export async function handleGetDtask(body: Body, auth: AuthOk) {
     }
   }
 
-  const [items, events, photos] = await Promise.all([
+  const [items, events, photos, voice] = await Promise.all([
     sb().from("dept_task_items").select("*").eq("task_id", id).order("sort_order"),
     sb().from("dept_task_events").select("*").eq("task_id", id).order("created_at"),
     sb().from("dept_task_photos").select("*").eq("task_id", id).order("created_at"),
+    sb().from("dept_task_voice").select("*").eq("task_id", id).order("created_at"),
   ]);
   if (items.error) throw items.error;
   if (events.error) throw events.error;
   if (photos.error) throw photos.error;
+  if (voice.error) throw voice.error;
 
   return {
     ok: true,
@@ -386,6 +406,7 @@ export async function handleGetDtask(body: Body, auth: AuthOk) {
       items: ((items.data || []) as Row[]).map(itemToApi),
       events: ((events.data || []) as Row[]).map(eventToApi),
       photos: ((photos.data || []) as Row[]).map(photoToApi),
+      voice: ((voice.data || []) as Row[]).map(voiceToApi),
     },
   };
 }
@@ -575,6 +596,12 @@ export async function handleCompleteDtask(body: Body, auth: AuthOk) {
   const pending = ((items || []) as Row[]).filter((i) => String(i.status) === "pending").length;
   if (pending) return fail(pending + " issue(s) are still pending. Mark each one done or can't fix.", "bad_state");
 
+  const { data: photoRows, error: pErr } = await sb().from("dept_task_photos").select("kind").eq("task_id", task.id);
+  if (pErr) throw pErr;
+  const kinds = new Set(((photoRows || []) as Row[]).map((p) => String(p.kind)));
+  if (!kinds.has("after")) return fail("Add an after photo before completing the task.", "bad_state");
+  if (task.refundable && !kinds.has("invoice")) return fail("This task is refundable. Add the invoice photo before completing.", "bad_state");
+
   const now = new Date().toISOString();
   const { error } = await sb().from("dept_tasks")
     .update({ status: "done", completed_at: now, updated_at: now })
@@ -595,24 +622,80 @@ export async function handleReopenDtask(body: Body, auth: AuthOk) {
   if (r.err) return r.err;
   const { task, cfg, lv, me } = r;
   if (lv.send !== "write") return fail("Only task senders can reopen tasks.");
-  if (String(task.status) !== "done") return fail("Only finished tasks can be reopened.", "bad_state");
+  const from = String(task.status);
+  if (from !== "done" && from !== "closed") return fail("Only finished tasks can be reopened.", "bad_state");
   const reason = str(body.reason, 1000);
   if (!reason) return fail("Write why the task is being reopened.", "bad_input");
 
   const now = new Date().toISOString();
   const assignee = String(task.assigned_to || "");
   const { error } = await sb().from("dept_tasks")
-    .update({ status: assignee ? "in_progress" : "open", completed_at: null, updated_at: now })
+    .update({ status: assignee ? "in_progress" : "open", completed_at: null, closed_at: null, updated_at: now })
     .eq("id", task.id);
   if (error) throw error;
   const { error: iErr } = await sb().from("dept_task_items")
     .update({ status: "pending", completed_by: "", completed_at: null })
     .eq("task_id", task.id);
   if (iErr) throw iErr;
-  await logEvent(String(task.id), me, "reopened", { from: "done", to: assignee ? "in_progress" : "open", reason });
+  await logEvent(String(task.id), me, "reopened", { from, to: assignee ? "in_progress" : "open", reason });
 
   const recipients = assignee ? [assignee] : await deptWorkers(cfg);
   await notifySafe(recipients, cfg.label + " task " + taskRef(task.dept, task.num) + " reopened", reason, String(task.id));
+  return handleGetDtask({ id: task.id, _skipView: true }, auth);
+}
+
+export async function handleCloseDtask(body: Body, auth: AuthOk) {
+  const r = await resolveTaskForAction(body, auth);
+  if (r.err) return r.err;
+  const { task, lv, me } = r;
+  if (lv.send !== "write") return fail("Only task senders can close tasks.");
+  if (String(task.status) !== "done") return fail("Only finished tasks can be closed.", "bad_state");
+
+  const now = new Date().toISOString();
+  const { error } = await sb().from("dept_tasks")
+    .update({ status: "closed", closed_at: now, updated_at: now })
+    .eq("id", task.id)
+    .eq("status", "done");
+  if (error) throw error;
+  const note = str(body.note, 1000);
+  await logEvent(String(task.id), me, "closed", { from: "done", to: "closed", note: note || undefined });
+  return handleGetDtask({ id: task.id, _skipView: true }, auth);
+}
+
+export async function handleSetDtaskRefundable(body: Body, auth: AuthOk) {
+  const r = await resolveTaskForAction(body, auth);
+  if (r.err) return r.err;
+  const { task, lv, me } = r;
+  if (lv.work !== "write" || !workerCanInput(task, me)) return fail("Only the person working the task can change refundable.");
+  const refundable = body.refundable === true || body.refundable === "true";
+  if (!!task.refundable === refundable) return handleGetDtask({ id: task.id, _skipView: true }, auth);
+
+  const { error } = await sb().from("dept_tasks")
+    .update({ refundable, updated_at: new Date().toISOString() })
+    .eq("id", task.id);
+  if (error) throw error;
+  await logEvent(String(task.id), me, "refundable", { from: !!task.refundable, to: refundable });
+  return handleGetDtask({ id: task.id, _skipView: true }, auth);
+}
+
+export async function handleAddDtaskVoice(body: Body, auth: AuthOk) {
+  const r = await resolveTaskForAction(body, auth);
+  if (r.err) return r.err;
+  const { task, cfg, lv, me } = r;
+  const isSender = lv.send !== "none";
+  if (!isSender && !workerCanInput(task, me)) return fail("Voice messages can only be sent while you are working the task.");
+  const url = str(body.url, 1000);
+  if (!/^https:\/\//i.test(url)) return fail("Voice upload failed. Try again.", "bad_input");
+  const durationSec = Math.max(0, Math.min(VOICE_MAX_SEC, Math.round(Number(body.durationSec) || 0)));
+  const { error } = await sb().from("dept_task_voice").insert({ task_id: task.id, url, duration_sec: durationSec, sent_by: me });
+  if (error) throw error;
+
+  const sender = String(task.created_by || "");
+  const assignee = String(task.assigned_to || "");
+  const to = [sender, assignee].filter((u) => u && u !== me);
+  if (to.length) {
+    await notifySafe(to, "Voice message — " + cfg.label + " task " + taskRef(task.dept, task.num), "From " + prettyName(me), String(task.id));
+  }
   return handleGetDtask({ id: task.id, _skipView: true }, auth);
 }
 
@@ -622,7 +705,7 @@ export async function handleCancelDtask(body: Body, auth: AuthOk) {
   const { task, lv, me } = r;
   if (lv.send !== "write") return fail("Only task senders can cancel tasks.");
   const from = String(task.status);
-  if (from === "done" || from === "cancelled") return fail("This task is already closed.", "bad_state");
+  if (from === "done" || from === "closed" || from === "cancelled") return fail("This task is already finished.", "bad_state");
   const reason = str(body.reason, 1000);
   if (!reason) return fail("Write why the task is being cancelled.", "bad_input");
 
@@ -639,7 +722,7 @@ export async function handleAddDtaskNote(body: Body, auth: AuthOk) {
   const r = await resolveTaskForAction(body, auth);
   if (r.err) return r.err;
   const { task, lv, me } = r;
-  if (lv.send === "none" && String(task.assigned_to || "") !== me) return fail("Only the person who accepted the task can add notes.");
+  if (lv.send === "none" && !workerCanInput(task, me)) return fail("Notes can only be added while you are working the task.");
   const text = str(body.text, 2000);
   if (!text) return fail("Write a note first.", "bad_input");
   await logEvent(String(task.id), me, "note", { text }, str(body.itemId, 80));
@@ -651,7 +734,7 @@ export async function handleAddDtaskPhoto(body: Body, auth: AuthOk) {
   const r = await resolveTaskForAction(body, auth);
   if (r.err) return r.err;
   const { task, lv, me } = r;
-  if (lv.send === "none" && String(task.assigned_to || "") !== me) return fail("Only the person who accepted the task can add photos.");
+  if (lv.send === "none" && !workerCanInput(task, me)) return fail("Photos can only be added while you are working the task.");
   const url = str(body.url, 1000);
   if (!/^https:\/\//i.test(url)) return fail("Photo upload failed. Try again.", "bad_input");
   const kind = PHOTO_KINDS.includes(str(body.kind)) ? str(body.kind) : "after";
