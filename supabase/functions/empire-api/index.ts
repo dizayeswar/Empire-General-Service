@@ -13,6 +13,7 @@ import * as cleaning from "./handlers_cleaning.ts";
 import * as issues from "./handlers_issues.ts";
 import * as jobs from "./handlers_jobs.ts";
 import * as misc from "./handlers_misc.ts";
+import * as asaasLeave from "./handlers_asaas_leave.ts";
 import * as ups from "./handlers_ups.ts";
 import * as minus from "./handlers_minus.ts";
 import * as warehouse from "./handlers_warehouse.ts";
@@ -353,6 +354,9 @@ Deno.serve(async (req) => {
       case "markAsaasReturned": return json(await misc.handleMarkAsaasReturned(body, a));
       case "deleteAsaasItem": return json(await misc.handleDeleteAsaasItem(body));
       case "clearAsaasItems": return json(await misc.handleClearAsaasItems());
+      case "getAsaasLeaveRequests": return json(await asaasLeave.handleGetAsaasLeaveRequests());
+      case "saveAsaasLeaveRequest": return json(await asaasLeave.handleSaveAsaasLeaveRequest(body, a));
+      case "deleteAsaasLeaveRequest": return json(await asaasLeave.handleDeleteAsaasLeaveRequest(body, a));
 
       case "getApplicationChecks": return json(await misc.handleGetApplicationChecks(body));
       case "getApplicationCheckMeta": return json(await misc.handleGetApplicationCheckMeta());
