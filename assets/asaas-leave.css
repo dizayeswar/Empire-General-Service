@@ -1,0 +1,50 @@
+/* A.S.A.A.S Leave Request — matches "ASAAS - HR - Leave request.docx" (A4, measured from Word's own PDF) */
+
+.alv-toolbar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+.alv-stage { overflow:hidden; }
+.alv-scale { transform-origin:0 0; width:210mm; }
+
+.alv-sheet {
+  position:relative; width:210mm; height:297mm; box-sizing:border-box;
+  background:#fff; color:#000; box-shadow:0 2px 14px rgba(0,0,0,.18);
+  font-family:Arial, "Helvetica Neue", Helvetica, sans-serif; font-size:10pt; line-height:1.15;
+}
+.alv-logo { position:absolute; left:0.53mm; top:0; width:41.27mm; height:40.71mm; }
+.alv-title { position:absolute; left:80.9mm; top:31.1mm; font-size:14pt; color:#0D0D0D; white-space:nowrap; }
+
+.alv-block { position:absolute; left:12.62mm; }
+.alv-label { display:flex; align-items:center; padding-left:1.9mm; font-weight:bold; box-sizing:border-box; }
+
+.alv-t { border-collapse:collapse; table-layout:fixed; border:0.5pt solid #000; }
+.alv-t td {
+  border:0.5pt dotted #000; padding:0 1.9mm; vertical-align:middle;
+  box-sizing:border-box; overflow:hidden; white-space:nowrap;
+}
+.alv-t td.c { text-align:center; }
+.alv-t td.top { vertical-align:top; padding-top:1mm; }
+.alv-t td.solid-l { border-left-style:solid; }
+
+.alv-f { outline:none; min-height:1em; white-space:pre-wrap; }
+.alv-f:focus, .alv-date:focus-within, .alv-sel:focus { background:#fff8d6; }
+.alv-comment { height:100%; overflow:hidden; white-space:pre-wrap; }
+
+.alv-date { position:relative; display:block; }
+.alv-date .ph { color:#808080; }
+.alv-date input {
+  position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; border:0; padding:0;
+}
+.alv-sel {
+  appearance:none; -webkit-appearance:none; border:0; background:transparent; font:inherit; color:inherit;
+  padding:0 0 0 4.7mm; margin:0; cursor:pointer; width:100%;
+}
+
+@media print {
+  @page { size:A4; margin:0; }
+  body.alv-printing * { visibility:hidden !important; }
+  body.alv-printing .alv-sheet, body.alv-printing .alv-sheet * { visibility:visible !important; }
+  body.alv-printing .alv-sheet { position:fixed; left:0; top:0; box-shadow:none; }
+  body.alv-printing .alv-scale { transform:none !important; }
+  body.alv-printing .alv-date .ph { visibility:hidden !important; }
+  body.alv-printing .alv-f:focus, body.alv-printing .alv-sel:focus { background:none; }
+  body.alv-printing .alv-sheet * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+}
