@@ -44,3 +44,4 @@
   body.alv-printing .alv-f:focus, body.alv-printing .alv-sel:focus { background:none; }
   body.alv-printing .alv-sheet * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
 }
+.alv-status { min-height:1.2em; margin:-4px 0 10px; font-size:14px; }
