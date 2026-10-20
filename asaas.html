@@ -13,7 +13,7 @@
 <title>A.S.A.A.S — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #asaasOfficeApp{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-09-22-search-pill">
-<link rel="stylesheet" href="assets/asaas-leave.css?v=2026-10-20-saved-requests">
+<link rel="stylesheet" href="assets/asaas-leave.css?v=2026-10-20-approvals">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -45,6 +45,8 @@
       <nav class="side-nav">
         <button class="tab-btn active" id="asaasLeaveTab-form" onclick="asaasLeaveShowTab_('form')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/></svg></span> <span class="lbl">Leave Request</span></button>
         <button class="tab-btn" id="asaasLeaveTab-saved" onclick="asaasLeaveShowTab_('saved')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg></span> <span class="lbl">Saved Requests</span></button>
+        <button class="tab-btn" id="asaasLeaveTab-completed" onclick="asaasLeaveShowTab_('completed')"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.801 10A10 10 0 1 1 17 3.335"/><path d="m9 11 3 3L22 4"/></svg></span> <span class="lbl">Completed Requests</span></button>
+        <button class="tab-btn" id="asaasLeaveTab-sign" onclick="asaasLeaveShowTab_('sign')" style="display:none"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/></svg></span> <span class="lbl">To Sign<span id="asaasLeaveSignCount"></span></span></button>
       </nav>
       <div class="side-actions">
         <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span> <span class="lbl">Theme</span></button>
@@ -58,8 +60,10 @@
           <h2>Leave Request</h2>
           <div class="alv-toolbar">
             <button onclick="asaasLeavePrint_()">Print / Save PDF</button>
-            <button onclick="asaasLeaveClear_()">Clear form</button>
-            <button onclick="asaasLeaveSave_()">Save</button>
+            <button id="asaasLeaveClearBtn" onclick="asaasLeaveClear_()">Clear form</button>
+            <button id="asaasLeaveSaveBtn" onclick="asaasLeaveSave_()">Save</button>
+            <button id="asaasLeaveSignBtn" onclick="asaasLeaveSign_()" style="display:none;color:#fff;background:#1a7f37;border-color:#1a7f37;">Confirm &amp; sign</button>
+            <button id="asaasLeaveRejectBtn" onclick="asaasLeaveReject_()" style="display:none;color:#C5504F;">Reject</button>
           </div>
           <p class="alv-status" id="asaasLeaveStatus" aria-live="polite"></p>
           <div class="alv-stage" id="asaasLeaveStage">
@@ -73,11 +77,32 @@
           <div class="form-row">
             <div class="form-group">
               <label for="asaasLeaveSearch">Search</label>
-              <input type="search" id="asaasLeaveSearch" oninput="asaasLeaveRenderSaved_()" placeholder="Name, type of leave, date…" autocomplete="off">
+              <input type="search" id="asaasLeaveSearch" oninput="asaasLeaveRenderList_('saved')" placeholder="Name, type of leave, date…" autocomplete="off">
             </div>
-            <div class="form-group"><label>&nbsp;</label><button onclick="asaasLeaveReloadSaved_()">Refresh</button></div>
+            <div class="form-group"><label>&nbsp;</label><button onclick="asaasLeaveReload_()">Refresh</button></div>
           </div>
-          <div id="asaasLeaveSavedList"></div>
+          <div class="alv-list" id="asaasLeaveSavedList"></div>
+        </div>
+      </div>
+      <div class="tab-content" id="asaasLeavePane-sign">
+        <div class="form-section">
+          <h2>To Sign</h2>
+          <p style="color:var(--text-soft);margin-top:-6px;">Open a request, check the paper, then Confirm &amp; sign or Reject.</p>
+          <div class="form-row"><div class="form-group"><button onclick="asaasLeaveReload_()">Refresh</button></div></div>
+          <div class="alv-list" id="asaasLeaveSignList"></div>
+        </div>
+      </div>
+      <div class="tab-content" id="asaasLeavePane-completed">
+        <div class="form-section">
+          <h2>Completed Requests</h2>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="asaasLeaveCompletedSearch">Search</label>
+              <input type="search" id="asaasLeaveCompletedSearch" oninput="asaasLeaveRenderList_('completed')" placeholder="Name, type of leave, date…" autocomplete="off">
+            </div>
+            <div class="form-group"><label>&nbsp;</label><button onclick="asaasLeaveReload_()">Refresh</button></div>
+          </div>
+          <div class="alv-list" id="asaasLeaveCompletedList"></div>
         </div>
       </div>
       <footer>Prepared by <strong>Swar Dizayee</strong></footer>
@@ -90,7 +115,7 @@
 <script src="assets/empire-api.js?v=2026-09-15-sec-acc"></script>
 <script src="assets/empire-auth.js?v=2026-09-19-user-autofill"></script>
 <script src="assets/empire-core.js?v=2026-09-15-sec-acc"></script>
-<script src="assets/asaas-leave.js?v=2026-10-20-saved-requests"></script>
+<script src="assets/asaas-leave.js?v=2026-10-20-approvals"></script>
 <script>
 var ASAAS_DEPT = 'asaas';
 
@@ -101,6 +126,7 @@ function asaasEnter_() {
   var wl = document.getElementById('asaasWhoLabel');
   if (wl) wl.textContent = 'Logged in as: ' + (empireGetUser() || '') + (empireGetRole() ? (' (' + empireGetRole() + ')') : '');
   asaasLeaveFit_();
+  asaasLeaveBoot_();
 }
 function asaasHandleLogin_(e) {
   empireAuthLogin(e, ASAAS_DEPT, { onSuccess: asaasEnter_ });

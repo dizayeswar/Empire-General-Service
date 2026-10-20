@@ -1,4 +1,4 @@
-/* A.S.A.A.S Leave Request — fill on screen, print on A4, save to Saved Requests. */
+/* A.S.A.A.S Leave Request — fill, save, confirm → Line Manager → Director e-signatures → Completed Requests. */
 (function () {
   var TW = 56.6929; // twips per mm
   function mm(tw) { return (tw / TW).toFixed(2) + 'mm'; }
@@ -47,7 +47,7 @@
         { h: 10.55, cells: [C('Employee Signature'), C('', { span: 2 })] }
       ]) +
       block(120.9, 'Approvals:', 8.01, [1710, 3240, 1620, 3420], [
-        { h: 11.58, cells: [C('Line Manager', { cls: 'c' }), C(''), C('Director', { cls: 'c' }), C('')] }
+        { h: 11.58, cells: [C('Line Manager', { cls: 'c' }), C('<div class="alv-stamp" data-sig="line"></div>', { cls: 'sig' }), C('Director', { cls: 'c' }), C('<div class="alv-stamp" data-sig="director"></div>', { cls: 'sig' })] }
       ]) +
       block(146.57, 'Leave Entitlement Detail:', 8.78, [1637, 1983, 2173, 1901, 2260], entRows) +
       block(219.93, 'Human Resources Dept. Comment:', 8.78, [4950, 5040], [
@@ -75,9 +75,19 @@
   window.addEventListener('afterprint', function () { document.body.classList.remove('alv-printing'); });
 
   // ---- form data ----
-  var _editingId = '';
-  var _saved = [];
-  var _saving = false;
+  // _cur: the request open on the form ('' id = new form). editable = saved/rejected; signer turn = may confirm & sign.
+  var _cur = { id: '', status: '', editable: true };
+  var _all = [];
+  var _signer = { role: '', hasSignature: false };
+  var _busy = false;
+
+  var STATUS_TEXT = {
+    saved: 'Saved',
+    pending_line: 'Waiting for Line Manager',
+    pending_director: 'Waiting for Director',
+    completed: 'Completed',
+    rejected: 'Rejected'
+  };
 
   function fields() { return document.querySelectorAll('#asaasLeaveSheet [data-k]'); }
   function readForm() {
@@ -95,6 +105,18 @@
       else el.textContent = v || '';
     });
   }
+  function setReadOnly(ro) {
+    var sheet = document.getElementById('asaasLeaveSheet');
+    if (sheet) sheet.classList.toggle('alv-ro', ro);
+    fields().forEach(function (el) {
+      if (el.tagName === 'SELECT') el.tabIndex = ro ? -1 : 0;
+      else el.setAttribute('contenteditable', ro ? 'false' : 'true');
+    });
+  }
+  function setStamp(box, src) {
+    var el = document.querySelector('#asaasLeaveSheet [data-sig="' + box + '"]');
+    if (el) el.innerHTML = src ? '<img src="' + esc(src) + '" alt="">' : '';
+  }
   function isBlank(data) {
     return !Object.keys(data).some(function (k) { return k !== 'leaveType' && String(data[k] || '').trim(); });
   }
@@ -104,37 +126,86 @@
     el.textContent = msg || '';
     el.style.color = isError ? '#C5504F' : '';
   }
-  function editingNote() {
-    var r = _saved.filter(function (x) { return x.id === _editingId; })[0];
-    setStatus(_editingId ? 'Editing saved request' + (r && r.employeeName ? ' — ' + r.employeeName : '') + '. Save updates it; Clear form starts a new one.' : '');
+  function myTurn(r) {
+    return !!r && ((r.status === 'pending_line' && _signer.role === 'line') ||
+      (r.status === 'pending_director' && _signer.role === 'director'));
+  }
+  function show(id, on) { var el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none'; }
+  function syncToolbar() {
+    var turn = myTurn(_cur);
+    show('asaasLeaveSaveBtn', _cur.editable);
+    show('asaasLeaveSignBtn', turn);
+    show('asaasLeaveRejectBtn', turn);
+    var clr = document.getElementById('asaasLeaveClearBtn');
+    if (clr) clr.textContent = _cur.id ? 'New form' : 'Clear form';
+  }
+  function curNote() {
+    var r = _cur;
+    if (!r.id) return '';
+    var who = r.employeeName ? ' — ' + r.employeeName : '';
+    if (r.status === 'rejected') return 'Rejected by ' + (r.rejectedBy || '') + ': ' + (r.rejectReason || '') + '. Fix it, Save, then Confirm again from Saved Requests.';
+    if (r.editable) return 'Editing saved request' + who + '. Save updates it.';
+    if (myTurn(r)) return (STATUS_TEXT[r.status] || '') + who + '. Check the paper, then Confirm & sign or Reject.';
+    return (STATUS_TEXT[r.status] || '') + who + ' — read only.';
   }
 
-  window.asaasLeaveClear_ = function () {
-    if (!confirm('Clear everything on this form?')) return;
-    _editingId = '';
+  function newForm() {
+    _cur = { id: '', status: '', editable: true };
     render();
-    editingNote();
+    setStatus('');
+    syncToolbar();
+  }
+  window.asaasLeaveClear_ = function () {
+    if (_cur.editable && !isBlank(readForm()) && !confirm(_cur.id ? 'Start a new empty form?' : 'Clear everything on this form?')) return;
+    newForm();
   };
+
+  function api(body, tries) {
+    body.token = empireGetToken();
+    return fetchJSONRetry(body, tries || 1, 30000).then(function (d) {
+      if (!d || !d.ok) throw new Error((d && (d.message || d.error)) || 'Something went wrong.');
+      return d;
+    });
+  }
 
   window.asaasLeaveSave_ = function () {
-    if (_saving) return;
+    if (_busy || !_cur.editable) return;
     var data = readForm();
     if (isBlank(data)) { setStatus('The form is empty — fill it before saving.', true); return; }
-    _saving = true;
+    _busy = true;
     setStatus('Saving…');
-    fetchJSONRetry({ action: 'saveAsaasLeaveRequest', token: empireGetToken(), id: _editingId, form: data }, 1, 30000)
-      .then(function (d) {
-        if (!d || !d.ok) throw new Error((d && (d.message || d.error)) || 'Save failed.');
-        _editingId = '';
-        render();
-        setStatus('');
-        asaasLeaveShowTab_('saved');
-      })
-      .catch(function (e) { setStatus('Not saved: ' + (e.message || e), true); })
-      .then(function () { _saving = false; });
+    api({ action: 'saveAsaasLeaveRequest', id: _cur.id, form: data })
+      .then(function () { newForm(); asaasLeaveShowTab_('saved'); })
+      .catch(function (e) { setStatus('Not saved: ' + e.message, true); })
+      .then(function () { _busy = false; });
   };
 
-  // ---- Saved Requests ----
+  window.asaasLeaveSign_ = function () {
+    if (_busy || !myTurn(_cur)) return;
+    if (!_signer.hasSignature) { setStatus('Your account has no e-signature yet. Ask the admin to upload it in Admin → Users.', true); return; }
+    if (!confirm('Confirm this leave request and put your e-signature on it?')) return;
+    _busy = true;
+    setStatus('Signing…');
+    api({ action: 'signAsaasLeaveRequest', id: _cur.id })
+      .then(function (d) { newForm(); asaasLeaveShowTab_(d.status === 'completed' ? 'completed' : 'sign'); })
+      .catch(function (e) { setStatus('Not signed: ' + e.message, true); })
+      .then(function () { _busy = false; });
+  };
+
+  window.asaasLeaveReject_ = function () {
+    if (_busy || !myTurn(_cur)) return;
+    var reason = prompt('Why are you rejecting this request?');
+    if (reason == null) return;
+    if (!reason.trim()) { setStatus('Write a reason to reject.', true); return; }
+    _busy = true;
+    setStatus('Rejecting…');
+    api({ action: 'rejectAsaasLeaveRequest', id: _cur.id, reason: reason.trim() })
+      .then(function () { newForm(); asaasLeaveShowTab_('sign'); })
+      .catch(function (e) { setStatus('Not rejected: ' + e.message, true); })
+      .then(function () { _busy = false; });
+  };
+
+  // ---- lists ----
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
@@ -146,75 +217,146 @@
     return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' +
       d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   }
-  function renderSaved() {
-    var host = document.getElementById('asaasLeaveSavedList');
-    if (!host) return;
-    var q = String((document.getElementById('asaasLeaveSearch') || {}).value || '').trim().toLowerCase();
-    var rows = _saved.filter(function (r) {
-      return !q || [r.employeeName, r.leaveType, r.startDate, r.endDate, r.createdBy].join(' ').toLowerCase().indexOf(q) !== -1;
-    });
-    if (!_saved.length) { host.innerHTML = empireEmptyHtml('No saved requests yet', 'Fill a Leave Request and press Save.'); return; }
-    if (!rows.length) { host.innerHTML = empireEmptyHtml('No match', 'Try another name or date.'); return; }
-    host.innerHTML = '<div style="overflow-x:auto"><table><thead><tr><th>Name</th><th>Type of Leave</th><th>Start</th><th>End</th><th>Saved by</th><th>Saved</th><th></th></tr></thead><tbody>' +
-      rows.map(function (r) {
-        return '<tr><td>' + esc(r.employeeName || '—') + '</td><td>' + esc(r.leaveType) + '</td><td>' + esc(r.startDate) + '</td><td>' + esc(r.endDate) +
-          '</td><td>' + esc(r.updatedBy || r.createdBy) + '</td><td>' + esc(when(r.updatedAt || r.createdAt)) + '</td>' +
-          '<td style="white-space:nowrap"><button data-open="' + esc(r.id) + '">Open</button> ' +
-          '<button data-del="' + esc(r.id) + '" style="color:#C5504F">Delete</button></td></tr>';
-      }).join('') + '</tbody></table></div>';
+  function find(id) { return _all.filter(function (x) { return x.id === id; })[0]; }
+  function statusCell(r) {
+    var t = esc(STATUS_TEXT[r.status] || r.status);
+    if (r.status === 'rejected') return '<span style="color:#C5504F">' + t + '</span><br><small>' + esc(r.rejectReason) + '</small>';
+    return t;
   }
-  function loadSaved() {
-    var host = document.getElementById('asaasLeaveSavedList');
-    if (host && !_saved.length) host.innerHTML = empireLoadingHtml('Loading saved requests…');
-    return fetchJSONRetry({ action: 'getAsaasLeaveRequests', token: empireGetToken() }, 2, 30000)
-      .then(function (d) {
-        if (!d || !d.ok) throw new Error((d && (d.message || d.error)) || 'Could not load.');
-        _saved = d.requests || [];
-        renderSaved();
-      })
-      .catch(function (e) { if (host) host.innerHTML = empireErrorHtml('Could not load saved requests: ' + (e.message || e)); });
+  function btn(attr, id, label, color) {
+    return '<button ' + attr + '="' + esc(id) + '"' + (color ? ' style="color:' + color + '"' : '') + '>' + label + '</button> ';
   }
-  window.asaasLeaveRenderSaved_ = renderSaved;
-  window.asaasLeaveReloadSaved_ = loadSaved;
 
-  function openSaved(id) {
-    var r = _saved.filter(function (x) { return x.id === id; })[0];
-    if (!r) return;
-    _editingId = id;
-    render();
-    fillForm(r.form);
-    asaasLeaveShowTab_('form');
-    editingNote();
+  var LISTS = {
+    saved: {
+      host: 'asaasLeaveSavedList', search: 'asaasLeaveSearch',
+      pick: function (r) { return r.status !== 'completed'; },
+      empty: ['No saved requests yet', 'Fill a Leave Request and press Save.'],
+      head: '<th>Name</th><th>Type of Leave</th><th>Start</th><th>End</th><th>Status</th><th>Saved</th><th></th>',
+      row: function (r) {
+        var canEdit = r.status === 'saved' || r.status === 'rejected';
+        return '<td>' + esc(r.employeeName || '—') + '</td><td>' + esc(r.leaveType) + '</td><td>' + esc(r.startDate) + '</td><td>' + esc(r.endDate) +
+          '</td><td>' + statusCell(r) + '</td><td>' + esc(when(r.updatedAt || r.createdAt)) + '</td><td style="white-space:nowrap">' +
+          btn('data-open', r.id, 'Open') + (canEdit ? btn('data-confirm', r.id, 'Confirm', '#1a7f37') + btn('data-del', r.id, 'Delete', '#C5504F') : '') + '</td>';
+      }
+    },
+    sign: {
+      host: 'asaasLeaveSignList',
+      pick: function (r) { return myTurn(r); },
+      empty: ['Nothing to sign', 'Requests waiting for your e-signature show here.'],
+      head: '<th>Name</th><th>Type of Leave</th><th>Start</th><th>End</th><th>Confirmed by</th><th>Line Manager</th><th></th>',
+      row: function (r) {
+        return '<td>' + esc(r.employeeName || '—') + '</td><td>' + esc(r.leaveType) + '</td><td>' + esc(r.startDate) + '</td><td>' + esc(r.endDate) +
+          '</td><td>' + esc(r.confirmedBy) + '<br><small>' + esc(when(r.confirmedAt)) + '</small></td><td>' +
+          (r.lineSignedBy ? esc(r.lineSignedBy) + '<br><small>' + esc(when(r.lineSignedAt)) + '</small>' : '—') +
+          '</td><td style="white-space:nowrap">' + btn('data-open', r.id, 'Open') + '</td>';
+      }
+    },
+    completed: {
+      host: 'asaasLeaveCompletedList', search: 'asaasLeaveCompletedSearch',
+      pick: function (r) { return r.status === 'completed'; },
+      empty: ['No completed requests yet', 'Papers signed by the Line Manager and the Director show here.'],
+      head: '<th>Name</th><th>Type of Leave</th><th>Start</th><th>End</th><th>Line Manager</th><th>Director</th><th></th>',
+      row: function (r) {
+        return '<td>' + esc(r.employeeName || '—') + '</td><td>' + esc(r.leaveType) + '</td><td>' + esc(r.startDate) + '</td><td>' + esc(r.endDate) +
+          '</td><td>' + esc(r.lineSignedBy) + '<br><small>' + esc(when(r.lineSignedAt)) + '</small></td><td>' +
+          esc(r.directorSignedBy) + '<br><small>' + esc(when(r.directorSignedAt)) + '</small></td><td style="white-space:nowrap">' +
+          btn('data-open', r.id, 'Open') + '</td>';
+      }
+    }
+  };
+
+  function renderList(name) {
+    var L = LISTS[name];
+    var host = document.getElementById(L.host);
+    if (!host) return;
+    var mine = _all.filter(L.pick);
+    var q = L.search ? String((document.getElementById(L.search) || {}).value || '').trim().toLowerCase() : '';
+    var rows = mine.filter(function (r) {
+      return !q || [r.employeeName, r.leaveType, r.startDate, r.endDate, r.createdBy, STATUS_TEXT[r.status]].join(' ').toLowerCase().indexOf(q) !== -1;
+    });
+    if (!mine.length) { host.innerHTML = empireEmptyHtml(L.empty[0], L.empty[1]); return; }
+    if (!rows.length) { host.innerHTML = empireEmptyHtml('No match', 'Try another name or date.'); return; }
+    host.innerHTML = '<div style="overflow-x:auto"><table><thead><tr>' + L.head + '</tr></thead><tbody>' +
+      rows.map(function (r) { return '<tr>' + L.row(r) + '</tr>'; }).join('') + '</tbody></table></div>';
   }
-  function deleteSaved(id) {
-    var r = _saved.filter(function (x) { return x.id === id; })[0];
-    if (!r || !confirm('Delete the saved request for ' + (r.employeeName || 'this employee') + '?')) return;
-    fetchJSONRetry({ action: 'deleteAsaasLeaveRequest', token: empireGetToken(), id: id }, 1, 30000)
+  function renderAll() {
+    Object.keys(LISTS).forEach(renderList);
+    var n = _all.filter(myTurn).length;
+    show('asaasLeaveTab-sign', !!_signer.role);
+    var badge = document.getElementById('asaasLeaveSignCount');
+    if (badge) badge.textContent = n ? ' (' + n + ')' : '';
+  }
+  function loadAll(name) {
+    var host = name && LISTS[name] && document.getElementById(LISTS[name].host);
+    if (host && !_all.length) host.innerHTML = empireLoadingHtml('Loading…');
+    return api({ action: 'getAsaasLeaveRequests' }, 2)
       .then(function (d) {
-        if (!d || !d.ok) throw new Error((d && (d.message || d.error)) || 'Delete failed.');
-        if (_editingId === id) { _editingId = ''; editingNote(); }
-        _saved = _saved.filter(function (x) { return x.id !== id; });
-        renderSaved();
+        _all = d.requests || [];
+        _signer = d.signer || { role: '', hasSignature: false };
+        renderAll();
       })
-      .catch(function (e) { alert('Not deleted: ' + (e.message || e)); });
+      .catch(function (e) { if (host) host.innerHTML = empireErrorHtml('Could not load: ' + e.message); });
+  }
+  window.asaasLeaveRenderList_ = renderList;
+  window.asaasLeaveReload_ = function () { loadAll(); };
+
+  function openRequest(id) {
+    setStatus('Opening…');
+    asaasLeaveShowTab_('form', true);
+    api({ action: 'getAsaasLeaveRequest', id: id }, 2)
+      .then(function (d) {
+        var r = d.request;
+        _cur = r;
+        _cur.editable = r.status === 'saved' || r.status === 'rejected';
+        render();
+        fillForm(r.form);
+        setStamp('line', r.lineSignature);
+        setStamp('director', r.directorSignature);
+        setReadOnly(!_cur.editable);
+        syncToolbar();
+        setStatus(curNote(), r.status === 'rejected');
+      })
+      .catch(function (e) { setStatus('Could not open: ' + e.message, true); });
+  }
+  function confirmRequest(id) {
+    var r = find(id);
+    if (!r || !confirm('Confirm the request for ' + (r.employeeName || 'this employee') + ' and send it to the Line Manager?\nIt can no longer be changed after this.')) return;
+    api({ action: 'confirmAsaasLeaveRequest', id: id })
+      .then(function () { if (_cur.id === id) newForm(); return loadAll(); })
+      .catch(function (e) { alert('Not confirmed: ' + e.message); });
+  }
+  function deleteRequest(id) {
+    var r = find(id);
+    if (!r || !confirm('Delete the request for ' + (r.employeeName || 'this employee') + '?')) return;
+    api({ action: 'deleteAsaasLeaveRequest', id: id })
+      .then(function () {
+        if (_cur.id === id) newForm();
+        _all = _all.filter(function (x) { return x.id !== id; });
+        renderAll();
+      })
+      .catch(function (e) { alert('Not deleted: ' + e.message); });
   }
   document.addEventListener('click', function (e) {
-    var b = e.target.closest && e.target.closest('#asaasLeaveSavedList button');
+    var b = e.target.closest && e.target.closest('.alv-list button');
     if (!b) return;
-    if (b.hasAttribute('data-open')) openSaved(b.getAttribute('data-open'));
-    if (b.hasAttribute('data-del')) deleteSaved(b.getAttribute('data-del'));
+    if (b.hasAttribute('data-open')) openRequest(b.getAttribute('data-open'));
+    if (b.hasAttribute('data-confirm')) confirmRequest(b.getAttribute('data-confirm'));
+    if (b.hasAttribute('data-del')) deleteRequest(b.getAttribute('data-del'));
   });
 
-  window.asaasLeaveShowTab_ = function (tab) {
-    ['form', 'saved'].forEach(function (t) {
+  var TABS = ['form', 'saved', 'sign', 'completed'];
+  window.asaasLeaveShowTab_ = function (tab, noLoad) {
+    TABS.forEach(function (t) {
       var pane = document.getElementById('asaasLeavePane-' + t);
-      var btn = document.getElementById('asaasLeaveTab-' + t);
+      var b = document.getElementById('asaasLeaveTab-' + t);
       if (pane) pane.classList.toggle('active', t === tab);
-      if (btn) btn.classList.toggle('active', t === tab);
+      if (b) b.classList.toggle('active', t === tab);
     });
     if (tab === 'form') fit();
-    if (tab === 'saved') loadSaved();
+    else if (!noLoad) loadAll(tab);
   };
+  window.asaasLeaveBoot_ = function () { loadAll(); };
 
   // An emptied box keeps a <br>; clear it so the grey date hint comes back.
   document.addEventListener('input', function (e) {
@@ -226,6 +368,7 @@
     var sheet = document.getElementById('asaasLeaveSheet');
     if (!sheet) return;
     sheet.innerHTML = sheetHtml();
+    sheet.classList.remove('alv-ro');
     fit();
   }
 

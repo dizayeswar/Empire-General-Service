@@ -327,7 +327,11 @@ Deno.serve(async (req) => {
       case "markAsaasReturned": return json(await misc.handleMarkAsaasReturned(body, a));
       case "deleteAsaasItem": return json(await misc.handleDeleteAsaasItem(body));
       case "clearAsaasItems": return json(await misc.handleClearAsaasItems());
-      case "getAsaasLeaveRequests": return json(await asaasLeave.handleGetAsaasLeaveRequests());
+      case "getAsaasLeaveRequests": return json(await asaasLeave.handleGetAsaasLeaveRequests(body, a));
+      case "getAsaasLeaveRequest": return json(await asaasLeave.handleGetAsaasLeaveRequest(body));
+      case "confirmAsaasLeaveRequest": return json(await asaasLeave.handleConfirmAsaasLeaveRequest(body, a));
+      case "signAsaasLeaveRequest": return json(await asaasLeave.handleSignAsaasLeaveRequest(body, a));
+      case "rejectAsaasLeaveRequest": return json(await asaasLeave.handleRejectAsaasLeaveRequest(body, a));
       case "saveAsaasLeaveRequest": return json(await asaasLeave.handleSaveAsaasLeaveRequest(body, a));
       case "deleteAsaasLeaveRequest": return json(await asaasLeave.handleDeleteAsaasLeaveRequest(body, a));
 

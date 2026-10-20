@@ -45,3 +45,13 @@
   body.alv-printing .alv-sheet * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
 }
 .alv-status { min-height:1.2em; margin:-4px 0 10px; font-size:14px; }
+
+/* Approvals e-signature stamps — same rules as HR-F-06: full box width, 56pt tall, never cropped, no name. */
+.alv-t td.sig { position:relative; overflow:visible; padding:0; }
+.alv-stamp img {
+  position:absolute; left:0; top:50%; transform:translateY(-50%);
+  width:100%; height:56pt; object-fit:contain; pointer-events:none;
+}
+.alv-ro .alv-sel { pointer-events:none; }
+.alv-ro .alv-f:focus { background:none; }
+.alv-list small { color:var(--text-soft); }
