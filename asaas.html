@@ -13,6 +13,7 @@
 <title>A.S.A.A.S — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #asaasOfficeApp{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-09-22-search-pill">
+<link rel="stylesheet" href="assets/asaas-leave.css?v=2026-10-20-asaas-leave">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -41,7 +42,9 @@
         <h1>🛡️ A.S.A.A.S</h1>
       </div>
       <p id="asaasWhoLabel"></p>
-      <nav class="side-nav"></nav>
+      <nav class="side-nav">
+        <button class="tab-btn active"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/></svg></span> <span class="lbl">Leave Request</span></button>
+      </nav>
       <div class="side-actions">
         <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span> <span class="lbl">Theme</span></button>
         <button onclick="location.href='index.html'"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg></span> <span class="lbl">Hub</span></button>
@@ -51,8 +54,14 @@
     <div class="main-area">
       <div class="tab-content active">
         <div class="form-section">
-          <h2>A.S.A.A.S</h2>
-          <p style="color:var(--text-soft);">Nothing here yet.</p>
+          <h2>Leave Request</h2>
+          <div class="alv-toolbar">
+            <button onclick="asaasLeavePrint_()">Print / Save PDF</button>
+            <button onclick="asaasLeaveClear_()">Clear form</button>
+          </div>
+          <div class="alv-stage" id="asaasLeaveStage">
+            <div class="alv-scale" id="asaasLeaveScale"><div class="alv-sheet" id="asaasLeaveSheet"></div></div>
+          </div>
         </div>
       </div>
       <footer>Prepared by <strong>Swar Dizayee</strong></footer>
@@ -65,6 +74,7 @@
 <script src="assets/empire-api.js?v=2026-09-15-sec-acc"></script>
 <script src="assets/empire-auth.js?v=2026-09-19-user-autofill"></script>
 <script src="assets/empire-core.js?v=2026-09-15-sec-acc"></script>
+<script src="assets/asaas-leave.js?v=2026-10-20-asaas-leave"></script>
 <script>
 var ASAAS_DEPT = 'asaas';
 
@@ -74,6 +84,7 @@ function asaasEnter_() {
   document.getElementById('asaasOfficeApp').classList.add('show');
   var wl = document.getElementById('asaasWhoLabel');
   if (wl) wl.textContent = 'Logged in as: ' + (empireGetUser() || '') + (empireGetRole() ? (' (' + empireGetRole() + ')') : '');
+  asaasLeaveFit_();
 }
 function asaasHandleLogin_(e) {
   empireAuthLogin(e, ASAAS_DEPT, { onSuccess: asaasEnter_ });
