@@ -25,14 +25,10 @@
 .alv-t td.solid-l { border-left-style:solid; }
 
 .alv-f { outline:none; min-height:1em; white-space:pre-wrap; }
-.alv-f:focus, .alv-date:focus-within, .alv-sel:focus { background:#fff8d6; }
+.alv-f:focus, .alv-sel:focus { background:#fff8d6; }
+.alv-f[data-ph]:empty::before { content:attr(data-ph); color:#808080; }
 .alv-comment { height:100%; overflow:hidden; white-space:pre-wrap; }
 
-.alv-date { position:relative; display:block; }
-.alv-date .ph { color:#808080; }
-.alv-date input {
-  position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; border:0; padding:0;
-}
 .alv-sel {
   appearance:none; -webkit-appearance:none; border:0; background:transparent; font:inherit; color:inherit;
   padding:0 0 0 4.7mm; margin:0; cursor:pointer; width:100%;
@@ -44,7 +40,7 @@
   body.alv-printing .alv-sheet, body.alv-printing .alv-sheet * { visibility:visible !important; }
   body.alv-printing .alv-sheet { position:fixed; left:0; top:0; box-shadow:none; }
   body.alv-printing .alv-scale { transform:none !important; }
-  body.alv-printing .alv-date .ph { visibility:hidden !important; }
+  body.alv-printing .alv-f[data-ph]:empty::before { content:none; }
   body.alv-printing .alv-f:focus, body.alv-printing .alv-sel:focus { background:none; }
   body.alv-printing .alv-sheet * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
 }

@@ -4,11 +4,9 @@
   function mm(tw) { return (tw / TW).toFixed(2) + 'mm'; }
   function f(cls) { return '<div class="alv-f' + (cls ? ' ' + cls : '') + '" contenteditable="true"></div>'; }
   function date(id) {
-    return '<label class="alv-date"><span class="ph" id="' + id + 'Txt">Click or tap to enter a date.</span>' +
-      '<input type="date" id="' + id + '" onchange="asaasLeaveDate_(this)"></label>';
+    return '<div class="alv-f" id="' + id + '" contenteditable="true" data-ph="Click or tap to enter a date."></div>';
   }
   var LEAVE_TYPES = ['Annual leave', 'Sick Leave', 'Unpaid Leave', 'Bereavement Leave', 'Marriage leave', 'Other Leave'];
-  var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   // One block = label row + bordered table. Tops and row heights in mm, measured from Word's PDF.
   function block(topMm, label, labelMm, gridTw, rows, labelDropMm) {
@@ -55,25 +53,6 @@
         { h: 9.06, cells: [C('Signature'), C('Date', { cls: 'solid-l' })] }
       ], -2.4);
   }
-
-  function fmtDate(v) {
-    var p = String(v || '').split('-');
-    if (p.length !== 3) return '';
-    return p[2] + '-' + MONTHS[Number(p[1]) - 1] + '-' + p[0].slice(2);
-  }
-  function updateDays() {
-    var s = document.getElementById('asaasLeaveStart').value;
-    var e = document.getElementById('asaasLeaveEnd').value;
-    if (!s || !e) return;
-    var n = Math.round((Date.parse(e) - Date.parse(s)) / 86400000) + 1;
-    if (n > 0) document.getElementById('asaasLeaveDays').textContent = String(n);
-  }
-  window.asaasLeaveDate_ = function (input) {
-    var txt = document.getElementById(input.id + 'Txt');
-    txt.textContent = input.value ? fmtDate(input.value) : 'Click or tap to enter a date.';
-    txt.classList.toggle('ph', !input.value);
-    updateDays();
-  };
 
   function fit() {
     var stage = document.getElementById('asaasLeaveStage');
