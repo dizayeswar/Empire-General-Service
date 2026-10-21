@@ -137,7 +137,7 @@
   function syncToolbar() {
     var turn = myTurn(_cur);
     show('asaasLeaveSaveBtn', _hr && _cur.editable);
-    show('asaasLeaveClearBtn', _hr || !!_cur.id);
+    show('asaasLeaveClearBtn', _hr);
     show('asaasLeaveSignBtn', turn);
     show('asaasLeaveRejectBtn', turn);
     var clr = document.getElementById('asaasLeaveClearBtn');
@@ -315,6 +315,7 @@
     show('asaasLeaveTab-sign', !!(_signer.roles || []).length);
     show('asaasLeaveTab-form', _hr);
     show('asaasLeaveTab-saved', _hr);
+    show('asaasLeaveTab-completed', true);
     var badge = document.getElementById('asaasLeaveSignCount');
     if (badge) badge.textContent = n ? ' (' + n + ')' : '';
   }
@@ -435,7 +436,7 @@
     if (b.hasAttribute('data-del')) deleteRequest(b.getAttribute('data-del'));
   });
 
-  var TABS = ['form', 'saved', 'sign', 'completed'];
+  var TABS = ['loading', 'form', 'saved', 'sign', 'completed'];
   window.asaasLeaveShowTab_ = function (tab, noLoad) {
     TABS.forEach(function (t) {
       var pane = document.getElementById('asaasLeavePane-' + t);
@@ -446,13 +447,15 @@
     if (tab === 'form') fit();
     else if (!noLoad) loadAll(tab);
   };
-  // Line Managers and Directors land on To Sign; people without HR never see the empty form.
+  // The page shows "Loading…" until the server says who this is, then only that person's menu:
+  // HR lands on the form; Line Managers and Directors on To Sign; anyone else on Completed Requests.
   window.asaasLeaveBoot_ = function () {
     loadAll().then(function () {
+      renderAll();
       syncToolbar();
-      var formOpen = document.getElementById('asaasLeavePane-form');
-      if (_hr || !formOpen || !formOpen.classList.contains('active')) return;
-      asaasLeaveShowTab_((_signer.roles || []).length ? 'sign' : 'completed', true);
+      var loading = document.getElementById('asaasLeavePane-loading');
+      if (!loading || !loading.classList.contains('active')) return;
+      asaasLeaveShowTab_(_hr ? 'form' : ((_signer.roles || []).length ? 'sign' : 'completed'), true);
     });
   };
 
