@@ -156,8 +156,9 @@
     syncToolbar();
   }
   window.asaasLeaveClear_ = function () {
-    if (_cur.editable && !isBlank(readForm()) && !confirm(_cur.id ? 'Start a new empty form?' : 'Clear everything on this form?')) return;
-    newForm();
+    if (!_cur.editable || isBlank(readForm())) { newForm(); return; }
+    uiConfirm(_cur.id ? 'Start a new empty form?' : 'Clear everything on this form?', { okLabel: _cur.id ? 'New form' : 'Clear', danger: !_cur.id })
+      .then(function (ok) { if (ok) newForm(); });
   };
 
   function api(body, tries) {
@@ -183,26 +184,29 @@
   window.asaasLeaveSign_ = function () {
     if (_busy || !myTurn(_cur)) return;
     if (!_signer.hasSignature) { setStatus('Your account has no e-signature yet. Ask the admin to upload it in Admin → Users.', true); return; }
-    if (!confirm('Confirm this leave request and put your e-signature on it?')) return;
-    _busy = true;
-    setStatus('Signing…');
-    api({ action: 'signAsaasLeaveRequest', id: _cur.id })
-      .then(function (d) { newForm(); asaasLeaveShowTab_(d.status === 'completed' ? 'completed' : 'sign'); })
-      .catch(function (e) { setStatus('Not signed: ' + e.message, true); })
-      .then(function () { _busy = false; });
+    uiConfirm('Confirm this leave request and put your e-signature on it?', { okLabel: 'Confirm & sign' }).then(function (ok) {
+      if (!ok) return;
+      _busy = true;
+      setStatus('Signing…');
+      api({ action: 'signAsaasLeaveRequest', id: _cur.id })
+        .then(function (d) { newForm(); asaasLeaveShowTab_(d.status === 'completed' ? 'completed' : 'sign'); })
+        .catch(function (e) { setStatus('Not signed: ' + e.message, true); })
+        .then(function () { _busy = false; });
+    });
   };
 
   window.asaasLeaveReject_ = function () {
     if (_busy || !myTurn(_cur)) return;
-    var reason = prompt('Why are you rejecting this request?');
-    if (reason == null) return;
-    if (!reason.trim()) { setStatus('Write a reason to reject.', true); return; }
-    _busy = true;
-    setStatus('Rejecting…');
-    api({ action: 'rejectAsaasLeaveRequest', id: _cur.id, reason: reason.trim() })
-      .then(function () { newForm(); asaasLeaveShowTab_('sign'); })
-      .catch(function (e) { setStatus('Not rejected: ' + e.message, true); })
-      .then(function () { _busy = false; });
+    uiPrompt('Why are you rejecting this request?', '', { placeholder: 'Reason', okLabel: 'Reject' }).then(function (reason) {
+      if (reason == null) return;
+      if (!reason.trim()) { setStatus('Write a reason to reject.', true); return; }
+      _busy = true;
+      setStatus('Rejecting…');
+      api({ action: 'rejectAsaasLeaveRequest', id: _cur.id, reason: reason.trim() })
+        .then(function () { newForm(); asaasLeaveShowTab_('sign'); })
+        .catch(function (e) { setStatus('Not rejected: ' + e.message, true); })
+        .then(function () { _busy = false; });
+    });
   };
 
   // ---- lists ----
@@ -321,21 +325,29 @@
   }
   function confirmRequest(id) {
     var r = find(id);
-    if (!r || !confirm('Confirm the request for ' + (r.employeeName || 'this employee') + ' and send it to the Line Manager?\nIt can no longer be changed after this.')) return;
-    api({ action: 'confirmAsaasLeaveRequest', id: id })
-      .then(function () { if (_cur.id === id) newForm(); return loadAll(); })
-      .catch(function (e) { alert('Not confirmed: ' + e.message); });
+    if (!r) return;
+    uiConfirm('Confirm the request for ' + (r.employeeName || 'this employee') + ' and send it to the Line Manager? It can no longer be changed after this.', { okLabel: 'Confirm' })
+      .then(function (ok) {
+        if (!ok) return;
+        return api({ action: 'confirmAsaasLeaveRequest', id: id })
+          .then(function () { if (_cur.id === id) newForm(); return loadAll(); })
+          .catch(function (e) { uiAlert('Not confirmed: ' + e.message); });
+      });
   }
   function deleteRequest(id) {
     var r = find(id);
-    if (!r || !confirm('Delete the request for ' + (r.employeeName || 'this employee') + '?')) return;
-    api({ action: 'deleteAsaasLeaveRequest', id: id })
-      .then(function () {
-        if (_cur.id === id) newForm();
-        _all = _all.filter(function (x) { return x.id !== id; });
-        renderAll();
-      })
-      .catch(function (e) { alert('Not deleted: ' + e.message); });
+    if (!r) return;
+    uiConfirm('Delete the request for ' + (r.employeeName || 'this employee') + '?', { okLabel: 'Delete', danger: true })
+      .then(function (ok) {
+        if (!ok) return;
+        return api({ action: 'deleteAsaasLeaveRequest', id: id })
+          .then(function () {
+            if (_cur.id === id) newForm();
+            _all = _all.filter(function (x) { return x.id !== id; });
+            renderAll();
+          })
+          .catch(function (e) { uiAlert('Not deleted: ' + e.message); });
+      });
   }
   document.addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('.alv-list button');
