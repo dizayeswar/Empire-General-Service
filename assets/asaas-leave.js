@@ -239,6 +239,9 @@
     saved: {
       host: 'asaasLeaveSavedList', search: 'asaasLeaveSearch',
       pick: function (r) { return r.status !== 'completed'; },
+      selectable: function (r) { return _hr && (r.status === 'saved' || r.status === 'rejected'); },
+      bulkLabel: 'Confirm selected',
+      bulk: function (ids) { confirmMany(ids); },
       empty: ['No saved requests yet', 'Fill a Leave Request and press Save.'],
       head: '<th>Name</th><th>Type of Leave</th><th>Start</th><th>End</th><th>Status</th><th>Saved</th><th></th>',
       row: function (r) {
@@ -251,6 +254,9 @@
     sign: {
       host: 'asaasLeaveSignList',
       pick: function (r) { return myTurn(r); },
+      selectable: function (r) { return myTurn(r); },
+      bulkLabel: 'Confirm & sign selected',
+      bulk: function (ids) { signMany(ids); },
       empty: ['Nothing to sign', 'Requests waiting for your e-signature show here.'],
       head: '<th>Name</th><th>Type of Leave</th><th>Start</th><th>End</th><th>Confirmed by</th><th>Line Manager</th><th></th>',
       row: function (r) {
@@ -285,8 +291,23 @@
     });
     if (!mine.length) { host.innerHTML = empireEmptyHtml(L.empty[0], L.empty[1]); return; }
     if (!rows.length) { host.innerHTML = empireEmptyHtml('No match', 'Try another name or date.'); return; }
-    host.innerHTML = '<div style="overflow-x:auto"><table><thead><tr>' + L.head + '</tr></thead><tbody>' +
-      rows.map(function (r) { return '<tr>' + L.row(r) + '</tr>'; }).join('') + '</tbody></table></div>';
+    var sel = _sel[name] || (_sel[name] = {});
+    var ticks = L.selectable ? rows.filter(L.selectable) : [];
+    Object.keys(sel).forEach(function (id) { if (!ticks.some(function (r) { return r.id === id; })) delete sel[id]; });
+    var n = Object.keys(sel).length;
+    var allOn = ticks.length && n === ticks.length;
+    var bar = ticks.length
+      ? '<div class="alv-bulk"><label><input type="checkbox" data-selall="' + name + '"' + (allOn ? ' checked' : '') + '> Select all</label>' +
+        '<button data-bulk="' + name + '"' + (n ? '' : ' disabled') + ' style="color:#fff;background:#1a7f37;border-color:#1a7f37;">' +
+        L.bulkLabel + (n ? ' (' + n + ')' : '') + '</button></div>'
+      : '';
+    host.innerHTML = bar + '<div style="overflow-x:auto"><table><thead><tr>' + (ticks.length ? '<th></th>' : '') + L.head + '</tr></thead><tbody>' +
+      rows.map(function (r) {
+        var box = !ticks.length ? '' : '<td class="alv-tick">' + (L.selectable(r)
+          ? '<input type="checkbox" data-sel="' + name + '" value="' + esc(r.id) + '"' + (sel[r.id] ? ' checked' : '') + ' aria-label="Select">'
+          : '') + '</td>';
+        return '<tr>' + box + L.row(r) + '</tr>';
+      }).join('') + '</tbody></table></div>';
   }
   function renderAll() {
     Object.keys(LISTS).forEach(renderList);
@@ -356,9 +377,59 @@
           .catch(function (e) { uiAlert('Not deleted: ' + e.message); });
       });
   }
+  // ---- select & confirm together ----
+  var _sel = {};
+  document.addEventListener('change', function (e) {
+    var t = e.target;
+    if (!t || t.type !== 'checkbox') return;
+    var name = t.getAttribute('data-sel') || t.getAttribute('data-selall');
+    if (!name || !LISTS[name]) return;
+    var sel = _sel[name] || (_sel[name] = {});
+    if (t.hasAttribute('data-selall')) {
+      Object.keys(sel).forEach(function (k) { delete sel[k]; });
+      if (t.checked) document.querySelectorAll('[data-sel="' + name + '"]').forEach(function (c) { sel[c.value] = true; });
+    } else if (t.checked) sel[t.value] = true;
+    else delete sel[t.value];
+    renderList(name);
+  });
+
+  // One request at a time, so each paper is confirmed or signed exactly once; report what failed.
+  function runMany(ids, action, doneMsg) {
+    var ok = 0, failed = [];
+    _busy = true;
+    return ids.reduce(function (p, id) {
+      return p.then(function () {
+        return api({ action: action, id: id })
+          .then(function () { ok++; })
+          .catch(function (e) { var r = find(id); failed.push((r && r.employeeName || id) + ': ' + e.message); });
+      });
+    }, Promise.resolve()).then(function () {
+      _busy = false;
+      _sel = {};
+      return loadAll().then(function () {
+        uiAlert(ok + ' ' + doneMsg + (failed.length ? ' Not done: ' + failed.join('; ') : ''));
+      });
+    });
+  }
+  function confirmMany(ids) {
+    uiConfirm('Confirm ' + ids.length + ' request' + (ids.length > 1 ? 's' : '') + ' and send ' + (ids.length > 1 ? 'them' : 'it') + ' to the Line Manager? They can no longer be changed after this.', { okLabel: 'Confirm ' + ids.length })
+      .then(function (yes) { if (yes) runMany(ids, 'confirmAsaasLeaveRequest', 'sent to the Line Manager.'); });
+  }
+  function signMany(ids) {
+    if (!_signer.hasSignature) { uiAlert('Your account has no e-signature yet. Ask the admin to upload it in Admin → Users.'); return; }
+    uiConfirm('Put your e-signature on ' + ids.length + ' request' + (ids.length > 1 ? 's' : '') + '? Open a paper first if you want to check it.', { okLabel: 'Confirm & sign ' + ids.length })
+      .then(function (yes) { if (yes) runMany(ids, 'signAsaasLeaveRequest', 'signed.'); });
+  }
+
   document.addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('.alv-list button');
     if (!b) return;
+    if (b.hasAttribute('data-bulk')) {
+      var name = b.getAttribute('data-bulk');
+      var ids = Object.keys(_sel[name] || {});
+      if (ids.length && !_busy) LISTS[name].bulk(ids);
+      return;
+    }
     if (b.hasAttribute('data-open')) openRequest(b.getAttribute('data-open'));
     if (b.hasAttribute('data-confirm')) confirmRequest(b.getAttribute('data-confirm'));
     if (b.hasAttribute('data-del')) deleteRequest(b.getAttribute('data-del'));
