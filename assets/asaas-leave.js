@@ -78,7 +78,9 @@
   // _cur: the request open on the form ('' id = new form). editable = saved/rejected; signer turn = may confirm & sign.
   var _cur = { id: '', status: '', editable: true };
   var _all = [];
-  var _signer = { role: '', hasSignature: false };
+  var _signer = { roles: [], hasSignature: false };
+  // HR may create, save, confirm and delete (Admin → Users → A.S.A.A.S → HR). Until the server says, trust the login's access.
+  var _hr = (typeof empireIsAdminRole === 'function' && empireIsAdminRole()) || (typeof empireModuleLevel === 'function' && empireModuleLevel('asaas_hr') === 'write');
   var _busy = false;
 
   var STATUS_TEXT = {
@@ -127,13 +129,15 @@
     el.style.color = isError ? '#C5504F' : '';
   }
   function myTurn(r) {
-    return !!r && ((r.status === 'pending_line' && _signer.role === 'line') ||
-      (r.status === 'pending_director' && _signer.role === 'director'));
+    var roles = _signer.roles || [];
+    return !!r && ((r.status === 'pending_line' && roles.indexOf('line') !== -1) ||
+      (r.status === 'pending_director' && roles.indexOf('director') !== -1));
   }
   function show(id, on) { var el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none'; }
   function syncToolbar() {
     var turn = myTurn(_cur);
-    show('asaasLeaveSaveBtn', _cur.editable);
+    show('asaasLeaveSaveBtn', _hr && _cur.editable);
+    show('asaasLeaveClearBtn', _hr || !!_cur.id);
     show('asaasLeaveSignBtn', turn);
     show('asaasLeaveRejectBtn', turn);
     var clr = document.getElementById('asaasLeaveClearBtn');
@@ -143,7 +147,7 @@
     var r = _cur;
     if (!r.id) return '';
     var who = r.employeeName ? ' — ' + r.employeeName : '';
-    if (r.status === 'rejected') return 'Rejected by ' + (r.rejectedBy || '') + ': ' + (r.rejectReason || '') + '. Fix it, Save, then Confirm again from Saved Requests.';
+    if (r.status === 'rejected') return 'Rejected by ' + (r.rejectedBy || '') + ': ' + (r.rejectReason || '') + '. HR fixes it, saves, then confirms again from Saved Requests.';
     if (r.editable) return 'Editing saved request' + who + '. Save updates it.';
     if (myTurn(r)) return (STATUS_TEXT[r.status] || '') + who + '. Check the paper, then Confirm & sign or Reject.';
     return (STATUS_TEXT[r.status] || '') + who + ' — read only.';
@@ -238,7 +242,7 @@
       empty: ['No saved requests yet', 'Fill a Leave Request and press Save.'],
       head: '<th>Name</th><th>Type of Leave</th><th>Start</th><th>End</th><th>Status</th><th>Saved</th><th></th>',
       row: function (r) {
-        var canEdit = r.status === 'saved' || r.status === 'rejected';
+        var canEdit = _hr && (r.status === 'saved' || r.status === 'rejected');
         return '<td>' + esc(r.employeeName || '—') + '</td><td>' + esc(r.leaveType) + '</td><td>' + esc(r.startDate) + '</td><td>' + esc(r.endDate) +
           '</td><td>' + statusCell(r) + '</td><td>' + esc(when(r.updatedAt || r.createdAt)) + '</td><td style="white-space:nowrap">' +
           btn('data-open', r.id, 'Open') + (canEdit ? btn('data-confirm', r.id, 'Confirm', '#1a7f37') + btn('data-del', r.id, 'Delete', '#C5504F') : '') + '</td>';
@@ -287,7 +291,9 @@
   function renderAll() {
     Object.keys(LISTS).forEach(renderList);
     var n = _all.filter(myTurn).length;
-    show('asaasLeaveTab-sign', !!_signer.role);
+    show('asaasLeaveTab-sign', !!(_signer.roles || []).length);
+    show('asaasLeaveTab-form', _hr);
+    show('asaasLeaveTab-saved', _hr);
     var badge = document.getElementById('asaasLeaveSignCount');
     if (badge) badge.textContent = n ? ' (' + n + ')' : '';
   }
@@ -297,7 +303,8 @@
     return api({ action: 'getAsaasLeaveRequests' }, 2)
       .then(function (d) {
         _all = d.requests || [];
-        _signer = d.signer || { role: '', hasSignature: false };
+        _signer = d.signer || { roles: [], hasSignature: false };
+        if (typeof d.hr === 'boolean') _hr = d.hr;
         renderAll();
       })
       .catch(function (e) { if (host) host.innerHTML = empireErrorHtml('Could not load: ' + e.message); });
@@ -312,7 +319,7 @@
       .then(function (d) {
         var r = d.request;
         _cur = r;
-        _cur.editable = r.status === 'saved' || r.status === 'rejected';
+        _cur.editable = _hr && (r.status === 'saved' || r.status === 'rejected');
         render();
         fillForm(r.form);
         setStamp('line', r.lineSignature);
@@ -368,7 +375,15 @@
     if (tab === 'form') fit();
     else if (!noLoad) loadAll(tab);
   };
-  window.asaasLeaveBoot_ = function () { loadAll(); };
+  // Line Managers and Directors land on To Sign; people without HR never see the empty form.
+  window.asaasLeaveBoot_ = function () {
+    loadAll().then(function () {
+      syncToolbar();
+      var formOpen = document.getElementById('asaasLeavePane-form');
+      if (_hr || !formOpen || !formOpen.classList.contains('active')) return;
+      asaasLeaveShowTab_((_signer.roles || []).length ? 'sign' : 'completed', true);
+    });
+  };
 
   // An emptied box keeps a <br>; clear it so the grey date hint comes back.
   document.addEventListener('input', function (e) {

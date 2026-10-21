@@ -1,16 +1,19 @@
 import { AuthOk } from "./auth.ts";
 import { isoNow, sb, trashRows } from "./db.ts";
-import { normalizeWorkerId } from "./helpers.ts";
+import { moduleLevel, normalizeWorkerId } from "./helpers.ts";
 
 /* A.S.A.A.S Leave Request papers: the whole form is stored as JSON in `form`.
-   Flow: saved → (Confirm) pending_line → (Line Manager signs) pending_director → (Director signs) completed.
-   A signer can reject: status rejected + reason; the portal fixes it and confirms again. */
+   Flow: HR saves → (HR confirms) pending_line → (Line Manager signs) pending_director → (Director signs) completed.
+   A signer can reject: status rejected + reason; HR fixes it and confirms again.
+   Who is who comes from Admin → Users → A.S.A.A.S: HR (asaas_hr), Line Manager (asaas_line), Director (asaas_director). */
 
 const TABLE = "asaas_leave_requests";
 const EDITABLE = ["saved", "rejected"];
 
-function canWrite(body: Record<string, unknown>): boolean {
-  return String(body._authRole || "") !== "viewer";
+/** HR = Read/Write on A.S.A.A.S → HR (admins always). */
+function isHr(body: Record<string, unknown>, auth: AuthOk): boolean {
+  if (String(body._authRole || "") === "admin") return true;
+  return moduleLevel(auth.moduleAccess, "asaas_hr") === "write";
 }
 function isAdmin(body: Record<string, unknown>): boolean {
   return String(body._authRole || "") === "admin";
@@ -19,12 +22,20 @@ function statusOf(r: Record<string, unknown>): string {
   return String(r.status || "saved").trim().toLowerCase() || "saved";
 }
 
-/** The caller's e-signature and which box it signs (line / director), from Admin → Users. */
-async function signerFor(username: string): Promise<{ role: string; signature: string }> {
-  const { data, error } = await sb().from("users").select("signature,signature_role").eq("username", normalizeWorkerId(username)).maybeSingle();
-  if (error || !data) return { role: "", signature: "" };
-  const role = String(data.signature_role || "").trim().toLowerCase();
-  return { role: role === "line" || role === "director" ? role : "", signature: String(data.signature || "").trim() };
+/** Which boxes the caller signs, read from what the admin set on purpose (Line Manager / Director rows),
+    plus their account e-signature. Old "whole department" access never makes someone a signer. */
+async function signerFor(username: string): Promise<{ roles: string[]; signature: string }> {
+  const { data, error } = await sb().from("users").select("signature,module_access").eq("username", normalizeWorkerId(username)).maybeSingle();
+  if (error || !data) return { roles: [], signature: "" };
+  let access: Record<string, unknown> = {};
+  try {
+    access = typeof data.module_access === "string" ? JSON.parse(data.module_access || "{}") : (data.module_access || {});
+  } catch (_e) { access = {}; }
+  const set = (k: string) => { const v = String(access[k] || "").toLowerCase(); return v === "read" || v === "write"; };
+  const roles: string[] = [];
+  if (set("asaas_line")) roles.push("line");
+  if (set("asaas_director")) roles.push("director");
+  return { roles, signature: String(data.signature || "").trim() };
 }
 
 function toApi(r: Record<string, unknown>, withSigs: boolean) {
@@ -70,7 +81,8 @@ export async function handleGetAsaasLeaveRequests(_body: Record<string, unknown>
     ok: true,
     success: true,
     requests: ((data || []) as unknown as Record<string, unknown>[]).map((r) => toApi(r, false)),
-    signer: { role: me.role, hasSignature: !!me.signature },
+    signer: { roles: me.roles, hasSignature: !!me.signature },
+    hr: isHr(_body, auth),
   };
 }
 
@@ -83,7 +95,7 @@ export async function handleGetAsaasLeaveRequest(body: Record<string, unknown>) 
 }
 
 export async function handleSaveAsaasLeaveRequest(body: Record<string, unknown>, auth: AuthOk) {
-  if (!canWrite(body)) return { ok: false, success: false, error: "not_allowed", message: "View-only users cannot save." };
+  if (!isHr(body, auth)) return { ok: false, success: false, error: "not_allowed", message: "Only A.S.A.A.S HR can save leave requests." };
   const form = body.form && typeof body.form === "object" ? body.form as Record<string, unknown> : null;
   if (!form) return { ok: false, success: false, error: "missing_form" };
   const pick = (k: string) => String(form[k] ?? "").trim().slice(0, 200);
@@ -117,7 +129,7 @@ export async function handleSaveAsaasLeaveRequest(body: Record<string, unknown>,
 }
 
 export async function handleConfirmAsaasLeaveRequest(body: Record<string, unknown>, auth: AuthOk) {
-  if (!canWrite(body)) return { ok: false, success: false, error: "not_allowed", message: "View-only users cannot confirm." };
+  if (!isHr(body, auth)) return { ok: false, success: false, error: "not_allowed", message: "Only A.S.A.A.S HR can confirm leave requests." };
   const id = String(body.id || "").trim();
   if (!id) return { ok: false, success: false, error: "missing_id" };
   const row = await loadRow(id);
@@ -147,7 +159,7 @@ export async function handleSignAsaasLeaveRequest(body: Record<string, unknown>,
   if (!me.signature) {
     return { ok: false, success: false, error: "no_signature", message: "Your account has no e-signature. Ask the admin to upload it in Admin → Users." };
   }
-  if (st === "pending_line" && me.role === "line") {
+  if (st === "pending_line" && me.roles.includes("line")) {
     const { error } = await sb().from(TABLE).update({
       status: "pending_director",
       line_signature: me.signature, line_signed_by: auth.username, line_signed_at: now, updated_at: now,
@@ -155,7 +167,7 @@ export async function handleSignAsaasLeaveRequest(body: Record<string, unknown>,
     if (error) throw error;
     return { ok: true, success: true, id, status: "pending_director" };
   }
-  if (st === "pending_director" && me.role === "director") {
+  if (st === "pending_director" && me.roles.includes("director")) {
     const { error } = await sb().from(TABLE).update({
       status: "completed",
       director_signature: me.signature, director_signed_by: auth.username, director_signed_at: now, updated_at: now,
@@ -175,7 +187,7 @@ export async function handleRejectAsaasLeaveRequest(body: Record<string, unknown
   if (!row) return { ok: false, success: false, error: "not_found" };
   const me = await signerFor(auth.username);
   const st = statusOf(row);
-  if (!((st === "pending_line" && me.role === "line") || (st === "pending_director" && me.role === "director"))) {
+  if (!((st === "pending_line" && me.roles.includes("line")) || (st === "pending_director" && me.roles.includes("director")))) {
     return { ok: false, success: false, error: "not_your_turn", message: "This request is not waiting for you." };
   }
   const now = isoNow();
@@ -191,7 +203,7 @@ export async function handleRejectAsaasLeaveRequest(body: Record<string, unknown
 }
 
 export async function handleDeleteAsaasLeaveRequest(body: Record<string, unknown>, auth: AuthOk) {
-  if (!canWrite(body)) return { ok: false, success: false, error: "not_allowed", message: "View-only users cannot delete." };
+  if (!isHr(body, auth)) return { ok: false, success: false, error: "not_allowed", message: "Only A.S.A.A.S HR can delete leave requests." };
   const id = String(body.id || "").trim();
   if (!id) return { ok: false, success: false, error: "missing_id" };
   const row = await loadRow(id);
