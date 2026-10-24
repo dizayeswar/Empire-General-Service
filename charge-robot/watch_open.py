@@ -618,6 +618,13 @@ def main() -> int:
             last_empty_log = now
 
         if not fresh:
+            last = float(load_state().get("last_force_refresh") or 0)
+            if time.time() - last >= 12:
+                log("Open has only old cards — Requests sync for new RUs")
+                tap_staff(ui.nodes, "Requests")
+                state = load_state()
+                state["last_force_refresh"] = time.time()
+                save_state(state)
             time.sleep(3)
             continue
 
