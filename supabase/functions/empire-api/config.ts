@@ -178,6 +178,7 @@ export const DEPT_BY_ACTION: Record<string, string> = {
   getAsaasLeaveTrash: "asaas",
   restoreAsaasLeaveTrash: "asaas",
   purgeAsaasLeaveTrash: "asaas",
+  fileAsaasLeaveRequests: "asaas",
   getApplicationChecks: "application",
   getApplicationCheckMeta: "application",
   getApplicationCheckDetail: "application",
