@@ -1416,6 +1416,21 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
     if (!saved) {
       return { ok: false, success: false, error: "bad_status", message: "This paper is not waiting for the director." };
     }
+    try {
+      const users = await loadUsernames();
+      const signers = signerMap(paper);
+      const assigned = resolveAssignedAccount(paper, users);
+      const created = normalizeWorkerId(paper.created_by);
+      const notify = [signers.line, assigned.username, signers.emp, created].filter((u) => u && u !== me);
+      const emp = String(paper.emp_name || "").trim();
+      const kind = String(paper.leave_type || "Leave").trim() || "Leave";
+      await notifyUsers_(notify, "Director confirmed", emp ? emp + " — " + kind : kind, {
+        type: "hr_assign",
+        event: "director_approved",
+        deptPage: "hr-leave.html",
+        issueId: id,
+      });
+    } catch (_e) { /* a missed alert must not undo the director's confirm */ }
     return { ok: true, success: true, id, row: rowToApi({ ...paper, ...patch }, { slim: true }) };
   }
 
