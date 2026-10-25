@@ -13,7 +13,7 @@
 <title>A.S.A.A.S — Empire World</title>
 <style id="empire-auth-boot">body.auth-login-visible #asaasOfficeApp{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-09-22-search-pill">
-<link rel="stylesheet" href="assets/asaas-leave.css?v=2026-10-25-bin-print">
+<link rel="stylesheet" href="assets/asaas-leave.css?v=2026-10-25-leave-folders">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -46,10 +46,18 @@
         <button class="tab-btn" id="asaasLeaveTab-form" onclick="asaasLeaveShowTab_('form')" style="display:none"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/></svg></span> <span class="lbl">Leave Request</span></button>
         <button class="tab-btn" id="asaasLeaveTab-saved" onclick="asaasLeaveShowTab_('saved')" style="display:none"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg></span> <span class="lbl">Saved Requests</span></button>
         <button class="tab-btn" id="asaasLeaveTab-completed" onclick="asaasLeaveShowTab_('completed')" style="display:none"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.801 10A10 10 0 1 1 17 3.335"/><path d="m9 11 3 3L22 4"/></svg></span> <span class="lbl">Completed Requests</span></button>
+        <div class="alv-nav-folders" id="asaasLeaveFolders" style="display:none">
+          <button class="tab-btn" id="asaasLeaveTab-f-annual" onclick="asaasLeaveShowFolder_('annual')"><span class="lbl">Annual Leave<span id="asaasLeaveFolderCount-annual"></span></span></button>
+          <button class="tab-btn" id="asaasLeaveTab-f-sick" onclick="asaasLeaveShowFolder_('sick')"><span class="lbl">Sick Leave<span id="asaasLeaveFolderCount-sick"></span></span></button>
+          <button class="tab-btn" id="asaasLeaveTab-f-unpaid" onclick="asaasLeaveShowFolder_('unpaid')"><span class="lbl">Unpaid Leave<span id="asaasLeaveFolderCount-unpaid"></span></span></button>
+          <button class="tab-btn" id="asaasLeaveTab-f-bereavement" onclick="asaasLeaveShowFolder_('bereavement')"><span class="lbl">Bereavement<span id="asaasLeaveFolderCount-bereavement"></span></span></button>
+          <button class="tab-btn" id="asaasLeaveTab-f-marriage" onclick="asaasLeaveShowFolder_('marriage')"><span class="lbl">Marriage Leave<span id="asaasLeaveFolderCount-marriage"></span></span></button>
+          <button class="tab-btn" id="asaasLeaveTab-f-other" onclick="asaasLeaveShowFolder_('other')"><span class="lbl">Other<span id="asaasLeaveFolderCount-other"></span></span></button>
+        </div>
         <button class="tab-btn" id="asaasLeaveTab-sign" onclick="asaasLeaveShowTab_('sign')" style="display:none"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/></svg></span> <span class="lbl">To Sign<span id="asaasLeaveSignCount"></span></span></button>
-        <button class="tab-btn" id="asaasLeaveTab-bin" onclick="asaasLeaveShowTab_('bin')" style="display:none"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></span> <span class="lbl">Recycle Bin</span></button>
       </nav>
       <div class="side-actions">
+        <button id="asaasLeaveTab-bin" onclick="asaasLeaveShowTab_('bin')" style="display:none"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></span> <span class="lbl">Recycle Bin</span></button>
         <button onclick="asaasLeaveRefresh_()"><span class="nav-icon spin-icon" id="asaasLeaveRefreshIcon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg></span> <span class="lbl">Refresh</span></button>
         <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span> <span class="lbl">Theme</span></button>
         <button onclick="location.href='index.html'"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg></span> <span class="lbl">Hub</span></button>
@@ -110,6 +118,18 @@
           <div class="alv-list" id="asaasLeaveCompletedList"></div>
         </div>
       </div>
+      <div class="tab-content" id="asaasLeavePane-filed">
+        <div class="form-section">
+          <h2 id="asaasLeaveFiledTitle">Type of Leave</h2>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="asaasLeaveFiledSearch">Search</label>
+              <input type="search" id="asaasLeaveFiledSearch" oninput="asaasLeaveRenderList_('filed')" placeholder="Name, date…" autocomplete="off">
+            </div>
+          </div>
+          <div class="alv-list" id="asaasLeaveFiledList"></div>
+        </div>
+      </div>
       <div class="tab-content" id="asaasLeavePane-bin">
         <div class="form-section">
           <h2>Recycle Bin</h2>
@@ -131,9 +151,9 @@
 <script src="assets/empire-sw-update.js?v=2026-09-15-sec-acc"></script>
 <script src="config.js?v=2026-09-15-sec-acc"></script>
 <script src="assets/empire-api.js?v=2026-09-15-sec-acc"></script>
-<script src="assets/empire-auth.js?v=2026-10-25-bin-print"></script>
+<script src="assets/empire-auth.js?v=2026-10-25-leave-folders"></script>
 <script src="assets/empire-core.js?v=2026-09-15-sec-acc"></script>
-<script src="assets/asaas-leave.js?v=2026-10-25-bin-print"></script>
+<script src="assets/asaas-leave.js?v=2026-10-25-leave-folders"></script>
 <script>
 var ASAAS_DEPT = 'asaas';
 

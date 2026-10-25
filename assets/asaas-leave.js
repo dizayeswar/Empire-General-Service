@@ -83,6 +83,18 @@
   var _hr = (typeof empireIsAdminRole === 'function' && empireIsAdminRole()) || (typeof empireModuleLevel === 'function' && empireModuleLevel('asaas_hr') === 'write');
   var _busy = false;
 
+  var FOLDERS = [
+    { key: 'annual', label: 'Annual Leave', re: /annual/i },
+    { key: 'sick', label: 'Sick Leave', re: /sick/i },
+    { key: 'unpaid', label: 'Unpaid Leave', re: /unpaid/i },
+    { key: 'bereavement', label: 'Bereavement', re: /bereave/i },
+    { key: 'marriage', label: 'Marriage Leave', re: /marri/i },
+    { key: 'other', label: 'Other', re: /./ }
+  ];
+  function folderLabel(key) { var f = FOLDERS.filter(function (x) { return x.key === key; })[0]; return f ? f.label : ''; }
+  function ownFolder(r) { return FOLDERS.filter(function (f) { return f.re.test(String(r.leaveType || '')); })[0].key; }
+  var _folder = '';
+
   var STATUS_TEXT = {
     saved: 'Saved',
     pending_line: 'Waiting for Line Manager',
@@ -268,17 +280,37 @@
       host: 'asaasLeaveCompletedList', search: 'asaasLeaveCompletedSearch',
       pick: function (r) { return r.status === 'completed'; },
       selectable: function () { return true; },
+      rowClass: function (r) { return r.filedType ? 'alv-filed' : ''; },
       bulks: [
         { label: 'Print selected', color: '#1b5fa8', run: function (ids) { printMany(ids); } },
+        { label: 'Move selected', color: '#8d015d', hrOnly: true, move: true, run: function (ids, type) { fileMany(ids, type); } },
         { label: 'Delete selected', color: '#C5504F', hrOnly: true, run: function (ids) { deleteMany(ids); } }
       ],
       empty: ['No completed requests yet', 'Papers signed by the Line Manager and the Director show here.'],
-      head: '<th>Name</th><th>Type of Leave</th><th>Start</th><th>End</th><th>Line Manager</th><th>Director</th><th></th>',
+      head: '<th>Name</th><th>Type of Leave</th><th>Start</th><th>End</th><th>Line Manager</th><th>Director</th><th>Folder</th><th></th>',
       row: function (r) {
         return '<td>' + esc(r.employeeName || '—') + '</td><td>' + esc(r.leaveType) + '</td><td>' + esc(r.startDate) + '</td><td>' + esc(r.endDate) +
           '</td><td>' + esc(r.lineSignedBy) + '<br><small>' + esc(when(r.lineSignedAt)) + '</small></td><td>' +
-          esc(r.directorSignedBy) + '<br><small>' + esc(when(r.directorSignedAt)) + '</small></td><td style="white-space:nowrap">' +
+          esc(r.directorSignedBy) + '<br><small>' + esc(when(r.directorSignedAt)) + '</small></td><td>' + folderBadge(r) +
+          '</td><td style="white-space:nowrap">' +
           btn('data-open', r.id, 'Open') + btn('data-print', r.id, 'Print', '#1b5fa8') + (_hr ? btn('data-del', r.id, 'Delete', '#C5504F') : '') + '</td>';
+      }
+    },
+    filed: {
+      host: 'asaasLeaveFiledList', search: 'asaasLeaveFiledSearch',
+      pick: function (r) { return r.status === 'completed' && r.filedType === _folder; },
+      selectable: function () { return true; },
+      bulks: [
+        { label: 'Print selected', color: '#1b5fa8', run: function (ids) { printMany(ids); } },
+        { label: 'Move selected', color: '#8d015d', hrOnly: true, move: true, takeOut: true, run: function (ids, type) { fileMany(ids, type); } }
+      ],
+      empty: ['This folder is empty', 'In Completed Requests, tick papers, pick this type and press Move.'],
+      head: '<th>Name</th><th>Type of Leave</th><th>Start</th><th>End</th><th>Director</th><th>Filed</th><th></th>',
+      row: function (r) {
+        return '<td>' + esc(r.employeeName || '—') + '</td><td>' + esc(r.leaveType) + '</td><td>' + esc(r.startDate) + '</td><td>' + esc(r.endDate) +
+          '</td><td>' + esc(r.directorSignedBy) + '<br><small>' + esc(when(r.directorSignedAt)) + '</small></td><td>' +
+          esc(r.filedBy) + '<br><small>' + esc(when(r.filedAt)) + '</small></td><td style="white-space:nowrap">' +
+          btn('data-open', r.id, 'Open') + btn('data-print', r.id, 'Print', '#1b5fa8') + '</td>';
       }
     },
     bin: {
@@ -321,7 +353,8 @@
       ? '<div class="alv-bulk"><label><input type="checkbox" data-selall="' + name + '"' + (allOn ? ' checked' : '') + '> Select all</label>' +
         (L.bulks || []).map(function (bk, i) {
           if (bk.hrOnly && !_hr) return '';
-          return '<button data-bulk="' + name + ':' + i + '"' + (n ? '' : ' disabled') + ' style="color:#fff;background:' + bk.color + ';border-color:' + bk.color + ';">' +
+          return (bk.move ? moveSelectHtml(name, bk) : '') +
+            '<button data-bulk="' + name + ':' + i + '"' + (n ? '' : ' disabled') + ' style="color:#fff;background:' + bk.color + ';border-color:' + bk.color + ';">' +
             bk.label + (n ? ' (' + n + ')' : '') + '</button>';
         }).join('') + '</div>'
       : '';
@@ -330,7 +363,8 @@
         var box = !ticks.length ? '' : '<td class="alv-tick">' + (L.selectable(r)
           ? '<input type="checkbox" data-sel="' + name + '" value="' + esc(r[idKey]) + '"' + (sel[r[idKey]] ? ' checked' : '') + ' aria-label="Select">'
           : '') + '</td>';
-        return '<tr>' + box + L.row(r) + '</tr>';
+        var cls = L.rowClass ? L.rowClass(r) : '';
+        return '<tr' + (cls ? ' class="' + cls + '"' : '') + '>' + box + L.row(r) + '</tr>';
       }).join('') + '</tbody></table></div>';
   }
   function renderAll() {
@@ -341,6 +375,12 @@
     show('asaasLeaveTab-saved', _hr);
     show('asaasLeaveTab-completed', true);
     show('asaasLeaveTab-bin', _hr);
+    show('asaasLeaveFolders', _hr);
+    FOLDERS.forEach(function (f) {
+      var c = document.getElementById('asaasLeaveFolderCount-' + f.key);
+      var k = _all.filter(function (r) { return r.status === 'completed' && r.filedType === f.key; }).length;
+      if (c) c.textContent = k ? ' (' + k + ')' : '';
+    });
     var badge = document.getElementById('asaasLeaveSignCount');
     if (badge) badge.textContent = n ? ' (' + n + ')' : '';
   }
@@ -437,6 +477,59 @@
       });
     });
   }
+  // ---- Type of Leave folders ----
+  var _moveTo = {};
+  function moveSelectHtml(name, bk) {
+    var cur = Object.prototype.hasOwnProperty.call(_moveTo, name) ? _moveTo[name] : 'own';
+    var opts = [['own', 'To its own type of leave']].concat(FOLDERS.map(function (f) { return [f.key, 'To ' + f.label]; }));
+    if (bk.takeOut) opts.push(['', 'Take out of folder']);
+    return '<select class="alv-move-sel" data-movesel="' + name + '" aria-label="Move to">' +
+      opts.map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === cur ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>';
+  }
+  document.addEventListener('change', function (e) {
+    var t = e.target;
+    if (t && t.hasAttribute && t.hasAttribute('data-movesel')) _moveTo[t.getAttribute('data-movesel')] = t.value;
+  });
+  function folderBadge(r) {
+    return r.filedType ? '<span class="alv-badge">✓ ' + esc(folderLabel(r.filedType)) + '</span>' : '<small>Not filed</small>';
+  }
+  function fileMany(ids, choice) {
+    var groups = {};
+    ids.forEach(function (id) {
+      var r = find(id);
+      var type = choice === 'own' ? (r ? ownFolder(r) : 'other') : choice;
+      (groups[type] = groups[type] || []).push(id);
+    });
+    var where = choice === 'own' ? 'its own type of leave folder' : (choice ? 'the ' + folderLabel(choice) + ' folder' : 'out of its folder');
+    uiConfirm('Move ' + ids.length + ' paper' + (ids.length > 1 ? 's' : '') + ' ' + (choice ? 'to ' : '') + where + '?', { okLabel: 'Move ' + ids.length })
+      .then(function (yes) {
+        if (!yes) return;
+        _busy = true;
+        var moved = 0;
+        return Object.keys(groups).reduce(function (p, type) {
+          return p.then(function () {
+            return api({ action: 'fileAsaasLeaveRequests', ids: groups[type], type: type }).then(function (d) { moved += d.filed || 0; });
+          });
+        }, Promise.resolve())
+          .then(function () { _sel = {}; return loadAll(); })
+          .then(function () { uiAlert(moved + ' moved.'); })
+          .catch(function (e) { uiAlert('Not moved: ' + e.message); })
+          .then(function () { _busy = false; });
+      });
+  }
+  window.asaasLeaveShowFolder_ = function (key) {
+    _folder = key;
+    asaasLeaveShowTab_('filed', true);
+    var title = document.getElementById('asaasLeaveFiledTitle');
+    if (title) title.textContent = folderLabel(key);
+    FOLDERS.forEach(function (f) {
+      var b = document.getElementById('asaasLeaveTab-f-' + f.key);
+      if (b) b.classList.toggle('active', f.key === key);
+    });
+    renderList('filed');
+    loadAll();
+  };
+
   function deleteMany(ids) {
     uiConfirm('Delete ' + ids.length + ' request' + (ids.length > 1 ? 's' : '') + '? ' + (ids.length > 1 ? 'They go' : 'It goes') + ' to the Recycle Bin, where you can restore ' + (ids.length > 1 ? 'them' : 'it') + '.', { okLabel: 'Delete ' + ids.length, danger: true })
       .then(function (yes) { if (yes) runMany(ids, 'deleteAsaasLeaveRequest', 'moved to the Recycle Bin.'); });
@@ -548,7 +641,8 @@
       var parts = b.getAttribute('data-bulk').split(':');
       var ids = Object.keys(_sel[parts[0]] || {});
       var bk = (LISTS[parts[0]].bulks || [])[Number(parts[1])];
-      if (bk && ids.length && !_busy) bk.run(ids);
+      var moveTo = Object.prototype.hasOwnProperty.call(_moveTo, parts[0]) ? _moveTo[parts[0]] : 'own';
+      if (bk && ids.length && !_busy) bk.run(ids, moveTo);
       return;
     }
     if (b.hasAttribute('data-print')) { printMany([b.getAttribute('data-print')]); return; }
@@ -559,13 +653,17 @@
     if (b.hasAttribute('data-del')) deleteRequest(b.getAttribute('data-del'));
   });
 
-  var TABS = ['loading', 'form', 'saved', 'sign', 'completed', 'bin'];
+  var TABS = ['loading', 'form', 'saved', 'sign', 'completed', 'bin', 'filed'];
   window.asaasLeaveShowTab_ = function (tab, noLoad) {
     TABS.forEach(function (t) {
       var pane = document.getElementById('asaasLeavePane-' + t);
       var b = document.getElementById('asaasLeaveTab-' + t);
       if (pane) pane.classList.toggle('active', t === tab);
       if (b) b.classList.toggle('active', t === tab);
+    });
+    if (tab !== 'filed') FOLDERS.forEach(function (f) {
+      var fb = document.getElementById('asaasLeaveTab-f-' + f.key);
+      if (fb) fb.classList.remove('active');
     });
     if (tab === 'form') fit();
     else if (tab === 'bin') { if (!noLoad) loadTrash(); }

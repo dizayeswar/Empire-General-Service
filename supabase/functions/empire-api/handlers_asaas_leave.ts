@@ -60,6 +60,9 @@ function toApi(r: Record<string, unknown>, withSigs: boolean) {
     rejectReason: r.reject_reason || "",
     rejectedBy: r.rejected_by || "",
     rejectedAt: r.rejected_at || "",
+    filedType: r.filed_type || "",
+    filedBy: r.filed_by || "",
+    filedAt: r.filed_at || "",
     lineSignature: withSigs ? (r.line_signature || "") : "",
     directorSignature: withSigs ? (r.director_signature || "") : "",
   };
@@ -73,7 +76,8 @@ async function loadRow(id: string) {
 
 export async function handleGetAsaasLeaveRequests(_body: Record<string, unknown>, auth: AuthOk) {
   const cols = "id,employee_name,leave_type,start_date,end_date,form,status,created_by,created_at,updated_by,updated_at," +
-    "confirmed_by,confirmed_at,line_signed_by,line_signed_at,director_signed_by,director_signed_at,reject_reason,rejected_by,rejected_at";
+    "confirmed_by,confirmed_at,line_signed_by,line_signed_at,director_signed_by,director_signed_at,reject_reason,rejected_by,rejected_at," +
+    "filed_type,filed_by,filed_at";
   const { data, error } = await sb().from(TABLE).select(cols).order("created_at", { ascending: false });
   if (error) throw error;
   const me = await signerFor(auth.username);
@@ -285,4 +289,24 @@ export async function handlePurgeAsaasLeaveTrash(body: Record<string, unknown>, 
   const { error } = await sb().from("trash").delete().in("trash_id", found).eq("source_sheet", TRASH_SRC);
   if (error) throw error;
   return { ok: true, success: true, deleted: found.length };
+}
+
+/* ---- Type of Leave folders: HR files completed papers (blank type = take it out of its folder). ---- */
+const FILE_TYPES = ["annual", "sick", "unpaid", "bereavement", "marriage", "other"];
+
+export async function handleFileAsaasLeaveRequests(body: Record<string, unknown>, auth: AuthOk) {
+  if (!isHr(body, auth)) return { ok: false, success: false, error: "not_allowed", message: "Only A.S.A.A.S HR can file leave requests." };
+  const type = String(body.type || "").trim().toLowerCase();
+  if (type && !FILE_TYPES.includes(type)) return { ok: false, success: false, error: "bad_type", message: "Unknown type of leave." };
+  const ids = (Array.isArray(body.ids) ? body.ids : []).map((x) => String(x || "").trim()).filter(Boolean);
+  if (!ids.length) return { ok: false, success: false, error: "missing_id" };
+  const now = isoNow();
+  const { data, error } = await sb().from(TABLE).update({
+    filed_type: type,
+    filed_by: type ? auth.username : "",
+    filed_at: type ? now : "",
+    updated_at: now,
+  }).in("id", ids).eq("status", "completed").select("id");
+  if (error) throw error;
+  return { ok: true, success: true, filed: (data || []).length };
 }

@@ -335,6 +335,7 @@ Deno.serve(async (req) => {
       case "getAsaasLeaveTrash": return json(await asaasLeave.handleGetAsaasLeaveTrash(body, a));
       case "restoreAsaasLeaveTrash": return json(await asaasLeave.handleRestoreAsaasLeaveTrash(body, a));
       case "purgeAsaasLeaveTrash": return json(await asaasLeave.handlePurgeAsaasLeaveTrash(body, a));
+      case "fileAsaasLeaveRequests": return json(await asaasLeave.handleFileAsaasLeaveRequests(body, a));
       case "saveAsaasLeaveRequest": return json(await asaasLeave.handleSaveAsaasLeaveRequest(body, a));
       case "deleteAsaasLeaveRequest": return json(await asaasLeave.handleDeleteAsaasLeaveRequest(body, a));
 

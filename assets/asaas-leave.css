@@ -73,3 +73,12 @@
   #alvPrintArea .alv-f[data-ph]:empty::before { content:none; }
   #alvPrintArea * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
 }
+
+/* Type of Leave folders under Completed Requests (same look as the HR archive folders). */
+.alv-nav-folders { display:flex; flex-direction:column; gap:4px; margin:0 0 6px 18px; }
+.alv-nav-folders .tab-btn { font-size:13px; padding:8px 10px; font-weight:600; }
+.sidebar.collapsed .alv-nav-folders { display:none !important; }
+/* Filed papers stand out in Completed Requests. */
+.alv-list tr.alv-filed td { background:rgba(26,127,55,.08); }
+.alv-badge { display:inline-block; padding:3px 10px; border-radius:999px; background:#1a7f37; color:#fff; font-size:12px; font-weight:700; white-space:nowrap; }
+.alv-move-sel { padding:8px 10px; border-radius:999px; font:inherit; font-size:13px; max-width:16em; }
