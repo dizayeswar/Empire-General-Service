@@ -279,7 +279,8 @@
     completed: {
       host: 'asaasLeaveCompletedList', search: 'asaasLeaveCompletedSearch',
       pick: function (r) { return r.status === 'completed'; },
-      selectable: function () { return true; },
+      // Papers already moved into a folder are done here: no tick box, so Select all skips them.
+      selectable: function (r) { return !r.filedType; },
       rowClass: function (r) { return r.filedType ? 'alv-filed' : ''; },
       bulks: [
         { label: 'Print selected', color: '#1b5fa8', run: function (ids) { printMany(ids); } },
