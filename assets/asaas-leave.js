@@ -67,12 +67,69 @@
   }
   window.asaasLeaveFit_ = fit;
 
+  // Printing happens in a separate hidden page (iframe), the same way HR prints: the main page never
+  // changes while the browser builds its preview, so the preview cannot get stuck on "Loading preview".
+  function printSheets(sheetsHtml) {
+    var old = document.getElementById('alvPrintFrame');
+    if (old) old.parentNode.removeChild(old);
+    var frame = document.createElement('iframe');
+    frame.id = 'alvPrintFrame';
+    frame.setAttribute('title', 'Print');
+    frame.setAttribute('aria-hidden', 'true');
+    frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:210mm;height:297mm;border:0;';
+    document.body.appendChild(frame);
+    var css = (document.querySelector('link[href*="asaas-leave.css"]') || {}).href || 'assets/asaas-leave.css';
+    var doc = frame.contentDocument || frame.contentWindow.document;
+    doc.open();
+    doc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><base href="' + esc(location.href) + '">' +
+      '<link rel="stylesheet" href="' + esc(css) + '">' +
+      '<style>@page{size:A4;margin:0}html,body{margin:0;padding:0;background:#fff}' +
+      '.alv-sheet{box-shadow:none!important;height:296mm;overflow:hidden;break-after:page;page-break-after:always}' +
+      '.alv-sheet:last-child{break-after:auto;page-break-after:auto}' +
+      '.alv-f[data-ph]:empty::before{content:none!important}.alv-f:focus,.alv-sel:focus{background:none!important}' +
+      '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}</style></head><body>' + sheetsHtml + '</body></html>');
+    doc.close();
+    var win = frame.contentWindow;
+    var go = function () {
+      var imgs = [].slice.call(doc.images || []);
+      Promise.all(imgs.map(function (im) {
+        return im.complete ? null : new Promise(function (res) { im.onload = im.onerror = res; });
+      })).then(function () {
+        setTimeout(function () {
+          try { win.focus(); win.print(); }
+          catch (e) { uiAlert('Could not open print: ' + e.message); }
+        }, 250);
+      });
+    };
+    var link = doc.querySelector('link[rel="stylesheet"]');
+    if (link && !link.sheet) { link.onload = go; link.onerror = go; } else go();
+  }
+  // One paper's HTML with its values written in, so it prints on its own.
+  function paperHtml(sheetInner, data, sigs) {
+    var box = document.createElement('div');
+    box.className = 'alv-sheet';
+    box.innerHTML = sheetInner;
+    box.querySelectorAll('[data-k]').forEach(function (el) {
+      var v = (data || {})[el.getAttribute('data-k')];
+      if (el.tagName === 'SELECT') {
+        [].forEach.call(el.options, function (o) { o.removeAttribute('selected'); if (v && o.value === v) o.setAttribute('selected', 'selected'); });
+      } else { el.textContent = v || ''; el.removeAttribute('contenteditable'); }
+    });
+    [['line', (sigs || {}).line], ['director', (sigs || {}).director]].forEach(function (x) {
+      var b = box.querySelector('[data-sig="' + x[0] + '"]');
+      if (b) b.innerHTML = x[1] ? '<img src="' + esc(x[1]) + '" alt="">' : '';
+    });
+    return box.outerHTML;
+  }
   window.asaasLeavePrint_ = function () {
     if (document.activeElement) document.activeElement.blur();
-    document.body.classList.add('alv-printing');
-    window.print();
+    var stamps = {};
+    ['line', 'director'].forEach(function (k) {
+      var im = document.querySelector('#asaasLeaveSheet [data-sig="' + k + '"] img');
+      stamps[k] = im ? im.getAttribute('src') : '';
+    });
+    printSheets(paperHtml(sheetHtml(), readForm(), stamps));
   };
-  window.addEventListener('afterprint', function () { document.body.classList.remove('alv-printing'); });
 
   // ---- form data ----
   // _cur: the request open on the form ('' id = new form). editable = saved/rejected; signer turn = may confirm & sign.
@@ -540,44 +597,22 @@
   function printMany(ids) {
     if (_busy) return;
     _busy = true;
-    var area = document.getElementById('alvPrintArea');
-    if (!area) { area = document.createElement('div'); area.id = 'alvPrintArea'; document.body.appendChild(area); }
-    area.innerHTML = '';
+    var papers = [];
     var failed = [];
     ids.reduce(function (p, id) {
       return p.then(function () {
         return api({ action: 'getAsaasLeaveRequest', id: id }, 2).then(function (d) {
           var r = d.request;
-          var sheet = document.createElement('div');
-          sheet.className = 'alv-sheet';
-          sheet.innerHTML = sheetHtml();
-          area.appendChild(sheet);
-          sheet.querySelectorAll('[data-k]').forEach(function (el) {
-            var v = (r.form || {})[el.getAttribute('data-k')];
-            if (el.tagName === 'SELECT') { if (v) el.value = v; } else { el.textContent = v || ''; el.removeAttribute('contenteditable'); }
-          });
-          [['line', r.lineSignature], ['director', r.directorSignature]].forEach(function (x) {
-            var box = sheet.querySelector('[data-sig="' + x[0] + '"]');
-            if (box && x[1]) box.innerHTML = '<img src="' + esc(x[1]) + '" alt="">';
-          });
+          papers.push(paperHtml(sheetHtml(), r.form, { line: r.lineSignature, director: r.directorSignature }));
         }).catch(function (e) { var r = find(id); failed.push((r && r.employeeName || id) + ': ' + e.message); });
       });
     }, Promise.resolve()).then(function () {
-      var imgs = [].slice.call(area.querySelectorAll('img'));
-      return Promise.all(imgs.map(function (im) { return im.decode ? im.decode().catch(function () {}) : null; }));
-    }).then(function () {
       _busy = false;
-      if (!area.children.length) { uiAlert('Nothing to print. ' + failed.join('; ')); return; }
-      document.body.classList.add('alv-print-many');
-      window.print();
+      if (!papers.length) { uiAlert('Nothing to print. ' + failed.join('; ')); return; }
       if (failed.length) uiAlert('Some papers could not be printed: ' + failed.join('; '));
+      printSheets(papers.join(''));
     });
   }
-  window.addEventListener('afterprint', function () {
-    document.body.classList.remove('alv-print-many');
-    var area = document.getElementById('alvPrintArea');
-    if (area) area.innerHTML = '';
-  });
 
   // ---- Recycle Bin (HR) ----
   var _trash = [];

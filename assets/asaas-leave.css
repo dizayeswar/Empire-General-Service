@@ -34,16 +34,6 @@
   padding:0 0 0 4.7mm; margin:0; cursor:pointer; width:100%;
 }
 
-@media print {
-  @page { size:A4; margin:0; }
-  body.alv-printing * { visibility:hidden !important; }
-  body.alv-printing .alv-sheet, body.alv-printing .alv-sheet * { visibility:visible !important; }
-  body.alv-printing .alv-sheet { position:fixed; left:0; top:0; box-shadow:none; }
-  body.alv-printing .alv-scale { transform:none !important; }
-  body.alv-printing .alv-f[data-ph]:empty::before { content:none; }
-  body.alv-printing .alv-f:focus, body.alv-printing .alv-sel:focus { background:none; }
-  body.alv-printing .alv-sheet * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-}
 .alv-status { min-height:1.2em; margin:-4px 0 10px; font-size:14px; }
 
 /* Approvals e-signature stamps — same rules as HR-F-06: full box width, 56pt tall, never cropped, no name. */
@@ -63,16 +53,6 @@
 .alv-list td.alv-tick, .alv-list th:first-child:empty { width:34px; }
 .alv-list input[type="checkbox"] { width:18px; height:18px; cursor:pointer; accent-color:#1a7f37; }
 
-/* Print several papers: each its own A4 page (only the print area shows). */
-#alvPrintArea { display:none; }
-@media print {
-  body.alv-print-many > *:not(#alvPrintArea) { display:none !important; }
-  body.alv-print-many #alvPrintArea { display:block; }
-  #alvPrintArea .alv-sheet { box-shadow:none; height:296mm; overflow:hidden; break-after:page; page-break-after:always; }
-  #alvPrintArea .alv-sheet:last-child { break-after:auto; page-break-after:auto; }
-  #alvPrintArea .alv-f[data-ph]:empty::before { content:none; }
-  #alvPrintArea * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-}
 
 /* Type of Leave folders under Completed Requests (same look as the HR archive folders). */
 .alv-nav-folders { display:flex; flex-direction:column; gap:4px; margin:0 0 6px 18px; }
