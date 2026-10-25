@@ -208,11 +208,81 @@ export async function handleDeleteAsaasLeaveRequest(body: Record<string, unknown
   if (!id) return { ok: false, success: false, error: "missing_id" };
   const row = await loadRow(id);
   if (!row) return { ok: false, success: false, error: "not_found" };
-  if (!EDITABLE.includes(statusOf(row)) && !isAdmin(body)) {
-    return { ok: false, success: false, error: "locked", message: "Only an admin can delete a confirmed request." };
+  // HR deletes saved, rejected and completed papers; one still waiting for a signature needs an admin.
+  const st = statusOf(row);
+  if ((st === "pending_line" || st === "pending_director") && !isAdmin(body)) {
+    return { ok: false, success: false, error: "locked", message: "This request is waiting for a signature. Only an admin can delete it now." };
   }
   await trashRows("AsaasLeaveRequests", [row], "delete", auth.username);
   const { error } = await sb().from(TABLE).delete().eq("id", id);
   if (error) throw error;
   return { ok: true, success: true, id };
+}
+
+/* ---- A.S.A.A.S recycle bin: only deleted leave papers (trash rows from AsaasLeaveRequests), HR only. ---- */
+const TRASH_SRC = "AsaasLeaveRequests";
+
+function trashRowObj(raw: unknown): Record<string, unknown> {
+  let v: unknown = raw;
+  if (typeof v === "string") { try { v = JSON.parse(v); } catch (_e) { v = {}; } }
+  return v && typeof v === "object" && !Array.isArray(v) ? v as Record<string, unknown> : {};
+}
+function trashIds(body: Record<string, unknown>): string[] {
+  const raw = Array.isArray(body.trashIds) ? body.trashIds : (body.trashId ? [body.trashId] : []);
+  return raw.map((x) => String(x || "").trim()).filter(Boolean);
+}
+async function loadTrash(ids?: string[]) {
+  let q = sb().from("trash").select("trash_id,row_json,deleted_by,deleted_at").eq("source_sheet", TRASH_SRC);
+  if (ids) q = q.in("trash_id", ids);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data || []) as Record<string, unknown>[];
+}
+
+export async function handleGetAsaasLeaveTrash(body: Record<string, unknown>, auth: AuthOk) {
+  if (!isHr(body, auth)) return { ok: false, success: false, error: "not_allowed", message: "Only A.S.A.A.S HR can open the recycle bin." };
+  const rows = await loadTrash();
+  const items = rows.map((t) => {
+    const r = trashRowObj(t.row_json);
+    return {
+      trashId: t.trash_id,
+      id: r.id || "",
+      employeeName: r.employee_name || "",
+      leaveType: r.leave_type || "",
+      startDate: r.start_date || "",
+      endDate: r.end_date || "",
+      status: statusOf(r),
+      deletedBy: t.deleted_by || "",
+      deletedAt: t.deleted_at || "",
+    };
+  });
+  items.sort((a, b) => String(b.deletedAt).localeCompare(String(a.deletedAt)));
+  return { ok: true, success: true, items };
+}
+
+export async function handleRestoreAsaasLeaveTrash(body: Record<string, unknown>, auth: AuthOk) {
+  if (!isHr(body, auth)) return { ok: false, success: false, error: "not_allowed", message: "Only A.S.A.A.S HR can restore." };
+  const ids = trashIds(body);
+  if (!ids.length) return { ok: false, success: false, error: "missing_id" };
+  let restored = 0;
+  for (const t of await loadTrash(ids)) {
+    const r = trashRowObj(t.row_json);
+    if (!r.id) continue;
+    const { error } = await sb().from(TABLE).upsert(r, { onConflict: "id" });
+    if (error) throw error;
+    await sb().from("trash").delete().eq("trash_id", String(t.trash_id));
+    restored++;
+  }
+  return { ok: true, success: true, restored };
+}
+
+export async function handlePurgeAsaasLeaveTrash(body: Record<string, unknown>, auth: AuthOk) {
+  if (!isHr(body, auth)) return { ok: false, success: false, error: "not_allowed", message: "Only A.S.A.A.S HR can delete forever." };
+  const ids = trashIds(body);
+  if (!ids.length) return { ok: false, success: false, error: "missing_id" };
+  const found = (await loadTrash(ids)).map((t) => String(t.trash_id));
+  if (!found.length) return { ok: true, success: true, deleted: 0 };
+  const { error } = await sb().from("trash").delete().in("trash_id", found).eq("source_sheet", TRASH_SRC);
+  if (error) throw error;
+  return { ok: true, success: true, deleted: found.length };
 }

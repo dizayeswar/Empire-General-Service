@@ -240,8 +240,7 @@
       host: 'asaasLeaveSavedList', search: 'asaasLeaveSearch',
       pick: function (r) { return r.status !== 'completed'; },
       selectable: function (r) { return _hr && (r.status === 'saved' || r.status === 'rejected'); },
-      bulkLabel: 'Confirm selected',
-      bulk: function (ids) { confirmMany(ids); },
+      bulks: [{ label: 'Confirm selected', color: '#1a7f37', run: function (ids) { confirmMany(ids); } }],
       empty: ['No saved requests yet', 'Fill a Leave Request and press Save.'],
       head: '<th>Name</th><th>Type of Leave</th><th>Start</th><th>End</th><th>Status</th><th>Saved</th><th></th>',
       row: function (r) {
@@ -255,8 +254,7 @@
       host: 'asaasLeaveSignList',
       pick: function (r) { return myTurn(r); },
       selectable: function (r) { return myTurn(r); },
-      bulkLabel: 'Confirm & sign selected',
-      bulk: function (ids) { signMany(ids); },
+      bulks: [{ label: 'Confirm & sign selected', color: '#1a7f37', run: function (ids) { signMany(ids); } }],
       empty: ['Nothing to sign', 'Requests waiting for your e-signature show here.'],
       head: '<th>Name</th><th>Type of Leave</th><th>Start</th><th>End</th><th>Confirmed by</th><th>Line Manager</th><th></th>',
       row: function (r) {
@@ -269,13 +267,35 @@
     completed: {
       host: 'asaasLeaveCompletedList', search: 'asaasLeaveCompletedSearch',
       pick: function (r) { return r.status === 'completed'; },
+      selectable: function () { return true; },
+      bulks: [
+        { label: 'Print selected', color: '#1b5fa8', run: function (ids) { printMany(ids); } },
+        { label: 'Delete selected', color: '#C5504F', hrOnly: true, run: function (ids) { deleteMany(ids); } }
+      ],
       empty: ['No completed requests yet', 'Papers signed by the Line Manager and the Director show here.'],
       head: '<th>Name</th><th>Type of Leave</th><th>Start</th><th>End</th><th>Line Manager</th><th>Director</th><th></th>',
       row: function (r) {
         return '<td>' + esc(r.employeeName || '—') + '</td><td>' + esc(r.leaveType) + '</td><td>' + esc(r.startDate) + '</td><td>' + esc(r.endDate) +
           '</td><td>' + esc(r.lineSignedBy) + '<br><small>' + esc(when(r.lineSignedAt)) + '</small></td><td>' +
           esc(r.directorSignedBy) + '<br><small>' + esc(when(r.directorSignedAt)) + '</small></td><td style="white-space:nowrap">' +
-          btn('data-open', r.id, 'Open') + '</td>';
+          btn('data-open', r.id, 'Open') + btn('data-print', r.id, 'Print', '#1b5fa8') + (_hr ? btn('data-del', r.id, 'Delete', '#C5504F') : '') + '</td>';
+      }
+    },
+    bin: {
+      host: 'asaasLeaveBinList', search: 'asaasLeaveBinSearch',
+      data: function () { return _trash; }, idKey: 'trashId',
+      pick: function () { return true; },
+      selectable: function () { return _hr; },
+      bulks: [
+        { label: 'Restore selected', color: '#1a7f37', run: function (ids) { restoreTrash(ids); } },
+        { label: 'Delete forever', color: '#C5504F', run: function (ids) { purgeTrash(ids); } }
+      ],
+      empty: ['Recycle Bin is empty', 'Deleted leave requests stay here until you restore them or delete them forever.'],
+      head: '<th>Name</th><th>Type of Leave</th><th>Start</th><th>End</th><th>Status when deleted</th><th>Deleted</th><th></th>',
+      row: function (r) {
+        return '<td>' + esc(r.employeeName || '—') + '</td><td>' + esc(r.leaveType) + '</td><td>' + esc(r.startDate) + '</td><td>' + esc(r.endDate) +
+          '</td><td>' + esc(STATUS_TEXT[r.status] || r.status) + '</td><td>' + esc(r.deletedBy) + '<br><small>' + esc(when(r.deletedAt)) + '</small></td>' +
+          '<td style="white-space:nowrap">' + btn('data-restore', r.trashId, 'Restore', '#1a7f37') + btn('data-purge', r.trashId, 'Delete forever', '#C5504F') + '</td>';
       }
     }
   };
@@ -284,7 +304,8 @@
     var L = LISTS[name];
     var host = document.getElementById(L.host);
     if (!host) return;
-    var mine = _all.filter(L.pick);
+    var idKey = L.idKey || 'id';
+    var mine = (L.data ? L.data() : _all).filter(L.pick);
     var q = L.search ? String((document.getElementById(L.search) || {}).value || '').trim().toLowerCase() : '';
     var rows = mine.filter(function (r) {
       return !q || [r.employeeName, r.leaveType, r.startDate, r.endDate, r.createdBy, STATUS_TEXT[r.status]].join(' ').toLowerCase().indexOf(q) !== -1;
@@ -293,18 +314,21 @@
     if (!rows.length) { host.innerHTML = empireEmptyHtml('No match', 'Try another name or date.'); return; }
     var sel = _sel[name] || (_sel[name] = {});
     var ticks = L.selectable ? rows.filter(L.selectable) : [];
-    Object.keys(sel).forEach(function (id) { if (!ticks.some(function (r) { return r.id === id; })) delete sel[id]; });
+    Object.keys(sel).forEach(function (id) { if (!ticks.some(function (r) { return r[idKey] === id; })) delete sel[id]; });
     var n = Object.keys(sel).length;
     var allOn = ticks.length && n === ticks.length;
     var bar = ticks.length
       ? '<div class="alv-bulk"><label><input type="checkbox" data-selall="' + name + '"' + (allOn ? ' checked' : '') + '> Select all</label>' +
-        '<button data-bulk="' + name + '"' + (n ? '' : ' disabled') + ' style="color:#fff;background:#1a7f37;border-color:#1a7f37;">' +
-        L.bulkLabel + (n ? ' (' + n + ')' : '') + '</button></div>'
+        (L.bulks || []).map(function (bk, i) {
+          if (bk.hrOnly && !_hr) return '';
+          return '<button data-bulk="' + name + ':' + i + '"' + (n ? '' : ' disabled') + ' style="color:#fff;background:' + bk.color + ';border-color:' + bk.color + ';">' +
+            bk.label + (n ? ' (' + n + ')' : '') + '</button>';
+        }).join('') + '</div>'
       : '';
     host.innerHTML = bar + '<div style="overflow-x:auto"><table><thead><tr>' + (ticks.length ? '<th></th>' : '') + L.head + '</tr></thead><tbody>' +
       rows.map(function (r) {
         var box = !ticks.length ? '' : '<td class="alv-tick">' + (L.selectable(r)
-          ? '<input type="checkbox" data-sel="' + name + '" value="' + esc(r.id) + '"' + (sel[r.id] ? ' checked' : '') + ' aria-label="Select">'
+          ? '<input type="checkbox" data-sel="' + name + '" value="' + esc(r[idKey]) + '"' + (sel[r[idKey]] ? ' checked' : '') + ' aria-label="Select">'
           : '') + '</td>';
         return '<tr>' + box + L.row(r) + '</tr>';
       }).join('') + '</tbody></table></div>';
@@ -316,6 +340,7 @@
     show('asaasLeaveTab-form', _hr);
     show('asaasLeaveTab-saved', _hr);
     show('asaasLeaveTab-completed', true);
+    show('asaasLeaveTab-bin', _hr);
     var badge = document.getElementById('asaasLeaveSignCount');
     if (badge) badge.textContent = n ? ' (' + n + ')' : '';
   }
@@ -366,7 +391,7 @@
   function deleteRequest(id) {
     var r = find(id);
     if (!r) return;
-    uiConfirm('Delete the request for ' + (r.employeeName || 'this employee') + '?', { okLabel: 'Delete', danger: true })
+    uiConfirm('Delete the request for ' + (r.employeeName || 'this employee') + '? It goes to the Recycle Bin, where you can restore it.', { okLabel: 'Delete', danger: true })
       .then(function (ok) {
         if (!ok) return;
         return api({ action: 'deleteAsaasLeaveRequest', id: id })
@@ -412,6 +437,100 @@
       });
     });
   }
+  function deleteMany(ids) {
+    uiConfirm('Delete ' + ids.length + ' request' + (ids.length > 1 ? 's' : '') + '? ' + (ids.length > 1 ? 'They go' : 'It goes') + ' to the Recycle Bin, where you can restore ' + (ids.length > 1 ? 'them' : 'it') + '.', { okLabel: 'Delete ' + ids.length, danger: true })
+      .then(function (yes) { if (yes) runMany(ids, 'deleteAsaasLeaveRequest', 'moved to the Recycle Bin.'); });
+  }
+
+  // Print one or many saved papers, each on its own A4 page with its stamps.
+  function printMany(ids) {
+    if (_busy) return;
+    _busy = true;
+    var area = document.getElementById('alvPrintArea');
+    if (!area) { area = document.createElement('div'); area.id = 'alvPrintArea'; document.body.appendChild(area); }
+    area.innerHTML = '';
+    var failed = [];
+    ids.reduce(function (p, id) {
+      return p.then(function () {
+        return api({ action: 'getAsaasLeaveRequest', id: id }, 2).then(function (d) {
+          var r = d.request;
+          var sheet = document.createElement('div');
+          sheet.className = 'alv-sheet';
+          sheet.innerHTML = sheetHtml();
+          area.appendChild(sheet);
+          sheet.querySelectorAll('[data-k]').forEach(function (el) {
+            var v = (r.form || {})[el.getAttribute('data-k')];
+            if (el.tagName === 'SELECT') { if (v) el.value = v; } else { el.textContent = v || ''; el.removeAttribute('contenteditable'); }
+          });
+          [['line', r.lineSignature], ['director', r.directorSignature]].forEach(function (x) {
+            var box = sheet.querySelector('[data-sig="' + x[0] + '"]');
+            if (box && x[1]) box.innerHTML = '<img src="' + esc(x[1]) + '" alt="">';
+          });
+        }).catch(function (e) { var r = find(id); failed.push((r && r.employeeName || id) + ': ' + e.message); });
+      });
+    }, Promise.resolve()).then(function () {
+      var imgs = [].slice.call(area.querySelectorAll('img'));
+      return Promise.all(imgs.map(function (im) { return im.decode ? im.decode().catch(function () {}) : null; }));
+    }).then(function () {
+      _busy = false;
+      if (!area.children.length) { uiAlert('Nothing to print. ' + failed.join('; ')); return; }
+      document.body.classList.add('alv-print-many');
+      window.print();
+      if (failed.length) uiAlert('Some papers could not be printed: ' + failed.join('; '));
+    });
+  }
+  window.addEventListener('afterprint', function () {
+    document.body.classList.remove('alv-print-many');
+    var area = document.getElementById('alvPrintArea');
+    if (area) area.innerHTML = '';
+  });
+
+  // ---- Recycle Bin (HR) ----
+  var _trash = [];
+  function loadTrash() {
+    var host = document.getElementById('asaasLeaveBinList');
+    if (host && !_trash.length) host.innerHTML = empireLoadingHtml('Loading…');
+    return api({ action: 'getAsaasLeaveTrash' }, 2)
+      .then(function (d) { _trash = d.items || []; renderList('bin'); })
+      .catch(function (e) { if (host) host.innerHTML = empireErrorHtml('Could not load the Recycle Bin: ' + e.message); });
+  }
+  function trashName(ids) {
+    if (ids.length > 1) return ids.length + ' requests';
+    var t = _trash.filter(function (x) { return x.trashId === ids[0]; })[0];
+    return 'the request for ' + ((t && t.employeeName) || 'this employee');
+  }
+  function restoreTrash(ids) {
+    uiConfirm('Restore ' + trashName(ids) + '? ' + (ids.length > 1 ? 'They go' : 'It goes') + ' back where ' + (ids.length > 1 ? 'they were' : 'it was') + '.', { okLabel: 'Restore' })
+      .then(function (yes) {
+        if (!yes) return;
+        _busy = true;
+        return api({ action: 'restoreAsaasLeaveTrash', trashIds: ids })
+          .then(function (d) { _sel.bin = {}; uiAlert((d.restored || 0) + ' restored.'); return Promise.all([loadTrash(), loadAll()]); })
+          .catch(function (e) { uiAlert('Not restored: ' + e.message); })
+          .then(function () { _busy = false; });
+      });
+  }
+  function purgeTrash(ids) {
+    uiConfirm('Delete ' + trashName(ids) + ' forever? This cannot be undone.', { okLabel: 'Delete forever', danger: true })
+      .then(function (yes) {
+        if (!yes) return;
+        _busy = true;
+        return api({ action: 'purgeAsaasLeaveTrash', trashIds: ids })
+          .then(function () { _sel.bin = {}; return loadTrash(); })
+          .catch(function (e) { uiAlert('Not deleted: ' + e.message); })
+          .then(function () { _busy = false; });
+      });
+  }
+
+  // Sidebar Refresh: reload whatever list is open.
+  window.asaasLeaveRefresh_ = function () {
+    var icon = document.getElementById('asaasLeaveRefreshIcon');
+    if (icon) icon.classList.add('spinning');
+    var bin = document.getElementById('asaasLeavePane-bin');
+    Promise.all([loadAll(), bin && bin.classList.contains('active') ? loadTrash() : null])
+      .then(function () { if (icon) icon.classList.remove('spinning'); });
+  };
+
   function confirmMany(ids) {
     uiConfirm('Confirm ' + ids.length + ' request' + (ids.length > 1 ? 's' : '') + ' and send ' + (ids.length > 1 ? 'them' : 'it') + ' to the Line Manager? They can no longer be changed after this.', { okLabel: 'Confirm ' + ids.length })
       .then(function (yes) { if (yes) runMany(ids, 'confirmAsaasLeaveRequest', 'sent to the Line Manager.'); });
@@ -426,17 +545,21 @@
     var b = e.target.closest && e.target.closest('.alv-list button');
     if (!b) return;
     if (b.hasAttribute('data-bulk')) {
-      var name = b.getAttribute('data-bulk');
-      var ids = Object.keys(_sel[name] || {});
-      if (ids.length && !_busy) LISTS[name].bulk(ids);
+      var parts = b.getAttribute('data-bulk').split(':');
+      var ids = Object.keys(_sel[parts[0]] || {});
+      var bk = (LISTS[parts[0]].bulks || [])[Number(parts[1])];
+      if (bk && ids.length && !_busy) bk.run(ids);
       return;
     }
+    if (b.hasAttribute('data-print')) { printMany([b.getAttribute('data-print')]); return; }
+    if (b.hasAttribute('data-restore')) { restoreTrash([b.getAttribute('data-restore')]); return; }
+    if (b.hasAttribute('data-purge')) { purgeTrash([b.getAttribute('data-purge')]); return; }
     if (b.hasAttribute('data-open')) openRequest(b.getAttribute('data-open'));
     if (b.hasAttribute('data-confirm')) confirmRequest(b.getAttribute('data-confirm'));
     if (b.hasAttribute('data-del')) deleteRequest(b.getAttribute('data-del'));
   });
 
-  var TABS = ['loading', 'form', 'saved', 'sign', 'completed'];
+  var TABS = ['loading', 'form', 'saved', 'sign', 'completed', 'bin'];
   window.asaasLeaveShowTab_ = function (tab, noLoad) {
     TABS.forEach(function (t) {
       var pane = document.getElementById('asaasLeavePane-' + t);
@@ -445,6 +568,7 @@
       if (b) b.classList.toggle('active', t === tab);
     });
     if (tab === 'form') fit();
+    else if (tab === 'bin') { if (!noLoad) loadTrash(); }
     else if (!noLoad) loadAll(tab);
   };
   // The page shows "Loading…" until the server says who this is, then only that person's menu:

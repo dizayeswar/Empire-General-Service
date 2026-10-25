@@ -62,3 +62,14 @@
 .alv-bulk button[disabled] { opacity:.45; cursor:default; }
 .alv-list td.alv-tick, .alv-list th:first-child:empty { width:34px; }
 .alv-list input[type="checkbox"] { width:18px; height:18px; cursor:pointer; accent-color:#1a7f37; }
+
+/* Print several papers: each its own A4 page (only the print area shows). */
+#alvPrintArea { display:none; }
+@media print {
+  body.alv-print-many > *:not(#alvPrintArea) { display:none !important; }
+  body.alv-print-many #alvPrintArea { display:block; }
+  #alvPrintArea .alv-sheet { box-shadow:none; height:296mm; overflow:hidden; break-after:page; page-break-after:always; }
+  #alvPrintArea .alv-sheet:last-child { break-after:auto; page-break-after:auto; }
+  #alvPrintArea .alv-f[data-ph]:empty::before { content:none; }
+  #alvPrintArea * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+}
