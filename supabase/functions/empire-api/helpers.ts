@@ -229,6 +229,8 @@ export const MODULE_ACCESS_KEYS = [
   "hr_director",
   "hr_line",
   "hr_emp",
+  "car_park",
+  "car_park_security",
 ] as const;
 
 export type ModuleAccessKey = (typeof MODULE_ACCESS_KEYS)[number];
@@ -323,6 +325,8 @@ const MODULE_DEPTS: Record<ModuleAccessKey, string[]> = {
   hr_director: ["hr"],
   hr_line: ["hr"],
   hr_emp: ["hr"],
+  car_park: ["car park"],
+  car_park_security: ["car park"],
 };
 
 export function emptyModuleAccess(): ModuleAccessMap {

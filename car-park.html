@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest?v=2026-09-15-sec-acc">
+<meta name="theme-color" content="#8d015d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Car Park">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="logo-light.png" type="image/png">
+<title>Car Park — Empire World</title>
+<style id="empire-auth-boot">body.auth-login-visible #cpDeskApp,body.auth-login-visible #cpPhoneApp,body.auth-login-visible .cp-modal{display:none!important}</style>
+<link rel="stylesheet" href="assets/empire.css?v=2026-09-22-search-pill">
+<link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-09-22-search-pill">
+<link rel="stylesheet" href="assets/send-task.css?v=2026-10-19-apartments">
+<link rel="stylesheet" href="assets/car-park.css?v=2026-11-01-car-park">
+</head>
+<body class="auth-login-visible">
+<div class="login-page show" id="loginPage">
+  <div class="login-box">
+    <button class="theme-btn login-theme" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span></button>
+    <img src="logo-light.png" alt="Empire World" style="height:44px;width:auto;display:block;margin:0 auto 16px;">
+    <a class="back" href="index.html">← Back to hub</a>
+    <h1>🚗 Car Park</h1>
+    <p style="text-align:center;color:var(--text-soft);font-size:14px;margin:-8px 0 16px;">RA · WW · WD · ES</p>
+    <div class="login-message" id="loginMessage"></div>
+    <form class="login-form" onsubmit="cpHandleLogin_(event)">
+      <input type="text" id="loginUsername" placeholder="Username" required autocomplete="username">
+      <input type="password" id="loginPassword" placeholder="Password" required autocomplete="current-password">
+      <button type="submit">Login</button>
+    </form>
+  </div>
+</div>
+
+<!-- Desk: portal -->
+<div id="cpDeskApp" class="container">
+  <header class="dt-desk-head">
+    <div class="header-top">
+      <div class="header-title">
+        <h1>🚗 Car Park</h1>
+        <p id="cpDeskWho"></p>
+      </div>
+      <div class="header-controls">
+        <button type="button" id="cpToPhoneBtn" style="display:none" onclick="cpSwitchMode_('phone')">Security view</button>
+        <button type="button" class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span></button>
+        <button type="button" onclick="location.href='index.html'">Hub</button>
+        <button type="button" class="dt-logout-btn" onclick="cpLogout_()">Logout</button>
+      </div>
+    </div>
+  </header>
+  <div class="tabs">
+    <button type="button" class="tab-btn active" id="cpTabDash" onclick="cpDeskTab_('dash')">Dashboard</button>
+    <button type="button" class="tab-btn" id="cpTabReports" onclick="cpDeskTab_('reports')">Reports <span id="cpProblemCount" class="side-nav-badge" style="display:none"></span></button>
+    <button type="button" class="tab-btn" id="cpTabApts" onclick="cpDeskTab_('apts')">Apartments &amp; cars</button>
+  </div>
+
+  <div id="cpPaneDash" class="tab-content active">
+    <div class="form-section">
+      <div class="form-row">
+        <div class="form-group">
+          <label for="cpDashRange">Period</label>
+          <select id="cpDashRange" onchange="cpRenderDash_()">
+            <option value="all">All time</option>
+            <option value="month">This month</option>
+            <option value="30">Last 30 days</option>
+            <option value="7">Last 7 days</option>
+            <option value="today">Today</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="cpDashProject">Project</label>
+          <select id="cpDashProject" onchange="cpRenderDash_()"></select>
+        </div>
+        <div class="form-group"><label>&nbsp;</label><button type="button" onclick="cpLoadAll_(true)">Refresh</button></div>
+      </div>
+      <div id="cpDash"><p>Loading…</p></div>
+    </div>
+  </div>
+
+  <div id="cpPaneReports" class="tab-content">
+    <div class="form-section">
+      <div class="form-row">
+        <div class="form-group">
+          <label for="cpRepProject">Project</label>
+          <select id="cpRepProject" onchange="cpRenderReports_()"></select>
+        </div>
+        <div class="form-group">
+          <label for="cpRepWarn">Warning</label>
+          <select id="cpRepWarn" onchange="cpRenderReports_()">
+            <option value="">All</option>
+            <option value="1">1st warning</option>
+            <option value="2">2nd warning</option>
+            <option value="3">3rd warning or more</option>
+            <option value="0">Plate not found</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="cpRepWa">WhatsApp</label>
+          <select id="cpRepWa" onchange="cpRenderReports_()">
+            <option value="">All</option>
+            <option value="sent">Sent</option>
+            <option value="problem">Not sent (needs action)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="cpRepSearch">Search</label>
+          <input type="search" id="cpRepSearch" placeholder="Plate, apartment, security…" autocomplete="off" oninput="cpRenderReports_()">
+        </div>
+      </div>
+      <div id="cpReportList"><p>Loading…</p></div>
+    </div>
+  </div>
+
+  <div id="cpPaneApts" class="tab-content">
+    <div class="form-section">
+      <div class="form-row">
+        <div class="form-group">
+          <label for="cpAptProject">Project</label>
+          <select id="cpAptProject" onchange="cpRenderApts_()"></select>
+        </div>
+        <div class="form-group">
+          <label for="cpAptShow">Show</label>
+          <select id="cpAptShow" onchange="cpRenderApts_()">
+            <option value="">All apartments</option>
+            <option value="phone">With phone</option>
+            <option value="nophone">Missing phone</option>
+            <option value="cars">With cars</option>
+            <option value="nocars">No cars</option>
+            <option value="warned">Has warnings</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="cpAptSearch">Search</label>
+          <input type="search" id="cpAptSearch" placeholder="Apartment, phone, plate, name…" autocomplete="off" oninput="cpRenderApts_()">
+        </div>
+      </div>
+      <div class="dt-actions" id="cpAptTools">
+        <button type="button" onclick="cpExportApts_()">⬇ Download Excel</button>
+        <button type="button" id="cpImportBtn" onclick="document.getElementById('cpImportFile').click()">⬆ Import Excel</button>
+        <input type="file" id="cpImportFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="cpImportFile_(event)">
+        <span id="cpAptMsg" class="dt-msg" aria-live="polite"></span>
+      </div>
+      <p class="dt-hint">Excel columns: <strong>Apartment</strong>, <strong>Phone</strong>, <strong>Owner</strong>, <strong>Car 1</strong>, <strong>Car 2</strong>, <strong>Car 3</strong>… Download first to get the right layout. Import adds cars and fills phone / owner; it never deletes.</p>
+      <div id="cpAptList"><p>Loading…</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- Phone: security -->
+<div id="cpPhoneApp" class="worker-app">
+  <header class="worker-head">
+    <img src="logo-light.png" alt="Empire World" class="worker-logo">
+    <div class="worker-head-text"><h1>Car Park</h1></div>
+    <div class="worker-head-actions">
+      <button type="button" id="cpToDeskBtn" class="worker-lang-btn" style="display:none" onclick="cpSwitchMode_('desk')">Portal</button>
+      <button type="button" class="worker-logout-head" onclick="cpLogout_()">Logout</button>
+    </div>
+  </header>
+  <div class="cp-phone">
+    <h2 class="cp-step">1 · Project</h2>
+    <div class="cp-choice" id="cpPhProjects"></div>
+
+    <h2 class="cp-step">2 · Photo of the car</h2>
+    <button type="button" class="cp-photo-btn" id="cpPhPhotoBtn" onclick="cpPickPhoto_()">📷 Take photo</button>
+    <img id="cpPhPhotoPreview" class="cp-photo-preview" alt="" style="display:none" onclick="cpPickPhoto_()">
+    <p id="cpPhPhotoMsg" class="dt-msg" aria-live="polite"></p>
+
+    <h2 class="cp-step">3 · Plate number</h2>
+    <input type="text" id="cpPhPlate" class="cp-plate-input" placeholder="e.g. 22 A 12345" autocomplete="off" autocapitalize="characters" spellcheck="false" oninput="cpOnPlateInput_()">
+    <p id="cpPhLookup" class="cp-lookup"></p>
+
+    <h2 class="cp-step">4 · What happened</h2>
+    <div class="cp-choice cp-choice-2" id="cpPhViolations"></div>
+
+    <button type="button" id="cpPhSend" class="dt-primary dt-wide cp-send" onclick="cpSendReport_()" disabled>Send report</button>
+    <div id="cpPhResult" class="cp-result" style="display:none"></div>
+
+    <h2 class="cp-step">My recent reports</h2>
+    <div id="cpPhList" class="dt-phone-list cp-ph-list"></div>
+  </div>
+</div>
+
+<!-- Report detail / apartment edit -->
+<div id="cpModal" class="cp-modal" role="dialog" aria-modal="true" onclick="if(event.target===this)cpCloseModal_()">
+  <div class="cp-modal-box">
+    <button type="button" class="cp-modal-x" onclick="cpCloseModal_()" aria-label="Close">×</button>
+    <div id="cpModalBody"></div>
+  </div>
+</div>
+
+<input type="file" id="cpPhotoCamera" class="worker-sr-file-input" accept="image/*" capture="environment" onchange="cpHandlePhotoFile_(event)">
+<input type="file" id="cpPhotoGallery" class="worker-sr-file-input" accept="image/*" onchange="cpHandlePhotoFile_(event)">
+
+<div id="cpImgModal" class="dt-img-modal" onclick="this.classList.remove('show')"><img id="cpImgBig" alt=""></div>
+
+<script src="assets/empire-sw-update.js?v=2026-09-15-sec-acc"></script>
+<script src="config.js?v=2026-09-15-sec-acc"></script>
+<script src="assets/empire-storage.js?v=2026-09-15-sec-acc"></script>
+<script src="assets/empire-api.js?v=2026-09-15-sec-acc"></script>
+<script src="assets/empire-auth.js?v=2026-11-01-car-park"></script>
+<script src="assets/empire-core.js?v=2026-09-15-sec-acc"></script>
+<script src="assets/car-park-app.js?v=2026-11-01-car-park"></script>
+</body>
+</html>
