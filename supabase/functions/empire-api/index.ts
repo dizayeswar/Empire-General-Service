@@ -449,10 +449,24 @@ Deno.serve(async (req) => {
         return json({ ok: false, error: "Unhandled action" });
     }
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errorText(err);
+    console.error("empire-api error:", message);
     return json({ ok: false, error: message });
   }
 });
+
+/** Supabase errors are plain objects, not Error, so String() gives "[object Object]". */
+function errorText(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === "object") {
+    const e = err as Record<string, unknown>;
+    const parts = [e.message, e.details, e.hint].map((v) => String(v || "").trim()).filter(Boolean);
+    const code = String(e.code || "").trim();
+    if (parts.length) return parts.join(" — ") + (code ? " (" + code + ")" : "");
+    try { return JSON.stringify(err); } catch (_) { /* fall through */ }
+  }
+  return String(err);
+}
 
 // keep verifyTokenSession available for summary
 void verifyTokenSession;
