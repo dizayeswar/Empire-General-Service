@@ -448,7 +448,8 @@ function empireCanAccessDept(requiredDept) {
     hr: ['hr', 'hr_director', 'hr_line', 'hr_emp'],
     'send task': [
       'send_task', 'dtask_worker_electrical', 'dtask_worker_civil', 'dtask_worker_hvac', 'dtask_worker_mechanical'
-    ]
+    ],
+    'car park': ['car_park', 'car_park_security']
   };
   function moduleAllowsDeptToken(token) {
     var keys = moduleKeysByDept[token];
@@ -537,7 +538,8 @@ var EMPIRE_DEPT_HOME = {
   ups: 'ups.html',
   charging: 'charging-electricity.html',
   hr: 'hr-department.html',
-  'send task': 'send-task.html'
+  'send task': 'send-task.html',
+  'car park': 'car-park.html'
 };
 
 var EMPIRE_LOGIN_PAGE = 'index.html';

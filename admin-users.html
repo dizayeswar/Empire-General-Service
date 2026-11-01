@@ -310,7 +310,10 @@
       { key: 'dtask_worker_electrical', label: 'Electrical: receive tasks (phone)', child: true, parent: 'dtask_mod' },
       { key: 'dtask_worker_civil', label: 'Civil: receive tasks (phone)', child: true, parent: 'dtask_mod' },
       { key: 'dtask_worker_hvac', label: 'HVAC: receive tasks (phone)', child: true, parent: 'dtask_mod' },
-      { key: 'dtask_worker_mechanical', label: 'Mechanical: receive tasks (phone)', child: true, parent: 'dtask_mod' }
+      { key: 'dtask_worker_mechanical', label: 'Mechanical: receive tasks (phone)', child: true, parent: 'dtask_mod' },
+      { key: 'car_park_mod', label: 'Car Park', n: 16, group: true },
+      { key: 'car_park', label: 'Portal: apartments, reports, dashboard', child: true, parent: 'car_park_mod' },
+      { key: 'car_park_security', label: 'Security: report cars (phone)', child: true, parent: 'car_park_mod' }
     ];
 
     function resetExpandedGroups(access) {

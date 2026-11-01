@@ -22,6 +22,7 @@ import * as charging from "./handlers_charging.ts";
 import * as storage from "./handlers_storage.ts";
 import * as users from "./handlers_users.ts";
 import * as dtasks from "./handlers_dtasks.ts";
+import * as carpark from "./handlers_carpark.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -131,6 +132,24 @@ Deno.serve(async (req) => {
       if (!dtAuth.ok) return json(dtAuth);
       dtAuth = await enrichAuthRole(dtAuth as AuthOk);
       return json(await dtaskHandlers[action](body, dtAuth as AuthOk));
+    }
+
+    const carparkHandlers: Record<string, (b: Record<string, unknown>, a: AuthOk) => Promise<unknown>> = {
+      getCarparkApartments: carpark.handleGetCarparkApartments,
+      saveCarparkApartment: carpark.handleSaveCarparkApartment,
+      importCarparkApartments: carpark.handleImportCarparkApartments,
+      lookupCarparkPlate: carpark.handleLookupCarparkPlate,
+      addCarparkReport: carpark.handleAddCarparkReport,
+      getCarparkReports: carpark.handleGetCarparkReports,
+      resendCarparkWhatsApp: carpark.handleResendCarparkWhatsApp,
+      linkCarparkReport: carpark.handleLinkCarparkReport,
+      deleteCarparkReport: carpark.handleDeleteCarparkReport,
+    };
+    if (carparkHandlers[action]) {
+      let cpAuth = await verifyTokenSession(String(body.token || ""));
+      if (!cpAuth.ok) return json(cpAuth);
+      cpAuth = await enrichAuthRole(cpAuth as AuthOk);
+      return json(await carparkHandlers[action](body, cpAuth as AuthOk));
     }
 
     const requiredDept = TRASH_ACTIONS[action] ? String(body.dept || "") : DEPT_BY_ACTION[action];

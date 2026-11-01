@@ -234,6 +234,8 @@ export const MODULE_ACCESS_KEYS = [
   "dtask_worker_civil",
   "dtask_worker_hvac",
   "dtask_worker_mechanical",
+  "car_park",
+  "car_park_security",
 ] as const;
 
 export type ModuleAccessKey = (typeof MODULE_ACCESS_KEYS)[number];
@@ -334,6 +336,8 @@ const MODULE_DEPTS: Record<ModuleAccessKey, string[]> = {
   dtask_worker_civil: [],
   dtask_worker_hvac: [],
   dtask_worker_mechanical: [],
+  car_park: ["car park"],
+  car_park_security: ["car park"],
 };
 
 export const DTASK_MODULE_KEYS: ModuleAccessKey[] = [

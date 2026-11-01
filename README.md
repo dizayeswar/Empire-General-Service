@@ -18,6 +18,7 @@ Web dashboards for Empire World departments: cleaning, civil, electrical, HSE, a
 | **Charging Electricity** | `charging-electricity.html` — live charge log (RU, unit, T1/T2, amount, invoice or cause). Nova Pay stays on the laptop robot. |
 | **Charge robot** | `charge-robot/` — local NovaSys electricity charge tool (laptop only, not the live site). See `charge-robot/CHARGE-ROBOT.md` |
 | **HSE** | `hse-inspection.html` — fire safety equipment inspections |
+| **Car Park** | `car-park.html` — security reports wrong parking (photo + plate); apartment gets an automatic WhatsApp warning; portal keeps apartment phones, car plates and a 1st / 2nd / 3rd warning dashboard |
 
 ---
 
