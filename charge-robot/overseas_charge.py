@@ -328,7 +328,12 @@ def type_amount(items, amount: str) -> None:
     time.sleep(0.2)
 
 
-def sts_search_and_recharge(unit: str, amount: str, restarted: bool = False) -> str:
+def sts_search_and_recharge(
+    unit: str,
+    amount: str,
+    restarted: bool = False,
+    paid: dict | None = None,
+) -> str:
     """Return 'charged', 'no_row', or 'ambiguous'."""
     require_bot_on()
     win = edge()
@@ -340,7 +345,7 @@ def sts_search_and_recharge(unit: str, amount: str, restarted: bool = False) -> 
     if r is None:
         if not restarted:
             print("STS jumped before Customer Name search — start again")
-            return sts_search_and_recharge(unit, amount, restarted=True)
+            return sts_search_and_recharge(unit, amount, restarted=True, paid=paid)
         raise RuntimeError("Customer Name search icon not found")
     click_rect(r)
     time.sleep(1.5)
@@ -356,7 +361,7 @@ def sts_search_and_recharge(unit: str, amount: str, restarted: bool = False) -> 
     if box is None:
         if not restarted:
             print("STS jumped before Unit ID — start again")
-            return sts_search_and_recharge(unit, amount, restarted=True)
+            return sts_search_and_recharge(unit, amount, restarted=True, paid=paid)
         raise RuntimeError("Customer Selector box not found")
 
     typed = (unit or "").strip()
@@ -415,6 +420,9 @@ def sts_search_and_recharge(unit: str, amount: str, restarted: bool = False) -> 
     if r is None:
         raise RuntimeError("pay confirm Ok not found")
     click_rect(r)
+    if paid:
+        save_need_pin(**paid)
+        print("PAID LOCK leftover SET PIN only", paid.get("ru"))
     time.sleep(3.5)
     return "charged"
 
@@ -484,7 +492,15 @@ def main() -> int:
             detail_unit=detail_unit,
             items_amount=amount,
         )
-        result = sts_search_and_recharge(unit, amount)
+        paid_lock = {
+            "ru": ru,
+            "unit": unit,
+            "amount": amount,
+            "tariff": tariff,
+            "source": "overseas",
+            "started_at": started_at,
+        }
+        result = sts_search_and_recharge(unit, amount, paid=paid_lock)
         if result != "charged":
             from save_dashboard import save_skip
 
@@ -505,14 +521,6 @@ def main() -> int:
             return 2
         charged = True
         grab_pdf_invoice(ru)
-        save_need_pin(
-            ru=ru,
-            unit=unit,
-            amount=amount,
-            tariff=tariff,
-            source="overseas",
-            started_at=started_at,
-        )
         stay.set()
         keeper.join(timeout=2)
         last_pin = None
@@ -556,7 +564,8 @@ def main() -> int:
         if exc.code == 3:
             return 3
         if exc.code == 4:
-            if charged:
+            need_now = load_need_pin()
+            if charged or (need_now and need_now.get("ru") == ru):
                 wake("SET PIN leftover", f"{ru} {unit} overseas bot switch unread after Recharge")
                 return 6
             wake("laptop stopped", f"{ru} {unit} overseas bot switch unread")
@@ -576,7 +585,8 @@ def main() -> int:
             click_home(edge())
         except Exception:
             pass
-        if charged:
+        need_now = load_need_pin()
+        if charged or (need_now and need_now.get("ru") == ru):
             return 6
         if "MISMATCH" in str(exc):
             return 2

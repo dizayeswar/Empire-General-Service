@@ -648,6 +648,10 @@ def main() -> int:
         )
         if r.returncode == 3:
             return 3
+        leftover_now = load_need_pin()
+        if leftover_now and leftover_now.get("ru") == c["ru"]:
+            log(f"SET PIN leftover {c['ru']} — retry PIN only, no second Pay")
+            return 10
         if r.returncode == 4:
             alerted.discard(c["ru"])
             _save_alerted(alerted)

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -45,8 +46,15 @@ def load_need_pin() -> dict | None:
 
 
 def save_need_pin(**kwargs) -> None:
+    """Lock this RU as already paid. Crash after this = SET PIN only, never a second Pay."""
     NEED_PIN.parent.mkdir(parents=True, exist_ok=True)
-    NEED_PIN.write_text(json.dumps(kwargs, indent=2), encoding="utf-8")
+    tmp = NEED_PIN.with_suffix(".json.tmp")
+    data = json.dumps(kwargs, indent=2)
+    with tmp.open("w", encoding="utf-8") as f:
+        f.write(data)
+        f.flush()
+        os.fsync(f.fileno())
+    tmp.replace(NEED_PIN)
 
 
 def clear_need_pin() -> None:
@@ -252,7 +260,7 @@ def _keep_request_awake(stop: threading.Event) -> None:
             pass
 
 
-def charge_and_pay(apartment: str, tariff: str, amount: str) -> Path:
+def charge_and_pay(apartment: str, tariff: str, amount: str, *, ru: str, started_at: str) -> Path:
     from bot_switch import require_bot_on
 
     require_bot_on(fresh=True)
@@ -278,6 +286,15 @@ def charge_and_pay(apartment: str, tariff: str, amount: str) -> Path:
     bot._require_payment_matches(dlg, tariff, amount, apartment)
     print("CLICKING PAY NOW", apartment, tariff, amount)
     bot._click_dialog_pay(dlg)
+    save_need_pin(
+        ru=ru,
+        unit=apartment,
+        amount=amount,
+        tariff=tariff,
+        source="nova",
+        started_at=started_at,
+    )
+    print("PAID LOCK leftover SET PIN only", ru)
     bot._maximize_invoice()
     receipt = grab_invoice(f"INVOICE-{apartment}")
     print("receipt", receipt)
@@ -468,17 +485,9 @@ def main() -> int:
                     )
                     wake("not green tick", f"{ru} {apt} {verdict} {path}")
                     return 2
-            receipt = charge_and_pay(apt, tariff, amount)
+            receipt = charge_and_pay(apt, tariff, amount, ru=ru, started_at=started_at)
             paid = True
             stash_ru_invoice(ru, receipt)
-            save_need_pin(
-                ru=ru,
-                unit=apt,
-                amount=amount,
-                tariff=tariff,
-                source="nova",
-                started_at=started_at,
-            )
         finally:
             stay.set()
             keeper.join(timeout=2)
@@ -526,7 +535,8 @@ def main() -> int:
         if exc.code == 3:
             return 3
         if exc.code == 4:
-            if paid:
+            need_now = load_need_pin()
+            if paid or (need_now and need_now.get("ru") == ru):
                 wake("SET PIN leftover", f"{ru} {unit} bot switch unread after Pay")
                 return 6
             wake("laptop stopped", f"{ru} {unit} bot switch unread")
@@ -534,7 +544,8 @@ def main() -> int:
         raise
     except Exception as exc:
         wake("laptop stopped", f"{ru} {unit} {exc}")
-        if paid:
+        need_now = load_need_pin()
+        if paid or (need_now and need_now.get("ru") == ru):
             return 6
         return 5
 
