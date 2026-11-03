@@ -7,6 +7,7 @@ import { fmtDate, isoNow, sb, selectAllRows, trashRows } from "./db.ts";
 import { notifyUsers_ } from "./fcm.ts";
 import {
   deriveAccountFromModuleAccess,
+  isAdminAccount,
   moduleAccessToJson,
   moduleLevel,
   normalizeRole,
@@ -977,11 +978,13 @@ export async function handleUpdateHrLeaveRequest(body: Record<string, unknown>, 
     const oldCode = String(ex.emp_code || "").trim();
     const oldDays = parseLeaveDays(ex.days_out);
     const newDays = parseLeaveDays(fields.days_out);
+    const by = String(auth.username || "");
+    const note = "Leave paper " + paperLabel(ex) + " edited";
     if (oldCode && oldCode === fields.emp_code) {
-      await applyLeaveDays(fields.emp_code, Math.round((newDays - oldDays) * 10) / 10);
+      await applyLeaveDays(fields.emp_code, Math.round((newDays - oldDays) * 10) / 10, by, note);
     } else {
-      if (oldCode) await applyLeaveDays(oldCode, -oldDays);
-      await applyLeaveDays(fields.emp_code, newDays);
+      if (oldCode) await applyLeaveDays(oldCode, -oldDays, by, note);
+      await applyLeaveDays(fields.emp_code, newDays, by, note);
     }
   }
   return { ok: true, success: true, id, row: rowToApi({ ...ex, ...patch }) };
@@ -1002,7 +1005,7 @@ export async function handleDeleteHrLeaveRequest(body: Record<string, unknown>, 
   const { error } = await sb().from("hr_leave_requests").delete().eq("id", id);
   if (error) throw error;
   if (leaveDaysCharged(ex)) {
-    await applyLeaveDays(String(ex.emp_code || "").trim(), -parseLeaveDays(ex.days_out));
+    await applyLeaveDays(String(ex.emp_code || "").trim(), -parseLeaveDays(ex.days_out), String(auth.username || ""), "Leave paper " + paperLabel(ex) + " deleted");
   }
   return { ok: true, success: true, id, trashed: true };
 }
@@ -1412,7 +1415,7 @@ export async function handleConfirmHrLeaveRequest(body: Record<string, unknown>,
       return { ok: false, success: false, error: "missing_signature", message: "Your e-signature is not on this account yet. Ask admin to upload it on Users, or place it on the Director box once." };
     }
     const patch = directorConfirmPatch(paper, directorSig, auth, body);
-    const saved = await saveDirectorConfirm_(paper, patch);
+    const saved = await saveDirectorConfirm_(paper, patch, String(auth.username || ""));
     if (!saved) {
       return { ok: false, success: false, error: "bad_status", message: "This paper is not waiting for the director." };
     }
@@ -1557,7 +1560,7 @@ export async function handleConfirmHrLeaveRequests(body: Record<string, unknown>
   const confirmed: string[] = [];
   await Promise.all(pending.map(async (ex) => {
     const patch = directorConfirmPatch(ex, directorSig, auth, extra);
-    const saved = await saveDirectorConfirm_(ex, patch);
+    const saved = await saveDirectorConfirm_(ex, patch, String(auth.username || ""));
     if (saved) confirmed.push(String(ex.id || ""));
   }));
   return { ok: true, success: true, confirmed: confirmed.length, ids: confirmed };
@@ -1598,7 +1601,7 @@ export async function handleRejectHrLeaveRequest(body: Record<string, unknown>, 
   const { data: rejected, error } = await sb().from("hr_leave_requests").update(patch).eq("id", id).eq("status", "pending_director").select("id");
   if (error) throw error;
   if (restoreDays && rejected && rejected.length) {
-    await applyLeaveDays(String(ex.emp_code || "").trim(), -parseLeaveDays(ex.days_out));
+    await applyLeaveDays(String(ex.emp_code || "").trim(), -parseLeaveDays(ex.days_out), String(auth.username || ""), "Director rejected paper " + paperLabel(ex));
   }
   return { ok: true, success: true, id, row: rowToApi({ ...ex, ...patch }, { slim: true }) };
 }
@@ -1923,7 +1926,7 @@ function markDaysCharged(entitlements: unknown): string {
   return entitlementsJson(ents);
 }
 
-async function saveDirectorConfirm_(ex: Record<string, unknown>, patch: Record<string, unknown>): Promise<boolean> {
+async function saveDirectorConfirm_(ex: Record<string, unknown>, patch: Record<string, unknown>, by: string): Promise<boolean> {
   const charge = !leaveDaysCharged(ex);
   patch.entitlements = markDaysCharged(patch.entitlements);
   const id = String(ex.id || "").trim();
@@ -1936,7 +1939,7 @@ async function saveDirectorConfirm_(ex: Record<string, unknown>, patch: Record<s
   if (error) throw error;
   const saved = Array.isArray(data) && data.length > 0;
   if (saved && charge) {
-    await applyLeaveDays(String(ex.emp_code || "").trim(), parseLeaveDays(ex.days_out));
+    await applyLeaveDays(String(ex.emp_code || "").trim(), parseLeaveDays(ex.days_out), by, "Director confirmed paper " + paperLabel(ex));
   }
   return saved;
 }
@@ -1996,14 +1999,64 @@ async function healUnconfirmedLeaveDays() {
   if (doneErr) throw doneErr;
 }
 
-async function applyLeaveDays(code: string, delta: number) {
+async function applyLeaveDays(code: string, delta: number, by = "", note = "") {
   const days = Math.round(Number(delta) * 10) / 10;
   if (!code || !days) return;
   const people = await readHrEmployees();
   const person = people.find((row) => row.code === code && row.active);
   if (!person || person.daysBalance == null) return;
+  const before = person.daysBalance;
   person.daysBalance = Math.round((person.daysBalance - days) * 10) / 10;
   await writeHrEmployees(people);
+  await logEmployeeChange(by, "days", person, [{ field: "Days left", from: String(before), to: String(person.daysBalance) }], note);
+}
+
+function paperLabel(ex: Record<string, unknown>): string {
+  const num = String(ex.num ?? "").trim();
+  return num ? "#" + num : String(ex.id || "");
+}
+
+type HrChange = { field: string; from: string; to: string };
+
+// The change log must never block saving an employee or confirming a paper.
+async function logEmployeeChange(by: string, action: string, person: HrPerson, changes: HrChange[], note = "") {
+  try {
+    const { error } = await sb().from("hr_employee_changes").insert({
+      by_user: String(by || ""),
+      action,
+      emp_code: person.code,
+      emp_name: person.name,
+      changes,
+      note,
+    });
+    if (error) console.error("hr_employee_changes insert failed", error.message);
+  } catch (err) {
+    console.error("hr_employee_changes insert failed", err);
+  }
+}
+
+function managerLabel(code: string, all: HrPerson[]): string {
+  if (!code) return "Director";
+  const mgr = all.find((row) => row.code === code);
+  return mgr ? mgr.name : code;
+}
+
+function diffHrPerson(prev: HrPerson, next: HrPerson, all: HrPerson[]): HrChange[] {
+  const out: HrChange[] = [];
+  const add = (field: string, a: unknown, b: unknown) => {
+    const from = a == null ? "" : String(a);
+    const to = b == null ? "" : String(b);
+    if (from !== to) out.push({ field, from, to });
+  };
+  add("Code", prev.code, next.code);
+  add("Name", prev.name, next.name);
+  add("Job title", prev.job, next.job);
+  add("Department", prev.department, next.department);
+  add("Division", prev.section, next.section);
+  add("Section", prev.group, next.group);
+  add("Line manager", managerLabel(prev.managerCode, all), managerLabel(next.managerCode, all));
+  add("Days left", prev.daysBalance, next.daysBalance);
+  return out;
 }
 
 async function writeHrEmployees(people: HrPerson[]) {
@@ -2166,6 +2219,7 @@ export async function handleSaveHrEmployee(body: Record<string, unknown>, auth: 
   next.updatedAt = isoNow().slice(0, 10);
   next.active = true;
   const idx = people.findIndex((row) => row.code === prevCode);
+  const prev = idx >= 0 ? { ...people[idx] } : null;
   if (idx >= 0) people[idx] = next;
   else people.push(next);
   if (prevCode !== next.code) {
@@ -2174,6 +2228,13 @@ export async function handleSaveHrEmployee(body: Record<string, unknown>, auth: 
     });
   }
   await writeHrEmployees(people);
+  if (prev && prev.active) {
+    const changes = diffHrPerson(prev, next, people);
+    if (changes.length) await logEmployeeChange(auth.username, "edited", next, changes);
+  } else {
+    const blank = { ...next, code: "", name: "", job: "", department: "", section: "", group: "", managerCode: "", daysBalance: null };
+    await logEmployeeChange(auth.username, "added", next, diffHrPerson(blank, next, people).filter((c) => c.field !== "Line manager" || c.to !== "Director"));
+  }
   return { ok: true, success: true, person: publishHrPerson(next, people) };
 }
 
@@ -2189,5 +2250,44 @@ export async function handleRemoveHrEmployee(body: Record<string, unknown>, auth
   }
   people[idx] = { ...people[idx], active: false, updatedAt: isoNow().slice(0, 10) };
   await writeHrEmployees(people);
+  await logEmployeeChange(auth.username, "removed", people[idx], []);
   return { ok: true, success: true, code };
+}
+
+/** Admin Report: every leave paper (for counts) and the Employees change log. */
+export async function handleGetHrReport(auth: AuthOk) {
+  if (!isAdminAccount(auth.role, auth.moduleAccess)) {
+    return { ok: false, success: false, error: "not_allowed", message: "Only admin can open the Report." };
+  }
+  const papers = await selectAllRows<Record<string, unknown>>("hr_leave_requests", {
+    columns: "id,num,emp_name,emp_code,emp_department,emp_division,leave_type,leave_other,start_date,days_out,status,created_by,created_at",
+  });
+  const { data: changes, error } = await sb()
+    .from("hr_employee_changes")
+    .select("id,created_at,by_user,action,emp_code,emp_name,changes,note")
+    .order("created_at", { ascending: false })
+    .limit(5000);
+  const people = await readHrEmployees();
+  return {
+    ok: true,
+    success: true,
+    papers: papers.map((r) => ({
+      id: r.id,
+      num: r.num,
+      name: r.emp_name,
+      code: r.emp_code,
+      department: r.emp_department,
+      division: r.emp_division,
+      leaveType: r.leave_type,
+      leaveOther: r.leave_other,
+      startDate: fmtDate(r.start_date),
+      days: parseLeaveDays(r.days_out),
+      status: r.status,
+      createdBy: r.created_by,
+      createdAt: r.created_at,
+    })),
+    changes: error ? [] : (changes || []),
+    changesError: error ? error.message : "",
+    employees: people.filter((p) => p.active).length,
+  };
 }
