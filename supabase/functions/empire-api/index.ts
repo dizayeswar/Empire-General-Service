@@ -21,6 +21,7 @@ import * as hr from "./handlers_hr.ts";
 import * as charging from "./handlers_charging.ts";
 import * as storage from "./handlers_storage.ts";
 import * as users from "./handlers_users.ts";
+import * as carpark from "./handlers_carpark.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -104,6 +105,24 @@ Deno.serve(async (req) => {
       if (action === "deleteAccountSig") return json(await users.handleDeleteAccountSig(body, a));
       if (action === "updateAccountSig") return json(await users.handleUpdateAccountSig(body, a));
       if (action === "importAccountSigs") return json(await users.handleImportAccountSigs(body, a));
+    }
+
+    const carparkHandlers: Record<string, (b: Record<string, unknown>, a: AuthOk) => Promise<unknown>> = {
+      getCarparkApartments: carpark.handleGetCarparkApartments,
+      saveCarparkApartment: carpark.handleSaveCarparkApartment,
+      importCarparkApartments: carpark.handleImportCarparkApartments,
+      lookupCarparkPlate: carpark.handleLookupCarparkPlate,
+      addCarparkReport: carpark.handleAddCarparkReport,
+      getCarparkReports: carpark.handleGetCarparkReports,
+      resendCarparkWhatsApp: carpark.handleResendCarparkWhatsApp,
+      linkCarparkReport: carpark.handleLinkCarparkReport,
+      deleteCarparkReport: carpark.handleDeleteCarparkReport,
+    };
+    if (carparkHandlers[action]) {
+      let cpAuth = await verifyTokenSession(String(body.token || ""));
+      if (!cpAuth.ok) return json(cpAuth);
+      cpAuth = await enrichAuthRole(cpAuth as AuthOk);
+      return json(await carparkHandlers[action](body, cpAuth as AuthOk));
     }
 
     const requiredDept = TRASH_ACTIONS[action] ? String(body.dept || "") : DEPT_BY_ACTION[action];
@@ -399,6 +418,7 @@ Deno.serve(async (req) => {
       case "listHrTeam": return json(await hr.handleListHrTeam(a));
       case "saveHrEmployee": return json(await hr.handleSaveHrEmployee(body, a));
       case "removeHrEmployee": return json(await hr.handleRemoveHrEmployee(body, a));
+      case "getHrReport": return json(await hr.handleGetHrReport(a));
       case "rejectHrLeaveRequest": return json(await hr.handleRejectHrLeaveRequest(body, a));
       case "fileHrLeaveRequests": return json(await hr.handleFileHrLeaveRequests(body, a));
       case "seedHrPdfAnnualPapers": return json(await hr.handleSeedHrPdfAnnualPapers(body, a));

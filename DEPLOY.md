@@ -177,6 +177,23 @@ If Firebase is not configured yet, workers still see an **Enable alerts** banner
 
 Backend stores device tokens in Supabase (created automatically when a phone enables alerts).
 
+### Car Park WhatsApp warnings (Meta WhatsApp Cloud API)
+
+`car-park.html`: security reports a car (photo + plate + type). The server finds the apartment by plate, counts the warning (1st, 2nd, 3rd…) and sends a WhatsApp **template** message to the apartment's phone. Until the keys below are set, reports still save with WhatsApp status **WhatsApp not set up**. The portal's **Send WhatsApp** button sends them later.
+
+1. In Meta Business Manager → WhatsApp → create a template named `car_park_warning`, category **Utility**, language **English**:
+   - Header: **Image**
+   - Body (5 variables, in this order):
+     `Empire World Car Park — {{1}} warning. Your car {{2}} was reported for: {{3}}. Apartment: {{4}}. Time: {{5}}. Please park correctly; repeated warnings are followed up by management.`
+2. When it is approved, set the secrets (permanent System User token, and the sender's Phone number ID):
+   ```bash
+   npx supabase secrets set WHATSAPP_TOKEN=... WHATSAPP_PHONE_NUMBER_ID=... --project-ref nobcitpaudeopzfymgzi
+   ```
+   Optional: `WHATSAPP_TEMPLATE` (default `car_park_warning`), `WHATSAPP_TEMPLATE_LANG` (default `en`), `WHATSAPP_TEMPLATE_IMAGE=0` if the template has no image header.
+3. Phones are typed like `0750 123 4567`; the server turns them into `9647501234567`.
+
+Access (Users page → **Car Park**): **Portal** = apartments, cars, reports, dashboard. **Security** = the phone report screen.
+
 ---
 
 ## 5. Offline photo queue (cleaning)

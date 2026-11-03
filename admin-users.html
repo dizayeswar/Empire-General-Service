@@ -305,7 +305,10 @@
       { key: 'warehouse_invamount', label: 'Invoice Amount', child: true, parent: 'warehouse' },
       { key: 'warehouse_sig_auth', label: 'Sign: Authorized by', child: true, parent: 'warehouse' },
       { key: 'warehouse_sig_issued', label: 'Sign: Issued by', child: true, parent: 'warehouse' },
-      { key: 'warehouse_sig_received', label: 'Sign: Received by', child: true, parent: 'warehouse' }
+      { key: 'warehouse_sig_received', label: 'Sign: Received by', child: true, parent: 'warehouse' },
+      { key: 'car_park_mod', label: 'Car Park', n: 15, group: true },
+      { key: 'car_park', label: 'Portal: apartments, reports, dashboard', child: true, parent: 'car_park_mod' },
+      { key: 'car_park_security', label: 'Security: report cars (phone)', child: true, parent: 'car_park_mod' }
     ];
 
     function resetExpandedGroups(access) {
