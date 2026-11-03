@@ -72,13 +72,19 @@ function erbilTime(v: unknown): string {
   }).format(d).replace(",", "");
 }
 
-function reportToApi(r: Row): Row {
+/** Security (phone) accounts never see which apartment a plate belongs to — only the portal does. */
+function canSeeApartment(auth: AuthOk): boolean {
+  return portalLevel(auth) !== "none";
+}
+
+function reportToApi(r: Row, showApartment = true): Row {
   return {
     id: r.id,
     num: Number(r.num) || 0,
     project: r.project || "",
     plate: r.plate || "",
-    apartmentCode: r.apartment_code || "",
+    apartmentCode: showApartment ? (r.apartment_code || "") : "",
+    linked: !!r.apartment_code,
     violation: r.violation || "",
     violationLabel: VIOLATIONS[String(r.violation)] || String(r.violation || ""),
     photoUrl: r.photo_url || "",
@@ -339,7 +345,8 @@ export async function handleLookupCarparkPlate(body: Body, auth: AuthOk) {
   const car = await findCarByPlate(normPlate(body.plate));
   if (!car) return { ok: true, success: true, found: false };
   const code = String(car.apartment_code);
-  return { ok: true, success: true, found: true, apartmentCode: code, nextWarning: (await countWarnings(code)) + 1 };
+  const nextWarning = (await countWarnings(code)) + 1;
+  return { ok: true, success: true, found: true, apartmentCode: canSeeApartment(auth) ? code : "", nextWarning };
 }
 
 export async function handleAddCarparkReport(body: Body, auth: AuthOk) {
@@ -372,7 +379,7 @@ export async function handleAddCarparkReport(body: Body, auth: AuthOk) {
   }).select("*").single();
   if (error) throw error;
   const saved = code ? await sendAndSave(data as Row) : data as Row;
-  return { ok: true, success: true, report: reportToApi(saved) };
+  return { ok: true, success: true, report: reportToApi(saved, canSeeApartment(auth)) };
 }
 
 export async function handleGetCarparkReports(body: Body, auth: AuthOk) {
@@ -382,7 +389,7 @@ export async function handleGetCarparkReports(body: Body, auth: AuthOk) {
     const { data, error } = await sb().from("carpark_reports").select("*").eq("reported_by", auth.username)
       .is("deleted_at", null).order("created_at", { ascending: false }).limit(SECURITY_LIST_LIMIT);
     if (error) throw error;
-    return { ok: true, success: true, reports: (data || []).map(reportToApi) };
+    return { ok: true, success: true, reports: (data || []).map((r: Row) => reportToApi(r, false)) };
   }
   const from = str(body.from, 10);
   const rows = await selectAllRows<Row>("carpark_reports", {
@@ -391,7 +398,7 @@ export async function handleGetCarparkReports(body: Body, auth: AuthOk) {
       return /^\d{4}-\d{2}-\d{2}$/.test(from) ? q.gte("created_at", from) : q;
     },
   });
-  return { ok: true, success: true, canWrite: portal === "write", reports: rows.map(reportToApi) };
+  return { ok: true, success: true, canWrite: portal === "write", reports: rows.map((r) => reportToApi(r)) };
 }
 
 async function getReport(id: unknown): Promise<Row | null> {
