@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="assets/empire.css?v=2026-09-22-search-pill">
 <link rel="stylesheet" href="assets/empire-dept.css?v=2026-09-27-gailan-paper">
 <link rel="stylesheet" href="assets/empire-hr.css?v=2026-10-18-hr-webpush">
+<link rel="stylesheet" href="assets/empire-hr-report.css?v=2026-11-03-hr-report">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -92,6 +93,10 @@
         <button class="tab-btn" id="tabBtnEmployees" onclick="hrSwitchTab_(event,'employees')">
           <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
           <span class="lbl">Employees</span>
+        </button>
+        <button class="tab-btn" id="tabBtnReport" onclick="hrSwitchTab_(event,'report')" style="display:none;">
+          <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16v-4"/><path d="M12 16V8"/><path d="M17 16v-7"/></svg></span>
+          <span class="lbl">Report</span>
         </button>
       </nav>
       <div class="side-actions hr-settings" id="hrSettingsWrap">
@@ -276,6 +281,30 @@
           </div>
           <p class="hr-summary" id="hrEmployeesSummary"></p>
           <div id="hrEmployeesHost"><p>Loading…</p></div>
+        </div>
+      </div>
+
+      <div id="report" class="tab-content">
+        <div class="form-section">
+          <h2>Report</h2>
+          <p class="hr-tab-help">Admin only. Leave requests by type, status, month and department, and every change made on Employees: who changed it, when, and what it was before.</p>
+          <div class="form-row filter-toolbar">
+            <div class="form-group"><label>From (start date)</label><input type="date" id="hrRepFrom" onchange="hrRenderReport_()"></div>
+            <div class="form-group"><label>To (start date)</label><input type="date" id="hrRepTo" onchange="hrRenderReport_()"></div>
+            <div class="form-group"><label>Department</label><select id="hrRepDept" onchange="hrRenderReport_()"><option value="">All departments</option></select></div>
+            <div class="form-group" style="align-self:end;"><button type="button" class="hr-btn-confirm" onclick="hrReportLoad_(true)">Reload</button></div>
+          </div>
+          <div id="hrReportHost"><p>Loading…</p></div>
+        </div>
+        <div class="form-section">
+          <h2>Employee changes</h2>
+          <p class="hr-tab-help">Every add, edit and remove on Employees, and days left going up or down from a leave paper. Old value is crossed out.</p>
+          <div class="form-row filter-toolbar">
+            <div class="form-group filter-grow"><label>Search</label><input type="search" id="hrRepChangeSearch" oninput="hrRenderReportChanges_()" placeholder="Name, code, who changed it…" autocomplete="off"></div>
+            <div class="form-group"><label>Action</label><select id="hrRepChangeAction" onchange="hrRenderReportChanges_()"><option value="">All changes</option><option value="added">Added</option><option value="edited">Edited</option><option value="removed">Removed</option><option value="days">Days left</option></select></div>
+          </div>
+          <p class="hr-summary" id="hrReportChangesSummary"></p>
+          <div id="hrReportChangesHost"></div>
         </div>
       </div>
 
@@ -716,7 +745,8 @@
 <script src="assets/empire-storage.js?v=2026-10-18-no-transform"></script>
 <script src="assets/empire-sw-update.js?v=2026-09-27-gailan-paper"></script>
 <script src="assets/empire-hr-field-i18n.js?v=2026-10-18-hr-webpush"></script>
-<script src="assets/empire-hr-leave.js?v=2026-10-18-hr-webpush"></script>
+<script src="assets/empire-hr-report.js?v=2026-11-03-hr-report"></script>
+<script src="assets/empire-hr-leave.js?v=2026-11-03-hr-report"></script>
 <script src="assets/empire-hr-tour.js?v=2026-10-18-phone-name"></script>
 </body>
 </html>

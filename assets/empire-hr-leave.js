@@ -2252,6 +2252,7 @@ function hrCanSeeTab_(tab) {
   if (tab === 'done' || tab === 'archive') return hrIsHrStaff_();
   if (tab === 'employees') return hrIsHrStaff_() && !hrIsSignerOnly_();
   if (tab === 'team') return hrIsLine_() && !hrIsHrStaff_();
+  if (tab === 'report') return typeof hrIsAdmin_ === 'function' && hrIsAdmin_();
   return false;
 }
 
@@ -2276,6 +2277,7 @@ function hrApplyNavAccess_() {
   show('tabBtnForm', hrCanSeeTab_('form') && hrIsHrStaff_());
   show('tabBtnEmployees', hrCanSeeTab_('employees'));
   show('tabBtnTeam', hrCanSeeTab_('team'));
+  show('tabBtnReport', hrCanSeeTab_('report'));
   var archiveNav = document.getElementById('hrArchiveNav');
   if (archiveNav) archiveNav.style.display = hrCanSeeTab_('archive') ? '' : 'none';
   document.querySelectorAll('[data-hr-form-only]').forEach(function (el) {
@@ -3532,6 +3534,7 @@ function hrTabBtnId_(tab) {
   if (tab === 'signed') return 'tabBtnSigned';
   if (tab === 'employees') return 'tabBtnEmployees';
   if (tab === 'team') return 'tabBtnTeam';
+  if (tab === 'report') return 'tabBtnReport';
   if (tab === 'archive') return 'tabBtnArchive-' + (_hrArchiveSection || 'annual');
   if (tab === 'settings') return 'hrSettingsBtn';
   return 'tabBtnList';
@@ -3629,6 +3632,7 @@ function hrSwitchTab_(ev, tab) {
   if (tab === 'archive' && !_hrListEditing) hrRenderArchiveTable_();
   if (tab === 'employees') hrRenderEmployees_();
   if (tab === 'team') hrRenderTeam_();
+  if (tab === 'report') hrReportLoad_(false);
 }
 
 function hrSyncSavedFilters_() {
