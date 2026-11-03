@@ -693,7 +693,7 @@ function cpOnPlateInput_() {
     cpApi_('lookupCarparkPlate', { plate: plate }).then(function (d) {
       if (seq !== _cpLookupSeq) return;
       if (d.found) {
-        el.innerHTML = '🏠 <strong>' + cpEsc_(d.apartmentCode) + '</strong> · this will be the <strong>' + cpEsc_(cpOrdinal_(d.nextWarning)) + ' warning</strong>';
+        el.innerHTML = '✓ Plate is registered · this will be the <strong>' + cpEsc_(cpOrdinal_(d.nextWarning)) + ' warning</strong>';
         el.className = 'cp-lookup cp-lookup-found cp-lookup-w' + Math.min(d.nextWarning, 3);
       } else {
         el.textContent = 'Plate is not on any apartment. You can still send — the office will link it.';
@@ -719,14 +719,14 @@ function cpSendReport_() {
   }).then(function (d) {
     var r = d.report;
     var h;
-    if (!r.apartmentCode) {
+    if (!r.warningNo) {
       h = '<strong>Report #' + r.num + ' saved.</strong><br>Plate ' + cpEsc_(r.plate) + ' is not on any apartment — the office will link it and send the warning.';
       res.className = 'cp-result cp-result-warn';
     } else if (r.waStatus === 'sent') {
-      h = '<strong>✓ Report #' + r.num + ' sent.</strong><br>' + cpEsc_(r.apartmentCode) + ' got its <strong>' + cpEsc_(cpOrdinal_(r.warningNo)) + ' warning</strong> on WhatsApp.';
+      h = '<strong>✓ Report #' + r.num + ' sent.</strong><br>The apartment got its <strong>' + cpEsc_(cpOrdinal_(r.warningNo)) + ' warning</strong> on WhatsApp.';
       res.className = 'cp-result cp-result-ok';
     } else {
-      h = '<strong>Report #' + r.num + ' saved</strong> for ' + cpEsc_(r.apartmentCode) + ' (' + cpEsc_(cpOrdinal_(r.warningNo)) + ' warning).<br>WhatsApp: ' + cpEsc_(CP_WA_LABEL[r.waStatus] || r.waStatus) + ' — the office will follow up.';
+      h = '<strong>Report #' + r.num + ' saved</strong> (' + cpEsc_(cpOrdinal_(r.warningNo)) + ' warning).<br>WhatsApp: ' + cpEsc_(CP_WA_LABEL[r.waStatus] || r.waStatus) + ' — the office will follow up.';
       res.className = 'cp-result cp-result-warn';
     }
     res.innerHTML = h;
@@ -763,7 +763,7 @@ function cpRenderPhoneList_() {
     return '<div class="dt-card cp-card">' +
       (r.photoUrl ? '<img class="cp-card-img" src="' + cpEsc_(r.photoUrl) + '" alt="" loading="lazy" onclick="cpBigImg_(this.src)">' : '') +
       '<div class="cp-card-body"><div class="dt-card-top"><span class="cp-plate">' + cpEsc_(r.plate) + '</span>' + cpWarnBadge_(r.warningNo) + '</div>' +
-      '<div class="dt-card-issues">' + cpEsc_(r.apartmentCode || cpProjectShort_(r.project) + ' · plate not found') + ' · ' + cpEsc_(cpViolationLabel_(r.violation)) + '</div>' +
+      '<div class="dt-card-issues">' + cpProjectShort_(r.project) + (r.warningNo ? '' : ' · plate not found') + ' · ' + cpEsc_(cpViolationLabel_(r.violation)) + '</div>' +
       '<div class="dt-card-meta">#' + r.num + ' · ' + cpEsc_(cpWhen_(r.createdAt)) + ' · ' + cpWaBadge_(r) + '</div></div></div>';
   }).join('');
 }
