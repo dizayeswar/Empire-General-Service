@@ -286,6 +286,13 @@ def charge_and_pay(apartment: str, tariff: str, amount: str, *, ru: str, started
     bot._require_payment_matches(dlg, tariff, amount, apartment)
     print("CLICKING PAY NOW", apartment, tariff, amount)
     bot._click_dialog_pay(dlg)
+    try:
+        bot._maximize_invoice()
+    except Exception:
+        handle_login_locked(12)
+        raise RuntimeError(
+            "Invoice did not open after Pay — empty login Cancel, close Nova, reopen"
+        )
     save_need_pin(
         ru=ru,
         unit=apartment,
@@ -295,7 +302,6 @@ def charge_and_pay(apartment: str, tariff: str, amount: str, *, ru: str, started
         started_at=started_at,
     )
     print("PAID LOCK leftover SET PIN only", ru)
-    bot._maximize_invoice()
     receipt = grab_invoice(f"INVOICE-{apartment}")
     print("receipt", receipt)
     return receipt
