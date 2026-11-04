@@ -1,0 +1,9 @@
+{
+  "only_unknown_numbers": true,
+  "sap": {
+    "server": "",
+    "company_db": "",
+    "user": "",
+    "password": ""
+  }
+}

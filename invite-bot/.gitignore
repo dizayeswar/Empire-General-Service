@@ -1,0 +1,5 @@
+config.local.json
+queue.db
+log.txt
+profiles/
+__pycache__/
