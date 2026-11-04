@@ -680,15 +680,10 @@ function fieldsFromBody(body: Record<string, unknown>) {
 }
 
 async function nextLeaveNo(): Promise<number> {
-  const rows = await selectAllRows<Record<string, unknown>>("hr_leave_requests", {
-    columns: "num",
-  });
-  let max = 0;
-  for (const r of rows) {
-    const n = Number(r.num || 0);
-    if (n > max) max = n;
-  }
-  return max + 1;
+  const { data, error } = await sb().from("hr_leave_requests").select("num")
+    .not("num", "is", null).order("num", { ascending: false }).limit(1);
+  if (error) throw error;
+  return (Number(data?.[0]?.num || 0) || 0) + 1;
 }
 
 function shouldDropLineStamp(raw: Record<string, unknown>): boolean {
@@ -1061,10 +1056,11 @@ export async function handleClearHrLeaveRequests(body: Record<string, unknown>, 
   if (!resetPasswordOk(body)) {
     return { ok: false, success: false, error: "bad_password", message: "Wrong password." };
   }
-  const { data } = await sb().from("hr_leave_requests").select("*");
-  const count = data?.length || 0;
+  // Every page, not just the first 1000, so nothing is deleted without a copy in the recycle bin.
+  const data = await selectAllRows<Record<string, unknown>>("hr_leave_requests");
+  const count = data.length;
   if (count) {
-    await trashRows("HrLeaveRequests", data!, "reset", String(auth.username || body.username || ""));
+    await trashRows("HrLeaveRequests", data, "reset", String(auth.username || body.username || ""));
     const { error } = await sb().from("hr_leave_requests").delete().gte("id", "");
     if (error) throw error;
   }
