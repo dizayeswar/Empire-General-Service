@@ -60,6 +60,8 @@
     .access-toggle { border:0; background:transparent; cursor:pointer; color:#185fa5; font-weight:700; margin-right:6px; }
     .access-group-label { border:0; background:transparent; cursor:pointer; color:inherit; font:inherit; font-weight:700; padding:0; }
     .access-group-label:hover { color:#185fa5; }
+    .access-matrix .mod-sub .mod-name { padding-left:44px; font-weight:400; }
+    .access-sub-note { font-size:11px; font-weight:400; color:var(--text-faint); margin-top:2px; }
     @media (max-width:720px) {
       .admin-user-table { display:block; overflow-x:auto; }
     }
@@ -211,6 +213,7 @@
     var allUsers = [];
     var editingUsername = null;
     var _expandedGroups = { charging: false, hr_mod: false, warehouse: false };
+    var _expandedSubs = { hr_tabs: false };
     var _pendingSig = undefined;
     var _pendingLibId = '';
     var _sigLib = [];
@@ -286,7 +289,24 @@
       { key: 'charging_bot', label: 'Bot On / Off', child: true, parent: 'charging' },
       { key: 'charging_reset', label: 'Reset Data', child: true, parent: 'charging' },
       { key: 'hr_mod', label: 'HR Department', n: 13, group: true },
-      { key: 'hr', label: 'Leave requests', child: true, parent: 'hr_mod' },
+      { key: 'hr', label: 'Leave requests', child: true, parent: 'hr_mod', subToggle: 'hr_tabs' },
+      { key: 'hr_tab_form', label: 'Leave request (fill form)', child: true, parent: 'hr_mod', sub: 'hr_tabs' },
+      { key: 'hr_tab_scan', label: 'Scan paper', child: true, parent: 'hr_mod', sub: 'hr_tabs' },
+      { key: 'hr_tab_saved', label: 'Saved requests', child: true, parent: 'hr_mod', sub: 'hr_tabs' },
+      { key: 'hr_tab_signed', label: 'My e-signatures', child: true, parent: 'hr_mod', sub: 'hr_tabs' },
+      { key: 'hr_tab_confirmed', label: 'Director confirmed', child: true, parent: 'hr_mod', sub: 'hr_tabs' },
+      { key: 'hr_tab_done', label: 'Completed request', child: true, parent: 'hr_mod', sub: 'hr_tabs' },
+      { key: 'hr_tab_arch_annual', label: 'Annual leave', child: true, parent: 'hr_mod', sub: 'hr_tabs' },
+      { key: 'hr_tab_arch_bereavement', label: 'Bereavement', child: true, parent: 'hr_mod', sub: 'hr_tabs' },
+      { key: 'hr_tab_arch_lateness', label: 'Lateness vacations', child: true, parent: 'hr_mod', sub: 'hr_tabs' },
+      { key: 'hr_tab_arch_marriage', label: 'Marriage leave', child: true, parent: 'hr_mod', sub: 'hr_tabs' },
+      { key: 'hr_tab_arch_sick', label: 'Sick leave', child: true, parent: 'hr_mod', sub: 'hr_tabs' },
+      { key: 'hr_tab_arch_unpaid', label: 'Unpaid', child: true, parent: 'hr_mod', sub: 'hr_tabs' },
+      { key: 'hr_tab_arch_other', label: 'Others', child: true, parent: 'hr_mod', sub: 'hr_tabs' },
+      { key: 'hr_tab_arch_all', label: '(all)', child: true, parent: 'hr_mod', sub: 'hr_tabs' },
+      { key: 'hr_tab_team', label: 'My employees', child: true, parent: 'hr_mod', sub: 'hr_tabs' },
+      { key: 'hr_tab_employees', label: 'Employees', child: true, parent: 'hr_mod', sub: 'hr_tabs' },
+      { key: 'hr_tab_report', label: 'Report', child: true, parent: 'hr_mod', sub: 'hr_tabs' },
       { key: 'hr_director', label: 'Pending Director', child: true, parent: 'hr_mod' },
       { key: 'hr_line', label: 'Line manager sign', child: true, parent: 'hr_mod' },
       { key: 'hr_emp', label: 'Employee', child: true, parent: 'hr_mod' },
@@ -330,6 +350,11 @@
 
     function isGroupExpanded(key) {
       return _expandedGroups[key] !== false;
+    }
+
+    function toggleAccessSub(key) {
+      _expandedSubs[key] = !_expandedSubs[key];
+      renderAccessMatrix(readAccessFromForm());
     }
 
     function toggleAccessGroup(key) {
@@ -376,13 +401,22 @@
             '</td></tr>';
           return;
         }
-        var hidden = m.child && !isGroupExpanded(m.parent);
+        var hidden = (m.child && !isGroupExpanded(m.parent)) || (m.sub && !_expandedSubs[m.sub]);
         var lvl = access[m.key] || 'none';
-        var rowClass = m.child ? ' class="mod-child"' : '';
+        var rowClass = m.sub ? ' class="mod-child mod-sub"' : (m.child ? ' class="mod-child"' : '');
         var rowStyle = hidden ? ' style="display:none"' : '';
         h += '<tr' + rowClass + rowStyle + '>';
         h += '<td>' + (m.n || '') + '</td>';
-        h += '<td class="mod-name">' + esc(m.label) + '</td>';
+        if (m.subToggle) {
+          var subOpen = !!_expandedSubs[m.subToggle];
+          h += '<td class="mod-name"><button type="button" class="access-toggle access-sub-toggle" onclick="toggleAccessSub(\'' + m.subToggle + '\')">' +
+            (subOpen ? '▾' : '▸') + '</button>' +
+            '<button type="button" class="access-group-label" onclick="toggleAccessSub(\'' + m.subToggle + '\')">' + esc(m.label) + '</button>' +
+            (subOpen ? '<div class="access-sub-note">HR menu buttons below. Leave them all on No Access to keep the normal HR menu.</div>' : '') +
+            '</td>';
+        } else {
+          h += '<td class="mod-name">' + esc(m.label) + '</td>';
+        }
         ['none', 'read', 'write'].forEach(function (v) {
           h += '<td class="lvl-cell"><input type="radio" name="acc_' + m.key + '" value="' + v + '"' +
             (lvl === v ? ' checked' : '') + ' onchange="onAccessChange()"></td>';
