@@ -828,18 +828,62 @@ const LEAVE_LIST_COLS = [
   "status", "created_by", "created_at", "updated_at",
 ].join(",");
 
+/**
+ * True when a slim row (signatures as "1" flags) might need one of the repair passes.
+ * Only these rows are re-read in full, so the list never pulls every signature image.
+ */
+function slimRowMayNeedRepair(raw: Record<string, unknown>, directorCodes: Set<string> | null): boolean {
+  const sigs = stampMap(raw);
+  const code = String(raw.emp_code || "").trim();
+  const start = fmtDate(raw.start_date);
+  const special = code === "101477" && start === "2026-09-14";
+  if (String(sigs.line || "").trim() && !String(sigs.director || "").trim() &&
+      String(raw.director_status || "").trim().toLowerCase() !== "approved" &&
+      (String(sigs.sameEmpLine || "").trim() || special)) return true;
+  if (shouldAdvanceEmpOnlyToDirector(raw)) return true;
+  if (code === "100420" && String(raw.status || "").trim().toLowerCase() === "pending_line" && !paperSkipsLine(raw)) return true;
+  if (directorCodes && needsEmployeeBoxStamp(raw, directorCodes)) return true;
+  return false;
+}
+
+/** Leave list for HR staff: small rows from list_hr_leave_slim, full rows only for papers that need repair. */
+async function loadHrLeaveListForStaff(): Promise<Record<string, unknown>[]> {
+  const { data: packed, error } = await sb().rpc("list_hr_leave_slim");
+  if (error) {
+    if (!rpcMissing_(error)) throw error;
+    // SQL function not installed yet: old full read.
+    const full = await selectAllRows<Record<string, unknown>>("hr_leave_requests");
+    await healExclusiveDualStamps(full);
+    await releaseGailanFromLineManager(full);
+    await stampDirectorPapersWithEmployeeSig(full);
+    return full;
+  }
+  const rows = (Array.isArray(packed) ? packed : []) as Record<string, unknown>[];
+  const unstamped = rows.some((raw) => !String(stampMap(raw).emp || "").trim() && !hasLineStamp(raw));
+  const directorCodes = unstamped
+    ? new Set((await readHrEmployees()).filter((p) => p.active && p.route === "director").map((p) => p.code))
+    : null;
+  const ids = rows.filter((raw) => slimRowMayNeedRepair(raw, directorCodes)).map((raw) => String(raw.id || "")).filter(Boolean);
+  if (!ids.length) return rows;
+  const full: Record<string, unknown>[] = [];
+  for (let i = 0; i < ids.length; i += 40) {
+    const { data, error: fullErr } = await sb().from("hr_leave_requests").select("*").in("id", ids.slice(i, i + 40));
+    if (fullErr) throw fullErr;
+    full.push(...((data || []) as Record<string, unknown>[]));
+  }
+  await healExclusiveDualStamps(full);
+  await releaseGailanFromLineManager(full);
+  await stampDirectorPapersWithEmployeeSig(full);
+  const byId = new Map(full.map((raw) => [String(raw.id || ""), raw]));
+  return rows.map((raw) => byId.get(String(raw.id || "")) || raw);
+}
+
 export async function handleGetHrLeaveRequests(auth?: AuthOk) {
   await healUnconfirmedLeaveDays();
   const light = !auth || !isHrStaff(auth);
-  const data = await selectAllRows<Record<string, unknown>>(
-    "hr_leave_requests",
-    light ? { columns: LEAVE_LIST_COLS } : undefined,
-  );
-  if (!light) {
-    await healExclusiveDualStamps(data);
-    await releaseGailanFromLineManager(data);
-    await stampDirectorPapersWithEmployeeSig(data);
-  }
+  const data = light
+    ? await selectAllRows<Record<string, unknown>>("hr_leave_requests", { columns: LEAVE_LIST_COLS })
+    : await loadHrLeaveListForStaff();
   const users = await loadUsernames();
   let out = data.map((raw) => applyResolvedAssignee(rowToApi(raw, { slim: true }), raw, users));
   if (auth && isDirectorOnly(auth)) {
