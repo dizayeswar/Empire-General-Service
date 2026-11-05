@@ -2277,10 +2277,18 @@ function hrTabAllowed_(tab) {
   if (!key) return true;
   return hrTabLevel_(key) !== 'none';
 }
+// Leave requests on Read with no signer role: a viewer. They only see the list tabs
+// that Admin → Users turned on for them. The server already blocks every change.
+function hrIsHrViewer_() {
+  return hrTabLevel_('hr') === 'read' && !hrIsDirector_() && !hrIsLine_() &&
+    hrTabLevel_('hr_emp') === 'none' && hrTabAccessSet_();
+}
+var HR_VIEWER_TABS = { list: 1, confirmed: 1, done: 1, archive: 1 };
 function hrCanSeeTab_(tab) {
   tab = String(tab || '');
   if (tab === 'settings') return true;
   if (!hrTabAllowed_(tab)) return false;
+  if (HR_VIEWER_TABS[tab] && hrIsHrViewer_()) return true;
   if (tab === 'form') return hrIsHrStaff_() || (hrIsEmployeeWrite_() && !hrIsEmployeeOnly_());
   if (tab === 'scan') return hrIsHrStaff_();
   if (tab === 'list') return hrIsHrStaff_() || hrIsDirector_() || hrIsLine_() || hrIsEmployeeOnly_();
@@ -2322,7 +2330,7 @@ function hrApplyNavAccess_() {
   show('tabBtnConfirmed', hrCanSeeTab_('confirmed'));
   show('tabBtnDone', hrCanSeeTab_('done'));
   var leaveAny = ['form', 'scan', 'list', 'signed', 'confirmed', 'done', 'archive'].some(hrCanSeeTab_);
-  show('tabBtnForm', hrIsHrStaff_() && leaveAny);
+  show('tabBtnForm', (hrIsHrStaff_() || hrIsHrViewer_()) && leaveAny);
   show('tabBtnEmployees', hrCanSeeTab_('employees'));
   show('tabBtnTeam', hrCanSeeTab_('team'));
   show('tabBtnReport', hrCanSeeTab_('report'));
@@ -2970,6 +2978,7 @@ function hrDirectorSigForConfirm_(row) {
   return '';
 }
 function hrCanWrite_() {
+  if (hrIsHrViewer_()) return false;
   if (hrIsDirectorOnly_()) return false;
   if (hrIsEmployeeOnly_()) return false;
   if (hrIsEmployeeWrite_()) return true;
