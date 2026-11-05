@@ -869,6 +869,7 @@ function hrReturnSelectedArchive_() {
 function hrOpenArchive_(ev, key) {
   var meta = hrArchiveMeta_(key);
   if (!meta) return;
+  if (!hrArchiveAllowed_(meta.id)) return;
   _hrArchiveSection = meta.id;
   _hrArchiveSelectMode = false;
   _hrArchiveSelected = {};
@@ -2241,9 +2242,45 @@ function hrAutosizeDaysOut_(el) {
 function hrIsHrStaff_() {
   return typeof empireModuleLevel === 'function' && empireModuleLevel('hr') === 'write';
 }
+// Per-button HR menu access from Admin → Users (HR Department → Leave requests).
+// No button set at all = the normal HR menu, exactly as before. Once any button is set,
+// a button on No Access is hidden. This only hides; it never shows a tab the role cannot use.
+var HR_TAB_ACCESS_KEYS = {
+  form: 'hr_tab_form', scan: 'hr_tab_scan', list: 'hr_tab_saved', signed: 'hr_tab_signed',
+  confirmed: 'hr_tab_confirmed', done: 'hr_tab_done',
+  team: 'hr_tab_team', employees: 'hr_tab_employees', report: 'hr_tab_report'
+};
+var HR_ARCHIVE_ACCESS_KEYS = {
+  annual: 'hr_tab_arch_annual', bereavement: 'hr_tab_arch_bereavement', lateness: 'hr_tab_arch_lateness',
+  marriage: 'hr_tab_arch_marriage', sick: 'hr_tab_arch_sick', unpaid: 'hr_tab_arch_unpaid',
+  other: 'hr_tab_arch_other', all: 'hr_tab_arch_all'
+};
+function hrTabLevel_(key) {
+  return typeof empireModuleLevel === 'function' ? empireModuleLevel(key) : 'none';
+}
+function hrTabAccessSet_() {
+  var all = Object.keys(HR_TAB_ACCESS_KEYS).map(function (t) { return HR_TAB_ACCESS_KEYS[t]; })
+    .concat(Object.keys(HR_ARCHIVE_ACCESS_KEYS).map(function (t) { return HR_ARCHIVE_ACCESS_KEYS[t]; }));
+  return all.some(function (k) { return hrTabLevel_(k) !== 'none'; });
+}
+function hrArchiveAllowed_(section) {
+  if (!hrTabAccessSet_()) return true;
+  var key = HR_ARCHIVE_ACCESS_KEYS[String(section || '')];
+  return !!key && hrTabLevel_(key) !== 'none';
+}
+function hrTabAllowed_(tab) {
+  if (!hrTabAccessSet_()) return true;
+  if (tab === 'archive') {
+    return Object.keys(HR_ARCHIVE_ACCESS_KEYS).some(function (s) { return hrArchiveAllowed_(s); });
+  }
+  var key = HR_TAB_ACCESS_KEYS[tab];
+  if (!key) return true;
+  return hrTabLevel_(key) !== 'none';
+}
 function hrCanSeeTab_(tab) {
   tab = String(tab || '');
   if (tab === 'settings') return true;
+  if (!hrTabAllowed_(tab)) return false;
   if (tab === 'form') return hrIsHrStaff_() || (hrIsEmployeeWrite_() && !hrIsEmployeeOnly_());
   if (tab === 'scan') return hrIsHrStaff_();
   if (tab === 'list') return hrIsHrStaff_() || hrIsDirector_() || hrIsLine_() || hrIsEmployeeOnly_();
@@ -2257,6 +2294,16 @@ function hrCanSeeTab_(tab) {
 }
 
 function hrHomeTab_() {
+  var home = hrRoleHomeTab_();
+  if (hrCanSeeTab_(home)) return home;
+  var order = ['form', 'list', 'scan', 'signed', 'confirmed', 'done', 'archive', 'team', 'employees', 'report'];
+  for (var i = 0; i < order.length; i++) {
+    if (hrCanSeeTab_(order[i])) return order[i];
+  }
+  return 'settings';
+}
+
+function hrRoleHomeTab_() {
   if (hrIsHrStaff_()) return 'form';
   if (hrIsLine_() || hrIsEmployeeOnly_()) return 'list';
   if (hrIsEmployeeWrite_()) return 'form';
@@ -2274,12 +2321,16 @@ function hrApplyNavAccess_() {
   show('tabBtnSigned', hrCanSeeTab_('signed'));
   show('tabBtnConfirmed', hrCanSeeTab_('confirmed'));
   show('tabBtnDone', hrCanSeeTab_('done'));
-  show('tabBtnForm', hrCanSeeTab_('form') && hrIsHrStaff_());
+  var leaveAny = ['form', 'scan', 'list', 'signed', 'confirmed', 'done', 'archive'].some(hrCanSeeTab_);
+  show('tabBtnForm', hrIsHrStaff_() && leaveAny);
   show('tabBtnEmployees', hrCanSeeTab_('employees'));
   show('tabBtnTeam', hrCanSeeTab_('team'));
   show('tabBtnReport', hrCanSeeTab_('report'));
   var archiveNav = document.getElementById('hrArchiveNav');
   if (archiveNav) archiveNav.style.display = hrCanSeeTab_('archive') ? '' : 'none';
+  Object.keys(HR_ARCHIVE_ACCESS_KEYS).forEach(function (section) {
+    show('tabBtnArchive-' + section, hrArchiveAllowed_(section));
+  });
   document.querySelectorAll('[data-hr-form-only]').forEach(function (el) {
     if (el.id === 'hrScanCardOnForm' || (el.getAttribute && el.getAttribute('onclick') && String(el.getAttribute('onclick')).indexOf("'scan'") !== -1)) {
       el.style.display = hrIsHrStaff_() ? '' : 'none';
@@ -3590,6 +3641,14 @@ function hrClickLeaveNav_(ev) {
     hrSwitchTab_(ev, 'form');
     return;
   }
+  var subs = ['scan', 'signed', 'confirmed', 'done'];
+  for (var i = 0; i < subs.length; i++) {
+    if (hrCanSeeTab_(subs[i])) { hrSwitchTab_(null, subs[i]); return; }
+  }
+  if (hrCanSeeTab_('archive')) {
+    var firstArch = Object.keys(HR_ARCHIVE_ACCESS_KEYS).filter(hrArchiveAllowed_)[0];
+    if (firstArch) hrOpenArchive_(null, firstArch);
+  }
 }
 
 function hrCloseSettings_() {}
@@ -4331,6 +4390,10 @@ function hrRenderArchiveTable_() {
   var help = document.getElementById('hrArchiveHelp');
   if (!host) return;
   var meta = hrArchiveMeta_(_hrArchiveSection) || HR_ARCHIVE_SECTIONS[0];
+  if (!hrArchiveAllowed_(meta.id)) {
+    var firstOk = Object.keys(HR_ARCHIVE_ACCESS_KEYS).filter(hrArchiveAllowed_)[0];
+    if (firstOk) meta = hrArchiveMeta_(firstOk) || meta;
+  }
   _hrArchiveSection = meta.id;
   var isAll = meta.id === 'all';
   if (title) title.textContent = meta.label;
