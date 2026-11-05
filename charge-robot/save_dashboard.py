@@ -35,7 +35,12 @@ def _sql_ts(value: str) -> str:
 
 
 def _ym() -> str:
-    return datetime.now(ZoneInfo("Asia/Baghdad")).strftime("%Y-%m")
+    try:
+        return datetime.now(ZoneInfo("Asia/Baghdad")).strftime("%Y-%m")
+    except Exception:
+        from datetime import timedelta
+
+        return (datetime.now(timezone.utc) + timedelta(hours=3)).strftime("%Y-%m")
 
 
 def _invoice_path(ru: str) -> Path:
@@ -66,11 +71,35 @@ def _upload(ru: str) -> str:
     if not src.exists() or src.stat().st_size < 2000:
         raise RuntimeError(f"missing invoice {src}")
     dest = f"ss:///empire-photos/charging/{_ym()}/ru-{_digits(ru)}.jpg"
-    _run(
-        "npx supabase storage cp --experimental --linked --content-type image/jpeg "
-        f'"{src}" "{dest}"',
+    try:
+        src_arg = str(src.relative_to(REPO)).replace("\\", "/")
+    except ValueError:
+        src_arg = str(src)
+    r = subprocess.run(
+        [
+            "npx",
+            "--yes",
+            "supabase",
+            "--experimental",
+            "storage",
+            "cp",
+            "--yes",
+            "--linked",
+            "--content-type",
+            "image/jpeg",
+            src_arg,
+            dest,
+        ],
+        cwd=str(REPO),
+        capture_output=True,
+        text=True,
         timeout=70,
+        shell=True,
     )
+    out = (r.stdout or "") + (r.stderr or "")
+    if r.returncode != 0 and "KeyAlreadyExists" not in out and "Duplicate" not in out:
+        raise RuntimeError(out[-1200:] or f"exit {r.returncode}")
+    print("dashboard upload", out[-400:].strip())
     return _invoice_url(ru)
 
 
@@ -79,7 +108,7 @@ def _upsert(sql: str, name: str) -> None:
     path = SQL_DIR / name
     path.write_text(sql, encoding="utf-8")
     out = _run(
-        f'npx supabase db query --linked --file "{path}"',
+        f'npx --yes supabase db query --yes --linked --file "{path}"',
         timeout=90,
     )
     print("dashboard", out[-500:].strip())
