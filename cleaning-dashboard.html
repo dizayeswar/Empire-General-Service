@@ -1116,9 +1116,14 @@
             } else {
               if(batch && batch.ok===false) throw new Error(batch.message||batch.error||'unknown error');
               saved=(batch && Array.isArray(batch.items)) ? batch.items : remoteUrls.map(function(url, idx){ return { id:'tmp'+(Date.now()+idx), image:url }; });
+              // Non-admin accounts: only 1 photo per normal task per day; the server refuses the rest.
+              if(saved.some(function(r){ return r && r.dailyLimit; })){
+                saved=saved.filter(function(r){ return !(r && r.dailyLimit); });
+                setTimeout(function(){ alert("Only 1 photo per task per day was saved. You can add the next photo tomorrow."); }, 0);
+              }
             }
             saved.forEach(function(row, idx){
-              const entry={id:row.id||('tmp'+Date.now()+idx), project:p, freq:freq, task:t, date:taskTodayStr(), period:period, image:row.image||remoteUrls[idx], _ts:Date.now()};
+              const entry={id:row.id||('tmp'+Date.now()+idx), project:p, freq:freq, task:t, date:taskTodayStr(), period:period, image:row.image||remoteUrls[idx], _ts:Date.now(), createdAt:new Date().toISOString()};
               taskPhotos.push(entry); pendingPhotos.push(entry);
             });
             revokePendingItems(pendingTaskUpload[key]);
