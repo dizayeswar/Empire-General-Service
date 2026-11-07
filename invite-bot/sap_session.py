@@ -14,8 +14,8 @@ Login, as a person does it (recorded 2026-11-07):
   - wait 7 s, Cancel "Select Default Branch"
 
 The password is never stored in a file. It is kept in Windows Credential Manager:
-    cmdkey /generic:"EmpireInviteBot SAP" /user:SAP044 /pass
-(Windows asks for the password; nothing is shown on screen.)
+    python sap_session.py save-password
+(asks for the user and password; the password is not shown while typing.)
 
 SAP draws its own login fields (they are not normal Windows boxes), so the bot types into
 them with the keyboard. Before EVERY key it checks that the SAP window is in front; if not,
@@ -56,13 +56,33 @@ def get_credentials():
         cred = win32cred.CredRead(CRED_TARGET, win32cred.CRED_TYPE_GENERIC)
     except Exception:
         raise SapLoginError(
-            "The SAP password is not saved on this PC. Run once in a terminal:  "
-            f'cmdkey /generic:"{CRED_TARGET}" /user:SAP044 /pass')
+            "The SAP password is not saved on this PC. Run once in the invite-bot folder:  "
+            "python sap_session.py save-password")
     user = cred["UserName"]
     password = cred["CredentialBlob"].decode("utf-16-le")
     if not user or not password:
         raise SapLoginError(f'The saved SAP login "{CRED_TARGET}" is empty')
     return user, password
+
+
+def save_credentials():
+    """Ask for the SAP user and password and keep them in Windows Credential Manager."""
+    import getpass
+    import win32cred
+    user = input("SAP User ID [SAP044]: ").strip() or "SAP044"
+    password = getpass.getpass("SAP password (not shown while typing): ")
+    if not password:
+        raise SapLoginError("No password typed - nothing saved")
+    if getpass.getpass("Type the password again: ") != password:
+        raise SapLoginError("The two passwords are different - nothing saved")
+    win32cred.CredWrite({
+        "Type": win32cred.CRED_TYPE_GENERIC,
+        "TargetName": CRED_TARGET,
+        "UserName": user,
+        "CredentialBlob": password,
+        "Persist": win32cred.CRED_PERSIST_LOCAL_MACHINE,
+    }, 0)
+    print(f'Saved in Windows Credential Manager as "{CRED_TARGET}" (user {user})')
 
 
 # ---------- windows ----------
@@ -330,17 +350,19 @@ class SapSession:
 
 
 if __name__ == "__main__":
-    # Test by hand:  python sap_session.py login   |   python sap_session.py close
+    # python sap_session.py save-password | login | close
     import sys
     what = sys.argv[1] if len(sys.argv) > 1 else ""
     try:
-        if what == "login":
+        if what == "save-password":
+            save_credentials()
+        elif what == "login":
             a = login()
             print(f"Logged in: {a.Company.Name}, user {a.Company.UserName}")
         elif what == "close":
             close_sap()
             print("SAP closed" if not _frame() else "SAP is STILL OPEN")
         else:
-            sys.exit("usage: python sap_session.py login|close")
+            sys.exit("usage: python sap_session.py save-password|login|close")
     except SapError as e:
         sys.exit(f"STOPPED: {e}")

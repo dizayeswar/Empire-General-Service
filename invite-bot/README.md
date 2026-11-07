@@ -17,8 +17,8 @@ Runs on the office PC that has SAP Business One and the LAN cable. Has nothing t
 ## SAP Business One
 - The bot opens SAP itself when an apartment is waiting, logs in, does all waiting
   apartments, then closes SAP (SAP glitches when left open).
-- Save the SAP password once (Windows asks for it, it is not written to any file):
-  `cmdkey /generic:"EmpireInviteBot SAP" /user:SAP044 /pass`
+- Save the SAP password once (kept in Windows Credential Manager, not in any file):
+  `python sap_session.py save-password`
 - Test by hand: `python sap_session.py login`, then `python sap_session.py close`.
 - Wrong password: the bot closes SAP and does not try again until it is restarted
   (so the SAP user is not locked). Apartments stay waiting.
