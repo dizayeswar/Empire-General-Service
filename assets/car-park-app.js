@@ -16,6 +16,8 @@ var CP_WA_LABEL = {
   sent: 'Sent', pending: 'Sending…', failed: 'Failed', no_phone: 'No phone',
   no_apartment: 'Plate not found', not_configured: 'WhatsApp not set up'
 };
+// Meta's Utility price per delivered message to Iraq (+964), USD, rate card from 1 Oct 2026. Only an estimate; Meta Insights has the real bill.
+var CP_WA_PRICE_USD = 0.0079;
 var CP_MAX_PLATES = 5;
 var CP_POLL_MS = 60000;
 
@@ -248,6 +250,25 @@ function cpRenderDash_() {
     stat(c.sent, 'WhatsApp sent', 'cp-stat-ok') +
     stat(c.problem, 'Not sent', c.problem ? 'cp-stat-bad' : '', "cpJumpReports_('problem')") +
     '</div>';
+
+  // WhatsApp messages counted by the day they were sent (a resend counts on its own day).
+  var waSentSince = function (from) {
+    return _cpReports.filter(function (r) {
+      if (r.waStatus !== 'sent' || !r.waSentAt) return false;
+      if (proj && r.project !== proj) return false;
+      return !from || new Date(r.waSentAt) >= from;
+    }).length;
+  };
+  var waCost = function (n) { var usd = n * CP_WA_PRICE_USD; return '$' + usd.toFixed(usd && usd < 1 ? 3 : 2); };
+  var waToday = waSentSince(cpRangeStart_('today'));
+  var waMonth = waSentSince(cpRangeStart_('month'));
+  var waPeriod = waSentSince(start);
+  var periodLabel = document.getElementById('cpDashRange').selectedOptions[0].textContent;
+  h += '<h3>WhatsApp messages &amp; cost</h3><div class="stats">' +
+    stat(waToday, 'Sent today · ' + waCost(waToday), 'cp-stat-ok') +
+    stat(waMonth, 'Sent this month · ' + waCost(waMonth), 'cp-stat-ok') +
+    (range === 'today' || range === 'month' ? '' : stat(waPeriod, 'Sent · ' + periodLabel + ' · ' + waCost(waPeriod), 'cp-stat-ok')) +
+    '</div><p class="dt-hint">Estimated at $' + CP_WA_PRICE_USD + ' per message (Meta, Iraq, Utility). The real bill is in WhatsApp Manager → Insights → Message pricing, about a day later. Deleted reports are not counted here.</p>';
 
   h += '<h3>By project</h3><div class="dt-table-wrap"><table><thead><tr><th>Project</th><th>1st</th><th>2nd</th><th>3rd+</th><th>Plate not found</th><th>Total</th></tr></thead><tbody>';
   CP_PROJECTS.forEach(function (p) {
