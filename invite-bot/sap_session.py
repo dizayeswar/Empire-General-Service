@@ -1,7 +1,7 @@
 ﻿"""Open SAP Business One, log in, and close it again when the queue is empty.
 
 SAP glitches when it is left open, so the bot opens it only when an apartment is waiting
-and closes it (File -> Exit) as soon as there are no more apartments.
+and closes it as soon as there are no more apartments.
 
 Login, as a person does it (recorded 2026-11-07):
   - SAP is started from the Start-menu program (NOT the Desktop shortcut, that one runs
@@ -13,6 +13,9 @@ Login, as a person does it (recorded 2026-11-07):
     "Enter valid user name and password": the bot closes SAP and stops trying until it is
     restarted (trying again and again could lock the SAP user)
   - wait 15 s (SAP can be slow), Cancel "Select Default Branch"
+
+Closing: like clicking SAP's X, then Yes on "Closing SAP Business One will stop all running
+processes ... Do you want to continue?" (the bot answers only that question).
 
 The password is never stored in a file. It is kept in Windows Credential Manager:
     python sap_session.py save-password
@@ -331,17 +334,6 @@ def login():
     return app
 
 
-def _exit_menu_uid(app):
-    for i in range(app.Menus.Count):
-        top = app.Menus.Item(i)
-        if top.String.replace("&", "").strip().lower() == "file":
-            for j in range(top.SubMenus.Count):
-                sub = top.SubMenus.Item(j)
-                if sub.String.replace("&", "").strip().lower() == "exit":
-                    return sub.UID
-    return None
-
-
 EXIT_QUESTION = "closing sap business one will stop all running processes"
 
 
@@ -368,17 +360,20 @@ def _answer_exit_question(app):
 
 
 def close_sap():
-    """File -> Exit. If SAP does not close by itself within 30 s, it is closed by force."""
-    if not _frame():
+    """Close SAP like clicking its X, answer Yes to "Closing SAP Business One ... continue?".
+    If SAP does not close within 30 s, it is closed by force.
+
+    Not File -> Exit through the UI API: that call only returns after the question is
+    answered, so the bot would wait on itself (seen 2026-11-07)."""
+    import win32con
+    import win32gui
+    frame = _frame()
+    if not frame:
         sap_b1._app = None
         return
     app = _logged_in_app()
-    uid = _exit_menu_uid(app) if app else None
-    if uid:
-        try:
-            app.ActivateMenuItem(uid)
-        except Exception:
-            pass
+    if app:
+        win32gui.PostMessage(frame, win32con.WM_CLOSE, 0, 0)  # does not wait for the answer
         end = time.time() + 30
         answered = False
         while _frame() and time.time() < end:
