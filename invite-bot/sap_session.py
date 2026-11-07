@@ -1,4 +1,4 @@
-"""Open SAP Business One, log in, and close it again when the queue is empty.
+﻿"""Open SAP Business One, log in, and close it again when the queue is empty.
 
 SAP glitches when it is left open, so the bot opens it only when an apartment is waiting
 and closes it (File -> Exit) as soon as there are no more apartments.
@@ -12,7 +12,7 @@ Login, as a person does it (recorded 2026-11-07):
   - wrong password -> SAP shows "Choose/Create Company" with the red
     "Enter valid user name and password": the bot closes SAP and stops trying until it is
     restarted (trying again and again could lock the SAP user)
-  - wait 7 s, Cancel "Select Default Branch"
+  - wait 15 s (SAP can be slow), Cancel "Select Default Branch"
 
 The password is never stored in a file. It is kept in Windows Credential Manager:
     python sap_session.py save-password
@@ -38,7 +38,7 @@ LOGIN_TITLE = "SAP Business One"          # the login window inside the SAP fram
 BAD_LOGIN_TITLE = "Choose/Create Company"  # what SAP shows after a wrong password
 FRAME_CLASS = "TMFrameClass"
 CHILD_CLASS = "TMMDIChildClass"
-BRANCH_WAIT = 7                            # seconds before the branch window is cancelled
+BRANCH_WAIT = 15                           # seconds before the branch window is cancelled (SAP can be slow)
 # User ID box, measured from the login window's top-left corner (2026-11-07 screenshot)
 USER_ID_OFFSET = (367, 136)
 PASSWORD_OFFSET = (367, 156)
