@@ -2,10 +2,15 @@
 Turn dup_groups.json (from photo_dup_scan.py) into a readable HTML report.
 
 Usage:
-  python -I tools/photo_dup_report.py <dup_groups.json> <out.html>
+  python -I tools/photo_dup_report.py <dup_groups.json> <out.html> [seen.json]
+
+seen.json (optional) remembers which reused photos were already reported, so
+the next report can mark the ones that are NEW since the last check.
 """
+import datetime
 import html
 import json
+import os
 import sys
 from collections import Counter, defaultdict
 
@@ -59,9 +64,20 @@ def main():
     old = [r for r in reused if r[1] == "old"]
     twice = [r for r in reused if r[1] == "twice"]
 
+    seen_path = sys.argv[3] if len(sys.argv) > 3 else ""
+    seen = {}
+    if seen_path and os.path.exists(seen_path):
+        seen = json.load(open(seen_path, encoding="utf8"))
+    first_run = not seen
+    today = datetime.date.today().isoformat()
+    new_ids = set() if first_run else {p["id"] for p, *_ in reused if p["id"] not in seen}
+    last_check = max(seen.values()) if seen else ""
+
     by_user = defaultdict(Counter)
     for p, kind, _, _ in reused:
         by_user[p["by"]][kind] += 1
+        if p["id"] in new_ids:
+            by_user[p["by"]]["new"] += 1
     by_month = Counter(p["period"].split("#")[0] for p, *_ in reused)
     by_proj = Counter(p["project"].upper() for p, *_ in reused)
 
@@ -70,7 +86,8 @@ def main():
 
     user_rows = "".join(
         f"<tr><td>{esc(u)}</td><td class=n>{c['old']}</td><td class=n>{c['twice']}</td>"
-        f"<td class=n><b>{c['old'] + c['twice']}</b></td></tr>"
+        f"<td class=n><b>{c['old'] + c['twice']}</b></td>"
+        f"<td class=n>{'<b class=newn>' + str(c['new']) + '</b>' if c['new'] else '0'}</td></tr>"
         for u, c in sorted(by_user.items(), key=lambda x: -sum(x[1].values()))
     )
     month_rows = "".join(f"<tr><td>{esc(m)}</td><td class=n>{n}</td></tr>" for m, n in sorted(by_month.items()))
@@ -78,6 +95,7 @@ def main():
 
     cards = []
     order = sorted(range(len(groups)), key=lambda gi: (
+        0 if any(p["id"] in new_ids for p in groups[gi]["photos"]) else 1,
         0 if any(k == "old" for _, k, _ in classify(groups[gi])) else 1, -len(groups[gi]["photos"])))
     for gi in order:
         g = groups[gi]
@@ -93,6 +111,8 @@ def main():
             badge = {"original": '<span class="b first">First upload</span>',
                      "old": '<span class="b old">REUSED</span>',
                      "twice": '<span class="b twice">USED TWICE</span>'}[kind]
+            if p["id"] in new_ids:
+                badge += ' <span class="b new">NEW</span>'
             src = "Gallery" if p["src"] == "g" else "Camera"
             gps = "GPS ✓" if p.get("lat") else "no GPS"
             tiles.append(f"""
@@ -149,17 +169,20 @@ figcaption {{ padding:8px 10px; font-size:13px }} .task {{ font-weight:600; marg
 .b.first {{ background:var(--greenbg); color:var(--green) }} .b.old {{ background:var(--redbg); color:var(--red) }}
 .b.twice {{ background:var(--amberbg); color:var(--amber) }}
 .note {{ margin-top:6px; color:var(--red); font-weight:500 }}
+.b.new {{ background:var(--ink); color:var(--bg) }} .newn {{ color:var(--red) }}
+.stat.new {{ border:2px solid var(--ink) }}
 </style></head><body><main>
 <h1>Cleaning photo reuse report</h1>
-<div class="muted">Scanned {data['scanned']} of {data['total']} cleaning task photos. Every photo was compared with every other photo by how it looks, so a picture still matches after the phone re-saves it.</div>
+<div class="muted">Checked {esc(today)}. Scanned {data['scanned']} of {data['total']} cleaning task photos. Every photo was compared with every other photo by how it looks, so a picture still matches after the phone re-saves it.</div>
 <div class="stats">
+  {stat(len(new_ids), "NEW since last check" + (f" ({esc(last_check)})" if last_check else ""), "new") if not first_run else ""}
   {stat(len(reused), "reused uploads in total", "red")}
   {stat(len(old), "reused from an older week/month", "red")}
   {stat(len(twice), "same photo used for 2 tasks at once", "amber")}
   {stat(len(groups), "different pictures involved")}
 </div>
 <div class="tables">
-  <table><tr><th>Uploaded by</th><th class=n>From older week</th><th class=n>2 tasks at once</th><th class=n>Total</th></tr>{user_rows}</table>
+  <table><tr><th>Uploaded by</th><th class=n>From older week</th><th class=n>2 tasks at once</th><th class=n>Total</th><th class=n>New</th></tr>{user_rows}</table>
   <table><tr><th>Month</th><th class=n>Reused</th></tr>{month_rows}</table>
   <table><tr><th>Project</th><th class=n>Reused</th></tr>{proj_rows}</table>
 </div>
@@ -168,7 +191,11 @@ figcaption {{ padding:8px 10px; font-size:13px }} .task {{ font-weight:600; marg
 {''.join(cards)}
 </main></body></html>"""
     open(sys.argv[2], "w", encoding="utf8").write(page)
-    print(f"reused {len(reused)} (older week {len(old)}, two tasks {len(twice)})")
+    if seen_path:
+        for p, *_ in reused:
+            seen.setdefault(p["id"], today)
+        json.dump(seen, open(seen_path, "w", encoding="utf8"), indent=1)
+    print(f"reused {len(reused)} (older week {len(old)}, two tasks {len(twice)})  NEW {len(new_ids)}")
     for u, c in by_user.items():
         print(" ", u, dict(c))
 

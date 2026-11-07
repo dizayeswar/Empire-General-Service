@@ -20,4 +20,4 @@ assets/hr-vacations.pdf
 _extract-vacation-jpegs.js
 
 # Cleaning photo reuse report (staff names + photos) — keep on this PC only
-photo-reuse-report.html
+photo-reuse/

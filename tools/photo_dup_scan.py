@@ -102,19 +102,37 @@ def main():
     photos = json.load(open(src, encoding="utf8"))
     by_id = {p["id"]: p for p in photos}
 
-    with ThreadPoolExecutor(12) as ex:
-        res = list(ex.map(lambda p: download(p, cache), photos))
-    failed = [(i, e) for i, _, e in res if e]
-    print(f"downloaded {len(res) - len(failed)}/{len(res)}  failed {len(failed)}")
-
+    # Fingerprints are kept in a small JSON file so each weekly run only
+    # downloads the photos it has not seen before. Photo files are deleted
+    # right after fingerprinting (the report links to the online copy).
+    fp_file = os.path.join(cache, "fingerprints.json")
+    saved = json.load(open(fp_file, encoding="utf8")) if os.path.exists(fp_file) else {}
     fp = {}
+    for pid, v in saved.items():
+        if pid in by_id:
+            fp[pid] = {"md5": v["md5"], "p": np.array(v["p"], dtype=np.uint8),
+                       "pc": np.array(v["pc"], dtype=np.uint8), "d": np.array(v["d"], dtype=np.uint8),
+                       "std": v["std"], "size": v["size"]}
+    todo = [p for p in photos if p["id"] not in fp]
+
+    with ThreadPoolExecutor(12) as ex:
+        res = list(ex.map(lambda p: download(p, cache), todo))
+    failed = [(i, e) for i, _, e in res if e]
+    print(f"already fingerprinted {len(fp)}  new {len(todo)}  downloaded {len(res) - len(failed)}  failed {len(failed)}")
+
     for pid, path, err in res:
         if err:
             continue
         try:
             fp[pid] = fingerprints(path)
+            saved[pid] = {k: (v.tolist() if isinstance(v, np.ndarray) else v) for k, v in fp[pid].items()}
         except Exception as e:  # noqa: BLE001
             failed.append((pid, "decode: " + str(e)))
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+    json.dump(saved, open(fp_file, "w", encoding="utf8"))
 
     ids = list(fp)
     # union-find over matching pairs
