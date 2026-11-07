@@ -342,6 +342,31 @@ def _exit_menu_uid(app):
     return None
 
 
+EXIT_QUESTION = "closing sap business one will stop all running processes"
+
+
+def _answer_exit_question(app):
+    """Click Yes on SAP's "Closing SAP Business One will stop all running processes ... continue?"
+    and on nothing else (a "save changes?" question is never answered - SAP is closed by force
+    instead, which saves nothing)."""
+    try:
+        form = app.Forms.ActiveForm
+        if form.TypeEx != "0":           # SAP's System Message window
+            return False
+        texts = []
+        for i in range(form.Items.Count):
+            try:
+                texts.append(str(form.Items.Item(i).Specific.Caption))
+            except Exception:
+                pass
+        if any(EXIT_QUESTION in t.lower() for t in texts):
+            form.Items.Item("1").Click(0)  # Yes
+            return True
+    except Exception:
+        pass
+    return False
+
+
 def close_sap():
     """File -> Exit. If SAP does not close by itself within 30 s, it is closed by force."""
     if not _frame():
@@ -355,7 +380,10 @@ def close_sap():
         except Exception:
             pass
         end = time.time() + 30
+        answered = False
         while _frame() and time.time() < end:
+            if not answered:
+                answered = _answer_exit_question(app)
             time.sleep(0.5)
     if _frame():
         kill_sap()
@@ -407,10 +435,24 @@ if __name__ == "__main__":
         elif what == "login":
             a = login()
             print(f"Logged in: {a.Company.Name}, user {a.Company.UserName}")
+        elif what == "full" and len(sys.argv) == 4:
+            # login -> one apartment -> close, like the bot does
+            unit, phone = sys.argv[2], sys.argv[3]
+            a = login()
+            print(f"Logged in: {a.Company.Name}")
+            try:
+                print("SAP done, old values:", sap_b1.update_unit_phone({}, unit, phone))
+            except sap_b1.PortalSyncError as e:
+                print(f"STOPPED (SAP is fine): {e}")
+            except Exception as e:
+                print(f"STOPPED: {e}\nScreenshot: {screenshot('sap_error_' + unit)}")
+                kill_sap()
+            close_sap()
+            print("SAP closed" if not _frame() else "SAP is STILL OPEN")
         elif what == "close":
             close_sap()
             print("SAP closed" if not _frame() else "SAP is STILL OPEN")
         else:
-            sys.exit("usage: python sap_session.py save-password|login|close")
+            sys.exit("usage: python sap_session.py save-password | login | close | full UNIT PHONE")
     except SapError as e:
         sys.exit(f"STOPPED: {e}")
