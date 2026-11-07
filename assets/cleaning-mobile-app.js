@@ -160,6 +160,49 @@
     return (g && g.extra) ? EXTRA_PHOTOS : MAX_PHOTOS;
   }
 
+  /* ---- One photo per normal task per day (Iraq time). Extra tasks and admins are not limited. ---- */
+  function iraqDayOf(v) {
+    var t = Date.parse(String(v || ''));
+    if (!isFinite(t)) return '';
+    return new Date(t + 3 * 3600000).toISOString().slice(0, 10);
+  }
+
+  function iraqToday() { return iraqDayOf(new Date().toISOString()); }
+
+  function oneADayApplies(g) {
+    if (g && g.extra) return false;
+    // Same rule as the server: only the admin role may add more than 1 photo a day.
+    if (typeof empireGetRole === 'function' && String(empireGetRole() || '').toLowerCase() === 'admin') return false;
+    return true;
+  }
+
+  /** Photos of this task (any week) saved or queued today. */
+  function photosAddedToday(p, task) {
+    var taskName = String(task || '').trim();
+    var today = iraqToday();
+    var seen = {};
+    var n = 0;
+    state.photos.forEach(function (x) {
+      if (String(x.project).toLowerCase() !== String(p).toLowerCase()) return;
+      if (isExtraPhoto(x) || String(x.task || '').trim() !== taskName) return;
+      var day = x.createdAt ? iraqDayOf(x.createdAt) : '';
+      if (!day && (x._offline || /^(offline|sticky|tmp)-/.test(String(x.id || '')))) day = String(x.date || '');
+      if (day !== today) return;
+      var k = String(x.image || x.id || '');
+      if (k && seen[k]) return;
+      if (k) seen[k] = 1;
+      n++;
+    });
+    return n;
+  }
+
+  /** How many more photos may be added to this task right now (pending ones included). */
+  function roomNow(p, g, task, savedCount, pendingCount) {
+    var room = photoLimit(g) - savedCount - pendingCount;
+    if (oneADayApplies(g)) room = Math.min(room, 1 - photosAddedToday(p, task) - pendingCount);
+    return room;
+  }
+
   function isExtraPhoto(x) {
     var freq = String((x && x.freq) || '').toLowerCase();
     var task = String((x && x.task) || '').trim().toLowerCase();
@@ -813,7 +856,7 @@
   }
 
   function isSyncableQueueItem(r) {
-    return isCleaningQueueItem(r) && !r.unreadable && !r.overLimit;
+    return isCleaningQueueItem(r) && !r.unreadable && !r.overLimit && r.dailyBlockedDay !== iraqToday();
   }
 
   function remapQueueTask(item) {
@@ -991,6 +1034,7 @@
     }
 
     var cap = mapped.freq === 'extra' ? EXTRA_PHOTOS : MAX_PHOTOS;
+    if (oneADayApplies(mapped.freq === 'extra' ? { extra: true } : null)) cap = 1;
     var send = remoteUrls.slice(0, cap);
     var batch = await apiWrite({
       action: 'addTaskPhotos',
@@ -1010,14 +1054,22 @@
         item.overLimit = true;
         try { await empireOfflineQueuePut(item); } catch (eOL) {}
       }
+      if (batch.error === 'daily_limit') {
+        // Today's photo for this task is already saved: keep it queued and try again tomorrow.
+        item.dailyBlockedDay = iraqToday();
+        err.message = t('dailyPhotoDone');
+        try { await empireOfflineQueuePut(item); } catch (eDL) {}
+      }
       throw err;
     }
     var batchItems = (batch && batch.items) || [];
-    var kept = batchItems.filter(function (x) { return x && (x.skipped || x.image || x.id); });
+    var kept = batchItems.filter(function (x) { return x && !x.dailyLimit && (x.skipped || x.image || x.id); });
     if (!kept.length && send.length) throw new Error(batch && batch.message ? batch.message : 'Save failed');
     rememberStickyPhotos(send.map(function (u, idx) {
       var row = batchItems[idx] || {};
+      if (row.dailyLimit) return null;
       return {
+        createdAt: new Date().toISOString(),
         id: row.id || ('tmp-' + Date.now() + '-' + idx),
         project: item.project,
         freq: mapped.freq,
@@ -1190,6 +1242,7 @@
         photoSources.push(u.source);
       });
       if (!remoteUrls.length) throw new Error('No photos');
+      if (oneADayApplies(g)) cap = 1;
       if (remoteUrls.length > cap) {
         remoteUrls = remoteUrls.slice(0, cap);
         photoGps = photoGps.slice(0, cap);
@@ -1207,16 +1260,17 @@
         photoSources: photoSources
       });
       if (batch && batch.ok === false) {
-        var saveErr = new Error(batch.message || batch.error || 'Save failed');
+        var saveErr = new Error(batch.error === 'daily_limit' ? t('dailyPhotoDone') : (batch.message || batch.error || 'Save failed'));
         saveErr.code = batch.error;
         throw saveErr;
       }
       var batchItems = (batch && batch.items) || [];
-      var kept = batchItems.filter(function (x) { return x && (x.skipped || x.image || x.id); });
+      var kept = batchItems.filter(function (x) { return x && !x.dailyLimit && (x.skipped || x.image || x.id); });
       if (!kept.length) throw new Error(batch && batch.message ? batch.message : 'Save failed');
       serverSaved = true;
       var stickyRows = remoteUrls.map(function (u, idx) {
         var row = (batch && batch.items && batch.items[idx]) || {};
+        if (row.dailyLimit) return null;
         return {
           id: row.id || ('tmp-' + Date.now() + '-' + idx),
           project: p,
@@ -1225,9 +1279,10 @@
           date: date,
           period: period,
           image: row.image || u,
-          source: row.source || photoSources[idx] || 'camera'
+          source: row.source || photoSources[idx] || 'camera',
+          createdAt: new Date().toISOString()
         };
-      });
+      }).filter(Boolean);
       rememberStickyPhotos(stickyRows);
       stickyRows.forEach(function (row) {
         if (!state.photos.some(function (x) { return String(x.image || '') === String(row.image || ''); })) {
@@ -1249,7 +1304,7 @@
       renderTasks();
     } catch (e) {
       if (!serverSaved) {
-        if (e && e.code === 'photo_limit') {
+        if (e && (e.code === 'photo_limit' || e.code === 'daily_limit')) {
           alert(e.message || String(e));
         } else {
           try {
@@ -1282,9 +1337,10 @@
     var list = ensurePending(key);
     var existing = photosFor(p, g, g.tasks[ti], selectedWeek(p)).length;
     var cap = photoLimit(g);
-    var room = cap - existing - list.length;
+    var room = roomNow(p, g, g.tasks[ti], existing, list.length);
     if (room <= 0) {
-      alert(t('photoMax', { max: cap }));
+      if (oneADayApplies(g) && cap - existing - list.length > 0) alert(t('dailyPhotoDone'));
+      else alert(t('photoMax', { max: cap }));
       return;
     }
     var arr = Array.prototype.slice.call(files, 0, room);
@@ -1424,19 +1480,23 @@
       });
       html += '</div>';
     }
-    var room = cap - saved.length - pending.length;
+    var daily = oneADayApplies(g);
+    var room = roomNow(p, g, task, saved.length, pending.length);
+    var lockedToday = daily && !pending.length && saved.length < cap && room <= 0;
     html += '<div class="cm-actions">';
     if (room > 0) {
       var camId = photoInputId('Cam', p, gi, ti, slot);
       var galId = photoInputId('Gal', p, gi, ti, slot);
       html += '<button type="button" class="cm-btn cm-btn-soft" data-addphoto="' + key + '">' + t('addPhoto') + '</button>';
       html += '<input id="' + camId + '" class="cm-file" type="file" accept="image/*" capture="environment" data-cam="' + key + '" data-source="camera">';
-      html += '<input id="' + galId + '" class="cm-file" type="file" accept="image/*" data-cam="' + key + '" data-source="gallery" multiple>';
+      html += '<input id="' + galId + '" class="cm-file" type="file" accept="image/*" data-cam="' + key + '" data-source="gallery"' + (daily ? '' : ' multiple') + '>';
     }
     if (pending.length) {
       html += '<button type="button" class="cm-btn" data-confirm="' + key + '">' + t('confirmSave') + '</button>';
     }
-    html += '</div><div class="cm-task-meta">' + t('cameraOrUpload', { max: cap }) + '</div></div>';
+    html += '</div>';
+    if (lockedToday) html += '<div class="cm-task-meta cm-daily-lock">🔒 ' + t('dailyPhotoDone') + '</div>';
+    html += '<div class="cm-task-meta">' + (daily ? t('onePhotoPerDay', { max: cap }) : t('cameraOrUpload', { max: cap })) + '</div></div>';
     return html;
   }
 

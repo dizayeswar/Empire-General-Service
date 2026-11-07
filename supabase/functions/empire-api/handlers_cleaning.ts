@@ -261,6 +261,10 @@ export async function handleAddTaskPhoto(body: Record<string, unknown>) {
   const source = normalizePhotoSource(body.source || (body.photoSources as string[] | undefined)?.[0]);
   const date = fmtDate(body.date) || String(body.date || "");
   const freq = String(body.freq || "");
+  const oneTask = String(body.task || "").trim();
+  if ((await dailyPhotoRoom(body, project, oneTask, isExtraTask(freq, oneTask))) <= 0) {
+    return { ok: false, error: "daily_limit", message: DAILY_LIMIT_MESSAGE };
+  }
   const period = canonicalizePeriod(String(body.period || ""), date, freq);
   const id = `tp-${crypto.randomUUID()}`;
   const { error } = await sb().from("task_photos").insert({
@@ -284,6 +288,31 @@ export async function handleAddTaskPhoto(body: Record<string, unknown>) {
 
 function isExtraTask(freq: string, task: string): boolean {
   return String(freq || "").toLowerCase() === "extra" || String(task || "").trim().toLowerCase() === "extra";
+}
+
+/** Start of today in Iraq (UTC+3, no daylight saving) as an ISO string, to compare with created_at. */
+function iraqDayStartIso(now = new Date()): string {
+  const local = new Date(now.getTime() + 3 * 3600_000);
+  const startUtc = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()) - 3 * 3600_000;
+  return new Date(startUtc).toISOString();
+}
+
+const DAILY_LIMIT_MESSAGE = "Today's photo for this task is already saved. You can add the next photo tomorrow.";
+
+/**
+ * One photo per normal task per day (Iraq time, by upload time). Extra tasks and admins are not limited.
+ * Returns how many more photos may be saved today for this task (0 or 1), or Infinity when the rule does not apply.
+ */
+async function dailyPhotoRoom(body: Record<string, unknown>, project: string, task: string, extra: boolean): Promise<number> {
+  if (extra || String(body._authRole || "").toLowerCase() === "admin") return Infinity;
+  const { count, error } = await sb()
+    .from("task_photos")
+    .select("id", { count: "exact", head: true })
+    .ilike("project", project)
+    .eq("task", task)
+    .gte("created_at", iraqDayStartIso());
+  if (error) throw error;
+  return (count || 0) >= 1 ? 0 : 1;
 }
 
 export async function handleAddTaskPhotos(body: Record<string, unknown>) {
@@ -325,6 +354,12 @@ export async function handleAddTaskPhotos(body: Record<string, unknown>) {
   const sources = (body.photoSources || []) as string[];
   const items: unknown[] = [];
   let added = 0;
+  // Only check the daily rule when something new would be saved (a retry of an already-saved photo is still "skipped").
+  const hasNew = images.some((u) => !!u && !existingUrls[String(u)]);
+  const dailyRoom = hasNew ? await dailyPhotoRoom(body, project, task, extra) : Infinity;
+  if (dailyRoom <= 0) {
+    return { ok: false, error: "daily_limit", message: DAILY_LIMIT_MESSAGE };
+  }
   const now = isoNow();
   const saveTask = extra ? "Extra" : task;
   const saveFreq = extra ? "extra" : freq;
@@ -334,6 +369,11 @@ export async function handleAddTaskPhotos(body: Record<string, unknown>) {
     const source = normalizePhotoSource(sources[i]);
     if (existingUrls[img]) {
       items.push({ id: "existing", image: img, skipped: true, lat: "", lng: "", accuracy: "", source, period });
+      continue;
+    }
+    if (added >= dailyRoom) {
+      // Normal task: only the first new photo is saved today, the rest are refused.
+      items.push({ id: "daily_limit", image: img, skipped: true, dailyLimit: true, lat: "", lng: "", accuracy: "", source, period });
       continue;
     }
     if (existingCount + added >= maxPhotos) {

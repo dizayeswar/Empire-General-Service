@@ -47,6 +47,8 @@
         return (p.count || 0) + ' photo' + ((p.count || 0) === 1 ? '' : 's') + ' ready';
       },
       photoMax: function (p) { return 'Maximum ' + (p.max || 3) + ' photos. Remove one to add another.'; },
+      dailyPhotoDone: "Today's photo for this task is saved. You can add the next photo tomorrow.",
+      onePhotoPerDay: function (p) { return 'Camera or gallery — 1 photo per day, ' + (p.max || 3) + ' per week'; },
       photoFailed: 'Could not read that photo. Try gallery, or take the picture again.',
       photoTakeCamera: 'Take photo (camera)',
       photoChooseGallery: 'Choose from gallery',
@@ -141,6 +143,8 @@
         return (p.count || 0) + ' وێنە ئامادەیە';
       },
       photoMax: function (p) { return 'زۆرترین ' + (p.max || 3) + ' وێنە. یەکێک بسڕەوە بۆ زیادکردن.'; },
+      dailyPhotoDone: 'وێنەی ئەمڕۆی ئەم کارە پاشەکەوت کرا. بەیانی دەتوانیت وێنەی داهاتوو زیاد بکەیت.',
+      onePhotoPerDay: function (p) { return 'کامێرا یان گالەری — ڕۆژانە ١ وێنە، هەفتانە ' + (p.max || 3) + ' وێنە'; },
       photoFailed: 'نەتوانرا وێنەکە بخوێنرێتەوە. گالەری بەکاربهێنە یان دووبارە وێنە بگرە.',
       photoTakeCamera: 'وێنە بگرە (کامێرا)',
       photoChooseGallery: 'لە گالەری هەڵبژێرە',
