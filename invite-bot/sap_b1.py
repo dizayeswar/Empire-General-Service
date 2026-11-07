@@ -14,6 +14,8 @@ following the same steps a person does (recorded 2026-11-07 on ES-4-8-09):
   7. Sync To Portal = Yes, Update, wait for success
   8. Glitch fix: Sync To Portal No -> Yes, Update again, wait for success
   9. OK
+ 10. Watch PortalError for 30 s (re-open the BP): any message = report and stop
+     (no portal invitation)
 
 SAP must be opened from the Start menu, NOT the Desktop shortcut: that one runs as
 administrator and the bot cannot reach it.
@@ -41,6 +43,9 @@ EMAIL = "60"
 MOBILE_APP_NO = "185"
 USERNAME = "U_Username"
 SYNC_TO_PORTAL = "U_PortalSync"
+PORTAL_ERROR = "U_PortalError"
+PORTAL_ERROR_WATCH = 30   # seconds to watch PortalError after the second update
+PORTAL_ERROR_EVERY = 3    # re-open the BP this often while watching
 BTN_OK = "1"              # Find / OK / Update depending on mode
 PHONE_BOXES = {"E-Mail": EMAIL, "Mobile App. No.": MOBILE_APP_NO, "Username": USERNAME}
 
@@ -199,8 +204,45 @@ def update_unit_phone(config, code, phone, dry_run=False):
     _set_sync(form, "Y")
     _update(form, "Second update (Sync To Portal)")
 
-    form.Items.Item(BTN_OK).Click(0)  # OK closes the window
+    card_code = form.Items.Item(CODE).Specific.Value
+    form.Items.Item(BTN_OK).Click(0)  # OK closes the window (SAP is already saved)
+
+    portal_error = _watch_portal_error(app, card_code)
+    if portal_error:
+        raise SapError(f"SAP saved, but the portal sync answered with an error - "
+                       f"no invitation sent: {portal_error}")
     return ", ".join(f"{k}={v or '(empty)'}" for k, v in old.items())
+
+
+def _read_portal_error(app, card_code):
+    """Open the BP by its code (read-only), read PortalError, close."""
+    app.ActivateMenuItem(BP_MENU)
+    bp = _wait_for(lambda: _active(app, BP_FORM), "Business Partner window")
+    if bp.Mode != FIND_MODE:
+        raise SapError("Business Partner window did not open in Find mode")
+    bp.Items.Item(CODE).Specific.Value = card_code
+    bp.Items.Item(BTN_OK).Click(0)
+    _wait_for(lambda: bp.Mode == OK_MODE, f"{card_code} to open")
+    try:
+        if bp.Items.Item(CODE).Specific.Value != card_code:
+            raise SapError(f"Re-opened the wrong business partner while checking {card_code}")
+        return bp.Items.Item(PORTAL_ERROR).Specific.Value.strip()
+    finally:
+        if bp.Mode == OK_MODE:
+            bp.Close()
+
+
+def _watch_portal_error(app, card_code):
+    """Measured 2026-11-07: the portal's answer is written into PortalError about 7-13 s after
+    the update and is cleared again within about a minute, and the open window does not show
+    it. So re-open the BP every few seconds for PORTAL_ERROR_WATCH seconds."""
+    end = time.time() + PORTAL_ERROR_WATCH
+    while time.time() < end:
+        time.sleep(PORTAL_ERROR_EVERY)
+        err = _read_portal_error(app, card_code)
+        if err:
+            return err
+    return ""
 
 
 if __name__ == "__main__":
