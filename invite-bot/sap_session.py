@@ -7,7 +7,8 @@ Login, as a person does it (recorded 2026-11-07):
   - SAP is started from the Start-menu program (NOT the Desktop shortcut, that one runs
     as administrator and the bot cannot reach it)
   - login window "SAP Business One": Company Name is already 1.1 Empire World,
-    click User ID, type it, Tab, type the password, Enter
+    click User ID, type it, click Password, type it, Enter (Tab does NOT move to Password
+    when the keys come from a program)
   - wrong password -> SAP shows "Choose/Create Company" with the red
     "Enter valid user name and password": the bot closes SAP and stops trying until it is
     restarted (trying again and again could lock the SAP user)
@@ -40,6 +41,8 @@ CHILD_CLASS = "TMMDIChildClass"
 BRANCH_WAIT = 7                            # seconds before the branch window is cancelled
 # User ID box, measured from the login window's top-left corner (2026-11-07 screenshot)
 USER_ID_OFFSET = (367, 136)
+PASSWORD_OFFSET = (367, 156)
+EDIT_CLASS = "TMEditTextClass"             # SAP puts a real edit box on the field being typed in
 
 SHOTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "screenshots")
 
@@ -113,7 +116,8 @@ def _children(frame):
 def _to_front(frame):
     import win32con
     import win32gui
-    win32gui.ShowWindow(frame, win32con.SW_RESTORE)
+    if win32gui.IsIconic(frame):  # only when minimized: SW_RESTORE un-maximizes and moves the login box
+        win32gui.ShowWindow(frame, win32con.SW_RESTORE)
     ctypes.windll.user32.keybd_event(0x12, 0, 0, 0)  # Alt down/up lets SetForegroundWindow work
     ctypes.windll.user32.keybd_event(0x12, 0, 2, 0)
     try:
@@ -173,6 +177,37 @@ def _click(x, y):
     ctypes.windll.user32.mouse_event(0x2, 0, 0, 0, 0)
     ctypes.windll.user32.mouse_event(0x4, 0, 0, 0, 0)
     time.sleep(0.3)
+
+
+def _edit_box_at(frame, xy):
+    """The SAP edit box (shown only on the field that has the cursor) under point xy, or None."""
+    import win32gui
+    hits = []
+
+    def cb(h, _):
+        if win32gui.GetClassName(h) == EDIT_CLASS and win32gui.IsWindowVisible(h):
+            l, t, r, b = win32gui.GetWindowRect(h)
+            if l <= xy[0] <= r and t - 3 <= xy[1] <= b + 3:
+                hits.append(h)
+    win32gui.EnumChildWindows(frame, cb, None)
+    return hits[0] if hits else None
+
+
+def _click_box(frame, xy, name):
+    """Click a login field and make sure the cursor really is in it before anything is typed."""
+    _check_front(frame)
+    _click(*xy)
+    try:
+        return _wait(lambda: _edit_box_at(frame, xy), f"the {name} box", 5)
+    except SapLoginError:
+        kill_sap()
+        raise SapLoginError(f"Could not put the cursor in the {name} box - stopped, nothing typed there")
+
+
+def _clear(frame):
+    _key(frame, VK_END)
+    for _ in range(40):
+        _key(frame, VK_BACK)
 
 
 # ---------- screenshot ----------
@@ -250,15 +285,21 @@ def login():
         time.sleep(2)
 
         import win32gui
-        left, top, _, _ = win32gui.GetWindowRect(login_win)
         _to_front(frame)
         _check_front(frame)
-        _click(left + USER_ID_OFFSET[0], top + USER_ID_OFFSET[1])
-        _key(frame, VK_END)
-        for _ in range(40):            # clear anything already in User ID
-            _key(frame, VK_BACK)
+        left, top, _, _ = win32gui.GetWindowRect(login_win)  # measured after it is in front
+        user_xy = (left + USER_ID_OFFSET[0], top + USER_ID_OFFSET[1])
+        pass_xy = (left + PASSWORD_OFFSET[0], top + PASSWORD_OFFSET[1])
+
+        user_box = _click_box(frame, user_xy, "User ID")
+        _clear(frame)
         _type(frame, user)
-        _key(frame, VK_TAB)
+        if win32gui.GetWindowText(user_box) != user:
+            kill_sap()
+            raise SapLoginError("User ID box did not take the user name - stopped before the password")
+
+        _click_box(frame, pass_xy, "Password")   # never Tab: SAP ignored it (2026-11-07)
+        _clear(frame)
         _type(frame, password)
         _key(frame, VK_RETURN)
         password = None
@@ -269,10 +310,10 @@ def login():
             return _logged_in_app()
         result = _wait(done, "SAP to log in", 120)
         if result == "refused":
-            shot = screenshot("sap_login_refused")
+            # no screenshot here: the refused window can show what was typed
             kill_sap()
             raise SapLoginError("SAP refused the login (wrong user or password?). "
-                                f"The bot will not try again until it is restarted. Screenshot: {shot}")
+                                "The bot will not try again until it is restarted.")
         app = result
         _cancel_branch(app)
 
