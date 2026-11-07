@@ -15,6 +15,7 @@ from playwright.sync_api import sync_playwright
 import portal
 import queue_db
 import sap_b1
+import sap_session
 import whatsapp
 from parser import parse_message
 
@@ -38,9 +39,12 @@ def load_config():
         return json.load(f)
 
 
-def handle(db, context, config, row, mode):
+def handle(db, context, config, row, mode, sap):
     code, phone, mid = row["code"], row["phone"], row["message_id"]
     dry = mode == "dry-run"
+    needs_sap = row["status"] in ("new", "confirmed")
+    if needs_sap and sap.broken:
+        return  # SAP login is broken: the apartment stays waiting until the bot is restarted
 
     if row["status"] == "new":
         if mode == "confirm":
@@ -52,9 +56,24 @@ def handle(db, context, config, row, mode):
         if not dry:
             queue_db.set_status(db, mid, "confirmed")
 
+    if needs_sap and not dry:
+        try:
+            sap.ensure()
+        except sap_session.SapLoginError as e:
+            log(f"SAP LOGIN PROBLEM - {code} {phone} stays waiting: {e}")
+            return
+
     try:
-        if row["status"] in ("new", "confirmed"):
-            old = sap_b1.update_unit_phone(config, code, phone, dry_run=dry)
+        if needs_sap:
+            try:
+                old = sap_b1.update_unit_phone(config, code, phone, dry_run=dry)
+            except sap_b1.PortalSyncError:
+                raise  # SAP itself saved fine and is clean - keep it open
+            except Exception as e:
+                if dry:
+                    raise
+                shot = sap.after_error(code)
+                raise sap_b1.SapError(f"{e} (SAP closed without saving; screenshot: {shot})") from e
             if not dry:
                 queue_db.set_status(db, mid, "sap_done")
                 log(f"SAP updated {code}: {old} -> {phone}")
@@ -79,6 +98,7 @@ def main():
     mode = args.mode or "confirm"
     config = load_config()
     db = queue_db.connect()
+    sap = sap_session.SapSession(log)
 
     with sync_playwright() as p:
         context = p.chromium.launch_persistent_context(PROFILE_DIR, channel="msedge", headless=False)
@@ -97,9 +117,17 @@ def main():
                 log(f"WhatsApp read error: {e}")
 
             if mode != "dry-run":
-                for row in queue_db.pending(db):
-                    handle(db, context, config, row, mode)
+                process_queue(db, context, config, mode, sap)
             time.sleep(args.every)
+
+
+def process_queue(db, context, config, mode, sap):
+    """Do every waiting apartment, then close SAP (it glitches when left open)."""
+    try:
+        for row in queue_db.pending(db):
+            handle(db, context, config, row, mode, sap)
+    finally:
+        sap.close()
 
 
 def dry_run_print(mode, m, parsed):

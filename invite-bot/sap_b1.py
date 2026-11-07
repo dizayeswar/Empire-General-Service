@@ -1,6 +1,7 @@
 """Put the phone number on the unit in SAP Business One.
 
-Works through the SAP UI API on the SAP window that is already open and logged in,
+Works through the SAP UI API on a SAP window that is open and logged in (sap_session.py
+opens SAP, logs in and closes it again),
 following the same steps a person does (recorded 2026-11-07 on ES-4-8-09):
 
   1. F6 / Business Partner Master Data (menu 2561), opens in Find mode
@@ -20,7 +21,8 @@ following the same steps a person does (recorded 2026-11-07 on ES-4-8-09):
 SAP must be opened from the Start menu, NOT the Desktop shortcut: that one runs as
 administrator and the bot cannot reach it.
 
-Any problem raises SapError and leaves the SAP window as it is, so a person can see it.
+Any problem raises SapError. The bot (main.py) then takes a screenshot and closes SAP
+without saving; when run by hand (python sap_b1.py ...) the SAP window is left as it is.
 """
 import re
 import time
@@ -61,6 +63,10 @@ _app = None
 
 class SapError(Exception):
     pass
+
+
+class PortalSyncError(SapError):
+    """SAP saved fine, but the portal sync answered with an error (SAP itself is clean)."""
 
 
 def _application():
@@ -209,7 +215,7 @@ def update_unit_phone(config, code, phone, dry_run=False):
 
     portal_error = _watch_portal_error(app, card_code)
     if portal_error:
-        raise SapError(f"SAP saved, but the portal sync answered with an error - "
+        raise PortalSyncError(f"SAP saved, but the portal sync answered with an error - "
                        f"no invitation sent: {portal_error}")
     return ", ".join(f"{k}={v or '(empty)'}" for k, v in old.items())
 
