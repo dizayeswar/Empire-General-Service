@@ -204,6 +204,13 @@ def _click_box(frame, xy, name):
         raise SapLoginError(f"Could not put the cursor in the {name} box - stopped, nothing typed there")
 
 
+def _box_text(box):
+    """Text in a SAP edit box. GetWindowText returns '' for another program's box, WM_GETTEXT works."""
+    buf = ctypes.create_unicode_buffer(256)
+    ctypes.windll.user32.SendMessageW(box, 0x000D, 256, buf)  # WM_GETTEXT
+    return buf.value
+
+
 def _clear(frame):
     _key(frame, VK_END)
     for _ in range(40):
@@ -294,7 +301,7 @@ def login():
         user_box = _click_box(frame, user_xy, "User ID")
         _clear(frame)
         _type(frame, user)
-        if win32gui.GetWindowText(user_box) != user:
+        if _box_text(user_box) != user:
             kill_sap()
             raise SapLoginError("User ID box did not take the user name - stopped before the password")
 
