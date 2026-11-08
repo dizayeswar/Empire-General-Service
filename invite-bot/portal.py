@@ -4,7 +4,8 @@ As a person does it (shown 2026-11-08, recorded read-only):
   - The bot's own Edge window stays signed in. If the login page shows, the password is
     saved, so only SIGN IN is clicked - once. If that fails they are updating the system:
     leave it, try again later, never fight it.
-  - Customers -> All -> FILTER -> only the last box, Phone Number -> FILTER
+  - Customers -> All -> RELOAD (fresh list from the server - FILTER only searches the list
+    the page already has) -> FILTER -> only the last box, Phone Number -> FILTER
   - Only INVITATION STATUS and the Send Invitation (envelope) button matter; name, account
     status, project etc. are ignored.
       Not Invited        -> Send Invitation -> YES, INVITE -> "Operation successful." = done
@@ -119,6 +120,14 @@ def _search(page, phone):
     page.wait_for_timeout(1500)
     page.get_by_role("button", name="All", exact=True).first.click()
     page.wait_for_timeout(1000)
+    # FILTER only searches the list the page loaded earlier; RELOAD fetches the fresh list
+    # from the server (a number added minutes ago is otherwise "No results.") - 2026-11-08
+    with page.expect_response(lambda r: "/customers" in r.url and r.request.method == "GET",
+                              timeout=60000) as resp:
+        page.get_by_role("button", name="RELOAD", exact=True).click()
+    if not resp.value.ok:
+        raise PortalWait(f"Portal RELOAD failed (HTTP {resp.value.status}) - will try again later")
+    page.wait_for_timeout(1500)
     box, dialog = _open_filter(page)
     box.fill(phone)
     dialog.get_by_role("button", name="FILTER", exact=True).click()
