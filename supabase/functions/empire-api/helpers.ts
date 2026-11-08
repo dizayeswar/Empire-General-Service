@@ -196,6 +196,7 @@ export const MODULE_ACCESS_KEYS = [
   "app_door",
   "app_summary",
   "app_issues",
+  "app_portal",
   "ups",
   "ups_register",
   "ups_checklist",
@@ -314,6 +315,7 @@ const MODULE_DEPTS: Record<ModuleAccessKey, string[]> = {
   app_door: ["application"],
   app_summary: ["application"],
   app_issues: ["application"],
+  app_portal: ["application"],
   ups: ["ups"],
   ups_register: ["ups"],
   ups_checklist: ["ups"],
@@ -444,7 +446,9 @@ const SECTION_FOLD_GROUPS: SectionFoldGroup[] = [
   { parent: "fire", children: ["fire_list", "fire_add", "fire_analytics"] },
   // Line Manager / Director sign leave papers — only when set on purpose, never from old "whole department" access.
   { parent: "asaas", children: ["asaas_hr", "asaas_line", "asaas_director"], skipOnLegacy: ["asaas_line", "asaas_director"] },
-  { parent: "application", children: ["app_door", "app_summary", "app_issues"] },
+  // Sync to portal starts the SAP / portal bot: only when given on purpose, never from old
+  // "whole Application" access.
+  { parent: "application", children: ["app_door", "app_summary", "app_issues", "app_portal"], skipOnLegacy: ["app_portal"] },
   { parent: "ups", children: ["ups_register", "ups_checklist", "ups_history", "ups_summary", "ups_add"] },
   {
     parent: "charging",

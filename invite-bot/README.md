@@ -1,6 +1,20 @@
 # Apartment invite bot
 
-WhatsApp (unknown numbers) → SAP Business One unit phone → Empire portal invitation.
+Website (Application → Sync to portal) → SAP Business One unit phone → Empire portal invitation.
+(The older WhatsApp input in `main.py` is set aside for now.)
+
+## Website: Application → Sync to portal
+- Admin → Users: give people **Application → Sync to portal** (Read = only see, Read/Write = send
+  and cancel). Old "whole Application" access does not include it - it must be given on purpose.
+- They type Unit Code + phone and press Send. Same unit or phone already in progress = refused.
+  Cancel works only while the request is still Waiting.
+- Status: Waiting → SAP updating → SAP done → Portal → Done (Invited / Already activated /
+  Already invited) or Failed with the reason. "Bot online" shows the office PC bot is running.
+- The bot: make a website account with only Sync to portal = Read/Write, then on the office PC
+  `python website_bot.py save-login` once, then double-click `start-website-bot.bat` and leave it
+  open. No questions: Send on the website = go.
+- The bot uses the same Edge profile (`profiles/edge`) as the portal step - only one program may
+  have it open.
 Runs on the office PC that has SAP Business One and the LAN cable. Has nothing to do with Bobby.
 
 ## Set up on the office PC

@@ -23,6 +23,7 @@ import * as storage from "./handlers_storage.ts";
 import * as users from "./handlers_users.ts";
 import * as dtasks from "./handlers_dtasks.ts";
 import * as carpark from "./handlers_carpark.ts";
+import * as portalSync from "./handlers_portal_sync.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -40,7 +41,7 @@ function json(obj: unknown, status = 200) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method === "GET") {
-    return json({ ok: true, msg: "Empire API running (Supabase)", version: "2026-11-04-hr-list-slim" });
+    return json({ ok: true, msg: "Empire API running (Supabase)", version: "2026-11-08-portal-sync"});
   }
   if (req.method !== "POST") return json({ ok: false, error: "Method not allowed" }, 405);
 
@@ -150,6 +151,20 @@ Deno.serve(async (req) => {
       if (!cpAuth.ok) return json(cpAuth);
       cpAuth = await enrichAuthRole(cpAuth as AuthOk);
       return json(await carparkHandlers[action](body, cpAuth as AuthOk));
+    }
+
+    const portalSyncHandlers: Record<string, (b: Record<string, unknown>, a: AuthOk) => Promise<unknown>> = {
+      getPortalSyncRequests: portalSync.handleGetPortalSyncRequests,
+      addPortalSyncRequest: portalSync.handleAddPortalSyncRequest,
+      cancelPortalSyncRequest: portalSync.handleCancelPortalSyncRequest,
+      getPortalSyncWork: portalSync.handleGetPortalSyncWork,
+      updatePortalSyncRequest: portalSync.handleUpdatePortalSyncRequest,
+    };
+    if (portalSyncHandlers[action]) {
+      let psAuth = await verifyTokenSession(String(body.token || ""));
+      if (!psAuth.ok) return json(psAuth);
+      psAuth = await enrichAuthRole(psAuth as AuthOk);
+      return json(await portalSyncHandlers[action](body, psAuth as AuthOk));
     }
 
     const requiredDept = TRASH_ACTIONS[action] ? String(body.dept || "") : DEPT_BY_ACTION[action];

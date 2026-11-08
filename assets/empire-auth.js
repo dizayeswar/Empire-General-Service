@@ -167,7 +167,7 @@ var EMPIRE_SECTION_FOLD_GROUPS = [
   { parent: 'hse', children: ['hse_log', 'hse_add', 'hse_monthly', 'hse_analytics'] },
   { parent: 'fire', children: ['fire_list', 'fire_add', 'fire_analytics'] },
   { parent: 'asaas', children: ['asaas_list', 'asaas_analytics'] },
-  { parent: 'application', children: ['app_door', 'app_summary', 'app_issues'] },
+  { parent: 'application', children: ['app_door', 'app_summary', 'app_issues', 'app_portal'], skipOnLegacy: ['app_portal'] },
   { parent: 'ups', children: ['ups_register', 'ups_checklist', 'ups_history', 'ups_summary', 'ups_add'] },
   {
     parent: 'charging',
@@ -433,7 +433,7 @@ function empireCanAccessDept(requiredDept) {
     hse: ['hse', 'hse_log', 'hse_add', 'hse_monthly', 'hse_analytics'],
     fire: ['fire', 'fire_list', 'fire_add', 'fire_analytics'],
     asaas: ['asaas', 'asaas_list', 'asaas_analytics'],
-    application: ['application', 'app_door', 'app_summary', 'app_issues'],
+    application: ['application', 'app_door', 'app_summary', 'app_issues', 'app_portal'],
     ups: ['ups', 'ups_register', 'ups_checklist', 'ups_history', 'ups_summary', 'ups_add'],
     charging: [
       'charging', 'charging_dash', 'charging_summary', 'charging_waiting', 'charging_charged',
