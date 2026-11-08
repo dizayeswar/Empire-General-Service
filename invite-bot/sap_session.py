@@ -430,9 +430,20 @@ if __name__ == "__main__":
         elif what == "login":
             a = login()
             print(f"Logged in: {a.Company.Name}, user {a.Company.UserName}")
-        elif what == "full" and len(sys.argv) == 4:
+        elif what == "full":
             # login -> one apartment -> close, like the bot does
-            unit, phone = sys.argv[2], sys.argv[3]
+            if len(sys.argv) == 4:
+                unit, phone = sys.argv[2], sys.argv[3]
+            else:
+                unit = input("Unit Code (e.g. ES-4-8-09): ").strip().upper()
+                phone = input("Phone (07XXXXXXXXX): ").strip().replace(" ", "")
+            import re
+            if not re.fullmatch(r"[A-Z]{2}(-[A-Z0-9]+)+", unit.upper()):
+                sys.exit(f"STOPPED: {unit!r} does not look like a Unit Code - SAP not opened")
+            if not re.fullmatch(r"07\d{9}", phone):
+                sys.exit(f"STOPPED: {phone!r} is not 07XXXXXXXXX - SAP not opened")
+            if input(f"Put {phone} on {unit.upper()} in SAP? [y/n] ").strip().lower() != "y":
+                sys.exit("Cancelled - SAP not opened")
             a = login()
             print(f"Logged in: {a.Company.Name}")
             try:
