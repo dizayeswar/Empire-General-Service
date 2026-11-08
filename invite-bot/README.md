@@ -11,10 +11,14 @@ Website (Application → Sync to portal) → SAP Business One unit phone → Emp
 - Status: Waiting → SAP updating → SAP done → Portal → Done (Invited / Already activated /
   Already invited) or Failed with the reason. "Bot online" shows the office PC bot is running.
 - The bot: make a website account with only Sync to portal = Read/Write, then on the office PC
-  `python website_bot.py save-login` once, then double-click `start-website-bot.bat` and leave it
-  open. No questions: Send on the website = go.
-- The bot uses the same Edge profile (`profiles/edge`) as the portal step - only one program may
-  have it open.
+  `python website_bot.py save-login` once, then double-click `start-website-bot.bat` (from File
+  Explorer). It runs hidden - no window; "Bot online" on the website, details in `log.txt`.
+  `stop-website-bot.bat` stops it. Starting it twice does nothing (only one bot at a time).
+  No questions: Send on the website = go.
+- SAP runs in its own short program (`sap_job.py`, no window): SAP hung on Update when the bot's
+  black window and Edge ran in the same program (2026-11-08). The bot's Edge window opens only
+  for the portal step, after SAP is closed, and closes again.
+- The Edge profile (`profiles/edge`) can be open in only one program at a time.
 Runs on the office PC that has SAP Business One and the LAN cable. Has nothing to do with Bobby.
 
 ## Set up on the office PC
