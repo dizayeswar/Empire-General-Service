@@ -102,6 +102,32 @@ class FlowTest(unittest.TestCase):
         self.assertEqual(sap.calls, ["ensure", "close"])
         self.assertEqual(self.status("m1")["status"], "failed")
 
+    def test_portal_runs_after_sap_is_closed(self):
+        self.add("m1", "ES-1-1-01")
+        self.add("m2", "ES-1-1-02")
+        sap = FakeSap()
+        main.portal.send_invitation = lambda ctx, phone, dry_run=False: sap.calls.append("portal")
+        main.process_queue(self.db, None, {}, "auto", sap)
+        self.assertEqual(sap.calls, ["ensure", "ensure", "close", "portal", "portal"])
+
+    def test_portal_not_ready_keeps_waiting(self):
+        self.add("m1", "ES-1-1-01")
+
+        def wait(ctx, phone, dry_run=False):
+            raise main.portal.PortalWait("updating")
+        main.portal.send_invitation = wait
+        main.process_queue(self.db, None, {}, "auto", FakeSap())
+        self.assertEqual(self.status("m1")["status"], "sap_done")
+
+    def test_portal_problem_is_reported(self):
+        self.add("m1", "ES-1-1-01")
+
+        def blocked(ctx, phone, dry_run=False):
+            raise main.portal.PortalError("Blocked")
+        main.portal.send_invitation = blocked
+        main.process_queue(self.db, None, {}, "auto", FakeSap())
+        self.assertEqual(self.status("m1")["status"], "failed")
+
     def test_refused_login_waits_and_is_not_retried(self):
         self.add("m1", "ES-1-1-01")
         self.add("m2", "ES-1-1-02")

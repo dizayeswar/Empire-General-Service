@@ -39,11 +39,9 @@ def load_config():
         return json.load(f)
 
 
-def handle(db, context, config, row, mode, sap):
+def handle_sap(db, config, row, mode, sap):
     code, phone, mid = row["code"], row["phone"], row["message_id"]
-    dry = mode == "dry-run"
-    needs_sap = row["status"] in ("new", "confirmed")
-    if needs_sap and sap.broken:
+    if sap.broken:
         return  # SAP login is broken: the apartment stays waiting until the bot is restarted
 
     if row["status"] == "new":
@@ -53,37 +51,49 @@ def handle(db, context, config, row, mode, sap):
                 queue_db.set_status(db, mid, "rejected")
                 log(f"Rejected {code} {phone}")
                 return
-        if not dry:
-            queue_db.set_status(db, mid, "confirmed")
-
-    if needs_sap and not dry:
-        try:
-            sap.ensure()
-        except sap_session.SapLoginError as e:
-            log(f"SAP LOGIN PROBLEM - {code} {phone} stays waiting: {e}")
-            return
+        queue_db.set_status(db, mid, "confirmed")
 
     try:
-        if needs_sap:
-            try:
-                old = sap_b1.update_unit_phone(config, code, phone, dry_run=dry)
-            except sap_b1.PortalSyncError:
-                raise  # SAP itself saved fine and is clean - keep it open
-            except Exception as e:
-                if dry:
-                    raise
-                shot = sap.after_error(code)
-                raise sap_b1.SapError(f"{e} (SAP closed without saving; screenshot: {shot})") from e
-            if not dry:
-                queue_db.set_status(db, mid, "sap_done")
-                log(f"SAP updated {code}: {old} -> {phone}")
-        portal.send_invitation(context, phone, dry_run=dry)
-        if not dry:
-            queue_db.set_status(db, mid, "invited")
-            log(f"Invitation sent {code} {phone}")
+        sap.ensure()
+    except sap_session.SapLoginError as e:
+        log(f"SAP LOGIN PROBLEM - {code} {phone} stays waiting: {e}")
+        return
+
+    try:
+        try:
+            old = sap_b1.update_unit_phone(config, code, phone)
+        except sap_b1.PortalSyncError:
+            raise  # SAP itself saved fine and is clean - keep it open
+        except Exception as e:
+            shot = sap.after_error(code)
+            raise sap_b1.SapError(f"{e} (SAP closed without saving; screenshot: {shot})") from e
+        queue_db.set_status(db, mid, "sap_done")
+        log(f"SAP updated {code}: {old} -> {phone}")
     except Exception as e:
-        if not dry:
-            queue_db.set_status(db, mid, "failed", str(e))
+        queue_db.set_status(db, mid, "failed", str(e))
+        log(f"FAILED {code} {phone}: {e}")
+
+
+_portal_waiting = {}  # message_id -> last "try later" reason (logged once, not every loop)
+
+
+def handle_portal(db, context, row):
+    code, phone, mid = row["code"], row["phone"], row["message_id"]
+    try:
+        result = portal.send_invitation(context, phone)
+        queue_db.set_status(db, mid, "invited")
+        _portal_waiting.pop(mid, None)
+        log({"invited": f"Invitation sent {code} {phone}",
+             "already activated": f"Done {code} {phone}: already Activated in the portal",
+             "already invited": f"Done {code} {phone}: already Invitation Pending in the portal",
+             }.get(result, f"Done {code} {phone}: {result}"))
+    except portal.PortalWait as e:
+        if _portal_waiting.get(mid) != str(e):
+            log(f"Portal not ready - {code} {phone} waits: {e}")
+        _portal_waiting[mid] = str(e)
+    except Exception as e:
+        _portal_waiting.pop(mid, None)
+        queue_db.set_status(db, mid, "failed", str(e))
         log(f"FAILED {code} {phone}: {e}")
 
 
@@ -122,12 +132,17 @@ def main():
 
 
 def process_queue(db, context, config, mode, sap):
-    """Do every waiting apartment, then close SAP (it glitches when left open)."""
+    """SAP for every waiting apartment, close SAP (it glitches when left open), then the portal
+    (which can wait minutes for a new number to show up - SAP is already closed by then)."""
     try:
         for row in queue_db.pending(db):
-            handle(db, context, config, row, mode, sap)
+            if row["status"] in ("new", "confirmed"):
+                handle_sap(db, config, row, mode, sap)
     finally:
         sap.close()
+    for row in queue_db.pending(db):
+        if row["status"] == "sap_done":
+            handle_portal(db, context, row)
 
 
 def dry_run_print(mode, m, parsed):

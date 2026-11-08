@@ -25,7 +25,14 @@ Runs on the office PC that has SAP Business One and the LAN cable. Has nothing t
 - A SAP problem on an apartment (red line, not found, ...): screenshot in `screenshots/`,
   SAP closed without saving, apartment marked failed, next apartment continues.
 
-## Not finished
-- `portal.py` – needs the portal search and invite buttons recorded
+## Portal invitation
+- Uses the bot's own Edge window (`profiles/edge`). Sign in there once by hand and let Edge
+  save the password; if the login page shows later, the bot only clicks SIGN IN (once - if it
+  fails, the system is being updated and the bot leaves it for 15 minutes).
+- Customers -> All -> FILTER -> Phone Number -> FILTER, then by INVITATION STATUS:
+  Not Invited = Send Invitation + YES, INVITE; Activated / Invitation Pending = done;
+  Blocked, 2+ rows = reported; No results = tried every minute for 5 minutes, then reported.
+- Always FILTER -> CLEAR FILTERS at the end.
+- Order in the bot: SAP for all waiting apartments, SAP closed, then the portal.
 
 `config.local.json`, `queue.db`, `log.txt`, `screenshots/` and `profiles/` (logins) stay on that PC only.
