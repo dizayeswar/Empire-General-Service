@@ -270,15 +270,7 @@ def _wait(check, what, timeout):
 
 def _cancel_branch(app):
     time.sleep(BRANCH_WAIT)
-    for i in range(app.Forms.Count):
-        form = app.Forms.Item(i)
-        if "Branch" in form.Title:
-            try:
-                form.Items.Item("2").Click(0)   # Cancel
-            except Exception:
-                form.Close()
-            time.sleep(1)
-            return
+    sap_b1.cancel_branch_window(app)
 
 
 def login():
@@ -326,6 +318,12 @@ def login():
                                 "The bot will not try again until it is restarted.")
         app = result
         _cancel_branch(app)
+    else:
+        # SAP was already open (seen 2026-11-08): "Select Default Branch" may still be up
+        try:
+            sap_b1.cancel_branch_window(app)
+        except Exception:
+            pass
 
     company = app.Company.Name
     if company != COMPANY:

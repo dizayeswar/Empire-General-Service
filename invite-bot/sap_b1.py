@@ -101,6 +101,42 @@ def _wait_for(check, what, timeout=20):
     raise SapError(f"Timed out waiting for {what}")
 
 
+MENU_READY_WAIT = 20      # seconds SAP may need before its menu answers
+
+
+def cancel_branch_window(app):
+    """Close "Select Default Branch" with Cancel if it is open. True if one was closed."""
+    for i in range(app.Forms.Count):
+        form = app.Forms.Item(i)
+        if "Branch" in form.Title:
+            try:
+                form.Items.Item("2").Click(0)   # Cancel
+            except Exception:
+                form.Close()
+            time.sleep(1)
+            return True
+    return False
+
+
+def _open_bp_window(app):
+    """Business Partner Master Data. SAP answers "Menu - Not found" while it is still starting
+    or while "Select Default Branch" is open (seen 2026-11-08 on an SAP that was already
+    open): close that window and try again for up to MENU_READY_WAIT seconds."""
+    end = time.time() + MENU_READY_WAIT
+    while True:
+        try:
+            app.ActivateMenuItem(BP_MENU)
+            return
+        except Exception as e:
+            try:
+                cancel_branch_window(app)
+            except Exception:
+                pass
+            if time.time() >= end:
+                raise SapError(f"SAP menu not ready (Business Partner Master Data): {e}") from e
+            time.sleep(2)
+
+
 def _active(app, form_type):
     f = app.Forms.ActiveForm
     return f if f.TypeEx == form_type else None
@@ -127,7 +163,7 @@ def _find_row(matrix, unit):
 
 
 def _open_unit(app, unit):
-    app.ActivateMenuItem(BP_MENU)
+    _open_bp_window(app)
     bp = _wait_for(lambda: _active(app, BP_FORM), "Business Partner window")
     if bp.Mode != FIND_MODE:
         raise SapError("Business Partner window did not open in Find mode")
@@ -222,7 +258,7 @@ def update_unit_phone(config, code, phone, dry_run=False):
 
 def _read_portal_error(app, card_code):
     """Open the BP by its code (read-only), read PortalError, close."""
-    app.ActivateMenuItem(BP_MENU)
+    _open_bp_window(app)
     bp = _wait_for(lambda: _active(app, BP_FORM), "Business Partner window")
     if bp.Mode != FIND_MODE:
         raise SapError("Business Partner window did not open in Find mode")
