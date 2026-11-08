@@ -4,3 +4,4 @@ log.txt
 profiles/
 __pycache__/
 screenshots/
+debug.log
