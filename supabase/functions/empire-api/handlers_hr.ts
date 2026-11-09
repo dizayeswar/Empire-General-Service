@@ -5,6 +5,7 @@ import { HR_EMPLOYEE_SEED } from "./hr_employees_seed.ts";
 import { resetPasswordOk } from "./config.ts";
 import { fmtDate, isoNow, sb, selectAllRows, trashRows } from "./db.ts";
 import { notifyUsers_ } from "./fcm.ts";
+import { parseSignatureRole, parseUserSignature } from "./handlers_users.ts";
 import {
   deriveAccountFromModuleAccess,
   isAdminAccount,
@@ -2249,6 +2250,111 @@ export async function handleListHrEmployees(auth: AuthOk) {
   };
 }
 
+/* ---------- Employee e-signature (set from HR > Employees > Edit) ---------- */
+
+type EmpSigAccount = { username: string; signature: string; signatureRole: string };
+
+async function employeeSigAccounts(person: HrPerson): Promise<EmpSigAccount[]> {
+  const full = await sb().from("users").select("username,signature,signature_role");
+  const missingRole = full.error && String(full.error.message || "").toLowerCase().includes("signature_role");
+  const res = missingRole ? await sb().from("users").select("username,signature") : full;
+  if (res.error) throw res.error;
+  const hits = (res.data || []).map((row) => {
+    const r = row as Record<string, unknown>;
+    return {
+      username: normalizeWorkerId(r.username),
+      signature: String(r.signature || "").trim(),
+      signatureRole: parseSignatureRole(r.signature_role),
+    };
+  }).filter((a) => a.username && accountIsThisPerson(a.username, person));
+  const code = compactKey(person.code);
+  hits.sort((a, b) => Number(compactKey(b.username) === code) - Number(compactKey(a.username) === code));
+  return hits;
+}
+
+const EMP_SIG_LIB_KEY = "account_signatures";
+
+async function readEmpSigLib(): Promise<{ settings: Record<string, unknown>; items: Array<Record<string, unknown>> }> {
+  const { data, error } = await sb().from("ui_settings").select("settings").eq("key", EMP_SIG_LIB_KEY).maybeSingle();
+  if (error) throw error;
+  const settings = data?.settings && typeof data.settings === "object" ? { ...(data.settings as Record<string, unknown>) } : {};
+  const items = Array.isArray(settings.items) ? (settings.items as Array<Record<string, unknown>>).slice() : [];
+  return { settings, items };
+}
+
+function libItemForCode(items: Array<Record<string, unknown>>, code: string): number {
+  const ck = compactKey(code);
+  return items.findIndex((it) => it && !String(it.assignedTo || it.assigned_to || "").trim() && compactKey(String(it.label || "")) === ck);
+}
+
+export async function handleGetHrEmployeeSignature(body: Record<string, unknown>, auth: AuthOk) {
+  if (!canEditHrEmployees(auth)) {
+    return { ok: false, success: false, error: "not_allowed", message: "Not allowed." };
+  }
+  const code = cleanPersonText(body.code);
+  const people = await readHrEmployees();
+  const person = people.find((p) => p.code === code);
+  if (!person) return { ok: true, success: true, signature: "", signatureRole: "", account: "" };
+  const accounts = await employeeSigAccounts(person);
+  const acc = accounts.find((a) => a.signature) || accounts[0];
+  if (acc && acc.signature) {
+    return { ok: true, success: true, signature: acc.signature, signatureRole: acc.signatureRole, account: acc.username };
+  }
+  const lib = await readEmpSigLib();
+  const i = libItemForCode(lib.items, person.code);
+  const item = i >= 0 ? lib.items[i] : null;
+  return {
+    ok: true,
+    success: true,
+    signature: item ? String(item.image || "") : "",
+    signatureRole: item ? parseSignatureRole(item.role) : (acc ? acc.signatureRole : ""),
+    account: acc ? acc.username : "",
+  };
+}
+
+async function saveEmployeeSignature(person: HrPerson, body: Record<string, unknown>, auth: AuthOk): Promise<string> {
+  const sigIn = parseUserSignature(body.signature);
+  if (!sigIn.ok) throw new Error(sigIn.message);
+  const roleRaw = String(body.signatureRole || "").trim();
+  const role = roleRaw ? parseSignatureRole(roleRaw) : "";
+  const accounts = await employeeSigAccounts(person);
+  if (accounts.length) {
+    const acc = accounts[0];
+    const patch: Record<string, unknown> = { signature: sigIn.value };
+    if (role) patch.signature_role = role;
+    let { error } = await sb().from("users").update(patch).eq("username", acc.username);
+    if (error && String(error.message || "").toLowerCase().includes("signature_role")) {
+      delete patch.signature_role;
+      ({ error } = await sb().from("users").update(patch).eq("username", acc.username));
+    }
+    if (error) throw error;
+    return acc.username;
+  }
+  const lib = await readEmpSigLib();
+  const i = libItemForCode(lib.items, person.code);
+  if (!sigIn.value) {
+    if (i >= 0) lib.items.splice(i, 1);
+  } else if (i >= 0) {
+    lib.items[i] = { ...lib.items[i], image: sigIn.value, role: role || parseSignatureRole(lib.items[i].role) };
+  } else {
+    lib.items.push({
+      id: "acsig-" + crypto.randomUUID(),
+      label: person.code,
+      image: sigIn.value,
+      role,
+      assignedTo: "",
+      createdAt: isoNow(),
+    });
+  }
+  const { error } = await sb().from("ui_settings").upsert({
+    key: EMP_SIG_LIB_KEY,
+    settings: { ...lib.settings, items: lib.items, updatedBy: String(auth.username || "") },
+    updated_at: isoNow(),
+  });
+  if (error) throw error;
+  return "";
+}
+
 export async function handleSaveHrEmployee(body: Record<string, unknown>, auth: AuthOk) {
   if (!canEditHrEmployees(auth)) {
     return { ok: false, success: false, error: "not_allowed", message: "Not allowed." };
@@ -2290,7 +2396,22 @@ export async function handleSaveHrEmployee(body: Record<string, unknown>, auth: 
     const blank = { ...next, code: "", name: "", job: "", department: "", section: "", group: "", managerCode: "", daysBalance: null };
     await logEmployeeChange(auth.username, "added", next, diffHrPerson(blank, next, people).filter((c) => c.field !== "Line manager" || c.to !== "Director"));
   }
-  return { ok: true, success: true, person: publishHrPerson(next, people) };
+  let signatureAccount = "";
+  let signatureNote = "";
+  if (body.signature !== undefined) {
+    try {
+      signatureAccount = await saveEmployeeSignature(next, body, auth);
+      signatureNote = signatureAccount ? "account" : "list";
+    } catch (err) {
+      return {
+        ok: false,
+        success: false,
+        error: "bad_signature",
+        message: "Employee saved, but the e-signature was not: " + String((err as Error)?.message || err),
+      };
+    }
+  }
+  return { ok: true, success: true, person: publishHrPerson(next, people), signatureAccount, signatureNote };
 }
 
 export async function handleRemoveHrEmployee(body: Record<string, unknown>, auth: AuthOk) {
