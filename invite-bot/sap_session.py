@@ -239,7 +239,17 @@ def screenshot(name):
 
 # ---------- open / login / close ----------
 
+def _kill_leftover_ui_api():
+    """SAPbouiCOM.exe can stay behind after SAP is closed and still answer the bot as if SAP
+    were open and logged in (2026-11-09: bot saw "logged in" in 1 s with no SAP window, then
+    "Menu - Not found"). Only called when no SAP window is open, so nothing is using it."""
+    subprocess.run(["taskkill", "/F", "/IM", "SAPbouiCOM.exe"], capture_output=True, check=False)
+
+
 def _logged_in_app():
+    if not _frame():   # no SAP window = not logged in, whatever a leftover UI API says
+        sap_b1._app = None
+        return None
     try:
         app = sap_b1._application()
         app.Company.Name
@@ -289,6 +299,7 @@ def login():
         user, password = get_credentials()
         if _frame():  # open but not logged in (half-way, or stuck) - start clean
             kill_sap()
+        _kill_leftover_ui_api()
         subprocess.Popen([SAP_EXE])  # same as the Start-menu program, not as administrator
         frame = _wait(_frame, "SAP to start", 120)
         login_win = _wait(lambda: _children(frame).get(LOGIN_TITLE), "the SAP login window", 120)
