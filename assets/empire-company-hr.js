@@ -29,17 +29,49 @@
     (root || document).querySelectorAll('img.hr-f06-logo').forEach(swapLogo);
   }
 
+  var TAG_CSS = 'display:inline-block;margin-left:8px;padding:1px 8px;border-radius:50px;' +
+    'background:#8d015d;color:#fff;font-size:12px;font-weight:700;vertical-align:middle;';
+
+  /* People who work in both companies (e.g. a director who only has HR) never see the hub,
+   * so the badge becomes an E2 | E3 switch here. Others just see which company they are in. */
+  function switchHtml(c) {
+    return ['E2', 'E3'].map(function (x) {
+      var on = x === c;
+      return '<button type="button" data-company="' + x + '" aria-pressed="' + on + '" style="' +
+        'border:0;cursor:pointer;font:inherit;font-size:12px;font-weight:700;line-height:1;padding:4px 9px;margin:0;' +
+        'border-radius:50px;box-shadow:none;transform:none;' +
+        (on ? 'background:#8d015d;color:#fff;' : 'background:transparent;color:#8d015d;') + '">' + x + '</button>';
+    }).join('');
+  }
+
   function addBadges() {
     var c = company();
-    var showBadge = c === 'E3' || (typeof empireCanSwitchCompany === 'function' && empireCanSwitchCompany());
-    if (!showBadge) return;
+    var canSwitch = typeof empireCanSwitchCompany === 'function' && empireCanSwitchCompany();
+    if (c !== 'E3' && !canSwitch) return;
     document.querySelectorAll('[data-hr-i18n="deptTitle"], .wrap > header > h1').forEach(function (h) {
       if (h.querySelector('.company-tag')) return;
       var tag = document.createElement('span');
       tag.className = 'company-tag';
-      tag.textContent = c;
-      tag.style.cssText = 'display:inline-block;margin-left:8px;padding:1px 8px;border-radius:50px;' +
-        'background:#8d015d;color:#fff;font-size:12px;font-weight:700;vertical-align:middle;';
+      if (!canSwitch) {
+        tag.textContent = c;
+        tag.style.cssText = TAG_CSS;
+        h.appendChild(tag);
+        return;
+      }
+      tag.setAttribute('role', 'group');
+      tag.setAttribute('aria-label', 'Company');
+      tag.style.cssText = 'display:inline-flex;gap:2px;margin-left:8px;padding:2px;border-radius:50px;' +
+        'border:1px solid #e6cddc;background:#faf6f8;vertical-align:middle;';
+      tag.innerHTML = switchHtml(c);
+      tag.addEventListener('click', function (e) {
+        var b = e.target.closest('button[data-company]');
+        if (!b) return;
+        e.preventDefault();
+        e.stopPropagation();
+        var want = b.getAttribute('data-company');
+        if (want === company()) return;
+        if (typeof empireSetCompany === 'function' && empireSetCompany(want)) location.reload();
+      });
       h.appendChild(tag);
     });
     if (document.title.indexOf(c + ' — ') !== 0) document.title = c + ' — ' + document.title;
@@ -58,6 +90,22 @@
         });
       });
     }).observe(document.documentElement, { childList: true, subtree: true });
+  }
+
+  /* The HR page re-reads the account after it loads (empireAuthRefreshPerms). Logins from before
+   * E2/E3 only learn their companies then: redraw the switch, and reload once if the company changed
+   * (e.g. an E3-only account that still had E2 saved), so the logo and lists match. */
+  var bootCompany = company();
+  if (typeof window.empireAuthRefreshPerms === 'function') {
+    var origRefresh = window.empireAuthRefreshPerms;
+    window.empireAuthRefreshPerms = function (onUpdate) {
+      return origRefresh(function (d) {
+        if (typeof onUpdate === 'function') onUpdate(d);
+        if (company() !== bootCompany) { location.reload(); return; }
+        document.querySelectorAll('.company-tag').forEach(function (t) { t.remove(); });
+        addBadges();
+      });
+    };
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
