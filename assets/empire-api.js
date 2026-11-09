@@ -70,6 +70,10 @@ function fetchJSONRetry(body, tries, timeoutMs, opts) {
   tries = tries || 2;
   timeoutMs = timeoutMs || 45000;
   opts = opts || {};
+  // E2 / E3: tell the server which company this page is working in.
+  if (body && typeof body === 'object' && !body.company && typeof empireGetCompany === 'function') {
+    try { body.company = empireGetCompany(); } catch (eCo) {}
+  }
   var apiUrl = (typeof EMPIRE_API_ENDPOINT !== 'undefined' && EMPIRE_API_ENDPOINT)
     ? EMPIRE_API_ENDPOINT
     : GOOGLE_SCRIPT_URL;

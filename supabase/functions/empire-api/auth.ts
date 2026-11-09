@@ -19,6 +19,7 @@ import {
   moduleAccessToJson,
   type ModuleAccessMap,
 } from "./helpers.ts";
+import { companiesForUser, type Company } from "./company.ts";
 
 export type AuthOk = {
   ok: true;
@@ -29,6 +30,8 @@ export type AuthOk = {
   perms?: Record<string, boolean>;
   warehouseSigSections?: string[];
   moduleAccess?: ModuleAccessMap;
+  /** E2 / E3 this account may open. */
+  companies?: Company[];
 };
 
 export type AuthFail = { ok: false; error: string; message?: string; success?: false };
@@ -196,6 +199,7 @@ export async function handleLogin(body: Record<string, unknown>) {
       ? derived.warehouseSigSections
       : parseWarehouseSigSections(user.warehouse_sig_sections, rp.role),
     moduleAccess: moduleAccessToJson(access),
+    companies: companiesForUser(user.companies, rp.role, access),
     signature: String(user.signature || ""),
     signatureRole: signatureRoleForUser(user as Record<string, unknown>),
     message: "Login successful",
@@ -226,6 +230,7 @@ export async function handleGetPerms(body: Record<string, unknown>) {
       ? derived.warehouseSigSections
       : parseWarehouseSigSections(user.warehouse_sig_sections, derived.role),
     moduleAccess: moduleAccessToJson(access),
+    companies: companiesForUser(user.companies, derived.role, access),
     signature: String(user.signature || ""),
     signatureRole: signatureRoleForUser(user as Record<string, unknown>),
   };
@@ -271,6 +276,7 @@ export async function verifyTokenSession(token: string): Promise<AuthOk | AuthFa
       : parseWarehouseSigSections(user?.warehouse_sig_sections, data.role || user?.role),
     moduleAccess: access,
     perms: derived?.perms,
+    companies: companiesForUser(user?.companies, derived?.role || data.role || user?.role, access),
   };
 }
 
@@ -303,6 +309,7 @@ export async function enrichAuthRole(auth: AuthOk): Promise<AuthOk> {
       : parseWarehouseSigSections(user.warehouse_sig_sections, auth.role);
     auth.moduleAccess = access;
     auth.perms = derived.perms;
+    auth.companies = companiesForUser(user.companies, derived.role, access);
   }
   return auth;
 }

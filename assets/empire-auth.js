@@ -13,8 +13,49 @@ var EMPIRE_AUTH_KEYS = {
   moduleAccess: 'empire_module_access',
   signature: 'empire_user_signature',
   signatureRole: 'empire_user_signature_role',
+  companies: 'empire_companies',
+  company: 'empire_company',
   loggedIn: 'empire_loggedIn'
 };
+
+/* E2 / E3 — one system, two companies. The chosen company rides on every API call. */
+var EMPIRE_COMPANIES = ['E2', 'E3'];
+
+function empireGetCompanies() {
+  var raw = '';
+  try { raw = empireAuthLs('companies'); } catch (e) {}
+  var list = [];
+  try {
+    var parsed = JSON.parse(raw || '[]');
+    if (Array.isArray(parsed)) list = parsed;
+  } catch (e2) {}
+  list = EMPIRE_COMPANIES.filter(function (c) { return list.indexOf(c) !== -1; });
+  return list.length ? list : ['E2'];
+}
+
+function empireGetCompany() {
+  var list = empireGetCompanies();
+  var c = '';
+  try { c = String(empireAuthLs('company') || '').toUpperCase(); } catch (e) {}
+  return list.indexOf(c) !== -1 ? c : list[0];
+}
+
+function empireSetCompany(c) {
+  c = String(c || '').toUpperCase();
+  if (empireGetCompanies().indexOf(c) === -1) return false;
+  empireAuthSet('company', c);
+  return true;
+}
+
+function empireCanSwitchCompany() {
+  return empireGetCompanies().length > 1;
+}
+
+function empireSaveCompanies_(list) {
+  if (!Array.isArray(list)) return;
+  empireAuthSet('companies', JSON.stringify(list));
+  empireAuthSet('company', empireGetCompany());
+}
 
 var EMPIRE_LEGACY_PROFILES = [
   { token: 'authToken', user: 'currentUser', role: 'userRole', perms: null, loggedIn: 'isLoggedIn', tokenDept: 'cleaning' },
@@ -504,6 +545,7 @@ function empireSetSession(username, data) {
   else empireAuthSet('signature', '');
   if (data.signatureRole) empireAuthSet('signatureRole', String(data.signatureRole));
   else empireAuthSet('signatureRole', '');
+  empireSaveCompanies_(Array.isArray(data.companies) ? data.companies : ['E2']);
   setTimeout(function () { empireGuardUsernameAutofill(); }, 0);
 }
 
@@ -1124,6 +1166,7 @@ function empireAuthRefreshPerms(onUpdate) {
         }
         if (d.signature != null) empireAuthSet('signature', String(d.signature || ''));
         if (d.signatureRole != null) empireAuthSet('signatureRole', String(d.signatureRole || ''));
+        if (Array.isArray(d.companies)) empireSaveCompanies_(d.companies);
         if (typeof onUpdate === 'function') onUpdate(d);
         if (typeof empireApplySectionNav === 'function') empireApplySectionNav();
       } else if (empireAuthHandleInvalidSession_(d)) {
