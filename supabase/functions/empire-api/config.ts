@@ -238,6 +238,8 @@ export const DEPT_BY_ACTION: Record<string, string> = {
   getHrEmployeeSignature: "hr",
   removeHrEmployee: "hr",
   getHrReport: "hr",
+  getHrPaperAdjust: "hr",
+  saveHrPaperAdjust: "hr",
   rejectHrLeaveRequest: "hr",
   fileHrLeaveRequests: "hr",
   seedHrPdfAnnualPapers: "hr",

@@ -2534,6 +2534,52 @@ export async function handleRemoveHrEmployee(body: Record<string, unknown>, auth
   return { ok: true, success: true, code };
 }
 
+/* Print position of the leave paper, per company (admins adjust it on the E3 paper).
+ * E2 never uses this: its paper stays locked. page = whole sheet offset (mm),
+ * logo = logo offset (mm) and size (%). */
+const PAPER_ADJUST_KEY = "hr_paper_adjust";
+
+function clampNum(raw: unknown, min: number, max: number): number | null {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return null;
+  return Math.round(Math.min(max, Math.max(min, n)) * 10) / 10;
+}
+
+export async function handleGetHrPaperAdjust() {
+  if (currentCompany() === "E2") return { ok: true, success: true, company: "E2", adjust: null };
+  const { data, error } = await sb().from("ui_settings").select("settings,updated_at").eq("key", companyKey(PAPER_ADJUST_KEY)).maybeSingle();
+  if (error) throw error;
+  return { ok: true, success: true, company: currentCompany(), adjust: data?.settings || null, updatedAt: data?.updated_at || "" };
+}
+
+export async function handleSaveHrPaperAdjust(body: Record<string, unknown>, auth: AuthOk) {
+  if (!isAdminAccount(auth.role, auth.moduleAccess)) {
+    return { ok: false, success: false, error: "not_allowed", message: "Only an admin can adjust the paper." };
+  }
+  if (currentCompany() === "E2") {
+    return { ok: false, success: false, error: "locked", message: "The E2 paper is locked." };
+  }
+  const raw = (body.adjust && typeof body.adjust === "object" ? body.adjust : {}) as Record<string, unknown>;
+  if (raw.reset === true) {
+    const { error } = await sb().from("ui_settings").delete().eq("key", companyKey(PAPER_ADJUST_KEY));
+    if (error) throw error;
+    return { ok: true, success: true, adjust: null };
+  }
+  const page = (raw.page && typeof raw.page === "object" ? raw.page : {}) as Record<string, unknown>;
+  const logo = (raw.logo && typeof raw.logo === "object" ? raw.logo : {}) as Record<string, unknown>;
+  const adjust = {
+    page: { x: clampNum(page.x, -40, 40), y: clampNum(page.y, -40, 40) },
+    logo: { x: clampNum(logo.x, -60, 120), y: clampNum(logo.y, -40, 60), size: clampNum(logo.size, 20, 300) },
+    by: String(auth.username || ""),
+  };
+  if ([adjust.page.x, adjust.page.y, adjust.logo.x, adjust.logo.y, adjust.logo.size].some((v) => v == null)) {
+    return { ok: false, success: false, error: "bad_values", message: "Every value must be a number." };
+  }
+  const { error } = await sb().from("ui_settings").upsert({ key: companyKey(PAPER_ADJUST_KEY), settings: adjust, updated_at: isoNow() });
+  if (error) throw error;
+  return { ok: true, success: true, adjust };
+}
+
 /** Admin Report: every leave paper (for counts) and the Employees change log. */
 export async function handleGetHrReport(auth: AuthOk) {
   if (!isAdminAccount(auth.role, auth.moduleAccess)) {
