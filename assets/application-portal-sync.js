@@ -139,9 +139,12 @@ function psyncRender_() {
     + '<th>Sent</th><th>Unit Code</th><th>Phone</th><th>Status</th><th>Details</th><th>By</th><th></th>'
     + '</tr></thead><tbody>';
   _psyncRows.forEach(function (r) {
-    var cancel = (_psyncCanWrite && r.status === 'waiting')
-      ? '<button type="button" class="psync-cancel" onclick="psyncCancel_(\'' + psyncEsc_(r.id) + '\')">Cancel</button>'
-      : '';
+    var cancel = '';
+    if (_psyncCanWrite && r.status === 'waiting') {
+      cancel = '<button type="button" class="psync-cancel" onclick="psyncCancel_(\'' + psyncEsc_(r.id) + '\')">Cancel</button>';
+    } else if (_psyncCanWrite && psyncCanRetry_(r)) {
+      cancel = '<button type="button" class="psync-retry" onclick="psyncRetry_(\'' + psyncEsc_(r.id) + '\', this)">Try again</button>';
+    }
     h += '<tr>'
       + '<td data-l="Sent">' + psyncEsc_(psyncTime_(r.createdAt)) + '</td>'
       + '<td data-l="Unit Code"><strong>' + psyncEsc_(r.unitCode) + '</strong></td>'
@@ -194,6 +197,40 @@ function psyncCancel_(id) {
       psyncLoad_();
     }).catch(function (e) { psyncMsg_('Could not cancel: ' + ((e && e.message) || e), true); });
   });
+}
+
+/** Failed / cancelled, and not already sent again (a newer row for the same unit + phone). */
+function psyncCanRetry_(r) {
+  if (r.status !== 'failed' && r.status !== 'cancelled') return false;
+  var t = new Date(r.createdAt).getTime() || 0;
+  return !_psyncRows.some(function (x) {
+    return x.id !== r.id && x.unitCode === r.unitCode && x.phone === r.phone
+      && (new Date(x.createdAt).getTime() || 0) > t;
+  });
+}
+
+/** Try again = send the same Unit Code + phone as a new request: the bot does the whole
+ * process again (SAP, then portal). The failed row stays as it was, for the record. */
+function psyncRetry_(id, btn) {
+  var r = _psyncRows.filter(function (x) { return x.id === id; })[0];
+  if (!r) return;
+  if (btn) btn.disabled = true;
+  var what = r.unitCode + ' → ' + r.phone;
+  psyncMsg_('Sending again: ' + what + '…');
+  fetchJSONRetry({ action: 'addPortalSyncRequest', token: appToken_(), unitCode: r.unitCode, phone: r.phone }, 0, 30000)
+    .then(function (d) {
+      if (!d || d.ok === false) {
+        psyncMsg_((d && (d.message || d.error)) || 'Could not send again.', true);
+        if (btn) btn.disabled = false;
+        return;
+      }
+      psyncMsg_('Sent again: ' + what + '. The bot will start in a few seconds.');
+      psyncLoad_();
+    })
+    .catch(function (e) {
+      psyncMsg_('Could not send again: ' + ((e && e.message) || e), true);
+      if (btn) btn.disabled = false;
+    });
 }
 
 function psyncKey_(ev) {
