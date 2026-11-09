@@ -2012,11 +2012,18 @@ function hrEmpSigFile_(e) {
   if (!file) return;
   var reader = new FileReader();
   reader.onload = function () {
-    hrProcessSigImage_(String(reader.result || ''), function (url) {
+    var raw = String(reader.result || '');
+    var done = function (url) {
+      if (!url) {
+        hrMsg_('No signature lines were found in that photo. Take a closer photo of the signature on plain paper.', false);
+        return;
+      }
       _hrEmpSig.cur = url;
       _hrEmpSig.loading = false;
       hrEmpSigShow_();
-    });
+    };
+    if (typeof empireCleanSignature === 'function') empireCleanSignature(raw, done);
+    else hrProcessSigImage_(raw, done);
   };
   reader.readAsDataURL(file);
 }
