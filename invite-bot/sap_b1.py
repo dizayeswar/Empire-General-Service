@@ -5,6 +5,8 @@ opens SAP, logs in and closes it again),
 following the same steps a person does (recorded 2026-11-07 on ES-4-8-09):
 
   1. F6 / Business Partner Master Data (menu 2561), opens in Find mode
+  1b. Fast way (2026-11-09): the apartment in Property Detail, Find -> the unit opens (or a
+      short list -> steps 3-5). Found nothing / another unit -> the old way below:
   2. '*' in Code, Find -> "List of Business Partners"
   3. Sort by Unit Code (the arrow next to Unit Code)
   4. Pick the row whose Unit Code is exactly the apartment (the bot reads the list
@@ -162,14 +164,70 @@ def _find_row(matrix, unit):
     return row, card_code
 
 
-def _open_unit(app, unit):
+DIRECT_FIND_WAIT = 15     # seconds for "Find by Property Detail" to open the unit or a list
+
+
+def _open_find_window(app):
     _open_bp_window(app)
     bp = _wait_for(lambda: _active(app, BP_FORM), "Business Partner window")
     if bp.Mode != FIND_MODE:
         raise SapError("Business Partner window did not open in Find mode")
+    return bp
+
+
+def _check_opened(form, unit, card_code=None):
+    opened_code = form.Items.Item(CODE).Specific.Value
+    opened_unit = form.Items.Item(PROPERTY_DETAIL).Specific.Value.strip().upper()
+    if opened_unit != unit or (card_code is not None and opened_code != card_code):
+        raise SapError(f"Opened {opened_code} / {opened_unit}, expected {card_code or '?'} / {unit} - "
+                       "nothing changed, window left open")
+    return form
+
+
+def _open_unit(app, unit):
+    """Fast way first: the unit code in Property Detail, Find (opens just that unit, or a short
+    list). If that finds nothing or something else, the old way: '*' and the whole list."""
+    form = _open_unit_direct(app, unit)
+    return form if form is not None else _open_unit_list(app, unit)
+
+
+def _open_unit_direct(app, unit):
+    """None = not found this way (nothing changed, window closed): use the whole list."""
+    bp = _open_find_window(app)
+    bp.Items.Item(PROPERTY_DETAIL).Specific.Value = unit
+    bp.Items.Item(BTN_OK).Click(0)
+
+    def answer():
+        f = app.Forms.ActiveForm
+        if f.TypeEx == LIST_FORM:
+            return ("list", f)
+        if f.TypeEx == BP_FORM and f.Mode == OK_MODE:
+            return ("one", f)
+        return None
+    try:
+        kind, f = _wait_for(answer, f"{unit} (find by Property Detail)", timeout=DIRECT_FIND_WAIT)
+    except SapError:
+        if bp.Mode == FIND_MODE:   # SAP found nothing
+            bp.Close()
+            return None
+        raise
+    if kind == "list":
+        return _choose_from_list(app, f, unit)
+    if f.Items.Item(PROPERTY_DETAIL).Specific.Value.strip().upper() != unit:
+        f.Close()                  # some other unit, OK mode, nothing typed in it
+        return None
+    return _check_opened(f, unit)
+
+
+def _open_unit_list(app, unit):
+    bp = _open_find_window(app)
     bp.Items.Item(CODE).Specific.Value = "*"
     bp.Items.Item(BTN_OK).Click(0)
     lst = _wait_for(lambda: _active(app, LIST_FORM), "List of Business Partners")
+    return _choose_from_list(app, lst, unit)
+
+
+def _choose_from_list(app, lst, unit):
     matrix = lst.Items.Item(LIST_MATRIX).Specific
     matrix.Columns.Item(COL_UNIT).TitleObject.Sort(0)  # ascending, same as double-click
     time.sleep(1)
@@ -188,12 +246,7 @@ def _open_unit(app, unit):
 
     form = _wait_for(lambda: (lambda f: f if f and f.Mode == OK_MODE else None)(_active(app, BP_FORM)),
                      f"{unit} to open")
-    opened_code = form.Items.Item(CODE).Specific.Value
-    opened_unit = form.Items.Item(PROPERTY_DETAIL).Specific.Value.strip().upper()
-    if opened_code != card_code or opened_unit != unit:
-        raise SapError(f"Opened {opened_code} / {opened_unit}, expected {card_code} / {unit} - "
-                       "nothing changed, window left open")
-    return form
+    return _check_opened(form, unit, card_code)
 
 
 def _set_sync(form, value):

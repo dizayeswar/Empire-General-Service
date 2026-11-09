@@ -269,8 +269,16 @@ def _wait(check, what, timeout):
 
 
 def _cancel_branch(app):
-    time.sleep(BRANCH_WAIT)
-    sap_b1.cancel_branch_window(app)
+    """Cancel "Select Default Branch" as soon as it shows (was: always wait BRANCH_WAIT, then
+    cancel). Gives up after BRANCH_WAIT; _open_bp_window still cancels a late one."""
+    end = time.time() + BRANCH_WAIT
+    while time.time() < end:
+        try:
+            if sap_b1.cancel_branch_window(app):
+                return
+        except Exception:
+            pass
+        time.sleep(0.5)
 
 
 def login():
