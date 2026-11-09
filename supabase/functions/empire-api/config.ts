@@ -235,6 +235,7 @@ export const DEPT_BY_ACTION: Record<string, string> = {
   listHrEmployees: "hr",
   listHrTeam: "hr",
   saveHrEmployee: "hr",
+  getHrEmployeeSignature: "hr",
   removeHrEmployee: "hr",
   getHrReport: "hr",
   rejectHrLeaveRequest: "hr",
