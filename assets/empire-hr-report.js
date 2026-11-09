@@ -7,7 +7,8 @@ var HR_REPORT_ACTIONS = {
   added: 'Added',
   edited: 'Edited',
   removed: 'Removed',
-  days: 'Days left'
+  days: 'Days left',
+  paper_deleted: 'Paper deleted'
 };
 
 function hrIsAdmin_() {
@@ -174,7 +175,7 @@ function hrRenderReportChanges_() {
   });
   if (summary) summary.textContent = rows.length + ' change' + (rows.length === 1 ? '' : 's');
   if (!rows.length) {
-    host.innerHTML = '<p>' + ((_hrReport.changes || []).length ? 'No changes match.' : 'No changes recorded yet. Every change on Employees from now on shows here.') + '</p>';
+    host.innerHTML = '<p>' + ((_hrReport.changes || []).length ? 'No changes match.' : 'No changes recorded yet. Every change on Employees and every deleted paper shows here.') + '</p>';
     return;
   }
   var h = '<div class="hr-table-wrap"><table class="hr-list-table hr-rep-table"><thead><tr>' +
