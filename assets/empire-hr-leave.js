@@ -3735,6 +3735,40 @@ function hrDeleteRow_(id) {
   if (confirm(msg)) go();
 }
 
+/* Trash can beside View (admins only). Any status; days go back if they were taken; logged in Report. */
+function hrTrashBtnHtml_(id) {
+  if (typeof hrIsAdmin_ !== 'function' || !hrIsAdmin_()) return '';
+  var safe = hrEsc_(String(id || ''));
+  return '<button type="button" class="hr-btn-del hr-btn-trash" title="Delete" aria-label="Delete" ' +
+    'onclick="event.stopPropagation();hrTrashRow_(\'' + safe + '\')">' +
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>';
+}
+
+function hrTrashRow_(id) {
+  id = String(id || '').trim();
+  if (!id || typeof hrIsAdmin_ !== 'function' || !hrIsAdmin_()) return;
+  var row = _hrRows.find(function (r) { return String(r.id) === id; });
+  var no = row ? (row.no || row.num || '') : '';
+  var label = (no ? '#' + no + ' — ' : '') + ((row && row.empName) || 'this paper');
+  var msg = 'Delete leave paper ' + label + '? It moves to the Recycle Bin, any leave days it took go back to the employee, and it shows in the Report.';
+  var go = function () {
+    hrDeleteRequest_(id)
+      .then(function () {
+        _hrRows = _hrRows.filter(function (r) { return String(r.id) !== id; });
+        if (typeof _hrReport !== 'undefined') _hrReport = null;
+        hrMsg_('Deleted ' + label + '.', true);
+        return hrLoad_(true);
+      })
+      .catch(function (err) { hrMsg_(err.message || 'Delete failed.', false); });
+  };
+  if (typeof uiConfirm === 'function') {
+    uiConfirm(msg).then(function (ok) { if (ok) go(); });
+    return;
+  }
+  if (confirm(msg)) go();
+}
+
 function hrOpenLeaveNav_() {
   var sub = document.getElementById('hrLeaveSub');
   var parent = document.getElementById('tabBtnForm');
@@ -4397,6 +4431,7 @@ function hrRenderTable_() {
       '<td>' + statusCell + '</td>' +
       '<td class="hr-phone-acts"><div class="hr-row-acts">' +
         '<button type="button" class="hr-btn-edit" onclick="event.stopPropagation();' + openFn + '(\'' + id + '\',\'list\')">' + hrEsc_(hrT('view', 'View')) + '</button>' +
+        hrTrashBtnHtml_(r.id) +
         (!showSel ? '<button type="button" onclick="event.stopPropagation();hrPrintRow_(\'' + id + '\')">' + hrEsc_(hrT('printPdf', 'Print / PDF')) + '</button>' : '') +
       '</div></td></tr>';
   });
@@ -4439,6 +4474,7 @@ function hrRenderDoneTable_() {
       '<td><span class="hr-badge hr-badge-' + (rejectedRow ? 'rejected' : 'completed') + '">' + (rejectedRow ? 'Rejected' : 'Completed') + '</span></td>' +
       '<td class="hr-phone-acts"><div class="hr-row-acts">' +
         '<button type="button" class="hr-btn-edit" onclick="hrEditInList_(\'' + hrEsc_(r.id) + '\',\'done\')">View</button>' +
+        hrTrashBtnHtml_(r.id) +
         (!showSel ? '<button type="button" onclick="hrPrintRow_(\'' + hrEsc_(r.id) + '\')">Print / PDF</button>' : '') +
       '</div></td></tr>';
   }
@@ -4586,6 +4622,7 @@ function hrRenderArchiveTable_() {
       '<td><span class="hr-badge hr-badge-completed">Completed</span></td>' +
       '<td class="hr-phone-acts"><div class="hr-row-acts">' +
         '<button type="button" class="hr-btn-edit" onclick="hrEditInList_(\'' + hrEsc_(r.id) + '\',\'archive\')">View</button>' +
+        hrTrashBtnHtml_(r.id) +
         (!showSel ? '<button type="button" onclick="hrPrintRow_(\'' + hrEsc_(r.id) + '\')">Print / PDF</button>' : '') +
       '</div></td></tr>';
   });

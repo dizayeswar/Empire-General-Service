@@ -1069,19 +1069,22 @@ export async function handleUpdateHrLeaveRequest(body: Record<string, unknown>, 
 }
 
 export async function handleDeleteHrLeaveRequest(body: Record<string, unknown>, auth: AuthOk) {
-  if (!canWrite(auth)) {
+  // Admins may delete any paper, whatever its status (trash can on the lists). Others: drafts only.
+  const admin = isAdminAccount(auth.role, auth.moduleAccess);
+  if (!canWrite(auth) && !admin) {
     return { ok: false, success: false, error: "not_allowed", message: "Read-only accounts cannot delete leave requests." };
   }
   const id = String(body.id || "").trim();
   if (!id) return { ok: false, success: false, error: "missing_id", message: "Request id is required." };
   const { data: ex } = await sb().from("hr_leave_requests").select("*").eq("id", id).maybeSingle();
   if (!ex) return { ok: false, success: false, error: "not_found", message: "Leave request not found." };
-  if (isLockedStatus(ex.status)) {
-    return { ok: false, success: false, error: "locked", message: "This paper is locked. It cannot be deleted." };
+  if (isLockedStatus(ex.status) && !admin) {
+    return { ok: false, success: false, error: "locked", message: "This paper is locked. Only an admin can delete it." };
   }
   await trashRows("HrLeaveRequests", [ex], "delete", String(auth.username || body.username || ""));
   const { error } = await sb().from("hr_leave_requests").delete().eq("id", id);
   if (error) throw error;
+  await logPaperDeleted(String(auth.username || ""), ex);
   if (leaveDaysCharged(ex)) {
     await applyLeaveDays(String(ex.emp_code || "").trim(), -parseLeaveDays(ex.days_out), String(auth.username || ""), "Leave paper " + paperLabel(ex) + " deleted");
   }
@@ -1105,6 +1108,13 @@ export async function handleClearHrLeaveRequests(body: Record<string, unknown>, 
     await trashRows("HrLeaveRequests", data, "reset", String(auth.username || body.username || ""));
     const { error } = await sb().from("hr_leave_requests").delete().eq("company", company);
     if (error) throw error;
+    await logEmployeeChange(
+      String(auth.username || ""),
+      "paper_deleted",
+      { code: "", name: "All leave papers" } as HrPerson,
+      [{ field: "Leave papers", from: count + " papers", to: "Deleted (reset)" }],
+      "Moved to the Recycle Bin",
+    );
   }
   return { ok: true, success: true, cleared: count };
 }
@@ -2130,6 +2140,25 @@ async function logEmployeeChange(by: string, action: string, person: HrPerson, c
   } catch (err) {
     console.error("hr_employee_changes insert failed", err);
   }
+}
+
+/** Report log: one line per deleted leave paper (what it was, who deleted it). */
+async function logPaperDeleted(by: string, ex: Record<string, unknown>) {
+  const start = fmtDate(ex.start_date);
+  const end = fmtDate(ex.end_date);
+  const dates = start && end && end !== start ? start + " → " + end : start;
+  const type = String(ex.leave_type || "").trim() === "Other" && String(ex.leave_other || "").trim()
+    ? "Other (" + String(ex.leave_other).trim() + ")"
+    : String(ex.leave_type || "").trim();
+  const status = String(ex.status || "").trim().replace(/_/g, " ");
+  const paper = [paperLabel(ex), type, dates, String(ex.days_out || "").trim(), status].filter(Boolean).join(" · ");
+  await logEmployeeChange(
+    by,
+    "paper_deleted",
+    { code: String(ex.emp_code || "").trim(), name: String(ex.emp_name || "").trim() } as HrPerson,
+    [{ field: "Leave paper", from: paper, to: "Deleted" }],
+    "Moved to the Recycle Bin",
+  );
 }
 
 function managerLabel(code: string, all: HrPerson[]): string {
