@@ -3231,6 +3231,20 @@ function hrOpenSig_(slot) {
     hrMsg_('Your account e-signature was placed.', true);
     return;
   }
+  // 2026-11-09 (E2 + E3): Employee / Line Manager boxes never open the list of other people's
+  // signatures. Only the person themselves stamps their own box with their own account.
+  if (slot === 'emp' || slot === 'line') {
+    var mine = ownSlot || hrOwnStampForClickedBox_(slot) || (slot === 'line' && lineSelf);
+    if (mine && !ownSig) {
+      hrMsg_('Upload your e-signature once. It is saved on this account for next time.', true);
+      hrSigPickUpload_(slot);
+      return;
+    }
+    hrMsg_(slot === 'emp'
+      ? 'Only the employee can sign the Employee box, with their own account.'
+      : 'Only the line manager can sign the Line Manager box, with their own account.', false);
+    return;
+  }
   hrLoadSavedSigs_(function () {
     var choices = hrSigsForSlot_(slot);
     if (slot === 'director' && !directorSelf) choices = [];
