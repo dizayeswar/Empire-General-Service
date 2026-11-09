@@ -1459,7 +1459,7 @@ function hrDirectorConfirmSelected_(ids) {
   });
   _hrSelectMode = false;
   _hrSelected = {};
-  hrSwitchTab_(null, 'confirmed');
+  hrSwitchTab_(null, 'list');
   hrRenderTable_();
   hrRenderConfirmedTable_();
   var extra = {
@@ -1476,9 +1476,9 @@ function hrDirectorConfirmSelected_(ids) {
       if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) return;
       if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Confirm failed');
       var got = Number(d.confirmed || (d.ids && d.ids.length) || n);
-      hrMsg_('Sent ' + got + ' to Director confirmed.', true);
+      hrMsg_('Director confirmed ' + got + (got === 1 ? ' paper.' : ' papers.'), true);
       hrRefreshLists_();
-      hrSwitchTab_(null, 'confirmed');
+      hrSwitchTab_(null, 'list');
       return;
     })
     .catch(function (err) {
@@ -2398,7 +2398,8 @@ function hrCanSeeTab_(tab) {
   if (tab === 'scan') return hrIsHrStaff_();
   if (tab === 'list') return hrIsHrStaff_() || hrIsDirector_() || hrIsLine_() || hrIsEmployeeOnly_();
   if (tab === 'signed') return (hrIsLine_() || hrIsEmployeeWrite_()) && !hrIsHrStaff_();
-  if (tab === 'confirmed') return hrIsHrStaff_() || hrIsDirector_();
+  // Director confirmed tab removed (2026-11-09): those papers are in Saved requests / Completed request.
+  if (tab === 'confirmed') return false;
   if (tab === 'done' || tab === 'archive') return hrIsHrStaff_();
   if (tab === 'employees') return hrIsHrStaff_() && !hrIsSignerOnly_();
   if (tab === 'team') return hrIsLine_() && !hrIsHrStaff_();
@@ -2429,7 +2430,8 @@ function hrApplyNavAccess_() {
     var el = document.getElementById(id);
     if (el) el.style.display = on ? '' : 'none';
   };
-  show('tabBtnScan', hrCanSeeTab_('scan'));
+  // Scan paper removed from the menu (2026-11-09). Old scans still open from their paper row.
+  show('tabBtnScan', false);
   show('tabBtnList', hrCanSeeTab_('list'));
   show('tabBtnSigned', hrCanSeeTab_('signed'));
   show('tabBtnConfirmed', hrCanSeeTab_('confirmed'));
@@ -3658,7 +3660,7 @@ function hrEditInList_(id, fromTab) {
   if (!row) return;
   hrRepairRowScan_(row);
   if (fromTab) _hrReturnTab = fromTab;
-  else if (hrStageOf_(row) === 'completed') _hrReturnTab = 'confirmed';
+  else if (hrStageOf_(row) === 'completed') _hrReturnTab = hrIsHrStaff_() ? 'done' : 'list';
   else if (hrStageOf_(row) === 'rejected') _hrReturnTab = 'done';
   else _hrReturnTab = 'list';
   if (hrRowScan_(row)) {
@@ -4290,7 +4292,7 @@ function hrRenderKpis_(list) {
       : '<div class="hr-kpi"><b>' + pendingDir + '</b><span>' + hrEsc_(hrT('st_pending_director', 'Pending Director')) + '</span></div>') +
     (hrIsLineOnly_() || hrIsEmployeeOnly_()
       ? ''
-      : '<div class="hr-kpi" role="button" tabindex="0" onclick="hrSwitchTab_(null,\'confirmed\')" style="cursor:pointer;"><b>' + completed + '</b><span>' + hrEsc_(hrT('directorConfirmed', 'Director confirmed')) + '</span></div>');
+      : '<div class="hr-kpi" role="button" tabindex="0" onclick="hrSwitchTab_(null,\'done\')" style="cursor:pointer;"><b>' + completed + '</b><span>' + hrEsc_(hrT('directorConfirmed', 'Director confirmed')) + '</span></div>');
 }
 
 function hrRenderTable_() {
@@ -5067,7 +5069,7 @@ function hrOpenScanRow_(id, fromTab) {
   if (!row) return;
   hrRepairRowScan_(row);
   if (fromTab) _hrReturnTab = fromTab;
-  else if (hrStageOf_(row) === 'completed') _hrReturnTab = hrIsDirectorOnly_() ? 'confirmed' : 'done';
+  else if (hrStageOf_(row) === 'completed') _hrReturnTab = hrIsDirectorOnly_() ? 'list' : 'done';
   else if (hrStageOf_(row) === 'rejected') _hrReturnTab = 'done';
   else _hrReturnTab = 'list';
   hrFillForm_(row);
