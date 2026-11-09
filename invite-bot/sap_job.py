@@ -49,6 +49,7 @@ def run_jobs(jobs, config, sap, emit):
             except sap_b1.PortalSyncError as e:
                 emit({"id": rid, "event": "portal_sync", "error": str(e)})  # SAP itself is clean
             except Exception as e:
+                emit({"log": f"SAP error on {code}: {e}"})   # written down before anything else
                 shot = sap.after_error(code)
                 emit({"id": rid, "event": "sap_error", "error": str(e),
                       "shot": os.path.basename(shot) if shot else ""})
@@ -64,6 +65,7 @@ def main():
         sys.stdout.write(json.dumps(obj) + "\n")
         sys.stdout.flush()
 
+    sap_b1.log = lambda m: emit({"log": m})
     run_jobs(jobs, load_config(), sap_session.SapSession(lambda m: emit({"log": m})), emit)
 
 

@@ -191,11 +191,24 @@ def _open_unit(app, unit):
     return form if form is not None else _open_unit_list(app, unit)
 
 
+def log(msg):
+    """sap_job.py points this at the bot's log."""
+
+
 def _open_unit_direct(app, unit):
     """None = not found this way (nothing changed, window closed): use the whole list."""
     bp = _open_find_window(app)
-    bp.Items.Item(PROPERTY_DETAIL).Specific.Value = unit
-    bp.Items.Item(BTN_OK).Click(0)
+    try:
+        bp.Items.Item(PROPERTY_DETAIL).Specific.Value = unit
+        bp.Items.Item(BTN_OK).Click(0)
+    except Exception as e:   # SAP did not take it in Find mode: Find was not pressed
+        log(f"Find by Property Detail did not work ({e}) - using the full list")
+        try:
+            if bp.Mode == FIND_MODE:
+                bp.Close()
+        except Exception:
+            pass
+        return None
 
     def answer():
         f = app.Forms.ActiveForm
@@ -208,14 +221,18 @@ def _open_unit_direct(app, unit):
         kind, f = _wait_for(answer, f"{unit} (find by Property Detail)", timeout=DIRECT_FIND_WAIT)
     except SapError:
         if bp.Mode == FIND_MODE:   # SAP found nothing
+            log(f"Find by Property Detail found nothing for {unit} - using the full list")
             bp.Close()
             return None
         raise
     if kind == "list":
+        log(f"Find by Property Detail: short list for {unit}")
         return _choose_from_list(app, f, unit)
     if f.Items.Item(PROPERTY_DETAIL).Specific.Value.strip().upper() != unit:
+        log(f"Find by Property Detail opened another unit - using the full list")
         f.Close()                  # some other unit, OK mode, nothing typed in it
         return None
+    log(f"Found {unit} by Property Detail (fast way)")
     return _check_opened(f, unit)
 
 

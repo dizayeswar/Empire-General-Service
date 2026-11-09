@@ -233,7 +233,11 @@ def screenshot(name):
           "$g=[System.Drawing.Graphics]::FromImage($bmp);"
           "$g.CopyFromScreen($b.Location,[System.Drawing.Point]::Empty,$b.Size);"
           f"$bmp.Save('{path}')")
-    subprocess.run(["powershell", "-NoProfile", "-Command", ps], check=False, timeout=30)
+    try:   # no window; a screenshot that hangs (2026-11-09) must not stop the bot
+        subprocess.run(["powershell", "-NoProfile", "-Command", ps], check=False, timeout=30,
+                       creationflags=0x08000000)
+    except Exception:
+        return None
     return path if os.path.exists(path) else None
 
 
@@ -242,8 +246,11 @@ def screenshot(name):
 def _kill_leftover_ui_api():
     """SAPbouiCOM.exe can stay behind after SAP is closed and still answer the bot as if SAP
     were open and logged in (2026-11-09: bot saw "logged in" in 1 s with no SAP window, then
-    "Menu - Not found"). Only called when no SAP window is open, so nothing is using it."""
-    subprocess.run(["taskkill", "/F", "/IM", "SAPbouiCOM.exe"], capture_output=True, check=False)
+    "Menu - Not found"). SAP Business One.exe itself can also stay behind with no window after
+    closing (2026-11-09). Only called when no SAP window is open, so nothing is using them."""
+    for exe in ("SAP Business One.exe", "SAPbouiCOM.exe"):
+        subprocess.run(["taskkill", "/F", "/IM", exe], capture_output=True, check=False,
+                       creationflags=0x08000000)
 
 
 def _logged_in_app():
@@ -261,7 +268,7 @@ def _logged_in_app():
 def kill_sap():
     """Close SAP without saving anything (used after an error and when Exit does not work)."""
     subprocess.run(["taskkill", "/F", "/IM", "SAP Business One.exe"],
-                   capture_output=True, check=False)
+                   capture_output=True, check=False, creationflags=0x08000000)
     sap_b1._app = None
     end = time.time() + 20
     while _frame() and time.time() < end:
