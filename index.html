@@ -12,7 +12,7 @@
     <link rel="icon" href="logo-light.png" type="image/png">
     <link rel="preconnect" href="https://api.imgbb.com">
     <title>Empire General Service — Login</title>
-    <link rel="stylesheet" href="assets/empire-hub.css?v=2026-09-30-bg-drift">
+    <link rel="stylesheet" href="assets/empire-hub.css?v=2026-11-09-e2-e3">
 </head>
 <body class="login-landing">
     <div class="topbar">
@@ -49,6 +49,7 @@
                 </div>
             </div>
             <div class="hub-toolbar-actions">
+                <div id="hubCompanySwitch" class="company-switch" role="group" aria-label="Company" hidden></div>
                 <button class="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark or light mode"><span class="nav-icon theme-icon"></span> <span class="lbl">Theme</span></button>
                 <div id="hubAuth" class="hub-user-menu"></div>
             </div>
@@ -64,8 +65,8 @@
     </div>
 
     <script src="config.js?v=2026-09-15-sec-acc"></script>
-    <script src="assets/empire-api.js?v=2026-09-15-sec-acc"></script>
-    <script src="assets/empire-auth.js?v=2026-11-01-car-park"></script>
+    <script src="assets/empire-api.js?v=2026-11-09-e2-e3"></script>
+    <script src="assets/empire-auth.js?v=2026-11-09-e2-e3"></script>
     <script src="assets/empire-core.js?v=2026-09-15-sec-acc"></script>
     <script src="assets/empire-sw-update.js?v=2026-09-15-sec-acc"></script>
     <script src="assets/empire-hub-stats.js?v=2026-09-15-sec-acc"></script>
@@ -80,9 +81,9 @@
             { icon:'📦', name:'Warehouse', desc:'Goods Issue Note — SP materials, signatures & print.', link:'warehouse.html', active:true, accessDept:'warehouse' },
             { icon:'🛡️', name:'A.S.A.A.S', desc:'West Wing corridor storage — log items, track returns & warehouse.', link:'asaas.html', active:true, accessDept:'asaas' },
             { icon:'📱', name:'Application', desc:'Door-to-door resident app registration — RA, WW, WD, ES properties.', link:'application.html', active:true, accessDept:'application' },
-            { icon:'👔', name:'HR Department', desc:'Leave requests — HR-F-06 form, approvals & entitlement balances.', link:'hr-department.html', active:true, accessDept:'hr' },
+            { icon:'👔', name:'HR Department', desc:'Leave requests — HR-F-06 form, approvals & entitlement balances.', link:'hr-department.html', active:true, accessDept:'hr', companies:['E2','E3'] },
             { icon:'🚗', name:'Car Park', desc:'Security reports wrong parking; the apartment gets an automatic WhatsApp warning (1st, 2nd, 3rd).', link:'car-park.html', active:true, accessDept:'car park' },
-            { icon:'⚙️', name:'Admin', desc:'Create users, set roles & departments, and other system tools.', link:'admin.html', active:true, accessDept:'__admin__', adminOnly:true }
+            { icon:'⚙️', name:'Admin', desc:'Create users, set roles & departments, and other system tools.', link:'admin.html', active:true, accessDept:'__admin__', adminOnly:true, companies:['E2','E3'] }
         ];
 
         const CLEANING_SECTIONS = [
@@ -138,13 +139,17 @@
             var sub = document.getElementById('hubSubtitle');
             var title = document.getElementById('hubPageTitle');
             var desc = document.getElementById('hubPageDesc');
-            if (sub) sub.textContent = isAdmin ? 'Admin hub' : 'Your departments';
+            var company = empireGetCompany();
+            if (sub) sub.textContent = (isAdmin ? 'Admin hub' : 'Your departments') + ' · ' + company;
             if (title) title.textContent = isAdmin ? 'All departments' : 'Your departments';
             if (desc) desc.textContent = isAdmin
                 ? 'Open any section below to manage operations. Click Cleaning Department to see its sections.'
                 : 'Open one of your assigned sections below. Click Cleaning Department to see its sections.';
             renderAuthBar();
             function drawHub() {
+              renderCompanySwitch();
+              var subNow = document.getElementById('hubSubtitle');
+              if (subNow) subNow.textContent = (empireIsAdminSession() ? 'Admin hub' : 'Your departments') + ' · ' + empireGetCompany();
               renderGrid();
               loadHubSummaryForIndex();
             }
@@ -211,7 +216,37 @@
 
         var CLEANING_CHILD_DEPTS = ['cleaning', 'civil issue', 'fire'];
 
+        /* E2 / E3: each tile says which companies it belongs to. No list = E2 only. */
+        function tileInCompany(tile) {
+            var list = (tile && tile.companies) || ['E2'];
+            return list.indexOf(empireGetCompany()) !== -1;
+        }
+
+        function renderCompanySwitch() {
+            var box = document.getElementById('hubCompanySwitch');
+            if (!box) return;
+            if (!empireCanSwitchCompany()) {
+                box.hidden = true;
+                box.innerHTML = '';
+                return;
+            }
+            var current = empireGetCompany();
+            box.innerHTML = empireGetCompanies().map(function (c) {
+                return '<button type="button" data-company="' + c + '" aria-pressed="' + (c === current ? 'true' : 'false') + '">' + c + '</button>';
+            }).join('');
+            box.hidden = false;
+            box.querySelectorAll('button[data-company]').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var c = btn.getAttribute('data-company');
+                    if (c === empireGetCompany()) return;
+                    empireSetCompany(c);
+                    showAdminHub();
+                });
+            });
+        }
+
         function canSeeHubTile(accessDept, tile) {
+            if (!tileInCompany(tile)) return false;
             if (tile && tile.adminOnly) return typeof empireIsAdminRole === 'function' && empireIsAdminRole();
             if (typeof empireIsAdminRole === 'function' && empireIsAdminRole()) return true;
             if (empireIsAdminSession()) return true;

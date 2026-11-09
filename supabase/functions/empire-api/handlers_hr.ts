@@ -5,6 +5,7 @@ import { HR_EMPLOYEE_SEED } from "./hr_employees_seed.ts";
 import { resetPasswordOk } from "./config.ts";
 import { fmtDate, isoNow, sb, selectAllRows, trashRows } from "./db.ts";
 import { notifyUsers_ } from "./fcm.ts";
+import { companyKey, currentCompany } from "./company.ts";
 import { parseSignatureRole, parseUserSignature } from "./handlers_users.ts";
 import {
   deriveAccountFromModuleAccess,
@@ -680,8 +681,38 @@ function fieldsFromBody(body: Record<string, unknown>) {
   };
 }
 
+/** Stop an E2 page from touching an E3 paper (and the other way round). */
+export async function guardHrCompanyIds(body: Record<string, unknown>) {
+  const ids = new Set<string>();
+  const one = String(body.id || "").trim();
+  if (one) ids.add(one);
+  if (Array.isArray(body.ids)) {
+    for (const x of body.ids) {
+      const v = String(x || "").trim();
+      if (v) ids.add(v);
+    }
+  }
+  if (!ids.size) return null;
+  const list = Array.from(ids);
+  const company = currentCompany();
+  for (let i = 0; i < list.length; i += 200) {
+    const { data, error } = await sb().from("hr_leave_requests").select("id,company").in("id", list.slice(i, i + 200));
+    if (error) throw error;
+    if ((data || []).some((r) => String(r.company || "E2") !== company)) {
+      return {
+        ok: false,
+        success: false,
+        error: "wrong_company",
+        message: "This paper belongs to the other company. Switch company and try again.",
+      };
+    }
+  }
+  return null;
+}
+
 async function nextLeaveNo(): Promise<number> {
   const { data, error } = await sb().from("hr_leave_requests").select("num")
+    .eq("company", currentCompany())
     .not("num", "is", null).order("num", { ascending: false }).limit(1);
   if (error) throw error;
   return (Number(data?.[0]?.num || 0) || 0) + 1;
@@ -844,11 +875,14 @@ function slimRowMayNeedRepair(raw: Record<string, unknown>, directorCodes: Set<s
 
 /** Leave list for HR staff: small rows from list_hr_leave_slim, full rows only for papers that need repair. */
 async function loadHrLeaveListForStaff(): Promise<Record<string, unknown>[]> {
-  const { data: packed, error } = await sb().rpc("list_hr_leave_slim");
+  const company = currentCompany();
+  const { data: packed, error } = await sb().rpc("list_hr_leave_slim", { p_company: company });
   if (error) {
     if (!rpcMissing_(error)) throw error;
     // SQL function not installed yet: old full read.
-    const full = await selectAllRows<Record<string, unknown>>("hr_leave_requests");
+    const full = await selectAllRows<Record<string, unknown>>("hr_leave_requests", {
+      filter: (q) => q.eq("company", company),
+    });
     await healExclusiveDualStamps(full);
     await releaseGailanFromLineManager(full);
     await stampDirectorPapersWithEmployeeSig(full);
@@ -878,7 +912,10 @@ export async function handleGetHrLeaveRequests(auth?: AuthOk) {
   await healUnconfirmedLeaveDays();
   const light = !auth || !isHrStaff(auth);
   const data = light
-    ? await selectAllRows<Record<string, unknown>>("hr_leave_requests", { columns: LEAVE_LIST_COLS })
+    ? await selectAllRows<Record<string, unknown>>("hr_leave_requests", {
+      columns: LEAVE_LIST_COLS,
+      filter: (q) => q.eq("company", currentCompany()),
+    })
     : await loadHrLeaveListForStaff();
   const users = await loadUsernames();
   let out = data.map((raw) => applyResolvedAssignee(rowToApi(raw, { slim: true }), raw, users));
@@ -980,6 +1017,7 @@ export async function handleAddHrLeaveRequest(body: Record<string, unknown>, aut
     id,
     num,
     ...fields,
+    company: currentCompany(),
     created_by: String(auth.username || body.username || ""),
     created_at: now,
     updated_at: now,
@@ -1058,11 +1096,14 @@ export async function handleClearHrLeaveRequests(body: Record<string, unknown>, 
     return { ok: false, success: false, error: "bad_password", message: "Wrong password." };
   }
   // Every page, not just the first 1000, so nothing is deleted without a copy in the recycle bin.
-  const data = await selectAllRows<Record<string, unknown>>("hr_leave_requests");
+  const company = currentCompany();
+  const data = await selectAllRows<Record<string, unknown>>("hr_leave_requests", {
+    filter: (q) => q.eq("company", company),
+  });
   const count = data.length;
   if (count) {
     await trashRows("HrLeaveRequests", data, "reset", String(auth.username || body.username || ""));
-    const { error } = await sb().from("hr_leave_requests").delete().gte("id", "");
+    const { error } = await sb().from("hr_leave_requests").delete().eq("company", company);
     if (error) throw error;
   }
   return { ok: true, success: true, cleared: count };
@@ -1250,7 +1291,14 @@ export async function handleListHrLineManagers(auth: AuthOk) {
   }
   const users = await loadUsernames();
   const have = new Set(users.map((u) => u.username));
-  const items = LINE_MANAGER_ROSTER.map((name) => {
+  let roster: readonly string[] = LINE_MANAGER_ROSTER;
+  if (currentCompany() !== "E2") {
+    // E3: the managers on its own Employees list (anyone who has staff under them).
+    const people = (await readHrEmployees()).filter((p) => p.active);
+    const mgrCodes = new Set(people.map((p) => p.managerCode).filter(Boolean));
+    roster = people.filter((p) => mgrCodes.has(p.code)).map((p) => p.name);
+  }
+  const items = roster.map((name) => {
     const matched = matchRosterUser(name, users);
     const username = have.has(matched.username) ? matched.username : "";
     return {
@@ -1779,6 +1827,9 @@ export async function handleSeedHrPdfAnnualPapers(_body: Record<string, unknown>
   if (!canWrite(auth)) {
     return { ok: false, success: false, error: "not_allowed", message: "Read-only accounts cannot save leave requests." };
   }
+  if (currentCompany() !== "E2") {
+    return { ok: false, success: false, error: "not_allowed", message: "The PDF annual papers belong to E2." };
+  }
   const ids = PDF_ANNUAL_PEOPLE.map((_, i) => pdfAnnualId(i + 1));
   const { data: existingRows, error: existingErr } = await sb().from("hr_leave_requests").select("*").in("id", ids);
   if (existingErr) throw existingErr;
@@ -1917,10 +1968,13 @@ function asHrPerson(raw: Record<string, unknown>): HrPerson {
 }
 
 async function readHrEmployees(): Promise<HrPerson[]> {
-  const { data, error } = await sb().from("ui_settings").select("settings").eq("key", HR_EMPLOYEES_KEY).maybeSingle();
+  const key = companyKey(HR_EMPLOYEES_KEY);
+  const { data, error } = await sb().from("ui_settings").select("settings").eq("key", key).maybeSingle();
   if (error) throw error;
   const settings = data?.settings as Record<string, unknown> | undefined;
   const stored = settings && Array.isArray(settings.people) ? settings.people as Record<string, unknown>[] : null;
+  // E3 has its own list: no E2 seed, no E2 fixes, no E2 days-left table.
+  if (currentCompany() !== "E2") return stored ? stored.map((row) => asHrPerson(row)) : [];
   if (stored) {
     const people = stored.map((row) => asHrPerson(row));
     const fixed = people.map((person) => {
@@ -1988,6 +2042,7 @@ async function saveDirectorConfirm_(ex: Record<string, unknown>, patch: Record<s
 const DAYS_ON_CONFIRM_KEY = "hr_days_on_director_confirm";
 
 async function healUnconfirmedLeaveDays() {
+  if (currentCompany() !== "E2") return;
   const { data: flagRow, error: flagErr } = await sb().from("ui_settings").select("settings, updated_at").eq("key", DAYS_ON_CONFIRM_KEY).maybeSingle();
   if (flagErr) throw flagErr;
   const flagged = flagRow && flagRow.settings && typeof flagRow.settings === "object"
@@ -2069,6 +2124,7 @@ async function logEmployeeChange(by: string, action: string, person: HrPerson, c
       emp_name: person.name,
       changes,
       note,
+      company: currentCompany(),
     });
     if (error) console.error("hr_employee_changes insert failed", error.message);
   } catch (err) {
@@ -2102,7 +2158,7 @@ function diffHrPerson(prev: HrPerson, next: HrPerson, all: HrPerson[]): HrChange
 
 async function writeHrEmployees(people: HrPerson[]) {
   const { error } = await sb().from("ui_settings").upsert({
-    key: HR_EMPLOYEES_KEY,
+    key: companyKey(HR_EMPLOYEES_KEY),
     settings: { people },
     updated_at: isoNow(),
   });
@@ -2110,6 +2166,7 @@ async function writeHrEmployees(people: HrPerson[]) {
 }
 
 function joiningDateFor(code: string): string {
+  if (currentCompany() !== "E2") return "";
   return HR_JOINING[String(code || "").trim()] || "";
 }
 
@@ -2267,8 +2324,13 @@ async function readEmpSigLib(): Promise<{ settings: Record<string, unknown>; ite
   return { settings, items };
 }
 
+/** E2 keeps the bare employee code; E3 codes get "E3-" so the two lists never clash. */
+function sigLibLabel(code: string): string {
+  return currentCompany() === "E2" ? code : "E3-" + code;
+}
+
 function libItemForCode(items: Array<Record<string, unknown>>, code: string): number {
-  const ck = compactKey(code);
+  const ck = compactKey(sigLibLabel(code));
   return items.findIndex((it) => it && !String(it.assignedTo || it.assigned_to || "").trim() && compactKey(String(it.label || "")) === ck);
 }
 
@@ -2324,7 +2386,7 @@ async function saveEmployeeSignature(person: HrPerson, body: Record<string, unkn
   } else {
     lib.items.push({
       id: "acsig-" + crypto.randomUUID(),
-      label: person.code,
+      label: sigLibLabel(person.code),
       image: sigIn.value,
       role,
       assignedTo: "",
@@ -2422,10 +2484,12 @@ export async function handleGetHrReport(auth: AuthOk) {
   }
   const papers = await selectAllRows<Record<string, unknown>>("hr_leave_requests", {
     columns: "id,num,emp_name,emp_code,emp_department,emp_division,leave_type,leave_other,start_date,days_out,status,created_by,created_at",
+    filter: (q) => q.eq("company", currentCompany()),
   });
   const { data: changes, error } = await sb()
     .from("hr_employee_changes")
     .select("id,created_at,by_user,action,emp_code,emp_name,changes,note")
+    .eq("company", currentCompany())
     .order("created_at", { ascending: false })
     .limit(5000);
   const people = await readHrEmployees();

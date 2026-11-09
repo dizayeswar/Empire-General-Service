@@ -969,3 +969,53 @@ textarea,
 label {
   font-size: var(--fs-body, 14px);
 }
+
+/* E2 / E3 company switch (admins and users who work in both) */
+.company-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--wait-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-pill);
+}
+
+.company-switch button {
+  border: 0;
+  background: transparent;
+  color: var(--text-soft);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 7px 16px;
+  cursor: pointer;
+  box-shadow: none !important;
+  transform: none !important;
+  line-height: 1;
+}
+
+.company-switch button:hover {
+  color: var(--accent2);
+}
+
+.company-switch button[aria-pressed='true'] {
+  background: var(--accent2);
+  color: #ffffff;
+}
+
+.company-switch button:focus-visible {
+  outline: 2px solid var(--header-accent);
+  outline-offset: 2px;
+}
+
+.company-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--accent2);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  vertical-align: middle;
+}

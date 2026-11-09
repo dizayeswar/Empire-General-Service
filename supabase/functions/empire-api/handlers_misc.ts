@@ -1107,8 +1107,11 @@ export async function handleGetSummary(body: Record<string, unknown>) {
     };
   }
   if (allow("hr")) {
+    const { pickCompany } = await import("./company.ts");
+    const company = pickCompany(body.company, sess.companies);
     const rows = await selectAllRows<{ status?: string; updated_at?: string; created_at?: string }>("hr_leave_requests", {
       columns: "status,updated_at,created_at",
+      filter: (q) => q.eq("company", company),
     });
     const pending = rows.filter((r) => {
       const st = String(r.status || "").toLowerCase();

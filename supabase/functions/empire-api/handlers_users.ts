@@ -19,19 +19,24 @@ import {
   moduleLevel,
   type ModuleAccessMap,
 } from "./helpers.ts";
+import { companiesForUser, companiesToText } from "./company.ts";
 
 function moduleAccessHasDirector_(raw: unknown): boolean {
   return moduleLevel(raw, "hr_director") !== "none";
 }
 
-async function assertSingleHrDirector(access: ModuleAccessMap, exceptUsername?: string) {
+// One HR director per company (E2 and E3 each have their own).
+async function assertSingleHrDirector(access: ModuleAccessMap, exceptUsername?: string, companies?: unknown, role?: unknown) {
   if (!moduleAccessHasDirector_(access)) return null;
-  const { data, error } = await sb().from("users").select("username,module_access");
+  const { data, error } = await sb().from("users").select("username,role,module_access,companies");
   if (error) throw error;
+  const mine = companiesForUser(companies, role, access);
   const other = (data || []).find((u) => {
     const name = normalizeWorkerId(u.username);
     if (exceptUsername && name === exceptUsername) return false;
-    return moduleAccessHasDirector_(u.module_access);
+    if (!moduleAccessHasDirector_(u.module_access)) return false;
+    const theirs = companiesForUser(u.companies, u.role, u.module_access);
+    return theirs.some((c) => mine.indexOf(c) !== -1);
   });
   if (!other) return null;
   return {
@@ -96,6 +101,7 @@ function publicUser(row: Record<string, unknown>) {
     hasSignature: !!signature,
     signature,
     signatureRole,
+    companies: companiesToText(row.companies),
     updatedAt: String(row.updated_at || ""),
   };
 }
@@ -151,7 +157,7 @@ export async function handleListUsers(auth: AuthOk) {
   const denied = requireAdmin(auth);
   if (denied) return denied;
   const cols =
-    "username,dept,role,hide,projects,trade,hide_electrical,warehouse_sig_sections,module_access,signature,signature_role,updated_at";
+    "username,dept,role,hide,projects,trade,hide_electrical,warehouse_sig_sections,module_access,signature,signature_role,companies,updated_at";
   let { data, error } = await sb().from("users").select(cols).order("username");
   if (error && missingSignatureRoleColumn(error)) {
     const retry = await sb()
@@ -221,7 +227,8 @@ export async function handleCreateUser(body: Record<string, unknown>, auth: Auth
     moduleAccessJson = moduleAccessToJson(synthesized);
   }
 
-  const directorLock = await assertSingleHrDirector(parseModuleAccess(moduleAccessJson));
+  const companies = companiesToText(body.companies);
+  const directorLock = await assertSingleHrDirector(parseModuleAccess(moduleAccessJson), undefined, companies, role);
   if (directorLock) return directorLock;
 
   const trade = role === "worker" ? normalizeTrade(body.trade) : "";
@@ -259,6 +266,7 @@ export async function handleCreateUser(body: Record<string, unknown>, auth: Auth
     module_access: moduleAccessJson,
     signature: sigIn.value,
     signature_role: parseSignatureRole(body.signatureRole != null ? body.signatureRole : body.signature_role),
+    companies,
     updated_at: isoNow(),
   };
   const { error } = await sb().from("users").insert(row);
@@ -325,6 +333,7 @@ export async function handleUpdateUser(body: Record<string, unknown>, auth: Auth
   }
 
   if (body.hide != null) patch.hide = String(body.hide || "").trim();
+  if (body.companies != null) patch.companies = companiesToText(body.companies);
   if (body.projects != null) patch.projects = String(body.projects || "").trim().toLowerCase();
   if (body.trade != null || body.role != null || bodyHasModuleAccess(body)) {
     const nextRole = normalizeRole(patch.role != null ? patch.role : existing.role);
@@ -406,7 +415,12 @@ export async function handleUpdateUser(body: Record<string, unknown>, auth: Auth
   const nextAccessForDirector = parseModuleAccess(
     patch.module_access != null ? patch.module_access : existing.module_access,
   );
-  const directorLock = await assertSingleHrDirector(nextAccessForDirector, vu.username);
+  const directorLock = await assertSingleHrDirector(
+    nextAccessForDirector,
+    vu.username,
+    patch.companies != null ? patch.companies : existing.companies,
+    nextRole,
+  );
   if (directorLock) return directorLock;
 
   const { error } = await sb().from("users").update(patch).eq("username", vu.username);

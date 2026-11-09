@@ -22,11 +22,34 @@ import * as charging from "./handlers_charging.ts";
 import * as storage from "./handlers_storage.ts";
 import * as users from "./handlers_users.ts";
 import * as carpark from "./handlers_carpark.ts";
+import { pickCompany, runWithCompany } from "./company.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+};
+
+// HR runs inside one company (E2 or E3). Every HR action goes through here.
+const HR_ACTIONS: Record<string, (b: Record<string, unknown>, a: AuthOk) => Promise<unknown>> = {
+  getHrLeaveRequests: (_b, a) => hr.handleGetHrLeaveRequests(a),
+  getHrLeaveRequest: (b, a) => hr.handleGetHrLeaveRequest(b, a),
+  addHrLeaveRequest: (b, a) => hr.handleAddHrLeaveRequest(b, a),
+  updateHrLeaveRequest: (b, a) => hr.handleUpdateHrLeaveRequest(b, a),
+  deleteHrLeaveRequest: (b, a) => hr.handleDeleteHrLeaveRequest(b, a),
+  confirmHrLeaveRequest: (b, a) => hr.handleConfirmHrLeaveRequest(b, a),
+  confirmHrLeaveRequests: (b, a) => hr.handleConfirmHrLeaveRequests(b, a),
+  listHrLineManagers: (_b, a) => hr.handleListHrLineManagers(a),
+  listHrEmployees: (_b, a) => hr.handleListHrEmployees(a),
+  listHrTeam: (_b, a) => hr.handleListHrTeam(a),
+  saveHrEmployee: (b, a) => hr.handleSaveHrEmployee(b, a),
+  getHrEmployeeSignature: (b, a) => hr.handleGetHrEmployeeSignature(b, a),
+  removeHrEmployee: (b, a) => hr.handleRemoveHrEmployee(b, a),
+  getHrReport: (_b, a) => hr.handleGetHrReport(a),
+  rejectHrLeaveRequest: (b, a) => hr.handleRejectHrLeaveRequest(b, a),
+  fileHrLeaveRequests: (b, a) => hr.handleFileHrLeaveRequests(b, a),
+  seedHrPdfAnnualPapers: (b, a) => hr.handleSeedHrPdfAnnualPapers(b, a),
+  clearHrLeaveRequests: (b, a) => hr.handleClearHrLeaveRequests(b, a),
 };
 
 function json(obj: unknown, status = 200) {
@@ -39,7 +62,7 @@ function json(obj: unknown, status = 200) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method === "GET") {
-    return json({ ok: true, msg: "Empire API running (Supabase)", version: "2026-11-04-hr-list-slim" });
+    return json({ ok: true, msg: "Empire API running (Supabase)", version: "2026-11-09-e2-e3"});
   }
   if (req.method !== "POST") return json({ ok: false, error: "Method not allowed" }, 405);
 
@@ -245,6 +268,14 @@ Deno.serve(async (req) => {
     }
 
     const a = auth as AuthOk;
+    if (HR_ACTIONS[action]) {
+      const company = pickCompany(body.company, a.companies);
+      return await runWithCompany(company, async () => {
+        const blocked = await hr.guardHrCompanyIds(body);
+        if (blocked) return json(blocked);
+        return json(await HR_ACTIONS[action](body, a));
+      });
+    }
     switch (action) {
       case "saveReport": return json(await cleaning.handleSaveReport(body));
       case "getReports": return json(await cleaning.handleGetReports(body));
@@ -406,24 +437,6 @@ Deno.serve(async (req) => {
       case "getWarehouseInvoiceBooks": return json(await warehouse.handleGetWarehouseInvoiceBooks(body, a));
       case "saveWarehouseInvoiceBooks": return json(await warehouse.handleSaveWarehouseInvoiceBooks(body, a));
 
-      case "getHrLeaveRequests": return json(await hr.handleGetHrLeaveRequests(a));
-      case "getHrLeaveRequest": return json(await hr.handleGetHrLeaveRequest(body, a));
-      case "addHrLeaveRequest": return json(await hr.handleAddHrLeaveRequest(body, a));
-      case "updateHrLeaveRequest": return json(await hr.handleUpdateHrLeaveRequest(body, a));
-      case "deleteHrLeaveRequest": return json(await hr.handleDeleteHrLeaveRequest(body, a));
-      case "confirmHrLeaveRequest": return json(await hr.handleConfirmHrLeaveRequest(body, a));
-      case "confirmHrLeaveRequests": return json(await hr.handleConfirmHrLeaveRequests(body, a));
-      case "listHrLineManagers": return json(await hr.handleListHrLineManagers(a));
-      case "listHrEmployees": return json(await hr.handleListHrEmployees(a));
-      case "listHrTeam": return json(await hr.handleListHrTeam(a));
-      case "saveHrEmployee": return json(await hr.handleSaveHrEmployee(body, a));
-      case "getHrEmployeeSignature": return json(await hr.handleGetHrEmployeeSignature(body, a));
-      case "removeHrEmployee": return json(await hr.handleRemoveHrEmployee(body, a));
-      case "getHrReport": return json(await hr.handleGetHrReport(a));
-      case "rejectHrLeaveRequest": return json(await hr.handleRejectHrLeaveRequest(body, a));
-      case "fileHrLeaveRequests": return json(await hr.handleFileHrLeaveRequests(body, a));
-      case "seedHrPdfAnnualPapers": return json(await hr.handleSeedHrPdfAnnualPapers(body, a));
-      case "clearHrLeaveRequests": return json(await hr.handleClearHrLeaveRequests(body, a));
 
       case "getChargingRequests": return json(await charging.handleGetChargingRequests(body, a));
       case "getChargingRetryQueue": return json(await charging.handleGetChargingRetryQueue(body, a));
