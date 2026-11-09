@@ -5,7 +5,7 @@
  * Needs empire-auth.js (empireGetCompany). Without it, everything stays E2.
  */
 (function () {
-  var E3_LOGO = 'assets/hr-f06-logo-e3.png?v=2026-11-09-e3';
+  var E3_LOGO = 'assets/hr-f06-logo-e3.png?v=2026-11-09-e3-print';
 
   function company() {
     try {
