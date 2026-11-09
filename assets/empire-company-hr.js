@@ -29,6 +29,24 @@
     (root || document).querySelectorAll('img.hr-f06-logo').forEach(swapLogo);
   }
 
+  /* E3 printout only (2026-11-09, asked by the user): the HR-F-06 / Rev.2 footer prints ~17.5 mm
+   * higher than the locked E2 footer (E2 print: translate(0,-13mm); the sheet prints at 94%, so
+   * -31.5mm here = ~17.5 mm on paper). Added to every print page (single, batch, PDF) after the
+   * locked print CSS, so it wins. The screen paper and the E2 print are not touched. */
+  var E3_PRINT_CSS = '<style id="e3PrintFoot">.hr-f06-doc-foot{transform:translate(0,-31.5mm)!important;}</style>';
+
+  function hookPrint() {
+    if (typeof window.hrBuildPrintHtml_ !== 'function' || window.hrBuildPrintHtml_.e3Hooked) return;
+    var orig = window.hrBuildPrintHtml_;
+    var hooked = function (bodyHtml, title) {
+      var html = orig.apply(this, arguments);
+      if (company() !== 'E3') return html;
+      return String(html).replace('</head>', E3_PRINT_CSS + '</head>');
+    };
+    hooked.e3Hooked = true;
+    window.hrBuildPrintHtml_ = hooked;
+  }
+
   var TAG_CSS = 'display:inline-block;margin-left:8px;padding:1px 8px;border-radius:50px;' +
     'background:#8d015d;color:#fff;font-size:12px;font-weight:700;vertical-align:middle;';
 
@@ -79,6 +97,7 @@
 
   function boot() {
     addBadges();
+    hookPrint();
     swapAll(document);
     if (company() !== 'E3' || typeof MutationObserver === 'undefined') return;
     new MutationObserver(function (list) {
