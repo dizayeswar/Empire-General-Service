@@ -716,6 +716,22 @@
     <select id="hrEmpEditManager"></select>
     <label class="hr-emp-edit-label">Days left</label>
     <input id="hrEmpEditDays" type="text" inputmode="decimal" autocomplete="off" placeholder="Not set yet">
+    <label class="hr-emp-edit-label">E-signature</label>
+    <p id="hrEmpSigNote" style="margin:0 0 6px;font-size:12px;color:var(--text-soft);"></p>
+    <div style="display:flex;align-items:center;min-height:56px;margin:0 0 8px;">
+      <img id="hrEmpSigPreview" alt="E-signature" hidden style="max-height:56px;max-width:260px;background:#fff;border:1px solid var(--input-border);border-radius:8px;padding:6px 10px;">
+      <span id="hrEmpSigNone" style="font-size:13px;color:var(--text-soft);">No e-signature yet.</span>
+    </div>
+    <input id="hrEmpSigFile" type="file" accept="image/*" hidden onchange="hrEmpSigFile_(event)">
+    <div class="hr-sig-pick-acts" style="margin:0 0 4px;">
+      <button type="button" onclick="document.getElementById('hrEmpSigFile').click()">Upload signature photo</button>
+      <button type="button" id="hrEmpSigClear" hidden onclick="hrEmpSigClear_()">Remove</button>
+    </div>
+    <label class="hr-emp-edit-label" for="hrEmpEditSigRole">E-signature goes in</label>
+    <select id="hrEmpEditSigRole">
+      <option value="emp">Employee box</option>
+      <option value="line">Line Manager box</option>
+    </select>
     <div class="hr-sig-pick-acts">
       <button type="button" onclick="hrEmpEditClose_()">Cancel</button>
       <button type="button" class="hr-btn-confirm" onclick="hrEmpEditSave_()">Save</button>

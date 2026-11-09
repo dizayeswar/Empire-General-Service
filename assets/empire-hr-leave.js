@@ -1934,7 +1934,96 @@ function hrEditEmployee_(code) {
   hrFillManagerSelect_(person && person.route === 'line' ? person.managerCode : '', person ? person.code : '');
   var title = document.getElementById('hrEmpEditTitle');
   if (title) title.textContent = person ? 'Edit employee' : 'Add employee';
+  hrEmpSigReset_(person ? person.code : '');
   wrap.hidden = false;
+}
+
+/* E-signature on Edit employee: upload a photo, it is cleaned into a stamp,
+   and saved on the linked account (or the saved signatures list) on Save. */
+var _hrEmpSig = { code: '', orig: '', cur: '', origRole: '', account: '', loading: false };
+
+function hrEmpSigShow_() {
+  var img = document.getElementById('hrEmpSigPreview');
+  var none = document.getElementById('hrEmpSigNone');
+  var clear = document.getElementById('hrEmpSigClear');
+  var note = document.getElementById('hrEmpSigNote');
+  var url = _hrEmpSig.cur;
+  if (img) {
+    if (url) img.src = url; else img.removeAttribute('src');
+    img.hidden = !url;
+  }
+  if (none) {
+    none.hidden = !!url;
+    none.textContent = _hrEmpSig.loading ? 'Loading e-signature…' : 'No e-signature yet.';
+  }
+  if (clear) clear.hidden = !url;
+  if (note) {
+    note.textContent = _hrEmpSig.loading ? '' : _hrEmpSig.failed
+      ? 'Could not load the saved e-signature. Uploading a new one replaces it.'
+      : (_hrEmpSig.account
+      ? 'Saved on login account “' + _hrEmpSig.account + '”. It is used when this person signs.'
+      : 'No login account found for this person. It is kept in Saved e-signatures under the employee code.');
+  }
+}
+
+function hrEmpSigSetRole_(role) {
+  var sel = document.getElementById('hrEmpEditSigRole');
+  if (!sel) return;
+  Array.prototype.slice.call(sel.querySelectorAll('option[data-extra]')).forEach(function (o) { o.remove(); });
+  if (role && role !== 'emp' && role !== 'line') {
+    var labels = { director: 'Director box (set on Users)', hr: 'HR box (set on Users)' };
+    var opt = document.createElement('option');
+    opt.value = role;
+    opt.textContent = labels[role] || role;
+    opt.setAttribute('data-extra', '1');
+    sel.appendChild(opt);
+  }
+  sel.value = role || 'emp';
+}
+
+function hrEmpSigReset_(code) {
+  _hrEmpSig = { code: code, orig: '', cur: '', origRole: '', account: '', loading: !!code };
+  hrEmpSigSetRole_('');
+  hrEmpSigShow_();
+  if (!code) return;
+  fetchJSONRetry({ action: 'getHrEmployeeSignature', token: hrToken_(), code: code }, 1, 30000).then(function (d) {
+    if (_hrEmpSig.code !== code) return;
+    _hrEmpSig.loading = false;
+    if (d && d.ok !== false) {
+      var sig = String(d.signature || '');
+      _hrEmpSig.orig = sig;
+      if (!_hrEmpSig.cur) _hrEmpSig.cur = sig;
+      _hrEmpSig.origRole = String(d.signatureRole || '');
+      _hrEmpSig.account = String(d.account || '');
+      hrEmpSigSetRole_(_hrEmpSig.origRole);
+    }
+    hrEmpSigShow_();
+  }).catch(function () {
+    if (_hrEmpSig.code !== code) return;
+    _hrEmpSig.loading = false;
+    _hrEmpSig.failed = true;
+    hrEmpSigShow_();
+  });
+}
+
+function hrEmpSigFile_(e) {
+  var file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function () {
+    hrProcessSigImage_(String(reader.result || ''), function (url) {
+      _hrEmpSig.cur = url;
+      _hrEmpSig.loading = false;
+      hrEmpSigShow_();
+    });
+  };
+  reader.readAsDataURL(file);
+}
+
+function hrEmpSigClear_() {
+  _hrEmpSig.cur = '';
+  hrEmpSigShow_();
 }
 
 function hrEmpEditClose_() {
@@ -1964,6 +2053,11 @@ function hrEmpEditSave_() {
     managerCode: managerCode,
     daysBalance: hrVal_('hrEmpEditDays')
   };
+  var sigRole = hrVal_('hrEmpEditSigRole');
+  if (!_hrEmpSig.loading && (_hrEmpSig.cur !== _hrEmpSig.orig || (_hrEmpSig.cur && sigRole !== _hrEmpSig.origRole))) {
+    body.signature = _hrEmpSig.cur;
+    body.signatureRole = sigRole;
+  }
   hrMsg_('Saving employee…', true);
   fetchJSONRetry(body, 1, 30000).then(function (d) {
     if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Save failed');
@@ -1971,7 +2065,11 @@ function hrEmpEditSave_() {
     var groupSel = document.getElementById('hrEmpGroup');
     if (groupSel) groupSel.removeAttribute('data-ready');
     return hrReloadEmployees_().then(function () {
-      hrMsg_('Employee saved. The updated date is today.', true);
+      hrMsg_(d.signatureNote === 'account'
+        ? 'Employee and e-signature saved. The updated date is today.'
+        : d.signatureNote === 'list'
+          ? 'Employee saved. The e-signature is kept in Saved e-signatures until this person has a login account.'
+          : 'Employee saved. The updated date is today.', true);
       hrRenderEmployees_();
     });
   }).catch(function (err) {

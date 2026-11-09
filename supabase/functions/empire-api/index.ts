@@ -417,6 +417,7 @@ Deno.serve(async (req) => {
       case "listHrEmployees": return json(await hr.handleListHrEmployees(a));
       case "listHrTeam": return json(await hr.handleListHrTeam(a));
       case "saveHrEmployee": return json(await hr.handleSaveHrEmployee(body, a));
+      case "getHrEmployeeSignature": return json(await hr.handleGetHrEmployeeSignature(body, a));
       case "removeHrEmployee": return json(await hr.handleRemoveHrEmployee(body, a));
       case "getHrReport": return json(await hr.handleGetHrReport(a));
       case "rejectHrLeaveRequest": return json(await hr.handleRejectHrLeaveRequest(body, a));
