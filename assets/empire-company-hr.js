@@ -33,7 +33,9 @@
    * higher than the locked E2 footer (E2 print: translate(0,-13mm); the sheet prints at 94%, so
    * -31.5mm here = ~17.5 mm on paper). Added to every print page (single, batch, PDF) after the
    * locked print CSS, so it wins. The screen paper and the E2 print are not touched. */
-  var E3_PRINT_CSS = '<style id="e3PrintFoot">.hr-f06-doc-foot{transform:translate(0,-31.5mm)!important;}</style>';
+  // Whole E3 sheet 5 mm higher on paper (translate before the locked 94% scale = real mm).
+  var E3_PRINT_CSS = '<style id="e3PrintFoot">.hr-f06-doc-foot{transform:translate(0,-31.5mm)!important;}' +
+    '.hr-f06-sheet{transform:translate(0,-5mm) scale(0.94)!important;}</style>';
 
   function hookPrint() {
     if (typeof window.hrBuildPrintHtml_ !== 'function' || window.hrBuildPrintHtml_.e3Hooked) return;
