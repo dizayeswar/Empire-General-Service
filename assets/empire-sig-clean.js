@@ -4,7 +4,8 @@
    uneven light are removed instead of becoming blue blocks. */
 (function () {
   var INK = [16, 38, 125];
-  var MAX_W = 900;
+  var WORK_MAX = 1800; /* clean at near full size so thin pen lines survive */
+  var MAX_W = 900;     /* final stamp size, after cropping to the signature */
   var MAX_H = 360;
 
   function clamp01(v) { return v < 0 ? 0 : (v > 1 ? 1 : v); }
@@ -65,7 +66,7 @@
   function clean(img) {
     var w0 = img.naturalWidth || img.width;
     var h0 = img.naturalHeight || img.height;
-    var scale = Math.min(1, MAX_W / w0, MAX_H / h0);
+    var scale = Math.min(1, WORK_MAX / Math.max(w0, h0));
     var w = Math.max(1, Math.round(w0 * scale));
     var h = Math.max(1, Math.round(h0 * scale));
     var canvas = document.createElement('canvas');
@@ -98,6 +99,7 @@
     var stack = new Int32Array(total);
     var minArea = Math.max(6, Math.round(total * 0.00004));
     var maxFill = 0.06;
+    var comps = [];
     var GROW = 0.2; /* faint pen joins a stroke that is clearly ink somewhere */
     for (var s = 0; s < total; s++) {
       if (label[s] !== -1 || ink[s] < GROW) continue;
@@ -130,9 +132,31 @@
       var tooBig = area > total * maxFill;
       var blob = boxArea > total * 0.02 && solid > 0.45;
       if (area >= minArea && peak >= 0.5 && !tooBig && !blob) {
-        for (var m = 0; m < members.length; m++) keep[members[m]] = 1;
+        comps.push({ members: members, area: area, x0: minX, y0: minY, x1: maxX, y1: maxY });
       }
     }
+
+    /* Main strokes = the bigger pieces. Small marks count only when they sit
+       close to them (a dot or a short dash), not dust or specks far away. */
+    var inkSum = 0;
+    comps.forEach(function (c) { inkSum += c.area; });
+    var mx0 = w, my0 = h, mx1 = -1, my1 = -1;
+    comps.forEach(function (c) {
+      if (c.area < inkSum * 0.04) return;
+      c.main = true;
+      if (c.x0 < mx0) mx0 = c.x0;
+      if (c.y0 < my0) my0 = c.y0;
+      if (c.x1 > mx1) mx1 = c.x1;
+      if (c.y1 > my1) my1 = c.y1;
+    });
+    var reach = Math.round(Math.max(mx1 - mx0, my1 - my0, 1) * 0.12);
+    comps.forEach(function (c) {
+      if (!c.main) {
+        if (mx1 < 0) return;
+        if (c.x1 < mx0 - reach || c.x0 > mx1 + reach || c.y1 < my0 - reach || c.y0 > my1 + reach) return;
+      }
+      for (var m = 0; m < c.members.length; m++) keep[c.members[m]] = 1;
+    });
 
     /* Grow the kept strokes by 1px so their soft edges stay. */
     var near = new Uint8Array(total);
@@ -166,10 +190,15 @@
     var pad = 4;
     bx0 = Math.max(0, bx0 - pad); by0 = Math.max(0, by0 - pad);
     bx1 = Math.min(w - 1, bx1 + pad); by1 = Math.min(h - 1, by1 + pad);
+    var cw = bx1 - bx0 + 1;
+    var ch = by1 - by0 + 1;
+    var fit = Math.min(1, MAX_W / cw, MAX_H / ch);
     var out = document.createElement('canvas');
-    out.width = bx1 - bx0 + 1;
-    out.height = by1 - by0 + 1;
-    out.getContext('2d').drawImage(canvas, bx0, by0, out.width, out.height, 0, 0, out.width, out.height);
+    out.width = Math.max(1, Math.round(cw * fit));
+    out.height = Math.max(1, Math.round(ch * fit));
+    var octx = out.getContext('2d');
+    octx.imageSmoothingQuality = 'high';
+    octx.drawImage(canvas, bx0, by0, cw, ch, 0, 0, out.width, out.height);
     return out.toDataURL('image/png');
   }
 
