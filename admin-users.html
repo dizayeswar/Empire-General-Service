@@ -209,6 +209,7 @@
   <script src="assets/empire-auth.js?v=2026-11-08-portal-sync"></script>
   <script src="assets/empire-core.js?v=2026-09-27-gailan-sig"></script>
   <script src="assets/empire-sw-update.js?v=2026-09-27-gailan-sig"></script>
+  <script src="assets/empire-sig-clean.js?v=2026-11-09-sig-clean"></script>
   <script>
     var allUsers = [];
     var editingUsername = null;
@@ -646,6 +647,17 @@
     }
 
     function processSigImage(dataUrl, cb) {
+      if (typeof empireCleanSignature === 'function') {
+        empireCleanSignature(dataUrl, function (url) {
+          if (url) cb(url);
+          else processSigImageOld(dataUrl, cb);
+        });
+        return;
+      }
+      processSigImageOld(dataUrl, cb);
+    }
+
+    function processSigImageOld(dataUrl, cb) {
       var img = new Image();
       img.onload = function () {
         try {
