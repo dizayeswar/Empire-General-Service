@@ -1930,7 +1930,14 @@ type HrPerson = {
   daysBalance: number | null;
   active: boolean;
   updatedAt: string;
+  /** YYYY-MM-DD; empty = not saved on the person. */
+  joiningDate?: string;
 };
+
+function cleanIsoDate(raw: unknown): string {
+  const s = String(raw ?? "").trim().slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : "";
+}
 
 function parseLeaveDays(raw: unknown): number {
   const s = String(raw || "").trim().toLowerCase();
@@ -1974,6 +1981,7 @@ function asHrPerson(raw: Record<string, unknown>): HrPerson {
     daysBalance: parseDaysBalance(raw.daysBalance),
     active: raw.active !== false,
     updatedAt: String(raw.updatedAt || "").slice(0, 10),
+    joiningDate: cleanIsoDate(raw.joiningDate),
   };
 }
 
@@ -2182,6 +2190,7 @@ function diffHrPerson(prev: HrPerson, next: HrPerson, all: HrPerson[]): HrChange
   add("Section", prev.group, next.group);
   add("Line manager", managerLabel(prev.managerCode, all), managerLabel(next.managerCode, all));
   add("Days left", prev.daysBalance, next.daysBalance);
+  add("Joining date", prev.joiningDate || "", next.joiningDate || "");
   return out;
 }
 
@@ -2194,9 +2203,11 @@ async function writeHrEmployees(people: HrPerson[]) {
   if (error) throw error;
 }
 
-function joiningDateFor(code: string): string {
+/** Joining date: saved on the person (E3, and any E2 person given one), else the fixed E2 table. */
+function joiningDateFor(person: HrPerson): string {
+  if (person.joiningDate) return person.joiningDate;
   if (currentCompany() !== "E2") return "";
-  return HR_JOINING[String(code || "").trim()] || "";
+  return HR_JOINING[String(person.code || "").trim()] || "";
 }
 
 function publishHrPerson(person: HrPerson, all: HrPerson[]) {
@@ -2213,7 +2224,7 @@ function publishHrPerson(person: HrPerson, all: HrPerson[]) {
     managerName: mgr ? mgr.name : "",
     managerActive: !!(mgr && mgr.active),
     daysBalance: person.daysBalance,
-    joiningDate: joiningDateFor(person.code),
+    joiningDate: joiningDateFor(person),
     active: person.active,
     updatedAt: person.updatedAt,
   };
@@ -2302,7 +2313,7 @@ export async function handleListHrTeam(auth: AuthOk) {
       department: row.department,
       section: row.section,
       daysBalance: row.daysBalance,
-      joiningDate: joiningDateFor(row.code),
+      joiningDate: joiningDateFor(row),
       signature: signatureForPerson(row, accounts),
     })),
   };
@@ -2457,6 +2468,8 @@ export async function handleSaveHrEmployee(body: Record<string, unknown>, auth: 
   next.active = true;
   const idx = people.findIndex((row) => row.code === prevCode);
   const prev = idx >= 0 ? { ...people[idx] } : null;
+  // The Edit form does not send a joining date: keep the saved one unless a new one is sent.
+  if (body.joiningDate === undefined && prev) next.joiningDate = prev.joiningDate || "";
   if (idx >= 0) people[idx] = next;
   else people.push(next);
   if (prevCode !== next.code) {
