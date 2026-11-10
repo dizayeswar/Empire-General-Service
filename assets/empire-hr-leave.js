@@ -2042,8 +2042,9 @@ function hrEmpEditSave_() {
   var prev = hrVal_('hrEmpEditPrev');
   var managerCode = hrVal_('hrEmpEditManager');
   var daysRaw = hrVal_('hrEmpEditDays');
-  if (daysRaw && !/^\d+(\.\d+)?$/.test(daysRaw)) {
-    hrMsg_('Days left must be a number, such as 20 or 18.5.', false);
+  // Negative days are allowed (someone who took more leave than they had, e.g. -8.5).
+  if (daysRaw && !/^-?\d+(\.\d+)?$/.test(daysRaw)) {
+    hrMsg_('Days left must be a number, such as 20, 18.5 or -8.5.', false);
     return;
   }
   var body = {
