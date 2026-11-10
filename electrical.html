@@ -576,6 +576,7 @@ function loadJobs(force){
     .finally(function(){ if(seq===_jobsLoadSeq && spin) spin.classList.remove('spinning'); });
 }
 function loadFieldReports(force){
+  loadElectricAccountWorkers_();
   var spin=document.getElementById('fieldReportsRefreshIcon');
   if(spin) spin.classList.add('spinning');
   var host=document.getElementById('fieldReportsTable');
@@ -683,7 +684,29 @@ function electricStaffRoster_() {
     });
   }
   if (!names.length) names = ELECTRIC_STAFF.slice();
+  // Add every account with Trade = electric (Admin → Users), e.g. new phone workers.
+  _electricAccountWorkers.forEach(function (n) {
+    var k = electricStaffNorm_(n);
+    if (k && !names.some(function (x) { return electricStaffNorm_(x) === k; })) names.push(n);
+  });
   return names;
+}
+var _electricAccountWorkers = [], _electricAccountWorkersLoaded = false;
+function electricWorkerDisplayName_(username) {
+  return String(username || '').replace(/[_.]+/g, ' ').trim().replace(/\s+/g, ' ')
+    .replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+}
+function loadElectricAccountWorkers_() {
+  if (_electricAccountWorkersLoaded) return Promise.resolve(_electricAccountWorkers);
+  return fetchJSONRetry({ action: 'listElectricWorkers', token: tok() }, 1, 20000)
+    .then(function (d) {
+      if (d && Array.isArray(d.workers)) {
+        _electricAccountWorkers = d.workers.map(electricWorkerDisplayName_).filter(Boolean);
+        _electricAccountWorkersLoaded = true;
+      }
+      return _electricAccountWorkers;
+    })
+    .catch(function () { return _electricAccountWorkers; });
 }
 function fieldReportDefaultStaff_(r) {
   var who = String((r && (r.workerName || r.reportedBy)) || '').trim();
@@ -746,6 +769,13 @@ function setFrStaffSelection(staffStr) {
 function initFrStaffPicker(selected) {
   var panel = document.getElementById('fr-staff-panel');
   if (!panel) return;
+  if (!_electricAccountWorkersLoaded) {
+    loadElectricAccountWorkers_().then(function () {
+      if (!_electricAccountWorkersLoaded || !document.getElementById('fr-staff-panel')) return;
+      var hidden = document.getElementById('frEditStaff');
+      initFrStaffPicker(hidden ? hidden.value : selected);
+    });
+  }
   panel.innerHTML = electricStaffRoster_().map(function (n) {
     return '<label class="staff-multi-opt"><input type="checkbox" value="'+_esc(n)+'" onchange="syncFrStaffFromChecks()"> '+_esc(n)+'</label>';
   }).join('');

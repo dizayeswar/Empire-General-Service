@@ -144,6 +144,7 @@ export const DEPT_BY_ACTION: Record<string, string> = {
   getElectricalSummary: "electrical department",
   saveElectricalSummary: "electrical department",
   getElectricWorkerReports: "electrical department",
+  listElectricWorkers: "electrical department",
   deleteElectricWorkerReport: "electrical department",
   transferElectricWorkerReport: "electrical department",
   transferElectricIssueCompletion: "electrical department",
