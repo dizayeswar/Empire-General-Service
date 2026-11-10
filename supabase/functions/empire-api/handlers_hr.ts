@@ -2442,6 +2442,83 @@ async function saveEmployeeSignature(person: HrPerson, body: Record<string, unkn
   return "";
 }
 
+/* 2026-11-10: when an employee's line manager changes, papers still waiting for the line manager
+ * (pending_line, not signed by a line manager yet) follow the new manager. Changed to Director:
+ * those papers go straight to the director. Signed / later papers are never touched. */
+async function reassignWaitingPapers(person: HrPerson, people: HrPerson[], prevCode: string): Promise<number> {
+  const codes = Array.from(new Set([person.code, prevCode].filter(Boolean)));
+  if (!codes.length) return 0;
+  const { data, error } = await sb()
+    .from("hr_leave_requests")
+    .select("id,status,emp_name,emp_code,leave_type,line_manager_name,line_manager_signed_at,line_manager_status,entitlements")
+    .eq("company", currentCompany())
+    .eq("status", "pending_line")
+    .in("emp_code", codes);
+  if (error) throw error;
+  const rows = (data || []) as Record<string, unknown>[];
+  if (!rows.length) return 0;
+
+  const mgr = person.route === "line" && person.managerCode
+    ? people.find((p) => p.code === person.managerCode && p.active) || null
+    : null;
+  let assignee: { username: string; name: string } | null = null;
+  if (mgr) {
+    const resolved = await resolveAssignee({ lineManagerName: mgr.name });
+    if (!resolved.ok) return 0;
+    assignee = { username: resolved.username, name: resolved.name };
+  }
+
+  let moved = 0;
+  const notifyRows: Record<string, unknown>[] = [];
+  for (const row of rows) {
+    if (hasLineStamp(row)) continue;
+    const ents = parseEntitlements(row.entitlements) as Record<string, unknown>;
+    const cur = assignFromRow(row);
+    const patch: Record<string, unknown> = { updated_at: isoNow() };
+    if (assignee) {
+      const same = normalizeWorkerId(cur.username) === normalizeWorkerId(assignee.username) &&
+        String(row.line_manager_name || "").trim() === assignee.name;
+      if (same) continue;
+      ents.__assign = { username: assignee.username, name: assignee.name };
+      patch.line_manager_name = assignee.name;
+      patch.line_manager_signed_at = "";
+      patch.line_manager_status = "";
+      notifyRows.push(row);
+    } else {
+      ents.__assign = { skipLine: true };
+      patch.status = "pending_director";
+      patch.line_manager_name = "";
+      patch.line_manager_signed_at = "";
+      patch.line_manager_status = "";
+    }
+    patch.entitlements = entitlementsJson(ents);
+    const { error: upErr } = await sb()
+      .from("hr_leave_requests")
+      .update(patch)
+      .eq("id", String(row.id || ""))
+      .eq("status", "pending_line");
+    if (upErr) throw upErr;
+    moved++;
+  }
+  if (assignee && notifyRows.length) {
+    try {
+      await grantHrLineAccess(assignee.username);
+    } catch (_e) { /* account may not exist yet */ }
+    for (const row of notifyRows) {
+      try {
+        const emp = String(row.emp_name || "").trim();
+        const kind = String(row.leave_type || "Leave").trim() || "Leave";
+        await notifyUsers_([assignee.username], "Leave paper assigned", emp ? emp + " — " + kind : kind, {
+          type: "hr_assign",
+          deptPage: "hr-leave.html",
+          issueId: String(row.id || ""),
+        });
+      } catch (_e) { /* a missed alert must not undo the move */ }
+    }
+  }
+  return moved;
+}
+
 export async function handleSaveHrEmployee(body: Record<string, unknown>, auth: AuthOk) {
   if (!canEditHrEmployees(auth)) {
     return { ok: false, success: false, error: "not_allowed", message: "Not allowed." };
@@ -2500,7 +2577,13 @@ export async function handleSaveHrEmployee(body: Record<string, unknown>, auth: 
       };
     }
   }
-  return { ok: true, success: true, person: publishHrPerson(next, people), signatureAccount, signatureNote };
+  let reassigned = 0;
+  try {
+    reassigned = await reassignWaitingPapers(next, people, prevCode);
+  } catch (err) {
+    console.error("reassignWaitingPapers failed", err);
+  }
+  return { ok: true, success: true, person: publishHrPerson(next, people), signatureAccount, signatureNote, reassigned };
 }
 
 export async function handleRemoveHrEmployee(body: Record<string, unknown>, auth: AuthOk) {
