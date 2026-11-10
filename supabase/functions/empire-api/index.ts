@@ -171,7 +171,7 @@ Deno.serve(async (req) => {
       if (!auth.ok) auth = await verifyToken(String(body.token || ""), "electric issue");
       if (!auth.ok) auth = await verifyToken(String(body.token || ""), "electrical department");
       if (!auth.ok) auth = await verifyToken(String(body.token || ""), "cleaning");
-    } else if (action === "getElectricWorkerReports" || action === "transferElectricIssueCompletion") {
+    } else if (action === "getElectricWorkerReports" || action === "transferElectricIssueCompletion" || action === "listElectricWorkers") {
       auth = await verifyToken(String(body.token || ""), "electrical department");
       if (!auth.ok) auth = await verifyToken(String(body.token || ""), "electric issue");
     } else if (
@@ -236,7 +236,8 @@ Deno.serve(async (req) => {
       if (body._authRole !== "worker") {
         return json({ ok: false, success: false, error: "not_allowed", message: "Only electric workers can submit field reports." });
       }
-      if (!isElectricWorkerId(String(body.username))) {
+      // Any worker account with Trade = electric (set in Admin users) can submit, plus the original team list.
+      if (!isElectricWorkerId(String(body.username)) && body._authTrade !== "electric") {
         return json({ ok: false, success: false, error: "not_allowed", message: "This account is not an electric field worker." });
       }
     }
@@ -353,6 +354,7 @@ Deno.serve(async (req) => {
       case "getElectricalSummary": return json(await jobs.handleGetElectricalSummary(body));
       case "saveElectricalSummary": return json(await jobs.handleSaveElectricalSummary(body));
       case "getElectricWorkerReports": return json(await jobs.handleGetElectricWorkerReports(body, a));
+      case "listElectricWorkers": return json(await jobs.handleListElectricWorkers());
       case "addElectricWorkerReport": return json(await jobs.handleAddElectricWorkerReport(body, a));
       case "updateElectricWorkerReportInvoice": return json(await jobs.handleUpdateElectricWorkerReportInvoice(body, a));
       case "deleteElectricWorkerReport": return json(await jobs.handleDeleteElectricWorkerReport(body, a));

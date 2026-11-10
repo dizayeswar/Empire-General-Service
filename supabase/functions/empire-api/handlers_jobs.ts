@@ -6,10 +6,23 @@ import {
   isCivilWorkerId,
   isElectricWorkerId,
   normalizeDeptField,
+  normalizeTrade,
   normalizeWorkerId,
   parseAssignVoiceNote,
   parseFixedPhotosFromCell,
 } from "./helpers.ts";
+
+/** Usernames of worker accounts with Trade = electric (read-only; feeds the Field Reports "Workers" list). */
+export async function handleListElectricWorkers() {
+  const { data, error } = await sb().from("users").select("username,role,trade");
+  if (error) throw error;
+  const workers = (data || [])
+    .filter((r) => normalizeTrade(r.trade) === "electric")
+    .map((r) => String(r.username || "").trim())
+    .filter(Boolean)
+    .sort();
+  return { ok: true, success: true, workers };
+}
 
 function workerReportToApi(r: Record<string, unknown>) {
   return {
