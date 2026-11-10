@@ -600,6 +600,11 @@ function jobRef_(r) {
   if (n > 0) return 'J#' + n;
   return 'J#—';
 }
+function jobOrderCmp_(a, b) {
+  var da = String(a.date || ''), db = String(b.date || '');
+  if (da !== db) return da.localeCompare(db);
+  return String(a.createdAt || a.id || '').localeCompare(String(b.createdAt || b.id || ''));
+}
 function buildJobMonthIndexMap_(jobs) {
   var byMonth = {};
   (jobs || []).forEach(function (r) {
@@ -610,11 +615,7 @@ function buildJobMonthIndexMap_(jobs) {
   });
   var map = {};
   Object.keys(byMonth).forEach(function (m) {
-    byMonth[m].sort(function (a, b) {
-      var da = String(a.date || ''), db = String(b.date || '');
-      if (da !== db) return da.localeCompare(db);
-      return String(a.createdAt || a.id || '').localeCompare(String(b.createdAt || b.id || ''));
-    });
+    byMonth[m].sort(jobOrderCmp_);
     byMonth[m].forEach(function (r, i) {
       map[String(r.id)] = i + 1;
     });
@@ -1345,7 +1346,7 @@ function renderJobs(){
     if(fq){ var hay=(r.job+' '+r.location+' '+r.staff+' '+r.materials).toLowerCase(); if(hay.indexOf(fq)===-1)return false; }
     return true;
   });
-  rows.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  rows.sort(jobOrderCmp_);
   var total=rows.length, gen=rows.filter(r=>r.type==='general').length, ref=rows.filter(r=>r.type==='refundable').length, cc=rows.filter(r=>r.type==='callcenter').length;
   var refTotal=rows.filter(r=>r.type==='refundable').reduce((s,r)=>s+(parseFloat(r.amount)||0),0);
   var summaryEl=document.getElementById('jobsFilterSummary');
@@ -1445,8 +1446,8 @@ function renderReportPreview(){
   var m=document.getElementById('rep-month').value||''; if(!m){ document.getElementById('reportPreview').innerHTML='<p style="color:var(--text-faint);">Select a month above.</p>'; return; }
   var jobs=allJobs.filter(r=>monthOf(r)===m&&r.type!=='callcenter');
   var cc=allJobs.filter(r=>monthOf(r)===m&&r.type==='callcenter');
-  jobs.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
-  cc.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  jobs.sort(jobOrderCmp_);
+  cc.sort(jobOrderCmp_);
   var monthIndexMap=buildJobMonthIndexMap_(allJobs);
   var total=jobs.length+cc.length;
   var refTotal=jobs.reduce((s,r)=>s+jobRefundAmount_(r),0);
@@ -1471,6 +1472,7 @@ async function downloadReport(){
   var jobs=allJobs.filter(r=>monthOf(r)===m&&r.type!=='callcenter');
   var cc=allJobs.filter(r=>monthOf(r)===m&&r.type==='callcenter');
   if(jobs.length+cc.length===0){ alert('No records for '+m+'.'); return; }
+  jobs.sort(jobOrderCmp_); cc.sort(jobOrderCmp_);
   var summary=document.getElementById('rep-summary').value||'';
   var btn=document.getElementById('dlBtn'); var orig=btn.textContent; btn.disabled=true; btn.textContent='⏳ Building…';
   var urls=new Set(); jobs.forEach(r=>{ if(r.photo)urls.add(r.photo); });
@@ -1495,8 +1497,8 @@ async function downloadReportExcel(){
   var jobs=allJobs.filter(r=>monthOf(r)===m&&r.type!=='callcenter');
   var cc=allJobs.filter(r=>monthOf(r)===m&&r.type==='callcenter');
   if(jobs.length+cc.length===0){ alert('No records for '+m+'.'); return; }
-  jobs.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
-  cc.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  jobs.sort(jobOrderCmp_);
+  cc.sort(jobOrderCmp_);
   var btn=document.getElementById('xlBtn'); var orig=btn?btn.innerHTML:'';
   if(btn){ btn.disabled=true; btn.textContent='Exporting…'; }
   try{
