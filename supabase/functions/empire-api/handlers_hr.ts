@@ -1068,9 +1068,15 @@ export async function handleUpdateHrLeaveRequest(body: Record<string, unknown>, 
   return { ok: true, success: true, id, row: rowToApi({ ...ex, ...patch }) };
 }
 
+/** Non-admin accounts that may delete any leave paper (trash can). Keep in step with
+ *  HR_PAPER_DELETERS in assets/empire-hr-leave.js. */
+const HR_PAPER_DELETERS = ["bekhal.azeez.khatar"];
+
 export async function handleDeleteHrLeaveRequest(body: Record<string, unknown>, auth: AuthOk) {
-  // Admins may delete any paper, whatever its status (trash can on the lists). Others: drafts only.
-  const admin = isAdminAccount(auth.role, auth.moduleAccess);
+  // Admins (and the HR_PAPER_DELETERS list) may delete any paper, whatever its status (trash can
+  // on the lists). Others: drafts only.
+  const admin = isAdminAccount(auth.role, auth.moduleAccess) ||
+    HR_PAPER_DELETERS.indexOf(normalizeWorkerId(auth.username)) !== -1;
   if (!canWrite(auth) && !admin) {
     return { ok: false, success: false, error: "not_allowed", message: "Read-only accounts cannot delete leave requests." };
   }

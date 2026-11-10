@@ -3750,9 +3750,18 @@ function hrDeleteRow_(id) {
   if (confirm(msg)) go();
 }
 
-/* Trash can beside View (admins only). Any status; days go back if they were taken; logged in Report. */
+/* Trash can beside View (admins + HR_PAPER_DELETERS). Any status; days go back if they were taken;
+ * logged in Report. Keep HR_PAPER_DELETERS in step with handlers_hr.ts. */
+var HR_PAPER_DELETERS = ['bekhal.azeez.khatar'];
+
+function hrCanTrash_() {
+  if (typeof hrIsAdmin_ === 'function' && hrIsAdmin_()) return true;
+  var me = typeof empireGetUser === 'function' ? String(empireGetUser() || '').trim().toLowerCase() : '';
+  return !!me && HR_PAPER_DELETERS.indexOf(me) !== -1;
+}
+
 function hrTrashBtnHtml_(id) {
-  if (typeof hrIsAdmin_ !== 'function' || !hrIsAdmin_()) return '';
+  if (!hrCanTrash_()) return '';
   var safe = hrEsc_(String(id || ''));
   return '<button type="button" class="hr-btn-del hr-btn-trash" title="Delete" aria-label="Delete" ' +
     'onclick="event.stopPropagation();hrTrashRow_(\'' + safe + '\')">' +
@@ -3762,7 +3771,7 @@ function hrTrashBtnHtml_(id) {
 
 function hrTrashRow_(id) {
   id = String(id || '').trim();
-  if (!id || typeof hrIsAdmin_ !== 'function' || !hrIsAdmin_()) return;
+  if (!id || !hrCanTrash_()) return;
   var row = _hrRows.find(function (r) { return String(r.id) === id; });
   var no = row ? (row.no || row.num || '') : '';
   var label = (no ? '#' + no + ' — ' : '') + ((row && row.empName) || 'this paper');
