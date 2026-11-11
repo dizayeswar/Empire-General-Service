@@ -164,12 +164,13 @@ function usernameMatchesEmployee(
   if (first && last && first !== last) {
     const ff = foldPersonKey(first);
     const fl = foldPersonKey(last);
-    if (ff && fl && foldedUser.indexOf(ff) !== -1 && foldedUser.indexOf(fl) !== -1) return true;
+    // Username must START with the first name: "hersh.adnan.abdulrahman" is not "Adnan Abdulrahman".
+    if (ff && fl && foldedUser.startsWith(ff) && foldedUser.indexOf(fl, ff.length) !== -1) return true;
   }
   if (parts.length >= 2) {
     const a = foldPersonKey(parts[0]);
     const b = foldPersonKey(parts[1]);
-    if (a && b && a !== b && foldedUser.indexOf(a) !== -1 && foldedUser.indexOf(b) !== -1) return true;
+    if (a && b && a !== b && foldedUser.startsWith(a) && foldedUser.indexOf(b, a.length) !== -1) return true;
   }
   const job = compactKey(extra?.job || "");
   const foldedJob = foldPersonKey(extra?.job || "");
@@ -291,7 +292,7 @@ function matchRosterUser(
     const foldedUk = foldPersonKey(uk);
     const foldedFirst = foldPersonKey(first);
     if (ck === compact || uk === slug || uk === first + last || uk === first + "." + last || foldedUk === foldPersonKey(label)) score = 5;
-    else if (first && last && first !== last && ck.indexOf(compactKey(first)) !== -1 && ck.indexOf(compactKey(last)) !== -1) score = 4;
+    else if (first && last && first !== last && ck.startsWith(compactKey(first)) && ck.indexOf(compactKey(last), compactKey(first).length) !== -1) score = 4;
     else if (usernameMatchesEmployee(uk, label)) score = 4;
     else if (first && uniqueFirst.has(first) && (uk.startsWith(first) || (foldedFirst.length >= 4 && foldedUk.startsWith(foldedFirst))) && uk !== first) score = 3;
     else if (uk === first) score = 2;

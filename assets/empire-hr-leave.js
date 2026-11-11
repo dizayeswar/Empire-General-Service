@@ -987,12 +987,13 @@ function hrUsernameMatchesEmployee_(username, name, extra) {
   if (first && last && first !== last) {
     var ff = hrFoldPersonKey_(first);
     var fl = hrFoldPersonKey_(last);
-    if (ff && fl && foldedUser.indexOf(ff) !== -1 && foldedUser.indexOf(fl) !== -1) return true;
+    // Username must START with the first name: "hersh.adnan.abdulrahman" is not "Adnan Abdulrahman".
+    if (ff && fl && foldedUser.startsWith(ff) && foldedUser.indexOf(fl, ff.length) !== -1) return true;
   }
   if (parts.length >= 2) {
     var a = hrFoldPersonKey_(parts[0]);
     var b = hrFoldPersonKey_(parts[1]);
-    if (a && b && a !== b && foldedUser.indexOf(a) !== -1 && foldedUser.indexOf(b) !== -1) return true;
+    if (a && b && a !== b && foldedUser.startsWith(a) && foldedUser.indexOf(b, a.length) !== -1) return true;
   }
   var job = hrCompactKey_(extra.job);
   var foldedJob = hrFoldPersonKey_(extra.job);
