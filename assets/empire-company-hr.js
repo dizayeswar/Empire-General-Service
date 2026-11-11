@@ -285,10 +285,47 @@
     if (document.title.indexOf(c + ' — ') !== 0) document.title = c + ' — ' + document.title;
   }
 
+  /* E3 has no Lateness (2026-11-11, asked by the user): not in Type of Leave, not in the Saved
+   * requests Type filter, no "Lateness vacations" menu item. New E3 papers start on Annual leave.
+   * Runs before the leave form starts (hrInit_ on DOMContentLoaded). E2 is not touched. */
+  function e3NoLateness() {
+    if (company() !== 'E3') return;
+    var st = document.createElement('style');
+    st.textContent = '#tabBtnArchive-lateness{display:none!important;}';
+    document.head.appendChild(st);
+    if (Array.isArray(window.HR_LEAVE_TYPES)) {
+      for (var i = window.HR_LEAVE_TYPES.length - 1; i >= 0; i--) {
+        if (window.HR_LEAVE_TYPES[i] && window.HR_LEAVE_TYPES[i].id === 'Lateness') window.HR_LEAVE_TYPES.splice(i, 1);
+      }
+    }
+    if (typeof window.hrRenderLeaveTypes_ === 'function' && !window.hrRenderLeaveTypes_.e3NoLate) {
+      var orig = window.hrRenderLeaveTypes_;
+      var wrapped = function (selected) {
+        if (!selected || selected === 'Lateness') selected = 'Annual Leave';
+        return orig.call(this, selected);
+      };
+      wrapped.e3NoLate = true;
+      window.hrRenderLeaveTypes_ = wrapped;
+    }
+    ['hr-leaveType', 'hrFilterType'].forEach(function (id) {
+      var sel = document.getElementById(id);
+      if (!sel) return;
+      var opt = sel.querySelector('option[value="Lateness"]');
+      if (!opt) return;
+      var wasPicked = sel.value === 'Lateness';
+      opt.remove();
+      if (wasPicked && id === 'hr-leaveType') {
+        sel.value = 'Annual Leave';
+        if (typeof window.hrOnLeaveType_ === 'function') window.hrOnLeaveType_();
+      }
+    });
+  }
+
   function boot() {
     addBadges();
     hookPrint();
     swapAll(document);
+    e3NoLateness();
     loadAdjust();
     bindEditor();
     if (company() !== 'E3' || typeof MutationObserver === 'undefined') return;
