@@ -1034,8 +1034,10 @@
     }
 
     var cap = mapped.freq === 'extra' ? EXTRA_PHOTOS : MAX_PHOTOS;
-    if (oneADayApplies(mapped.freq === 'extra' ? { extra: true } : null)) cap = 1;
+    var dailyLimited = oneADayApplies(mapped.freq === 'extra' ? { extra: true } : null);
+    if (dailyLimited) cap = 1;
     var send = remoteUrls.slice(0, cap);
+    var remainingRemoteUrls = remoteUrls.slice(send.length);
     var batch = await apiWrite({
       action: 'addTaskPhotos',
       project: item.project,
@@ -1081,6 +1083,20 @@
       };
     }));
     state.photos = state.photos.filter(function (x) { return x._queueId !== item.id; });
+    remainingRemoteUrls.forEach(function (url, ri) {
+      state.photos.push({
+        id: 'offline-' + item.id + '-remote-' + ri,
+        project: item.project,
+        freq: item.freq,
+        task: item.task,
+        date: item.date,
+        period: item.period,
+        image: url,
+        source: photoSources[send.length + ri] || photoSources[ri] || 'camera',
+        _offline: true,
+        _queueId: item.id
+      });
+    });
     leftoverData.forEach(function (dataUrl, di) {
       state.photos.push({
         id: 'offline-' + item.id + '-old-' + di,
@@ -1107,9 +1123,10 @@
         _queueId: item.id
       });
     });
-    if (leftoverBlobs.length || leftoverData.length) {
-      item.unreadable = leftoverData.length && !leftoverBlobs.length;
-      try { await persistQueueProgress(item, [], leftoverBlobs, leftoverData); } catch (eL) {}
+    if (remainingRemoteUrls.length || leftoverBlobs.length || leftoverData.length) {
+      item.unreadable = !remainingRemoteUrls.length && leftoverData.length && !leftoverBlobs.length;
+      if (dailyLimited && remainingRemoteUrls.length) item.dailyBlockedDay = iraqToday();
+      try { await persistQueueProgress(item, remainingRemoteUrls, leftoverBlobs, leftoverData); } catch (eL) {}
     } else {
       await empireOfflineQueueDelete(item.id);
     }
