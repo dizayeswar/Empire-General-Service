@@ -119,11 +119,12 @@ function hrToggleRowSelect_(id, ev) {
   var n = hrSelectedIds_().length;
   var count = document.getElementById('hrSelectCount');
   if (count) count.textContent = n ? n + ' selected' : 'Select papers';
+  var boxes = document.querySelectorAll('input[data-hr-sel]');
+  var allPicked = boxes.length > 0 && n === boxes.length;
   var all = document.getElementById('hrSelAll');
-  if (all) {
-    var boxes = document.querySelectorAll('input[data-hr-sel]');
-    all.checked = boxes.length > 0 && n === boxes.length;
-  }
+  if (all) all.checked = allPicked;
+  var top = document.getElementById('hrSelAllTop');
+  if (top) top.checked = allPicked;
 }
 
 function hrSelectableStage_() {
@@ -151,6 +152,20 @@ function hrSelectAllVisible_(ev) {
   var on = !!(ev && ev.target && ev.target.checked);
   _hrSelected = {};
   if (on) {
+    (hrUsesPaperList_() ? hrPaperList_() : hrFiltered_()).forEach(function (r) {
+      if (hrCanSelectRow_(r)) _hrSelected[String(r.id)] = true;
+    });
+  }
+  hrRenderTable_();
+}
+
+/* Top "Select all" box: turns on Select and picks every paper you can sign, or clears them. */
+function hrSelectAllTop_(ev) {
+  if (_hrBulkBusy) return;
+  var on = !!(ev && ev.target && ev.target.checked);
+  _hrSelected = {};
+  if (on) {
+    _hrSelectMode = true;
     (hrUsesPaperList_() ? hrPaperList_() : hrFiltered_()).forEach(function (r) {
       if (hrCanSelectRow_(r)) _hrSelected[String(r.id)] = true;
     });
@@ -1472,11 +1487,29 @@ function hrDirectorConfirmSelected_(ids) {
   };
   var place = hrDirectorCellPos_();
   extra.scanPlace = place;
-  fetchJSONRetry(extra, 1, 60000)
+  // Send in groups of 80 (one request each), one after another; add up what was confirmed.
+  var CHUNK = 80;
+  var total = 0;
+  var sendChunk = function (start) {
+    if (start >= ids.length) return Promise.resolve({ ok: true, confirmed: total });
+    var body = Object.assign({}, extra, { ids: ids.slice(start, start + CHUNK) });
+    if (ids.length > CHUNK) hrMsg_('Confirming ' + Math.min(start + CHUNK, n) + ' of ' + n + '…', true);
+    return fetchJSONRetry(body, 1, 90000).then(function (d) {
+      if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) return d;
+      if (!d || d.ok === false) {
+        var err = new Error((d && (d.message || d.error)) || 'Confirm failed');
+        if (total) err.message += ' (' + total + ' were confirmed before this.)';
+        throw err;
+      }
+      total += Number(d.confirmed || (d.ids && d.ids.length) || 0);
+      return sendChunk(start + CHUNK);
+    });
+  };
+  sendChunk(0)
     .then(function (d) {
       if (typeof empireAuthHandleInvalidSession_ === 'function' && empireAuthHandleInvalidSession_(d)) return;
       if (!d || d.ok === false) throw new Error((d && (d.message || d.error)) || 'Confirm failed');
-      var got = Number(d.confirmed || (d.ids && d.ids.length) || n);
+      var got = Number(d.confirmed || n);
       hrMsg_('Director confirmed ' + got + (got === 1 ? ' paper.' : ' papers.'), true);
       hrRefreshLists_();
       hrSwitchTab_(null, 'list');
@@ -4382,6 +4415,12 @@ function hrRenderTable_() {
   var groupSelN = selectable.filter(function (r) { return !!_hrSelected[String(r.id)]; }).length;
   if (selectable.length) {
     h += '<div class="hr-stage-acts">';
+    // 2026-11-15: one box on top selects every paper you can sign (works on phones too).
+    var allOn = showSel && groupSelN === selectable.length;
+    h += '<label class="hr-selall-top" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;cursor:pointer;' +
+      'padding:6px 12px;border:1px solid #e6cddc;border-radius:50px;background:#faf6f8;color:#8d015d;">' +
+      '<input type="checkbox" id="hrSelAllTop" style="width:18px;height:18px;margin:0;cursor:pointer;" onclick="hrSelectAllTop_(event)"' +
+      (allOn ? ' checked' : '') + '> ' + hrEsc_('Select all (' + selectable.length + ')') + '</label>';
     if (showSel) {
       h += '<span class="hr-select-count" id="hrSelectCount">' + hrEsc_(hrT('selectedCount', selN ? selN + ' selected' : 'Select papers', { n: selN })) + '</span>';
       if (hrIsDirectorOnly_()) {

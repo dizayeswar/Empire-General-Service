@@ -1649,7 +1649,7 @@ export async function handleConfirmHrLeaveRequests(body: Record<string, unknown>
   }
   await healUnconfirmedLeaveDays();
   const raw = Array.isArray(body.ids) ? body.ids : [];
-  const ids = [...new Set(raw.map((v) => String(v || "").trim()).filter(Boolean))].slice(0, 80);
+  const ids = [...new Set(raw.map((v) => String(v || "").trim()).filter(Boolean))].slice(0, 200);
   if (!ids.length) return { ok: false, success: false, error: "missing_id", message: "Select at least one paper." };
   const directorSig = await resolveDirectorSignature(body, auth);
   if (!directorSig) {
@@ -1664,11 +1664,18 @@ export async function handleConfirmHrLeaveRequests(body: Record<string, unknown>
     scanPlace: body.scanPlace,
   };
   const confirmed: string[] = [];
-  await Promise.all(pending.map(async (ex) => {
-    const patch = directorConfirmPatch(ex, directorSig, auth, extra);
-    const saved = await saveDirectorConfirm_(ex, patch, String(auth.username || ""));
-    if (saved) confirmed.push(String(ex.id || ""));
-  }));
+  const charges: DaysCharge[] = [];
+  const by = String(auth.username || "");
+  // Save the papers in small parallel groups (fast, without flooding the database).
+  for (let i = 0; i < pending.length; i += 20) {
+    await Promise.all(pending.slice(i, i + 20).map(async (ex) => {
+      const patch = directorConfirmPatch(ex, directorSig, auth, extra);
+      const saved = await saveDirectorConfirm_(ex, patch, by, charges);
+      if (saved) confirmed.push(String(ex.id || ""));
+    }));
+  }
+  // Leave days for all confirmed papers in one Employees write.
+  await applyLeaveDaysBatch(charges, by);
   return { ok: true, success: true, confirmed: confirmed.length, ids: confirmed };
 }
 
@@ -2046,7 +2053,36 @@ function markDaysCharged(entitlements: unknown): string {
   return entitlementsJson(ents);
 }
 
-async function saveDirectorConfirm_(ex: Record<string, unknown>, patch: Record<string, unknown>, by: string): Promise<boolean> {
+type DaysCharge = { code: string; days: number; note: string };
+
+/* Many papers at once: read the Employees list once, take all the days off, write it once.
+ * (Doing it per paper in parallel let the writes overwrite each other and lose deductions.)
+ * Each paper still gets its own "Days left" line in the Report. */
+async function applyLeaveDaysBatch(charges: DaysCharge[], by = "") {
+  const list = charges.filter((c) => c.code && Math.round(Number(c.days) * 10) / 10);
+  if (!list.length) return;
+  const people = await readHrEmployees();
+  const logs: Array<{ person: HrPerson; from: number; to: number; note: string }> = [];
+  for (const c of list) {
+    const person = people.find((row) => row.code === c.code && row.active);
+    if (!person || person.daysBalance == null) continue;
+    const from = person.daysBalance;
+    person.daysBalance = Math.round((person.daysBalance - Math.round(Number(c.days) * 10) / 10) * 10) / 10;
+    logs.push({ person: { ...person }, from, to: person.daysBalance, note: c.note });
+  }
+  if (!logs.length) return;
+  await writeHrEmployees(people);
+  await Promise.all(logs.map((l) =>
+    logEmployeeChange(by, "days", l.person, [{ field: "Days left", from: String(l.from), to: String(l.to) }], l.note)
+  ));
+}
+
+async function saveDirectorConfirm_(
+  ex: Record<string, unknown>,
+  patch: Record<string, unknown>,
+  by: string,
+  deferDays?: DaysCharge[],
+): Promise<boolean> {
   const charge = !leaveDaysCharged(ex);
   patch.entitlements = markDaysCharged(patch.entitlements);
   const id = String(ex.id || "").trim();
@@ -2059,7 +2095,9 @@ async function saveDirectorConfirm_(ex: Record<string, unknown>, patch: Record<s
   if (error) throw error;
   const saved = Array.isArray(data) && data.length > 0;
   if (saved && charge) {
-    await applyLeaveDays(String(ex.emp_code || "").trim(), parseLeaveDays(ex.days_out), by, "Director confirmed paper " + paperLabel(ex));
+    const c = { code: String(ex.emp_code || "").trim(), days: parseLeaveDays(ex.days_out), note: "Director confirmed paper " + paperLabel(ex) };
+    if (deferDays) deferDays.push(c);
+    else await applyLeaveDays(c.code, c.days, by, c.note);
   }
   return saved;
 }
