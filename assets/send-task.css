@@ -100,6 +100,8 @@ html[data-theme="dark"] .dt-has-visit { color:#9cc7f2; }
 .dt-photos figure { margin:0; width:110px; }
 .dt-photos img { width:110px; height:110px; object-fit:cover; border-radius:10px; cursor:pointer; display:block; }
 .dt-photos figcaption { font-size:11px; color:var(--text-faint); margin-top:2px; }
+.dt-draft-photo-wait { width:110px; height:110px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:12px; color:var(--text-soft); background:var(--bg-soft, rgba(127,127,127,.12)); }
+.dt-draft-photo-x { width:100%; margin-top:4px; padding:4px 6px; font-size:12px; }
 
 .dt-note-add { display:flex; flex-direction:column; gap:8px; margin-top:16px; }
 .dt-note-add button { align-self:flex-start; }

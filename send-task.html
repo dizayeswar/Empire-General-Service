@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #dtDeskApp,body.auth-login-visible #dtPhoneApp,body.auth-login-visible .worker-modal{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-09-22-search-pill">
 <link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-09-22-search-pill">
-<link rel="stylesheet" href="assets/send-task.css?v=2026-10-19-apartments">
+<link rel="stylesheet" href="assets/send-task.css?v=2026-11-15-pictures">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -117,6 +117,15 @@
         </div>
         <audio id="dtDraftVoicePlay" controls style="display:none"></audio>
       </div>
+      <div class="form-group">
+        <label>Pictures</label>
+        <p class="dt-hint">Optional. Show the workers the problem. Up to 10 pictures.</p>
+        <div class="dt-actions">
+          <button type="button" id="dtDraftPhotoBtn" onclick="document.getElementById('dtDraftPhotoInput').click()">📷 Add pictures</button>
+        </div>
+        <input type="file" id="dtDraftPhotoInput" class="worker-sr-file-input" accept="image/*" multiple onchange="dtDraftPhotoFiles_(event)">
+        <div id="dtDraftPhotos" class="dt-photos"></div>
+      </div>
       <div class="dt-actions">
         <button type="button" id="dtSendBtn" class="dt-primary" onclick="dtSendTask_()" disabled>Send task</button>
         <span id="dtSendMsg" class="dt-msg" aria-live="polite"></span>
@@ -196,6 +205,6 @@
 <script src="assets/empire-api.js?v=2026-09-15-sec-acc"></script>
 <script src="assets/empire-auth.js?v=2026-10-18-send-task"></script>
 <script src="assets/empire-core.js?v=2026-09-15-sec-acc"></script>
-<script src="assets/send-task-app.js?v=2026-10-19-dept-required"></script>
+<script src="assets/send-task-app.js?v=2026-11-15-pictures"></script>
 </body>
 </html>

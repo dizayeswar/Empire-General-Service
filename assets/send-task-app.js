@@ -372,12 +372,25 @@ function dtSendTask_() {
   };
   if (!payload.building || !payload.floor || !payload.unit) { dtSetMsg_('dtSendMsg', 'Pick a building, floor and apartment.', true); return; }
   if (_dtDraftRec) { dtSetMsg_('dtSendMsg', 'Stop the voice message first, or cancel it.', true); return; }
+  if (_dtDraftPhotos.some(function (p) { return !p.url; })) { dtSetMsg_('dtSendMsg', 'Wait for the pictures to finish uploading.', true); return; }
   var draftVoice = _dtDraftVoice;
+  var draftPhotos = _dtDraftPhotos.map(function (p) { return p.url; });
+  var photosFailed = 0;
   _dtBusy = true;
   var btn = document.getElementById('dtSendBtn');
   btn.disabled = true;
   dtSetMsg_('dtSendMsg', 'Sending…');
   dtApi_('createDtask', payload).then(function (d) {
+    if (!draftPhotos.length || !d.task) return d;
+    dtSetMsg_('dtSendMsg', 'Adding the pictures…');
+    // One at a time so they keep their order on the task.
+    return draftPhotos.reduce(function (chain, url) {
+      return chain.then(function () {
+        return dtApi_('addDtaskPhoto', { id: d.task.id, url: url, kind: 'before', itemId: '' })
+          .catch(function () { photosFailed++; });
+      });
+    }, Promise.resolve()).then(function () { return d; });
+  }).then(function (d) {
     if (!draftVoice || !d.task) return d;
     dtSetMsg_('dtSendMsg', 'Sending the voice message…');
     return empireUploadAudioAsync(draftVoice.blob, 'dtasks/' + dept + '/voice').then(function (url) {
@@ -390,7 +403,10 @@ function dtSendTask_() {
     });
   }).then(function (d) {
     var voiceNote = draftVoice ? ' The voice message is on the task.' : '';
-    dtSetMsg_('dtSendMsg', 'Sent ' + (d.task && d.task.ref ? d.task.ref : 'task') + ' to the ' + dtDeptLabel_(dept) + ' department.' + voiceNote);
+    var okPhotos = draftPhotos.length - photosFailed;
+    var photoNote = okPhotos ? ' ' + okPhotos + (okPhotos === 1 ? ' picture is' : ' pictures are') + ' on the task.' : '';
+    if (photosFailed) photoNote += ' ' + photosFailed + ' picture(s) did not go through. Open the task and add them again.';
+    dtSetMsg_('dtSendMsg', 'Sent ' + (d.task && d.task.ref ? d.task.ref : 'task') + ' to the ' + dtDeptLabel_(dept) + ' department.' + voiceNote + photoNote, !!photosFailed);
     dtResetForm_();
     dtLoadTasks_(false);
   }).catch(function (err) {
@@ -423,6 +439,59 @@ function dtResetForm_() {
   });
   dtOnFloorChange_();
   dtDraftVoiceRemove_();
+  _dtDraftPhotos = [];
+  dtDraftPhotosUi_();
+}
+
+// Pictures picked on the Send a task form. Each one uploads as soon as it is
+// picked; after the task is created they are added to it as "before" photos.
+var DT_DRAFT_PHOTO_MAX = 10;
+var _dtDraftPhotos = [];   // [{ key, url }] — url is '' while uploading
+var _dtDraftPhotoSeq = 0;
+
+function dtDraftPhotoFiles_(ev) {
+  var input = ev.target;
+  var files = Array.prototype.slice.call(input.files || []);
+  input.value = '';
+  var room = DT_DRAFT_PHOTO_MAX - _dtDraftPhotos.length;
+  if (files.length > room) {
+    dtSetMsg_('dtSendMsg', 'Up to ' + DT_DRAFT_PHOTO_MAX + ' pictures per task.', true);
+    files = files.slice(0, Math.max(0, room));
+  }
+  var dept = document.getElementById('dtDept').value || 'misc';
+  files.forEach(function (file) {
+    var entry = { key: ++_dtDraftPhotoSeq, url: '' };
+    _dtDraftPhotos.push(entry);
+    empireCompressImage(file, 'dtasks/' + dept, function (url) {
+      if (_dtDraftPhotos.indexOf(entry) < 0) return; // removed while uploading
+      if (!url) {
+        _dtDraftPhotos.splice(_dtDraftPhotos.indexOf(entry), 1);
+        dtSetMsg_('dtSendMsg', (typeof _lastEmpireUploadError !== 'undefined' && _lastEmpireUploadError) || 'Picture upload failed. Try again.', true);
+      } else {
+        entry.url = url;
+      }
+      dtDraftPhotosUi_();
+    });
+  });
+  dtDraftPhotosUi_();
+}
+
+function dtDraftPhotoRemove_(key) {
+  _dtDraftPhotos = _dtDraftPhotos.filter(function (p) { return p.key !== key; });
+  dtDraftPhotosUi_();
+}
+
+function dtDraftPhotosUi_() {
+  var box = document.getElementById('dtDraftPhotos');
+  if (!box) return;
+  box.innerHTML = _dtDraftPhotos.map(function (p) {
+    var img = p.url
+      ? '<img src="' + dtEsc_(p.url) + '" alt="" onclick="dtBigImg_(this.src)">'
+      : '<div class="dt-draft-photo-wait">Uploading…</div>';
+    return '<figure>' + img + '<figcaption><button type="button" class="dt-draft-photo-x" onclick="dtDraftPhotoRemove_(' + p.key + ')">Remove</button></figcaption></figure>';
+  }).join('');
+  var btn = document.getElementById('dtDraftPhotoBtn');
+  if (btn) btn.disabled = _dtDraftPhotos.length >= DT_DRAFT_PHOTO_MAX;
 }
 
 var _dtDraftRec = null;
