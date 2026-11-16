@@ -64,6 +64,11 @@ export function normPlate(raw: unknown): string {
     .replace(/[^0-9A-Z؀-ۿ]/g, "");
 }
 
+/** A plate as people read it: trimmed, letters in capitals ("22 a 6155" → "22 A 6155"). */
+function plateText(raw: unknown): string {
+  return str(raw, 30).toUpperCase();
+}
+
 /** Iraqi numbers as typed ("0750 123 4567", "+964…", "00964…") → "9647501234567". */
 export function waPhone(raw: unknown): string {
   let d = String(raw ?? "")
@@ -109,7 +114,7 @@ export function warningParams(report: Row, lang: WaLang): string[] {
   const violation = String(report.violation || "");
   return [
     warningWord(Number(report.warning_no) || 1, lang),
-    wrap(String(report.plate || "")),
+    wrap(plateText(report.plate)),
     WA_VIOLATIONS[lang][violation] || VIOLATIONS[violation] || violation,
     wrap(String(report.apartment_code || "")) + " — " + (WA_PROJECTS[lang][project] || project.toUpperCase()),
     wrap(erbilTime(report.created_at)),
@@ -221,11 +226,13 @@ async function sendWarningWhatsApp(report: Row, apt: Row | null, done: Map<strin
   const phoneId = str(Deno.env.get("WHATSAPP_PHONE_NUMBER_ID"), 60);
   if (!token || !phoneId) return { status: "not_configured", error: "WhatsApp keys are not set yet.", messageId: "" };
 
+  // The project name follows the apartment, not the project button security tapped.
+  const forMsg: Row = { ...report, project: apt.project || report.project };
   const ids = new Map(done);
   const errors: string[] = [];
   for (const msg of WA_MESSAGES) {
     if (ids.has(msg.lang)) continue;
-    const r = await sendTemplate(to, token, phoneId, msg, report);
+    const r = await sendTemplate(to, token, phoneId, msg, forMsg);
     if (r.ok) ids.set(msg.lang, r.id);
     else errors.push(msg.lang.toUpperCase() + ": " + r.error);
   }
@@ -295,7 +302,7 @@ export async function handleGetCarparkApartments(_body: Body, auth: AuthOk) {
 
 /** Replace one apartment's plates; refuses a plate that already belongs to another apartment. */
 async function savePlates(code: string, platesRaw: unknown): Promise<string> {
-  const list = (Array.isArray(platesRaw) ? platesRaw : []).map((p) => str(p, 30)).filter(Boolean);
+  const list = (Array.isArray(platesRaw) ? platesRaw : []).map(plateText).filter(Boolean);
   const seen = new Set<string>();
   const plates: { plate: string; plate_norm: string }[] = [];
   for (const p of list) {
@@ -372,7 +379,7 @@ export async function handleImportCarparkApartments(body: Body, auth: AuthOk) {
     if (str(r.ownerName)) patch.owner_name = str(r.ownerName, 120);
     if (phone || patch.owner_name) updates.push(patch);
     for (const p of (Array.isArray(r.plates) ? r.plates : [])) {
-      const plate = str(p, 30);
+      const plate = plateText(p);
       const n = normPlate(plate);
       if (!n) continue;
       if (plateOwner[n]) {
@@ -416,7 +423,7 @@ export async function handleAddCarparkReport(body: Body, auth: AuthOk) {
   if (!PROJECTS[project]) return fail("Pick the project.", "bad_input");
   const violation = str(body.violation);
   if (!VIOLATIONS[violation]) return fail("Pick what the car did.", "bad_input");
-  const plate = str(body.plate, 30);
+  const plate = plateText(body.plate);
   const plateNorm = normPlate(plate);
   if (plateNorm.length < 2) return fail("Write the car plate number.", "bad_input");
   const photoUrl = str(body.photoUrl, 1000);
@@ -490,7 +497,7 @@ export async function handleLinkCarparkReport(body: Body, auth: AuthOk) {
     const owner = await findCarByPlate(String(r.plate_norm));
     if (owner && owner.apartment_code !== code) return fail(`Plate ${owner.plate} is already on ${owner.apartment_code}.`, "bad_input");
     if (!owner) {
-      const { error } = await sb().from("carpark_cars").insert({ apartment_code: code, plate: r.plate, plate_norm: r.plate_norm });
+      const { error } = await sb().from("carpark_cars").insert({ apartment_code: code, plate: plateText(r.plate), plate_norm: r.plate_norm });
       if (error) throw error;
     }
   }
