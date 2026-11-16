@@ -240,6 +240,7 @@ export const DEPT_BY_ACTION: Record<string, string> = {
   removeHrEmployee: "hr",
   getHrReport: "hr",
   getHrPaperAdjust: "hr",
+  getHrLeaveCalendar: "hr",
   saveHrPaperAdjust: "hr",
   rejectHrLeaveRequest: "hr",
   fileHrLeaveRequests: "hr",

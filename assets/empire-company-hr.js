@@ -321,6 +321,15 @@
     });
   }
 
+  /* Leave calendar (E2 + E3): its own file, loaded here so the locked hr-leave.html is not edited.
+   * Only on the leave page (it has the HR side menu). */
+  function loadCalendar() {
+    if (window.__hrCalLoaded || !document.querySelector('.side-nav') || !document.getElementById('hrTeamHost')) return;
+    var s = document.createElement('script');
+    s.src = 'assets/empire-hr-calendar.js?v=2026-11-16-cal';
+    document.body.appendChild(s);
+  }
+
   function boot() {
     addBadges();
     hookPrint();
@@ -328,6 +337,7 @@
     e3NoLateness();
     loadAdjust();
     bindEditor();
+    loadCalendar();
     if (company() !== 'E3' || typeof MutationObserver === 'undefined') return;
     new MutationObserver(function (list) {
       list.forEach(function (m) {

@@ -47,6 +47,7 @@ const HR_ACTIONS: Record<string, (b: Record<string, unknown>, a: AuthOk) => Prom
   removeHrEmployee: (b, a) => hr.handleRemoveHrEmployee(b, a),
   getHrReport: (_b, a) => hr.handleGetHrReport(a),
   getHrPaperAdjust: (_b, _a) => hr.handleGetHrPaperAdjust(),
+  getHrLeaveCalendar: (b, a) => hr.handleGetHrLeaveCalendar(b, a),
   saveHrPaperAdjust: (b, a) => hr.handleSaveHrPaperAdjust(b, a),
   rejectHrLeaveRequest: (b, a) => hr.handleRejectHrLeaveRequest(b, a),
   fileHrLeaveRequests: (b, a) => hr.handleFileHrLeaveRequests(b, a),
