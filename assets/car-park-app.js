@@ -170,7 +170,7 @@ function cpLoadAll_(showLoading) {
     _cpCanWrite = !!res[0].canWrite;
     _cpReports = res[1].reports || [];
     document.getElementById('cpImportBtn').style.display = _cpCanWrite ? '' : 'none';
-    document.getElementById('cpTabBin').style.display = _cpCanWrite ? '' : 'none';
+    document.getElementById('cpTabBin').style.display = cpIsAdmin_() ? '' : 'none';
     cpRenderDesk_();
   }).catch(function (err) {
     ['cpDash', 'cpReportList', 'cpAptList'].forEach(function (id) { document.getElementById(id).innerHTML = empireErrorHtml(err.message); });
@@ -208,7 +208,7 @@ function cpDeskTab_(tab) {
 }
 
 // ---------------------------------------------------------------------------
-// Desk: recycle bin (deleted reports, portal write only)
+// Desk: recycle bin (deleted reports, admins only)
 // ---------------------------------------------------------------------------
 
 var _cpBin = [];
