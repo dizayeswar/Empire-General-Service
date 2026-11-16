@@ -179,17 +179,21 @@ Backend stores device tokens in Supabase (created automatically when a phone ena
 
 ### Car Park WhatsApp warnings (Meta WhatsApp Cloud API)
 
-`car-park.html`: security reports a car (photo + plate + type). The server finds the apartment by plate, counts the warning (1st, 2nd, 3rd…) and sends a WhatsApp **template** message to the apartment's phone. Until the keys below are set, reports still save with WhatsApp status **WhatsApp not set up**. The portal's **Send WhatsApp** button sends them later.
+`car-park.html`: security reports a car (photo + plate + type). The server finds the apartment by plate, counts the warning (1st, 2nd, 3rd…) and sends **3 WhatsApp template messages** to the apartment's phone: English (with the photo), Kurdish, Arabic. The report shows **Sent** only when all 3 went out; **Send WhatsApp** resends only the languages that failed. Until the keys below are set, reports save with status **WhatsApp not set up**.
 
-1. In Meta Business Manager → WhatsApp → create a template named `car_park_warning`, category **Utility**, language **English**:
-   - Header: **Image**
-   - Body (5 variables, in this order):
-     `Empire World Car Park — {{1}} warning. Your car {{2}} was reported for: {{3}}. Apartment: {{4}}. Time: {{5}}. Please park correctly; repeated warnings are followed up by management.`
-2. When it is approved, set the secrets (permanent System User token, and the sender's Phone number ID):
+1. In WhatsApp Manager → Message templates, the 3 templates (category **Utility**, variable type **Number**). Meta has no Kurdish, so the Kurdish one is filed under Arabic:
+
+   | Name | Language | Header |
+   |---|---|---|
+   | `car_park_warning_en` | English (`en`) | Image |
+   | `car_park_warning_ku` | Arabic (`ar`) | none |
+   | `car_park_warning_ar` | Arabic (`ar`) | none |
+
+   Each body has the same 5 blanks in this order: `{{1}}` warning (1st / یەکەم / الأول), `{{2}}` plate, `{{3}}` violation, `{{4}}` apartment and project, `{{5}}` date and time. The wording around them can be edited in WhatsApp Manager without a deploy. Adding or removing a blank needs a change in `handlers_carpark.ts` (`WA_MESSAGES`, `warningParams`). The old `car_park_warning` template is no longer used.
+2. Secrets (permanent System User token, and the sender's Phone number ID):
    ```bash
    npx supabase secrets set WHATSAPP_TOKEN=... WHATSAPP_PHONE_NUMBER_ID=... --project-ref nobcitpaudeopzfymgzi
    ```
-   Optional: `WHATSAPP_TEMPLATE` (default `car_park_warning`), `WHATSAPP_TEMPLATE_LANG` (default `en`), `WHATSAPP_TEMPLATE_IMAGE=0` if the template has no image header.
 3. Phones are typed like `0750 123 4567`; the server turns them into `9647501234567`.
 
 Access (Users page → **Car Park**): **Portal** = apartments, cars, reports, dashboard. **Security** = the phone report screen.

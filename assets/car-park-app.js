@@ -18,6 +18,8 @@ var CP_WA_LABEL = {
 };
 // Meta's Utility price per delivered message to Iraq (+964), USD, rate card from 1 Oct 2026. Only an estimate; Meta Insights has the real bill.
 var CP_WA_PRICE_USD = 0.0079;
+// Each warning is 3 messages: English, Kurdish, Arabic.
+var CP_WA_MSGS_PER_WARNING = 3;
 var CP_MAX_PLATES = 5;
 var CP_POLL_MS = 60000;
 
@@ -259,7 +261,7 @@ function cpRenderDash_() {
       return !from || new Date(r.waSentAt) >= from;
     }).length;
   };
-  var waCost = function (n) { var usd = n * CP_WA_PRICE_USD; return '$' + usd.toFixed(usd && usd < 1 ? 3 : 2); };
+  var waCost = function (n) { var usd = n * CP_WA_MSGS_PER_WARNING * CP_WA_PRICE_USD; return '$' + usd.toFixed(usd && usd < 1 ? 3 : 2); };
   var waToday = waSentSince(cpRangeStart_('today'));
   var waMonth = waSentSince(cpRangeStart_('month'));
   var waPeriod = waSentSince(start);
@@ -268,7 +270,7 @@ function cpRenderDash_() {
     stat(waToday, 'Sent today · ' + waCost(waToday), 'cp-stat-ok') +
     stat(waMonth, 'Sent this month · ' + waCost(waMonth), 'cp-stat-ok') +
     (range === 'today' || range === 'month' ? '' : stat(waPeriod, 'Sent · ' + periodLabel + ' · ' + waCost(waPeriod), 'cp-stat-ok')) +
-    '</div><p class="dt-hint">Estimated at $' + CP_WA_PRICE_USD + ' per message (Meta, Iraq, Utility). The real bill is in WhatsApp Manager → Insights → Message pricing, about a day later. Deleted reports are not counted here.</p>';
+    '</div><p class="dt-hint">Counts are warnings. Each warning is ' + CP_WA_MSGS_PER_WARNING + ' messages (English, Kurdish, Arabic), estimated at $' + CP_WA_PRICE_USD + ' each (Meta, Iraq, Utility). The real bill is in WhatsApp Manager → Insights → Message pricing, about a day later. Deleted reports are not counted here.</p>';
 
   h += '<h3>By project</h3><div class="dt-table-wrap"><table><thead><tr><th>Project</th><th>1st</th><th>2nd</th><th>3rd+</th><th>Plate not found</th><th>Total</th></tr></thead><tbody>';
   CP_PROJECTS.forEach(function (p) {
