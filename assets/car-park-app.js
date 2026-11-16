@@ -170,6 +170,7 @@ function cpLoadAll_(showLoading) {
     _cpCanWrite = !!res[0].canWrite;
     _cpReports = res[1].reports || [];
     document.getElementById('cpImportBtn').style.display = _cpCanWrite ? '' : 'none';
+    document.getElementById('cpTabBin').style.display = _cpCanWrite ? '' : 'none';
     cpRenderDesk_();
   }).catch(function (err) {
     ['cpDash', 'cpReportList', 'cpAptList'].forEach(function (id) { document.getElementById(id).innerHTML = empireErrorHtml(err.message); });
@@ -199,9 +200,70 @@ function cpRenderDesk_() {
 }
 
 function cpDeskTab_(tab) {
-  [['dash', 'cpTabDash', 'cpPaneDash'], ['reports', 'cpTabReports', 'cpPaneReports'], ['apts', 'cpTabApts', 'cpPaneApts']].forEach(function (t) {
+  [['dash', 'cpTabDash', 'cpPaneDash'], ['reports', 'cpTabReports', 'cpPaneReports'], ['apts', 'cpTabApts', 'cpPaneApts'], ['bin', 'cpTabBin', 'cpPaneBin']].forEach(function (t) {
     document.getElementById(t[1]).classList.toggle('active', t[0] === tab);
     document.getElementById(t[2]).classList.toggle('active', t[0] === tab);
+  });
+  if (tab === 'bin') cpLoadBin_(true);
+}
+
+// ---------------------------------------------------------------------------
+// Desk: recycle bin (deleted reports, portal write only)
+// ---------------------------------------------------------------------------
+
+var _cpBin = [];
+
+function cpLoadBin_(showLoading) {
+  var host = document.getElementById('cpBinList');
+  if (showLoading) host.innerHTML = empireLoadingHtml();
+  return cpApi_('getDeletedCarparkReports').then(function (d) {
+    _cpBin = d.reports || [];
+    cpRenderBin_();
+  }).catch(function (err) { host.innerHTML = empireErrorHtml(err.message); });
+}
+
+function cpRenderBin_() {
+  var q = document.getElementById('cpBinSearch').value.trim().toLowerCase();
+  var qPlate = cpNormPlate_(q);
+  var rows = _cpBin.filter(function (r) {
+    if (!q) return true;
+    if (qPlate && cpNormPlate_(r.plate).indexOf(qPlate) !== -1) return true;
+    return [r.apartmentCode, r.deletedBy, cpPretty_(r.deletedBy), r.reportedBy, cpPretty_(r.reportedBy), r.violationLabel, '#' + r.num].join(' ').toLowerCase().indexOf(q) !== -1;
+  });
+  var host = document.getElementById('cpBinList');
+  if (!rows.length) {
+    host.innerHTML = empireEmptyHtml(_cpBin.length ? 'No deleted reports match' : 'Recycle bin is empty', _cpBin.length ? 'Change the search.' : 'Deleted reports will show here.');
+    return;
+  }
+  var h = '<div class="dt-table-wrap"><table><thead><tr><th>#</th><th>Photo</th><th>Reported</th><th>Plate</th><th>Apartment</th><th>What</th><th>Warning</th><th>Deleted</th><th></th></tr></thead><tbody>';
+  rows.forEach(function (r) {
+    h += '<tr>' +
+      '<td><strong>' + r.num + '</strong></td>' +
+      '<td>' + (r.photoUrl ? '<a href="' + cpEsc_(r.photoUrl) + '" target="_blank" rel="noopener"><img class="cp-thumb" src="' + cpEsc_(r.photoUrl) + '" alt="" loading="lazy"></a>' : '') + '</td>' +
+      '<td>' + cpEsc_(cpWhen_(r.createdAt)) + '<div class="dt-sub">' + cpEsc_(cpPretty_(r.reportedBy)) + '</div></td>' +
+      '<td><span class="cp-plate">' + cpEsc_(r.plate) + '</span></td>' +
+      '<td>' + (r.apartmentCode ? '<strong>' + cpEsc_(r.apartmentCode) + '</strong>' : '<span class="dt-sub">' + cpProjectShort_(r.project) + ' · not found</span>') + '</td>' +
+      '<td>' + cpEsc_(r.violationLabel) + '</td>' +
+      '<td>' + cpWarnBadge_(r.warningNo) + '</td>' +
+      '<td>' + cpEsc_(cpWhen_(r.deletedAt)) + '<div class="dt-sub">' + cpEsc_(cpPretty_(r.deletedBy) || '—') + '</div></td>' +
+      '<td><button type="button" class="dt-primary" onclick="cpRestoreReport_(\'' + cpEsc_(r.id) + '\', this)">Restore</button></td></tr>';
+  });
+  h += '</tbody></table></div>';
+  host.innerHTML = h;
+}
+
+function cpRestoreReport_(id, btn) {
+  if (!confirm('Restore this report? It will count as a warning again. WhatsApp is not sent again.')) return;
+  if (btn) btn.disabled = true;
+  cpSetMsg_('cpBinMsg', 'Restoring…');
+  cpApi_('restoreCarparkReport', { id: id }).then(function (d) {
+    cpSetMsg_('cpBinMsg', 'Report #' + ((d.report && d.report.num) || '') + ' restored.');
+    _cpBin = _cpBin.filter(function (r) { return r.id !== id; });
+    cpRenderBin_();
+    cpLoadAll_(false);
+  }).catch(function (err) {
+    if (btn) btn.disabled = false;
+    cpSetMsg_('cpBinMsg', err.message, true);
   });
 }
 
@@ -449,7 +511,7 @@ function cpLinkReport_(id) {
 }
 
 function cpDeleteReport_(id) {
-  if (!confirm('Delete this report? It will no longer count as a warning.')) return;
+  if (!confirm('Delete this report? It will no longer count as a warning. You can restore it from the Recycle bin.')) return;
   cpSetMsg_('cpModalMsg', 'Deleting…');
   cpApi_('deleteCarparkReport', { id: id }).then(function () {
     cpCloseModal_();

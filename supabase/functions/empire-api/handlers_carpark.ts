@@ -517,3 +517,26 @@ export async function handleDeleteCarparkReport(body: Body, auth: AuthOk) {
   if (error) throw error;
   return { ok: true, success: true };
 }
+
+/** Recycle bin: deleted reports, newest deleted first (portal write only). */
+export async function handleGetDeletedCarparkReports(_body: Body, auth: AuthOk) {
+  if (portalLevel(auth) !== "write") return fail("This account cannot see the Car Park recycle bin.");
+  const { data, error } = await sb().from("carpark_reports").select("*").not("deleted_at", "is", null)
+    .order("deleted_at", { ascending: false }).limit(500);
+  if (error) throw error;
+  return {
+    ok: true,
+    success: true,
+    reports: (data || []).map((r: Row) => ({ ...reportToApi(r), deletedAt: iso(r.deleted_at), deletedBy: r.deleted_by || "" })),
+  };
+}
+
+/** Bring a deleted report back. It keeps its warning number; WhatsApp is not sent again. */
+export async function handleRestoreCarparkReport(body: Body, auth: AuthOk) {
+  if (portalLevel(auth) !== "write") return fail("This account cannot restore Car Park reports.");
+  const { data, error } = await sb().from("carpark_reports").update({ deleted_at: null, deleted_by: "" })
+    .eq("id", str(body.id, 80)).not("deleted_at", "is", null).select("*").maybeSingle();
+  if (error) throw error;
+  if (!data) return fail("Report not found in the recycle bin.", "not_found");
+  return { ok: true, success: true, report: reportToApi(data as Row) };
+}

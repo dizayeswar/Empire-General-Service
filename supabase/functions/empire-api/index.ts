@@ -65,7 +65,7 @@ function json(obj: unknown, status = 200) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method === "GET") {
-    return json({ ok: true, msg: "Empire API running (Supabase)", version: "2026-11-16-carpark-caps"});
+    return json({ ok: true, msg: "Empire API running (Supabase)", version: "2026-11-16-carpark-bin"});
   }
   if (req.method !== "POST") return json({ ok: false, error: "Method not allowed" }, 405);
 
@@ -143,6 +143,8 @@ Deno.serve(async (req) => {
       resendCarparkWhatsApp: carpark.handleResendCarparkWhatsApp,
       linkCarparkReport: carpark.handleLinkCarparkReport,
       deleteCarparkReport: carpark.handleDeleteCarparkReport,
+      getDeletedCarparkReports: carpark.handleGetDeletedCarparkReports,
+      restoreCarparkReport: carpark.handleRestoreCarparkReport,
     };
     if (carparkHandlers[action]) {
       let cpAuth = await verifyTokenSession(String(body.token || ""));
