@@ -2336,6 +2336,63 @@ function signatureForPerson(
   return hit ? hit.signature : "";
 }
 
+/* Leave calendar (2026-11-16): READ-ONLY. Approved leave papers of one person.
+ * Who may see whom (checked here, not in the page):
+ *   admin / HR staff / director -> anyone in this company
+ *   line manager                -> themselves + people whose line manager they are
+ *   employee                    -> themselves only */
+const CAL_APPROVED = ["completed", "processed", "director_approved"];
+
+export async function handleGetHrLeaveCalendar(body: Record<string, unknown>, auth: AuthOk) {
+  const people = (await readHrEmployees()).filter((p) => p.active);
+  const seeAll = isAdminAccount(auth.role, auth.moduleAccess) || isHrStaff(auth) || isHrDirector(auth);
+  const me = findPersonForAccount(people, auth.username);
+  let allowed: HrPerson[];
+  if (seeAll) allowed = people;
+  else if (me) allowed = [me, ...people.filter((p) => p.managerCode === me.code && p.code !== me.code)];
+  else allowed = [];
+  const list = allowed.map((p) => ({ code: p.code, name: p.name, department: p.department, mine: !!me && p.code === me.code }));
+  const want = cleanPersonText(body.code) || (me ? me.code : "");
+  const person = allowed.find((p) => p.code === want) || null;
+  if (!person) {
+    return {
+      ok: true,
+      success: true,
+      people: list,
+      person: null,
+      papers: [],
+      message: want && !seeAll ? "You can only see your own calendar and your staff." : "",
+    };
+  }
+  const { data, error } = await sb()
+    .from("hr_leave_requests")
+    .select("id,num,leave_type,leave_other,start_date,end_date,days_out,status")
+    .eq("company", currentCompany())
+    .eq("emp_code", person.code)
+    .in("status", CAL_APPROVED)
+    .order("start_date", { ascending: false })
+    .limit(1000);
+  if (error) throw error;
+  const papers = (data || []).map((r) => ({
+    id: String(r.id || ""),
+    num: r.num,
+    type: String(r.leave_type || "").trim(),
+    other: String(r.leave_other || "").trim(),
+    start: fmtDate(r.start_date),
+    end: fmtDate(r.end_date) || fmtDate(r.start_date),
+    daysText: String(r.days_out || "").trim(),
+    days: parseLeaveDays(r.days_out),
+    status: String(r.status || ""),
+  }));
+  return {
+    ok: true,
+    success: true,
+    people: list,
+    person: { code: person.code, name: person.name, department: person.department, job: person.job, daysBalance: person.daysBalance },
+    papers,
+  };
+}
+
 export async function handleListHrTeam(auth: AuthOk) {
   await healUnconfirmedLeaveDays();
   if (!isHrLine(auth) && !isHrStaff(auth)) {
