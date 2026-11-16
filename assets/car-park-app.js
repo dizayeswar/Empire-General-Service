@@ -28,7 +28,7 @@ var _cpApts = [];
 var _cpReports = [];
 var _cpCanWrite = false;
 var _cpPollTimer = null;
-var _cpPh = { project: '', photoUrl: '', photoBusy: false, violation: '', busy: false };
+var _cpPh = { project: '', photoUrl: '', photoBlob: null, photoBusy: false, violation: '', busy: false };
 var _cpLookupTimer = null;
 var _cpLookupSeq = 0;
 
@@ -185,7 +185,11 @@ function cpLoadReports_(showLoading) {
     if (_cpMode === 'desk') cpRenderDesk_();
     else cpRenderPhoneList_();
   }).catch(function (err) {
-    if (host && showLoading) host.innerHTML = empireErrorHtml(err.message);
+    if (host && showLoading) {
+      host.innerHTML = cpIsNetErr_(err)
+        ? empireEmptyHtml('📵 No internet', 'Your recent reports will show when you are connected.')
+        : empireErrorHtml(err.message);
+    }
   });
 }
 
@@ -714,6 +718,7 @@ function cpPhoneInit_() {
     return '<button type="button" class="cp-opt" data-violation="' + v.key + '" onclick="cpPickViolation_(\'' + v.key + '\')"><strong>' + v.icon + '</strong><span>' + cpEsc_(v.label) + '</span></button>';
   }).join('');
   cpPhoneSync_();
+  cpPendingLoad_();
 }
 
 function cpPickProject_(k) {
@@ -735,7 +740,7 @@ function cpPhoneSync_() {
     b.classList.toggle('on', b.getAttribute('data-violation') === _cpPh.violation);
   });
   var plate = cpNormPlate_(document.getElementById('cpPhPlate').value);
-  var ready = _cpPh.project && _cpPh.photoUrl && !_cpPh.photoBusy && plate.length >= 2 && _cpPh.violation && !_cpPh.busy;
+  var ready = _cpPh.project && (_cpPh.photoUrl || _cpPh.photoBlob) && !_cpPh.photoBusy && plate.length >= 2 && _cpPh.violation && !_cpPh.busy;
   document.getElementById('cpPhSend').disabled = !ready;
 }
 
@@ -753,17 +758,37 @@ function cpHandlePhotoFile_(ev) {
   try { prev.src = URL.createObjectURL(file); prev.style.display = ''; } catch (e) {}
   document.getElementById('cpPhPhotoBtn').style.display = 'none';
   _cpPh.photoUrl = '';
+  _cpPh.photoBlob = null;
   _cpPh.photoBusy = true;
+  var seq = ++_cpPhotoSeq;
   cpPhoneSync_();
-  cpSetMsg_('cpPhPhotoMsg', 'Uploading photo…');
-  empireCompressImage(file, 'carpark/' + (_cpPh.project || 'all'), function (url) {
-    _cpPh.photoBusy = false;
-    if (!url) {
-      cpSetMsg_('cpPhPhotoMsg', ((typeof _lastEmpireUploadError !== 'undefined' && _lastEmpireUploadError) || 'Photo upload failed.') + ' Tap the photo to try again.', true);
-    } else {
+  cpSetMsg_('cpPhPhotoMsg', 'Preparing photo…');
+  cpShrinkImage_(file).then(function (blob) {
+    if (seq !== _cpPhotoSeq) return;
+    _cpPh.photoBlob = blob;
+    if (!cpOnline_()) {
+      _cpPh.photoBusy = false;
+      cpSetMsg_('cpPhPhotoMsg', '📵 No internet. The photo is kept on this phone — you can still tap Send report and it will wait as pending.');
+      cpPhoneSync_();
+      return;
+    }
+    cpSetMsg_('cpPhPhotoMsg', 'Uploading photo…');
+    cpUploadBlob_(blob, _cpPh.project).then(function (url) {
+      if (seq !== _cpPhotoSeq) return;
       _cpPh.photoUrl = url;
       cpSetMsg_('cpPhPhotoMsg', '✓ Photo ready. Tap it to take again.');
-    }
+    }).catch(function () {
+      if (seq !== _cpPhotoSeq) return;
+      cpSetMsg_('cpPhPhotoMsg', '📵 Photo not uploaded (no internet?). It is kept on this phone — you can still tap Send report and it will wait as pending.');
+    }).then(function () {
+      if (seq !== _cpPhotoSeq) return;
+      _cpPh.photoBusy = false;
+      cpPhoneSync_();
+    });
+  }).catch(function (err) {
+    if (seq !== _cpPhotoSeq) return;
+    _cpPh.photoBusy = false;
+    cpSetMsg_('cpPhPhotoMsg', (err && err.message ? err.message : 'Could not read the photo.') + ' Tap to take it again.', true);
     cpPhoneSync_();
   });
 }
@@ -799,42 +824,76 @@ function cpSendReport_() {
   btn.textContent = 'Sending…';
   var res = document.getElementById('cpPhResult');
   res.style.display = 'none';
-  cpApi_('addCarparkReport', {
+  var item = {
+    id: 'cp' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+    user: cpMe_(),
     project: _cpPh.project,
     plate: document.getElementById('cpPhPlate').value.trim(),
     violation: _cpPh.violation,
-    photoUrl: _cpPh.photoUrl
-  }).then(function (d) {
-    var r = d.report;
-    var h;
-    if (!r.warningNo) {
-      h = '<strong>Report #' + r.num + ' saved.</strong><br>Plate ' + cpEsc_(r.plate) + ' is not on any apartment — the office will link it and send the warning.';
+    photoUrl: _cpPh.photoUrl,
+    photoBlob: _cpPh.photoBlob,
+    savedAt: new Date().toISOString(),
+    triedAt: '',
+    error: ''
+  };
+  var queueIt = function (why) {
+    return cpPendingSave_(item, why).then(function () {
       res.className = 'cp-result cp-result-warn';
-    } else if (r.waStatus === 'sent') {
-      h = '<strong>✓ Report #' + r.num + ' sent.</strong><br>The apartment got its <strong>' + cpEsc_(cpOrdinal_(r.warningNo)) + ' warning</strong> on WhatsApp.';
-      res.className = 'cp-result cp-result-ok';
-    } else {
-      h = '<strong>Report #' + r.num + ' saved</strong> (' + cpEsc_(cpOrdinal_(r.warningNo)) + ' warning).<br>WhatsApp: ' + cpEsc_(CP_WA_LABEL[r.waStatus] || r.waStatus) + ' — the office will follow up.';
-      res.className = 'cp-result cp-result-warn';
-    }
-    res.innerHTML = h;
-    res.style.display = '';
-    cpPhoneReset_();
-    cpLoadReports_(false);
-    try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
-  }).catch(function (err) {
-    res.className = 'cp-result cp-result-bad';
-    res.textContent = err.message;
-    res.style.display = '';
-  }).then(function () {
+      res.innerHTML = '<strong>📵 Saved on this phone — not sent yet.</strong><br>No internet. It is under <strong>Waiting to send</strong>. When you have internet, tap Try again or Send all.';
+      res.style.display = '';
+      cpPhoneReset_();
+      try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
+    }).catch(function (err) {
+      res.className = 'cp-result cp-result-bad';
+      res.textContent = 'No internet, and the report could not be saved on this phone: ' + (err && err.message ? err.message : err);
+      res.style.display = '';
+    });
+  };
+  var go;
+  if (!cpOnline_()) {
+    go = queueIt('No internet');
+  } else {
+    go = cpPendingTry_(item).then(function (d) {
+      cpShowReportResult_(d.report);
+      cpPhoneReset_();
+      cpLoadReports_(false);
+      try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
+    }).catch(function (err) {
+      if (cpIsNetErr_(err)) return queueIt(err.message);
+      res.className = 'cp-result cp-result-bad';
+      res.textContent = err.message;
+      res.style.display = '';
+    });
+  }
+  go.then(function () {
     _cpPh.busy = false;
     btn.textContent = 'Send report';
     cpPhoneSync_();
   });
 }
 
+function cpShowReportResult_(r) {
+  var res = document.getElementById('cpPhResult');
+  var h;
+  if (!r.warningNo) {
+    h = '<strong>Report #' + r.num + ' saved.</strong><br>Plate ' + cpEsc_(r.plate) + ' is not on any apartment — the office will link it and send the warning.';
+    res.className = 'cp-result cp-result-warn';
+  } else if (r.waStatus === 'sent') {
+    h = '<strong>✓ Report #' + r.num + ' sent.</strong><br>The apartment got its <strong>' + cpEsc_(cpOrdinal_(r.warningNo)) + ' warning</strong> on WhatsApp.';
+    res.className = 'cp-result cp-result-ok';
+  } else {
+    h = '<strong>Report #' + r.num + ' saved</strong> (' + cpEsc_(cpOrdinal_(r.warningNo)) + ' warning).<br>WhatsApp: ' + cpEsc_(CP_WA_LABEL[r.waStatus] || r.waStatus) + ' — the office will follow up.';
+    res.className = 'cp-result cp-result-warn';
+  }
+  res.innerHTML = h;
+  res.style.display = '';
+}
+
 function cpPhoneReset_() {
+  _cpPhotoSeq++;
   _cpPh.photoUrl = '';
+  _cpPh.photoBlob = null;
+  _cpPh.photoBusy = false;
   _cpPh.violation = '';
   document.getElementById('cpPhPlate').value = '';
   document.getElementById('cpPhLookup').textContent = '';
@@ -853,6 +912,258 @@ function cpRenderPhoneList_() {
       '<div class="cp-card-body"><div class="dt-card-top"><span class="cp-plate">' + cpEsc_(r.plate) + '</span>' + cpWarnBadge_(r.warningNo) + '</div>' +
       '<div class="dt-card-issues">' + cpProjectShort_(r.project) + (r.warningNo ? '' : ' · plate not found') + ' · ' + cpEsc_(cpViolationLabel_(r.violation)) + '</div>' +
       '<div class="dt-card-meta">#' + r.num + ' · ' + cpEsc_(cpWhen_(r.createdAt)) + ' · ' + cpWaBadge_(r) + '</div></div></div>';
+  }).join('');
+}
+
+// ---------------------------------------------------------------------------
+// Phone: reports waiting to send (no internet). Kept in this phone's IndexedDB.
+// They are sent one at a time, only when security taps Try again / Send all.
+// ---------------------------------------------------------------------------
+
+var CP_PENDING_DB = 'empire_carpark_pending';
+var _cpPendingDb = null;
+var _cpPending = [];
+var _cpPendingBusy = false;
+var _cpPhotoSeq = 0;
+
+function cpOnline_() { return typeof navigator === 'undefined' || navigator.onLine !== false; }
+
+/** A network problem (no internet / timeout), not the server saying no. */
+function cpIsNetErr_(err) {
+  if (!cpOnline_()) return true;
+  var m = String((err && err.message) || err || '');
+  return /load failed|failed to fetch|networkerror|network request|took too long|timed out|internet|offline|^HTTP 5\d\d|^HTTP 0/i.test(m);
+}
+
+function cpShrinkImage_(file) {
+  return new Promise(function (resolve, reject) {
+    var r = new FileReader();
+    r.onerror = function () { reject(new Error('Could not read the photo.')); };
+    r.onload = function (e) {
+      var img = new Image();
+      img.onerror = function () { reject(new Error('Could not open the photo.')); };
+      img.onload = function () {
+        var k = Math.min(1, 1400 / Math.max(img.width, img.height));
+        var c = document.createElement('canvas');
+        c.width = Math.round(img.width * k);
+        c.height = Math.round(img.height * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        c.toBlob(function (b) { b ? resolve(b) : reject(new Error('Could not compress the photo.')); }, 'image/jpeg', 0.7);
+      };
+      img.src = e.target.result;
+    };
+    r.readAsDataURL(file);
+  });
+}
+
+function cpUploadBlob_(blob, project) {
+  return new Promise(function (resolve, reject) {
+    empireUploadPhoto(blob, 'carpark/' + (project || 'all'), function (url) {
+      if (url) resolve(url);
+      else reject(new Error((typeof _lastEmpireUploadError !== 'undefined' && _lastEmpireUploadError) || 'Photo upload failed.'));
+    });
+  });
+}
+
+function cpPendingDb_() {
+  if (_cpPendingDb) return _cpPendingDb;
+  _cpPendingDb = new Promise(function (resolve, reject) {
+    if (!window.indexedDB) { reject(new Error('This phone cannot save reports offline.')); return; }
+    var req = indexedDB.open(CP_PENDING_DB, 1);
+    req.onupgradeneeded = function (e) { e.target.result.createObjectStore('reports', { keyPath: 'id' }); };
+    req.onsuccess = function (e) { resolve(e.target.result); };
+    req.onerror = function () { reject(req.error || new Error('Could not open phone storage.')); };
+  });
+  _cpPendingDb.catch(function () { _cpPendingDb = null; });
+  return _cpPendingDb;
+}
+
+function cpPendingTx_(mode, fn) {
+  return cpPendingDb_().then(function (db) {
+    return new Promise(function (resolve, reject) {
+      var tx = db.transaction('reports', mode);
+      var out = fn(tx.objectStore('reports'));
+      tx.oncomplete = function () { resolve(out && 'result' in out ? out.result : undefined); };
+      tx.onerror = function () { reject(tx.error); };
+      tx.onabort = function () { reject(tx.error || new Error('Phone storage is full.')); };
+    });
+  });
+}
+
+function cpBlobToDataUrl_(blob) {
+  return new Promise(function (resolve, reject) {
+    var r = new FileReader();
+    r.onload = function () { resolve(r.result); };
+    r.onerror = function () { reject(r.error); };
+    r.readAsDataURL(blob);
+  });
+}
+
+function cpDataUrlToBlob_(dataUrl) {
+  var parts = String(dataUrl).split(',');
+  var bin = atob(parts[1] || '');
+  var arr = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: 'image/jpeg' });
+}
+
+/** Save a report on the phone (photo stored as text so every phone browser keeps it). */
+function cpPendingSave_(item, why) {
+  var rec = {
+    id: item.id, user: item.user, project: item.project, plate: item.plate, violation: item.violation,
+    photoUrl: item.photoUrl || '', photoData: '', savedAt: item.savedAt, triedAt: item.triedAt || '', error: why || item.error || ''
+  };
+  var prep = (!rec.photoUrl && item.photoBlob) ? cpBlobToDataUrl_(item.photoBlob).then(function (d) { rec.photoData = d; })
+    : (item.photoData ? Promise.resolve(rec.photoData = item.photoData) : Promise.resolve());
+  return prep.then(function () {
+    return cpPendingTx_('readwrite', function (st) { st.put(rec); });
+  }).then(function () { return cpPendingLoad_(); });
+}
+
+function cpPendingDelete_(id) {
+  return cpPendingTx_('readwrite', function (st) { st.delete(id); }).then(function () { return cpPendingLoad_(); });
+}
+
+function cpPendingLoad_() {
+  return cpPendingTx_('readonly', function (st) { return st.getAll(); }).then(function (rows) {
+    var me = cpMe_();
+    _cpPending = (rows || []).filter(function (r) { return r.user === me; })
+      .sort(function (a, b) { return a.savedAt < b.savedAt ? -1 : 1; });
+    cpRenderPending_();
+    return _cpPending;
+  }).catch(function () { _cpPending = []; cpRenderPending_(); return _cpPending; });
+}
+
+/**
+ * Send one report: upload the photo if needed, then save the report on the server.
+ * If an earlier try may have reached the server (answer lost), check first so the
+ * apartment never gets the same warning twice.
+ */
+function cpPendingTry_(item) {
+  var step = Promise.resolve();
+  if (!item.photoUrl) {
+    var blob = item.photoBlob || (item.photoData ? cpDataUrlToBlob_(item.photoData) : null);
+    if (!blob) return Promise.reject(new Error('The photo is missing. Delete this one and report again.'));
+    step = cpUploadBlob_(blob, item.project).then(function (url) {
+      item.photoUrl = url;
+      // Remember the uploaded photo so the next try does not upload it again.
+      if (item.queued) return cpPendingSave_(item, item.error).catch(function () {});
+    });
+  }
+  return step.then(function () {
+    if (!item.triedAt) return null;
+    return cpApi_('getCarparkReports').then(function (d) {
+      var want = cpNormPlate_(item.plate);
+      var since = new Date(item.triedAt).getTime() - 5 * 60000;
+      return (d.reports || []).filter(function (r) {
+        return cpNormPlate_(r.plate) === want && r.violation === item.violation && new Date(r.createdAt).getTime() >= since;
+      })[0] || null;
+    });
+  }).then(function (already) {
+    if (already) return { ok: true, report: already, already: true };
+    item.triedAt = item.triedAt || new Date().toISOString();
+    var mark = item.queued ? cpPendingSave_(item, item.error).catch(function () {}) : Promise.resolve();
+    return mark.then(function () {
+      return cpApi_('addCarparkReport', { project: item.project, plate: item.plate, violation: item.violation, photoUrl: item.photoUrl });
+    });
+  });
+}
+
+function cpPendingFind_(id) {
+  for (var i = 0; i < _cpPending.length; i++) if (_cpPending[i].id === id) return _cpPending[i];
+  return null;
+}
+
+/** Try one waiting report. Resolves true if it went, false if it is still waiting. */
+function cpPendingSendOne_(id) {
+  var item = cpPendingFind_(id);
+  if (!item) return Promise.resolve(true);
+  item.queued = true;
+  if (!cpOnline_()) {
+    cpSetMsg_('cpPhPendingMsg', '📵 Still no internet. Try again when you are connected.', true);
+    return Promise.resolve(false);
+  }
+  return cpPendingTry_(item).then(function (d) {
+    return cpPendingDelete_(id).then(function () {
+      cpShowReportResult_(d.report);
+      return true;
+    });
+  }).catch(function (err) {
+    var msg = err && err.message ? err.message : String(err);
+    item.error = msg;
+    return cpPendingSave_(item, msg).catch(function () {}).then(function () {
+      cpSetMsg_('cpPhPendingMsg', (cpIsNetErr_(err) ? '📵 ' : '') + 'Plate ' + String(item.plate).toUpperCase() + ': ' + msg, true);
+      return false;
+    });
+  });
+}
+
+function cpPendingRetry_(id, btn) {
+  if (_cpPendingBusy) return;
+  _cpPendingBusy = true;
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+  cpSetMsg_('cpPhPendingMsg', 'Sending…');
+  cpPendingSendOne_(id).then(function (ok) {
+    if (ok) cpSetMsg_('cpPhPendingMsg', '✓ Sent.');
+    cpLoadReports_(false);
+  }).then(function () {
+    _cpPendingBusy = false;
+    cpRenderPending_();
+  });
+}
+
+/** Send every waiting report one after another; stop at the first one that fails. */
+function cpPendingSendAll_() {
+  if (_cpPendingBusy || !_cpPending.length) return;
+  _cpPendingBusy = true;
+  cpRenderPending_();
+  var ids = _cpPending.map(function (r) { return r.id; });
+  var sent = 0;
+  var next = function (i) {
+    if (i >= ids.length) return Promise.resolve(true);
+    cpSetMsg_('cpPhPendingMsg', 'Sending ' + (i + 1) + ' of ' + ids.length + '…');
+    return cpPendingSendOne_(ids[i]).then(function (ok) {
+      if (!ok) return false;
+      sent++;
+      return next(i + 1);
+    });
+  };
+  next(0).then(function (allOk) {
+    if (allOk) cpSetMsg_('cpPhPendingMsg', '✓ All ' + sent + ' sent.');
+    cpLoadReports_(false);
+  }).then(function () {
+    _cpPendingBusy = false;
+    cpRenderPending_();
+  });
+}
+
+function cpPendingRemove_(id) {
+  if (_cpPendingBusy) return;
+  if (!confirm('Delete this report from the phone? It was never sent, so it will be lost.')) return;
+  cpPendingDelete_(id);
+}
+
+function cpRenderPending_() {
+  var wrap = document.getElementById('cpPhPending');
+  if (!wrap) return;
+  wrap.style.display = _cpPending.length ? '' : 'none';
+  document.getElementById('cpPhPendingCount').textContent = String(_cpPending.length);
+  var all = document.getElementById('cpPhSendAll');
+  all.disabled = _cpPendingBusy;
+  all.textContent = _cpPending.length > 1 ? 'Send all (' + _cpPending.length + ')' : 'Send';
+  all.style.display = _cpPending.length > 1 ? '' : 'none';
+  document.getElementById('cpPhPendingList').innerHTML = _cpPending.map(function (r) {
+    var img = r.photoUrl || r.photoData || '';
+    return '<div class="dt-card cp-card cp-pending-card">' +
+      (img ? '<img class="cp-card-img" src="' + cpEsc_(img) + '" alt="" onclick="cpBigImg_(this.src)">' : '') +
+      '<div class="cp-card-body"><div class="dt-card-top"><span class="cp-plate">' + cpEsc_(r.plate) + '</span><span class="cp-pending-tag">⏳ Not sent</span></div>' +
+      '<div class="dt-card-issues">' + cpProjectShort_(r.project) + ' · ' + cpEsc_(cpViolationLabel_(r.violation)) + '</div>' +
+      '<div class="dt-card-meta">Saved ' + cpEsc_(cpWhen_(r.savedAt)) + '</div>' +
+      (r.error ? '<div class="cp-pending-err">' + cpEsc_(r.error) + '</div>' : '') +
+      '<div class="cp-pending-btns">' +
+      '<button type="button" class="dt-primary"' + (_cpPendingBusy ? ' disabled' : '') + ' onclick="cpPendingRetry_(\'' + cpEsc_(r.id) + '\', this)">Try again</button>' +
+      '<button type="button"' + (_cpPendingBusy ? ' disabled' : '') + ' onclick="cpPendingRemove_(\'' + cpEsc_(r.id) + '\')">Delete</button>' +
+      '</div></div></div>';
   }).join('');
 }
 
@@ -876,5 +1187,8 @@ function cpRenderPhoneList_() {
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') cpCloseModal_(); });
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden && _cpMode) cpLoadReports_(false);
+  });
+  window.addEventListener('online', function () {
+    if (_cpMode === 'phone' && _cpPending.length) cpSetMsg_('cpPhPendingMsg', '📶 Internet is back. Tap Try again or Send all.');
   });
 })();

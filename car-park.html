@@ -14,7 +14,7 @@
 <style id="empire-auth-boot">body.auth-login-visible #cpDeskApp,body.auth-login-visible #cpPhoneApp,body.auth-login-visible .cp-modal{display:none!important}</style>
 <link rel="stylesheet" href="assets/empire.css?v=2026-09-22-search-pill">
 <link rel="stylesheet" href="assets/empire-civil-worker.css?v=2026-09-22-search-pill">
-<link rel="stylesheet" href="assets/car-park.css?v=2026-11-16-caps">
+<link rel="stylesheet" href="assets/car-park.css?v=2026-11-16-offline">
 </head>
 <body class="auth-login-visible">
 <div class="login-page show" id="loginPage">
@@ -194,6 +194,13 @@
     <button type="button" id="cpPhSend" class="dt-primary dt-wide cp-send" onclick="cpSendReport_()" disabled>Send report</button>
     <div id="cpPhResult" class="cp-result" style="display:none"></div>
 
+    <div id="cpPhPending" style="display:none">
+      <h2 class="cp-step">Waiting to send <span id="cpPhPendingCount" class="side-nav-badge"></span></h2>
+      <p class="dt-hint">Saved on this phone because there was no internet. They are not sent yet. When you have internet, tap <strong>Try again</strong> or <strong>Send all</strong> (they go one by one).</p>
+      <div class="dt-actions"><button type="button" id="cpPhSendAll" class="dt-primary" onclick="cpPendingSendAll_()">Send all</button><span id="cpPhPendingMsg" class="dt-msg" aria-live="polite"></span></div>
+      <div id="cpPhPendingList" class="dt-phone-list cp-ph-list"></div>
+    </div>
+
     <h2 class="cp-step">My recent reports</h2>
     <div id="cpPhList" class="dt-phone-list cp-ph-list"></div>
   </div>
@@ -218,6 +225,6 @@
 <script src="assets/empire-api.js?v=2026-09-15-sec-acc"></script>
 <script src="assets/empire-auth.js?v=2026-11-01-car-park"></script>
 <script src="assets/empire-core.js?v=2026-09-15-sec-acc"></script>
-<script src="assets/car-park-app.js?v=2026-11-16-bin-admin"></script>
+<script src="assets/car-park-app.js?v=2026-11-16-offline"></script>
 </body>
 </html>
