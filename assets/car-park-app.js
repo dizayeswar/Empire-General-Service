@@ -28,7 +28,7 @@ var _cpApts = [];
 var _cpReports = [];
 var _cpCanWrite = false;
 var _cpPollTimer = null;
-var _cpPh = { project: '', photoUrl: '', photoBlob: null, photoBusy: false, violation: '', busy: false };
+var _cpPh = { project: '', photoUrl: '', photoBlob: null, photoAt: '', photoBusy: false, violation: '', busy: false };
 var _cpLookupTimer = null;
 var _cpLookupSeq = 0;
 
@@ -759,6 +759,7 @@ function cpHandlePhotoFile_(ev) {
   document.getElementById('cpPhPhotoBtn').style.display = 'none';
   _cpPh.photoUrl = '';
   _cpPh.photoBlob = null;
+  _cpPh.photoAt = new Date().toISOString();
   _cpPh.photoBusy = true;
   var seq = ++_cpPhotoSeq;
   cpPhoneSync_();
@@ -832,6 +833,7 @@ function cpSendReport_() {
     violation: _cpPh.violation,
     photoUrl: _cpPh.photoUrl,
     photoBlob: _cpPh.photoBlob,
+    seenAt: _cpPh.photoAt || new Date().toISOString(),
     savedAt: new Date().toISOString(),
     triedAt: '',
     error: ''
@@ -893,6 +895,7 @@ function cpPhoneReset_() {
   _cpPhotoSeq++;
   _cpPh.photoUrl = '';
   _cpPh.photoBlob = null;
+  _cpPh.photoAt = '';
   _cpPh.photoBusy = false;
   _cpPh.violation = '';
   document.getElementById('cpPhPlate').value = '';
@@ -1011,7 +1014,7 @@ function cpDataUrlToBlob_(dataUrl) {
 function cpPendingSave_(item, why) {
   var rec = {
     id: item.id, user: item.user, project: item.project, plate: item.plate, violation: item.violation,
-    photoUrl: item.photoUrl || '', photoData: '', savedAt: item.savedAt, triedAt: item.triedAt || '', error: why || item.error || ''
+    seenAt: item.seenAt || item.savedAt, photoUrl: item.photoUrl || '', photoData: '', savedAt: item.savedAt, triedAt: item.triedAt || '', error: why || item.error || ''
   };
   var prep = (!rec.photoUrl && item.photoBlob) ? cpBlobToDataUrl_(item.photoBlob).then(function (d) { rec.photoData = d; })
     : (item.photoData ? Promise.resolve(rec.photoData = item.photoData) : Promise.resolve());
@@ -1055,8 +1058,12 @@ function cpPendingTry_(item) {
     return cpApi_('getCarparkReports').then(function (d) {
       var want = cpNormPlate_(item.plate);
       var since = new Date(item.triedAt).getTime() - 5 * 60000;
+      var seen = new Date(item.seenAt || item.savedAt).getTime();
       return (d.reports || []).filter(function (r) {
-        return cpNormPlate_(r.plate) === want && r.violation === item.violation && new Date(r.createdAt).getTime() >= since;
+        if (cpNormPlate_(r.plate) !== want || r.violation !== item.violation) return false;
+        var t = new Date(r.createdAt).getTime();
+        // Saved with the photo time, or (server ignored it) with the time it arrived.
+        return Math.abs(t - seen) < 3 * 60000 || t >= since;
       })[0] || null;
     });
   }).then(function (already) {
@@ -1064,7 +1071,7 @@ function cpPendingTry_(item) {
     item.triedAt = item.triedAt || new Date().toISOString();
     var mark = item.queued ? cpPendingSave_(item, item.error).catch(function () {}) : Promise.resolve();
     return mark.then(function () {
-      return cpApi_('addCarparkReport', { project: item.project, plate: item.plate, violation: item.violation, photoUrl: item.photoUrl });
+      return cpApi_('addCarparkReport', { project: item.project, plate: item.plate, violation: item.violation, photoUrl: item.photoUrl, seenAt: item.seenAt || item.savedAt });
     });
   });
 }
@@ -1158,7 +1165,7 @@ function cpRenderPending_() {
       (img ? '<img class="cp-card-img" src="' + cpEsc_(img) + '" alt="" onclick="cpBigImg_(this.src)">' : '') +
       '<div class="cp-card-body"><div class="dt-card-top"><span class="cp-plate">' + cpEsc_(r.plate) + '</span><span class="cp-pending-tag">⏳ Not sent</span></div>' +
       '<div class="dt-card-issues">' + cpProjectShort_(r.project) + ' · ' + cpEsc_(cpViolationLabel_(r.violation)) + '</div>' +
-      '<div class="dt-card-meta">Saved ' + cpEsc_(cpWhen_(r.savedAt)) + '</div>' +
+      '<div class="dt-card-meta">Photo ' + cpEsc_(cpWhen_(r.seenAt || r.savedAt)) + '</div>' +
       (r.error ? '<div class="cp-pending-err">' + cpEsc_(r.error) + '</div>' : '') +
       '<div class="cp-pending-btns">' +
       '<button type="button" class="dt-primary"' + (_cpPendingBusy ? ' disabled' : '') + ' onclick="cpPendingRetry_(\'' + cpEsc_(r.id) + '\', this)">Try again</button>' +

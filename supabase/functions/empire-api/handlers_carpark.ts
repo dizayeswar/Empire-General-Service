@@ -417,6 +417,19 @@ export async function handleLookupCarparkPlate(body: Body, auth: AuthOk) {
   return { ok: true, success: true, found: true, apartmentCode: canSeeApartment(auth) ? code : "", nextWarning };
 }
 
+/**
+ * When the photo was taken (sent by the phone, e.g. a report that waited with no internet).
+ * Used as the report time and in the WhatsApp message. Ignored if it is in the future
+ * (2 minutes allowed for phone clocks) or older than 7 days; then the server time is used.
+ */
+function photoTime(v: unknown): string {
+  const t = Date.parse(str(v, 40));
+  if (!Number.isFinite(t)) return "";
+  const now = Date.now();
+  if (t > now + 2 * 60000 || t < now - 7 * 86400000) return "";
+  return new Date(Math.min(t, now)).toISOString();
+}
+
 export async function handleAddCarparkReport(body: Body, auth: AuthOk) {
   if (securityLevel(auth) !== "write" && portalLevel(auth) !== "write") return fail("This account cannot report cars.");
   const project = str(body.project).toLowerCase();
@@ -428,6 +441,7 @@ export async function handleAddCarparkReport(body: Body, auth: AuthOk) {
   if (plateNorm.length < 2) return fail("Write the car plate number.", "bad_input");
   const photoUrl = str(body.photoUrl, 1000);
   if (!/^https:\/\//i.test(photoUrl)) return fail("Take a photo of the car first.", "bad_input");
+  const seenAt = photoTime(body.seenAt);
 
   const car = await findCarByPlate(plateNorm);
   const code = car ? String(car.apartment_code) : "";
@@ -444,6 +458,7 @@ export async function handleAddCarparkReport(body: Body, auth: AuthOk) {
     warning_no: warningNo,
     reported_by: auth.username,
     wa_status: code ? "pending" : "no_apartment",
+    ...(seenAt ? { created_at: seenAt } : {}),
   }).select("*").single();
   if (error) throw error;
   const saved = code ? await sendAndSave(data as Row) : data as Row;
