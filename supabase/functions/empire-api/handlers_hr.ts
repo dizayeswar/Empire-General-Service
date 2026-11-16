@@ -5,7 +5,7 @@ import { HR_EMPLOYEE_SEED } from "./hr_employees_seed.ts";
 import { resetPasswordOk } from "./config.ts";
 import { fmtDate, isoNow, sb, selectAllRows, trashRows } from "./db.ts";
 import { notifyUsers_ } from "./fcm.ts";
-import { companyKey, currentCompany } from "./company.ts";
+import { companiesForUser, companyKey, currentCompany } from "./company.ts";
 import { parseSignatureRole, parseUserSignature } from "./handlers_users.ts";
 import {
   deriveAccountFromModuleAccess,
@@ -374,16 +374,20 @@ function sigRoleRank(role: string): number {
   return 3;
 }
 
+function userCanUseCurrentCompany(row: Record<string, unknown>): boolean {
+  return companiesForUser(row.companies, row.role, row.module_access).indexOf(currentCompany()) !== -1;
+}
+
 async function loadEmployeeSigAccounts(): Promise<Array<{ username: string; signatureRole: string }>> {
-  const full = await sb().from("users").select("username,signature_role");
+  const full = await sb().from("users").select("username,signature_role,role,module_access,companies");
   const missingRole = full.error && String(full.error.message || "").toLowerCase().includes("signature_role");
   const data = missingRole
-    ? (await sb().from("users").select("username")).data
+    ? (await sb().from("users").select("username,role,module_access,companies")).data
     : full.data;
   if (full.error && !missingRole) throw full.error;
-  return (data || []).map((row) => ({
+  return ((data || []) as Record<string, unknown>[]).filter(userCanUseCurrentCompany).map((row) => ({
     username: normalizeWorkerId(row.username),
-    signatureRole: empSigRole((row as { signature_role?: unknown }).signature_role),
+    signatureRole: empSigRole(row.signature_role),
   })).filter((row) => !!row.username);
 }
 
@@ -413,6 +417,7 @@ async function employeeAccountStamp(
   const list = accounts || await loadEmployeeSigAccounts();
   const hits = list.filter((account) => usernameMatchesEmployee(account.username, name, { code }));
   hits.sort((a, b) => sigRoleRank(a.signatureRole) - sigRoleRank(b.signatureRole));
+  const accountNames = new Set(list.map((account) => account.username));
   const cache = sigCache || new Map<string, string>();
   for (const account of hits) {
     if (!cache.has(account.username)) {
@@ -424,9 +429,16 @@ async function employeeAccountStamp(
     if (signature) return { username: account.username, signature };
   }
   const books = library || await loadSignatureLibrary();
+  const codeLabels = new Set<string>();
+  if (code) {
+    codeLabels.add(compactKey(code));
+    codeLabels.add(compactKey(sigLibLabel(code)));
+  }
   const fromLib = books.filter((item) => {
-    if (item.assignedTo && usernameMatchesEmployee(item.assignedTo, name, { code })) return true;
-    if (code && compactKey(item.label) === compactKey(code)) return true;
+    if (item.assignedTo) {
+      return accountNames.has(item.assignedTo) && usernameMatchesEmployee(item.assignedTo, name, { code });
+    }
+    if (code && codeLabels.has(compactKey(item.label))) return true;
     return !!(item.label && aliasMatchesName(item.label, name));
   });
   fromLib.sort((a, b) => sigRoleRank(a.role) - sigRoleRank(b.role));
@@ -2382,11 +2394,11 @@ export async function handleListHrEmployees(auth: AuthOk) {
 type EmpSigAccount = { username: string; signature: string; signatureRole: string };
 
 async function employeeSigAccounts(person: HrPerson): Promise<EmpSigAccount[]> {
-  const full = await sb().from("users").select("username,signature,signature_role");
+  const full = await sb().from("users").select("username,signature,signature_role,role,module_access,companies");
   const missingRole = full.error && String(full.error.message || "").toLowerCase().includes("signature_role");
-  const res = missingRole ? await sb().from("users").select("username,signature") : full;
+  const res = missingRole ? await sb().from("users").select("username,signature,role,module_access,companies") : full;
   if (res.error) throw res.error;
-  const hits = (res.data || []).map((row) => {
+  const hits = ((res.data || []) as Record<string, unknown>[]).filter(userCanUseCurrentCompany).map((row) => {
     const r = row as Record<string, unknown>;
     return {
       username: normalizeWorkerId(r.username),
