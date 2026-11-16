@@ -16,6 +16,29 @@ const SECURITY_LIST_LIMIT = 50;
 // Meta WhatsApp Cloud API. Set with: npx supabase secrets set WHATSAPP_TOKEN=... (see DEPLOY.md).
 const WA_API = "https://graph.facebook.com/v21.0";
 
+// Each warning is 3 messages in this order. Meta has no Kurdish, so the Kurdish template is filed
+// under Arabic. Every template has the same 5 blanks: warning, plate, violation, apartment, time.
+type WaLang = "en" | "ku" | "ar";
+const WA_MESSAGES: { lang: WaLang; template: string; code: string; image: boolean }[] = [
+  { lang: "en", template: "car_park_warning_en", code: "en", image: true },
+  { lang: "ku", template: "car_park_warning_ku", code: "ar", image: false },
+  { lang: "ar", template: "car_park_warning_ar", code: "ar", image: false },
+];
+const WA_PROJECTS: Record<WaLang, Record<string, string>> = {
+  en: PROJECTS,
+  ku: { ra: "ڕۆیاڵ ئەپارتمێنت", ww: "وێست وینگ", wd: "وێست دایمۆند", es: "ئیمپایەر سکوێر" },
+  ar: { ra: "رويال أبارتمنت", ww: "ويست وينغ", wd: "ويست دايموند", es: "إمباير سكوير" },
+};
+const WA_VIOLATIONS: Record<WaLang, Record<string, string>> = {
+  en: { two_spots: "Taking two parking spots", blocking: "Blocking the road / entrance" },
+  ku: { two_spots: "گرتنی دوو شوێنی وەستان", blocking: "ڕێگاگرتن / لە دەروازەی چوونەژوورەوە" },
+  ar: { two_spots: "إشغال موقفين", blocking: "إغلاق الطريق / مدخل المبنى" },
+};
+const KU_ORDINALS = ["یەکەم", "دووەم", "سێیەم", "چوارەم", "پێنجەم", "شەشەم", "حەوتەم", "هەشتەم", "نۆیەم", "دەیەم"];
+const AR_ORDINALS = ["الأول", "الثاني", "الثالث", "الرابع", "الخامس", "السادس", "السابع", "الثامن", "التاسع", "العاشر"];
+/** Left-to-right marks so "22 A 27727" is not scrambled inside Kurdish / Arabic text. */
+const LTR = (s: string) => "‎" + s + "‎";
+
 function fail(message: string, error = "not_allowed") {
   return { ok: false, success: false, error, message };
 }
@@ -69,7 +92,28 @@ function erbilTime(v: unknown): string {
   return new Intl.DateTimeFormat("en-GB", {
     timeZone: "Asia/Baghdad", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
     hour12: false,
-  }).format(d).replace(",", "");
+  }).format(d).replace(",", " –");
+}
+
+function warningWord(n: number, lang: WaLang): string {
+  if (lang === "ku") return KU_ORDINALS[n - 1] || "ژمارە " + n;
+  if (lang === "ar") return AR_ORDINALS[n - 1] || "رقم " + n;
+  return ordinal(n);
+}
+
+/** The 5 blanks of a car_park_warning_* template, in that language. */
+export function warningParams(report: Row, lang: WaLang): string[] {
+  const rtl = lang !== "en";
+  const wrap = (s: string) => (rtl ? LTR(s) : s);
+  const project = String(report.project || "");
+  const violation = String(report.violation || "");
+  return [
+    warningWord(Number(report.warning_no) || 1, lang),
+    wrap(String(report.plate || "")),
+    WA_VIOLATIONS[lang][violation] || VIOLATIONS[violation] || violation,
+    wrap(String(report.apartment_code || "")) + " — " + (WA_PROJECTS[lang][project] || project.toUpperCase()),
+    wrap(erbilTime(report.created_at)),
+  ];
 }
 
 /** Security (phone) accounts never see which apartment a plate belongs to — only the portal does. */
@@ -125,33 +169,25 @@ async function getApartment(code: string): Promise<Row | null> {
 
 type WaResult = { status: string; error: string; messageId: string };
 
-async function sendWarningWhatsApp(report: Row, apt: Row | null): Promise<WaResult> {
-  if (!apt) return { status: "no_apartment", error: "", messageId: "" };
-  const to = waPhone(apt.phone);
-  if (!to) return { status: "no_phone", error: "", messageId: "" };
-  const token = str(Deno.env.get("WHATSAPP_TOKEN"), 1000);
-  const phoneId = str(Deno.env.get("WHATSAPP_PHONE_NUMBER_ID"), 60);
-  if (!token || !phoneId) return { status: "not_configured", error: "WhatsApp keys are not set yet.", messageId: "" };
+/** wa_message_id keeps "en:wamid…|ku:wamid…" so a resend only repeats the languages that failed. */
+function sentLangs(messageId: unknown): Map<string, string> {
+  const m = new Map<string, string>();
+  for (const part of String(messageId || "").split("|")) {
+    const i = part.indexOf(":");
+    if (i > 0 && WA_MESSAGES.some((w) => w.lang === part.slice(0, i))) m.set(part.slice(0, i), part.slice(i + 1));
+  }
+  return m;
+}
 
-  const template = str(Deno.env.get("WHATSAPP_TEMPLATE")) || "car_park_warning";
-  const lang = str(Deno.env.get("WHATSAPP_TEMPLATE_LANG")) || "en";
-  const withImage = str(Deno.env.get("WHATSAPP_TEMPLATE_IMAGE")) !== "0";
-  const text = (t: string) => ({ type: "text", text: t || "-" });
+async function sendTemplate(to: string, token: string, phoneId: string, msg: typeof WA_MESSAGES[number], report: Row) {
   const components: Row[] = [];
-  if (withImage && report.photo_url) {
+  if (msg.image && report.photo_url) {
     components.push({ type: "header", parameters: [{ type: "image", image: { link: String(report.photo_url) } }] });
   }
   components.push({
     type: "body",
-    parameters: [
-      text(ordinal(Number(report.warning_no) || 1)),
-      text(String(report.plate || "")),
-      text(VIOLATIONS[String(report.violation)] || String(report.violation || "")),
-      text(String(report.apartment_code || "") + " — " + (PROJECTS[String(report.project)] || String(report.project || "").toUpperCase())),
-      text(erbilTime(report.created_at)),
-    ],
+    parameters: warningParams(report, msg.lang).map((t) => ({ type: "text", text: t || "-" })),
   });
-
   try {
     const res = await fetch(`${WA_API}/${phoneId}/messages`, {
       method: "POST",
@@ -160,25 +196,50 @@ async function sendWarningWhatsApp(report: Row, apt: Row | null): Promise<WaResu
         messaging_product: "whatsapp",
         to,
         type: "template",
-        template: { name: template, language: { code: lang }, components },
+        template: { name: msg.template, language: { code: msg.code }, components },
       }),
     });
     const out = await res.json().catch(() => ({})) as Row;
     if (!res.ok) {
       const e = (out.error || {}) as Row;
-      const msg = [e.message, (e.error_data as Row | undefined)?.details].map((v) => str(v)).filter(Boolean).join(" — ");
-      return { status: "failed", error: msg || ("HTTP " + res.status), messageId: "" };
+      const text = [e.message, (e.error_data as Row | undefined)?.details].map((v) => str(v)).filter(Boolean).join(" — ");
+      return { ok: false, error: text || ("HTTP " + res.status), id: "" };
     }
     const msgs = (out.messages || []) as Row[];
-    return { status: "sent", error: "", messageId: str(msgs[0]?.id, 200) };
+    return { ok: true, error: "", id: str(msgs[0]?.id, 200) };
   } catch (err) {
-    return { status: "failed", error: str(err instanceof Error ? err.message : err), messageId: "" };
+    return { ok: false, error: str(err instanceof Error ? err.message : err), id: "" };
   }
+}
+
+/** Sends the English, Kurdish and Arabic messages in order; `done` holds languages already sent. */
+async function sendWarningWhatsApp(report: Row, apt: Row | null, done: Map<string, string>): Promise<WaResult> {
+  if (!apt) return { status: "no_apartment", error: "", messageId: "" };
+  const to = waPhone(apt.phone);
+  if (!to) return { status: "no_phone", error: "", messageId: "" };
+  const token = str(Deno.env.get("WHATSAPP_TOKEN"), 1000);
+  const phoneId = str(Deno.env.get("WHATSAPP_PHONE_NUMBER_ID"), 60);
+  if (!token || !phoneId) return { status: "not_configured", error: "WhatsApp keys are not set yet.", messageId: "" };
+
+  const ids = new Map(done);
+  const errors: string[] = [];
+  for (const msg of WA_MESSAGES) {
+    if (ids.has(msg.lang)) continue;
+    const r = await sendTemplate(to, token, phoneId, msg, report);
+    if (r.ok) ids.set(msg.lang, r.id);
+    else errors.push(msg.lang.toUpperCase() + ": " + r.error);
+  }
+  const messageId = [...ids].map(([lang, id]) => lang + ":" + id).join("|");
+  return errors.length
+    ? { status: "failed", error: errors.join(" · "), messageId }
+    : { status: "sent", error: "", messageId };
 }
 
 async function sendAndSave(report: Row): Promise<Row> {
   const apt = report.apartment_code ? await getApartment(String(report.apartment_code)) : null;
-  const wa = await sendWarningWhatsApp(report, apt);
+  // A forced resend of a sent warning repeats all 3; otherwise only the languages that failed.
+  const done = report.wa_status === "sent" ? new Map<string, string>() : sentLangs(report.wa_message_id);
+  const wa = await sendWarningWhatsApp(report, apt, done);
   const patch: Row = {
     wa_status: wa.status,
     wa_error: wa.error.slice(0, 500),
