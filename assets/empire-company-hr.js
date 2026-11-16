@@ -326,7 +326,7 @@
   function loadCalendar() {
     if (window.__hrCalLoaded || !document.querySelector('.side-nav') || !document.getElementById('hrTeamHost')) return;
     var s = document.createElement('script');
-    s.src = 'assets/empire-hr-calendar.js?v=2026-11-16-cal';
+    s.src = 'assets/empire-hr-calendar.js?v=2026-11-16-cal2';
     document.body.appendChild(s);
   }
 

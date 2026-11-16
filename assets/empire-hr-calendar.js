@@ -64,13 +64,30 @@
     return out;
   }
 
+  /* 2026-11-16: blue = real days off, red = deduction (e.g. "1 day (due to lateness)" for a whole
+   * month). A deduction is not specific days off: its dates get a light red tint only. */
+  var LEAVE_BLUE = '#2a7de1';
+  var DEDUCT_RED = '#d9534f';
+  var DEDUCT_TINT = '#fbe1e1';
+
+  function isDeduction(p) {
+    var txt = String(p.daysText || '') + ' ' + String(p.other || '');
+    if (p.type === 'Lateness') return true;
+    if (/lateness|\blate\b|deduct|f\.?\s?p\b|not compl/i.test(txt)) return true;
+    var span = paperDates(p).length;
+    var days = Math.max(1, Math.ceil(Number(p.days) || 0));
+    return span >= 7 && span > days * 2;
+  }
+
   function dayMap() {
     var map = {};
     state.papers.forEach(function (p) {
       var dates = paperDates(p);
-      var half = dates.length === 1 && Number(p.days) > 0 && Number(p.days) < 1;
+      var deduct = isDeduction(p);
+      var half = !deduct && dates.length === 1 && Number(p.days) > 0 && Number(p.days) < 1;
       dates.forEach(function (d) {
-        (map[d] = map[d] || []).push({ p: p, half: half });
+        var cell = map[d] = map[d] || { leave: [], deduct: [] };
+        (deduct ? cell.deduct : cell.leave).push({ p: p, half: half });
       });
     });
     return map;
@@ -140,6 +157,18 @@
       '<strong style="font-size:16px;">' + MONTHS[state.month] + ' ' + state.year + '</strong>' +
       '<button type="button" data-cal="next" aria-label="Next month" style="' + btnCss(false) + '">▶</button></div>';
 
+    // deductions touching this month: red line above the calendar
+    var mStart = iso(state.year, state.month, 1);
+    var mEnd = iso(state.year, state.month, new Date(state.year, state.month + 1, 0).getDate());
+    state.papers.filter(function (x) { return isDeduction(x) && x.start <= mEnd && (x.end || x.start) >= mStart; })
+      .forEach(function (x) {
+        h += '<div style="display:flex;gap:8px;align-items:flex-start;background:' + DEDUCT_TINT + ';border:1px solid #f1b9b8;color:#a23a39;' +
+          'border-radius:10px;padding:8px 10px;margin-bottom:8px;font-size:13px;line-height:1.35;">' +
+          '<strong style="white-space:nowrap;">− ' + esc(x.daysText || (x.days + ' day')) + '</strong>' +
+          '<span>Deduction' + (x.num ? ' #' + esc(x.num) : '') + ' (' + esc(fmt(x.start) + (x.end && x.end !== x.start ? ' – ' + fmt(x.end) : '')) +
+          ') — not specific days off.</span></div>';
+      });
+
     // grid
     var map = dayMap();
     var first = new Date(state.year, state.month, 1).getDay();
@@ -152,33 +181,40 @@
     for (var i = 0; i < first; i++) h += '<div></div>';
     for (var d = 1; d <= count; d++) {
       var key = iso(state.year, state.month, d);
-      var hits = map[key] || [];
-      var bg = '#f4f6fb', fg = '#232a3d', tip = '';
-      if (hits.length) {
-        var c = color(hits[0].p.type);
-        bg = hits[0].half ? 'linear-gradient(135deg,' + c + ' 50%,#f4f6fb 50%)' : c;
-        fg = hits[0].half ? '#232a3d' : '#fff';
-        tip = hits.map(function (x) { return label(x.p) + (x.half ? ' (half day)' : '') + (x.p.num ? ' #' + x.p.num : ''); }).join(', ');
+      var cell = map[key] || { leave: [], deduct: [] };
+      var leave = cell.leave, ded = cell.deduct;
+      var bg = '#f4f6fb', fg = '#232a3d', border = 'transparent';
+      var tips = [];
+      if (ded.length) {
+        bg = DEDUCT_TINT;
+        fg = '#a23a39';
+        border = '#f1b9b8';
+        ded.forEach(function (x) { tips.push('Deduction: ' + (x.p.daysText || x.p.days + ' day') + (x.p.num ? ' #' + x.p.num : '')); });
+      }
+      var halfLeave = leave.length && leave[0].half;
+      if (leave.length) {
+        var under = ded.length ? DEDUCT_TINT : '#f4f6fb';
+        bg = halfLeave ? 'linear-gradient(135deg,' + LEAVE_BLUE + ' 50%,' + under + ' 50%)' : LEAVE_BLUE;
+        fg = halfLeave ? '#232a3d' : '#fff';
+        border = 'transparent';
+        leave.forEach(function (x) { tips.push(label(x.p) + (x.half ? ' (half day)' : '') + (x.p.num ? ' #' + x.p.num : '')); });
       }
       var isToday = key === todayIso;
-      h += '<div title="' + esc(tip) + '" style="min-height:44px;border-radius:10px;background:' + bg + ';color:' + fg +
-        ';padding:4px 6px;font-size:13px;font-weight:700;position:relative;' +
+      h += '<div title="' + esc(tips.join(', ')) + '" style="min-height:44px;border-radius:10px;background:' + bg + ';color:' + fg +
+        ';border:1px solid ' + border + ';box-sizing:border-box;padding:4px 6px;font-size:13px;font-weight:700;position:relative;' +
         (isToday ? 'outline:2px solid #185fa5;outline-offset:-2px;' : '') + '">' + d +
-        (hits.length && hits[0].half ? '<span style="position:absolute;right:6px;bottom:3px;font-size:12px;">½</span>' : '') + '</div>';
+        (halfLeave ? '<span style="position:absolute;right:6px;bottom:3px;font-size:12px;">½</span>' : '') + '</div>';
     }
     h += '</div>';
 
-    // legend (types present)
-    var seen = {};
-    state.papers.forEach(function (x) { seen[x.type || 'Other'] = 1; });
-    var legend = Object.keys(seen);
-    if (legend.length) {
-      h += '<div style="display:flex;flex-wrap:wrap;gap:10px;margin:10px 0 2px;font-size:12px;color:#5b6478;">' +
-        legend.map(function (t) {
-          return '<span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:12px;height:12px;border-radius:3px;background:' +
-            color(t) + ';display:inline-block;"></span>' + esc(TYPE_LABELS[t] || t) + '</span>';
-        }).join('') + '<span>½ = half day</span></div>';
-    }
+    // legend
+    var sq = function (bgc, bd) {
+      return '<span style="width:12px;height:12px;border-radius:3px;background:' + bgc + ';border:1px solid ' + (bd || bgc) + ';display:inline-block;"></span>';
+    };
+    h += '<div style="display:flex;flex-wrap:wrap;gap:12px;margin:10px 0 2px;font-size:12px;color:#5b6478;">' +
+      '<span style="display:inline-flex;align-items:center;gap:5px;">' + sq(LEAVE_BLUE) + 'Day off (leave)</span>' +
+      '<span style="display:inline-flex;align-items:center;gap:5px;">' + sq(DEDUCT_TINT, '#f1b9b8') + 'Deduction period</span>' +
+      '<span>½ = half day</span></div>';
 
     // papers this month + year total
     var monthStart = iso(state.year, state.month, 1), monthEnd = iso(state.year, state.month, count);
@@ -192,8 +228,8 @@
     } else {
       h += '<div style="display:flex;flex-direction:column;gap:6px;">' + inMonth.map(function (x) {
         return '<div style="display:flex;gap:8px;align-items:center;border:1px solid #efe8ed;border-radius:10px;padding:6px 10px;">' +
-          '<span style="width:10px;height:10px;border-radius:50%;background:' + color(x.type) + ';flex:none;"></span>' +
-          '<strong style="flex:1;">' + esc(label(x)) + '</strong>' +
+          '<span style="width:10px;height:10px;border-radius:50%;background:' + (isDeduction(x) ? DEDUCT_RED : LEAVE_BLUE) + ';flex:none;"></span>' +
+          '<strong style="flex:1;' + (isDeduction(x) ? 'color:#a23a39;' : '') + '">' + esc(label(x)) + (isDeduction(x) ? ' — deduction' : '') + '</strong>' +
           '<span style="color:#5b6478;">' + esc(fmt(x.start) + (x.end && x.end !== x.start ? ' – ' + fmt(x.end) : '')) + '</span>' +
           '<span style="color:#5b6478;white-space:nowrap;">' + esc(x.daysText || (x.days + ' days')) + '</span>' +
           (x.num ? '<span style="color:#8a90a0;">#' + esc(x.num) + '</span>' : '') + '</div>';
