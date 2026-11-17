@@ -1,4 +1,4 @@
-import { CIVIL_WORKER_TEAM, ELECTRIC_WORKER_TEAM, HSE_INSPECTOR, resetPasswordOk } from "./config.ts";
+import { CIVIL_WORKER_TEAM, ELECTRIC_WORKER_TEAM, resetPasswordOk } from "./config.ts";
 import { AuthOk } from "./auth.ts";
 import { dtIssue, fmtDate, isoNow, nextCounter, sb, selectAllRows, trashRows } from "./db.ts";
 import {
@@ -13,14 +13,13 @@ import {
   workerAssignedToIssue,
 } from "./helpers.ts";
 
-type IssueTable = "civil_issues" | "electric_issues" | "fire_issues" | "hse_inspections";
+type IssueTable = "civil_issues" | "electric_issues" | "fire_issues";
 
 function sheetNameFor(table: IssueTable): string {
   return ({
     civil_issues: "CivilIssues",
     electric_issues: "ElectricIssues",
     fire_issues: "FireIssues",
-    hse_inspections: "HseInspections",
   } as const)[table];
 }
 
@@ -93,12 +92,6 @@ function rowToApi(row: Record<string, unknown>, table: IssueTable, auth?: AuthOk
     item.editedJobNote = String(row.edited_job_note || "").trim();
     item.transferredAt = dtIssue(row.transferred_at);
     item.transferredBy = String(row.transferred_by || "").trim();
-  }
-  if (table === "hse_inspections") {
-    item.assetKey = String(row.asset_key || "");
-    item.reportPeriod = String(row.report_period || "");
-    item.jobDept = String(row.job_dept || "");
-    item.createdBy = HSE_INSPECTOR;
   }
   return item;
 }
@@ -563,41 +556,3 @@ export const handleMarkElectricWhatsAppSent = (b: Record<string, unknown>, a: Au
   markWhatsAppSent(b, "electric_issues", a);
 export const handleMarkFireWhatsAppSent = (b: Record<string, unknown>, a: AuthOk) =>
   markWhatsAppSent(b, "fire_issues", a);
-
-export async function handleAddHseInspection(body: Record<string, unknown>) {
-  const id = String(body.id || "") || crypto.randomUUID();
-  const num = await nextCounter("issnum_HseInspections");
-  const date = String(body.date || "");
-  const reportPeriod = date.slice(0, 7);
-  const { error } = await sb().from("hse_inspections").insert({
-    id,
-    project: String(body.project || ""),
-    building: String(body.building || ""),
-    floor: String(body.floor || ""),
-    spot: String(body.spot || ""),
-    issue_type: String(body.issueType || ""),
-    note: String(body.note || ""),
-    date,
-    photo: String(body.photo || ""),
-    fixed_photo: "",
-    status: issueStatusFromCondition(body),
-    created_by: HSE_INSPECTOR,
-    created_at: isoNow(),
-    fixed_by: "",
-    fixed_at: "",
-    num,
-    asset_key: String(body.assetKey || ""),
-    report_period: String(body.reportPeriod || reportPeriod),
-    job_dept: String(body.jobDept || ""),
-  });
-  if (error) throw error;
-  return { ok: true, success: true, id, num };
-}
-
-export async function handleUpdateHseInspection(body: Record<string, unknown>) {
-  return handleUpdateIssue(body, "hse_inspections");
-}
-
-export async function handleGetHseInspections(_body: Record<string, unknown>) {
-  return handleGetIssues({}, "hse_inspections");
-}

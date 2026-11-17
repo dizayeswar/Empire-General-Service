@@ -1,5 +1,6 @@
 import { AuthOk, getUser, projectsForUser } from "./auth.ts";
 import { resetPasswordOk, SHEET_TO_TABLE } from "./config.ts";
+import { hseHubStats } from "./handlers_hse.ts";
 import { fmtDate, isoNow, nextCounter, sb, selectAllRows, trashRows } from "./db.ts";
 import {
   isCleaningSupervisorRole,
@@ -848,7 +849,7 @@ export async function handleRestoreTrash(body: Record<string, unknown>) {
         const payload = applicationIssueFromTrash_(arr);
         if (!payload) throw new Error("bad_application_issue");
         await upsertIgnoringUnknownColumns_(table, payload);
-      } else if (Array.isArray(arr) && (src === "CivilIssues" || src === "ElectricIssues" || src === "FireIssues" || src === "HseInspections")) {
+      } else if (Array.isArray(arr) && (src === "CivilIssues" || src === "ElectricIssues" || src === "FireIssues")) {
         // restore from sheet column array into object
         const obj: Record<string, unknown> = {
           id: String(arr[0] || ""),
@@ -1065,7 +1066,7 @@ export async function handleGetSummary(body: Record<string, unknown>) {
     summary.fire = { open: s.open, level: s.open ? "warn" : "muted", label: s.open + " open", lastActivity: s.lastActivity };
   }
   if (allow("hse")) {
-    const s = await issueStats("hse_inspections");
+    const s = await hseHubStats();
     summary.hse = { open: s.open, level: s.open ? "warn" : "muted", label: s.open + " open", lastActivity: s.lastActivity };
   }
   if (allow("asaas")) {
