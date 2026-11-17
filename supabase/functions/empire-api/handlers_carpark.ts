@@ -430,6 +430,21 @@ function photoTime(v: unknown): string {
   return new Date(Math.min(t, now)).toISOString();
 }
 
+async function findDuplicateSubmittedReport(auth: AuthOk, project: string, plateNorm: string, violation: string, photoUrl: string): Promise<Row | null> {
+  const { data, error } = await sb().from("carpark_reports").select("*")
+    .eq("reported_by", auth.username)
+    .eq("project", project)
+    .eq("plate_norm", plateNorm)
+    .eq("violation", violation)
+    .eq("photo_url", photoUrl)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data as Row | null;
+}
+
 export async function handleAddCarparkReport(body: Body, auth: AuthOk) {
   if (securityLevel(auth) !== "write" && portalLevel(auth) !== "write") return fail("This account cannot report cars.");
   const project = str(body.project).toLowerCase();
@@ -442,6 +457,9 @@ export async function handleAddCarparkReport(body: Body, auth: AuthOk) {
   const photoUrl = str(body.photoUrl, 1000);
   if (!/^https:\/\//i.test(photoUrl)) return fail("Take a photo of the car first.", "bad_input");
   const seenAt = photoTime(body.seenAt);
+
+  const duplicate = await findDuplicateSubmittedReport(auth, project, plateNorm, violation, photoUrl);
+  if (duplicate) return { ok: true, success: true, report: reportToApi(duplicate, canSeeApartment(auth)) };
 
   const car = await findCarByPlate(plateNorm);
   const code = car ? String(car.apartment_code) : "";
