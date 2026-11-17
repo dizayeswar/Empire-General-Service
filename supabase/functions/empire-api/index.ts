@@ -22,6 +22,7 @@ import * as charging from "./handlers_charging.ts";
 import * as storage from "./handlers_storage.ts";
 import * as users from "./handlers_users.ts";
 import * as carpark from "./handlers_carpark.ts";
+import * as hse from "./handlers_hse.ts";
 import { pickCompany, runWithCompany } from "./company.ts";
 
 const CORS = {
@@ -65,7 +66,7 @@ function json(obj: unknown, status = 200) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method === "GET") {
-    return json({ ok: true, msg: "Empire API running (Supabase)", version: "2026-11-16-carpark-photo-time"});
+    return json({ ok: true, msg: "Empire API running (Supabase)", version: "2026-11-17-hse-department"});
   }
   if (req.method !== "POST") return json({ ok: false, error: "Method not allowed" }, 405);
 
@@ -151,6 +152,23 @@ Deno.serve(async (req) => {
       if (!cpAuth.ok) return json(cpAuth);
       cpAuth = await enrichAuthRole(cpAuth as AuthOk);
       return json(await carparkHandlers[action](body, cpAuth as AuthOk));
+    }
+
+    // HSE department: observations, incidents / alarms, monthly numbers. Access is checked in handlers_hse.ts.
+    const hseHandlers: Record<string, (b: Record<string, unknown>, a: AuthOk) => Promise<unknown>> = {
+      getHseData: hse.handleGetHseData,
+      saveHseObservation: hse.handleSaveHseObservation,
+      setHseObservationStatus: hse.handleSetHseObservationStatus,
+      deleteHseObservation: hse.handleDeleteHseObservation,
+      saveHseEvent: hse.handleSaveHseEvent,
+      deleteHseEvent: hse.handleDeleteHseEvent,
+      saveHseMonth: hse.handleSaveHseMonth,
+    };
+    if (hseHandlers[action]) {
+      let hseAuth = await verifyTokenSession(String(body.token || ""));
+      if (!hseAuth.ok) return json(hseAuth);
+      hseAuth = await enrichAuthRole(hseAuth as AuthOk);
+      return json(await hseHandlers[action](body, hseAuth as AuthOk));
     }
 
     const requiredDept = TRASH_ACTIONS[action] ? String(body.dept || "") : DEPT_BY_ACTION[action];
@@ -255,7 +273,7 @@ Deno.serve(async (req) => {
 
     const adminOnly: Record<string, number> = {
       saveUiSettings: 1, clearElectricalJobs: 1, clearCivilJobs: 1, clearCivilIssues: 1,
-      clearElectricIssues: 1, clearFireIssues: 1, clearHseInspections: 1, clearAll: 1,
+      clearElectricIssues: 1, clearFireIssues: 1, clearAll: 1,
       clearWarehouseGins: 1,
       getTrash: 1, restoreTrash: 1, purgeTrash: 1,
     };
@@ -338,13 +356,6 @@ Deno.serve(async (req) => {
       case "markFireFixed": return json(await issues.handleMarkFixed(body, "fire_issues", a));
       case "clearFireIssues": return json(await issues.handleClearIssues(body, "fire_issues"));
       case "deleteFireIssue": return json(await issues.handleDeleteIssue(body, "fire_issues"));
-
-      case "addHseInspection": return json(await issues.handleAddHseInspection(body));
-      case "updateHseInspection": return json(await issues.handleUpdateHseInspection(body));
-      case "getHseInspections": return json(await issues.handleGetHseInspections(body));
-      case "markHseResolved": return json(await issues.handleMarkFixed(body, "hse_inspections", a));
-      case "clearHseInspections": return json(await issues.handleClearIssues(body, "hse_inspections"));
-      case "deleteHseInspection": return json(await issues.handleDeleteIssue(body, "hse_inspections"));
 
       case "addElectricalJob": return json(await jobs.handleAddElectricalJob(body));
       case "getElectricalJobs": return json(await jobs.handleGetElectricalJobs(body));

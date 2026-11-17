@@ -232,7 +232,7 @@ cleaning.html           Cleaning sub-menu
 cleaning-dashboard.html Cleaning daily reports + task photos
 civil-department.html   Civil jobs
 electrical.html         Electrical jobs
-hse-inspection.html     HSE fire equipment checks
+hse-inspection.html     HSE department (observations, incidents, monthly report)
 *-issue.html            Issue trackers (civil / fire / electric)
 config.js               API URL + app version
 supabase/               Backend: Edge Function empire-api + Postgres migrations

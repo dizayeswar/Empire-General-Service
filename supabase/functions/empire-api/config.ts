@@ -3,7 +3,6 @@ export const TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export const BCRYPT_ROUNDS = 10;
 /** Destructive wipe/clear password — must be set via `supabase secrets set RESET_PASSWORD=...` (no default). */
 export const RESET_PASSWORD = String(Deno.env.get("RESET_PASSWORD") || "").trim();
-export const HSE_INSPECTOR = "Evan Mansour";
 
 /** True only when a non-empty secret is configured and the client sent the matching value. */
 export function resetPasswordOk(body: Record<string, unknown>): boolean {
@@ -51,7 +50,6 @@ export const SHEET_TO_TABLE: Record<string, string> = {
   CivilIssues: "civil_issues",
   ElectricIssues: "electric_issues",
   FireIssues: "fire_issues",
-  HseInspections: "hse_inspections",
   ElectricalJobs: "electrical_jobs",
   ElectricalMinus: "electrical_minus",
   ElectricalSummary: "electrical_summaries",
@@ -127,12 +125,6 @@ export const DEPT_BY_ACTION: Record<string, string> = {
   markFireFixed: "fire",
   clearFireIssues: "fire",
   deleteFireIssue: "fire",
-  addHseInspection: "hse",
-  updateHseInspection: "hse",
-  getHseInspections: "hse",
-  markHseResolved: "hse",
-  clearHseInspections: "hse",
-  deleteHseInspection: "hse",
   addElectricalJob: "electrical department",
   getElectricalJobs: "electrical department",
   updateElectricalJob: "electrical department",
