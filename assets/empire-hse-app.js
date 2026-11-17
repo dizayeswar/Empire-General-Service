@@ -196,6 +196,8 @@ function hsLoad_(showLoading) {
     _hs.months = d.months || [];
     _hs.canWrite = !!d.canWrite;
     if (d.targetDays) _hs.targetDays = d.targetDays;
+    // First load: choose the starting month now that we know which months have a report.
+    if (!_hs.loaded) document.getElementById('hsMonth').value = '';
     _hs.loaded = true;
     document.getElementById('hsTargetHint').textContent =
       _hs.targetDays.High + ' days (High), ' + _hs.targetDays.Medium + ' (Medium), ' + _hs.targetDays.Low + ' (Low)';
