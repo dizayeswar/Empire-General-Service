@@ -705,13 +705,22 @@ function hsMonthPayload_(m) {
     overallStatus: mr.overallStatus || '', summary: mr.summary || '', improved: mr.improved || ''
   };
 }
+function hsUpsertMonth_(row) {
+  for (var i = 0; i < _hs.months.length; i++) {
+    if (_hs.months[i].month === row.month) {
+      _hs.months[i] = row;
+      return;
+    }
+  }
+  _hs.months.push(row);
+  _hs.months.sort(function (a, b) { return a.month < b.month ? 1 : -1; });
+}
 function hsSaveMonth_(payload, msgId, btnId) {
   var btn = document.getElementById(btnId);
   if (btn) btn.disabled = true;
   hsSetMsg_(msgId, 'Saving…');
   return hsApi_('saveHseMonth', payload).then(function (d) {
-    hsUpsert_(_hs.months, d.month);
-    for (var i = 0; i < _hs.months.length; i++) if (_hs.months[i].month === d.month.month) _hs.months[i] = d.month;
+    hsUpsertMonth_(d.month);
     hsRender_();
     hsSetMsg_(msgId, 'Saved.');
   }).catch(function (err) {
