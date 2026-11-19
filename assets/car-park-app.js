@@ -1057,13 +1057,12 @@ function cpPendingTry_(item) {
     if (!item.triedAt) return null;
     return cpApi_('getCarparkReports').then(function (d) {
       var want = cpNormPlate_(item.plate);
-      var since = new Date(item.triedAt).getTime() - 5 * 60000;
-      var seen = new Date(item.seenAt || item.savedAt).getTime();
+      var photoUrl = String(item.photoUrl || '');
       return (d.reports || []).filter(function (r) {
         if (cpNormPlate_(r.plate) !== want || r.violation !== item.violation) return false;
-        var t = new Date(r.createdAt).getTime();
-        // Saved with the photo time, or (server ignored it) with the time it arrived.
-        return Math.abs(t - seen) < 3 * 60000 || t >= since;
+        // Only the same uploaded photo proves this pending item reached the server.
+        // Nearby plate/violation matches can be separate real incidents.
+        return photoUrl && String(r.photoUrl || '') === photoUrl;
       })[0] || null;
     });
   }).then(function (already) {

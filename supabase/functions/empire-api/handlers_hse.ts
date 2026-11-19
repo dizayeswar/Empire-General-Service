@@ -197,7 +197,6 @@ export async function handleSetHseObservationStatus(body: Body, auth: AuthOk) {
     updated_at: new Date().toISOString(),
   };
   if (status === "closed" && Array.isArray(body.closedPhotos)) patch.closed_photos = photoList(body.closedPhotos);
-  if (status !== "closed") patch.closed_photos = [];
   const { data, error } = await sb().from("hse_observations").update(patch).eq("id", str(body.id, 80))
     .is("deleted_at", null).select("*").maybeSingle();
   if (error) throw error;
