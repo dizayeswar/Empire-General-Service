@@ -321,13 +321,9 @@ async function savePlates(code: string, platesRaw: unknown): Promise<string> {
       return `Plate ${c.plate} is already on apartment ${c.apartment_code}. Remove it there first.`;
     }
   }
-  const del = await sb().from("carpark_cars").delete().eq("apartment_code", code);
-  if (del.error) throw del.error;
-  if (plates.length) {
-    const ins = await sb().from("carpark_cars").insert(plates.map((p) => ({ ...p, apartment_code: code })));
-    if (ins.error) throw ins.error;
-  }
-  return "";
+  const { data, error } = await sb().rpc("replace_carpark_plates", { p_code: code, p_plates: plates });
+  if (error) throw error;
+  return str(data, 300);
 }
 
 export async function handleSaveCarparkApartment(body: Body, auth: AuthOk) {
