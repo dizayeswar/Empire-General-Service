@@ -49,6 +49,7 @@ WAKE = (
 OVERSEAS_LIVE = ROOT / "overseas_live.on"
 LOG_KEEP = 1500
 ALERTED_KEEP = 80
+LEAVE_PIN_TRIES = 3
 
 
 def tap(x: int, y: int) -> None:
@@ -470,6 +471,28 @@ def _save_alerted(alerted: set) -> None:
     save_state(state)
 
 
+def _leftover_fails(state: dict) -> dict:
+    raw = state.get("leftover_fails") or {}
+    return {str(k): int(v) for k, v in raw.items() if str(k).startswith("RU-")}
+
+
+def leave_stuck_pin(ru: str) -> None:
+    """Pay already done. SET PIN stuck (Gallery/Files). Park like RU-759261 — no second Pay."""
+    from charge_easy import clear_need_pin
+
+    state = load_state()
+    alerted = list(state.get("alerted") or [])
+    if ru not in alerted:
+        alerted.append(ru)
+    fails = _leftover_fails(state)
+    fails.pop(ru, None)
+    state["alerted"] = alerted[-ALERTED_KEEP:]
+    state["leftover_fails"] = fails
+    save_state(state)
+    clear_need_pin()
+    log(f"LEAVE leftover SET PIN {ru} — park, no second Pay")
+
+
 def _mark_bad(rus: list[str]) -> None:
     if not rus:
         return
@@ -574,8 +597,21 @@ def main() -> int:
             )
             if r.returncode == 3:
                 return 3
-            if r.returncode in (4, 6):
-                log(f"SET PIN leftover {ru} retry next tick")
+            state = load_state()
+            fails = _leftover_fails(state)
+            if r.returncode == 0:
+                if ru in fails:
+                    fails.pop(ru, None)
+                    state["leftover_fails"] = fails
+                    save_state(state)
+                return 10
+            fails[ru] = fails.get(ru, 0) + 1
+            state["leftover_fails"] = fails
+            save_state(state)
+            if fails[ru] >= LEAVE_PIN_TRIES:
+                leave_stuck_pin(ru)
+                return 10
+            log(f"SET PIN leftover {ru} retry next tick ({fails[ru]}/{LEAVE_PIN_TRIES})")
             return 10
 
         ui = settle_open("watch")
