@@ -471,6 +471,23 @@ def _save_alerted(alerted: set) -> None:
     save_state(state)
 
 
+def paid_done_set() -> set:
+    return {str(x) for x in (load_state().get("paid_done") or []) if str(x).startswith("RU-")}
+
+
+def mark_paid_ru(ru: str) -> None:
+    """This RU already took money. Never PLANB Pay/Recharge it again."""
+    ru = (ru or "").strip().upper()
+    if not ru.startswith("RU-"):
+        return
+    state = load_state()
+    done = [str(x) for x in (state.get("paid_done") or []) if str(x).startswith("RU-")]
+    if ru not in done:
+        done.append(ru)
+        state["paid_done"] = done[-ALERTED_KEEP:]
+        save_state(state)
+
+
 def _leftover_fails(state: dict) -> dict:
     raw = state.get("leftover_fails") or {}
     return {str(k): int(v) for k, v in raw.items() if str(k).startswith("RU-")}
@@ -489,6 +506,7 @@ def leave_stuck_pin(ru: str) -> None:
     state["alerted"] = alerted[-ALERTED_KEEP:]
     state["leftover_fails"] = fails
     save_state(state)
+    mark_paid_ru(ru)
     clear_need_pin()
     log(f"LEAVE leftover SET PIN {ru} — park, no second Pay")
 
@@ -578,6 +596,7 @@ def main() -> int:
             ru = need["ru"]
             unit = need.get("unit") or ""
             started = need.get("started_at") or ""
+            mark_paid_ru(ru)
             log(f"SET PIN leftover {ru} {unit} — Pay already done")
             script = (
                 "overseas_charge.py"
@@ -643,7 +662,15 @@ def main() -> int:
         chargeable = [c for c in chargeable if not unit_on_hold(c.get("unit") or "")]
         state = load_state()
         alerted = set(state.get("alerted") or [])
-        fresh = [c for c in chargeable if c["ru"] not in alerted]
+        paid = paid_done_set()
+        for c in chargeable:
+            if c["ru"] in paid and c["ru"] not in alerted:
+                alerted.add(c["ru"])
+                log(f"SKIP already paid {c['ru']} — no second Pay")
+        if paid:
+            _save_alerted(alerted | paid)
+            alerted = set(load_state().get("alerted") or [])
+        fresh = [c for c in chargeable if c["ru"] not in alerted and c["ru"] not in paid]
 
         now = time.time()
         if fresh or now - last_empty_log >= 20:
@@ -687,6 +714,9 @@ def main() -> int:
         leftover_now = load_need_pin()
         if leftover_now and leftover_now.get("ru") == c["ru"]:
             log(f"SET PIN leftover {c['ru']} — retry PIN only, no second Pay")
+            return 10
+        if c["ru"] in paid_done_set():
+            log(f"already paid {c['ru']} — keep parked, no second Pay")
             return 10
         if r.returncode == 4:
             alerted.discard(c["ru"])

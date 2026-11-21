@@ -471,6 +471,11 @@ def main() -> int:
             source="overseas",
             started_at=n.get("started_at") or started_at,
         )
+    from watch_open import paid_done_set
+
+    if ru in paid_done_set():
+        print(f"already paid {ru} — no second Recharge")
+        return 2
     if unit_on_hold(unit):
         print(f"HOLD skip {ru} {unit} — no Recharge")
         return 2

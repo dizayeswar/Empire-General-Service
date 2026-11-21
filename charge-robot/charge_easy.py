@@ -55,6 +55,12 @@ def save_need_pin(**kwargs) -> None:
         f.flush()
         os.fsync(f.fileno())
     tmp.replace(NEED_PIN)
+    try:
+        from watch_open import mark_paid_ru
+
+        mark_paid_ru(str(kwargs.get("ru") or ""))
+    except Exception:
+        pass
 
 
 def clear_need_pin() -> None:
@@ -402,6 +408,11 @@ def main() -> int:
             source=n.get("source") or "nova",
             started_at=n.get("started_at") or started_at,
         )
+    from watch_open import paid_done_set
+
+    if ru in paid_done_set():
+        print(f"already paid {ru} — no second Pay")
+        return 2
     if unit_on_hold(unit):
         print(f"HOLD skip {ru} {unit} — no Pay")
         return 2
