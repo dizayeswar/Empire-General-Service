@@ -207,6 +207,26 @@ def selector_rows(items, unit: str) -> list:
     return rows
 
 
+def _selector_key(text: str) -> str:
+    return (text or "").strip().replace(" ", "").upper()
+
+
+def pick_selector_row(rows: list, unit: str):
+    """Phone RV-3 only → last row RV-3 New. Every other unit stays exact-one-row."""
+    want = _selector_key(unit)
+    if not rows:
+        return None
+    if want == "RV-3":
+        new_rows = [row for row in rows if _selector_key(row[0]) == "RV-3NEW"]
+        if new_rows:
+            return new_rows[-1]
+        return None
+    exact = [row for row in rows if _selector_key(row[0]) == want]
+    if len(exact) == 1:
+        return exact[0]
+    return None
+
+
 def crop_invoice_paper(img: Image.Image) -> Image.Image:
     """Keep the white Invoice slip. Drop Edge chrome, Acrobat bar, and grey PDF background."""
     rgb = img.convert("RGB")
@@ -380,27 +400,22 @@ def sts_search_and_recharge(
     items = named(win)
     rows = selector_rows(items, typed)
     print(f"selector rows={len(rows)} {[t for t, _r, _m in rows][:8]}")
-    want = typed.replace(" ", "").upper()
-    exact = [
-        (t, rr, m)
-        for t, rr, m in rows
-        if (t or "").replace(" ", "").upper() == want
-    ]
-    print(f"selector exact={len(exact)} {[t for t, _r, _m in exact][:8]}")
+    picked = pick_selector_row(rows, typed)
+    print(f"selector pick {picked[0] if picked else None}")
     if len(rows) == 0:
         send_keys("{ESC}")
         time.sleep(0.4)
         close_sts_tab(edge())
         click_home(edge())
         return "no_row"
-    if len(exact) != 1:
+    if picked is None:
         send_keys("{ESC}")
         time.sleep(0.4)
         close_sts_tab(edge())
         click_home(edge())
         return "ambiguous"
 
-    _t, rr, _m = exact[0]
+    _t, rr, _m = picked
     print("selector pick exact", _t)
     double_click(coords=((rr.left + rr.right) // 2, (rr.top + rr.bottom) // 2))
     time.sleep(1.6)
