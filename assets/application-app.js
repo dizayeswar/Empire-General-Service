@@ -39,7 +39,7 @@ var APP_AUTOCORRECT = {
   untill: "until",
   alot: "a lot"
 };
-var APP_PROJECTS = ['RA', 'WW', 'WD', 'ES'];
+var APP_PROJECTS = ['RA', 'WW', 'WD', 'ES', 'RV'];
 var APP_STATUS_OPTIONS = [
   '',
   'EMPTY',
@@ -897,7 +897,7 @@ function appSetRefreshSpinning_(on) {
 
 function appLoad_(force) {
   var host = document.getElementById('appTableHost');
-  if (host) host.innerHTML = '<p>Loading all projects (RA, WW, WD, ES)…</p>';
+  if (host) host.innerHTML = '<p>Loading all projects (RA, WW, WD, ES, RV)…</p>';
   appSetRefreshSpinning_(true);
   appLoadPendingDaily_(force);
   appIssueLoad_(force);
