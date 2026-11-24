@@ -316,6 +316,11 @@ export async function handleGetDtaskApartments(_body: Body, auth: AuthOk) {
   for (const r of rows) {
     const code = String(r.property_id || "").trim().toUpperCase();
     const parts = code.split("-");
+    // Royal Villas are villas, not apartments: RV-12 → building RV-12, floor "Villa", no unit.
+    if (parts.length === 2 && parts[0] === "RV") {
+      apartments.push({ project: "rv", building: code, floor: "Villa", unit: "", code });
+      continue;
+    }
     if (parts.length !== 4) continue;
     apartments.push({
       project: String(r.project || parts[0]).trim().toLowerCase(),

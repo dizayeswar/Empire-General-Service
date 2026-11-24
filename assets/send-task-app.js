@@ -9,7 +9,9 @@ var DT_WORK_KEYS = {
 };
 var DT_DEPT_LABELS = { electrical: 'Electrical', civil: 'Civil', hvac: 'HVAC', mechanical: 'Mechanical' };
 var DT_POLL_MS = 60000;
-var DT_PROJECT_NAMES = { ec: 'Empire Complex', es: 'Empire Square', wd: 'West Diamond', ww: 'West Wing', ra: 'Royal Apartment' };
+var DT_PROJECT_NAMES = { ec: 'Empire Complex', es: 'Empire Square', wd: 'West Diamond', ww: 'West Wing', ra: 'Royal Apartment', rv: 'Royal Villas' };
+// Royal Villas are villas, not apartments: only the villa is picked (no floor or apartment).
+function dtIsVillaProject_(p) { return String(p || '').toLowerCase() === 'rv'; }
 var DT_STATUS_LABEL = { open: 'Open', in_progress: 'In progress', done: 'Done', closed: 'Closed', cancelled: 'Cancelled' };
 var DT_PHOTO_LABEL = { before: 'Before', after: 'After', invoice: 'Invoice' };
 var DT_VOICE_MAX_SEC = 180;
@@ -67,6 +69,7 @@ function dtLoc_(t) {
 }
 function dtBuildingLabel_(project, building) {
   var p = String(project || '').toUpperCase();
+  if (p === 'RV') return building;
   if (p === 'WD' || p === 'RA') return p + '-' + building;
   return p + building;
 }
@@ -238,7 +241,16 @@ function dtOnProjectChange_() {
   var buildings = dtUnique_(_dtApartments.filter(function (l) { return l.project === p; }).map(function (l) { return l.building; }));
   buildings.sort(dtSortToken_);
   dtFillSelect_('dtBuilding', buildings, function (b) { return dtBuildingLabel_(p, b); });
+  dtShowVillaPicker_(dtIsVillaProject_(p));
   dtOnBuildingChange_();
+}
+function dtShowVillaPicker_(isVilla) {
+  var lbl = document.querySelector('label[for="dtBuilding"]');
+  if (lbl) lbl.textContent = isVilla ? 'Villa' : 'Building';
+  ['dtFloor', 'dtUnit'].forEach(function (id) {
+    var g = document.getElementById(id).closest('.form-group');
+    if (g) g.style.display = isVilla ? 'none' : '';
+  });
 }
 function dtOnBuildingChange_() {
   var p = document.getElementById('dtProject').value;
@@ -270,6 +282,7 @@ function dtUpdateLocPreview_() {
   var b = document.getElementById('dtBuilding').value;
   var f = document.getElementById('dtFloor').value;
   var u = document.getElementById('dtUnit').value;
+  if (dtIsVillaProject_(p)) { el.textContent = b ? ('Location: ' + b) : ''; return; }
   el.textContent = (p && b && f && u) ? ('Location: ' + p.toUpperCase() + '-' + b + '-' + f + '-' + u) : '';
 }
 
@@ -370,7 +383,9 @@ function dtSendTask_() {
     note: document.getElementById('dtNote').value.trim(),
     items: items
   };
-  if (!payload.building || !payload.floor || !payload.unit) { dtSetMsg_('dtSendMsg', 'Pick a building, floor and apartment.', true); return; }
+  if (dtIsVillaProject_(payload.project)) {
+    if (!payload.building || !payload.floor) { dtSetMsg_('dtSendMsg', 'Pick a villa.', true); return; }
+  } else if (!payload.building || !payload.floor || !payload.unit) { dtSetMsg_('dtSendMsg', 'Pick a building, floor and apartment.', true); return; }
   if (_dtDraftRec) { dtSetMsg_('dtSendMsg', 'Stop the voice message first, or cancel it.', true); return; }
   if (_dtDraftPhotos.some(function (p) { return !p.url; })) { dtSetMsg_('dtSendMsg', 'Wait for the pictures to finish uploading.', true); return; }
   var draftVoice = _dtDraftVoice;

@@ -68,7 +68,7 @@ function json(obj: unknown, status = 200) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method === "GET") {
-    return json({ ok: true, msg: "Empire API running (Supabase)", version: "2026-11-17-hse-department"});
+    return json({ ok: true, msg: "Empire API running (Supabase)", version: "2026-11-24-send-task-royal-villas"});
   }
   if (req.method !== "POST") return json({ ok: false, error: "Method not allowed" }, 405);
 
