@@ -525,12 +525,12 @@
         renderAll();
         return;
       }
-      if (!fromServer.length) {
+      if (!parsed) {
+        // Bad/unknown reply: keep what the phone already has.
         var cached = readLocalPhotos();
-        if (cached.length || state.photos.length || (state.stickyPhotos && state.stickyPhotos.length)) {
-          fromServer = cached.length ? cached : state.photos.slice();
-        }
+        fromServer = cached.length ? cached : state.photos.slice();
       } else {
+        // A valid reply is the truth, even when empty (admin deleted the photos in the portal).
         writeLocalPhotos(fromServer);
       }
       state.photos = dedupePhotoList(mergeStickyIntoPhotos(fromServer));
@@ -592,9 +592,13 @@
     out.forEach(function (x) {
       if (x && x.image) serverImgs[String(x.image)] = 1;
     });
+    var stickyMaxAge = 3 * 60 * 1000;
     state.stickyPhotos = (state.stickyPhotos || []).filter(function (x) {
       if (!x || !x.image) return false;
       if (serverImgs[String(x.image)]) return false;
+      // Just-saved photos bridge the gap until the server lists them; after that, the server wins
+      // (so a photo the admin deleted does not stay on the phone).
+      if (x._stickyAt && Date.now() - x._stickyAt > stickyMaxAge) return false;
       return true;
     });
     state.stickyPhotos.forEach(function (sticky) {
