@@ -916,8 +916,11 @@
         }
         function dailyCoveredCount(p, wk){ const dg=dailyGroupOf(p); return dg.tasks.filter(t=>dailyPhotos(p,t,wk).length>0).length; }
         function dailyWeekComplete(p, wk){ const dg=dailyGroupOf(p); return dailyCoveredCount(p,wk)===dg.tasks.length; }
-        function weekAccessible(p, wk){ return wk===1 || dailyWeekComplete(p, wk-1); }
-        function firstIncompleteWeek(p){ for(let w=1;w<=4;w++){ if(!dailyWeekComplete(p,w)) return w; } return 4; }
+        // Week N of the 26th–25th month starts 7·(N−1) days after the 26th. Only admins may fill a week before its dates (same rule as the server).
+        function weekStartDate(wk){ var b=reportPeriodBounds(curMonth()); if(!b) return ''; var d=new Date(b.from+'T00:00:00Z'); d.setUTCDate(d.getUTCDate()+7*(wk-1)); return d.toISOString().slice(0,10); }
+        function weekOpenByDate(wk){ if(wk<=1) return true; if(String((typeof empireGetRole==='function'&&empireGetRole())||'').toLowerCase()==='admin') return true; return taskTodayStr()>=weekStartDate(wk); }
+        function weekAccessible(p, wk){ return wk===1 || (dailyWeekComplete(p, wk-1) && weekOpenByDate(wk)); }
+        function firstIncompleteWeek(p){ for(let w=1;w<=4;w++){ if(!dailyWeekComplete(p,w)) return w; if(w<4 && !weekAccessible(p,w+1)) return w; } return 4; }
         function selectWeek(p, wk){ if(!weekAccessible(p,wk)) return; selWeek[p]=wk; Object.keys(taskEditOpen).forEach(function(k){ if(k.indexOf(p+'|')===0) delete taskEditOpen[k]; }); Object.keys(pendingTaskUpload).forEach(function(k){ if(k.indexOf(p+'|')===0){ revokePendingItems(pendingTaskUpload[k]); delete pendingTaskUpload[k]; } }); renderTaskProject(p); }
         function revokePendingItems(pending){
           pendingItems(pending).forEach(function(it){ if(it.preview && String(it.preview).indexOf('blob:')===0) URL.revokeObjectURL(it.preview); });
