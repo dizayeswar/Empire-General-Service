@@ -266,6 +266,8 @@ export async function handleAddTaskPhoto(body: Record<string, unknown>) {
     return { ok: false, error: "daily_limit", message: DAILY_LIMIT_MESSAGE };
   }
   const period = canonicalizePeriod(String(body.period || ""), date, freq);
+  const windowErr = periodWindowError(body, period);
+  if (windowErr) return windowErr;
   const id = `tp-${crypto.randomUUID()}`;
   const { error } = await sb().from("task_photos").insert({
     id,
@@ -295,6 +297,51 @@ function iraqDayStartIso(now = new Date()): string {
   const local = new Date(now.getTime() + 3 * 3600_000);
   const startUtc = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()) - 3 * 3600_000;
   return new Date(startUtc).toISOString();
+}
+
+/** Today's date in Iraq (UTC+3) by the server clock — the phone's clock cannot change it. */
+function iraqTodayStr(now = new Date()): string {
+  return new Date(now.getTime() + 3 * 3600_000).toISOString().slice(0, 10);
+}
+
+function addDaysStr(ymd: string, days: number): string {
+  const d = new Date(`${ymd}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Photos from the phone's no-signal queue may arrive this many days after their week/month closed. */
+const OFFLINE_GRACE_DAYS = 2;
+
+/**
+ * Supervisors may add photos only to the current week (Week N starts 7·(N−1) days after the 26th; Week 4 runs to the 25th),
+ * or the current month for monthly tasks — judged by the server clock. Admins are not limited.
+ * Returns an error reply, or null when the photo is allowed.
+ */
+function periodWindowError(body: Record<string, unknown>, period: string): Record<string, unknown> | null {
+  if (String(body._authRole || "").toLowerCase() === "admin") return null;
+  const month = period.split("#")[0] || "";
+  const bounds = reportPeriodBounds(month);
+  if (!bounds) return null;
+  let start = bounds.from;
+  let end = bounds.to;
+  let label = "This month";
+  if (/#\d+/.test(period)) {
+    const wk = parseInt(weekFromPeriod(period), 10);
+    start = addDaysStr(bounds.from, 7 * (wk - 1));
+    end = wk < 4 ? addDaysStr(start, 6) : bounds.to;
+    label = `Week ${wk}`;
+  }
+  const today = iraqTodayStr();
+  if (today < start) {
+    return { ok: false, error: "week_locked", message: `${label} has not started yet. It opens on ${start}.` };
+  }
+  if (today > end) {
+    const offline = body.offlineQueued === true || body.offlineQueued === "true";
+    if (offline && today <= addDaysStr(end, OFFLINE_GRACE_DAYS)) return null;
+    return { ok: false, error: "week_locked", message: `${label} is closed. Photos can only be added during the current week.` };
+  }
+  return null;
 }
 
 const DAILY_LIMIT_MESSAGE = "Today's photo for this task is already saved. You can add the next photo tomorrow.";
@@ -332,6 +379,8 @@ export async function handleAddTaskPhotos(body: Record<string, unknown>) {
     return { ok: false, error: "too_many_photos", message: extra ? "Maximum 5 Extra photos per save." : "Maximum 3 photos per save." };
   }
   const period = canonicalizePeriod(String(body.period || ""), date, freq);
+  const windowErr = periodWindowError(body, period);
+  if (windowErr) return windowErr;
   const existing = await selectAllRows<Record<string, unknown>>("task_photos", {
     filter: (q) => extra
       ? q.ilike("project", project).ilike("freq", "extra")
@@ -470,7 +519,7 @@ export async function handleGetTaskPhotos(body: Record<string, unknown>) {
     seen[key] = true;
     out.push(row);
   }
-  return { ok: true, photos: out, resetEpoch: await getCleaningResetEpoch() };
+  return { ok: true, photos: out, resetEpoch: await getCleaningResetEpoch(), serverNow: Date.now() };
 }
 
 export async function handleDeleteTaskPhoto(body: Record<string, unknown>) {

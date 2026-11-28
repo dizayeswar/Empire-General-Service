@@ -79,9 +79,31 @@
     return g.label || t('otherTasks');
   }
 
+  /* ---- Server clock: weeks and "today" follow the server's time, so changing the phone's date does not help. ---- */
+  var _srvAt = 0;      // server time (ms) at the last sync
+  var _srvPerf = 0;    // performance.now() at the last sync (does not move when the phone's clock is changed)
+  var _clockOffset = (function () {
+    try { return Number(localStorage.getItem('cm_clock_offset') || 0) || 0; } catch (e) { return 0; }
+  })();
+
+  function noteServerTime(serverNow) {
+    serverNow = Number(serverNow) || 0;
+    if (!serverNow) return;
+    _srvAt = serverNow;
+    _srvPerf = (typeof performance !== 'undefined' && performance.now) ? performance.now() : 0;
+    _clockOffset = serverNow - Date.now();
+    try { localStorage.setItem('cm_clock_offset', String(_clockOffset)); } catch (e) {}
+  }
+
+  function nowMs() {
+    if (_srvAt && _srvPerf && typeof performance !== 'undefined' && performance.now) {
+      return _srvAt + (performance.now() - _srvPerf);
+    }
+    return Date.now() + _clockOffset;
+  }
+
   function todayStr() {
-    var d = new Date();
-    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    return new Date(nowMs() + 3 * 3600000).toISOString().slice(0, 10);
   }
 
   function reportMonthOfDate(d) {
@@ -167,7 +189,7 @@
     return new Date(t + 3 * 3600000).toISOString().slice(0, 10);
   }
 
-  function iraqToday() { return iraqDayOf(new Date().toISOString()); }
+  function iraqToday() { return iraqDayOf(new Date(nowMs()).toISOString()); }
 
   function oneADayApplies(g) {
     if (g && g.extra) return false;
@@ -542,6 +564,7 @@
       if (state.saving || state.syncing || _pickingPhoto) return;
       state.photoLoadTries = 0;
       _lastPhotosSyncAt = Date.now();
+      if (d && d.serverNow) noteServerTime(d.serverNow);
       var parsed = parseTaskPhotosResponse(d);
       var list = parsed ? parsed.photos : null;
       var wiped = parsed ? await applyServerResetIfNeeded(parsed.resetEpoch) : false;
@@ -1080,6 +1103,7 @@
       task: mapped.task,
       date: item.date,
       period: item.period,
+      offlineQueued: true,
       images: send,
       photoGps: photoGps,
       photoSources: photoSources
@@ -1092,8 +1116,8 @@
         try { await empireOfflineQueuePut(item); } catch (eOL) {}
       }
       if (batch.error === 'week_locked') {
-        // Week not open yet (by date): keep it queued and try again tomorrow.
-        item.dailyBlockedDay = iraqToday();
+        // The week closed (or has not started) by the server clock: stop retrying this queued photo.
+        item.overLimit = true;
         try { await empireOfflineQueuePut(item); } catch (eWL) {}
       }
       if (batch.error === 'daily_limit') {
@@ -1111,7 +1135,7 @@
       var row = batchItems[idx] || {};
       if (row.dailyLimit) return null;
       return {
-        createdAt: new Date().toISOString(),
+        createdAt: new Date(nowMs()).toISOString(),
         id: row.id || ('tmp-' + Date.now() + '-' + idx),
         project: item.project,
         freq: mapped.freq,
@@ -1327,7 +1351,7 @@
           period: period,
           image: row.image || u,
           source: row.source || photoSources[idx] || 'camera',
-          createdAt: new Date().toISOString()
+          createdAt: new Date(nowMs()).toISOString()
         };
       }).filter(Boolean);
       rememberStickyPhotos(stickyRows);
