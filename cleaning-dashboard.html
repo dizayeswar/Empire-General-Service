@@ -918,9 +918,12 @@
         function dailyWeekComplete(p, wk){ const dg=dailyGroupOf(p); return dailyCoveredCount(p,wk)===dg.tasks.length; }
         // Week N of the 26th–25th month starts 7·(N−1) days after the 26th. Only admins may fill a week before its dates (same rule as the server).
         function weekStartDate(wk){ var b=reportPeriodBounds(curMonth()); if(!b) return ''; var d=new Date(b.from+'T00:00:00Z'); d.setUTCDate(d.getUTCDate()+7*(wk-1)); return d.toISOString().slice(0,10); }
-        function weekOpenByDate(wk){ if(wk<=1) return true; if(String((typeof empireGetRole==='function'&&empireGetRole())||'').toLowerCase()==='admin') return true; return taskTodayStr()>=weekStartDate(wk); }
-        function weekAccessible(p, wk){ return wk===1 || (dailyWeekComplete(p, wk-1) && weekOpenByDate(wk)); }
-        function firstIncompleteWeek(p){ for(let w=1;w<=4;w++){ if(!dailyWeekComplete(p,w)) return w; if(w<4 && !weekAccessible(p,w+1)) return w; } return 4; }
+        // Supervisors: past and current weeks can be viewed, but photos can be added only in the current week (a week closes when the next one starts).
+        function isAdminRole(){ return String((typeof empireGetRole==='function'&&empireGetRole())||'').toLowerCase()==='admin'; }
+        function currentDateWeek(){ var today=taskTodayStr(); for(var w=4;w>=2;w--){ if(today>=weekStartDate(w)) return w; } return 1; }
+        function weekAccessible(p, wk){ return isAdminRole() || wk<=currentDateWeek(); }
+        function weekWritable(wk){ return isAdminRole() || wk===currentDateWeek(); }
+        function firstIncompleteWeek(p){ if(!isAdminRole()) return currentDateWeek(); for(let w=1;w<=4;w++){ if(!dailyWeekComplete(p,w)) return w; } return 4; }
         function selectWeek(p, wk){ if(!weekAccessible(p,wk)) return; selWeek[p]=wk; Object.keys(taskEditOpen).forEach(function(k){ if(k.indexOf(p+'|')===0) delete taskEditOpen[k]; }); Object.keys(pendingTaskUpload).forEach(function(k){ if(k.indexOf(p+'|')===0){ revokePendingItems(pendingTaskUpload[k]); delete pendingTaskUpload[k]; } }); renderTaskProject(p); }
         function revokePendingItems(pending){
           pendingItems(pending).forEach(function(it){ if(it.preview && String(it.preview).indexOf('blob:')===0) URL.revokeObjectURL(it.preview); });
@@ -1073,6 +1076,7 @@
           if(!items.length) return;
           const g=taskMap[p].groups[gi]; const t=g.extra?'Extra':g.tasks[ti]; const freq=g.daily?'daily':(g.extra?'extra':g.freq);
           const wk=selWeek[p]||1; const period=weekScopedGroup(g) ? (curMonth()+'#'+wk) : curMonth();
+          if(weekScopedGroup(g) && !weekWritable(wk)){ alert('Week '+wk+' is closed. Photos can only be added during the current week.'); renderTaskProject(p); return; }
           const host=document.getElementById(p+'-taskSection');
           const confirmBtn=host && host.querySelector('.task-confirm-photo[data-pp="'+p+'"][data-gi="'+gi+'"][data-ti="'+ti+'"]');
           const origBtn=confirmBtn ? confirmBtn.innerHTML : '';
@@ -1211,7 +1215,8 @@
               ph+='</span>';
             });
           }
-          const showUpload=(!done || editing);
+          const weekClosed=weekScopedGroup(g) && !weekWritable(selWeek[p]||1);
+          const showUpload=!weekClosed && (!done || editing);
           let uploadHtml='';
           if(showUpload){
             const confirmLabel='Confirm &amp; save'+(pendingList.length>1?' ('+pendingList.length+')':'');
@@ -1236,7 +1241,7 @@
             }
             uploadHtml+='</div>';
           }
-          const editBtn=done?('<button type="button" class="task-edit-btn" data-pp="'+p+'" data-gi="'+gi+'" data-ti="'+ti+'" style="padding:4px 10px;font-size:12px;white-space:nowrap;">'+(editing?(checkIconHtml()+' Done'):(editIconHtml()+' Edit'))+'</button>'):'';
+          const editBtn=(done && !weekClosed)?('<button type="button" class="task-edit-btn" data-pp="'+p+'" data-gi="'+gi+'" data-ti="'+ti+'" style="padding:4px 10px;font-size:12px;white-space:nowrap;">'+(editing?(checkIconHtml()+' Done'):(editIconHtml()+' Edit'))+'</button>'):'';
           const bodyBits=(ph||uploadHtml)?(ph?('<div style="display:flex;flex-wrap:wrap;margin-bottom:6px;">'+ph+'</div>'):'')+(uploadHtml||''):'';
           return '<div class="task-card" style="background:var(--task-bg);border:1px solid var(--card-border);border-radius:16px;padding:10px;">'
             +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;'+(bodyBits?'margin-bottom:6px;':'')+'">'
@@ -1264,7 +1269,7 @@
               const dg=g; const total=dg.tasks.length;
               if(!selWeek[p] || !weekAccessible(p, selWeek[p])) selWeek[p]=firstIncompleteWeek(p);
               const wk=selWeek[p];
-              h+='<h3>'+g.label+' — '+reportPeriodLabel(curMonth())+' (pick a week, fill it, the next unlocks)</h3>';
+              h+='<h3>'+g.label+' — '+reportPeriodLabel(curMonth())+' (each week opens on its date; a week closes when the next one starts)</h3>';
               h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">';
               for(let w=1;w<=4;w++){ const acc=weekAccessible(p,w); const cnt=dailyCoveredCount(p,w); const sel=(wk===w); const dn=cnt===total;
                 h+='<div class="weektab" data-wp="'+p+'" data-wn="'+w+'" style="padding:8px 14px;border-radius:50px;border:2px solid var(--card-border);cursor:'+(acc?'pointer':'not-allowed')+';opacity:'+(acc?'1':'0.45')+';background:'+(sel?'var(--accent2)':'var(--task-bg)')+';color:'+(sel?'#fff':'var(--text)')+';font-weight:600;display:inline-flex;align-items:center;gap:6px;">'+(dn?checkIconHtml('#27ae60'):(acc?'':'<span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span> '))+'Week '+w+' <span style="font-size:12px;opacity:0.85;">'+cnt+'/'+total+'</span></div>';
@@ -1272,8 +1277,9 @@
               h+='</div>';
               const ccnt=dailyCoveredCount(p,wk); const remaining=dg.tasks.filter(t=>dailyPhotos(p,t,wk).length===0);
               h+='<h4 style="margin:6px 0;color:var(--text);">Week '+wk+' <span style="color:'+(ccnt===total?'#27ae60':'var(--accent2)')+';font-weight:bold;">'+ccnt+'/'+total+'</span></h4>';
-              if(remaining.length>0) h+='<p style="color:var(--c-warn);font-size:13px;margin-bottom:8px;">Still need a photo in Week '+wk+': '+remaining.join(', ')+'</p>';
-              else h+='<p style="color:#27ae60;font-size:13px;margin-bottom:8px;">✓ Week '+wk+' complete'+(wk<4?(' — click Week '+(wk+1)+' above to continue'):'')+'</p>';
+              if(!weekWritable(wk)) h+='<p style="color:var(--c-warn);font-size:13px;margin-bottom:8px;">🔒 Week '+wk+' is closed. Photos can only be added during the current week.</p>';
+              if(remaining.length>0) h+='<p style="color:var(--c-warn);font-size:13px;margin-bottom:8px;">'+(weekWritable(wk)?'Still need':'Missing')+' a photo in Week '+wk+': '+remaining.join(', ')+'</p>';
+              else h+='<p style="color:#27ae60;font-size:13px;margin-bottom:8px;">✓ Week '+wk+' complete</p>';
               h+='<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">';
               dg.tasks.forEach((t,ti)=>{ h+=taskCardHtml(p,gi,ti,g,t); });
               h+='</div>';

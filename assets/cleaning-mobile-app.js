@@ -271,21 +271,37 @@
     return d.toISOString().slice(0, 10);
   }
 
-  function weekOpenByDate(wk) {
-    if (wk <= 1) return true;
-    // Same rule as the server: only the admin role may fill a week before its dates.
-    if (typeof empireGetRole === 'function' && String(empireGetRole() || '').toLowerCase() === 'admin') return true;
-    return iraqToday() >= weekStartDate(wk);
+  function isAdminRole() {
+    return typeof empireGetRole === 'function' && String(empireGetRole() || '').toLowerCase() === 'admin';
   }
 
+  /** Which week (1–4) today falls in. */
+  function currentDateWeek() {
+    var today = iraqToday();
+    for (var w = 4; w >= 2; w--) {
+      if (today >= weekStartDate(w)) return w;
+    }
+    return 1;
+  }
+
+  function weekOpenByDate(wk) {
+    return isAdminRole() || wk <= currentDateWeek();
+  }
+
+  /** Supervisors can view the current week and past weeks; admins can view any week. */
   function weekAccessible(p, wk) {
-    return wk === 1 || (dailyComplete(p, wk - 1) && weekOpenByDate(wk));
+    return isAdminRole() || wk <= currentDateWeek();
+  }
+
+  /** Supervisors add photos only in the current week: a past week is closed once the next week starts. */
+  function weekWritable(wk) {
+    return isAdminRole() || wk === currentDateWeek();
   }
 
   function firstIncompleteWeek(p) {
+    if (!isAdminRole()) return currentDateWeek();
     for (var w = 1; w <= 4; w++) {
       if (!dailyComplete(p, w)) return w;
-      if (w < 4 && !weekAccessible(p, w + 1)) return w;
     }
     return 4;
   }
@@ -1212,6 +1228,11 @@
     var task = g.extra ? EXTRA_TASK : g.tasks[ti];
     var freq = g.daily ? 'daily' : (g.extra ? 'extra' : (g.freq || 'weekly'));
     var wk = selectedWeek(p);
+    if (weekScoped(g) && !weekWritable(wk)) {
+      alert(t('weekClosed', { n: wk }));
+      renderTasks();
+      return;
+    }
     var period = weekScoped(g) ? (curMonth() + '#' + wk) : curMonth();
     var date = todayStr();
     var btn = document.querySelector('[data-confirm="' + key + '"]');
@@ -1508,19 +1529,21 @@
     }
     var daily = oneADayApplies(g);
     var room = roomNow(p, g, task, saved.length, pending.length);
-    var lockedToday = daily && !pending.length && saved.length < cap && room <= 0;
+    var weekClosed = weekScoped(g) && !weekWritable(wk);
+    var lockedToday = !weekClosed && daily && !pending.length && saved.length < cap && room <= 0;
     html += '<div class="cm-actions">';
-    if (room > 0) {
+    if (room > 0 && !weekClosed) {
       var camId = photoInputId('Cam', p, gi, ti, slot);
       var galId = photoInputId('Gal', p, gi, ti, slot);
       html += '<button type="button" class="cm-btn cm-btn-soft" data-addphoto="' + key + '">' + t('addPhoto') + '</button>';
       html += '<input id="' + camId + '" class="cm-file" type="file" accept="image/*" capture="environment" data-cam="' + key + '" data-source="camera">';
       html += '<input id="' + galId + '" class="cm-file" type="file" accept="image/*" data-cam="' + key + '" data-source="gallery"' + (daily ? '' : ' multiple') + '>';
     }
-    if (pending.length) {
-      html += '<button type="button" class="cm-btn" data-confirm="' + key + '">' + t('confirmSave') + '</button>';
+    if (pending.length && !weekClosed) {
+      html += '<button type="button" class="cm-btn" data-confirm=""' + key + '">' + t('confirmSave') + '</button>';
     }
     html += '</div>';
+    if (weekClosed) html += '<div class="cm-task-meta cm-daily-lock">🔒 ' + t('weekClosed', { n: wk }) + '</div>';
     if (lockedToday) html += '<div class="cm-task-meta cm-daily-lock">🔒 ' + t('dailyPhotoDone') + '</div>';
     html += '<div class="cm-task-meta">' + (daily ? t('onePhotoPerDay', { max: cap }) : t('cameraOrUpload', { max: cap })) + '</div></div>';
     return html;
@@ -1554,7 +1577,7 @@
     html += '</div>';
     if (dg && dailyComplete(p, wk)) {
       html += '<p class="cm-hint" style="color:var(--cm-ok);">' + t('weekComplete') + '</p>';
-      if (wk < 4 && !weekOpenByDate(wk + 1)) {
+      if (wk < 4 && !weekOpenByDate(wk + 1) && weekWritable(wk)) {
         html += '<p class="cm-hint">🔒 ' + t('weekOpensOn', { n: wk + 1, date: weekStartDate(wk + 1) }) + '</p>';
       }
     }
