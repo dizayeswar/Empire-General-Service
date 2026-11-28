@@ -281,6 +281,7 @@
             try{
               const r=await fetch(GOOGLE_SCRIPT_URL,{method:'POST',body:JSON.stringify({action:'getTaskPhotos', periodPrefix:mv, force:true, token:empireGetToken()||''})});
               const d=await r.json();
+              if(d && d.serverNow) noteTaskServerTime(d.serverNow);
               if(d && d.ok===false){
                 console.warn('getTaskPhotos rejected', d);
                 // Do not logout + wipe photos on transient API errors.
@@ -806,7 +807,10 @@
             { label:'Extra', extra:true, daily:false, freq:'extra', tasks:['Extra'] }
           ]}
         };
-        function taskTodayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+        // Server clock: "today" follows the server's time (offset learned from getTaskPhotos), so changing the computer's date does not open other weeks.
+        var _taskClockOffset=(function(){ try{ return Number(localStorage.getItem('cleaning_clock_offset')||0)||0; }catch(e){ return 0; } })();
+        function noteTaskServerTime(serverNow){ serverNow=Number(serverNow)||0; if(!serverNow) return; _taskClockOffset=serverNow-Date.now(); try{ localStorage.setItem('cleaning_clock_offset', String(_taskClockOffset)); }catch(e){} }
+        function taskTodayStr(){ const d=new Date(Date.now()+_taskClockOffset); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
         let taskState = {};
         function getTaskState(){ return taskState; }
         async function loadTasks(){
@@ -1048,7 +1052,14 @@
                 }
                 if(!remoteUrls.length) throw new Error('No photos to save');
                 var saved=[];
-                var batch=await fetchJSONRetry({action:'addTaskPhotos', project:item.project, freq:item.freq, task:item.task, date:item.date, period:item.period, images:remoteUrls, token:empireGetToken()||''}, 3);
+                var batch=await fetchJSONRetry({action:'addTaskPhotos', project:item.project, freq:item.freq, task:item.task, date:item.date, period:item.period, offlineQueued:true, images:remoteUrls, token:empireGetToken()||''}, 3);
+                if(batch && batch.ok===false && batch.error==='week_locked'){
+                  // The week closed by the server clock: drop this queued upload instead of retrying forever.
+                  console.warn('Offline photo dropped:', batch.message);
+                  removeOfflinePlaceholdersForQueue(item.id);
+                  await empireOfflineQueueDelete(item.id);
+                  continue;
+                }
                 if(batch && batch.ok===false && batch.error==='Unknown action'){
                   for(var i=0;i<remoteUrls.length;i++){
                     var row=await fetchJSONRetry({action:'addTaskPhoto', project:item.project, freq:item.freq, task:item.task, date:item.date, period:item.period, image:remoteUrls[i], token:empireGetToken()||''}, 3);
@@ -1121,7 +1132,7 @@
                 saved.push({id:(row&&row.id)||('tmp'+Date.now()+i), image:remoteUrls[i]});
               }
             } else {
-              if(batch && batch.ok===false) throw new Error(batch.message||batch.error||'unknown error');
+              if(batch && batch.ok===false){ var bErr=new Error(batch.message||batch.error||'unknown error'); bErr.code=batch.error; throw bErr; }
               saved=(batch && Array.isArray(batch.items)) ? batch.items : remoteUrls.map(function(url, idx){ return { id:'tmp'+(Date.now()+idx), image:url }; });
               // Non-admin accounts: only 1 photo per normal task per day; the server refuses the rest.
               if(saved.some(function(r){ return r && r.dailyLimit; })){
@@ -1138,6 +1149,12 @@
             renderTaskProject(p);
             refreshDashboardView();
           } catch(e){
+            if(e && e.code==='week_locked'){
+              uiAlert('🔒 '+e.message);
+              if(confirmBtn){ confirmBtn.disabled=false; confirmBtn.innerHTML=origBtn; }
+              renderTaskProject(p);
+              return;
+            }
             try{
               var queueItems=items.slice(remoteUrls.length);
               await enqueueOfflineTaskPhotos(p, freq, t, period, taskTodayStr(), queueItems, remoteUrls.length?remoteUrls:null, items);
