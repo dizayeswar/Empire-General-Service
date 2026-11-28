@@ -13,6 +13,7 @@
     <link rel="preconnect" href="https://api.imgbb.com">
     <title>Empire General Service — Login</title>
     <link rel="stylesheet" href="assets/empire-hub.css?v=2026-11-09-e2-e3">
+    <link rel="stylesheet" href="assets/empire-hub-dashboard.css?v=2026-11-28-hub-dashboard">
 </head>
 <body class="login-landing">
     <div class="topbar">
@@ -55,6 +56,7 @@
             </div>
         </header>
         <main class="hub-main">
+            <section id="hubDash" class="hub-dash" aria-label="Today at a glance" hidden></section>
             <div class="hub-page-head">
                 <h2 id="hubPageTitle">Select a department</h2>
                 <p id="hubPageDesc">Choose where you want to work.</p>
@@ -70,6 +72,7 @@
     <script src="assets/empire-core.js?v=2026-09-15-sec-acc"></script>
     <script src="assets/empire-sw-update.js?v=2026-09-15-sec-acc"></script>
     <script src="assets/empire-hub-stats.js?v=2026-09-15-sec-acc"></script>
+    <script src="assets/empire-hub-dashboard.js?v=2026-11-28-hub-dashboard"></script>
     <script>
         const categories = [
             { icon:'🧹', name:'Cleaning Department', desc:'Daily reports, issues found on rounds & more.', link:'cleaning.html', active:true, accessDept:'cleaning', expandable:true },
@@ -153,6 +156,7 @@
               if (subNow) subNow.textContent = (empireIsAdminSession() ? 'Admin hub' : 'Your departments') + ' · ' + empireGetCompany();
               renderGrid();
               loadHubSummaryForIndex();
+              loadHubDashboard();
             }
             if (typeof empireAuthRefreshPerms === 'function') {
               empireAuthRefreshPerms(drawHub);

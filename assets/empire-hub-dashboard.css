@@ -1,0 +1,113 @@
+/* Empire General Service — hub dashboard ("Today at a glance") */
+
+.hub-dash { margin-bottom: 32px; }
+.hub-dash[hidden] { display: none; }
+
+.hd-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-bottom: 16px;
+}
+.hd-head h2 { font-size: 22px; font-weight: 700; color: var(--text); }
+.hd-date { color: var(--text-soft); font-size: 14px; }
+
+.hd-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.hd-card {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+  box-shadow: 0 1px 3px var(--shadow);
+  color: var(--text);
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s;
+}
+.hd-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px var(--shadow);
+  border-color: var(--tile-hover-border);
+}
+.hd-card-wide { grid-column: 1 / -1; }
+.hd-card-empty { opacity: 0.75; }
+
+.hd-card-head { display: flex; align-items: center; gap: 10px; }
+.hd-card-icon { font-size: 20px; line-height: 1; }
+.hd-card-name { font-weight: 700; font-size: 16px; flex: 1; }
+.hd-card-arrow { color: var(--text-faint); }
+.hd-card:hover .hd-card-arrow { color: var(--accent2); }
+
+.hd-card-note { color: var(--text-faint); font-size: 13px; }
+.hd-card-err { color: #c0392b; }
+
+.hd-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 12px; }
+.hd-stat {
+  background: var(--wait-bg);
+  border: 1px solid var(--wait-border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+.hd-stat-value { font-size: 24px; font-weight: 800; color: var(--accent2); line-height: 1.15; font-variant-numeric: tabular-nums; }
+html[data-theme='dark'] .hd-stat-value { color: #ffffff; }
+.hd-stat-label { font-size: 12.5px; color: var(--text-soft); margin-top: 4px; font-weight: 600; }
+.hd-stat-sub { font-size: 12px; color: var(--text-faint); margin-top: 2px; font-variant-numeric: tabular-nums; }
+
+/* Cleaning — monthly completion */
+.hd-clean-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; }
+.hd-clean-item {
+  text-align: center;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-sm);
+  padding: 16px 14px 12px;
+}
+.hd-clean-name { font-weight: 700; color: var(--text-soft); margin-bottom: 10px; }
+.hd-donut {
+  --p: 0;
+  width: 96px;
+  height: 96px;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: conic-gradient(#e8a0cf calc(var(--p) * 1%), var(--wait-bg) 0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.hd-donut.full { background: conic-gradient(#27ae60 calc(var(--p) * 1%), var(--wait-bg) 0); }
+.hd-donut span {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--panel);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 16px;
+}
+.hd-bar {
+  height: 10px;
+  border-radius: 20px;
+  background: var(--wait-bg);
+  border: 1px solid var(--card-border);
+  overflow: hidden;
+  margin-top: 12px;
+}
+.hd-bar-fill { height: 100%; border-radius: 20px; background: linear-gradient(90deg, #e8a0cf, var(--accent2)); }
+.hd-bar-fill.full { background: #27ae60; }
+.hd-clean-count { margin-top: 8px; font-size: 12.5px; color: var(--text-soft); }
+.hd-clean-sup { font-size: 12.5px; }
+
+@media (max-width: 640px) {
+  .hd-grid { grid-template-columns: 1fr; }
+  .hd-clean-grid { grid-template-columns: repeat(2, 1fr); }
+}
