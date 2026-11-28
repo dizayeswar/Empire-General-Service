@@ -262,13 +262,30 @@
     return dg && dailyCovered(p, wk) === dg.tasks.length;
   }
 
+  /** Week N of the 26th–25th month starts 7·(N−1) days after the 26th (Week 4 runs to the 25th). */
+  function weekStartDate(wk) {
+    var b = reportPeriodBounds(curMonth());
+    if (!b) return '';
+    var d = new Date(b.from + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + 7 * (wk - 1));
+    return d.toISOString().slice(0, 10);
+  }
+
+  function weekOpenByDate(wk) {
+    if (wk <= 1) return true;
+    // Same rule as the server: only the admin role may fill a week before its dates.
+    if (typeof empireGetRole === 'function' && String(empireGetRole() || '').toLowerCase() === 'admin') return true;
+    return iraqToday() >= weekStartDate(wk);
+  }
+
   function weekAccessible(p, wk) {
-    return wk === 1 || dailyComplete(p, wk - 1);
+    return wk === 1 || (dailyComplete(p, wk - 1) && weekOpenByDate(wk));
   }
 
   function firstIncompleteWeek(p) {
     for (var w = 1; w <= 4; w++) {
       if (!dailyComplete(p, w)) return w;
+      if (w < 4 && !weekAccessible(p, w + 1)) return w;
     }
     return 4;
   }
@@ -783,7 +800,7 @@
 
   function checkWeekCompletionAfterSave(p) {
     for (var w = 1; w <= 4; w++) {
-      if (dailyComplete(p, w)) maybeNotifyWeekUnlock(p, w);
+      if (dailyComplete(p, w) && (w >= 4 || weekAccessible(p, w + 1))) maybeNotifyWeekUnlock(p, w);
     }
   }
 
@@ -1058,6 +1075,11 @@
         item.overLimit = true;
         try { await empireOfflineQueuePut(item); } catch (eOL) {}
       }
+      if (batch.error === 'week_locked') {
+        // Week not open yet (by date): keep it queued and try again tomorrow.
+        item.dailyBlockedDay = iraqToday();
+        try { await empireOfflineQueuePut(item); } catch (eWL) {}
+      }
       if (batch.error === 'daily_limit') {
         // Today's photo for this task is already saved: keep it queued and try again tomorrow.
         item.dailyBlockedDay = iraqToday();
@@ -1308,7 +1330,7 @@
       renderTasks();
     } catch (e) {
       if (!serverSaved) {
-        if (e && (e.code === 'photo_limit' || e.code === 'daily_limit')) {
+        if (e && (e.code === 'photo_limit' || e.code === 'daily_limit' || e.code === 'week_locked')) {
           alert(e.message || String(e));
         } else {
           try {
@@ -1532,6 +1554,9 @@
     html += '</div>';
     if (dg && dailyComplete(p, wk)) {
       html += '<p class="cm-hint" style="color:var(--cm-ok);">' + t('weekComplete') + '</p>';
+      if (wk < 4 && !weekOpenByDate(wk + 1)) {
+        html += '<p class="cm-hint">🔒 ' + t('weekOpensOn', { n: wk + 1, date: weekStartDate(wk + 1) }) + '</p>';
+      }
     }
 
     (TASK_MAP[p].groups || []).forEach(function (g, gi) {
